@@ -1,0 +1,39 @@
+class_name VehicleConfig
+extends Resource
+## SI units throughout; the controller alone converts metres to world pixels.
+enum Drivetrain { FWD, RWD, AWD }
+@export_group("Powertrain")
+@export var mass_kg: float = 1450.0
+@export var engine_torque_nm: float = 470.0
+@export var engine_power_kw: float = 360.0
+@export var torque_curve: Curve
+@export var drivetrain: Drivetrain = Drivetrain.RWD
+@export var gear_ratios: PackedFloat32Array = [3.2, 2.1, 1.55, 1.2, 0.98, 0.8]
+@export var final_drive: float = 3.7
+@export var reverse_ratio: float = 3.0
+@export var wheel_radius_m: float = 0.34
+@export var idle_rpm: float = 950.0
+@export var redline_rpm: float = 8500.0
+@export var shift_duration: float = 0.18
+@export_group("Chassis and tires")
+@export var wheelbase_m: float = 2.65
+@export_range(0.3, 0.7) var front_weight: float = 0.43
+@export var tire_grip: float = 1.15
+@export var cornering_stiffness: float = 68000.0
+@export var rear_cornering_stiffness_ratio: float = 1.0
+@export var rear_grip_balance: float = 1.12
+@export var yaw_damping: float = 1.2
+@export var countersteer_assist: float = 0.45
+@export_range(0.1, 1.0) var handbrake_rear_grip: float = 0.28
+@export_group("Steering and braking")
+@export var max_steer_degrees: float = 32.0
+@export var high_speed_steer_degrees: float = 9.0
+@export var steering_response: float = 12.0
+## Self-aligning spring rate (1/s); independent of the driver's turn-in response.
+@export var steering_return_strength: float = 18.0
+@export var brake_force_n: float = 18500.0
+@export var handbrake_force_n: float = 5000.0
+@export_group("Resistance and impact")
+@export var drag_area: float = 0.7
+@export var rolling_resistance: float = 0.015
+@export var collision_restitution: float = 0.16

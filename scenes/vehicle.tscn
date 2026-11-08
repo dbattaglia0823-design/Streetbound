@@ -1,0 +1,19 @@
+[gd_scene load_steps=5 format=3]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_controller.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/sport_coupe.tres" id="2"]
+[ext_resource type="Texture2D" path="res://assets/player_car.png" id="3"]
+[sub_resource type="RectangleShape2D" id="Shape"]
+size = Vector2(39, 88)
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1")
+config = ExtResource("2")
+collision_layer = 2
+collision_mask = 1
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape")
+[node name="Art" type="Node2D" parent="."]
+[node name="Sprite" type="Sprite2D" parent="Art"]
+texture_filter = 4
+rotation = 3.14159265
+scale = Vector2(0.054, 0.054)
+texture = ExtResource("3")

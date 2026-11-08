@@ -1,0 +1,8 @@
+.godot/
+*.tmp
+test_results*.json
+capture.png
+capture_tuning.png
+capture*.png.import
+.runtime/
+*.log
