@@ -17,3 +17,5 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --import --quit
       - name: Test acceleration, braking, steering, grip and archived world
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/driving_physics_smoke.gd
+      - name: Test playable scene, art import, spawn and collision integration
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/gameplay_scene_smoke.gd
