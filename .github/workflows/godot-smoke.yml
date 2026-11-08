@@ -1,0 +1,19 @@
+name: Streetbound Godot smoke
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  driving-and-world:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Godot 4.4.1
+        run: |
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+      - name: Import project and validate scenes/scripts
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --import --quit
+      - name: Test acceleration, braking, steering, grip and archived world
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/driving_physics_smoke.gd
