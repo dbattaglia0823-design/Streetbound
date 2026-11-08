@@ -43,11 +43,23 @@
       "bindingKey": "settings.sound"
     },
     {
+      "type": "label",
+      "id": "volume_label",
+      "x": 220,
+      "y": 225,
+      "w": 116,
+      "h": 45,
+      "label": "Volume",
+      "role": "field_label",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
       "type": "slider",
       "id": "volume_slider",
-      "x": 220,
+      "x": 350,
       "y": 223,
-      "w": 358,
+      "w": 228,
       "h": 49,
       "label": "Volume",
       "role": "setting_slider",
