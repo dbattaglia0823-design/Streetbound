@@ -46,6 +46,12 @@ Releasing the handbrake preserves rear tire slip and the existing travel directi
 
 Launch north along the long straight. The circuit continues clockwise through high-speed sweepers into a technical section and hairpin, then back to the start. The gate east of the launch joins a circular skidpad. The gravel bed lies north of the skidpad, reached across the grass. Grass surrounds the road. Guardrails, two standalone impact-test barriers and a distant perimeter provide collision tests. R always returns to the launch. Road labels, brake markers, painted curbs and persistent bounded skid marks aid orientation.
 
+## Imperial dashboard and tuning readouts
+
+Streetbound displays driving speed in **MPH** (including the main speedometer and longitudinal/lateral telemetry). Visible vehicle specifications and live tuning captions use **pounds (lb)** for weight, **pound-feet (lb-ft)** for engine torque, **horsepower (hp)** for power, and **pounds-force (lbf)** for brakes and tire stiffness. Adjusting tuning sliders still updates the correct underlying vehicle configuration; the displayed numbers are converted from metric. Units are handled in `scripts/ui/imperial_units.gd` and validated by `tests/imperial_display_test.gd`.
+
+The **simulation remains in SI units**, including metres/second, kg, Nm, kW and Newtons. This preserves the calibrated drivetrain, physics values, saved vehicle resources and regression-test trajectories while showing the driver imperial measurements.
+
 ## Architecture and units
 
 `scenes/vehicle.tscn` is reusable; visuals live below `Art` and do not drive physics. The supplied PNG points down, so its Sprite is rotated 180 degrees around its center. The body points up at rotation zero. Collision dimensions approximate the car body rather than the PNG's transparent padding. Mipmaps preserve the supplied art at driving scale.
