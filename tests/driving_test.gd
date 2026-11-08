@@ -115,8 +115,34 @@ func run() -> void:
 	car.impacted.connect(func(strength: float): impacts.append(strength))
 	await drive(0.8, Vector4.ZERO)
 	check("barrier_collision", not impacts.is_empty() and car.position.y > -1600 and car.linear_velocity.length() < 10, [car.position.y, car.linear_velocity.length(), impacts.size()])
+	check("post_collision_velocity_sync", car.velocity.distance_to(car.linear_velocity * car.PIXELS_PER_METER) < 0.01,
+		[car.velocity, car.linear_velocity])
+	car.throttle = 1.0
+	car.brake = 0.5
+	car.handbrake = 1.0
+	car.longitudinal_speed = 35.0
+	car.lateral_speed = 4.0
+	car.slip_angle = 0.15
+	car.command = Vector4(1, 1, 1, 1)
 	car.reset_vehicle()
 	check("reset", car.transform == car.spawn_transform and car.linear_velocity == Vector2.ZERO and car.yaw_rate == 0, car.position)
+	check("reset_telemetry_and_inputs", car.longitudinal_speed == 0.0 and car.lateral_speed == 0.0
+		and car.slip_angle == 0.0 and car.throttle == 0.0 and car.brake == 0.0 and car.handbrake == 0.0
+		and car.command == Vector4.ZERO and car.cornering_grip_fraction == 1.0,
+		[car.longitudinal_speed, car.lateral_speed, car.slip_angle, car.command])
+	fresh(25)
+	await drive(0.15, Vector4(3.0, -2.0, 8.0, 4.0))
+	check("normalized_external_commands", car.throttle == 1.0 and car.brake == 0.0 and car.handbrake == 1.0
+		and absf(car.steering) <= deg_to_rad(car.config.max_steer_degrees) + 0.02,
+		[car.throttle, car.brake, car.handbrake, rad_to_deg(car.steering)])
+	fresh(25)
+	await drive(0.15, Vector4(0, 1, 0.5, 0))
+	check("braking_consumes_lateral_tire_grip", car.cornering_grip_fraction >= 0.0
+		and car.cornering_grip_fraction < 0.80, car.cornering_grip_fraction)
+	fresh(25)
+	await drive(0.15, Vector4(0, 0, 0.5, 0))
+	check("coasting_retains_full_tire_grip", is_equal_approx(car.cornering_grip_fraction, 1.0),
+		car.cornering_grip_fraction)
 	# Specs genuinely affect acceleration, grip and drivetrain behavior.
 	fresh()
 	car.config.engine_torque_nm *= 0.45
