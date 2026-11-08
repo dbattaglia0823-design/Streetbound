@@ -36,7 +36,7 @@ On this computer, double-click **Launch.cmd** to play using the installed Godot.
 
 Hold S to brake, then keep holding briefly at rest to reverse. W brakes out of reverse before driving forward. Start with gentle steering; lift before a corner, tap Space with steering to release the rear, then countersteer and feed throttle back in. The automatic transmission is the default. Manual shifting is already usable through the separate transmission module.
 
-F1 opens a scrollable live tuning panel. Click an action and press a key, gamepad button or move an axis. Esc cancels. Keyboard and controller bindings are saved separately per action to `user://controls.cfg`; rebinding one preserves the other. Trigger inputs are analog. Any connected controller can use the defaults. Handling edits affect the current car for this session; edit the Resource to make a permanent setup.
+F1 opens a scrollable live tuning panel. Click an action and press a key, gamepad button or move an axis. Esc cancels. Keyboard and controller bindings are saved separately per action to `user://controls.cfg`; rebinding one preserves the other. Trigger inputs are analog. Any connected controller can use the defaults. **F1 handling changes are saved automatically** to `user://streetbound_vehicle_tuning.cfg` and reloaded on the next launch, including drivetrain selection. The stock `resources/sport_coupe.tres` remains unchanged. Use **Restore stock vehicle tuning** at the top of F1 to clear your saved override; R continues to reset only the car's position.
 
 The default coupe uses **assisted racing handling**: tire grip 1.65, cornering stiffness 100,000 N/rad, rear stiffness ratio 1.30, rear grip balance 1.22, and steering range 44° at low speed / 14° at high speed. Steering assistance helps settled tires turn beyond the simulation's tire envelope. Extra lateral grip applies a bounded force opposing sideways motion; it scrubs energy rather than rotating the full-speed velocity vector toward the nose. Service braking preserves cornering grip and boosts steering for easier brake-and-turn inputs. Strong return-to-center remains enabled. F1 exposes **Arcade steering assist**, **Arcade cornering strength**, **Brake turning boost**, and the existing tire and steering settings. Settings live in `resources/sport_coupe.tres`. Setting arcade assistance to zero restores the axle-only model. Assistance weakens on loose surfaces and fades out with large slip angles, handbrake tire slip or driven-wheel spin.
 
@@ -45,6 +45,11 @@ Releasing the handbrake preserves rear tire slip and the existing travel directi
 ## Proving ground
 
 Launch north along the long straight. The circuit continues clockwise through high-speed sweepers into a technical section and hairpin, then back to the start. The gate east of the launch joins a circular skidpad. The gravel bed lies north of the skidpad, reached across the grass. Grass surrounds the road. Guardrails, two standalone impact-test barriers and a distant perimeter provide collision tests. R always returns to the launch. Road labels, brake markers, painted curbs and persistent bounded skid marks aid orientation.
+
+
+### Persistent F1 tune
+
+All 19 live-handling sliders and the FWD/RWD/AWD selector save automatically to a versioned Godot ConfigFile. Changes are grouped during slider dragging (350 ms) to avoid excess disk writes, and pending changes are flushed when the F1 menu closes or the game quits. The save is stored locally in `user://streetbound_vehicle_tuning.cfg`—separate from `user://controls.cfg` and pause/audio settings—so it survives restarts without altering the original vehicle Resource. Opening the menu shows the saved values, and `Restore stock vehicle tuning` restores the current car and deletes the saved override. Invalid or out-of-range profile values are ignored. Automated coverage is in `tests/tuning_persistence_test.gd`.
 
 ## Imperial dashboard and tuning readouts
 
