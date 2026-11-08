@@ -16,6 +16,7 @@ var slip_angle := 0.0
 var throttle := 0.0
 var brake := 0.0
 var handbrake := 0.0
+var cornering_grip_fraction := 1.0 # Fraction of lateral grip remaining after braking
 var reversing := false
 var reverse_hold := 0.0
 var spawn_transform := Transform2D.IDENTITY
@@ -40,6 +41,7 @@ func reset_vehicle() -> void:
 	throttle = 0.0
 	brake = 0.0
 	handbrake = 0.0
+	cornering_grip_fraction = 1.0
 	command = Vector4.ZERO
 	reverse_hold = 0.0
 	reversing = false
@@ -149,6 +151,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# This is a simplified friction circle, not longitudinal load transfer/ABS.
 	var brake_usage := clampf(braking / maxf(mass * 9.81 * grip, 1.0), 0.0, 1.0)
 	var cornering_budget := sqrt(maxf(0.0, 1.0 - brake_usage * brake_usage))
+	cornering_grip_fraction = cornering_budget
 	var front_limit := front_load * grip * cornering_budget
 	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, handbrake) * cornering_budget
 	# Driven wheels also spend part of the friction budget on acceleration.
