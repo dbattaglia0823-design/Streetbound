@@ -1,5 +1,16 @@
 extends CanvasLayer
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
+const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
+const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / hp", 150.0, 650.0, 10.0], ["mass_kg", "Mass / lb", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 25000.0, 500.0],
+	["steering_response", "Steering response", 6.0, 25.0, 0.5],
+	["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05],
+	["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0],
+	["brake_turn_boost", "Brake turning boost", 0.0, 1.0, 0.05],
+	["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05],
+	["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25],
+	["cornering_stiffness", "Tire response / lbf per rad", 50000.0, 150000.0, 2500.0],
+	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],
+	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
 var vehicle: VehicleController2D
 var camera: Camera2D
 var telemetry: Label
@@ -13,6 +24,14 @@ var tune_box: VBoxContainer
 var waiting_action := ""
 var rebind_buttons: Dictionary = {}
 var config_labels: Dictionary = {}
+var tuning_sliders: Dictionary = {}
+var drivetrain_select: OptionButton
+var reset_tuning_button: Button
+var tuning_save_label: Label
+var tuning_profile: RefCounted
+var _stock_tune: VehicleConfig
+var _save_timer: Timer
+var _tuning_dirty := false
 
 func panel(at: Vector2, size: Vector2) -> PanelContainer:
 	var p := PanelContainer.new()
@@ -40,6 +59,16 @@ func label(parent: Node, text: String, size := 16, color := Color("d9e3dd")) -> 
 	return l
 
 func _ready() -> void:
+	# VehicleController duplicates the Resource in its own _ready(). Load only
+	# the player's explicitly editable values into that instance, not stock .tres.
+	_stock_tune = vehicle.config.duplicate(true)
+	tuning_profile = TuningProfile.new(TUNING_FIELDS)
+	tuning_profile.load_into(vehicle.config)
+	_save_timer = Timer.new()
+	_save_timer.one_shot = true
+	_save_timer.wait_time = 0.35
+	_save_timer.timeout.connect(_save_tuning_now)
+	add_child(_save_timer)
 	var header := VBoxContainer.new()
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
@@ -72,25 +101,21 @@ func _ready() -> void:
 	tune_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(tune_box)
 	label(tune_box, "LIVE HANDLING / F1", 22)
-	label(tune_box, "Changes apply to this session. R resets position.", 12)
-	for entry in [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / hp", 150.0, 650.0, 10.0], ["mass_kg", "Mass / lb", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 25000.0, 500.0]]:
+	label(tune_box, "Tuning saves automatically. R only resets your car.", 12)
+	tuning_save_label = label(tune_box, "Changes saved on adjustment.", 12, Color("a1c779"))
+	reset_tuning_button = Button.new()
+	reset_tuning_button.text = "Restore stock vehicle tuning"
+	reset_tuning_button.pressed.connect(_restore_stock_tuning)
+	tune_box.add_child(reset_tuning_button)
+	for entry in TUNING_FIELDS:
 		add_slider(entry)
-	add_slider(["steering_response", "Steering response", 6.0, 25.0, 0.5])
-	add_slider(["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05])
-	add_slider(["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0])
-	add_slider(["brake_turn_boost", "Brake turning boost", 0.0, 1.0, 0.05])
-	add_slider(["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05])
-	add_slider(["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25])
-	add_slider(["cornering_stiffness", "Tire response / lbf per rad", 50000.0, 150000.0, 2500.0])
-	add_slider(["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02])
-	add_slider(["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5])
 	label(tune_box, "DRIVETRAIN", 14, Color("a1c779"))
-	var drivetrain := OptionButton.new()
+	drivetrain_select = OptionButton.new()
 	for name in ["FWD", "RWD", "AWD"]:
-		drivetrain.add_item(name)
-	drivetrain.selected = vehicle.config.drivetrain
-	drivetrain.item_selected.connect(func(index: int): vehicle.config.drivetrain = index)
-	tune_box.add_child(drivetrain)
+		drivetrain_select.add_item(name)
+	drivetrain_select.selected = vehicle.config.drivetrain
+	drivetrain_select.item_selected.connect(_on_drivetrain_selected)
+	tune_box.add_child(drivetrain_select)
 	label(tune_box, "CONTROLS / click to rebind", 17)
 	for action in Controls.KEYS:
 		var button := Button.new()
@@ -108,14 +133,58 @@ func add_slider(entry: Array) -> void:
 	var caption := label(tune_box, "%s   %s" % [entry[1], Imperial.tune_text(property, float(vehicle.config.get(property)))], 13)
 	config_labels[property] = caption
 	var slider := HSlider.new()
+	tuning_sliders[property] = slider
 	slider.min_value = entry[2]
 	slider.max_value = entry[3]
 	slider.step = entry[4]
 	slider.value = vehicle.config.get(property)
 	slider.value_changed.connect(func(value: float):
 		vehicle.config.set(property, value)
-		caption.text = "%s   %s" % [entry[1], Imperial.tune_text(property, value)])
+		caption.text = "%s   %s" % [entry[1], Imperial.tune_text(property, value)]
+		_queue_tuning_save())
 	tune_box.add_child(slider)
+
+func _on_drivetrain_selected(index: int) -> void:
+	vehicle.config.drivetrain = index
+	_queue_tuning_save()
+
+func _queue_tuning_save() -> void:
+	_tuning_dirty = true
+	tuning_save_label.text = "Saving tuning…"
+	_save_timer.start()
+
+func _save_tuning_now() -> void:
+	if not _tuning_dirty or tuning_profile == null:
+		return
+	_save_timer.stop()
+	var result: Error = tuning_profile.save_from(vehicle.config)
+	if result == OK:
+		_tuning_dirty = false
+		tuning_save_label.text = "Tuning saved automatically."
+	else:
+		tuning_save_label.text = "Could not save tuning (error %s)." % result
+
+func _restore_stock_tuning() -> void:
+	if tuning_profile.clear_profile() != OK:
+		tuning_save_label.text = "Could not clear saved tuning."
+		return
+	_save_timer.stop()
+	_tuning_dirty = false
+	for entry in TUNING_FIELDS:
+		var property: String = entry[0]
+		var original: float = float(_stock_tune.get(property))
+		vehicle.config.set(property, original)
+		(tuning_sliders[property] as HSlider).set_value_no_signal(original)
+		(config_labels[property] as Label).text = "%s   %s" % [
+			entry[1], Imperial.tune_text(property, original)]
+	vehicle.config.drivetrain = _stock_tune.drivetrain
+	drivetrain_select.select(vehicle.config.drivetrain)
+	tuning_save_label.text = "Stock tuning restored; saved override cleared."
+
+func _exit_tree() -> void:
+	# Exit/quit can occur during an active slider drag, before debounce fires.
+	if _tuning_dirty:
+		_save_tuning_now()
 
 func binding_text(action: String) -> String:
 	for event in InputMap.action_get_events(action):
@@ -138,6 +207,8 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("tuning"):
 		tuning.visible = not tuning.visible
+		if not tuning.visible:
+			_save_tuning_now()
 
 func _process(_dt: float) -> void:
 	var speed: float = Imperial.speed_mph(vehicle.linear_velocity.length())
