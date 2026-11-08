@@ -1,5 +1,10 @@
 # Streetbound — Driving Lab
 
+## Archived Atlas Coast world and physics review
+
+The latest [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview](worlds/atlas-coast-overview.svg), [level-design plan](docs/ATLAS_COAST_PLAN.md) and [Godot paved-junction world loader](worlds/world_loader.gd) are preserved in the repository for later use. They do **not** replace the existing Driving Lab / proving ground. See the [actual Streetbound source and physics audit](docs/PHYSICS_AUDIT.md) for targeted corrections, measured limitations, road-scale compatibility, and the streaming work required before using the large map in gameplay.
+
+
 A focused Godot 4 top-down simcade prototype. One reusable car, a finite proving ground, live tuning and replaceable placeholder sound. No progression, garage, dealerships or open-world systems.
 
 ## Play
