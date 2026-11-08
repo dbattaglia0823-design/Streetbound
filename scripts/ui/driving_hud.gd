@@ -7,6 +7,7 @@ const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_b
 	["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0],
 	["brake_turn_boost", "Brake turning boost", 0.0, 1.0, 0.05],
 	["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05],
+	["handbrake_drive_grip", "Handbrake drive traction", 0.4, 1.0, 0.025],
 	["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25],
 	["cornering_stiffness", "Tire response / lbf per rad", 50000.0, 150000.0, 2500.0],
 	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],

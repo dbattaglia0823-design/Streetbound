@@ -189,7 +189,7 @@ func set_data(data: Dictionary) -> void:
 			"progress":
 				(ui as ProgressBar).value = clampf(float(value) if value != null else 0.0, 0.0, 100.0)
 			"toggle":
-				(ui as CheckBox).set_pressed_no_signal(bool(value))
+				(ui as CheckBox).set_pressed_no_signal(bool(value) if value != null else false)
 			"slider":
 				(ui as HSlider).set_value_no_signal(clampf(float(value) if value != null else 0.0, 0.0, 100.0))
 			"input":

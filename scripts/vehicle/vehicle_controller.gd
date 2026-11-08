@@ -102,7 +102,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var speed := linear_velocity.length()
 	# Preserve tire slip after a moving rear-wheel lock. This is contact recovery,
 	# not a launch cooldown: lifting and higher surface grip help it settle.
-	var recovery_rate := maxf(surface_grip, 0.2) * (1.0 - wheel_spin * 0.6) / maxf(config.handbrake_grip_recovery_seconds, 0.05)
+	var recovery_rate := maxf(surface_grip, 0.2) * (1.0 - wheel_spin * 0.15) / maxf(config.handbrake_grip_recovery_seconds, 0.05)
 	handbrake_grip_loss = maxf(handbrake * smoothstep(1.0, 5.0, speed), move_toward(handbrake_grip_loss, 0.0, recovery_rate * dt))
 	var rear_sliding := maxf(handbrake, handbrake_grip_loss)
 	# Steering aids only help settled tires. Releasing Space must not instantly
@@ -147,23 +147,27 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
-	var drive_grip := lerpf(1.0, config.handbrake_rear_grip, rear_sliding * rear_drive_share)
+	# Rear lateral breakaway must not remove the longitudinal bite needed to
+	# power through a controlled drift. Keep these two tire responses separate.
+	var drive_grip := lerpf(1.0, config.handbrake_drive_grip, rear_sliding * rear_drive_share)
 	var traction_capacity := traction_load * grip * drive_grip
 	var spin_target := 0.0
-	if rear_drive_share > 0.0 and handbrake < 0.1 and speed > 2.0 and (handbrake_grip_loss > 0.001 or wheel_spin > 0.001):
-		# Excess wheel torque spins the released rear wheels rather than providing
-		# free acceleration. The reduced contact patch also has less lateral grip.
+	if rear_drive_share > 0.0 and speed > 2.0 and (handbrake_grip_loss > 0.001 or wheel_spin > 0.001):
+		# Throttle controls modest power slip during the pull and brief release.
+		# Most of the tire's longitudinal force still reaches the ground.
 		var delivered_request := requested_force
 		if transmission.shift_timer > 0.0 or transmission.rpm >= config.redline_rpm * 0.995:
 			delivered_request *= 0.12
 		if reversing:
 			delivered_request *= 0.65
-		spin_target = clampf((delivered_request - traction_capacity) / maxf(traction_capacity, 1.0), 0.0, 1.0) * rear_drive_share
+		var torque_usage := clampf(delivered_request / maxf(traction_load * grip, 1.0), 0.0, 1.0)
+		var excess_torque := (delivered_request - traction_capacity) / maxf(traction_capacity, 1.0)
+		spin_target = clampf(maxf(excess_torque, torque_usage * rear_sliding * 0.65), 0.0, 0.55) * rear_drive_share
 	var spin_rate := 12.0 if spin_target > wheel_spin else config.wheel_spin_recovery_rate * (2.0 - drive_input)
 	wheel_spin = lerpf(wheel_spin, spin_target, 1.0 - exp(-spin_rate * dt))
 	if wheel_spin < 0.001 and spin_target == 0.0:
 		wheel_spin = 0.0
-	engine_force = minf(requested_force, traction_capacity) * (1.0 - wheel_spin * rear_drive_share * 0.35)
+	engine_force = minf(requested_force, traction_capacity) * (1.0 - wheel_spin * rear_drive_share * 0.12)
 	if transmission.shift_timer > 0.0 or transmission.rpm >= config.redline_rpm * 0.995:
 		engine_force *= 0.12
 	if reversing:
@@ -190,7 +194,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	cornering_budget = lerpf(cornering_budget, 1.0, arcade * stopping_input)
 	cornering_grip_fraction = cornering_budget
 	var front_limit := front_load * grip * cornering_budget
-	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * (1.0 - wheel_spin * rear_drive_share * 0.5) * cornering_budget
+	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * (1.0 - wheel_spin * rear_drive_share * 0.2) * cornering_budget
 	# Driven wheels also spend part of the friction budget on acceleration.
 	var drive_fraction := clampf(absf(engine_force) / maxf(traction_load * grip, 1.0), 0.0, 1.0)
 	if config.drivetrain != VehicleConfig.Drivetrain.RWD:

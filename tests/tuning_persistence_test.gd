@@ -37,16 +37,18 @@ func _run() -> void:
 	var stock_grip: float = float(car.config.tire_grip)
 	var stock_power: float = float(car.config.engine_power_kw)
 	check("uses_stock_values_without_profile", is_equal_approx(stock_grip, 1.65) and not FileAccess.file_exists(path))
-	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == 19)
+	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == 20)
 
 	(hud.tuning_sliders["tire_grip"] as HSlider).value = 1.27
 	(hud.tuning_sliders["engine_power_kw"] as HSlider).value = 480.0
 	(hud.tuning_sliders["handbrake_grip_recovery_seconds"] as HSlider).value = 0.55
+	(hud.tuning_sliders["handbrake_drive_grip"] as HSlider).value = 0.9
 	hud.drivetrain_select.select(VehicleConfig.Drivetrain.AWD)
 	hud.drivetrain_select.item_selected.emit(VehicleConfig.Drivetrain.AWD)
 	check("live_sliders_change_car", is_equal_approx(car.config.tire_grip, 1.27)
 		and is_equal_approx(car.config.engine_power_kw, 480.0)
 		and is_equal_approx(car.config.handbrake_grip_recovery_seconds, 0.55)
+		and is_equal_approx(car.config.handbrake_drive_grip, 0.9)
 		and car.config.drivetrain == VehicleConfig.Drivetrain.AWD)
 	await create_timer(0.50).timeout
 	check("auto_save_without_manual_button", FileAccess.file_exists(path) and not hud._tuning_dirty)
@@ -54,7 +56,8 @@ func _run() -> void:
 	var disk := ConfigFile.new()
 	var loaded: Error = disk.load(path)
 	check("profile_saved_versioned_and_complete", loaded == OK and
-		disk.get_value("meta","version",0) == 1 and disk.get_value("tuning","drivetrain",-1) == VehicleConfig.Drivetrain.AWD)
+		disk.get_value("meta","version",0) == 1 and disk.get_value("tuning","drivetrain",-1) == VehicleConfig.Drivetrain.AWD
+		and is_equal_approx(float(disk.get_value("tuning", "handbrake_drive_grip", 0.0)), 0.9))
 	await _discard(game)
 
 	# Simulates opening the game again: the car is a fresh instance with a
@@ -67,6 +70,7 @@ func _run() -> void:
 	check("tune_reloaded_on_game_start", is_equal_approx(car.config.tire_grip, 1.27)
 		and is_equal_approx(car.config.engine_power_kw, 480.0)
 		and is_equal_approx(car.config.handbrake_grip_recovery_seconds, 0.55)
+		and is_equal_approx(car.config.handbrake_drive_grip, 0.9)
 		and car.config.drivetrain == VehicleConfig.Drivetrain.AWD)
 	check("sliders_and_drivetrain_match_loaded_tune",
 		is_equal_approx(float((hud.tuning_sliders["tire_grip"] as HSlider).value), 1.27)
@@ -92,6 +96,7 @@ func _run() -> void:
 	hud.reset_tuning_button.pressed.emit()
 	check("restore_stock_updates_game_and_ui", is_equal_approx(car.config.tire_grip, stock_grip)
 		and is_equal_approx(car.config.engine_power_kw, stock_power)
+		and is_equal_approx(car.config.handbrake_drive_grip, 0.75)
 		and car.config.drivetrain == VehicleConfig.Drivetrain.RWD
 		and is_equal_approx(float((hud.tuning_sliders["tire_grip"] as HSlider).value), stock_grip)
 		and not FileAccess.file_exists(path))

@@ -25,6 +25,8 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var yaw_damping: float = 1.2
 @export var countersteer_assist: float = 0.45
 @export_range(0.1, 1.0) var handbrake_rear_grip: float = 0.28
+## Longitudinal bite is separate from the lateral grip used to initiate a slide.
+@export_range(0.1, 1.0) var handbrake_drive_grip: float = 0.75
 ## Tire contact relaxes after a rear-wheel lock; throttle wheelspin slows recovery.
 @export var handbrake_grip_recovery_seconds: float = 0.9
 @export var wheel_spin_recovery_rate: float = 3.0

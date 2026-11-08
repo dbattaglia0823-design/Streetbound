@@ -26,7 +26,33 @@ func run() -> void:
 		car.step_vehicle(1.0 / 120, Vector4(1, 0, -0.5, 0))
 		max_spin = maxf(max_spin, car.wheel_spin)
 	check("power_after_release_spins_driven_wheels", max_spin > 0.1, max_spin)
-	check("rear_grip_recovers_gradually", car.handbrake_grip_loss > 0.4, car.handbrake_grip_loss)
+	check("rear_grip_recovers_briefly_not_like_ice", car.handbrake_grip_loss > 0.05 and car.handbrake_grip_loss < 0.3, car.handbrake_grip_loss)
+	await drive(0.35, Vector4(1, 0, -0.5, 0))
+	check("powered_exit_regains_contact_promptly", car.handbrake_grip_loss == 0.0 and car.wheel_spin < 0.15, [car.handbrake_grip_loss, car.wheel_spin])
+	# Throttle must produce useful propulsion while the rear is stepping out,
+	# not just increase wheelspin with almost no transmitted force.
+	var pull_speeds: Array[float] = []
+	var pull_slips: Array[float] = []
+	var pull_spins: Array[float] = []
+	var release_speeds: Array[float] = []
+	var release_progress: Array[float] = []
+	for pedal in [0.0, 0.5, 1.0]:
+		fresh(22)
+		await drive(0.5, Vector4(pedal, 0, 0.7, 1))
+		pull_speeds.append(car.linear_velocity.length())
+		pull_slips.append(absf(car.slip_angle))
+		pull_spins.append(car.wheel_spin)
+		await make_slide()
+		var release_position := car.position
+		var release_heading := Vector2.UP.rotated(car.rotation)
+		await drive(0.3, Vector4(pedal, 0, -0.5, 0))
+		release_speeds.append(car.linear_velocity.length())
+		release_progress.append((car.position - release_position).dot(release_heading) / car.PIXELS_PER_METER)
+	check("throttle_powers_handbrake_drift", pull_speeds[2] > pull_speeds[0] + 1.0 and pull_speeds[1] > pull_speeds[0], pull_speeds)
+	check("throttle_controls_power_slip", pull_spins[2] > pull_spins[1] and pull_spins[1] > pull_spins[0] and pull_spins[2] <= 0.55, pull_spins)
+	check("powered_handbrake_remains_controllable", pull_slips[2] > deg_to_rad(5) and pull_slips[2] < deg_to_rad(45), rad_to_deg(pull_slips[2]))
+	check("throttle_drives_release_instead_of_free_spinning", release_speeds[2] > release_speeds[0] + 0.5 and release_progress[2] > release_progress[0] + 0.1,
+		[release_speeds, release_progress])
 	# Releasing the accelerator should settle the tires sooner than flooring it.
 	var recovery: Array[float] = []
 	for pedal in [0.0, 1.0]:
@@ -43,7 +69,7 @@ func run() -> void:
 				break
 		recovery.append(elapsed)
 		print("Recovery pedal %.1f: %.3f s | peak wheelspin %.3f | slip %.2f deg" % [pedal, elapsed, peak, rad_to_deg(car.slip_angle)])
-		check("eventual_tire_recovery_" + str(pedal), car.handbrake_grip_loss == 0.0 and car.wheel_spin == 0.0, elapsed)
+		check("eventual_tire_recovery_" + str(pedal), car.handbrake_grip_loss == 0.0 and car.wheel_spin == 0.0 and elapsed < 1.6, elapsed)
 	check("lifting_restores_contact_sooner", recovery[0] < recovery[1] * 0.9, recovery)
 	# Same right-angle corner, engine, entry speed and steering policy. Time the
 	# exit only when the car is actually traveling along it, rather than sideways.
