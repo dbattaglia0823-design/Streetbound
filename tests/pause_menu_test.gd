@@ -52,7 +52,7 @@ func _run() -> void:
 	sound.button_pressed = false
 	await process_frame
 	check("sound_toggle_applied", main.get_children().any(func(child: Node) -> bool:
-		return child.get_script() == load("res://scripts/audio/vehicle_audio.gd") and child.muted))
+		return child.get_script() == load("res://scripts/audio/vehicle_audio.gd") and bool(child.get("muted"))))
 	var follow: CheckBox = pause.settings_screen.controls["camera_toggle"]
 	follow.button_pressed = true
 	await process_frame
