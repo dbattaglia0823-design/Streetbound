@@ -7,6 +7,16 @@ The latest [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview]
 
 A focused Godot 4 top-down simcade prototype. One reusable car, a finite proving ground, live tuning and replaceable placeholder sound. No progression, garage, dealerships or open-world systems.
 
+## Pause menu — toolkit integration
+
+Press **Escape** to pause driving. The central menu uses the **Game-Dev-Toolkit Functional UI v2 Pause Menu** template with **Resume**, **Settings**, and **Quit**. Escape in Settings returns to Pause; Escape from Pause resumes. Buttons remain operable while the vehicle, world, camera and gameplay are paused.
+
+**Settings** uses the matching toolkit Settings layout, wired to real controls: sound on/off, master audio volume (0–100%), and car-follow camera orientation. Changes are saved to `user://streetbound_pause_settings.cfg` separately from the existing key/controller bindings (`user://controls.cfg`). F1 tuning and V mute remain available during gameplay.
+
+Source layout and settings modules are archived in `assets/ui/` and `addons/gdt/`; the adapted controller is `scripts/ui/pause_menu.gd`. These use toolkit action IDs (`game.resume`, `nav.settings`, `game.quit`, etc.), connected to Streetbound's actual pause/game state and audio/camera rather than decorative mock buttons. The toolkit's original "Main menu" button is deliberately mapped to **Quit**, because Streetbound currently starts directly in the Driving Lab, without a separate main-menu scene.
+
+Test with `tests/pause_menu_test.gd` (also run by CI). The existing driving and rendering-rate tests still run unchanged.
+
 ## Play
 
 On this computer, double-click **Launch.cmd** to play using the installed Godot. Alternatively, open `project.godot` in **Godot 4.3 or later** and press **F5** to run the project. Built and tested with **Godot 4.6.3** on Windows. No addons or downloads are required.
