@@ -30,6 +30,10 @@ foreach ($fps in @(30, 60, 144)) {
 Write-Output 'PASS: render-rate traces agree within 0.001.'
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--script', 'res://tests/racing_tune_test.gd', '--log-file', "`"$project\racing_tune.log`"")
 Write-Output 'PASS: racing grip, tighter high-speed turns and direction changes.'
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--script', 'res://tests/arcade_tune_test.gd', '--log-file', "`"$project\arcade_tune.log`"")
+Write-Output 'PASS: arcade turning at low/high speed, brake turn boost and loose surfaces.'
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--script', 'res://tests/handbrake_recovery_test.gd', '--log-file', "`"$project\handbrake_recovery.log`"")
+Write-Output 'PASS: gradual handbrake recovery, power wheelspin and clean-line corner advantage.'
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '1200', '--script', 'res://tests/runtime_test.gd', '--log-file', "`"$project\runtime_test.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'runtime_test.log') -SimpleMatch 'RUNTIME TESTS: PASS' -Quiet)) { throw 'Full-scene test did not finish.' }
 Write-Output 'PASS: full scene, input, camera, manual shifting, tuning UI, audio and saved bindings.'

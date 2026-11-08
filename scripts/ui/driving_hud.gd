@@ -71,9 +71,14 @@ func _ready() -> void:
 	scroll.add_child(tune_box)
 	label(tune_box, "LIVE HANDLING / F1", 22)
 	label(tune_box, "Changes apply to this session. R resets position.", 12)
-	for entry in [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 42.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / Nm", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / kW", 150.0, 650.0, 10.0], ["mass_kg", "Mass / kg", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / N", 8000.0, 25000.0, 500.0]]:
+	for entry in [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / Nm", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / kW", 150.0, 650.0, 10.0], ["mass_kg", "Mass / kg", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / N", 8000.0, 25000.0, 500.0]]:
 		add_slider(entry)
 	add_slider(["steering_response", "Steering response", 6.0, 25.0, 0.5])
+	add_slider(["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05])
+	add_slider(["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0])
+	add_slider(["brake_turn_boost", "Brake turning boost", 0.0, 1.0, 0.05])
+	add_slider(["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05])
+	add_slider(["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25])
 	add_slider(["cornering_stiffness", "Tire response / N per rad", 50000.0, 150000.0, 2500.0])
 	add_slider(["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02])
 	add_slider(["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5])
@@ -139,5 +144,6 @@ func _process(_dt: float) -> void:
 	gear_label.text = " %s / %s" % ["R" if vehicle.reversing else str(vehicle.transmission.gear), mode]
 	rpm_bar.value = vehicle.transmission.rpm / vehicle.config.redline_rpm * 100
 	telemetry.text = "%04d RPM   /   %s\nLONG %+.1f m/s    LAT %+.1f m/s    SLIP %+.1f°\n%.0f kg   %.0f Nm   %.0f kW   GRIP %.2f" % [vehicle.transmission.rpm, vehicle.surface, vehicle.longitudinal_speed, vehicle.lateral_speed, rad_to_deg(vehicle.slip_angle), vehicle.config.mass_kg, vehicle.config.engine_torque_nm, vehicle.config.engine_power_kw, vehicle.config.tire_grip * vehicle.surface_grip]
+	telemetry.text += "\nWHEELSPIN %d%%   REAR CONTACT %d%%" % [roundi(vehicle.wheel_spin * 100), roundi((1.0 - vehicle.handbrake_grip_loss) * 100)]
 	if vehicle.linear_velocity.length() > 1 or Input.is_action_pressed("reset"):
 		status.text = "%s   /   %s" % [vehicle.surface, "CAR FOLLOW" if camera.follow_heading else "NORTH UP"]

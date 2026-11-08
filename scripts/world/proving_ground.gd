@@ -73,7 +73,7 @@ func _physics_process(dt: float) -> void:
 	mark_clock += dt
 	if mark_clock > 0.045 and vehicle.linear_velocity.length() > 3.0:
 		mark_clock = 0.0
-		if absf(vehicle.slip_angle) > 0.13 or vehicle.handbrake > 0.1 or vehicle.surface != "ASPHALT":
+		if absf(vehicle.slip_angle) > 0.13 or vehicle.handbrake > 0.1 or vehicle.wheel_spin > 0.15 or vehicle.surface != "ASPHALT":
 			var right := Vector2.RIGHT.rotated(vehicle.rotation)
 			var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
 			for side in [-1.0, 1.0]:

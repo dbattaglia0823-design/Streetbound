@@ -10,6 +10,7 @@ func run() -> void:
 	for setup in ["previous", "racing"]:
 		car.config = racing.duplicate(true)
 		if setup == "previous":
+			car.config.arcade_steering_assist = 0.0
 			car.config.tire_grip = 1.15
 			car.config.cornering_stiffness = 68000
 			car.config.rear_cornering_stiffness_ratio = 1.0

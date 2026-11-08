@@ -35,6 +35,7 @@ func _process(dt: float) -> void:
 	var engine_db := -28.0 + vehicle.throttle * 7.0 + rpm_fraction * 5.0
 	engine.volume_db = lerpf(engine.volume_db, -80.0 if muted else engine_db, 1.0 - exp(-8 * dt))
 	var skid := clampf(absf(vehicle.slip_angle) * 2.0 + vehicle.handbrake * 0.65, 0.0, 1.0) * clampf(vehicle.linear_velocity.length() / 10, 0, 1)
+	skid = maxf(skid, vehicle.wheel_spin * clampf(vehicle.linear_velocity.length() / 8.0, 0.0, 1.0))
 	if vehicle.surface != "ASPHALT":
 		skid = maxf(skid * 0.5, clampf(vehicle.linear_velocity.length() / 40, 0, 0.5))
 	tires.volume_db = -80 if muted or skid < 0.08 else linear_to_db(skid * 0.18)

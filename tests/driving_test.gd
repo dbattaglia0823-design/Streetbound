@@ -136,9 +136,17 @@ func run() -> void:
 		and absf(car.steering) <= deg_to_rad(car.config.max_steer_degrees) + 0.02,
 		[car.throttle, car.brake, car.handbrake, rad_to_deg(car.steering)])
 	fresh(25)
+	var saved_arcade := car.config.arcade_steering_assist
+	car.config.arcade_steering_assist = 0.0
 	await drive(0.15, Vector4(0, 1, 0.5, 0))
 	check("braking_consumes_lateral_tire_grip", car.cornering_grip_fraction >= 0.0
 		and car.cornering_grip_fraction < 0.80, car.cornering_grip_fraction)
+	var physical_budget := car.cornering_grip_fraction
+	car.config.arcade_steering_assist = saved_arcade
+	fresh(25)
+	await drive(0.15, Vector4(0, 1, 0.5, 0))
+	check("arcade_preserves_braking_corner_grip", car.cornering_grip_fraction > physical_budget
+		and car.cornering_grip_fraction <= 1.0, [physical_budget, car.cornering_grip_fraction])
 	fresh(25)
 	await drive(0.15, Vector4(0, 0, 0.5, 0))
 	check("coasting_retains_full_tire_grip", is_equal_approx(car.cornering_grip_fraction, 1.0),
@@ -165,7 +173,7 @@ func run() -> void:
 	await drive(1.5, Vector4(0.6, 0, 0.45, 0))
 	await drive(0.5, Vector4(0.3, 0, 0.7, 1))
 	await drive(1.0, Vector4(0.3, 0, -0.3, 0))
-	results["fps_trace"] = [car.position.x, car.position.y, car.rotation, car.linear_velocity.x, car.linear_velocity.y, car.transmission.rpm]
+	results["fps_trace"] = [car.position.x, car.position.y, car.rotation, car.linear_velocity.x, car.linear_velocity.y, car.transmission.rpm, car.handbrake_grip_loss, car.wheel_spin]
 	results["failures"] = failures
 	var output := "res://test_results.json"
 	for arg in OS.get_cmdline_user_args():
