@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "name": "Streetbound Pause",
+  "viewport": {
+    "width": 800,
+    "height": 500
+  },
+  "nodes": [
+    {
+      "type": "panel",
+      "id": "pause_overlay",
+      "x": 205,
+      "y": 78,
+      "w": 390,
+      "h": 352,
+      "label": "",
+      "role": "pause_overlay",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
+      "type": "label",
+      "id": "pause_heading",
+      "x": 295,
+      "y": 110,
+      "w": 210,
+      "h": 52,
+      "label": "PAUSED",
+      "role": "screen_title",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
+      "type": "button",
+      "id": "resume",
+      "x": 286,
+      "y": 202,
+      "w": 228,
+      "h": 55,
+      "label": "Resume",
+      "role": "primary_action",
+      "actionId": "game.resume",
+      "bindingKey": ""
+    },
+    {
+      "type": "button",
+      "id": "settings",
+      "x": 286,
+      "y": 268,
+      "w": 228,
+      "h": 52,
+      "label": "Settings",
+      "role": "secondary_action",
+      "actionId": "nav.settings",
+      "bindingKey": ""
+    },
+    {
+      "type": "button",
+      "id": "main_menu",
+      "x": 286,
+      "y": 332,
+      "w": 228,
+      "h": 52,
+      "label": "Quit",
+      "role": "danger_action",
+      "actionId": "game.quit",
+      "bindingKey": ""
+    }
+  ]
+}

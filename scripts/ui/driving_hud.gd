@@ -60,7 +60,7 @@ func _ready() -> void:
 	var hints := VBoxContainer.new()
 	panel(Vector2(413, 802), Vector2(1003, 68)).add_child(hints)
 	label(hints, "W / S  DRIVE & REVERSE     A / D  STEER     SPACE  HANDBRAKE     R  RESET", 15)
-	label(hints, "C  CAMERA     F1  LIVE TUNING & BINDINGS     M  AUTO / MANUAL     Q / E  SHIFT     V  MUTE", 13, Color("a2b4ab"))
+	label(hints, "ESC  PAUSE / SETTINGS     C  CAMERA     F1  TUNING & BINDINGS     M  AUTO / MANUAL     Q / E  SHIFT     V  MUTE", 13, Color("a2b4ab"))
 	tuning = panel(Vector2(1000, 24), Vector2(416, 750))
 	tuning.visible = false
 	var scroll := ScrollContainer.new()
