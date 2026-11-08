@@ -28,3 +28,6 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pause_menu_test.gd
       - name: Verify MPH speedometer and all imperial display conversions
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/imperial_display_test.gd
+
+      - name: Verify F1 tuning save, restart, exit flush and restore defaults
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/tuning_persistence_test.gd
