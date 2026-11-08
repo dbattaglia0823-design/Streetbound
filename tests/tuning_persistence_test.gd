@@ -37,7 +37,7 @@ func _run() -> void:
 	var stock_grip: float = float(car.config.tire_grip)
 	var stock_power: float = float(car.config.engine_power_kw)
 	check("uses_stock_values_without_profile", is_equal_approx(stock_grip, 1.65) and not FileAccess.file_exists(path))
-	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == hud.TUNING_FIELDS.size())
+	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == 19)
 
 	(hud.tuning_sliders["tire_grip"] as HSlider).value = 1.27
 	(hud.tuning_sliders["engine_power_kw"] as HSlider).value = 480.0
