@@ -26,7 +26,7 @@ func run() -> void:
 	for child in main.get_children():
 		if child is Camera2D:
 			camera = child
-		elif child is CanvasLayer:
+		elif child is CanvasLayer and child.get_script() == load("res://scripts/ui/driving_hud.gd"):
 			hud = child
 		elif child.get_script() == load("res://scripts/audio/vehicle_audio.gd"):
 			audio = child

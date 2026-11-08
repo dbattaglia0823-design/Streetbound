@@ -1,0 +1,94 @@
+{
+  "version": 2,
+  "name": "Streetbound Pause Settings",
+  "viewport": {
+    "width": 800,
+    "height": 500
+  },
+  "nodes": [
+    {
+      "type": "panel",
+      "id": "settings_panel",
+      "x": 143,
+      "y": 40,
+      "w": 514,
+      "h": 420,
+      "label": "",
+      "role": "settings_container",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
+      "type": "label",
+      "id": "settings_heading",
+      "x": 225,
+      "y": 73,
+      "w": 351,
+      "h": 54,
+      "label": "SETTINGS",
+      "role": "screen_title",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
+      "type": "toggle",
+      "id": "sfx_toggle",
+      "x": 220,
+      "y": 160,
+      "w": 358,
+      "h": 47,
+      "label": "Sound effects",
+      "role": "setting_toggle",
+      "actionId": "settings.sfx_changed",
+      "bindingKey": "settings.sound"
+    },
+    {
+      "type": "label",
+      "id": "volume_label",
+      "x": 220,
+      "y": 225,
+      "w": 116,
+      "h": 45,
+      "label": "Volume",
+      "role": "field_label",
+      "actionId": "",
+      "bindingKey": ""
+    },
+    {
+      "type": "slider",
+      "id": "volume_slider",
+      "x": 350,
+      "y": 223,
+      "w": 228,
+      "h": 49,
+      "label": "Volume",
+      "role": "setting_slider",
+      "actionId": "settings.volume_changed",
+      "bindingKey": "settings.volume"
+    },
+    {
+      "type": "toggle",
+      "id": "camera_toggle",
+      "x": 220,
+      "y": 283,
+      "w": 358,
+      "h": 47,
+      "label": "Follow car heading",
+      "role": "setting_toggle",
+      "actionId": "settings.camera_changed",
+      "bindingKey": "settings.camera_follow"
+    },
+    {
+      "type": "button",
+      "id": "back",
+      "x": 295,
+      "y": 378,
+      "w": 210,
+      "h": 54,
+      "label": "Back",
+      "role": "back_action",
+      "actionId": "nav.back",
+      "bindingKey": ""
+    }
+  ]
+}
