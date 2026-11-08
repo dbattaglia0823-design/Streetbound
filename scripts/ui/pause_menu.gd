@@ -8,15 +8,15 @@ const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
-var vehicle_audio: Node
-var driving_camera: Camera2D
+var vehicle_audio
+var driving_camera
 var allow_quit := true
 var menu_state := ""
-var settings_store: RefCounted
+var settings_store
 
 var overlay: Control
-var pause_screen: Control
-var settings_screen: Control
+var pause_screen
+var settings_screen
 var background: ColorRect
 
 func _ready() -> void:
@@ -50,8 +50,8 @@ func _ready() -> void:
 	_resize_layout()
 	_apply_saved_settings()
 
-func _load_screen(path: String, screen_name: String) -> Control:
-	var screen: Control = ToolkitLayout.new()
+func _load_screen(path: String, screen_name: String) -> Variant:
+	var screen: Variant = ToolkitLayout.new()
 	screen.name = screen_name
 	overlay.add_child(screen)
 	if not screen.load_from_file(path):
@@ -61,7 +61,7 @@ func _load_screen(path: String, screen_name: String) -> Control:
 	_style_screen(screen)
 	return screen
 
-func _style_screen(screen: Control) -> void:
+func _style_screen(screen: Variant) -> void:
 	for entry in screen.layout.get("nodes", []):
 		if not entry is Dictionary:
 			continue
@@ -168,7 +168,7 @@ func _show_page(page: String) -> void:
 	settings_screen.visible = page == "settings"
 	if page == "settings":
 		_sync_settings()
-	var active: Control = pause_screen if page == "paused" else settings_screen
+	var active: Variant = pause_screen if page == "paused" else settings_screen
 	var primary_id: String = "resume" if page == "paused" else "back"
 	var focused: Button = active.controls.get(primary_id)
 	if focused != null:
