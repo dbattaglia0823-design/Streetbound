@@ -1,5 +1,7 @@
 # Streetbound source and driving physics audit
 
+**Display note (2026-11-08):** Streetbound's game HUD and live tuning labels now use MPH, lb, lb-ft, hp and lbf. Internal handling, gear calculations, vehicle resource values and tests remain in metric SI. Conversion lives exclusively in `scripts/ui/imperial_units.gd` to avoid breaking existing physics.
+
 This audit is based on the complete Streetbound code pushed to main on November 8, 2026, not the earlier initial repo containing only one PNG. Preserve and extend the established Driving Lab.
 
 ## Existing functionality reviewed
