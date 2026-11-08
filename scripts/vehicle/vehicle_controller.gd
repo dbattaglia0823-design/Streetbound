@@ -34,6 +34,13 @@ func reset_vehicle() -> void:
 	velocity = Vector2.ZERO
 	yaw_rate = 0.0
 	steering = 0.0
+	longitudinal_speed = 0.0
+	lateral_speed = 0.0
+	slip_angle = 0.0
+	throttle = 0.0
+	brake = 0.0
+	handbrake = 0.0
+	command = Vector4.ZERO
 	reverse_hold = 0.0
 	reversing = false
 	transmission.reset(config)
@@ -67,9 +74,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	else:
 		surface = "ASPHALT"
 		surface_grip = 1.0
-	throttle = controls.x
-	brake = controls.y
-	handbrake = controls.w
+	# External AI/touch commands are untrusted inputs; prevent extra grip/torque
+	# when a caller supplies values outside the intended normalized range.
+	throttle = clampf(controls.x, 0.0, 1.0)
+	brake = clampf(controls.y, 0.0, 1.0)
+	handbrake = clampf(controls.w, 0.0, 1.0)
+	var steer_input := clampf(controls.z, -1.0, 1.0)
 	# Brake first, then require a deliberate hold at rest before engaging reverse.
 	if brake > 0.1 and absf(longitudinal_speed) < 0.6:
 		reverse_hold += dt
@@ -90,7 +100,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var safe_steer := (tire_envelope * lerpf(1.8, 3.5, handbrake) + deg_to_rad(1.5)) * config.high_speed_steer_degrees / 9.0
 	max_steer = minf(max_steer, safe_steer)
 	var assist := clampf(slip_angle * config.countersteer_assist, -0.18, 0.18) * clampf(speed / 8.0, 0.0, 1.0)
-	if absf(controls.z) < 0.02:
+	if absf(steer_input) < 0.02:
 		# Overdamped self-aligning spring: restoring torque is proportional to
 		# wheel angle, with stronger centering as road speed builds. Do not let
 		# countersteer assistance keep the wheels turned after input is released.
@@ -99,7 +109,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		if absf(steering) < deg_to_rad(0.05):
 			steering = 0.0
 	else:
-		var steer_target := controls.z * max_steer + assist * signf(longitudinal_speed)
+		var steer_target := steer_input * max_steer + assist * signf(longitudinal_speed)
 		steering = lerpf(steering, steer_target, 1.0 - exp(-config.steering_response * dt))
 	var mass := maxf(config.mass_kg, 200.0)
 	var grip := config.tire_grip * surface_grip
@@ -133,9 +143,15 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var travel_sign := signf(longitudinal_speed) if absf(longitudinal_speed) > 0.1 else 1.0
 	var front_slip := atan2(lateral_speed + yaw_rate * front_arm, denominator) - steering * travel_sign
 	var rear_slip := atan2(lateral_speed - yaw_rate * rear_arm, denominator)
-	var front_limit := front_load * grip
-	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, handbrake)
-	# Driven wheels spend part of the friction budget on acceleration.
+	# Braking and cornering share the tire's friction budget. The previous model
+	# allowed full braking and full cornering independently, resulting in
+	# unrealistically sharp stops while turning at the traction limit.
+	# This is a simplified friction circle, not longitudinal load transfer/ABS.
+	var brake_usage := clampf(braking / maxf(mass * 9.81 * grip, 1.0), 0.0, 1.0)
+	var cornering_budget := sqrt(maxf(0.0, 1.0 - brake_usage * brake_usage))
+	var front_limit := front_load * grip * cornering_budget
+	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, handbrake) * cornering_budget
+	# Driven wheels also spend part of the friction budget on acceleration.
 	var drive_fraction := clampf(absf(engine_force) / maxf(traction_load * grip, 1.0), 0.0, 1.0)
 	if config.drivetrain != VehicleConfig.Drivetrain.RWD:
 		front_limit *= sqrt(maxf(0.35, 1.0 - drive_fraction * drive_fraction * 0.55))
@@ -167,3 +183,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
 		linear_velocity = Vector2.ZERO
+	# Publish the post-impact state immediately. Previously CharacterBody2D.velocity
+	# retained the pre-collision vector and HUD/marks kept stale slip telemetry
+	# until the next physics frame.
+	velocity = linear_velocity * PIXELS_PER_METER
+	var final_forward := Vector2.UP.rotated(rotation)
+	var final_right := Vector2.RIGHT.rotated(rotation)
+	longitudinal_speed = linear_velocity.dot(final_forward)
+	lateral_speed = linear_velocity.dot(final_right)
+	slip_angle = atan2(lateral_speed, maxf(absf(longitudinal_speed), 1.0))
