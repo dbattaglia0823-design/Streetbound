@@ -39,10 +39,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	# F6 previews actual routed paths rather than unrelated guessed lines.
 	if event is InputEventKey:
 		var key := event as InputEventKey
-		if key.pressed and not key.echo and key.keycode==KEY_F6:
+		if key.pressed and not key.echo and key.keycode==KEY_F5:
+			enabled=not enabled
+			if not enabled:
+				clear_traffic()
+			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and key.keycode==KEY_F6:
 			show_routes=not show_routes
 			queue_redraw()
 			get_viewport().set_input_as_handled()
+
+
+func clear_traffic() -> void:
+	for agent in agents:
+		var node: Node2D=agent.node
+		if is_instance_valid(node):node.queue_free()
+	agents.clear()
+	active_junctions.clear()
 
 
 func _spawn_one() -> bool:
