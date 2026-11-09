@@ -68,3 +68,22 @@ test('Morrow editor opens actual world reference via allowlisted local server',a
   assert.ok(server.includes("worlds/morrow-coast.world.json"));
   assert.ok(server.includes('403 Forbidden'),'other parent paths are not exposed');
 });
+
+
+test('real committed Morrow Coast streams into editor without losing road IDs or control points',async()=>{
+  const raw=JSON.parse(await readFile(new URL('../../worlds/morrow-coast.world.json',import.meta.url),'utf8'));
+  const {doc,stats}=convertMorrowWorld(raw);
+  assert.equal(doc.name,'Morrow Coast');
+  assert.equal(doc.roads.length,raw.roads.length);
+  assert.equal(stats.generatedJunctions,raw.junctions.length);
+  assert.ok(doc.roads.length>50);
+  assert.ok(doc.regions.length>5);
+  assert.equal(doc.markers.length,raw.pois.length+1);
+  for(let i=0;i<raw.roads.length;i++){
+    assert.equal(doc.roads[i].id,'road-'+i);
+    assert.deepEqual(doc.roads[i].points,raw.roads[i].anchors.map(([x,y])=>({x,y})));
+  }
+  const overlay=JSON.parse(morrowEditText(doc));
+  assert.equal(overlay.roads.length,raw.roads.length);
+  assert.ok(overlay.world.width===6400 && overlay.world.height===4800);
+});
