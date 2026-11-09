@@ -38,7 +38,8 @@ Traffic is spawned only near the player with distance/headway checks
 and despawned outside the active radius. Default cap is 16 cosmetic
 noncollidable traffic vehicles, intentionally isolated from the existing
 player handling tests. An eventual collision/damage system is separate.
-Press F6 to reveal the real junction/lane graph during drive testing.
+Press **F5** to toggle ambient traffic safely (turning it off clears cars),
+and **F6** to reveal the real junction/lane graph during drive testing.
 
 This first iteration does not promise signal timing, pathfinding to
 specific destinations, congestion-aware rerouting or traffic collisions.
