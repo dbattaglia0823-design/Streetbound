@@ -2,7 +2,8 @@ extends Node2D
 ## GDT World Forge v2: runtime renderer and geometry reader for freeform racing worlds.
 ## Attach to Node2D, set world_path, or call load_world(path) directly.
 ## This does NOT spawn cars, compute traffic AI, or generate a 3D elevation mesh.
-class_name GDTRacingWorld
+# This packaged preview adapter intentionally has no global class_name:
+# Streetbound already includes GDTRacingWorld in worlds/world_loader.gd.
 
 @export_file("*.json") var world_path: String = ""
 @export_flags_2d_physics var blocking_layer: int = 1
