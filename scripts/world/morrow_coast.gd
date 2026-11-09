@@ -156,8 +156,17 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var a := Vector2(float(segment.a[0]),float(segment.a[1]))
 		var b := Vector2(float(segment.b[0]),float(segment.b[1]))
 		var r: Dictionary = data.roads[int(segment.road)]
-		if Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)<=pow(float(r.width)*.5,2):
+		var distance_sq := Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)
+		var road_radius := float(r.width) * 0.5
+		if distance_sq <= road_radius * road_radius:
 			return {"name":str(r.surface),"grip":0.55 if r.surface=="GRAVEL" else 1.0}
+		# Sidewalks are actual hard ground beside BOTH sides of urban roads,
+		# rather than a pretty strip incorrectly treated as slippery grass.
+		# The baked 12m road-index margin already covers this extra 3.3m.
+		if r.kind in ["local", "arterial"]:
+			var walk_radius := road_radius + 3.3
+			if distance_sq <= walk_radius * walk_radius:
+				return {"name":"ASPHALT","grip":0.93}
 	var chunk_key := "%d,%d" % [floori(point.x/chunk_m),floori(point.y/chunk_m)]
 	if _sand_polygons.has(chunk_key) and Geometry2D.is_point_in_polygon(point,_sand_polygons[chunk_key]):
 		return {"name":"SAND","grip":0.32}
