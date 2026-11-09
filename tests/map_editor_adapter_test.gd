@@ -11,7 +11,7 @@ func check(label: String, good: bool, detail: Variant = "") -> void:
 		failures.append(label)
 
 func run() -> void:
-	var loader := Node2D.new()
+	var loader: Variant = Node2D.new()
 	loader.set_script(preload("res://map-editor/world_loader.gd"))
 	loader.build_collision = false
 	root.add_child(loader)
