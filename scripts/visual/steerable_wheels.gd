@@ -52,7 +52,7 @@ func _fit_to_sprite(body: Sprite2D) -> bool:
 	if image == null or image.is_empty():
 		return false
 	var dimensions := image.get_size()
-	var stride := maxi(2, maxi(dimensions.x, dimensions.y) / 270)
+	var stride := maxi(2, ceili(float(maxi(dimensions.x, dimensions.y)) / 270.0))
 	var minimum := Vector2(INF, INF)
 	var maximum := Vector2(-INF, -INF)
 	for y in range(0, dimensions.y, stride):
