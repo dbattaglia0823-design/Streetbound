@@ -37,15 +37,14 @@ Aston Martin
   One-77
 
 Audi
-  A3
-  A4
-  A5
-  A6
-  A7
-  A8
-  Q3
-  Q5
-  Q7
+  RS3
+  RS4
+  RS5
+  RS6
+  RS6 Avante
+  RS7
+  RSQ8
+  RSQ5
   R8
 
 Bentley
@@ -82,18 +81,6 @@ Bugatti
   Mistral
   Tourbillon
 
-Buick
-  Regal
-  LaCrosse
-  Verano
-  Enclave
-  Encore
-  Envision
-  Cascada
-  LeSabre
-  Riviera
-  Roadmaster
-
 Cadillac
   Escalade
   CT4
@@ -109,26 +96,6 @@ Cadillac
 Chevrolet
   Camaro
   Corvette
-  Malibu
-  Impala
-  Cruze
-  Silverado
-  Colorado
-  Tahoe
-  Suburban
-  Blazer
-
-Chrysler
-  300
-  200
-  Pacifica
-  Voyager
-  Town & Country
-  Sebring
-  PT Cruiser
-  Crossfire
-  Aspen
-  Concorde
 
 Dodge
   Charger
@@ -195,18 +162,11 @@ Honda
   CR-V
   HR-V
   Pilot
-  Odyssey
-  Ridgeline
 
 Hyundai
   Accent
   Elantra
-  Sonata
   Veloster
-  Kona
-  Tucson
-  Santa Fe
-  Palisade
   Ioniq 5
   Ioniq 6
 
@@ -246,18 +206,6 @@ Jeep
   Commander
   Wagoneer
 
-Kia
-  Rio
-  Forte
-  K5
-  Stinger
-  Soul
-  Seltos
-  Sportage
-  Sorento
-  Telluride
-  Carnival
-
 Lamborghini
   Miura
   Countach
@@ -270,16 +218,6 @@ Lamborghini
   Temerario
   Urus
 
-Land Rover
-  Defender
-  Discovery
-  Discovery Sport
-  Range Rover
-  Range Rover Sport
-  Range Rover Evoque
-  Range Rover Velar
-  Freelander
-
 Lexus
   IS
   ES
@@ -291,18 +229,6 @@ Lexus
   GX
   LX
   LC
-
-Lincoln
-  Continental
-  Town Car
-  MKS
-  MKZ
-  MKC
-  MKX
-  Corsair
-  Nautilus
-  Aviator
-  Navigator
 
 Lotus
   Elan
@@ -351,15 +277,6 @@ Mercedes-Benz
   GLE
   G-Class
   SL
-
-MINI
-  Cooper
-  Clubman
-  Countryman
-  Paceman
-  Coupe
-  Roadster
-  Aceman
 
 Mitsubishi
   Mirage
@@ -452,15 +369,3 @@ Volkswagen
   Touareg
   Beetle
   Phaeton
-
-Volvo
-  S40
-  S60
-  S90
-  V60
-  V90
-  XC40
-  XC60
-  XC90
-  EX30
-  EX90
