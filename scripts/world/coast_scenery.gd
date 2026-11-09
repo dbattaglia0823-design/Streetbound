@@ -53,14 +53,26 @@ func _draw_prop(prop: Dictionary) -> void:
 		return
 	if kind == "field":
 		_rounded(Rect2(-size/2,size),color,50)
+		# Alternating shaded planting ridges and soft crop highlights break up
+		# uniform fields without adding thousands of tiny crop sprites.
 		for side in [-1.0,1.0]:
 			draw_line(Vector2(-size.x*.48,side*size.y*.47),Vector2(size.x*.48,side*size.y*.47),Color("8d9f76"),7,true)
 			for post in range(int(size.x/80)):
 				var p := Vector2(-size.x*.46+post*80,side*size.y*.47)
 				draw_circle(p,4,Color("aeaa87"))
+		var crop_rng := RandomNumberGenerator.new()
+		crop_rng.seed = seed_value
 		for row in range(int(size.y/100)):
 			var y := -size.y/2+55+row*100
-			draw_line(Vector2(-size.x/2+35,y),Vector2(size.x/2-35,y),color.darkened(.09),13,true)
+			var start := Vector2(-size.x/2+35,y)
+			var finish := Vector2(size.x/2-35,y)
+			draw_line(start,finish,color.darkened(.14 if row%2==0 else .095),23,true)
+			draw_line(start+Vector2(0,-7),finish+Vector2(0,-7),color.lightened(.075),4,true)
+			if row%2==0:
+				for spot in 4:
+					var x := lerpf(start.x+24,finish.x-24,(float(spot)+.5)/4.0)
+					var p := Vector2(x+crop_rng.randf_range(-18,18),y+crop_rng.randf_range(-8,8))
+					draw_circle(p,crop_rng.randf_range(5,9),color.lightened(.14))
 		return
 	if kind in ["start_line","finish_line"]:
 		for row in 2:
@@ -76,10 +88,13 @@ func _draw_prop(prop: Dictionary) -> void:
 		_rounded(Rect2(Vector2(-size.x*.5,-size.y*.5),Vector2(size.x,size.y*.22)),Color("7b9b94"),9)
 		return
 	if kind == "garden":
-		_rounded(Rect2(-size/2,size),color,22)
+		_rounded(Rect2(-size/2,size),color.darkened(.06),22)
+		draw_line(Vector2(-size.x*.45,0),Vector2(size.x*.45,0),color.lightened(.12),8,true)
 		for i in 4:
 			var p := Vector2(-size.x*.35+i*size.x*.23,0)
-			draw_circle(p,14,Color("c7b984") if i%2==0 else Color("aeb984"))
+			draw_circle(p,16,Color("779b6c"))
+			draw_circle(p+Vector2(-3,-3),11,Color("adc28a") if i%2==0 else Color("92b37a"))
+			draw_circle(p+Vector2(4,-5),3,Color("e3d49c") if i%2==0 else Color("c3d6aa"))
 		return
 	if kind == "planter":
 		_rounded(Rect2(-size/2,size),Color("b8b5a0"),10)
@@ -89,10 +104,20 @@ func _draw_prop(prop: Dictionary) -> void:
 		return
 	if kind == "forecourt":
 		_rounded(Rect2(-size/2,size),Color("8b9290"),18)
+		# Faint slab joints and non-repeating low-contrast scuffs.
+		for i in 3:
+			var x := -size.x*.32+float(i)*size.x*.32
+			draw_line(Vector2(x,-size.y*.45),Vector2(x,size.y*.45),Color(0.28,0.34,0.33,0.12),2,true)
+		for i in 6:
+			var p := Vector2(-size.x*.34+float(i%3)*size.x*.29,-size.y*.22+float(i/3)*size.y*.40)
+			draw_circle(p,5.0+float(seed_value%3),Color(0.29,0.36,0.35,0.045))
 		return
 	if kind == "lot":
 		_rounded(Rect2(-size/2,size),Color("d0c9b7"),45)
 		_rounded(Rect2(-size/2+Vector2.ONE*18,size-Vector2.ONE*36),Color("8b9290"),32)
+		for index in 4:
+			var x := -size.x*.32+float(index)*size.x*.20
+			draw_line(Vector2(x,-size.y*.35),Vector2(x,size.y*.35),Color(0.28,0.34,0.33,0.065),2,true)
 		for side in [-1.0,1.0]:
 			for i in 8:
 				var x := -size.x*.4+i*size.x*.105
