@@ -7,7 +7,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	var scene: Node = load("res://scenes/main.tscn").instantiate()
+	var scene: Node = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(scene)
 	var car: VehicleController2D = scene.vehicle
 	var ground: ProvingGround = scene.ground

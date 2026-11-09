@@ -37,3 +37,17 @@ Write-Output 'PASS: gradual handbrake recovery, power wheelspin and clean-line c
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '1200', '--script', 'res://tests/runtime_test.gd', '--log-file', "`"$project\runtime_test.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'runtime_test.log') -SimpleMatch 'RUNTIME TESTS: PASS' -Quiet)) { throw 'Full-scene test did not finish.' }
 Write-Output 'PASS: full scene, input, camera, manual shifting, tuning UI, audio and saved bindings.'
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '6000', '--script', 'res://tests/open_world_test.gd', '--log-file', "`"$project\open_world_test.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'open_world_test.log') -SimpleMatch 'OPEN WORLD TESTS: PASS' -Quiet)) { throw 'Open-world validation did not finish.' }
+Write-Output 'PASS: open-world spawn, atlas, connected roads, surfaces, collision clearance and streaming.'
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '30000', '--script', 'res://tests/open_world_drive.gd', '--log-file', "`"$project\open_world_drive.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'open_world_drive.log') -SimpleMatch 'arrived=true' -Quiet)) { throw 'The garage-to-coast drive did not complete.' }
+Write-Output 'PASS: actual garage-to-marina drive through streamed city and coastal roads.'
+
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '1200', '--script', 'res://tests/map_detail_test.gd', '--log-file', "`"$project\map_detail_test.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'map_detail_test.log') -SimpleMatch 'MAP DETAIL TESTS: PASS' -Quiet)) { throw 'Atlas navigation validation did not finish.' }
+Write-Output 'PASS: pointer-anchored atlas zoom, pan, cache bounds and local minimap follow.'
+
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '65000', '--script', 'res://tests/mountain_drive.gd', '--log-file', "`"$project\mountain_drive.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'mountain_drive.log') -SimpleMatch 'arrived=true' -Quiet)) { throw 'Mountain climb did not complete.' }
+Write-Output 'PASS: real-controller mountain climb through linked hairpins and guardrails.'

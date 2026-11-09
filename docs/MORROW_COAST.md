@@ -1,0 +1,80 @@
+# Morrow Coast â€” Streetbound's first playable region
+
+Morrow Coast is an original 6.4 Ã— 4.8 km world, replacing the lab as the normal game launch. It uses the existing car and its exact 20 pixels/metre calibration. The Atlas Coast files remain untouched references; this world has its own geography, road graph, scenery bake and runtime.
+
+## Explore
+
+Launch normally with `Launch.cmd` or F5. You start on the Laurel Motor House apron in Larkspur, facing the driveway. Head east onto Laurel Avenue, then north toward Market Street. The local minimap tracks your position at neighborhood scale, showing streets, buildings, vegetation, surface hierarchy, current road, compass and a distance bar. **Tab** opens/closes the full atlas. Use the mouse wheel to zoom toward the pointer, drag to pan, or select a destination in the sidebar. **Fit region** restores the overview; **Find car** recenters and follows your car. Distinct pictograms identify reachable services, racing areas, marina and landmarks. R returns to the starting apron using the existing vehicle reset.
+
+| District | Character and routes |
+|---|---|
+| Larkspur | Largest townscape: irregular civic streets, market blocks, garden neighborhoods, commercial eastgate, industrial foundry/port edge, suburban crescents and the Civic Roundabout. Laurel Motor House is the start; Larkspur Performance and Eastgate Auto Gallery have parking/access. |
+| Bellwether Bay | Coastal high street and a waterfront esplanade, beach, planted forecourts, marina piers/boats, Saltair Motors and the northern Seaglass Overlook. The scenic highway runs within sight of the shore. |
+| Juniper Ridge | Winding mountain pass, a reservoir loop, wooded canopy roads, rocks, shaded relief, retaining cuts and a linked hairpin climb, Pinecrest Lodge and Juniper Lookout. Ranger Trail provides a gravel alternative. |
+| Willowmere | Village garage, orchard lanes, hedged crop plots and larger farm parcels, Harvest Rest fuel stop and a long southern cruising loop. |
+| Ashford Park | Connected closed grand circuit, paddock/garage, grandstand, drag staging, 402 m marked drag distance with extra paved runoff and a separate return lane. Locations are groundwork for future events; there is no race/economy logic yet. |
+
+Morrow Parkway links the city gateways. Slip roads join local arterials. Three water bridge spans carry roads across the valley river. The road network is ~66 km across 114 road sections including local streets, scenic loops, track and service access. Every road and service lot belongs to the connected graph; service drives terminate at useful parking aprons rather than arbitrary dead ends.
+
+## Scale and junctions
+
+The authoring source uses metres, not Atlas Coast's sketch units. A local street is 9 m wide, an arterial 12 m, a four-lane parkway 18 m, a rural road 8 m, most mountain roads 7.5 m (the switchback climb is 8.5 m), and the circuit 14 m. The supplied player's collision body is about 1.95 Ã— 4.4 m. Building, vegetation, parking-bay and parked-car sizes use the same scale.
+
+Named connected route pieces share tangent directions; two-road rural transitions also align across route names. Adaptive cubic sampling limits curve chord error to roughly 4 cm before shoreline clearance correction, using extra samples on tight bends. Road shoulders, curbs and markings follow those same centerlines. Pacific Scenic Highway sits farther inland where the bay needs a wider turn. Asphalt has subtle world-aligned aggregate and tire-wear tracks; sidewalks have expansion joints. Lane-marking phase continues across streamed chunks, with globally ordered pavement layers preventing road seams. Urban stop bars and crosswalks sit outside convex paved junction mouths. The Civic Roundabout has an actual raised central island; ordinary crossings are paved intersections rather than roundabout-shaped discs.
+
+The connectivity bake joins shared authored endpoints and actual same-grade crossings. It does not join different-grade crossings based on visual overlap. This first region has water bridges and **no road-over-road crossing**; it avoids pretending that 2D overlapping pavement is a working flyover. A future flyover must add explicit deck routing/collision layers as well as graph metadata. Bridge edge rails and river-bank gates match the road footprint. Beaches are accessible; the sea, river banks, reservoir and world perimeter have collision boundaries.
+
+## Streaming and surface lookup
+
+- `worlds/morrow-coast.world.json` is the baked, metre-authored data with spatial indices. `tools/build_morrow_coast.py` regenerates it and the overview using only Python's standard library.
+- `scripts/world/morrow_coast.gd` implements the existing `surface_at(pixel_position)` protocol. The controller, transmission, handling Resource, audio and camera are not changed.
+- Roads use a 64 m spatial index. Junction polygons and rectangular parking/apron surfaces are also indexed. The validation run averaged about 14 segment checks per surface lookup across all baked centerlines.
+- Environment cells are 192 m squares. The runtime loads a 3 Ã— 3 neighborhood with a one-cell hysteresis band, capped by a 5 Ã— 5 footprint during movement. It builds at most one new cell per render frame; the spawn cell is immediate.
+- Static terrain/road commands are cached on chunk nodes. Terrain, shoulders, pavement, markings, junctions and illustrated scenery use ordered drawing layers so neighboring cells cannot paint over each other's roads or buildings. Each loaded chunk has local building/tree/rock/water-boundary collision shapes. Remote districts have no instantiated scenery or blockers.
+- Tire marks use the existing bounded GPU pool, independent of static world drawing. The atlas and minimap share a cartographic model. Zoomed maps cache a padded local area, translate during small pans, and rebuild only after 70 pixels of travel. The region overview caches the entire simplified map. Player arrows move independently. Detail includes building footprints, roof lines, crop rows, parking, docks, terrain contours, district labels and decluttered street/landmark names.
+- The bake rejects solid scenery overlapping the road-clearance corridor and boundaries crossing vehicle centerlines. Facility parking, doors and service aprons remain outside traffic lanes.
+
+The world contains about 19,000 lightweight authored/baked scenery entries, not 20,000 live Godot objects. Roofs, tree canopies and rocks use the original illustrated atlas in `assets/scenery/morrow-atlas-v1.png`; its creation method and exact prompt are recorded in `assets/scenery/ART_NOTES.md`. Gardens, crops, boats, lamps, track markings, terrain and service lots remain reusable vector modules in `coast_scenery.gd`. All artwork can be replaced without changing road coordinates or physics. Buildings have simple solid footprints; trees have trunk collision rather than solid canopy discs. Mountains use a shared visual elevation field, shaded terrain, rock cuts, fill slopes, directional shadows and roadside rails; there is no 3D suspension/elevation simulation. Beach sand has a separate lower-grip surface while paved waterfront roads retain asphalt grip.
+
+## Proving ground and preserved behavior
+
+Open `scenes/proving_ground.tscn` and press F6 to run the original lab. The shared bootstrap chooses the environment; there is no fork of the vehicle, input, transmission, camera, audio, pause menu or saved F1 tuning. The physics/runtime and tire-mark stress tests explicitly use this scene where they rely on its spawn and geometry. Main-scene UI tests still exercise the open-world launch.
+
+The application identifier is unchanged, preserving existing Godot user data and saved controls/tuning. The open-world window title and HUD subtitle identify Morrow Coast. Persisted F1 values still override stock tuning as before.
+
+## Validation and measured scope
+
+`run_tests.ps1` imports the game and runs existing driving regressions at 30/60/144 render FPS, plus handling, handbrake recovery and full-scene checks. New checks:
+
+- `tests/open_world_test.gd`: actual garage launch/reset, indexed surfaces on all road points and junctions, road/facility graph connectivity, bridge presence, full-car footprint clearance at five positions per road, building collision and bounded streaming, atlas keyboard controls.
+- `tests/open_world_drive.gd`: a conservative test driver uses the real controller from the garage across the city to the waterfront. Local run: destination reached in 245.6 simulated seconds, zero impacts, 0.6% of frames on grass at corner margins. This harness is not shipped traffic AI.
+- `tests/map_detail_test.gd`: pointer-anchored zoom, bounded zoom, drag/release, destination focus leaving car tracking, fit-region restoration, local footprints, minimap following, and cache reuse/refresh boundaries.
+- `tests/world_render_tour.gd`: GPU-rendered district, overview and zoomed-atlas screenshots plus a 720-frame streaming/mark stress route. Latest local RTX 4080 measurement: city mean 2.70 ms, 95th percentile 4.42 ms, 99th percentile 6.31 ms, max 14.46 ms. The separate mountain pass averaged 3.18 ms, 95th percentile 9.82 ms, 99th percentile 13.60 ms, max 16.93 ms. Maximum cell setup, including mesh creation, was 4.10 ms. These are uncapped stress-test wall times, not performance promises for other machines.
+- Existing persistence, imperial-display and pause/settings tests validate the same systems on the open-world bootstrap.
+
+The world is playable exploration content. Garages, shops, fuel, dealerships, staging and fast-travel candidates are reachable locations only. Inventory, fuel purchases, event timing, progression, AI traffic and a working fast-travel system are intentionally not added. The mixed illustrated/vector art is an original reusable foundation; additional assets can be substituted district by district.
+
+## Route design references
+
+This original network takes inspiration from regional driving variety described in the official [Forza Horizon 5 biome guide](https://forza.net/news/exploring-forza-horizon-5-biomes-and-seasons) and [Forza Horizon 6 full-map reveal](https://forza.net/en-GB/news/forza-horizon-6-full-map-reveal): contrasting urban streets, countryside, coastal travel and technical mountain driving. It does not reproduce either game's geography or road layout.
+
+Morrow Parkway provides fast district travel; city arterials feed smaller neighborhood streets. Ridgeline Traverse connects Pinecrest's uplands to Seaglass's coastal viewpoint without returning through the city. Orchard Heritage Road loops through Applecross Farm and Willowmere village. Quarry Rally Road provides a gravel alternative from the southern countryside to Old Quarry Yard and the western village approach. These join the existing reservoir loop, mountain pass, bay roads, motorsport circuit and connected service aprons. Driveways end at visible facilities; regional roads connect places or complete useful loops.
+
+## Juniper Pass mountain art and route pass
+
+From Larkspur, take Westgate Drive, Meadow Road toward Willowmere, then Juniper Approach. Juniper Pass climbs from the western foothills through linked left/right hairpins to Juniper Lookout. Summit Ribbon continues over the high saddle toward Pinecrest Lodge; Reservoir Loop and the forest/ridge roads complete return routes. Lookout access remains a paved destination, with no isolated mountain road ends. The pass's visual elevation rises from roughly 27 m / 90 ft at its lower entrance to about 797 m / 2,615 ft at the lookout. The upper massif peaks near 990 m. These are art/route metadata, not forces or suspension heights.
+
+The new climb replaces two loosely winding road sections with deliberately spaced switchbacks: slow turnbacks alternate with short acceleration sections and broader connecting bends. The climb is 8.5 m wide, with double centerlines, clear shoulders, downhill rails with actual collision, uphill rock cuts and vegetated fill slopes dropping away beyond the rail. Side geometry is rejected where it would cross another paved corridor or form an inverted mesh on a tight bend.
+
+The visual treatment uses the following researched ideas:
+
+- **Northwest hillshading:** a single consistent upper-left light direction makes ridges read as raised terrain. [USGS hillshading overview](https://earthquake.usgs.gov/education/geologicmaps/hillshades.php) and [ETH Zurich's relief-shading design guide](https://ikgrelief.ethz.ch/design/light-direction/) informed this choice. The latter explains why reversed illumination can make mountains appear to be valleys.
+- **Elevation tint and vegetation:** sparse alpine pines and warmer exposed rock distinguish upper slopes from wooded foothills. An original analytic height field combines broad mountain masses with irregular multi-scale detail; it is shared by the road metadata, terrain shading and atlas relief. [Red Blob Games' terrain guide](https://www.redblobgames.com/maps/terrain-from-noise/) discusses height fields, multiple noise scales and biome/elevation relationships.
+- **Contact shade, cast silhouettes and overlap:** rock feet, rail posts, trees and roofs cast consistently toward the southeast. Uphill cuts have darker feet and lighter upper lips, broken strata and small-scale stone grain. The renderer batches cliff/rail geometry into two meshes per chunk and caches silhouettes with the static chunks. The local minimap samples forest canopies to keep fast movement through dense woodland inexpensive. [Godot's 2D lighting guide](https://docs.godotengine.org/en/stable/tutorials/2d/2d_lights_and_shadows.html) explains the depth benefits of lighting, normal maps and shadows; this daytime implementation uses baked hillshade and cached geometry/silhouettes rather than a dynamic light/occluder for every prop.
+- **Contrasting driving regions:** the [FH5 biome article](https://forza.net/news/exploring-forza-horizon-5-biomes-and-seasons) and [FH6 map reveal](https://forza.net/en-GB/news/forza-horizon-6-full-map-reveal) informed the change of pace from city/parkway travel to a technical mountain destination. All roads, height data, textures and terrain geometry here are original.
+
+Art sources: `tools/mountain_field.py` defines visual elevation; `tools/bake_mountain_relief.py` generates the checked-in 1,400 × 1,200 relief PNGs (requires NumPy and Pillow only when rebuilding those textures). `tools/build_morrow_coast.py` remains standard-library Python and bakes roads, rock/fill faces and rails. Terrain shading samples one shared world-space field, so neighboring chunks have identical lighting at their boundaries. `coast_relief.gd`, `cliff_rock.gdshader` and `coast_shadows.gd` draw cached roadside/art details; vehicle code, car artwork, handling, camera and audio remain unchanged.
+
+`tests/open_world_test.gd` now also checks the pass's switchback reversals, height gain, rail coverage and triangulation of every rock/fill face. `tests/mountain_drive.gd` drives the real controller from the mountain entrance through the climb to Pinecrest: local result 461.5 simulated seconds, zero impacts, 0% grass. The render tour now captures both the mountain atlas and a separate 720-frame mountain streaming stress run.
+
+Final rendering stress measurements include 720 accelerated mountain frames, moving two road samples each frame with intermittent tire marks. On the local RTX 4080: 3.18 ms mean, 9.82 ms p95, 13.60 ms p99 and 16.93 ms maximum. A separate city route averaged 2.70 ms. Chunk setup including ready-time mesh creation peaked at 4.10 ms. These are uncapped local stress observations, not frame-rate guarantees on other hardware. The geometry and minimap batching removed the initial version's 24 ms p95 mountain redraw spikes.

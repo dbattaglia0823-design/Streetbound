@@ -10,7 +10,7 @@ func capture() -> void:
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://capture.png")
 	for child in scene.get_children():
-		if child is CanvasLayer:
+		if child.get_script() == load("res://scripts/ui/driving_hud.gd"):
 			child.tuning.visible = true
 	for i in 3:
 		await process_frame

@@ -13,6 +13,7 @@ const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_b
 	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],
 	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
 var vehicle: VehicleController2D
+var environment_title := "DRIVING LAB    /    PROTOTYPE 01"
 var camera: Camera2D
 var telemetry: Label
 var speed_label: Label
@@ -73,7 +74,7 @@ func _ready() -> void:
 	var header := VBoxContainer.new()
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
-	label(header, "DRIVING LAB    /    PROTOTYPE 01", 13, Color("a1c779"))
+	label(header, environment_title, 13, Color("a1c779"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
 	var dash := VBoxContainer.new()
 	panel(Vector2(24, 650), Vector2(365, 220)).add_child(dash)
