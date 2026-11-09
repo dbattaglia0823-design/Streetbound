@@ -24,6 +24,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/runtime_test.gd
       - name: Verify camera speed feedback and bounded visual effects
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/speed_feedback_test.gd
+      - name: Verify comfort camera damping, dead zone and turn-rate bounds
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/camera_comfort_test.gd
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape
