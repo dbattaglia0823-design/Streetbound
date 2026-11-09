@@ -41,12 +41,19 @@ try {
         $relative = $Matches[1].Split('?')[0].Split('#')[0]
         $relative = [System.Uri]::UnescapeDataString($relative).TrimStart('/')
         if ([string]::IsNullOrWhiteSpace($relative)) { $relative = 'index.html' }
-        $relative = $relative.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+        $relative = $relative.Replace('\\', '/')
         try {
-          $file = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
-          if (-not $file.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-            $status = '403 Forbidden'
-          } elseif (-not [System.IO.File]::Exists($file)) {
+          if ($relative -ceq 'worlds/morrow-coast.world.json') {
+            # Explicit read-only reference to the playable world. Do not
+            # expose the rest of the repository (especially .git metadata).
+            $file = [System.IO.Path]::GetFullPath((Join-Path $root '..\worlds\morrow-coast.world.json'))
+          } else {
+            $file = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
+            if (-not $file.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+              $status = '403 Forbidden'
+            }
+          }
+          if ($status -eq '200 OK' -and -not [System.IO.File]::Exists($file)) {
             $status = '404 Not Found'
           }
         } catch { $status = '400 Bad Request' }
