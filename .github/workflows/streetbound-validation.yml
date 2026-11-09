@@ -22,6 +22,8 @@ jobs:
         run: node --test map-editor/tests/*.test.mjs
       - name: Validate Morrow Coast editable source overlays and road endpoint safety
         run: python3 tests/morrow_editor_bridge_test.py
+      - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
+        run: python3 tools/build_morrow_coast.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Test driving forces, brakes, drift, resets and collisions
