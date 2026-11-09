@@ -13,6 +13,8 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
+import {loadMorrowCoast,isMorrowEdit,morrowEditText,MORROW_EDIT_NAME} from './morrow-coast-bridge.js';
+import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {
   placeBesideRoad,placeSiteMarker,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -25,6 +27,8 @@ const AUTO='streetbound.map-editor.autosave.v2',SAVE='streetbound.map-editor.man
 let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=null,pointInsertMode=null;
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
 let undoStack=[],redoStack=[];
+const laneCache=new WeakMap();
+const trafficFor=()=>{let lanes=laneCache.get(doc.roads);if(!lanes){lanes=lanePatterns(doc.roads);laneCache.set(doc.roads,lanes);}return lanes;};
 const minZoom=.007,maxZoom=5; // Entire 22k+ worlds still fit on narrow mobile viewports.
 const status=message=>{$('status').textContent=message;};
 const errorMessage=e=>status(e?.message||'Action failed.');
@@ -65,6 +69,7 @@ function render(){
       roadsidePreview={...placed,radius:placementFootprint(doc,placed)};
     }catch{/* Invalid placements do not render a misleading ghost. */}
   }
+  if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
   drawEditorOverlay(ctx,doc,{selection,hover:draft?hover:null,draft,zoom,roadsidePreview,
     insertMode:pointInsertMode,insertHover:tool==='select'?hover:null,
     brushPreview:tool==='prop'&&($('scenery-paint').checked||$('scenery-erase').checked)&&hover
@@ -106,6 +111,7 @@ function focusPoint(p){
 }
 function refreshHeader(){
   $('world-title').value=doc.name;
+  $('save-morrow').hidden=!isMorrowEdit(doc);
   $('world-dimensions').textContent=doc.world.width+' × '+doc.world.height+' world units';
   $('object-count').textContent=doc.roads.length+' roads · '+
     buildRoadJunctions(doc.roads).length+' intersections · '+
@@ -691,7 +697,7 @@ $('scatter').addEventListener('click',()=>{
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
-for(const id of ['show-roads','show-junctions','show-terrain','show-scenery','show-markers','show-boundaries','audit-show-overlay'])
+for(const id of ['show-roads','show-junctions','show-terrain','show-scenery','show-markers','show-boundaries','audit-show-overlay','show-traffic'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
 const fields={
@@ -730,6 +736,43 @@ function loadAtlasCoast(){
   if($('new-dialog').open)$('new-dialog').close();
 }
 $('load-atlas').addEventListener('click',loadAtlasCoast);
+$('load-morrow').addEventListener('click',async()=>{
+  const button=$('load-morrow');
+  if(dirty&&!window.confirm('Load the actual Morrow Coast map? Export unsaved edits first for a permanent backup.'))return;
+  button.disabled=true;
+  status('Loading Morrow Coast roads and terrain from the repository...');
+  try{
+    const {doc:world,stats}=await loadMorrowCoast();
+    startWorld(world,'Morrow Coast loaded: '+stats.roads+' road pieces, '+
+      stats.regions+' terrain regions and '+stats.landmarkMarkers+
+      ' gameplay markers. Decorative '+stats.proceduralProps+
+      ' props are regenerated at bake. Save Morrow edits and rebake to apply changes.');
+    $('show-traffic').checked=true;
+    requestRender();
+  }catch(e){errorMessage(e);}
+  finally{button.disabled=false;}
+});
+$('save-morrow').addEventListener('click',async()=>{
+  try{
+    const content=morrowEditText(doc);
+    // Chrome and Edge can write directly to the checked-out repository if
+    // user chooses map-editor/maps/. The browser has NO silent file access.
+    if(typeof window.showSaveFilePicker==='function'){
+      const handle=await window.showSaveFilePicker({
+        suggestedName:MORROW_EDIT_NAME,
+        types:[{description:'Streetbound editable Morrow Coast JSON',
+          accept:{'application/json':['.json']}}]});
+      const writer=await handle.createWritable();
+      await writer.write(content);
+      await writer.close();
+      status('Saved '+MORROW_EDIT_NAME+'. Place it in map-editor/maps/ then run tools/Rebuild Morrow Coast.cmd to update the playable world.');
+    }else{
+      download(content,MORROW_EDIT_NAME,'application/json');
+      status('Downloaded '+MORROW_EDIT_NAME+'. Move it into map-editor/maps/ and run tools/Rebuild Morrow Coast.cmd.');
+    }
+  }catch(e){if(e?.name!=='AbortError')errorMessage(e);}
+});
+
 $('create-atlas').addEventListener('click',loadAtlasCoast);
 $('confirm-new').addEventListener('click',()=>{
   try{
