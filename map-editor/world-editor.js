@@ -13,6 +13,7 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
+import {openMorrowWorld,buildMorrowPatch} from './morrow-bridge.js';
 import {
   placeBesideRoad,placeSiteMarker,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -24,7 +25,7 @@ const mini=$('minimap'),miniCtx=mini.getContext('2d');
 const AUTO='streetbound.map-editor.autosave.v2',SAVE='streetbound.map-editor.manual.v2';
 let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=null,pointInsertMode=null;
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
-let undoStack=[],redoStack=[];
+let undoStack=[],redoStack=[],morrowReference=null;
 const minZoom=.007,maxZoom=5; // Entire 22k+ worlds still fit on narrow mobile viewports.
 const status=message=>{$('status').textContent=message;};
 const errorMessage=e=>status(e?.message||'Action failed.');
@@ -318,10 +319,12 @@ function refreshSpriteLists(){
   }
 }
 function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();requestRender();}
-function startWorld(world,message,{skipRecovery=false}={}){
+function startWorld(world,message,{skipRecovery=false,keepMorrow=false}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
   if(dirty&&!skipRecovery)auditUI.stash(doc);
+  if(!keepMorrow)morrowReference=null;
+  $('export-morrow-patch').disabled=!morrowReference;
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
   undoStack=[];redoStack=[];dirty=false;
   auditUI.invalidate();refreshUI();fit();status(message);
@@ -770,6 +773,30 @@ $('import-world').addEventListener('change',async event=>{
       startWorld(parsed,'Imported editable world. Run Map health before Godot export.');
   }catch(e){errorMessage(e);}
   event.target.value='';
+});
+async function loadMorrowCoast(){
+  if(dirty&&!window.confirm('Open Morrow Coast? Export JSON before replacing unsaved map edits.'))return;
+  try{
+    status('Loading the production Morrow Coast road network...');
+    const response=await fetch('./__morrow_coast__',{cache:'no-store'});
+    if(!response.ok)throw new Error('The local Windows launcher must serve the production world. Open map-editor/Start Map Editor.cmd, or import the baked JSON using the browser file picker.');
+    const source=await response.json();
+    const bridge=openMorrowWorld(source);
+    morrowReference=bridge.reference;
+    startWorld(bridge.doc,'Morrow Coast roads loaded. Existing endpoints are protected. Export Morrow patch to rebuild the production world.',{keepMorrow:true});
+    $('export-morrow-patch').disabled=false;
+    auditUI.invalidate();
+  }catch(e){errorMessage(e);}
+}
+$('open-morrow').addEventListener('click',loadMorrowCoast);
+$('export-morrow-patch').addEventListener('click',()=>{
+  try{
+    if(!morrowReference)throw new Error('Open Morrow Coast before exporting a road patch.');
+    const patch=buildMorrowPatch(doc,morrowReference);
+    download(JSON.stringify(patch,null,2)+'\n','morrow-coast.editor-patch.json','application/json');
+    status('Patch downloaded: '+patch.updated_roads.length+' changed roads, '+patch.new_roads.length+
+      ' new roads. Save to worlds/morrow-coast.editor-patch.json and run tools/build_morrow_coast.py.');
+  }catch(e){errorMessage(e);}
 });
 $('export-world').addEventListener('click',()=>{
   try{download(serializeWorld(doc),worldSlug(doc.name)+'.world.json','application/json');status('World geometry JSON downloaded.');}
