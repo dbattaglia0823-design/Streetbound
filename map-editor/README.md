@@ -135,3 +135,52 @@ drive-testing still require separate implementation and visual review.
 All new checks and helpers are original code adapted to Streetbound's existing
 JS model and geometry; no third-party source code was copied from the above
 projects.
+
+## Editing the actual Morrow Coast production map
+
+Use `map-editor/Start Map Editor.cmd`, then choose **Open Morrow Coast**.
+The local server provides the existing baked world through one read-only
+allowlisted URL. The editor loads all production roads and their editable
+control-point anchors; it does NOT overwrite the large baked world JSON.
+
+Modify interior control points, road width/lanes or add a new connecting road.
+Existing road endpoints represent shared source nodes and cannot be moved
+by the safe patch system. Click **Export Morrow patch**, then put the downloaded
+`morrow-coast.editor-patch.json` into `worlds/` and run
+`Rebuild Morrow Coast.cmd` (or `python tools/build_morrow_coast.py` on Python 3).
+The builder validates edits and regenerates splines, intersections, scenery,
+surface indexes and streaming chunks before saving world files.
+
+**Current limits:** Production Morrow editing supports roads and new roads.
+Terrain, POIs, buildings and props visible in other editor modes are NOT
+included in the Morrow road patch. Production road deletion and changing
+shared endpoints are blocked to avoid breaking the procedural source graph.
+Exported editor-v2 JSON is NOT a substitute for the production streamed map.
+Review and commit the patch and rebaked `worlds/morrow-coast.world.json`
+and `worlds/morrow-coast-overview.svg` together after testing.
+
+## Ambient traffic
+
+Morrow Coast builds directional right-hand traffic routes from the SAME
+baked road centerlines, widths and junction approaches as gameplay uses.
+Routes have metre-based stations, speed limits and explicit legal turn
+connections. Cars use smooth turns, stop and yield at existing intersection
+controls, slow for leading traffic/player vehicles, and remain within a
+bounded 18-car population around the player. AI cars have collision shapes.
+
+**F5** toggles a developer traffic-lane display (both directions are
+separately colored). F4 still shows static map geometry. There is no
+manual traffic editing file to get out of sync with Morrow road edits.
+
+Traffic lights, pedestrian routing, formal lane-changing, advanced demand
+simulation and a full district-to-district global route solver are NOT
+implemented by this version. Those are sensible future enhancements.
+
+References: SUMO directed lane networks and intersection rules:
+https://sumo.dlr.de/docs/Networks/SUMO_Road_Networks.html
+https://sumo.dlr.de/docs/Simulation/Intersections.html
+and CrowdSim's car-following approach:
+https://github.com/VenomEddieVenom/CrowdSim
+
+Automated tests: `map-editor/tests/morrow-bridge.test.mjs`,
+`tests/morrow_editor_patch_test.py`, `tests/morrow_traffic_test.gd`.
