@@ -185,3 +185,20 @@ kbd{background:#24374b;color:#ffd1ac;font:10px/1.4 ui-monospace,monospace;border
 .world-page .roadside-controls .inspector-actions{gap:7px;margin-top:12px}
 .world-page .roadside-controls .gdt-btn{flex:1 1 100px;font-size:10px;min-width:0;white-space:normal}
 .world-page #roadside-status{font-size:10px;color:#9db8aa}
+
+/* Streetbound editing safety: compact audit, navigable findings and backups. */
+.world-page .map-audit-panel{padding:12px 13px 14px;background:#101d29;border-bottom:1px solid #ffffff16}
+.world-page .map-audit-panel .muted-copy{font-size:11px;line-height:1.5;margin:5px 0 12px}
+.world-page .audit-actions{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+.world-page .audit-actions .gdt-btn{flex:1 1 115px;white-space:normal;font-size:11px;padding:8px 9px}
+.world-page .audit-backup-actions{border-top:1px solid #ffffff20;padding-top:11px;margin-top:12px}
+.world-page .audit-summary{font-size:11px;line-height:1.5;padding:9px;border:1px solid #54687a66;border-radius:7px;margin:8px 0;color:#d0e3e8}
+.world-page .audit-summary.has-errors{border-color:#cd6e656b;color:#ffc9c1}
+.world-page .audit-summary.has-warnings{border-color:#be9b6277;color:#f5daaf}
+.world-page .audit-list{display:flex;flex-direction:column;gap:5px;max-height:285px;overflow:auto}
+.world-page .audit-item{display:block;width:100%;text-align:left;background:#132634;color:#c9d9e0;padding:8px;border:1px solid #ffffff27;border-radius:6px;font:inherit;font-size:11px;cursor:pointer;line-height:1.4}
+.world-page .audit-item:hover,.world-page .audit-item:focus-visible{background:#1b384b;border-color:#7fbccc}
+.world-page .audit-item strong{display:inline-block;min-width:48px;text-transform:uppercase;font-size:9px;letter-spacing:.06em;color:#e5b7a7}
+.world-page .audit-item[data-severity="warning"] strong{color:#e9ce9a}
+.world-page .audit-item[data-severity="info"] strong{color:#93c7cd}
+.world-page .audit-item small{display:block;font-size:10px;color:#93b2bd;margin-top:3px}
