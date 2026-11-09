@@ -153,9 +153,41 @@ func _draw() -> void:
 						var p := Vector2(x+100+sin(float(y)) * 80,y+140)
 						if Geometry2D.is_point_in_polygon(p,terrain.points):
 							draw_arc(p,55,.15,2.7,12,Color(.8,.91,.86,.18),2,true)
-	# Quiet grass texture, baked in the chunk draw cache rather than per-frame.
+	# Decorative strokes are cached with the chunk draw list, never spawned as
+	# nodes or moved each frame. Roads are painted in the later stages.
+	_draw_ground_foliage()
+
+
+func ground_kind_at(local_point: Vector2) -> String:
+	var kind := "grass"
+	# Last clipped polygon wins, matching the order in _draw().
+	for terrain in ground_polys:
+		if Geometry2D.is_point_in_polygon(local_point, terrain.points):
+			kind = str(terrain.kind)
+	return kind
+
+
+func _draw_ground_foliage() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = cell.x * 9387 + cell.y * 14731 + 41
-	for i in 55:
-		var p: Vector2 = Vector2(rng.randf(),rng.randf())*world.chunk_m*PPM
-		draw_line(p,p+Vector2(4,0),Color(0.42,0.53,0.35,0.13),2)
+	# 192m chunks are divisible by 12m, keeping the distribution world-aligned.
+	var rows := int(world.chunk_m / 12.0)
+	for y in rows:
+		for x in rows:
+			if rng.randf() > 0.66:
+				continue
+			var p := Vector2(float(x) * 12.0 + rng.randf_range(1.0, 11.0),
+				float(y) * 12.0 + rng.randf_range(1.0, 11.0)) * PPM
+			var kind := ground_kind_at(p)
+			if kind in ["beach", "water", "ocean", "foam", "riverbank"]:
+				continue
+			if kind in ["city", "town"] and rng.randf() > 0.40:
+				continue
+			var extent := rng.randf_range(6.0, 13.0)
+			var shade := Color(0.22, 0.37, 0.23, 0.23) if kind == "forest" else Color(0.38, 0.47, 0.28, 0.21)
+			var highlight := Color(0.61, 0.68, 0.39, 0.24)
+			draw_line(p + Vector2(-extent * 0.55, extent * 0.12), p + Vector2(-extent * 0.15, -extent * 0.75), shade, 2.0, true)
+			draw_line(p + Vector2(extent * 0.50, extent * 0.16), p + Vector2(extent * 0.05, -extent), highlight, 2.3, true)
+			draw_line(p + Vector2(-extent * 0.10, extent * 0.32), p + Vector2(extent * 0.06, -extent * 0.63), shade, 2.0, true)
+			if rng.randf() < 0.08 and kind not in ["mountain", "highland"]:
+				draw_circle(p + Vector2(3.0, -extent), 2.4, Color(0.91, 0.83, 0.58, 0.45))
