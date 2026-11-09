@@ -60,7 +60,7 @@ func run() -> void:
 				break
 			samples += 1
 		check("boardwalk_follows_real_shoreline", matching and samples == boardwalk.size(), samples)
-		var shore_sample: Vector2 = boardwalk[boardwalk.size()/2]
+		var shore_sample: Vector2 = boardwalk[int(boardwalk.size()/2)]
 		world.stream_at(shore_sample * 20.0)
 		while not world.pending.is_empty():
 			world._build_chunk(world.pending.pop_front())
@@ -110,7 +110,7 @@ func run() -> void:
 			if direction.length_squared()<0.9:
 				continue
 			for side in [-1.0,1.0]:
-				var on_walk := (a+b)*0.5+direction.orthogonal()*side*(float(r.width)*0.5+1.8)
+				var on_walk: Vector2 = (a+b)*0.5+direction.orthogonal()*side*(float(r.width)*0.5+1.8)
 				var surface: Dictionary = world.surface_at(on_walk*20.0)
 				if surface.name=="ASPHALT" and absf(float(surface.grip)-0.93)<0.02:
 					if side<0: left_walks+=1
