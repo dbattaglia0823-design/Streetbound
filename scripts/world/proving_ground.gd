@@ -70,15 +70,22 @@ func surface_at(point: Vector2) -> Dictionary:
 func _physics_process(dt: float) -> void:
 	if not vehicle:
 		return
+	if vehicle.linear_velocity.length() < 3.0:
+		tire_marks.reset_tracks()
+		return
 	mark_clock += dt
-	if mark_clock > 0.045 and vehicle.linear_velocity.length() > 3.0:
-		mark_clock = 0.0
-		if absf(vehicle.slip_angle) > 0.13 or vehicle.handbrake > 0.1 or vehicle.wheel_spin > 0.15 or vehicle.surface != "ASPHALT":
-			var right := Vector2.RIGHT.rotated(vehicle.rotation)
-			var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
-			for side in [-1.0, 1.0]:
-				var p: Vector2 = rear + right * side * 16.0
-				tire_marks.add_mark(p, vehicle.rotation, vehicle.surface == "ASPHALT")
+	if mark_clock < 0.045:
+		return
+	mark_clock = 0.0
+	if absf(vehicle.slip_angle) <= 0.13 and vehicle.handbrake <= 0.1 and vehicle.wheel_spin <= 0.15 and vehicle.surface == "ASPHALT":
+		tire_marks.reset_tracks()
+		return
+	var right := Vector2.RIGHT.rotated(vehicle.rotation)
+	var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
+	for track in 2:
+		var side := -1.0 if track == 0 else 1.0
+		var p: Vector2 = rear + right * side * 16.0
+		tire_marks.add_mark(p, vehicle.rotation, vehicle.surface == "ASPHALT", track)
 
 func text_at(point: Vector2, text: String, size := 30, color := Color("b1bba8")) -> void:
 	draw_string(ThemeDB.fallback_font, point, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)

@@ -1,5 +1,6 @@
 extends Node2D
 const PPM := 20.0
+const Walkways = preload("res://scripts/world/urban_walkways.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
@@ -58,9 +59,14 @@ func _roads(stage: int) -> void:
 		var gravel: bool = r.surface == "GRAVEL"
 		if stage == 0:
 			if urban:
-				draw_polyline(path,Color("adb3a5"),width+100,true)
-				draw_polyline(path,Color("d9d4c2"),width+88,true)
-				draw_polyline(path,Color("bec4b6"),width+11,true)
+				# Both sides are real road-relative paths, not disconnected
+				# rectangles. Their mitered offsets follow every road bend.
+				for side in [-1.0, 1.0]:
+					var walkway := Walkways.urban_sidewalk_center(path, width, side)
+					draw_polyline(walkway, Color("99a49b"), Walkways.SIDEWALK_WIDTH_PX + 16.0, true)
+					draw_polyline(walkway, Color("dedbcc"), Walkways.SIDEWALK_WIDTH_PX + 2.0, true)
+					var outside := Walkways.urban_sidewalk_outer(path, width, side)
+					draw_polyline(outside, Color("b5b8a9"), 3.0, true)
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
@@ -71,6 +77,11 @@ func _roads(stage: int) -> void:
 					for wheel in [-13.0,13.0]:
 						draw_polyline(_offset(path,float(lane)+wheel),Color(.18,.23,.25,.065),10,true)
 		elif stage == 2:
+			if urban:
+				for side in [-1.0, 1.0]:
+					# Bright continuous road-edge kerb on both sides.
+					draw_polyline(Walkways.offset(path, side * (width * 0.5 + 1.5)),
+						Color("f0ebdc"), 5.0, true)
 			for piece in batch.markings:
 				_paint(piece.path,r,width,float(piece.phase))
 
@@ -117,12 +128,32 @@ func _draw() -> void:
 	for j in junction_list:
 		var polygon := PackedVector2Array()
 		for p in j.polygon: polygon.append(point(p))
+		# The baker provides only OUTSIDE corner fillets, never a line across
+		# a street approach. Extend each eligible corner into a sidewalk
+		# apron, then mask the inside with the actual junction asphalt.
+		for i in j.curbs.size():
+			if j.approaches.is_empty():
+				continue
+			var first: Dictionary = j.approaches[i % j.approaches.size()]
+			var second: Dictionary = j.approaches[(i + 1) % j.approaches.size()]
+			var a_urban: bool = world.data.roads[int(first.road)].kind in ["local", "arterial"]
+			var b_urban: bool = world.data.roads[int(second.road)].kind in ["local", "arterial"]
+			if not (a_urban or b_urban):
+				continue
+			var corner := PackedVector2Array()
+			for p in j.curbs[i]: corner.append(point(p))
+			if corner.size() < 2:
+				continue
+			draw_polyline(corner, Color("9ba89f"),
+				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 21.0, true)
+			draw_polyline(corner, Color("dedbcc"),
+				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 3.0, true)
 		draw_colored_polygon(polygon,Color("58656c"))
-		# Corner kerbs follow fillets, never close across an approach mouth.
+		# Rounded curb fillets leave vehicle mouths and marked crosswalks open.
 		for curve in j.curbs:
 			var path := PackedVector2Array()
 			for p in curve: path.append(point(p))
-			draw_polyline(path,Color("c5c2ae"),6,true)
+			draw_polyline(path,Color("eee7d5"),6,true)
 		for arm in j.approaches:
 			var r: Dictionary = world.data.roads[int(arm.road)]
 			var p := point(arm.p)
