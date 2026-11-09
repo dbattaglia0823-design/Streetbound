@@ -8,7 +8,7 @@ import {isLoose} from './world-road-priority.js';
 export function lanePatterns(roads,{includeLoose=false}={}){
   const patterns=[];
   for(const road of roads){
-    if(road.roadClass==='track'||(!includeLoose&&isLoose(road)))continue;
+    if(['track','service'].includes(road.roadClass)||(!includeLoose&&isLoose(road)))continue;
     const count=Math.max(1,Math.min(6,road.lanes||2));
     const forward=Math.max(1,Math.floor(count/2));
     const reverse=Math.max(1,count-forward);
