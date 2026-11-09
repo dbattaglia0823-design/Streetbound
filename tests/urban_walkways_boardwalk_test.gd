@@ -20,7 +20,7 @@ func run() -> void:
 	var left := Walkways.urban_sidewalk_center(straight,200.0,-1.0)
 	var right := Walkways.urban_sidewalk_center(straight,200.0,1.0)
 	check("sidewalks_on_both_sides", left.size() == 3 and right.size() == 3 and
-		left[1].x > 0.0 and right[1].x < 0.0 and
+		left[1].x < 0.0 and right[1].x > 0.0 and
 		is_equal_approx(left[1].y, straight[1].y) and is_equal_approx(right[1].y, straight[1].y),
 		[left[1],right[1]])
 	var curve := PackedVector2Array([
