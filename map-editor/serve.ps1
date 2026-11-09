@@ -44,7 +44,14 @@ try {
         $relative = $relative.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
         try {
           $file = [System.IO.Path]::GetFullPath((Join-Path $root $relative))
-          if (-not $file.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+          if ($relative -eq '__morrow_coast__') {
+            # Explicit, read-only allowlist for the single production world.
+            # No arbitrary ../ traversal is permitted.
+            $file = [System.IO.Path]::GetFullPath((Join-Path $root '..\worlds\morrow-coast.world.json'))
+          }
+          $authorized = $file.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+            ($relative -eq '__morrow_coast__')
+          if (-not $authorized) {
             $status = '403 Forbidden'
           } elseif (-not [System.IO.File]::Exists($file)) {
             $status = '404 Not Found'
