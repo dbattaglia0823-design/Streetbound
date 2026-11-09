@@ -81,7 +81,7 @@ static func chunk_features(chunk: Node2D, world: Node2D) -> Array[Dictionary]:
 					Walkways.urban_sidewalk_outer(path, width, float(side)),
 					false, id, side)
 	for junction in chunk.junction_list:
-		var id := world.data.junctions.find(junction)
+		var id: int = world.data.junctions.find(junction)
 		_feature(out, "junction", _raw_path(chunk, junction.polygon), true, id)
 		for fillet in junction.curbs:
 			_feature(out, "corner_curb", _raw_path(chunk, fillet), false, id)
