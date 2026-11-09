@@ -12,6 +12,7 @@ class_name GDTRacingWorld
 var world_data: Dictionary = {}
 var _solid_body: StaticBody2D
 var _road_cache: Dictionary = {}
+var _road_pieces_cache: Dictionary = {}
 var _sprite_textures: Dictionary = {}
 
 const BIOME_COLORS = {
@@ -78,11 +79,25 @@ func load_world_json(source: String) -> bool:
     _sprite_textures = textures
     world_data = decoded
     _road_cache.clear()
+    _road_pieces_cache.clear()
     for road in world_data.get("roads", []):
         if typeof(road) != TYPE_DICTIONARY:
             continue
         var data: Dictionary = road
-        _road_cache[str(data.get("id", ""))] = _sample_path(data.get("points", []), bool(data.get("smooth", true)))
+        var id: String = str(data.get("id", ""))
+        var path_points: PackedVector2Array = _sample_path(data.get("points", []), bool(data.get("smooth", true)))
+        _road_cache[id] = path_points
+        var fragments: Array[PackedVector2Array] = []
+        if data.has("renderPieces"):
+            # Exporter's authoritative clipped dirt/gravel fragments.
+            for raw_fragment in data.get("renderPieces", []):
+                if raw_fragment is Array:
+                    var points: PackedVector2Array = _make_polygon(raw_fragment)
+                    if points.size() >= 2:
+                        fragments.append(points)
+        else:
+            fragments.append(path_points)
+        _road_pieces_cache[id] = fragments
     _build_junctions()
     _build_blockers()
     queue_redraw()
@@ -110,19 +125,28 @@ func get_road_paths() -> Array:
         var id: String = str(road.get("id", ""))
         result.append({"id": id, "surface": road.get("surface", "asphalt"),
             "roadClass": road.get("roadClass", "city"), "width": road.get("width", 36),
-            "lanes": road.get("lanes", 2), "points": _road_cache.get(id, PackedVector2Array())})
+            "lanes": road.get("lanes", 2),
+            "points": _road_cache.get(id, PackedVector2Array()),
+            "traversable_segments": _road_pieces_cache.get(id, [])})
     return result
 
 func road_near(position: Vector2) -> Dictionary:
     var roads: Array = world_data.get("roads", [])
-    for i in range(roads.size() - 1, -1, -1):
-        var road: Dictionary = roads[i]
-        var path: PackedVector2Array = _road_cache.get(str(road.get("id", "")), PackedVector2Array())
-        var width: float = float(road.get("width", 0))
-        for j in range(1, path.size()):
-            var nearest: Vector2 = Geometry2D.get_closest_point_to_segment(position, path[j - 1], path[j])
-            if nearest.distance_to(position) <= width * 0.5:
-                return road.duplicate(true)
+    # Paved has first claim regardless of authoring order. Dirt paths do
+    # not report grip across the deliberate gaps cut by the exporter.
+    for pass_index in 2:
+        for i in range(roads.size() - 1, -1, -1):
+            var road: Dictionary = roads[i]
+            var loose: bool = str(road.get("surface", "")) in ["dirt", "gravel"]
+            if loose != (pass_index == 1):
+                continue
+            var id: String = str(road.get("id", ""))
+            var width: float = float(road.get("width", 0))
+            for path in _road_pieces_cache.get(id, []):
+                for j in range(1, path.size()):
+                    var nearest: Vector2 = Geometry2D.get_closest_point_to_segment(position, path[j - 1], path[j])
+                    if nearest.distance_to(position) <= width * 0.5:
+                        return road.duplicate(true)
     return {}
 
 func get_surface_at(position: Vector2) -> String:
@@ -292,8 +316,13 @@ func _build_junctions() -> void:
                     found[identifier] = true
                     var hit: Variant = Geometry2D.segment_intersects_segment(a,b,other["a"],other["b"])
                     if hit is Vector2:
+                        var other_road: Dictionary = roads_by_id[str(other["road"])]
+                        var loose_here: bool = str(road.get("surface", "")) in ["dirt", "gravel"]
+                        var loose_other: bool = str(other_road.get("surface", "")) in ["dirt", "gravel"]
+                        if loose_here != loose_other:
+                            continue
                         _add_raw_junction(raw,hit,id,str(other["road"]),"crossing",
-                            minf(float(road.get("width",36)),float((roads_by_id[str(other["road"])] as Dictionary).get("width",36))))
+                            minf(float(road.get("width",36)),float(other_road.get("width",36))))
             added.append({"a":a,"b":b,"road":id,"key":id + "-" + str(i)})
         for segment in added:
             for cell in _junction_cells(segment["a"],segment["b"]):
@@ -316,6 +345,10 @@ func _build_junctions() -> void:
                 if id == other_id:
                     continue
                 var other: Dictionary = roads_by_id[other_id]
+                var loose_here: bool = str(road.get("surface","")) in ["dirt","gravel"]
+                var loose_other: bool = str(other.get("surface","")) in ["dirt","gravel"]
+                if loose_here != loose_other:
+                    continue
                 var q: Vector2 = Geometry2D.get_closest_point_to_segment(p,segment["a"],segment["b"])
                 var d: float = p.distance_to(q)
                 var allowance: float = float(road.get("width",36)) * 0.5 + float(road.get("shoulder",5)) + float(other.get("width",36)) * 0.5 + float(other.get("shoulder",5)) + 4.0
@@ -439,7 +472,12 @@ func _dashes(path: PackedVector2Array, width: float, color: Color) -> void:
         cursor += length
 
 func _draw_road(road: Dictionary, lines: bool) -> void:
-    var path: PackedVector2Array = _road_cache.get(str(road.get("id", "")),PackedVector2Array())
+    var id: String = str(road.get("id", ""))
+    for path in _road_pieces_cache.get(id, []):
+        _draw_road_piece(road, lines, path)
+
+
+func _draw_road_piece(road: Dictionary, lines: bool, path: PackedVector2Array) -> void:
     if path.size() < 2:
         return
     var width: float = float(road.get("width",36))
@@ -534,10 +572,16 @@ func _draw() -> void:
     draw_rect(Rect2(Vector2.ZERO,size),BIOME_COLORS.get(str(world.get("base","grass")),Color("#728e61")))
     for region in world_data.get("regions",[]):
         _draw_region(region)
-    for road in world_data.get("roads",[]):
-        _draw_road(road,false)
-    for road in world_data.get("roads",[]):
-        _draw_road(road,true)
+    # Draw loose footprints first, then paved roads, even if authored later.
+    # Deliberately stopped dirt branches never paint over through pavement.
+    for loose_pass in [true,false]:
+        for road in world_data.get("roads",[]):
+            if (str(road.get("surface","")) in ["dirt","gravel"]) == loose_pass:
+                _draw_road(road,false)
+    for loose_pass in [true,false]:
+        for road in world_data.get("roads",[]):
+            if (str(road.get("surface","")) in ["dirt","gravel"]) == loose_pass:
+                _draw_road(road,true)
     _draw_junctions()
     for item in world_data.get("props",[]):
         _draw_prop(item)
