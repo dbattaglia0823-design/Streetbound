@@ -48,6 +48,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 			previous = segment_index
 		if path.size() > 1:
 			road_batches.append({"path": path, "road": world.data.roads[road_id],"phase":phase})
+	for batch in road_batches:
+		batch["markings"]=preload("res://scripts/world/road_marking_clip.gd").parts(batch.path,float(batch.phase),batch.road.get("marking_gaps",[]))
 	for terrain in data.get("terrain", []):
 		var polygon := PackedVector2Array()
 		for p in terrain.points:

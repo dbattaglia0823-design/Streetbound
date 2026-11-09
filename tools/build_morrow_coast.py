@@ -9,6 +9,7 @@ import math
 import random
 from pathlib import Path
 from mountain_field import height_m
+from junction_bake import build_junctions
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH, HEIGHT, CHUNK, CELL = 6400, 4800, 192, 64
@@ -172,6 +173,11 @@ for key,margin in [("coastn",65),("te",22),("tse",22),("marina",18),("coastf",60
     _,y=NODES[key]
     NODES[key]=(shore_x(y)-margin,y)
 
+# Separate village side streets into spaced T junctions instead of a seven-arm knot.
+for name,x,y in [("village_n",1460,2800),("village_w",1290,2970),
+                 ("village_s",1190,3110),("village_e",1550,2970),("harvest_gate",980,3400),("saltair_entry",4910,2965)]:
+    node(name,x,y)
+
 chain("Laurel Avenue", ["sw","start","wm","wn","nw"], "arterial")
 chain("Foundry Crescent", ["nw","dn","ne","en","em","se","ds","sm","sw"], "arterial")
 chain("Market Street", ["wm","dw","dc","de","em"])
@@ -188,13 +194,16 @@ road("Station Road", "commerce","se", [(3430,3230)])
 road("Willow Crescent", "sm","suburb", [(2590,3400)])
 road("Orchard Crescent", "suburb","sw", [(2290,3280)])
 road("Westgate Drive", "wm","west_gate", [(2350,2840)], kind="arterial")
-road("Meadow Road", "west_gate","village", [(1970,2890),(1740,3060)], kind="rural")
-road("Old Mill Lane", "village","mill", [(1550,2740),(1600,2590)], kind="rural")
+road("Meadow Road", "west_gate","village_e", [(1970,2890),(1740,3060)], kind="rural")
+road("Meadow Road", "village_e","village", kind="rural")
+road("Old Mill Lane", "village","village_n", [(1430,2850)], kind="rural")
+road("Old Mill Lane", "village_n","mill", [(1550,2740),(1600,2590)], kind="rural")
 road("Mill Bypass", "mill","west_gate", [(2020,2560)], kind="rural")
-road("West Orchard Road", "village","west", [(1190,2990)], kind="rural")
-road("Harvest Road", "west","country_s", [(850,3560),(1000,3820)], kind="rural")
+chain("West Orchard Road",["village","village_w","village_s","west"],"rural")
+road("Harvest Road", "west","harvest_gate", [(1040,3320)], kind="rural")
+road("Harvest Road", "harvest_gate","country_s", [(850,3560),(1000,3820)], kind="rural")
 road("South County Road", "country_s","hsw", [(1650,4240),(2050,4050)], kind="rural")
-road("Farmstead Link", "village","hsw", [(1650,3290),(1810,3530)], kind="rural")
+road("Farmstead Link", "village_s","hsw", [(1480,3290),(1810,3530)], kind="rural")
 chain("Morrow Parkway", ["hnw","hn","hne","he","hse","hs","hsw"], "highway")
 road("Morrow Parkway", "hsw","hnw", [(1970,3240),(2020,2540)], kind="highway")
 road("Westgate Slip Road", "west_gate","hnw", [(2260,2530),(2200,2240)], kind="arterial")
@@ -212,13 +221,13 @@ road("Waterfront Drive", "tn","te", [(4920,2410),(5050,2520)], kind="local")
 chain("Bellwether High Street", ["tn","tc","ts"], "arterial")
 chain("Sailmaker Lane", ["tw","tc","te"])
 chain("Waterfront Esplanade",["te","marina","tse"])
-chain("Sailmaker Lane",["tse","ts","tw"])
+chain("Sailmaker Lane",["tse","saltair_entry","ts","tw"])
 road("Pacific Scenic Highway", "forest_e","coastn", [(4150,850),(4750,900)], kind="rural")
 road("Pacific Scenic Highway", "coastn","tn", [(shore_x(1530)-70,1530),(shore_x(1870)-70,1870),(4930,2160)], kind="rural")
-road("Pacific Scenic Highway", "ts","coastf", [(shore_x(3160)-120,3160)], kind="rural")
+road("Pacific Scenic Highway", "ts","coastf", [(4830,3070),(shore_x(3160)-120,3160)], kind="rural")
 road("Pacific Scenic Highway", "coastf","coasts", [(shore_x(3790)-70,3790)], kind="rural")
 road("South Coastal Link", "coasts","hse", [(4520,3990)], kind="arterial")
-road("Juniper Approach", "village","mwest", [(1050,2690),(750,2490)], kind="rural")
+road("Juniper Approach", "village_n","mwest", [(1050,2690),(750,2490)], kind="rural")
 road("Juniper Pass", "mwest","mstart", [(540,2100)], kind="mountain")
 # Three linked, generously spaced switchbacks climb the west-facing escarpment.
 road("Juniper Pass", "mstart","hairpin", [(510,1800),(345,1750),(265,1700),(245,1645),(290,1600),
@@ -237,10 +246,10 @@ road("Ranger Trail", "lake_e","forest", [(2070,1370),(2300,1340)], kind="gravel"
 node("applecross",680,3220)
 node("quarry",650,4330)
 road("Ridgeline Traverse","summit","coastn",[(2200,380),(2900,420),(3600,300),(4300,420),(4800,650)],kind="rural",width=9)
-road("Orchard Heritage Road","village","applecross",[(1080,2840),(780,2950)],kind="rural")
-road("Orchard Heritage Road","applecross","west",[(730,3480),(900,3420)],kind="rural")
+road("Orchard Heritage Road","village_w","applecross",[(1080,2840),(780,2950)],kind="rural")
+road("Orchard Heritage Road","applecross","west",[(720,3300),(820,3210),(940,3200)],kind="rural")
 road("Quarry Rally Road","country_s","quarry",[(1050,4380),(800,4470)],kind="gravel",surface="GRAVEL")
-road("Quarry Rally Road","quarry","west",[(400,4020),(500,3620),(820,3420)],kind="gravel",surface="GRAVEL")
+road("Quarry Rally Road","quarry","harvest_gate",[(400,4020),(500,3620),(820,3420)],kind="gravel",surface="GRAVEL")
 road("Paddock Avenue", "hs","trackgate", [(3530,3680)], kind="arterial")
 road("Paddock Entry", "trackgate","trackn", kind="driveway")
 road("Ashford Grand Circuit", "trackn","trackw", [(3120,3910),(2880,4020)], kind="track")
@@ -285,11 +294,11 @@ add_poi("Laurel Motor House", "START / GARAGE", "start", (-1,0))
 add_poi("Larkspur Performance", "CUSTOMIZATION", "commerce", (-1,0), "workshop")
 add_poi("Eastgate Auto Gallery", "DEALERSHIP", "en", (1,-.5), "showroom")
 add_poi("Parkway Fuel & Coffee", "FUEL", "he", (1,1), "fuel")
-add_poi("Willowmere Village", "VILLAGE / GARAGE", "village", (1,-.1), "house")
+add_poi("Willowmere Village", "VILLAGE / GARAGE", "village_e", (-.2,-1), "house")
 add_poi("Juniper Lookout", "SCENIC OVERLOOK", "overlook", (-.3,-1), "cafe")
 add_poi("Pinecrest Lodge", "LANDMARK", "summit", (0,-1), "lodge")
 add_poi("Bellwether Marina", "MARINA", "marina", (-.1,1), "cafe")
-add_poi("Saltair Motors", "COASTAL GARAGE", "ts", (.8,.2), "garage")
+add_poi("Saltair Motors", "COASTAL GARAGE", "saltair_entry", (.1,-1), "garage")
 add_poi("Seaglass Overlook", "COASTAL OVERLOOK", "coastn", (-1,0), "cafe")
 add_poi("Ashford Raceworks", "RACE PADDOCK", "trackgate", (-1,0), "workshop")
 add_poi("Drag Staging", "DRAG START", "dragn", (-1,0), "fuel")
@@ -351,6 +360,10 @@ def road_clear(p, radius=0):
             s = SEGMENTS[index]
             if near(p,s["a"],s["b"])[0] < ROADS[s["road"]]["width"]/2+radius+2.0:
                 return False
+    for j in JUNCTION_CLEARANCE.get(f"{int(p[0]//CELL)},{int(p[1]//CELL)}",[]):
+        poly=j["polygon"]
+        if in_poly(p,poly) or any(near(p,a,b)[0]<radius+.6 for a,b in zip(poly,poly[1:]+poly[:1])):
+            return False
     return True
 
 
@@ -360,6 +373,16 @@ def in_poly(p, poly):
         if (a[1]>p[1]) != (b[1]>p[1]) and p[0] < (b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0]:
             inside = not inside
     return inside
+
+
+# All roads share the drivable 2D plane; grade=1 denotes a water bridge,
+# not an invented flyover. One bake covers endpoint T joins and crossings.
+JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
+
+JUNCTION_CLEARANCE=collections.defaultdict(list)
+for j in JUNCTIONS:
+    x,y=j["p"]; pad=j["radius"]+25
+    for key in keys_for((x-pad,y-pad,x+pad,y+pad),CELL):JUNCTION_CLEARANCE[key].append(j)
 
 
 def land(p):
@@ -648,65 +671,6 @@ def intersect(a,b,c,d):
     return None
 
 
-# Same-grade crossings get authored/baked junctions and graph connections.
-# Different grades never connect just because the centerlines overlap.
-connections=set()
-junctions={}
-for name,p in NODES.items():
-    ids=[r["id"] for r in ROADS if r["start"]==name or r["end"]==name]
-    for a in ids:
-        for b in ids:
-            if a<b: connections.add((a,b))
-    if len(ids)>2: junctions[(round(p[0],1),round(p[1],1))]=dict(p=list(p),roads=ids)
-tested=set()
-for indices in GRID.values():
-    for i in indices:
-        a=SEGMENTS[i]
-        for j in indices:
-            if j<=i or (i,j) in tested: continue
-            tested.add((i,j))
-            b=SEGMENTS[j]
-            if a["road"]==b["road"]: continue
-            ra,rb=ROADS[a["road"]],ROADS[b["road"]]
-            if ra["grade"]!=rb["grade"]: continue
-            p=intersect(a["a"],a["b"],b["a"],b["b"])
-            if p is None: continue
-            pair=tuple(sorted([a["road"],b["road"]])); connections.add(pair)
-            if min(distance(p,ra["points"][0]),distance(p,ra["points"][-1]),distance(p,rb["points"][0]),distance(p,rb["points"][-1]))<.5: continue
-            key=(round(p[0]/3)*3,round(p[1]/3)*3)
-            junctions.setdefault(key,dict(p=p,roads=[]))
-            junctions[key]["roads"]=list(set(junctions[key]["roads"]+[a["road"],b["road"]]))
-JUNCTIONS=list(junctions.values())
-
-def hull(points):
-    points=sorted(set((round(x,3),round(y,3)) for x,y in points))
-    def cross(a,b,c): return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
-    lower=[]
-    for p in points:
-        while len(lower)>1 and cross(lower[-2],lower[-1],p)<=0: lower.pop()
-        lower.append(p)
-    upper=[]
-    for p in points[::-1]:
-        while len(upper)>1 and cross(upper[-2],upper[-1],p)<=0: upper.pop()
-        upper.append(p)
-    return lower[:-1]+upper[:-1]
-
-for j in JUNCTIONS:
-    j["radius"]=max(ROADS[i]["width"] for i in j["roads"])/2+2.8
-    corners=[]; center=j["p"]
-    for road_id in j["roads"]:
-        r=ROADS[road_id]; pts=r["points"]
-        segment_index=min(range(len(pts)-1),key=lambda i:near(center,pts[i],pts[i+1])[0])
-        a,b=pts[segment_index],pts[segment_index+1]
-        length=max(distance(a,b),.001)
-        tx,ty=(b[0]-a[0])/length,(b[1]-a[1])/length
-        signs=[1] if distance(center,pts[0])<1 else ([-1] if distance(center,pts[-1])<1 else [-1,1])
-        for sign in signs:
-            for side in [-1,1]:
-                width=r["width"]/2+.5
-                corners.append([center[0]+tx*sign*j["radius"]-ty*side*width,center[1]+ty*sign*j["radius"]+tx*side*width])
-    j["polygon"]=hull(corners)
-
 # Bake chunk membership once, leaving runtime streaming as cheap index lookups.
 CHUNKS=collections.defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],relief=[],rails=[]))
 for i,s in enumerate(SEGMENTS):
@@ -776,7 +740,7 @@ length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
           size=[WIDTH,HEIGHT],chunk_size=CHUNK,surface_cell=CELL,spawn=SPAWN,nodes=NODES,roads=ROADS,segments=SEGMENTS,
           props=PROPS,pois=POIS,districts=DISTRICTS,terrain=TERRAIN,walls=WALLS,junctions=JUNCTIONS,bridges=BRIDGES,
-          road_connections=sorted(connections),surface_index=GRID,chunks=CHUNKS,
+          road_connections=sorted(connections),surface_index=GRID,chunks=CHUNKS,road_crossings=CROSSINGS,
           relief_faces=RELIEF_FACES,mountain_rails=MOUNTAIN_RAILS,
           visual_relief=dict(extent=[2800,2400],sun_direction=[-.65,-.76],maximum_m=1000),
           stats=dict(road_km=round(length/1000,2),roads=len(ROADS),props=len(PROPS),junctions=len(JUNCTIONS),connected_roads=len(seen)))

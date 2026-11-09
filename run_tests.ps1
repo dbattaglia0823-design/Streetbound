@@ -51,3 +51,7 @@ Write-Output 'PASS: pointer-anchored atlas zoom, pan, cache bounds and local min
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '65000', '--script', 'res://tests/mountain_drive.gd', '--log-file', "`"$project\mountain_drive.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'mountain_drive.log') -SimpleMatch 'arrived=true' -Quiet)) { throw 'Mountain climb did not complete.' }
 Write-Output 'PASS: real-controller mountain climb through linked hairpins and guardrails.'
+
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--script', 'res://tests/junction_test.gd', '--log-file', "`"$project\junction_test.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'junction_test.log') -SimpleMatch 'JUNCTION TESTS: PASS' -Quiet)) { throw 'Junction validation did not finish.' }
+Write-Output 'PASS: all crossings, priority, paint clipping, valid corner geometry and clear turning areas.'

@@ -18,7 +18,7 @@ func run() -> void:
 	car = main.vehicle
 	car.set_physics_process(false)
 	route.append(car.position/20)
-	var hops := ["start","wm","dw","dc","de","em","he","tw","tc","te","marina","tse","ts"]
+	var hops := ["start","wm","dw","dc","de","em","he","tw","tc","te","marina","tse","saltair_entry","ts"]
 	for i in hops.size()-1:
 		for road in world.data.roads:
 			if road.start==hops[i] and road.end==hops[i+1]:
@@ -33,7 +33,9 @@ func run() -> void:
 	var grass_frames := 0
 	var impacts := [0]
 	car.impacted.connect(func(strength: float):
-		if strength>1.0: impacts[0]+=1)
+		if strength>1.0:
+			impacts[0]+=1
+			print("DRIVE IMPACT: position=",car.position/20," strength=",strength))
 	var finished := false
 	var ticks := 0
 	for frame in 54000:
@@ -57,6 +59,18 @@ func run() -> void:
 		var error := forward.angle_to(to_target)
 		var turn := absf(error)
 		var desired_speed := 16.0 if turn<.15 else (10.0 if turn<.45 else 5.0)
+		# Brake before a sharp junction turn, rather than beginning a fast turn
+		# from the driveway and cutting through the off-road corner buildings.
+		var preview := progress
+		var ahead := 0.0
+		var upcoming_turn := 0.0
+		while preview<route.size()-2 and ahead<maxf(16,speed*1.4):
+			var segment := route[preview+1]-route[preview]
+			if segment.length()>.05: upcoming_turn=maxf(upcoming_turn,absf(forward.angle_to(segment)))
+			ahead+=segment.length()
+			preview+=1
+		if upcoming_turn>.9: desired_speed=minf(desired_speed,4.5)
+		elif upcoming_turn>.45: desired_speed=minf(desired_speed,7.0)
 		var steer := clampf(error*3.0+car.slip_angle*.4-car.yaw_rate*.12,-1,1)
 		var throttle := clampf((desired_speed-speed)*.5,0,1)
 		var brake := clampf((speed-desired_speed)*.3,0,.75)

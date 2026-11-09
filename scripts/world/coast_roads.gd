@@ -56,7 +56,6 @@ func _roads(stage: int) -> void:
 		var width := float(r.width) * PPM
 		var urban: bool = r.kind in ["local", "arterial"]
 		var gravel: bool = r.surface == "GRAVEL"
-		var station := float(batch.phase)
 		if stage == 0:
 			if urban:
 				draw_polyline(path,Color("adb3a5"),width+100,true)
@@ -72,26 +71,31 @@ func _roads(stage: int) -> void:
 					for wheel in [-13.0,13.0]:
 						draw_polyline(_offset(path,float(lane)+wheel),Color(.18,.23,.25,.065),10,true)
 		elif stage == 2:
-			if urban: _paver_joints(path,width,station)
-			if gravel or r.kind == "driveway":
-				continue
-			var edge := Color("dcd9c4")
-			if r.kind == "track":
-				_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station)
-				_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station)
-			elif r.kind == "highway":
-				draw_polyline(_offset(path,-8),Color("d7c696"),3,true)
-				draw_polyline(_offset(path,8),Color("d7c696"),3,true)
-				_dashes(_offset(path,width/4),3.5,edge,60,100,station)
-				_dashes(_offset(path,-width/4),3.5,edge,60,100,station)
-			elif r.kind in ["arterial","mountain"]:
-				draw_polyline(_offset(path,-5),Color("d8c69a"),3,true)
-				draw_polyline(_offset(path,5),Color("d8c69a"),3,true)
-			else:
-				_dashes(path,3,Color("ddd2a7"),55,85,station)
-			draw_polyline(_offset(path,width/2-10),edge,3,true)
-			draw_polyline(_offset(path,-width/2+10),edge,3,true)
+			for piece in batch.markings:
+				_paint(piece.path,r,width,float(piece.phase))
 
+func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
+	var urban: bool = r.kind in ["local","arterial"]
+	var gravel: bool = r.surface=="GRAVEL"
+	if urban: _paver_joints(path,width,station)
+	if gravel or r.kind == "driveway":
+		return
+	var edge := Color("dcd9c4")
+	if r.kind == "track":
+		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station)
+		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station)
+	elif r.kind == "highway":
+		draw_polyline(_offset(path,-8),Color("d7c696"),3,true)
+		draw_polyline(_offset(path,8),Color("d7c696"),3,true)
+		_dashes(_offset(path,width/4),3.5,edge,60,100,station)
+		_dashes(_offset(path,-width/4),3.5,edge,60,100,station)
+	elif r.kind in ["arterial","mountain"]:
+		draw_polyline(_offset(path,-5),Color("d8c69a"),3,true)
+		draw_polyline(_offset(path,5),Color("d8c69a"),3,true)
+	else:
+		_dashes(path,3,Color("ddd2a7"),55,85,station)
+	draw_polyline(_offset(path,width/2-10),edge,3,true)
+	draw_polyline(_offset(path,-width/2+10),edge,3,true)
 func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
@@ -110,45 +114,53 @@ func _draw() -> void:
 			var direction := (path[i+1]-path[i-1]).normalized()
 			var normal := Vector2(-direction.y,direction.x)*float(bridge.width)*PPM*.45
 			draw_line(path[i]-normal,path[i]+normal,Color(.67,.72,.70,.26),2,true)
-	# Broad pavement covers converging markings; each approach gets a stop bar
-	# and crossing only at urban junctions, never on track/highway approaches.
 	for j in junction_list:
-		var center := point(j.p)
-		var radius := float(j.radius)*PPM
 		var polygon := PackedVector2Array()
-		for p in j.polygon:
-			polygon.append(point(p))
-		var outline := polygon.duplicate()
-		outline.append(polygon[0])
-		draw_polyline(outline,Color("c5c2ae"),14,true)
+		for p in j.polygon: polygon.append(point(p))
 		draw_colored_polygon(polygon,Color("58656c"))
-		for road_index in j.roads:
-			var r: Dictionary = world.data.roads[int(road_index)]
-			if not r.kind in ["local","arterial"]:
-				continue
-			var nearest := Vector2.ZERO
-			var best := INF
-			for raw in [r.points[0],r.points[-1]]:
-				var p := point(raw)
-				if p.distance_squared_to(center)<best:
-					best=p.distance_squared_to(center)
-					nearest=p
-			# Endpoint approaches have an unambiguous tangent.
-			if best>100:
-				continue
-			var first: bool = point(r.points[0]).distance_squared_to(center)<100
-			var direction := (point(r.points[mini(3,r.points.size()-1)])-center).normalized() if first else (point(r.points[maxi(0,r.points.size()-4)])-center).normalized()
+		# Corner kerbs follow fillets, never close across an approach mouth.
+		for curve in j.curbs:
+			var path := PackedVector2Array()
+			for p in curve: path.append(point(p))
+			draw_polyline(path,Color("c5c2ae"),6,true)
+		for arm in j.approaches:
+			var r: Dictionary = world.data.roads[int(arm.road)]
+			var p := point(arm.p)
+			var direction := Vector2(float(arm.direction[0]),float(arm.direction[1]))
 			var normal := Vector2(-direction.y,direction.x)
-			var bar := center+direction*(radius+24)
-			draw_line(bar,bar-normal*float(r.width)*PPM*.4,Color("e9e0cb"),7,true)
-			var stripes := maxi(3,int(float(r.width)*PPM/20)-1)
-			for stripe in stripes:
-				var cross := center+direction*(radius+48)+normal*(stripe-float(stripes-1)*.5)*20
-				draw_line(cross,cross+direction*24,Color("dfdac6"),9,true)
-			if j.roads.size()>=4:
-				var arrow := center+direction*(radius+155)-normal*float(r.width)*PPM*.25
-				var head := arrow-direction*20
-				draw_line(arrow+direction*22,head,Color("d9d8c3"),3.5,true)
-				draw_polyline(PackedVector2Array([head+direction*13+normal*11,head,head+direction*13-normal*11]),Color("d9d8c3"),3.5,true)
+			var width := float(arm.width)*PPM
+			if arm.control=="stop":
+				var bar := p+direction*20
+				draw_line(bar-normal*6,bar-normal*(width*.5-8),Color("e9e0cb"),8,true)
+				_sign(p+direction*30-normal*(width*.5+32),direction,false)
+			elif arm.control=="yield":
+				_dashes(PackedVector2Array([p-normal*6,p-normal*(width*.5-8)]),7,Color("e9e0cb"),9,8)
+				_sign(p+direction*30-normal*(width*.5+32),direction,true)
+			if r.kind in ["local","arterial"] and j.control!="roundabout" and j.approaches.size()>=3:
+				# Crossings are beyond the clear turning area and before the stop bar.
+				var stripes := maxi(3,int(width/23)-1)
+				for stripe in stripes:
+					var cross := p-direction*26+normal*(stripe-float(stripes-1)*.5)*23
+					draw_line(cross,cross+direction*21,Color("dfdac6"),9,true)
 	draw_set_transform(Vector2.ZERO)
 
+func _sign(p: Vector2,outward: Vector2,yield_sign: bool) -> void:
+	draw_line(p+Vector2(5,7),p+Vector2(16,21),Color(.08,.14,.15,.3),8,true)
+	draw_circle(p+Vector2(0,5),3,Color("b3bbb1"))
+	draw_set_transform(p,outward.angle()+PI/2)
+	var shape := PackedVector2Array()
+	if yield_sign:
+		shape=PackedVector2Array([Vector2(-14,-10),Vector2(14,-10),Vector2(0,14)])
+	else:
+		for i in 8: shape.append(Vector2.from_angle(PI/8+i*TAU/8)*14)
+	draw_colored_polygon(shape,Color("f2e8d4"))
+	var inset := PackedVector2Array()
+	for v in shape: inset.append(v*.86)
+	draw_colored_polygon(inset,Color("ae493c"))
+	if yield_sign:
+		var middle := PackedVector2Array()
+		for v in shape: middle.append(v*.56)
+		draw_colored_polygon(middle,Color("eee5cf"))
+	else:
+		draw_string(ThemeDB.fallback_font,Vector2(-11,3),"STOP",HORIZONTAL_ALIGNMENT_LEFT,-1,8,Color("fff4dd"))
+	draw_set_transform(Vector2.ZERO)
