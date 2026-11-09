@@ -22,6 +22,15 @@ jobs:
         run: node --test map-editor/tests/*.test.mjs
       - name: Validate Morrow Coast editable source overlays and road endpoint safety
         run: python3 tests/morrow_editor_bridge_test.py
+      - name: Verify actual Morrow Coast editor no-edit round trip preserves the playable source
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {convertMorrowWorld,morrowEditText} from './map-editor/morrow-coast-bridge.js';
+          const map=JSON.parse(fs.readFileSync('worlds/morrow-coast.world.json','utf8'));
+          fs.writeFileSync('/tmp/morrow-edit-roundtrip.json',morrowEditText(convertMorrowWorld(map).doc));
+          JS
+          python3 tests/morrow_roundtrip_validate.py /tmp/morrow-edit-roundtrip.json
       - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
         run: python3 tools/build_morrow_coast.py
       - name: Import scripts and artwork
