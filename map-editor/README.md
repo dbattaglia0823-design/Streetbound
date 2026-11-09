@@ -53,13 +53,42 @@ traversableCenterlines are separated across paved crossings. No false
 dirt-to-pavement connections are exported. Traffic AI must use the
 traversable centerlines rather than the author's unbroken control spline.
 
-**Integration boundary:** Streetbound's existing playable Morrow Coast
-uses a distinct Python-baked streamed map format at
-worlds/morrow-coast.world.json, NOT the editor's gdt.racing-world v2 schema.
-Do not overwrite it with editor JSON. The exported Godot adapter can
-preview new maps separately; converting new authoring maps into the game's
-production streaming format is a separate bake/integration step. The existing
-playable world stays unchanged.
+## Editing the actual Morrow Coast
+
+Select **Edit Morrow Coast** in the top toolbar to import the playable
+`worlds/morrow-coast.world.json` into editable road anchor points, terrain
+preview regions, POIs and player start. Check **Traffic lanes / travel
+direction** to preview where vehicles travel in each direction; **Map health**
+helps review road geometry before applying changes.
+
+Click **Save Morrow edits** to save
+`map-editor/maps/morrow-coast.edits.world.json` using Chrome/Edge's
+Save File dialog, or move the JSON downloaded by other browsers into that
+folder. **Run a full rebake** with `tools/Rebuild Morrow Coast.cmd`
+(requires Python 3) or the manual GitHub Actions
+**Morrow Coast World Rebake** workflow, which makes the generated world and
+overview available as downloadable artifacts. Commit the source overlay
+and generated `worlds/` files together.
+
+The editable World Forge v2 document is NOT the game's streamed-world format
+and must not replace `worlds/morrow-coast.world.json` directly. The
+Python rebake regenerates actual road geometry, junctions, world chunks,
+surface/collision indexes and traffic lanes; simply saving an edit does not
+alter the running game.
+
+Generated scenery is rebuilt from the original world generator rather than
+being individually editable in this first Morrow integration. Original road
+IDs remain stable and high-detail coastline points are preserved when
+their preview regions are unmodified.
+
+On the playable Morrow Coast, **F5** enables/disables ambient traffic and
+**F6** draws its actual lane/turn graph; **F4** shows the underlying map
+geometry. Ambient vehicles currently follow lanes and yield but do not
+physically collide with the player. The proving-ground's existing F6
+function remains unchanged.
+
+See [Morrow editor / traffic integration](../docs/MORROW_EDITOR_AND_TRAFFIC.md)
+for the full workflow and limitations.
 
 ## Tests
 
