@@ -1,0 +1,243 @@
+extends Node2D
+## Near-player ambient traffic: right-hand lanes, slow/safe turns,
+## priority/all-way-stop/yield handling and simple time-headway car following.
+## Traffic is deliberately capped, spatially spawned and cosmetic-collision
+## until a robust vehicle-vs-vehicle collision/damage system is implemented.
+const Network = preload("res://scripts/world/traffic_network.gd")
+const Car = preload("res://scripts/world/traffic_car.gd")
+const PPM := 20.0
+const PALETTE := [
+	Color("7b8b9b"),Color("b5b6aa"),Color("a08f7a"),Color("617a77"),
+	Color("a77c6b"),Color("8b94a4"),Color("c9c1ad"),Color("515d67")
+]
+
+@export_range(0,30,1) var maximum_vehicles := 16
+@export var enabled := true
+var world: Node2D
+var player: VehicleController2D
+var network: RefCounted
+var agents: Array[Dictionary] = []
+var random := RandomNumberGenerator.new()
+var active_junctions: Dictionary = {}
+var _id_serial := 0
+var _spawn_clock := 0.0
+var _simulation_clock := 0.0
+var show_routes := false
+
+
+func _ready() -> void:
+	name = "AmbientTraffic"
+	random.seed = 260822
+	network = Network.new()
+	if world != null:
+		network.build(world.data)
+	z_index = 1
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# F6 previews actual routed paths rather than unrelated guessed lines.
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed and not key.echo and key.keycode==KEY_F6:
+			show_routes=not show_routes
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+
+
+func _spawn_one() -> bool:
+	if not is_instance_valid(player) or network.edges.is_empty():
+		return false
+	var ids: Array[int] = network.nearby_edges(player.global_position,400.0)
+	if ids.is_empty():
+		return false
+	for attempt in 32:
+		var id: int = ids[random.randi_range(0,ids.size()-1)]
+		var edge: Dictionary = network.edges[id]
+		if bool(edge.connector) or float(edge.length_px)<PPM*35.0:
+			continue
+		var progress := random.randf_range(PPM*7.0,maxf(PPM*8.0,float(edge.length_px)-PPM*8.0))
+		var sample: Dictionary=network.point_on_edge(id,progress)
+		var p: Vector2=sample.position
+		var away := p.distance_to(player.global_position)
+		if away<PPM*75.0 or away>PPM*390.0:
+			continue
+		if str(world.surface_at(p).name) != "ASPHALT":
+			continue
+		var free := true
+		for other in agents:
+			if p.distance_to(other.node.global_position)<PPM*35.0:
+				free=false
+				break
+		if not free:
+			continue
+		var car := StaticBody2D.new()
+		car.set_script(Car)
+		car.name = "TrafficCar%02d" % _id_serial
+		car.car_color = PALETTE[_id_serial%PALETTE.size()]
+		car.accent_color=Color("d2c4a7")
+		car.global_position=p
+		car.rotation=float(sample.angle)
+		add_child(car)
+		var speed := float(edge.speed_px)*random.randf_range(0.72,0.93)
+		agents.append({
+			"uid":_id_serial,"node":car,"edge":id,
+			"progress":progress,"speed":speed*0.65,"cruise":speed,
+			"next":-2,"stop_wait":0.0,"stop_done":false
+		})
+		_id_serial+=1
+		return true
+	return false
+
+
+func _choose_next(edge: Dictionary) -> int:
+	var choices: Array=edge.next
+	if choices.is_empty():
+		return -1
+	var best := -1
+	if random.randf()<0.72:
+		for option in choices:
+			var e: Dictionary=network.edges[int(option)]
+			if str(e.get("turn","straight"))=="straight":
+				best=int(option)
+				break
+	if best>=0:
+		return best
+	return int(choices[random.randi_range(0,choices.size()-1)])
+
+
+func _car_following(index: int,desired_px: float) -> float:
+	var agent: Dictionary=agents[index]
+	var distance_to_front := INF
+	for i in agents.size():
+		if i==index:
+			continue
+		var other: Dictionary=agents[i]
+		if int(other.edge)!=int(agent.edge):
+			continue
+		var gap := float(other.progress)-float(agent.progress)
+		if gap>0.0:
+			distance_to_front=minf(distance_to_front,gap)
+	if distance_to_front < PPM*24.0:
+		return minf(desired_px,maxf(0.0,(distance_to_front-PPM*6.0)*0.7))
+	return desired_px
+
+
+func _player_awareness(agent: Dictionary,desired_px: float) -> float:
+	# These first-generation traffic agents have no gameplay collision bodies:
+	# deliberately brake around the player rather than clipping through.
+	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
+	var location: Vector2=sample.position
+	var heading: Vector2=sample.tangent
+	var offset := player.global_position-location
+	var distance_px := offset.length()
+	if distance_px<PPM*9.0 and offset.dot(heading)>0.0 and offset.dot(heading)<PPM*12.0:
+		if absf(heading.cross(offset)) < PPM*2.6:
+			return minf(desired_px,maxf(0.0,(distance_px-PPM*4.0)*1.5))
+	return desired_px
+
+
+func _next_target(agent: Dictionary,edge: Dictionary) -> int:
+	if int(agent.next)==-2:
+		agent.next=_choose_next(edge)
+	return int(agent.next)
+
+
+func _tick_agent(index: int,dt: float) -> bool:
+	var agent: Dictionary=agents[index]
+	var edge: Dictionary=network.edges[int(agent.edge)]
+	var node: Node2D=agent.node
+	if not is_instance_valid(node):
+		return false
+	if node.global_position.distance_to(player.global_position)>PPM*530.0:
+		return false
+	var remaining := float(edge.length_px)-float(agent.progress)
+	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	desired=_car_following(index,desired)
+	desired=_player_awareness(agent,desired)
+	var next_id := -2
+	if remaining < maxf(PPM*32.0,float(agent.speed)*1.2):
+		next_id=_next_target(agent,edge)
+	if next_id>=0:
+		var next: Dictionary=network.edges[next_id]
+		if bool(next.connector):
+			desired=minf(desired,maxf(float(next.speed_px),remaining*0.8))
+			var junction := int(next.start_j)
+			var owner := int(active_junctions.get(junction,-1))
+			var control := str(next.control)
+			var should_yield := junction>=0 and owner>=0 and owner!=int(agent.uid)
+			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*8.0:
+				desired=minf(desired,maxf(0.0,(remaining-PPM*1.3)*0.5))
+				if float(agent.speed)<PPM*0.9 and remaining<PPM*2.5:
+					agent.stop_wait=float(agent.stop_wait)+dt
+					if float(agent.stop_wait)>=0.85:
+						agent.stop_done=true
+			if control=="yield" and remaining<PPM*13.0:
+				desired=minf(desired,PPM*4.0)
+			if should_yield and remaining<PPM*7.0:
+				desired=0.0
+			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*2.4:
+				desired=0.0
+
+	var previous := float(agent.speed)
+	var rate := PPM*5.5 if desired>previous else PPM*9.0
+	agent.speed=move_toward(previous,desired,rate*dt)
+	agent.progress=float(agent.progress)+float(agent.speed)*dt
+	if float(agent.progress)>=float(edge.length_px):
+		var chosen := _next_target(agent,edge)
+		if chosen<0:
+			return false
+		if bool(edge.connector):
+			var old_j := int(edge.end_j)
+			if int(active_junctions.get(old_j,-1))==int(agent.uid):
+				active_junctions.erase(old_j)
+		var next_edge: Dictionary=network.edges[chosen]
+		if bool(next_edge.connector) and int(next_edge.start_j)>=0:
+			active_junctions[int(next_edge.start_j)]=int(agent.uid)
+		var excess := float(agent.progress)-float(edge.length_px)
+		agent.edge=chosen
+		agent.progress=minf(excess,float(next_edge.length_px)*0.7)
+		agent.next=-2
+		agent.stop_wait=0.0
+		agent.stop_done=false
+	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
+	node.global_position=sample.position
+	node.rotation=lerp_angle(node.rotation,float(sample.angle),minf(1.0,dt*11.0))
+	return true
+
+
+func _physics_process(dt: float) -> void:
+	if not enabled or not is_instance_valid(player) or network==null:
+		return
+	var step := minf(dt,0.05)
+	_simulation_clock+=step
+	for i in range(agents.size()-1,-1,-1):
+		if not _tick_agent(i,step):
+			var node: Node2D=agents[i].node
+			if is_instance_valid(node):node.queue_free()
+			var agent_id := int(agents[i].uid)
+			for j in active_junctions.keys():
+				if int(active_junctions[j])==agent_id:active_junctions.erase(j)
+			agents.remove_at(i)
+	_spawn_clock+=step
+	if _spawn_clock>0.6 and agents.size()<maximum_vehicles:
+		_spawn_clock=0.0
+		_spawn_one()
+	if show_routes and int(_simulation_clock*3.0)!=int((_simulation_clock-step)*3.0):
+		queue_redraw()
+
+
+func _draw() -> void:
+	if not show_routes or not is_instance_valid(player) or network==null:
+		return
+	var mid := player.global_position
+	var painted := 0
+	for edge in network.edges:
+		if painted>140:
+			break
+		var path: PackedVector2Array=edge.points
+		if path.is_empty() or path[0].distance_to(mid)>PPM*350.0:
+			continue
+		draw_polyline(path,Color(0.96,0.67,0.30,0.52) if bool(edge.connector)
+			else Color(0.17,0.94,0.91,0.40),2.0,true)
+		painted+=1
