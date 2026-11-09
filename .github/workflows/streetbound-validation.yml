@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test automatic intersections and paved-over-dirt road priority
+      - name: Test map health, safe snaps, recovery and road priority
         run: node --test map-editor/tests/*.test.mjs
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit

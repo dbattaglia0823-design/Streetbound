@@ -11,6 +11,8 @@ import {distance,clamp,nearestOnPath,pointInPolygon,regionAt,sampleRoad} from '.
 import {drawWorld,drawEditorOverlay} from './world-renderer.js';
 import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
+import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
+import {createMapAuditUI} from './world-audit-ui.js';
 import {
   placeBesideRoad,placeSiteMarker,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -31,13 +33,10 @@ const screen = event => {
   const rect=canvas.getBoundingClientRect(),sx=event.clientX-rect.left,sy=event.clientY-rect.top;
   return {sx,sy,x:(sx-offsetX)/zoom,y:(sy-offsetY)/zoom};
 };
-const snapEnd = p => {
-  let candidate=null,best=clamp(15/zoom,8,28);
-  for(const road of doc.roads)for(const end of [road.points[0],road.points.at(-1)]){
-    const d=distance(p,end);
-    if(d<best){best=d;candidate=end;}
-  }
-  return candidate?{x:candidate.x,y:candidate.y}:p;
+const snapEnd = (p,surface) => {
+  if(!$('road-smart-snap').checked)return {point:p,snapped:null};
+  const hit=smartRoadSnap(doc,p,surface,{radius:clamp(15/zoom,8,28)});
+  return {point:hit?{x:hit.x,y:hit.y}:p,snapped:hit};
 };
 const currentDisplay = ()=>({
   showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,
@@ -70,7 +69,7 @@ function render(){
     insertMode:pointInsertMode,insertHover:tool==='select'?hover:null,
     brushPreview:tool==='prop'&&($('scenery-paint').checked||$('scenery-erase').checked)&&hover
       ?{position:hover,radius:Number($('brush-radius').value),erase:$('scenery-erase').checked}:null,
-    showBoundaries:$('show-boundaries').checked});
+    showBoundaries:$('show-boundaries').checked,auditIssues:auditUI.issues});
   ctx.restore();
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.strokeStyle='#f5c29699';ctx.lineWidth=1;ctx.strokeRect(offsetX+.5,offsetY+.5,doc.world.width*zoom,doc.world.height*zoom);
@@ -120,6 +119,7 @@ function makeSnapshot(before,label){
   if(before===doc)return;
   undoStack.push(before);if(undoStack.length>35)undoStack.shift();
   redoStack=[];dirty=true;
+  auditUI.invalidate();
   clearTimeout(autosaveTimer);
   autosaveTimer=setTimeout(()=>{
     try{localStorage.setItem(AUTO,serializeWorld(doc));}
@@ -151,7 +151,7 @@ function redo(){
 }
 function afterHistory(message){
   if(selection&&!getEntity(doc,selection.id))selection=null;
-  dirty=true;clearTimeout(autosaveTimer);
+  dirty=true;auditUI.invalidate();clearTimeout(autosaveTimer);
   autosaveTimer=setTimeout(()=>{try{localStorage.setItem(AUTO,serializeWorld(doc));}catch{status('Autosave unavailable. Export JSON instead.');}},650);
   refreshUI();status(message);
 }
@@ -318,12 +318,13 @@ function refreshSpriteLists(){
   }
 }
 function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();requestRender();}
-function startWorld(world,message){
+function startWorld(world,message,{skipRecovery=false}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
+  if(dirty&&!skipRecovery)auditUI.stash(doc);
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
   undoStack=[];redoStack=[];dirty=false;
-  refreshUI();fit();status(message);
+  auditUI.invalidate();refreshUI();fit();status(message);
   try{localStorage.setItem(AUTO,serializeWorld(doc));}
   catch{status('Autosave unavailable. Export JSON for a backup.');}
 }
@@ -353,13 +354,15 @@ function finishDraft(){
 function addDraftPoint(p,detail){
   const point=worldPoint(p.x,p.y);
   if(detail>=2&&draft){finishDraft();return;}
-  const where=tool==='road'?snapEnd(point):point;
+  const snap=tool==='road'?snapEnd(point,$('road-surface').value):null;
+  const where=snap?snap.point:point;
   if(!draft)draft={type:tool,width:Number($('road-width').value),points:[]};
   if(draft.points.length && distance(draft.points.at(-1),where)<1) return;
   draft.points.push(where);
   hover=null;
   refreshHeader();requestRender();
-  status(draft.points.length+' control points · Enter to finish · Esc to cancel');
+  status((snap?.snapped?'Connected to '+snap.snapped.roadName+' ('+snap.snapped.kind+'). ':'')+
+    draft.points.length+' control points · Enter to finish · Esc to cancel');
 }
 /** Paint or erase with continuous sampling while the pointer is held.
  * A full press/drag is committed once on pointerup, not on each spray tick.
@@ -518,6 +521,10 @@ function pointerEnd(event,wasCancelled=false){
   else if(current.before && current.before!==doc){
     try{
       if(doc.roads!==current.before.roads){
+        const jump=largeDragDistance(current.before,doc,current.id);
+        if(jump>350&&!window.confirm(
+          'This road moved '+Math.round(jump)+' world units. It may create unintended intersections. Keep the change?'))
+          throw new RangeError('Large road move canceled; previous road geometry restored.');
         const fixed=repairRoadsideObjects(doc);
         if(fixed.failed)throw new RangeError('Road edit would overlap '+fixed.failed+
           ' existing object(s). Try another curve or clear the area first.');
@@ -684,7 +691,7 @@ $('scatter').addEventListener('click',()=>{
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
-for(const id of ['show-roads','show-junctions','show-terrain','show-scenery','show-markers','show-boundaries'])
+for(const id of ['show-roads','show-junctions','show-terrain','show-scenery','show-markers','show-boundaries','audit-show-overlay'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
 const fields={
@@ -738,7 +745,12 @@ function download(content,filename,mime){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 $('save-world').addEventListener('click',()=>{
-  try{localStorage.setItem(SAVE,serializeWorld(doc));dirty=false;status('Saved in this browser. Export JSON for a portable backup.');}
+  try{
+    const last=localStorage.getItem(SAVE),next=serializeWorld(doc);
+    if(last&&last!==next)auditUI.stash(last);
+    localStorage.setItem(SAVE,next);dirty=false;
+    status('Saved in browser. Previous save retained when storage permits; export JSON for a portable backup.');
+  }
   catch{status('Browser storage is full or disabled. Export JSON instead.');}
 });
 $('load-world').addEventListener('click',()=>{
@@ -754,7 +766,8 @@ $('import-world').addEventListener('change',async event=>{
   try{
     if(file.size>8_000_000)throw new RangeError('World file exceeds 8 MB');
     const parsed=parseWorld(await file.text());
-    startWorld(parsed,'Imported world. Legacy tile maps must be opened in the Legacy Tile Editor.');
+    if(!dirty||window.confirm('Import replaces unsaved edits. Export JSON for a reliable backup; a small local recovery is attempted. Continue?'))
+      startWorld(parsed,'Imported editable world. Run Map health before Godot export.');
   }catch(e){errorMessage(e);}
   event.target.value='';
 });
@@ -781,6 +794,7 @@ $('export-png').addEventListener('click',()=>{
 $('export-godot').addEventListener('click',async()=>{
   const button=$('export-godot');button.disabled=true;
   try{
+    if(!auditUI.preflight())return;
     const response=await fetch('./world_loader.gd',{cache:'no-store'});
     if(!response.ok)throw new Error('Could not load the Godot world adapter from the server.');
     const zip=buildWorldZip(doc,await response.text());
@@ -788,6 +802,18 @@ $('export-godot').addEventListener('click',async()=>{
     status('Godot 4 world ZIP downloaded. See CODEX_IMPORT.md inside.');
   }catch(e){errorMessage(e);}
   finally{button.disabled=false;}
+});
+const auditUI=createMapAuditUI({
+  getDoc:()=>doc,change,download,worldSlug,status,
+  startWorld,getDirty:()=>dirty,
+  selectIssue:issue=>{
+    if(draft)cancelDraft(false);
+    setTool('select');
+    if(issue.entityId)setSelection(issue.entityId);
+    setZoom(Math.max(zoom,.45));
+    focusPoint(issue.point);
+    status(issue.message);
+  }
 });
 document.addEventListener('gdt-world-asset-ready',requestRender);
 $('import-sprite').addEventListener('change',async event=>{
