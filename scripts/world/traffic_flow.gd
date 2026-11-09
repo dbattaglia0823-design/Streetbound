@@ -15,7 +15,7 @@ const PALETTE := [
 @export var enabled := true
 var world: Node2D
 var player: VehicleController2D
-var network: RefCounted
+var network
 var agents: Array[Dictionary] = []
 var random := RandomNumberGenerator.new()
 var active_junctions: Dictionary = {}
