@@ -66,7 +66,7 @@ export function buildWorldZip(doc,loader){
       '8. Keep world geometry and player save state separate. No existing saves or v1 maps are modified.',
       '',
       'Limitations: stylized vector placeholders are not a final high-resolution art pack. No generated 3D elevation mesh, streaming/chunk system, route/turn permission solver, automatic traffic AI, traffic lights, or physics-based road bank is included.',
-      'For the classic tile editor, use web/map-builder/legacy.html.',
+      'The Streetbound editor is inside map-editor/ in the repository.',
       ''
     ].join('\n')]
   ]);

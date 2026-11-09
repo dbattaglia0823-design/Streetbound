@@ -3,26 +3,26 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0c111a"><meta name="description" content="Build detailed top-down racing worlds with freeform spline roads, forests, mountains, cities, beaches and ocean.">
-<title>World Forge — Freeform Racing Map Builder</title>
-<link rel="stylesheet" href="../ui/theme.css"><link rel="stylesheet" href="./world-editor.css">
+<title>Streetbound | Map Builder</title>
+<link rel="stylesheet" href="./theme.css"><link rel="stylesheet" href="./world-editor.css">
 </head>
 <body class="gdt-page world-page">
 <header class="world-header">
   <div class="brand">
-    <a class="hub-link" href="../../index.html">← Tool Hub</a>
+    <a class="hub-link" href="../README.md">← Streetbound</a>
     <span class="brand-mark" aria-hidden="true">◇</span>
-    <div><p class="eyebrow">GAME DEV TOOLKIT / WORLD DESIGN</p><h1>WORLD <span>FORGE</span></h1><p class="tagline">Freeform 2D racing world editor</p></div>
+    <div><p class="eyebrow">STREETBOUND / WORLD DESIGN</p><h1>MAP <span>BUILDER</span></h1><p class="tagline">Freeform 2D racing world editor</p></div>
   </div>
   <div class="header-actions">
     <button id="new-world" class="gdt-btn">New world</button>
-    <button id="load-atlas" class="gdt-btn" title="Load the large Atlas Coast racing world">Atlas Coast map</button>
+    <button id="load-atlas" class="gdt-btn" title="Load the included editable coastal sample">Coastal sample</button>
     <button id="save-world" class="gdt-btn">Save</button>
     <button id="load-world" class="gdt-btn">Load</button>
     <label class="gdt-btn upload">Import JSON <input id="import-world" type="file" accept=".json,application/json" hidden></label>
     <button id="export-world" class="gdt-btn">Export JSON</button>
     <button id="export-png" class="gdt-btn">PNG Preview</button>
     <button id="export-godot" class="gdt-btn gdt-btn--primary">Godot 4 ZIP</button>
-    <a class="gdt-btn link-button" href="./legacy.html">Legacy tiles ↗</a>
+    <a class="gdt-btn link-button" href="./README.md">Guide</a>
   </div>
 </header>
 <div class="world-workspace">
@@ -234,21 +234,17 @@
     <div class="panel-head section-divider"><h2>Entities</h2><span id="entities-count" class="micro-tag">—</span></div>
     <div class="filter-row"><label for="entities-filter">Show</label><select id="entities-filter"><option value="all">All objects</option><option value="roads">Roads</option><option value="regions">Terrain</option><option value="props">Scenery</option><option value="markers">Markers</option></select></div>
     <div id="entity-list" class="entity-list" aria-label="World entities"></div>
-    <div class="project-note">This is continuous 2D world geometry, not a tile map. Vector artwork is an original preview; export geometry and replace visuals with your game's production assets.</div>
+    <div class="project-note">Streetbound map authoring. Paved roads create automatic intersections; dirt/gravel stop cleanly at pavement without junction links. Export world JSON to keep changes in the repository.</div>
   </aside>
 </div>
 <dialog id="new-dialog" class="gdt-dialog" aria-labelledby="new-title">
   <h2 id="new-title">Create a world</h2>
   <p>Start blank or load a ready-made racing landscape. Loading a preset replaces the current canvas.</p>
   <div class="atlas-preset">
-    <a class="atlas-preview-link" href="./atlas-coast-overview.svg" target="_blank" rel="noopener" title="View the full Atlas Coast map planning overview">
-      <img src="./atlas-coast-overview.svg" alt="Atlas Coast map with mountain highways, central city, southern tracks and eastern ocean" loading="lazy">
-    </a>
     <div class="atlas-preset-details">
-      <strong>Atlas Coast · Grand Touring</strong>
-      <p>22,000 × 18,000 units · cities, mountains, forests, highways, coast, dealerships, garages and 7 race venues.</p>
-      <button id="create-atlas" class="gdt-btn gdt-btn--primary" type="button">Open large world</button>
-      <a href="./atlas-coast-overview.svg" target="_blank" rel="noopener">View layout overview</a>
+      <strong>Coastal Starter · Sample World</strong>
+      <p>An editable demo with roads, terrain, buildings and gameplay markers. Use it to experiment with automatic intersections and road priority.</p>
+      <button id="create-atlas" class="gdt-btn gdt-btn--primary" type="button">Open sample world</button>
     </div>
   </div>
   <div class="field"><label for="new-name">World name</label><input id="new-name" value="My Racing World" maxlength="80"></div>

@@ -19,7 +19,7 @@ import {
 const $=id=>document.getElementById(id);
 const viewport=$('viewport'),canvas=$('world-canvas'),ctx=canvas.getContext('2d');
 const mini=$('minimap'),miniCtx=mini.getContext('2d');
-const AUTO='gdt.world-forge.autosave.v2',SAVE='gdt.world-forge.manual.v2';
+const AUTO='streetbound.map-editor.autosave.v2',SAVE='streetbound.map-editor.manual.v2';
 let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=null,pointInsertMode=null;
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
 let undoStack=[],redoStack=[];
@@ -717,21 +717,10 @@ $('cancel-new').addEventListener('click',()=>$('new-dialog').close());
 $('create-demo').addEventListener('click',()=>{
   startWorld(demoWorld(),'Loaded the Coastal Ridge example world.');$('new-dialog').close();
 });
-async function loadAtlasCoast(){
-  if(dirty&&!window.confirm('Replace current unsaved edits with Atlas Coast? Export JSON first if you want a backup.'))return;
-  const controls=[$('load-atlas'),$('create-atlas')];
-  controls.forEach(button=>button.disabled=true);
-  status('Opening Atlas Coast master layout…');
-  try{
-    const response=await fetch('./atlas-coast.world.json',{cache:'no-store'});
-    if(!response.ok)throw new Error('Could not retrieve Atlas Coast world ('+response.status+').');
-    const data=await response.text();
-    const world=parseWorld(data);
-    startWorld(world,'Atlas Coast loaded: '+world.roads.length+' roads, '+world.regions.length+
-      ' biomes and '+world.markers.filter(m=>m.type==='dealership').length+' dealerships. Export JSON as your own backup.');
-    if($('new-dialog').open)$('new-dialog').close();
-  }catch(e){errorMessage(e);}
-  finally{controls.forEach(button=>button.disabled=false);}
+function loadAtlasCoast(){
+  if(dirty&&!window.confirm('Replace unsaved edits with the coastal sample? Export JSON first.'))return;
+  startWorld(demoWorld(),'Coastal starter loaded. Edits remain local until you export JSON.');
+  if($('new-dialog').open)$('new-dialog').close();
 }
 $('load-atlas').addEventListener('click',loadAtlasCoast);
 $('create-atlas').addEventListener('click',loadAtlasCoast);
@@ -792,7 +781,7 @@ $('export-png').addEventListener('click',()=>{
 $('export-godot').addEventListener('click',async()=>{
   const button=$('export-godot');button.disabled=true;
   try{
-    const response=await fetch('./world_loader.gd');
+    const response=await fetch('./world_loader.gd',{cache:'no-store'});
     if(!response.ok)throw new Error('Could not load the Godot world adapter from the server.');
     const zip=buildWorldZip(doc,await response.text());
     download(zip.bytes,worldSlug(doc.name)+'-godot4.zip','application/zip');
@@ -827,5 +816,6 @@ window.addEventListener('resize',requestRender);
 try{const stored=localStorage.getItem(AUTO);if(stored)doc=parseWorld(stored);}catch{}
 // Read-only integration/testing API. Callers cannot mutate editor state through this snapshot.
 window.GDTWorldForge=Object.freeze({getSnapshot:()=>structuredClone(doc)});
+window.StreetboundMapEditor=window.GDTWorldForge;
 refreshUI();
-requestAnimationFrame(()=>{fit();status('Freeform world loaded. Select a road or draw one with Road (R).');});
+requestAnimationFrame(()=>{fit();status('Streetbound Map Builder ready. Roads connect automatically; dirt and gravel stop at pavement. Export JSON to save to the repository.');});
