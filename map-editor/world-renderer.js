@@ -290,13 +290,27 @@ export function drawWorld(ctx,doc,options={}){
 /** Overlays are editor-only; exports intentionally omit editor node handles. */
 export function drawEditorOverlay(ctx,doc,{
   selection=null,draft=null,zoom=1,hover=null,insertMode=null,insertHover=null,
-  brushPreview=null,roadsidePreview=null,showBoundaries=true
+  brushPreview=null,roadsidePreview=null,showBoundaries=true,auditIssues=[]
 }={}){
   const radius=clamp(7/zoom,5,35);
   if(showBoundaries){
     for(const region of doc.regions){
       stroke(ctx,region.points,true);ctx.strokeStyle='#f3e8a03d';ctx.lineWidth=1.3/zoom;ctx.stroke();
     }
+  }
+  // Checked issue locations are optional, non-exported editor overlays.
+  // Radius is in screen pixels so even huge maps keep legible markers.
+  for(const issue of auditIssues.slice(0,120)){
+    const p=issue.point;
+    if(!p)continue;
+    const r=clamp(7/zoom,4,50);
+    const color=issue.severity==='error'?'#ef6f69':
+      issue.severity==='warning'?'#efbb68':'#86cbd3';
+    ctx.beginPath();ctx.arc(p.x,p.y,r*1.35,0,Math.PI*2);
+    ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.8/zoom,1.3);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(p.x-r*.55,p.y-r*.55);ctx.lineTo(p.x+r*.55,p.y+r*.55);
+    ctx.moveTo(p.x-r*.55,p.y+r*.55);ctx.lineTo(p.x+r*.55,p.y-r*.55);
+    ctx.stroke();
   }
   if(selection){
     const found=getEntity(doc,selection.id);
