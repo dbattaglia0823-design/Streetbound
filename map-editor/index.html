@@ -22,6 +22,7 @@
     <button id="export-world" class="gdt-btn">Export JSON</button>
     <button id="export-png" class="gdt-btn">PNG Preview</button>
     <button id="export-godot" class="gdt-btn gdt-btn--primary">Godot 4 ZIP</button>
+    <button id="audit-top" class="gdt-btn" type="button">Map health</button>
     <a class="gdt-btn link-button" href="./README.md">Guide</a>
   </div>
 </header>
@@ -56,6 +57,7 @@
       <div class="field"><label for="road-shoulder">Shoulder width</label><input id="road-shoulder" type="range" min="0" max="16" value="5"><output id="shoulder-label">5 m</output></div>
       <label class="check"><input id="road-smooth" type="checkbox" checked> Smooth Bézier-style curves</label>
       <label class="check"><input id="road-markings" type="checkbox" checked> Lane lines / road edges</label>
+      <label class="check"><input id="road-smart-snap" type="checkbox" checked> Smart road endpoint snapping (compatible surfaces only)</label>
       <p class="sidebar-tip compact-tip">Select an existing road to add or extend its control points from the Inspector. Shift-click the selected road to insert a point immediately.</p>
     </div>
     <div class="settings-group">
@@ -160,6 +162,23 @@
       <label class="check"><input type="checkbox" id="show-boundaries"> Terrain outlines</label>
       <p class="muted-copy">Road overlaps, T-junctions and joined endpoints generate paved intersections automatically as roads are edited.</p>
     </div>
+    <div class="panel-head section-divider" id="audit-heading"><h2>Map health</h2><span id="audit-count" class="micro-tag">NOT CHECKED</span></div>
+    <section class="map-audit-panel" aria-label="Map geometry checks and safe repair tools">
+      <p class="muted-copy">Check geometry before using a map in-game. Click an issue to focus it. Checks do not alter your map.</p>
+      <div class="audit-actions">
+        <button id="audit-run" class="gdt-btn" type="button">Check map</button>
+        <button id="audit-snap" class="gdt-btn" type="button" title="Join only unambiguous nearby compatible road endpoints, with undo">Snap safe road ends</button>
+        <button id="audit-clean" class="gdt-btn" type="button" title="Remove consecutive duplicate road points, with undo">Clean duplicate points</button>
+      </div>
+      <label class="check"><input type="checkbox" id="audit-show-overlay" checked> Show checked issue locations</label>
+      <p id="audit-summary" class="audit-summary" role="status" aria-live="polite">Run Check map to inspect roads, regions, and placements.</p>
+      <div id="audit-list" class="audit-list" aria-label="Map geometry findings"></div>
+      <div class="audit-actions audit-backup-actions">
+        <button id="audit-backup" class="gdt-btn" type="button">Download backup</button>
+        <button id="audit-recover" class="gdt-btn" type="button" title="Restore the previous manual save or unsaved map before an import">Restore previous</button>
+      </div>
+      <p class="muted-copy">Backup downloads editable JSON. Restore previous uses the last local recovery copy. Export JSON always remains available.</p>
+    </section>
     <div class="panel-head section-divider"><h2>Inspector</h2><span id="selected-type" class="micro-tag">NOTHING SELECTED</span></div>
     <p id="inspector-empty" class="muted-copy">Select a road, region, building, or marker to change its properties. Drag the orange handles to adjust curves and coastlines.</p>
     <section id="inspector" hidden>
