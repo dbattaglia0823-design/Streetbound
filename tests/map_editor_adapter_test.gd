@@ -34,6 +34,6 @@ func run() -> void:
 	check("dirt_is_active_after_crossing",not after.is_empty() and after.surface=="dirt",
 		after.get("surface","none"))
 	check("junction_does_not_connect_pavement_and_dirt",
-		loader.get_junctions().is_empty(),loader.get_junctions().size())
+		loader.get_intersections().is_empty(),loader.get_intersections().size())
 	print("EDITOR MAP ADAPTER: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
