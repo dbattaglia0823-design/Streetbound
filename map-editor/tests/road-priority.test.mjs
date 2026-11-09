@@ -139,4 +139,5 @@ test('repo-owned UI has its dependencies and Windows launcher',async()=>{
   assert.ok(!html.includes('atlas-coast-overview.svg'));
   const serve=await readFile(new URL('../serve.ps1',import.meta.url),'utf8');
   assert.ok(serve.includes('IPAddress]::Loopback'));
+  assert.ok(serve.includes("TrimEnd([char[]]@("),'local server path must use one char-array argument');
 });
