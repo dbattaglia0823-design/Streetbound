@@ -1,7 +1,7 @@
 # Local-only static HTTP server, built into Windows PowerShell.
 param([int]$Port = 8765)
 $ErrorActionPreference = 'Stop'
-$root = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\', '/')
+$root = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd([char[]]@('\','/'))
 $prefix = $root + [System.IO.Path]::DirectorySeparatorChar
 $mime = @{
   '.html'='text/html; charset=utf-8'
