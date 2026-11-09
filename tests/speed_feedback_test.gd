@@ -11,7 +11,7 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func run() -> void:
-	var main := load("res://scenes/proving_ground.tscn").instantiate()
+	var main: Node = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
 	var car: VehicleController2D = main.vehicle
