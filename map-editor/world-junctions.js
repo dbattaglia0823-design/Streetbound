@@ -179,7 +179,6 @@ export function buildRoadJunctions(roads){
         const pair=keyPair([road.id,other.road.id]);
         const segmentKey=pair+':'+Math.floor(mid.x/12)+':'+Math.floor(mid.y/12);
         if(examined.has(segmentKey))continue;
-        examined.add(segmentKey);
         if(Math.abs(cross(here,other.tangent))<.29)continue;
         const candidates2=[pointSegment(a,other.a,other.b),pointSegment(b,other.a,other.b)];
         const pOther=pointSegment(other.a,a,b),qOther=pointSegment(other.b,a,b);
@@ -195,6 +194,7 @@ export function buildRoadJunctions(roads){
         const prior=byPair.get(pair)||[];
         const separation=Math.max(24,Math.max(road.width,other.road.width)*1.15);
         if(prior.some(node=>distance(node,at)<separation))continue;
+        examined.add(segmentKey);
         const joint={...at,roads:[road.id,other.road.id],kind:'overlap'};
         raw.push(joint);prior.push(joint);byPair.set(pair,prior);
       }
