@@ -1,9 +1,10 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_controller.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/sport_coupe.tres" id="2"]
 [ext_resource type="Texture2D" path="res://assets/player_car.png" id="3"]
 [ext_resource type="Script" path="res://scripts/visual/car_body_animation.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/visual/steerable_wheels.gd" id="5"]
+[ext_resource type="Resource" path="res://resources/appearance/porsche_coupe.tres" id="6"]
 [sub_resource type="RectangleShape2D" id="Shape"]
 size = Vector2(39, 88)
 [node name="Player" type="CharacterBody2D"]
@@ -17,6 +18,7 @@ shape = SubResource("Shape")
 script = ExtResource("4")
 [node name="Wheels" type="Node2D" parent="Art"]
 script = ExtResource("5")
+appearance = ExtResource("6")
 z_index = -1
 [node name="Sprite" type="Sprite2D" parent="Art"]
 texture_filter = 4
