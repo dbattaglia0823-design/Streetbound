@@ -1,5 +1,21 @@
 # Streetbound â€” Morrow Coast
 
+## Map Builder — included in this repository
+
+Open **map-editor/Start Map Editor.cmd** from your Streetbound checkout on
+Windows. It opens the browser-based 2D map editor using a local-only server
+(no installs or external Toolkit required). Draw and edit smooth roads,
+intersections, terrain, roadside scenery, and gameplay markers.
+
+Paved roads automatically create intersections where they meet. Dirt and
+gravel tracks stop cleanly before paved road edges and resume on the far
+side, without generating artificial intersections or traffic links.
+Export JSON to preserve work in Git; Godot ZIP exports include separate
+navigable dirt-road pieces. The existing production Morrow Coast map uses
+a different baked format and is not overwritten by this editor.
+
+**[Map Builder setup, controls and integration guide](map-editor/README.md)**
+
 ## Archived Atlas Coast world and physics review
 
 The [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview](worlds/atlas-coast-overview.svg), [level-design plan](docs/ATLAS_COAST_PLAN.md) and [reference loader](worlds/world_loader.gd) remain untouched. Normal launch now opens the original **Morrow Coast** region: a streamed 6.4 Ã— 4.8 km world with a starting city, coastal town, countryside, mountain roads and motorsport district. See [the playable-world guide](docs/MORROW_COAST.md) and [new overview](worlds/morrow-coast-overview.svg).

@@ -14,6 +14,12 @@ jobs:
           curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
           unzip -q godot.zip
           chmod +x Godot_v4.4.1-stable_linux.x86_64
+      - name: Use Node 22 for the repo-owned map builder
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test automatic intersections and paved-over-dirt road priority
+        run: node --test map-editor/tests/*.test.mjs
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Test driving forces, brakes, drift, resets and collisions
@@ -38,6 +44,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/continuous_tire_marks_test.gd
       - name: Verify invisible road/sidewalk outlines and geometry APIs
         run: timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_geometry_tools_test.gd
+      - name: Verify standalone map-builder Godot loader follows road priority
+        run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/map_editor_adapter_test.gd
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape
