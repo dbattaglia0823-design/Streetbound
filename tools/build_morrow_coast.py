@@ -322,6 +322,15 @@ def keys_for(bounds, cell):
             yield f"{x},{y}"
 
 
+# A checked-in editor patch is replayed before sampled roads, spatial cells,
+# intersections, roadside clearance and traffic patterns are baked. The
+# original authoring graph and all pre-existing named endpoints remain stable.
+from morrow_editor_patch import apply_road_patch
+EDITOR_PATCH = ROOT / "worlds" / "morrow-coast.editor-patch.json"
+patch_stats = apply_road_patch(EDITOR_PATCH, ROADS, NODES, WIDTH, HEIGHT)
+if patch_stats["updated"] or patch_stats["added"]:
+    print("Morrow editor patch applied:", patch_stats)
+
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
 for r in ROADS:
