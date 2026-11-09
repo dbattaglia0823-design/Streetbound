@@ -40,6 +40,16 @@ test('T junctions produce junctions; parallel touching lanes do not',()=>{
   assert.equal(buildRoadJunctions(parallel.roads).length,0);
 });
 
+test('angled paved footprints merge even without a centerline intersection',()=>{
+  const doc=build(
+    ['Main','asphalt',coords([100,600],[1500,600])],
+    ['Shallow connector','concrete',coords([450,400],[850,555],[1250,400])]);
+  const junctions=buildRoadJunctions(doc.roads);
+  assert.ok(junctions.some(j=>j.roads.includes(doc.roads[0].id)&&
+    j.roads.includes(doc.roads[1].id)), 'near-miss pavement should connect');
+  assert.ok(buildRoadNetwork(doc).connections.length>=1);
+});
+
 test('dirt crosses pavement visually but is not a junction or turn connection',()=>{
   const doc=crossing();
   assert.ok(isLoose(doc.roads[1]));
