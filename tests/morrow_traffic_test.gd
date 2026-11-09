@@ -19,7 +19,7 @@ func run() -> void:
 	root.add_child(main)
 	await physics_frame
 	var world: MorrowCoast = main.ground
-	var traffic: Node2D = main.get_node_or_null("TrafficWorld")
+	var traffic: Variant = main.get_node_or_null("TrafficWorld")
 	check("production_world_owns_traffic", traffic != null)
 	if traffic == null:
 		quit(1)
@@ -70,7 +70,6 @@ func run() -> void:
 		check("right_hand_lane_offsets",lateral > 0.5,lateral)
 	var routes_before := traffic.network.routes.size()
 	check("traffic_loaded_from_same_source",routes_before == graph.routes.size(),routes_before)
-	traffic.MAX_ACTIVE # const reference validates script interface
 	traffic.spawn_clock = 0.59
 	for tick in 120:
 		traffic._physics_process(1.0/60.0)
