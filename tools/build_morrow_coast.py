@@ -10,6 +10,7 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from morrow_editor_import import apply_edits
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH, HEIGHT, CHUNK, CELL = 6400, 4800, 192, 64
@@ -321,6 +322,11 @@ def keys_for(bounds, cell):
         for y in range(math.floor(y0/cell),math.floor(y1/cell)+1):
             yield f"{x},{y}"
 
+
+# Optional versioned overlay from the browser Map Builder. Applied to authored
+# control points BEFORE sampling, junction baking, scenery placement and collision
+# indices. Rebuilds the entire streamed world rather than patching stale segments.
+EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS)
 
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
@@ -741,6 +747,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
           size=[WIDTH,HEIGHT],chunk_size=CHUNK,surface_cell=CELL,spawn=SPAWN,nodes=NODES,roads=ROADS,segments=SEGMENTS,
           props=PROPS,pois=POIS,districts=DISTRICTS,terrain=TERRAIN,walls=WALLS,junctions=JUNCTIONS,bridges=BRIDGES,
           road_connections=sorted(connections),surface_index=GRID,chunks=CHUNKS,road_crossings=CROSSINGS,
+           editor_markers=EDITOR_MARKERS,
           relief_faces=RELIEF_FACES,mountain_rails=MOUNTAIN_RAILS,
           visual_relief=dict(extent=[2800,2400],sun_direction=[-.65,-.76],maximum_m=1000),
           stats=dict(road_km=round(length/1000,2),roads=len(ROADS),props=len(PROPS),junctions=len(JUNCTIONS),connected_roads=len(seen)))

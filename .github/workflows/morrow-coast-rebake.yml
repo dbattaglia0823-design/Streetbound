@@ -1,0 +1,39 @@
+name: Morrow Coast World Rebake
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-morrow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify authoring overlay and safety tests
+        run: python tests/morrow_editor_bridge_test.py
+      - name: Rebuild full streamed Morrow Coast world and overview
+        run: python tools/build_morrow_coast.py
+      - name: Validate baked world metadata and lane indexes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("worlds/morrow-coast.world.json").read_text())
+          assert d["format"]=="streetbound.streamed-world" and d["version"]==1
+          assert len(d["roads"])>50 and len(d["junctions"])>10
+          assert len(d["segments"])>len(d["roads"])
+          assert len(d["surface_index"])>100
+          assert len(d["chunks"])>20
+          print(d["stats"])
+          PY
+      - name: Save generated world files for review and repository commit
+        uses: actions/upload-artifact@v4
+        with:
+          name: morrow-coast-rebaked
+          retention-days: 14
+          path: |
+            worlds/morrow-coast.world.json
+            worlds/morrow-coast-overview.svg
