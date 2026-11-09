@@ -2,6 +2,7 @@ extends Node2D
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
+const TrafficScript = preload("res://scripts/world/traffic_world.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
@@ -23,6 +24,15 @@ func _ready() -> void:
 	vehicle.surface_provider = ground
 	add_child(vehicle)
 	ground.vehicle = vehicle
+	if not proving_ground:
+		# Traffic reuses the loaded production road graph; no second map or
+		# manual waypoint editor file to become out of date.
+		var traffic := Node2D.new()
+		traffic.set_script(TrafficScript)
+		traffic.name = "TrafficWorld"
+		traffic.world = ground
+		traffic.player = vehicle
+		add_child(traffic)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
