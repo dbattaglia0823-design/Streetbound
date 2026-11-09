@@ -1,44 +1,90 @@
-# Layered and steerable wheels
+# Reusable wheel rigs for vehicles of different sizes
 
-The Porsche body remains unchanged. Four small procedural wheel illustrations now
-live on Player/Art/Wheels beneath Player/Art/Sprite. The body occludes the
-inner portions of the tires, so they only peek out around the wheel wells.
-The wheel layer inherits the existing sprung-body animation.
+Streetbound uses one wheel-rig implementation across all vehicles. Each car
+receives a VehicleAppearanceProfile resource with its body image, display
+scale, four axle anchors and tire dimensions. That keeps wheel alignment
+data out of the movement and steering physics scripts.
 
-## Behavior
+## Current game content
 
-- The front-left and front-right tires pivot about their own centers, using the
-  current VehicleController2D.steering angle, easing and a bounded display gain.
-- Rear wheels stay straight, including during slides and reversing.
-- There are no additional physics bodies or changes to vehicle traction.
-- The wheels are dark rubber shapes with light sidewalls and tread accents.
-- A full suspension overlay is intentionally omitted because it would be hidden
-  by the body from the current top-down camera.
+Only one playable car sprite is currently in the repository:
+assets/player_car.png. Its layout is now captured in
+resources/appearance/porsche_coupe.tres and assigned to
+scenes/vehicle.tscn. The other files under
+resources/appearance/templates are **unassigned examples** for upcoming
+compact, sedan, SUV and pickup assets, not new driveable vehicles.
 
-## Alignment per model
+## Adding a different-size car
 
-Select Player/Art/Wheels in the Godot scene editor.
-Auto-fit samples opaque pixels of the body PNG once on startup and estimates
-the axle anchors and visible body width; the scan respects sprite rotation,
-scale and transparent canvas padding. It falls back to the editable manual
-defaults when the image bounds look implausible.
+1. Import a top-down transparent PNG with its front pointing toward the top
+   of the image. Prefer a body-only sprite with transparent wheel openings
+   and no baked-in tires, so the turning tires are visible at the wells.
+2. Duplicate the closest VehicleAppearanceProfile template into a new
+   .tres file (e.g. resources/appearance/ford_pickup.tres).
+3. In Godot's Inspector, assign Body Texture. Set Sprite Scale and Sprite
+   Rotation Degrees so the car has the correct in-game displayed dimensions.
+   The existing Porsche image uses 0.054 scale and 180-degree rotation.
+   A source PNG's pixel resolution *alone* does not determine the car's
+   displayed size.
+4. Edit Front Left UV, Front Right UV, Rear Left UV and Rear Right UV to
+   align with the centers of the actual painted wheel wells. Coordinates
+   are fractions of the alpha-trimmed visible body bounding box:
+   (0,0) = top-left, (1,1) = bottom-right *after* the sprite rotation.
+   Example: Front Left UV (0.06, 0.24), Rear Left UV (0.06, 0.76).
+   Right-side wheels typically use an x coordinate near 0.94.
+5. Set Tire Width Ratio and Tire Length Ratio (fractions of visible body
+   width/length). Minimum Tire Px and Maximum Tire Px protect against
+   extremely large or tiny tires.
+6. Make a new scene inherited from scenes/vehicle.tscn and assign the
+   new appearance .tres to Art/Wheels > Appearance. Assign a matching
+   VehicleConfig for the new car's handling. Do not use a single 39x88
+   collision rectangle for physically larger trucks without also updating
+   the collision shape and related physics configuration.
 
-Turn off auto_fit_to_body to manually configure front_axle_distance,
-rear_axle_distance, half_track_width and tire_size for a specific car.
-The car faces upward (-Y) in local coordinates. The inner tire portions
-should disappear behind the car sprite, leaving only the outer shoulders.
-visual_steer_multiplier and max_visual_steer_degrees only affect visual
-rotation, not the handling controller.
+The wheel rig reads the opaque sprite silhouette once at setup. This
+avoids alignment issues from transparent canvas margins; anchors are
+relative to the visible body, not absolute source-image pixels.
+Independent front/rear and left/right anchor coordinates handle differing
+axle lengths, track widths and asymmetrical vehicle artwork.
 
-For the best eventual quality, future car body images should not already
-contain fully baked wheels. Separate transparent car body PNGs allow the new
-wheel sprites to be cleanly hidden by the actual wheel arches.
+## Runtime vehicle art switching
 
-## Testing
+To replace the look of an already-instantiated car:
 
-Run tests/wheel_visual_test.gd or the normal GitHub CI suite. Visually inspect
-full-lock left/right steering and the tire exposure on the Porsche at high
-and low camera zoom. Exact wheel-well placement still requires a visual check
-against the original painted car body.
+    var rig = car.get_node("Art/Wheels")
+    rig.apply_appearance(load("res://resources/appearance/my_car.tres"))
 
-Godot CanvasItem rendering order: https://docs.godotengine.org/en/stable/classes/class_canvasitem.html
+This replaces the body image/transform when the appearance profile has a
+texture, recalculates all four tire pivots, resizes and redraws the tires,
+and reuses the same wheel nodes. It does not touch the vehicle's physics
+or collision shape. Changes to handling/config and collision dimensions
+must be made by the separate vehicle selection system when added.
+
+Car physics still drives visual front steering and self-centering. Both
+rear wheels remain unsteered. All tire nodes are children of the existing
+Art body animation node and use negative z-index, so the body art covers
+most of the wheel. A complete suspension sprite is unnecessary from
+the present vertical top-down view.
+
+## Alignment pitfalls and validation
+
+- Auto-fit (no appearance profile) remains as a fallback for older cars;
+  exact normalized profiles are preferred for production assets.
+- A top-down PNG that already has painted wheels may hide or conflict with
+  the separately rendered tires. Removing those baked tires from future
+  body images is the cleanest solution.
+- A mostly opaque background image will create an incorrect bounding box.
+  Ensure the unused pixels really are alpha-transparent.
+- Headless tests cannot confirm the actual wheel-well outline. Inspect
+  several steering angles at low/high camera zoom and fine-tune the four
+  anchors individually.
+
+Run tests/wheel_visual_test.gd, tests/multi_model_wheels_test.gd and the
+normal Godot regression suite. The multi-model test uses two synthetic
+vehicle silhouettes with different sizes and aspect ratios and verifies
+normalized coordinates, wheel resizing, steering, reset and physics
+isolation. The additional template files do not imply the models are
+already in the game.
+
+Reference on reusable custom Resources:
+https://docs.godotengine.org/en/stable/tutorials/scripting/resources.html
