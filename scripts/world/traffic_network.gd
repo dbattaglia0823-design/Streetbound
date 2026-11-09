@@ -251,7 +251,7 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 			var id := _add_edge({
 				"road":int(source.road),"direction":int(source.direction),"lane":first_lane,
 				"lanes_in_direction":first_count,"connector":true,
-				"points":path,"speed_px":minf(float(source.speed_px),float(target.speed_px),turn_kph/3.6*PPM),
+				"points":path,"speed_px":minf(minf(float(source.speed_px),float(target.speed_px)),turn_kph/3.6*PPM),
 				"start_j":junction,"end_j":junction,"start_side":int(source.end_side),
 				"end_side":int(target.start_side),"start_node":"","end_node":"",
 				"control":approach_control,"junction_control":control,
