@@ -1,5 +1,20 @@
 # Streetbound â€” Morrow Coast
 
+## Morrow Coast editor and live traffic
+
+The repository Map Builder now opens the real baked Morrow Coast road layout,
+and the open world includes bounded traffic following right-hand lanes and
+existing junction controls. Choose **Open Morrow Coast**, edit roads, and
+**Export Morrow patch** to a new file at
+`worlds/morrow-coast.editor-patch.json`. Run the validated Python baker
+using `Rebuild Morrow Coast.cmd` on Windows. The world is regenerated without
+discarding collision clearance, procedural scenery or streaming indexes.
+
+Traffic lanes are derived from the baked geometry; cars drive in both
+directions, turn, stop, yield, maintain distance and avoid the player.
+Press **F5** in-game to inspect the traffic lane graph.
+
+[Detailed instructions](map-editor/README.md)
 ## Map Builder — included in this repository
 
 Open **map-editor/Start Map Editor.cmd** from your Streetbound checkout on
