@@ -21,10 +21,23 @@ var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
 var _sand_polygons: Dictionary = {}
+var boardwalk_path := PackedVector2Array()
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
 	chunk_m = float(data.chunk_size)
+	# Derive a continuous promenade from the original smoothed coastline.
+	# Beach polygons extend 65m inland; the deck sits 35m inland, never
+	# over open water. No rebake of the multi-megabyte world data required.
+	for terrain in data.terrain:
+		if terrain.kind != "ocean":
+			continue
+		var shore: Array = terrain.points
+		for i in range(maxi(0, shore.size() - 2)):
+			var p := Vector2(float(shore[i][0]), float(shore[i][1]))
+			if p.y >= 2100.0 and p.y <= 3700.0:
+				boardwalk_path.append(p + Vector2(-35.0, 0.0))
+		break
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -164,12 +177,19 @@ func location_at(position_px: Vector2) -> Dictionary:
 func _physics_process(dt: float) -> void:
 	if not vehicle:
 		return
+	if vehicle.linear_velocity.length() < 3.0:
+		tire_marks.reset_tracks()
+		return
 	mark_clock += dt
-	if mark_clock<0.045 or vehicle.linear_velocity.length()<3.0:
+	if mark_clock < 0.045:
 		return
 	mark_clock = 0.0
-	if absf(vehicle.slip_angle)>0.13 or vehicle.handbrake>0.1 or vehicle.wheel_spin>0.15 or vehicle.surface!="ASPHALT":
-		var right := Vector2.RIGHT.rotated(vehicle.rotation)
-		var rear := vehicle.position+Vector2.DOWN.rotated(vehicle.rotation)*25
-		for side in [-1.0,1.0]:
-			tire_marks.add_mark(rear+right*side*16,vehicle.rotation,vehicle.surface=="ASPHALT")
+	if absf(vehicle.slip_angle) <= 0.13 and vehicle.handbrake <= 0.1 and vehicle.wheel_spin <= 0.15 and vehicle.surface == "ASPHALT":
+		tire_marks.reset_tracks()
+		return
+	var right := Vector2.RIGHT.rotated(vehicle.rotation)
+	var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
+	for track in 2:
+		var side := -1.0 if track == 0 else 1.0
+		tire_marks.add_mark(rear + right * side * 16.0,
+			vehicle.rotation, vehicle.surface == "ASPHALT", track)
