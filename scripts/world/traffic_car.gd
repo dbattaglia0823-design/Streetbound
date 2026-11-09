@@ -7,7 +7,6 @@ var length_px := 74.0
 var width_px := 35.0
 
 func _ready() -> void:
-	motion_mode = PhysicsServer2D.BODY_MODE_STATIC if false else 0
 	# Traffic collision can be enabled later without altering lane motion or
 	# changing existing deterministic vehicle physics tests. The agent already
 	# uses player spacing and vehicle-to-vehicle headway.
