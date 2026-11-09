@@ -20,6 +20,8 @@ jobs:
           node-version: '22'
       - name: Test map health, safe snaps, recovery and road priority
         run: node --test map-editor/tests/*.test.mjs
+      - name: Validate Morrow Coast editable source overlays and road endpoint safety
+        run: python3 tests/morrow_editor_bridge_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Test driving forces, brakes, drift, resets and collisions
@@ -46,6 +48,8 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_geometry_tools_test.gd
       - name: Verify standalone map-builder Godot loader follows road priority
         run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/map_editor_adapter_test.gd
+      - name: Verify Morrow Coast right-hand traffic graph, legal turns and spawn cap
+        run: timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/morrow_traffic_test.gd
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape
