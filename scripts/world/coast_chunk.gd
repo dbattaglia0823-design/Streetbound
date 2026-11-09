@@ -71,6 +71,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		roads.render_stage=stage
 		roads.z_index=stage+1
 		add_child(roads)
+	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
+	# stages still render over it where a coastal street reaches the shore.
+	if world.boardwalk_path.size() >= 2:
+		var boardwalk := Node2D.new()
+		boardwalk.name = "BeachBoardwalk"
+		boardwalk.set_script(preload("res://scripts/world/coast_boardwalk.gd"))
+		boardwalk.world = world
+		boardwalk.origin_m = origin_m
+		boardwalk.z_index = 1
+		add_child(boardwalk)
 	for stage in 2:
 		var relief := Node2D.new()
 		relief.set_script(preload("res://scripts/world/coast_relief.gd"))
@@ -92,6 +102,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	scenery.origin_m = origin_m
 	scenery.z_index = 6
 	add_child(scenery)
+	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
+	# or submitted to the renderer unless F4 developer mode is explicitly on.
+	var geometry_overlay := Node2D.new()
+	geometry_overlay.name = "GeometryOverlay"
+	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
+	geometry_overlay.world = world
+	geometry_overlay.chunk = self
+	geometry_overlay.z_index = 45
+	geometry_overlay.visible = bool(world.debug_geometry_enabled)
+	add_child(geometry_overlay)
 	_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 

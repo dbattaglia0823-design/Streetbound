@@ -1,0 +1,81 @@
+{
+  "format": "gdt.racing-world",
+  "version": 2,
+  "name": "Priority Runtime",
+  "world": {
+    "width": 1600,
+    "height": 1200,
+    "seed": 10,
+    "base": "grass"
+  },
+  "roads": [
+    {
+      "id": "highway",
+      "name": "Highway",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 56,
+      "lanes": 2,
+      "shoulder": 4,
+      "markings": true,
+      "smooth": false,
+      "points": [
+        {
+          "x": 100,
+          "y": 600
+        },
+        {
+          "x": 1500,
+          "y": 600
+        }
+      ]
+    },
+    {
+      "id": "trail",
+      "name": "Trail",
+      "roadClass": "service",
+      "surface": "dirt",
+      "width": 24,
+      "lanes": 1,
+      "shoulder": 2,
+      "markings": false,
+      "smooth": false,
+      "points": [
+        {
+          "x": 800,
+          "y": 100
+        },
+        {
+          "x": 800,
+          "y": 1100
+        }
+      ],
+      "renderPieces": [
+        [
+          {
+            "x": 800,
+            "y": 100
+          },
+          {
+            "x": 800,
+            "y": 553.01
+          }
+        ],
+        [
+          {
+            "x": 800,
+            "y": 646.99
+          },
+          {
+            "x": 800,
+            "y": 1100
+          }
+        ]
+      ]
+    }
+  ],
+  "regions": [],
+  "props": [],
+  "markers": [],
+  "assets": []
+}

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c111a"><meta name="description" content="Build detailed top-down racing worlds with freeform spline roads, forests, mountains, cities, beaches and ocean.">
+<title>Streetbound | Map Builder</title>
+<link rel="stylesheet" href="./theme.css"><link rel="stylesheet" href="./world-editor.css">
+</head>
+<body class="gdt-page world-page">
+<header class="world-header">
+  <div class="brand">
+    <a class="hub-link" href="../README.md">← Streetbound</a>
+    <span class="brand-mark" aria-hidden="true">◇</span>
+    <div><p class="eyebrow">STREETBOUND / WORLD DESIGN</p><h1>MAP <span>BUILDER</span></h1><p class="tagline">Freeform 2D racing world editor</p></div>
+  </div>
+  <div class="header-actions">
+    <button id="new-world" class="gdt-btn">New world</button>
+    <button id="load-atlas" class="gdt-btn" title="Load the included editable coastal sample">Coastal sample</button>
+    <button id="load-morrow" class="gdt-btn gdt-btn--primary" type="button" title="Load Morrow Coast's actual baked roads, regions and points of interest">Edit Morrow Coast</button>
+    <button id="save-world" class="gdt-btn">Save</button>
+    <button id="load-world" class="gdt-btn">Load</button>
+    <label class="gdt-btn upload">Import JSON <input id="import-world" type="file" accept=".json,application/json" hidden></label>
+    <button id="export-world" class="gdt-btn">Export JSON</button>
+    <button id="save-morrow" class="gdt-btn gdt-btn--primary" type="button" hidden title="Save authoring overlay for the Morrow Coast rebake">Save Morrow edits</button>
+    <button id="export-png" class="gdt-btn">PNG Preview</button>
+    <button id="export-godot" class="gdt-btn gdt-btn--primary">Godot 4 ZIP</button>
+    <button id="audit-top" class="gdt-btn" type="button">Map health</button>
+    <a class="gdt-btn link-button" href="./README.md">Guide</a>
+  </div>
+</header>
+<div class="world-workspace">
+  <aside class="panel left-panel">
+    <div class="panel-head"><h2>Create</h2><span class="micro-tag">WORLD TOOLS</span></div>
+    <div class="tool-buttons" role="toolbar" aria-label="World editing tools">
+      <button class="mode active" data-tool="select" aria-pressed="true"><span>↖</span><strong>Select / Edit</strong><kbd>V</kbd></button>
+      <button class="mode" data-tool="road" aria-pressed="false"><span>〰</span><strong>Draw road</strong><kbd>R</kbd></button>
+      <button class="mode" data-tool="terrain" aria-pressed="false"><span>⬡</span><strong>Terrain region</strong><kbd>T</kbd></button>
+      <button class="mode" data-tool="prop" aria-pressed="false"><span>♣</span><strong>Scenery</strong><kbd>P</kbd></button>
+      <button class="mode" data-tool="marker" aria-pressed="false"><span>◇</span><strong>Game marker</strong><kbd>M</kbd></button>
+      <button class="mode" data-tool="pan" aria-pressed="false"><span>✥</span><strong>Pan view</strong><kbd>H</kbd></button>
+    </div>
+    <div class="settings-group">
+      <h3>Road designer</h3>
+      <div class="field"><label for="road-class">Road type</label><select id="road-class">
+        <option value="city">City streets</option><option value="highway">Highway / freeway</option>
+        <option value="country">Country road</option><option value="mountain">Mountain pass</option>
+        <option value="track">Race circuit</option><option value="service">Service / access</option>
+      </select></div>
+      <div class="field"><label for="road-surface">Surface</label><select id="road-surface">
+        <option value="asphalt">Asphalt</option><option value="concrete">Concrete</option>
+        <option value="dirt">Dirt</option><option value="gravel">Gravel</option><option value="track">Racing asphalt</option>
+      </select></div>
+      <div class="double-fields">
+        <div class="field"><label for="road-width">Road width</label><input id="road-width" type="number" min="6" max="160" value="36"></div>
+        <div class="field"><label for="road-lanes">Lanes</label><select id="road-lanes">
+          <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+        </select></div>
+      </div>
+      <div class="field"><label for="road-shoulder">Shoulder width</label><input id="road-shoulder" type="range" min="0" max="16" value="5"><output id="shoulder-label">5 m</output></div>
+      <label class="check"><input id="road-smooth" type="checkbox" checked> Smooth Bézier-style curves</label>
+      <label class="check"><input id="road-markings" type="checkbox" checked> Lane lines / road edges</label>
+      <label class="check"><input id="road-smart-snap" type="checkbox" checked> Smart road endpoint snapping (compatible surfaces only)</label>
+      <p class="sidebar-tip compact-tip">Select an existing road to add or extend its control points from the Inspector. Shift-click the selected road to insert a point immediately.</p>
+    </div>
+    <div class="settings-group">
+      <h3>Terrain & biomes</h3>
+      <div class="field"><label for="biome">Terrain material</label><select id="biome">
+        <option value="grass">Grassland</option><option value="forest">Forest</option><option value="mountain">Mountains / highlands</option>
+        <option value="rock">Rocky ground</option><option value="city">City ground</option><option value="beach">Sand / beach</option>
+        <option value="ocean">Ocean water</option><option value="lake">Lake / river water</option>
+        <option value="desert">Desert</option><option value="farmland">Farmland</option>
+      </select></div>
+      <div class="field"><label for="elevation">Elevation metadata (m)</label><input type="number" min="0" max="2000" id="elevation" value="0"></div>
+      <div class="scatter">
+        <div class="field"><label for="scatter-count">Scatter density</label><select id="scatter-count"><option value="20">Light · 20</option><option value="60" selected>Medium · 60</option><option value="140">Dense · 140</option><option value="260">Very dense · 260</option></select></div>
+        <button id="scatter" class="gdt-btn">Scatter selected region</button>
+        <p>Scatter trees, palms, rocks, or bushes into a selected land region. Roads stay clear.</p>
+      </div>
+    </div>
+    <div class="settings-group">
+      <h3>World details</h3>
+      <div class="field"><label for="prop-type">Scenery asset</label><select id="prop-type">
+        <optgroup label="Nature">
+          <option value="oak">Deciduous tree</option><option value="pine">Pine tree</option><option value="palm">Palm tree</option>
+          <option value="bush">Bush</option><option value="rock">Rock</option><option value="boulder">Boulder</option>
+        </optgroup>
+        <optgroup label="City & infrastructure">
+          <option value="house">House</option><option value="building">Office / building</option><option value="warehouse">Warehouse</option>
+          <option value="garage">Racing garage</option><option value="gas_station">Fuel station</option><option value="streetlight">Street light</option>
+          <option value="sign">Road sign</option><option value="barrier">Barrier</option><option value="dock">Dock</option><option value="parking">Parking lot</option>
+        </optgroup>
+      </select></div>
+      <div class="field"><label for="prop-asset">Artwork (optional)</label>
+        <select id="prop-asset"><option value="">Built-in illustrated scenery</option></select>
+      </div>
+      <label class="gdt-btn upload-asset">Import PNG / WebP sprite
+        <input id="import-sprite" type="file" accept="image/png,image/webp" hidden>
+      </label>
+      <p class="asset-hint">Replace the built-in scenery artwork with your own top-down sprites. Imported images travel with the world file.</p>
+      <div class="roadside-controls">
+        <h3>Automatic roadside placement</h3>
+        <p>Buildings, lots, and scenery snap beside nearby curved roads—not on the lanes. Frontages follow the local road direction, and road shoulders stay clear.</p>
+        <p>Natural scenery stays in forests when far from roads. Garage, dealer, and fuel markers stay off-road; race starts and checkpoints remain on the roadway.</p>
+        <div class="inspector-actions">
+          <button id="snap-selected-roadside" class="gdt-btn" type="button">Align selected to road</button>
+          <button id="repair-roadside" class="gdt-btn" type="button">Fix all road overlaps</button>
+        </div>
+        <p id="roadside-status" class="asset-hint" role="status">Placement protection is always on for new or moved objects.</p>
+      </div>
+      <div class="scenery-brush-controls" aria-labelledby="brush-title">
+        <h3 id="brush-title">Scenery painting</h3>
+        <label class="check"><input id="scenery-paint" type="checkbox"> Hold and drag to scatter</label>
+        <label class="check"><input id="scenery-erase" type="checkbox"> Erase scenery with brush</label>
+        <div class="double-fields">
+          <div class="field"><label for="brush-radius">Brush radius (world units)</label><input id="brush-radius" type="number" min="8" max="250" value="70"></div>
+          <div class="field"><label for="brush-spacing">Object spacing</label><input id="brush-spacing" type="number" min="5" max="200" value="30"></div>
+        </div>
+        <div class="field"><label for="brush-density">Scenery per spray interval</label>
+          <select id="brush-density"><option value="1">Sparse · 1</option><option value="3" selected>Medium · 3</option><option value="6">Dense · 6</option><option value="10">Very dense · 10</option></select></div>
+        <label class="check"><input id="brush-variation" type="checkbox" checked> Random size and rotation</label>
+        <label class="check"><input id="brush-avoid-roads" type="checkbox" checked> Keep roads clear</label>
+        <label class="check"><input id="brush-avoid-water" type="checkbox" checked> Avoid water</label>
+        <p class="asset-hint">Choose Scenery (P), enable hold-and-drag, then hold the left mouse button to scatter continuously—even without moving. One stroke is one undo step.</p>
+      </div>
+      <div class="field"><label for="marker-type">Gameplay marker</label><select id="marker-type">
+        <option value="player_spawn">Player spawn</option><option value="race_start">Race start</option><option value="checkpoint">Checkpoint</option>
+        <option value="finish">Race finish</option><option value="garage">Garage</option><option value="dealership">Dealership</option>
+        <option value="fuel">Fuel station</option><option value="mission">Mission</option>
+        <option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic spawn</option><option value="custom">Custom marker</option>
+      </select></div>
+    </div>
+    <p class="sidebar-tip">Click points to create a curved road or terrain boundary, then press <kbd>Enter</kbd> to finish. Select a shape to move its points. Morrow edits require a full rebake to reach the playable world.</p>
+  </aside>
+  <main class="viewport-panel">
+    <div class="canvasbar">
+      <div class="map-heading"><span class="map-icon" aria-hidden="true">◈</span><div><input id="world-title" aria-label="Editable world name" maxlength="80" value="Coastal Ridge"><span id="world-dimensions">3400 × 2300 world units</span></div></div>
+      <div class="bar-tools">
+        <button id="finish-shape" class="compact-btn" disabled>Finish shape</button>
+        <button id="cancel-shape" class="compact-btn" disabled>Cancel</button>
+        <button id="undo-world" class="compact-btn" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="redo-world" class="compact-btn" title="Redo (Ctrl+Y)">↷ Redo</button>
+        <button id="delete-entity" class="compact-btn danger" title="Delete selected (Delete)">Delete</button>
+      </div>
+    </div>
+    <div id="viewport" class="viewport">
+      <canvas id="world-canvas" tabindex="0" aria-label="Freeform world canvas. Click to draw roads, regions and place scenery."></canvas>
+      <span class="canvas-help">Wheel zoom · Space/middle-drag pan · Shift-click road to add point · Alt-drag shape to move</span>
+      <div class="view-tools">
+        <button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="fit" aria-label="Fit world to viewport" title="Fit entire world">Fit</button>
+      </div>
+      <div class="minimap-wrap"><canvas id="minimap" width="190" height="125" aria-label="World overview minimap"></canvas><span>WORLD OVERVIEW</span></div>
+    </div>
+    <div class="statusbar"><span id="status" role="status" aria-live="polite">Select a tool to begin.</span><span id="coordinates">x — / y —</span><span id="object-count">—</span></div>
+  </main>
+  <aside class="panel right-panel">
+    <div class="panel-head"><h2>World layers</h2><span class="micro-tag">VISIBILITY</span></div>
+    <div class="visibility-list">
+      <label class="check"><input type="checkbox" id="show-terrain" checked> Terrain regions</label>
+      <label class="check"><input type="checkbox" id="show-roads" checked> Roads and curves</label>
+      <label class="check"><input type="checkbox" id="show-junctions" checked> Auto intersections & junctions</label>
+      <label class="check"><input type="checkbox" id="show-scenery" checked> Buildings and nature</label>
+      <label class="check"><input type="checkbox" id="show-markers" checked> Gameplay markers</label>
+      <label class="check"><input type="checkbox" id="show-boundaries"> Terrain outlines</label>
+      <label class="check"><input type="checkbox" id="show-traffic"> Traffic lanes / travel direction</label>
+      <p class="muted-copy">Traffic preview: cyan / amber one-way paths, arrows and lane offsets. Paved junctions connect; dirt crossings remain separate.</p>
+      <p class="muted-copy">Road overlaps, T-junctions and joined endpoints generate paved intersections automatically as roads are edited.</p>
+    </div>
+    <div class="panel-head section-divider" id="audit-heading"><h2>Map health</h2><span id="audit-count" class="micro-tag">NOT CHECKED</span></div>
+    <section class="map-audit-panel" aria-label="Map geometry checks and safe repair tools">
+      <p class="muted-copy">Check geometry before using a map in-game. Click an issue to focus it. Checks do not alter your map.</p>
+      <div class="audit-actions">
+        <button id="audit-run" class="gdt-btn" type="button">Check map</button>
+        <button id="audit-snap" class="gdt-btn" type="button" title="Join only unambiguous nearby compatible road endpoints, with undo">Snap safe road ends</button>
+        <button id="audit-clean" class="gdt-btn" type="button" title="Remove consecutive duplicate road points, with undo">Clean duplicate points</button>
+      </div>
+      <label class="check"><input type="checkbox" id="audit-show-overlay" checked> Show checked issue locations</label>
+      <p id="audit-summary" class="audit-summary" role="status" aria-live="polite">Run Check map to inspect roads, regions, and placements.</p>
+      <div id="audit-list" class="audit-list" aria-label="Map geometry findings"></div>
+      <div class="audit-actions audit-backup-actions">
+        <button id="audit-backup" class="gdt-btn" type="button">Download backup</button>
+        <button id="audit-recover" class="gdt-btn" type="button" title="Restore the previous manual save or unsaved map before an import">Restore previous</button>
+      </div>
+      <p class="muted-copy">Backup downloads editable JSON. Restore previous uses the last local recovery copy. Export JSON always remains available.</p>
+    </section>
+    <div class="panel-head section-divider"><h2>Inspector</h2><span id="selected-type" class="micro-tag">NOTHING SELECTED</span></div>
+    <p id="inspector-empty" class="muted-copy">Select a road, region, building, or marker to change its properties. Drag the orange handles to adjust curves and coastlines.</p>
+    <section id="inspector" hidden>
+      <div class="field"><label for="inspector-name">Name</label><input id="inspector-name" maxlength="80"></div>
+      <div id="inspect-road" hidden>
+        <div class="field"><label for="inspect-road-class">Road type</label><select id="inspect-road-class"><option value="city">City</option><option value="highway">Highway</option><option value="country">Country</option><option value="mountain">Mountain</option><option value="track">Track</option><option value="service">Service</option></select></div>
+        <div class="field"><label for="inspect-road-surface">Surface</label><select id="inspect-road-surface"><option value="asphalt">Asphalt</option><option value="concrete">Concrete</option><option value="dirt">Dirt</option><option value="gravel">Gravel</option><option value="track">Racing asphalt</option></select></div>
+        <div class="double-fields"><div class="field"><label for="inspect-road-width">Width</label><input id="inspect-road-width" type="number" min="6" max="160"></div><div class="field"><label for="inspect-road-lanes">Lanes</label><input id="inspect-road-lanes" type="number" min="1" max="6"></div></div>
+        <div class="field"><label for="inspect-road-shoulder">Shoulder</label><input id="inspect-road-shoulder" type="number" min="0" max="16"></div>
+        <label class="check"><input id="inspect-road-smooth" type="checkbox"> Smooth curves</label>
+        <label class="check"><input id="inspect-road-markings" type="checkbox"> Road markings</label>
+        <div class="point-editor">
+          <strong class="point-editor-title">Road geometry</strong>
+          <p class="muted-copy" id="road-point-count">Select a road to edit its control points.</p>
+          <div class="inspector-actions">
+            <button id="insert-road-point" class="gdt-btn" type="button">+ Insert on curve</button>
+            <button id="extend-road-start" class="gdt-btn" type="button">Extend start</button>
+            <button id="extend-road-end" class="gdt-btn" type="button">Extend end</button>
+          </div>
+          <p class="muted-copy" id="insert-hint">Select Insert, then click the existing curve. Shift-click also inserts a point.</p>
+        </div>
+      </div>
+      <div id="inspect-region" hidden>
+        <div class="field"><label for="inspect-biome">Biome</label><select id="inspect-biome"><option value="grass">Grassland</option><option value="forest">Forest</option><option value="mountain">Mountain</option><option value="rock">Rock</option><option value="beach">Beach</option><option value="ocean">Ocean</option><option value="lake">Lake</option><option value="city">City</option><option value="desert">Desert</option><option value="farmland">Farmland</option></select></div>
+        <div class="field"><label for="inspect-elevation">Height metadata (m)</label><input id="inspect-elevation" type="number" min="0" max="2000"></div>
+      </div>
+      <div id="inspect-prop" hidden>
+        <p class="muted-copy">Roadside objects automatically face the local road curve. Rotation remains adjustable for your custom artwork.</p>
+        <div class="field"><label for="inspect-prop-type">Asset type</label><select id="inspect-prop-type">
+          <option value="oak">Tree</option><option value="pine">Pine</option><option value="palm">Palm</option><option value="bush">Bush</option><option value="rock">Rock</option><option value="boulder">Boulder</option>
+          <option value="house">House</option><option value="building">Building</option><option value="warehouse">Warehouse</option><option value="garage">Garage</option><option value="gas_station">Fuel station</option>
+          <option value="streetlight">Street light</option><option value="sign">Sign</option><option value="barrier">Barrier</option><option value="dock">Dock</option><option value="parking">Parking</option>
+        </select></div>
+        <div class="field"><label for="inspect-asset">Artwork override</label><select id="inspect-asset"><option value="">Built-in illustration</option></select></div>
+        <div class="double-fields"><div class="field"><label for="inspect-scale">Scale</label><input id="inspect-scale" type="number" step=".1" min=".25" max="5"></div><div class="field"><label for="inspect-rotation">Rotation</label><input id="inspect-rotation" type="number" min="-360" max="360"></div></div>
+      </div>
+      <div id="inspect-marker" hidden>
+        <div class="field"><label for="inspect-marker-type">Marker type</label><select id="inspect-marker-type">
+          <option value="player_spawn">Player spawn</option><option value="race_start">Race start</option><option value="checkpoint">Checkpoint</option><option value="finish">Finish</option>
+          <option value="garage">Garage</option><option value="dealership">Dealership</option><option value="fuel">Fuel</option><option value="mission">Mission</option><option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic</option><option value="custom">Custom</option>
+        </select></div>
+        <div class="field"><label for="inspect-properties">Game properties (JSON)</label><textarea id="inspect-properties" rows="5" spellcheck="false"></textarea></div>
+      </div>
+      <div id="position-fields" class="double-fields" hidden><div class="field"><label for="inspect-x">X</label><input id="inspect-x" type="number"></div><div class="field"><label for="inspect-y">Y</label><input id="inspect-y" type="number"></div></div>
+      <div id="point-coordinate-fields" class="double-fields" hidden>
+        <div class="field"><label for="inspect-point-x">Point X</label><input id="inspect-point-x" type="number" step="0.1"></div>
+        <div class="field"><label for="inspect-point-y">Point Y</label><input id="inspect-point-y" type="number" step="0.1"></div>
+      </div>
+      <p id="point-help" class="muted-copy" hidden>Click a handle to edit its coordinates. Double-click or Shift-click near a line to add a point. Alt-drag the shape to reposition it.</p>
+      <div class="inspector-actions">
+        <button id="remove-point" class="gdt-btn" hidden>Remove point</button>
+        <button id="duplicate-entity" class="gdt-btn" type="button">Duplicate</button>
+        <button id="move-forward" class="gdt-btn">Bring forward</button>
+        <button id="move-backward" class="gdt-btn">Send backward</button>
+      </div>
+      <div class="transform-editor">
+        <div class="field"><label for="nudge-step">Move step (world units)</label><input id="nudge-step" type="number" min="1" max="500" value="20"></div>
+        <div class="nudge-buttons" aria-label="Move selected entity">
+          <button class="gdt-btn" data-nudge="0,-1" type="button">↑</button>
+          <button class="gdt-btn" data-nudge="-1,0" type="button">←</button>
+          <button class="gdt-btn" data-nudge="0,1" type="button">↓</button>
+          <button class="gdt-btn" data-nudge="1,0" type="button">→</button>
+        </div>
+        <div id="prop-transform-buttons" class="inspector-actions" hidden>
+          <button id="rotate-prop-left" class="gdt-btn" type="button">Rotate −15°</button>
+          <button id="rotate-prop-right" class="gdt-btn" type="button">Rotate +15°</button>
+          <button id="scale-prop-down" class="gdt-btn" type="button">Scale −</button>
+          <button id="scale-prop-up" class="gdt-btn" type="button">Scale +</button>
+        </div>
+      </div>
+    </section>
+    <div class="panel-head section-divider"><h2>Entities</h2><span id="entities-count" class="micro-tag">—</span></div>
+    <div class="filter-row"><label for="entities-filter">Show</label><select id="entities-filter"><option value="all">All objects</option><option value="roads">Roads</option><option value="regions">Terrain</option><option value="props">Scenery</option><option value="markers">Markers</option></select></div>
+    <div id="entity-list" class="entity-list" aria-label="World entities"></div>
+    <div class="project-note">Streetbound map authoring. Paved roads create automatic intersections; dirt/gravel stop cleanly at pavement without junction links. Export world JSON to keep changes in the repository.</div>
+  </aside>
+</div>
+<dialog id="new-dialog" class="gdt-dialog" aria-labelledby="new-title">
+  <h2 id="new-title">Create a world</h2>
+  <p>Start blank or load a ready-made racing landscape. Loading a preset replaces the current canvas.</p>
+  <div class="atlas-preset">
+    <div class="atlas-preset-details">
+      <strong>Coastal Starter · Sample World</strong>
+      <p>An editable demo with roads, terrain, buildings and gameplay markers. Use it to experiment with automatic intersections and road priority.</p>
+      <button id="create-atlas" class="gdt-btn gdt-btn--primary" type="button">Open sample world</button>
+    </div>
+  </div>
+  <div class="field"><label for="new-name">World name</label><input id="new-name" value="My Racing World" maxlength="80"></div>
+  <div class="double-fields"><div class="field"><label for="new-width">Width (world units)</label><input id="new-width" type="number" min="600" max="24000" value="3400"></div><div class="field"><label for="new-height">Height</label><input id="new-height" type="number" min="600" max="24000" value="2300"></div></div>
+  <div class="field"><label for="new-base">Base ground</label><select id="new-base"><option value="grass">Grassland</option><option value="city">City</option><option value="beach">Beach</option><option value="desert">Desert</option></select></div>
+  <div class="dialog-actions"><button id="cancel-new" class="gdt-btn">Cancel</button><button id="create-demo" class="gdt-btn">Coastal demo</button><button id="confirm-new" class="gdt-btn gdt-btn--primary">Create blank</button></div>
+</dialog>
+<script type="module" src="./world-editor.js"></script>
+</body></html>
