@@ -2,6 +2,7 @@ extends Node2D
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
+const TrafficFlowScript = preload("res://scripts/world/traffic_flow.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
@@ -23,6 +24,17 @@ func _ready() -> void:
 	vehicle.surface_provider = ground
 	add_child(vehicle)
 	ground.vehicle = vehicle
+	if not proving_ground:
+		# Traffic uses the same baked Morrow road curves/intersections as roads
+		# and the map editor. It has no influence on the player's handling.
+		var traffic := Node2D.new()
+		traffic.name = "AmbientTraffic"
+		traffic.set_script(TrafficFlowScript)
+		traffic.world = ground
+		traffic.player = vehicle
+		ground.add_child(traffic)
+		# World roads/traffic stay below the player in the 2D draw stack.
+		vehicle.z_index = 8
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
