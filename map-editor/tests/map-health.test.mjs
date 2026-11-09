@@ -145,7 +145,7 @@ test('map editor includes health and backup controls, map audit UI and export pr
   assert.ok(auditUI.includes('auditWorld(getDoc())'));
 });
 
-test('headless audit UI renders issues, blocks errors and allows JSON recovery',()=>{
+test('headless audit UI renders issues, blocks errors and allows JSON recovery',async()=>{
   const elements=new Map();
   class Element {
     constructor(){this.children=[];this.textContent='';this.checked=true;this.dataset={};this.events={};this.className='';}
