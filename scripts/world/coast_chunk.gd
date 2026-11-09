@@ -71,6 +71,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		roads.render_stage=stage
 		roads.z_index=stage+1
 		add_child(roads)
+	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
+	# stages still render over it where a coastal street reaches the shore.
+	if world.boardwalk_path.size() >= 2:
+		var boardwalk := Node2D.new()
+		boardwalk.name = "BeachBoardwalk"
+		boardwalk.set_script(preload("res://scripts/world/coast_boardwalk.gd"))
+		boardwalk.world = world
+		boardwalk.origin_m = origin_m
+		boardwalk.z_index = 1
+		add_child(boardwalk)
 	for stage in 2:
 		var relief := Node2D.new()
 		relief.set_script(preload("res://scripts/world/coast_relief.gd"))
