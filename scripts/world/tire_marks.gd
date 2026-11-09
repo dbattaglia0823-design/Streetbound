@@ -9,6 +9,12 @@ const MAX_BRIDGE := 220.0
 var next_slot := 0
 var count := 0
 var _track_history: Dictionary = {}
+# CPU-side last generated segment, usable for tests and visual debugging even
+# with the headless RenderingServer (which does not read back GPU instances).
+var last_strip_start := Vector2.ZERO
+var last_strip_end := Vector2.ZERO
+var last_strip_color := Color.TRANSPARENT
+var last_strip_track := -1
 
 
 func _ready() -> void:
@@ -54,10 +60,14 @@ func add_mark(point: Vector2, heading: float, asphalt: bool, track: int = 0) -> 
 	var b := point + direction * END_OVERLAP
 	var axis_y := b - a
 	var axis_x := direction.orthogonal() * STRIP_WIDTH
+	var ink := Color(0.06, 0.08, 0.09, 0.50) if asphalt else Color(0.36, 0.28, 0.19, 0.46)
+	last_strip_start = a
+	last_strip_end = b
+	last_strip_color = ink
+	last_strip_track = track
 	multimesh.set_instance_transform_2d(next_slot,
 		Transform2D(axis_x, axis_y, (a + b) * 0.5))
-	multimesh.set_instance_color(next_slot,
-		Color(0.06, 0.08, 0.09, 0.50) if asphalt else Color(0.36, 0.28, 0.19, 0.46))
+	multimesh.set_instance_color(next_slot, ink)
 	next_slot = (next_slot + 1) % CAPACITY
 	count = mini(count + 1, CAPACITY)
 	multimesh.visible_instance_count = count
