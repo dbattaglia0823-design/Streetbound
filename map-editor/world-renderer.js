@@ -1,5 +1,6 @@
 import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
 import {buildRoadJunctions} from './world-junctions.js';
+import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
@@ -80,9 +81,9 @@ function drawRegion(ctx,region,seed,quality,bounds){
   }
   ctx.restore();
 }
-function drawRoadStroke(ctx,points,width,color,dash=[]){
+function drawRoadStroke(ctx,points,width,color,dash=[],cap='round'){
   if(points.length<2)return;
-  ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;
+  ctx.lineJoin='round';ctx.lineCap=cap;ctx.lineWidth=width;ctx.strokeStyle=color;
   ctx.setLineDash(dash);stroke(ctx,points);ctx.stroke();ctx.setLineDash([]);
 }
 function traceOffset(points,offset){
@@ -95,10 +96,10 @@ function traceOffset(points,offset){
   return output;
 }
 function drawRoadBase(ctx,road,points){
-  const w=road.width,s=road.shoulder;
-  drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760');
-  drawRoadStroke(ctx,points,w+3,'#242a2e99');
-  drawRoadStroke(ctx,points,w,ROAD_COLORS[road.surface]);
+  const w=road.width,s=road.shoulder,cap=isLoose(road)?'butt':'round';
+  drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760',[],cap);
+  drawRoadStroke(ctx,points,w+3,isLoose(road)?'#796d56bb':'#242a2e99',[],cap);
+  drawRoadStroke(ctx,points,w,ROAD_COLORS[road.surface],[],cap);
   if(road.surface==='track')drawRoadStroke(ctx,points,w+5,'#c94e42', [18,18]);
   if(road.roadClass==='mountain'&&w>22){
     drawRoadStroke(ctx,traceOffset(points,w/2+s+5),2.6,'#c3b19a');
@@ -124,14 +125,18 @@ function drawRoadLines(ctx,road,points){
   drawRoadStroke(ctx,traceOffset(points,w/2-2.8),1.5,'#dce0d5b8');
 }
 function drawRoads(ctx,roads,bounds,options){
-  const samples=roads.map(r=>sampleRoad(r.points,r.smooth,11));
-  for(let i=0;i<roads.length;i++){
-    if(!visible(expand(boundsOf(roads[i].points),roads[i].width/2+20),bounds))continue;
-    drawRoadBase(ctx,roads[i],samples[i]);
+  // A shared derived surface plan drives preview AND road-network export.
+  // Clipped dirt/gravel sections are drawn before paved roads regardless of
+  // creation order, preventing the loose shoulders covering asphalt.
+  const pieces=roadPieces(roads);
+  const order=[...roads].sort((a,b)=>Number(isLoose(b))-Number(isLoose(a)));
+  for(const road of order){
+    if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+    for(const path of pieces.get(road.id)||[])drawRoadBase(ctx,road,path);
   }
-  for(let i=0;i<roads.length;i++){
-    if(!visible(expand(boundsOf(roads[i].points),roads[i].width/2+20),bounds))continue;
-    drawRoadLines(ctx,roads[i],samples[i]);
+  for(const road of order){
+    if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+    for(const path of pieces.get(road.id)||[])drawRoadLines(ctx,road,path);
   }
   // Every crossing/T-junction is now repaved AFTER lane markings. The
   // polygon joins the roadway footprints and erases overlapping painted lines.
