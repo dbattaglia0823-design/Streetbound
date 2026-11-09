@@ -11,21 +11,24 @@ Paved roads automatically create intersections where they meet. Dirt and
 gravel tracks stop cleanly before paved road edges and resume on the far
 side, without generating artificial intersections or traffic links.
 Export JSON to preserve work in Git; Godot ZIP exports include separate
-navigable dirt-road pieces. The existing production Morrow Coast map uses
-a different baked format and is not overwritten by this editor.
+navigable dirt-road pieces. The editor now also opens the actual
+playable Morrow Coast: save a versioned Morrow edit overlay, then run the
+full world rebake to regenerate the production map and traffic routes.
 
 **[Map Builder setup, controls and integration guide](map-editor/README.md)**
 
 The editor also includes **Map health** geometry validation, click-to-fix road
 warnings, compatible road snapping, backup/recovery and an export preflight.
-These tools are optional and leave the playable Morrow Coast map unchanged.
+Morrow Coast's high-detail source is preserved by default. Edits reach
+the playable game only after the explicit Python/GitHub Actions full rebake.
+See the [Morrow editor and traffic integration guide](docs/MORROW_EDITOR_AND_TRAFFIC.md).
 
 ## Archived Atlas Coast world and physics review
 
 The [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview](worlds/atlas-coast-overview.svg), [level-design plan](docs/ATLAS_COAST_PLAN.md) and [reference loader](worlds/world_loader.gd) remain untouched. Normal launch now opens the original **Morrow Coast** region: a streamed 6.4 Ã— 4.8 km world with a starting city, coastal town, countryside, mountain roads and motorsport district. See [the playable-world guide](docs/MORROW_COAST.md) and [new overview](worlds/morrow-coast-overview.svg).
 
 
-The existing driving, transmission, camera, audio, pause/settings and persistent F1 tuning systems are preserved. **Tab** opens the detailed atlas: wheel to zoom, drag to pan, select a destination, or use **Find car**. The local minimap shows nearby streets and building footprints. The ~66 km connected road network includes a ridge traverse, orchard loop, gravel quarry route, coastal highway, city streets and circuit. Juniper Pass now climbs through linked hairpins with shaded slopes, rock cuts, downhill guardrails and a matching relief atlas. Road junctions have rounded corners, trimmed lane markings and explicit side-road stop signs, all-way stops or roundabout yield priority. You start at Laurel Motor House in Larkspur. The original lab remains in `scenes/proving_ground.tscn` (open it and press F6). Service locations are reachable parking/landmark content; progression, shop transactions and traffic are not implemented.
+The existing driving, transmission, camera, audio, pause/settings and persistent F1 tuning systems are preserved. **Tab** opens the detailed atlas: wheel to zoom, drag to pan, select a destination, or use **Find car**. The local minimap shows nearby streets and building footprints. The ~66 km connected road network includes a ridge traverse, orchard loop, gravel quarry route, coastal highway, city streets and circuit. Juniper Pass now climbs through linked hairpins with shaded slopes, rock cuts, downhill guardrails and a matching relief atlas. Road junctions have rounded corners, trimmed lane markings and explicit side-road stop signs, all-way stops or roundabout yield priority. You start at Laurel Motor House in Larkspur. The original lab remains in `scenes/proving_ground.tscn` (open it and press F6). Service locations are reachable parking/landmark content; progression and shop transactions are not implemented. A capped, lane-following ambient traffic simulation now drives local, arterial, highway, rural, and mountain roads. Traffic currently uses noncollidable visual vehicles; F5 toggles it and F6 previews its lane routes.
 
 ## Pause menu â€” toolkit integration
 
@@ -115,4 +118,4 @@ Test coverage: launch and upshift; stop before reversing; reverse and reverse st
 
 `tests/handbrake_recovery_test.gd` checks momentum continuity on release, persistent rear slip, torque-induced wheelspin, faster contact recovery when lifting, eventual recovery and reset. A repeatable right-angle corner checks that clean steering exits sooner than a handbrake turn or repeated handbrake taps under the same entry speed, engine and steering policy. This is a regression scenario for the release exploit, not a guarantee of optimal balance on every future track.
 
-The tests establish repeatability and regression bounds, not a substitute for personal handling preference. A physical controller and the subjective sound mix still benefit from a hands-on pass. No AI traffic, networking, multi-body crash simulation, suspension, tire heat or streamed world is included in this milestone.
+The tests establish repeatability and regression bounds, not a substitute for personal handling preference. A physical controller and the subjective sound mix still benefit from a hands-on pass. Morrow Coast now includes streamed world geometry and noncollidable ambient lane-following traffic. Networking, multi-body traffic crashes, full vehicle collision/damage AI, suspension and tire heat remain future work.
