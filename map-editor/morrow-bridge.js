@@ -76,7 +76,10 @@ export function buildMorrowPatch(doc,reference){
       throw new Error('Road '+road.name+' moved a shared node. Keep its endpoints fixed; reshape interior control points instead.');
     const width=Math.max(6,+road.width);
     const surface=road.surface==='dirt'||road.surface==='gravel'?'GRAVEL':'ASPHALT';
-    const kind=KINDS[road.roadClass]||before.kind;
+    // Several production classes map to the same editor selector (city).
+    // Preserve the original kind unless the user actually changes class.
+    const originalClass=ROAD_CLASS[before.kind]||'country';
+    const kind=road.roadClass===originalClass?before.kind:(KINDS[road.roadClass]||before.kind);
     const changed=road.points.length!==before.points.length||
       road.points.some((p,i)=>!before.points[i]||!same(p,before.points[i],.01))||
       Math.abs(width-before.width)>.01||road.lanes!==before.lanes||
