@@ -5,7 +5,7 @@
  * silently connected just because their wide shoulders touch.
  */
 import {clamp,distance,pointSegment,roadIntersections,sampleRoad} from './world-geometry.js';
-import {pavedVsLoose} from './world-road-priority.js';
+import {pavedVsLoose,denseRoadPath} from './world-road-priority.js';
 const gridSize=160,MAX_WIDTH=160,MAX_SHOULDER=16;
 const junctionCache=new WeakMap();
 const gridKey=(x,y)=>x+','+y;
@@ -26,7 +26,7 @@ const cells=b=>{
 function roadSegmentIndex(roads){
   const grid=new Map(),paths=new Map();
   roads.forEach(road=>{
-    const path=sampleRoad(road.points,road.smooth,18);
+    const path=denseRoadPath(road,18);
     paths.set(road.id,path);
     for(let i=1;i<path.length;i++){
       const a=path[i-1],b=path[i];
@@ -193,7 +193,7 @@ export function buildRoadJunctions(roads){
         if(nearest.d>overlap*.88)continue;
         const at={x:(nearest.p.x+nearest.q.x)*.5,y:(nearest.p.y+nearest.q.y)*.5};
         const prior=byPair.get(pair)||[];
-        const separation=Math.max(18,Math.min(road.width,other.road.width)*.7);
+        const separation=Math.max(24,Math.max(road.width,other.road.width)*1.15);
         if(prior.some(node=>distance(node,at)<separation))continue;
         const joint={...at,roads:[road.id,other.road.id],kind:'overlap'};
         raw.push(joint);prior.push(joint);byPair.set(pair,prior);
