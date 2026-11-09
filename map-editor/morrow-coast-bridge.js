@@ -25,7 +25,9 @@ function pointsOf(items){
 function simplifyPolygon(items,max=180){
   // Import is intentionally a reviewable proxy, not lossy overwriting of
   // original coast/river masks. The rebaker only changes edited polygons.
-  const pts=pointsOf(items);
+  // Original ocean/river masks may intentionally extend past the game map.
+  // The editor clamps only its preview; unchanged high-detail source is safe.
+  const pts=pointsOf(items).map(p=>({x:clamp(p.x,0,6400),y:clamp(p.y,0,4800)}));
   if(pts.length>1 && Math.hypot(pts[0].x-pts.at(-1).x,pts[0].y-pts.at(-1).y)<.001)pts.pop();
   if(pts.length<=max)return pts;
   return Array.from({length:max},(_,i)=>pts[Math.floor(i*pts.length/max)]);
