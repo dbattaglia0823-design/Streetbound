@@ -56,7 +56,10 @@ def points(raw, width=6400, height=4800):
 
 
 def _thin_polygon(items, maximum=180):
-    coords = [tuple(v) for v in items]
+    # Mirrors the browser editor's in-bounds preview. Original source
+    # remains high resolution when the user did not change the proxy polygon.
+    coords = [(min(6400.0, max(0.0, float(v[0]))),
+               min(4800.0, max(0.0, float(v[1])))) for v in items]
     if len(coords) > 1 and length(coords[0], coords[-1]) < 0.001:
         coords.pop()
     if len(coords) <= maximum:
