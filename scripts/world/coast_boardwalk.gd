@@ -58,11 +58,11 @@ func _draw() -> void:
 					Color(0.38, 0.29, 0.21, 0.23), 2.0, true)
 
 				# Low-profile safety posts on the ocean-facing rail. The
-				# coastline runs north to south, so -normal faces east.
+				# coastline runs north to south; the normal faces east.
 				if k % 4 == 0:
-					var seaward := center - normal * (DECK_WIDTH * 0.5 + 2.0)
+					var seaward := center + normal * (DECK_WIDTH * 0.5 + 2.0)
 					draw_circle(seaward + Vector2(5, 7), 6.0, Color(0.13, 0.17, 0.16, 0.22))
 					draw_circle(seaward, 4.2, Color("dbc7a4"))
-		var rail := Walkways.offset(path, -(DECK_WIDTH * 0.5 + 2.0))
+		var rail := Walkways.offset(path, DECK_WIDTH * 0.5 + 2.0)
 		draw_polyline(rail, Color("695941"), 7.0, true)
 		draw_polyline(rail, Color("d9c299"), 3.0, true)
