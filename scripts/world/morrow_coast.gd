@@ -3,6 +3,7 @@ extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
+const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const PPM := 20.0
 var data: Dictionary
 var chunk_m := 192.0
@@ -22,6 +23,10 @@ var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
 var _sand_polygons: Dictionary = {}
 var boardwalk_path := PackedVector2Array()
+var debug_geometry_enabled := false
+var debug_hud: CanvasLayer
+var debug_label: Label
+var _debug_clock := 0.0
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
@@ -89,6 +94,58 @@ func _ready() -> void:
 	var first := Vector2i((spawn/PPM/chunk_m).floor())
 	_build_chunk(first)
 	stream_at(spawn)
+	_create_geometry_inspector()
+
+## Read-only map/physics tooling, all inputs/outputs in WORLD pixels except
+## explicitly named metre fields. Physics continues using surface_at().
+func geometry_at(position_px: Vector2) -> Dictionary:
+	return MapGeometry.inspect(self, position_px)
+
+
+func nearest_road_at(position_px: Vector2, radius_m := 12.0) -> Dictionary:
+	return MapGeometry.nearest_road(self, position_px, radius_m)
+
+
+func can_place_at(position_px: Vector2, radius_m := 2.0, margin_m := 1.0) -> Dictionary:
+	return MapGeometry.placement_check(self, position_px, radius_m, margin_m)
+
+
+func _create_geometry_inspector() -> void:
+	debug_hud = CanvasLayer.new()
+	debug_hud.name = "MapGeometryHUD"
+	debug_hud.layer = 12
+	debug_hud.visible = false
+	add_child(debug_hud)
+	debug_label = Label.new()
+	debug_label.position = Vector2(16, 112)
+	debug_label.add_theme_font_size_override("font_size", 13)
+	debug_label.add_theme_color_override("font_color", Color("edf5f4"))
+	debug_label.add_theme_color_override("font_shadow_color", Color(0.0,0.0,0.0,0.9))
+	debug_label.add_theme_constant_override("shadow_offset_x", 2)
+	debug_label.add_theme_constant_override("shadow_offset_y", 2)
+	debug_label.text = "F4 / MAP GEOMETRY\nCYAN road    AMBER sidewalk    PINK junction\nGREEN boardwalk    RED obstacle    GRAY terrain"
+	debug_hud.add_child(debug_label)
+
+
+func set_geometry_debug(enabled: bool) -> void:
+	debug_geometry_enabled = enabled
+	if is_instance_valid(debug_hud):
+		debug_hud.visible = enabled
+	for index in chunks:
+		var overlay: Node2D = chunks[index].get_node_or_null("GeometryOverlay")
+		if overlay != null:
+			overlay.set_enabled(enabled)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Explicit developer tool: no persistent player setting or normal-game
+	# rendering overhead. This key is not used by current driving controls.
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
+			set_geometry_debug(not debug_geometry_enabled)
+			get_viewport().set_input_as_handled()
+
 
 func spawn_position() -> Vector2:
 	return Vector2(float(data.spawn.position[0]),float(data.spawn.position[1]))*PPM
@@ -129,12 +186,29 @@ func stream_at(position_px: Vector2) -> void:
 			chunks[index].queue_free()
 			chunks.erase(index)
 
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
 	if vehicle:
 		stream_at(vehicle.global_position)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
+	if debug_geometry_enabled and is_instance_valid(debug_label) and is_instance_valid(vehicle):
+		_debug_clock += dt
+		if _debug_clock >= 0.18:
+			_debug_clock = 0.0
+			var info := geometry_at(vehicle.global_position)
+			var road_text := "none"
+			if info.has("road_name"):
+				road_text = "%s / %.1fm to edge" % [str(info.road_name), float(info.distance_to_road_edge_m)]
+			var can_build := can_place_at(vehicle.global_position, 2.0, 1.0)
+			debug_label.text = "F4 / MAP GEOMETRY (toggle)\n" + \
+				"CYAN road  AMBER sidewalks  PINK junction  GREEN boardwalk\n" + \
+				"RED obstacles  GRAY terrain / parcels\n" + \
+				"Region: %s | Surface: %s | Grip: %.2f\n" % [
+					str(info.region), str(info.surface), float(info.grip)] + \
+				"Road: %s\n" % road_text + \
+				"Placement: %s (%s)" % [
+					"clear" if bool(can_build.clear) else "blocked", str(can_build.reason)]
 
 func surface_at(position_px: Vector2) -> Dictionary:
 	surface_queries += 1
