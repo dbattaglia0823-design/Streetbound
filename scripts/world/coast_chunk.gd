@@ -102,6 +102,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	scenery.origin_m = origin_m
 	scenery.z_index = 6
 	add_child(scenery)
+	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
+	# or submitted to the renderer unless F4 developer mode is explicitly on.
+	var geometry_overlay := Node2D.new()
+	geometry_overlay.name = "GeometryOverlay"
+	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
+	geometry_overlay.world = world
+	geometry_overlay.chunk = self
+	geometry_overlay.z_index = 45
+	geometry_overlay.visible = bool(world.debug_geometry_enabled)
+	add_child(geometry_overlay)
 	_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 
