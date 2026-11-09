@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="VehicleAppearanceProfile" load_steps=3 format=3]
+[ext_resource type="Script" path="res://scripts/vehicle/vehicle_appearance_profile.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/player_car.png" id="2"]
+[resource]
+script = ExtResource("1")
+body_texture = ExtResource("2")
+sprite_scale = Vector2(0.054, 0.054)
+sprite_rotation_degrees = 180.0
+front_left_uv = Vector2(0.04, 0.255)
+front_right_uv = Vector2(0.96, 0.255)
+rear_left_uv = Vector2(0.04, 0.755)
+rear_right_uv = Vector2(0.96, 0.755)
+tire_width_ratio = 0.21
+tire_length_ratio = 0.235

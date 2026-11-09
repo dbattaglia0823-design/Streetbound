@@ -30,6 +30,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/terrain_detail_test.gd
       - name: Verify four-wheel overlay, front steering and reset behavior
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/wheel_visual_test.gd
+      - name: Verify compact, sedan, SUV and pickup wheel profiles and resizing
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape
