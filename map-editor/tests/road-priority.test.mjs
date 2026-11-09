@@ -95,7 +95,7 @@ test('gravel behaves as an unpaved approach; loose-to-loose can still join',()=>
   assert.ok(buildRoadJunctions(trails.roads).length>=1);
 });
 
-test('exported Godot map contains exactly the dirt breaks; source JSON stays editable',()=>{
+test('exported Godot map contains exactly the dirt breaks; source JSON stays editable',async()=>{
   const doc=crossing();
   const source=parseWorld(serializeWorld(doc));
   assert.equal(source.roads[1].renderPieces,undefined,'unmodified editable splines');
