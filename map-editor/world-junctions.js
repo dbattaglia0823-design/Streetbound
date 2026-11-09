@@ -5,6 +5,7 @@
  * silently connected just because their wide shoulders touch.
  */
 import {clamp,distance,pointSegment,roadIntersections,sampleRoad} from './world-geometry.js';
+import {pavedVsLoose} from './world-road-priority.js';
 const gridSize=160,MAX_WIDTH=160,MAX_SHOULDER=16;
 const junctionCache=new WeakMap();
 const gridKey=(x,y)=>x+','+y;
@@ -121,7 +122,9 @@ export function buildRoadJunctions(roads){
   const cached=junctionCache.get(roads);
   if(cached)return cached;
   const index=roadSegmentIndex(roads),byId=new Map(roads.map(r=>[r.id,r]));
-  const raw=roadIntersections(roads).map((j)=>({...j,kind:'crossing'}));
+  const raw=roadIntersections(roads)
+    .filter(j=>!pavedVsLoose(byId.get(j.roads[0]),byId.get(j.roads[1])))
+    .map(j=>({...j,kind:'crossing'}));
   const byPair=new Map();
   for(const j of raw){
     const pair=keyPair(j.roads);
@@ -138,7 +141,7 @@ export function buildRoadJunctions(roads){
       [path.at(-1),unit(path.at(-2),path.at(-1))]]){
       const bestByRoad=new Map();
       for(const s of candidates(index,p,MAX_WIDTH+MAX_SHOULDER*2+24)){
-        if(s.road.id===road.id)continue;
+        if(s.road.id===road.id || pavedVsLoose(road,s.road))continue;
         const hit=pointSegment(p,s.a,s.b);
         const other=s.road,ends=index.paths.get(other.id);
         const isEnd=distance(p,ends[0])<=20||distance(p,ends.at(-1))<=20;
@@ -160,6 +163,43 @@ export function buildRoadJunctions(roads){
       }
     }
   }
+  // Paved streets whose edges physically intersect but centerlines narrowly
+  // miss also receive a real junction apron. Parallel neighboring lanes
+  // stay separate; only angled overlaps are navigable merges.
+  const examined=new Set();
+  for(const road of roads){
+    if(road.surface==='dirt'||road.surface==='gravel')continue;
+    const path=index.paths.get(road.id);
+    for(let i=1;i<path.length;i++){
+      const a=path[i-1],b=path[i],mid={x:(a.x+b.x)*.5,y:(a.y+b.y)*.5};
+      const here=unit(a,b);
+      for(const other of candidates(index,mid,MAX_WIDTH+MAX_SHOULDER*2)){
+        if(other.road===road || pavedVsLoose(road,other.road) ||
+          other.road.surface==='dirt'||other.road.surface==='gravel')continue;
+        const pair=keyPair([road.id,other.road.id]);
+        const segmentKey=pair+':'+Math.floor(mid.x/12)+':'+Math.floor(mid.y/12);
+        if(examined.has(segmentKey))continue;
+        examined.add(segmentKey);
+        if(Math.abs(cross(here,other.tangent))<.29)continue;
+        const candidates2=[pointSegment(a,other.a,other.b),pointSegment(b,other.a,other.b)];
+        const pOther=pointSegment(other.a,a,b),qOther=pointSegment(other.b,a,b);
+        const nearest=[
+          {p:a,q:candidates2[0],d:candidates2[0].distance},
+          {p:b,q:candidates2[1],d:candidates2[1].distance},
+          {p:other.a,q:pOther,d:pOther.distance},
+          {p:other.b,q:qOther,d:qOther.distance}
+        ].sort((x,y)=>x.d-y.d)[0];
+        const overlap=road.width*.5+other.road.width*.5;
+        if(nearest.d>overlap*.88)continue;
+        const at={x:(nearest.p.x+nearest.q.x)*.5,y:(nearest.p.y+nearest.q.y)*.5};
+        const prior=byPair.get(pair)||[];
+        const separation=Math.max(18,Math.min(road.width,other.road.width)*.7);
+        if(prior.some(node=>distance(node,at)<separation))continue;
+        const joint={...at,roads:[road.id,other.road.id],kind:'overlap'};
+        raw.push(joint);prior.push(joint);byPair.set(pair,prior);
+      }
+    }
+  }
   // Combine nodes from several road pairs when their paving meets at one
   // physical junction. Nearby but separated junctions retain separate IDs.
   const nodes=[];
@@ -175,7 +215,7 @@ export function buildRoadJunctions(roads){
       nearby.y=(nearby.y*n+rawNode.y)/(n+1);
       nearby._count++;
       for(const id of rawNode.roads)if(!nearby.roads.includes(id))nearby.roads.push(id);
-      if(rawNode.kind==='crossing')nearby.kind='crossing';
+      if(rawNode.kind==='crossing'||rawNode.kind==='overlap')nearby.kind='crossing';
       else if(rawNode.kind==='tee'&&nearby.kind==='endpoint')nearby.kind='tee';
     }
   }
