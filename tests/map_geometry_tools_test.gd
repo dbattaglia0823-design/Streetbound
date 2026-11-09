@@ -16,6 +16,7 @@ func vec(raw: Array) -> Vector2:
 	return Vector2(float(raw[0]), float(raw[1]))
 
 func run() -> void:
+	print("GEOMETRY STAGE 1: instantiate main")
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
@@ -48,6 +49,7 @@ func run() -> void:
 	var along := (b-a).normalized()
 	var mid := (a+b)*0.5
 	var road_pos := mid * 20.0
+	print("GEOMETRY STAGE 2: road query")
 	var info: Dictionary = world.geometry_at(road_pos)
 	var surface: Dictionary = world.surface_at(road_pos)
 	check("geometry_reports_actual_physical_surface",
@@ -70,6 +72,7 @@ func run() -> void:
 		world.can_place_at(road_pos, 2.0, 1.0).reason)
 
 	var urban_point := road_pos
+	print("GEOMETRY STAGE 3: stream urban")
 	world.stream_at(urban_point)
 	while not world.pending.is_empty():
 		world._build_chunk(world.pending.pop_front())
@@ -80,10 +83,13 @@ func run() -> void:
 		var dev: Node2D = chunk.get_node("GeometryOverlay")
 		check("debug_is_still_hidden_in_new_chunk",
 			not dev.visible and dev.cached_features.is_empty())
+		print("GEOMETRY STAGE 4: enable overlay")
 		world.set_geometry_debug(true)
 		check("debug_only_visible_on_request",
 			dev.visible and world.debug_hud.visible and world.debug_geometry_enabled)
+		print("GEOMETRY STAGE 5: cache outline paths")
 		var features: Array[Dictionary] = dev.features()
+		print("GEOMETRY STAGE 5b: created %d geometry features" % features.size())
 		var road_edges := 0
 		var sidewalk_edges := 0
 		var junctions := 0
@@ -116,6 +122,7 @@ func run() -> void:
 				if matched: break
 			if matched: break
 		check("outline_matches_actual_rendered_sidewalk_offset",matched)
+		print("GEOMETRY STAGE 6: disable overlay")
 		world.set_geometry_debug(false)
 		check("toggle_hides_geometry_without_dropping_gameplay",
 			not dev.visible and not world.debug_hud.visible and world.geometry_at(road_pos).surface == surface.name)
@@ -126,6 +133,7 @@ func run() -> void:
 	if world.boardwalk_path.size() >= 4:
 		var shore_m: Vector2 = world.boardwalk_path[int(world.boardwalk_path.size()/2)]
 		var shore_px := shore_m * 20.0
+		print("GEOMETRY STAGE 7: stream boardwalk")
 		world.stream_at(shore_px)
 		while not world.pending.is_empty():
 			world._build_chunk(world.pending.pop_front())
@@ -140,6 +148,7 @@ func run() -> void:
 				if feature.kind == "boardwalk_center": deck_centers += 1
 			check("boardwalk_both_edges_available",deck_edges >= 2 and deck_centers >= 1,
 				[deck_edges,deck_centers])
+		print("GEOMETRY STAGE 8: shore placement")
 		var reserved: Dictionary = world.can_place_at(shore_px,1.0,0.0)
 		check("map_object_placement_keeps_boardwalk_clear",not reserved.clear,reserved.reason)
 		var found: Dictionary = world.geometry_at(shore_px)
