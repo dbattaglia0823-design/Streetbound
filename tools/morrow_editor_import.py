@@ -131,9 +131,17 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
         entry = numbered[index]
         fresh = points(entry["points"])
         baseline = [list(p) for p in road["anchors"]]
-        if len(fresh) != len(baseline) or any(length(a, b) > 0.01 for a, b in zip(fresh, baseline)):
+        unchanged = (len(fresh) == len(baseline) and
+                     all(length(a, b) < 0.005 for a, b in zip(fresh, baseline)))
+        if unchanged:
+            # Some authored coastal nodes are calculated with full float
+            # precision. The browser can round visually, but untouched
+            # road anchors must retain the EXACT source coordinates.
+            fresh = baseline
+        else:
             edited += 1
         road["anchors"] = fresh
+        road["name"] = str(entry.get("name", road["name"]))[:80]
         for name, old, new in ((road["start"], baseline[0], fresh[0]),
                                (road["end"], baseline[-1], fresh[-1])):
             if length(old, new) <= 0.05:
