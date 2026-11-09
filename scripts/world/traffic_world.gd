@@ -40,11 +40,11 @@ func _make_car(road_id: int, lane_id: int, pos: Vector2) -> Node2D:
 	var npc := AnimatableBody2D.new()
 	npc.set_script(Car)
 	npc.name = "Traffic_%d" % spawned_total
-	npc.type_index = road_id % 3
-	npc.color = [
+	npc.set("type_index", road_id % 3)
+	npc.set("color", [
 		Color("809ca2"), Color("b9a28b"), Color("a97662"),
 		Color("a7b2a5"), Color("647d91"), Color("c1bcae")
-	][(road_id + lane_id) % 6]
+	][(road_id + lane_id) % 6])
 	npc.position = pos * PPM
 	add_child(npc)
 	return npc
@@ -225,7 +225,7 @@ func _step_car(agent: Dictionary, dt: float) -> bool:
 		point = Network.point_at(route, float(agent.station))
 	car.global_position = point * PPM
 	car.rotation = tangent.angle() + PI / 2.0
-	car.set_braking(speed < target_speed - 1.0 or speed < 2.0)
+	car.call("set_braking", speed < target_speed - 1.0 or speed < 2.0)
 	return true
 
 
