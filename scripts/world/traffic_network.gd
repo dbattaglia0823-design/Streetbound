@@ -241,8 +241,9 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 			var c0 := p0+t0*handle
 			var c1 := p1-t1*handle
 			var path := PackedVector2Array()
-			for i in 9:
-				var t := float(i)/8.0
+			# Dense samples preserve smooth visible motion through the turn.
+			for i in 25:
+				var t := float(i)/24.0
 				var point := p0*pow(1.0-t,3.0)+c0*3.0*pow(1.0-t,2.0)*t+ \
 					c1*3.0*(1.0-t)*t*t+p1*t*t*t
 				path.append(point)
@@ -278,7 +279,13 @@ func point_on_edge(edge_id: int, progress_px: float) -> Dictionary:
 	var delta := maxf(float(stations[high]-stations[low]),0.0001)
 	var t := clampf((offset-stations[low])/delta,0.0,1.0)
 	var p := points[low].lerp(points[high],t)
-	var tangent := (points[high]-points[low]).normalized()
+	# Blend adjacent route segments over a short travel interval. The old
+	# per-segment tangent jumped visibly at every connector control point.
+	var before: Vector2 = _position(points, stations, offset - PPM * 1.6)
+	var after: Vector2 = _position(points, stations, offset + PPM * 1.6)
+	var tangent := (after - before).normalized()
+	if tangent.length_squared() < 0.1:
+		tangent = (points[high] - points[low]).normalized()
 	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5}
 
 
