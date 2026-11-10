@@ -231,15 +231,25 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		var normal := collision.get_normal()
 		var impact_speed := -linear_velocity.dot(normal)
 		if impact_speed > 0.0:
-			linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
-			linear_velocity *= 0.88
-			yaw_rate *= 0.4
 			var other: Object = collision.get_collider()
-			# A real player impact knocks the AI car off its intended lane.
-			# TrafficFlow then searches the baked graph and drives it back.
-			if impact_speed > 0.7 and is_instance_valid(other) and other is Node:
-				if other.is_in_group("traffic_vehicle") and other.has_method("receive_impact"):
-					other.receive_impact(-normal * minf(impact_speed, 22.0) * PIXELS_PER_METER * 0.80)
+			var is_traffic := is_instance_valid(other) and other is Node and \
+				other.is_in_group("traffic_vehicle")
+			if is_traffic:
+				# Treat NPC cars as lighter movable objects, not concrete walls.
+				# The solver still blocks overlap, but the player retains some
+				# forward momentum while sending a stronger impulse to traffic.
+				if impact_speed > 0.7 and other.has_method("receive_impact"):
+					other.receive_impact(-normal * minf(impact_speed, 22.0) * \
+						PIXELS_PER_METER * 1.25)
+				linear_velocity += normal * impact_speed * 0.65
+				linear_velocity *= 0.97
+				yaw_rate *= 0.8
+			else:
+				# Solid buildings, barriers and trees keep their original
+				# restitution and deceleration behavior.
+				linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
+				linear_velocity *= 0.88
+				yaw_rate *= 0.4
 			impacted.emit(impact_speed)
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
