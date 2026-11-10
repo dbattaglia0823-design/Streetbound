@@ -152,7 +152,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 	# The race coordinator calls this only after a timed, completed 1/4-mile
 	# run. Race tokens are saved to prevent double payout, even on restart.
 	if race_id.length() < 5 or _claimed_races.has(race_id) or \
-		not is_finite(elapsed_seconds) or elapsed_seconds < 7.0 or \
+		is_nan(elapsed_seconds) or is_inf(elapsed_seconds) or elapsed_seconds < 7.0 or \
 		elapsed_seconds > 180.0 or not owns(active_id):
 		return {"result":"invalid_or_duplicate"}
 	var old_player_level := player_level()
