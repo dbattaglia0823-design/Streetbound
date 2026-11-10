@@ -39,7 +39,7 @@ func run() -> void:
 	check("twelve_vehicle_brands", brands.size() == 12, brands.size())
 	check("plausible_vehicle_baseline_data", all_metrics)
 	check("unknown_images_remain_flagged", unverified == 46, unverified)
-	var main := load("res://scenes/proving_ground.tscn").instantiate()
+	var main: Node = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
 	main.vehicle.set_physics_process(false)
