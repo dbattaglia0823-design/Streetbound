@@ -139,7 +139,7 @@ static func destination_motif(title: String) -> String:
 	if name.contains("fuel") or name.contains("harvest rest"): return "fuel"
 	if name.contains("pinecrest"): return "lodge"
 	if name.contains("marina"): return "marina"
-	if name.contains("overlook"): return "scenic"
+	if name.contains("overlook") or name.contains("lookout"): return "scenic"
 	if name.contains("raceworks") or name.contains("drag staging"): return "racing"
 	if name.contains("quarry"): return "industrial"
 	if name.contains("village") or name.contains("farm"): return "village"
