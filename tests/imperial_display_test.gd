@@ -59,6 +59,8 @@ func _run() -> void:
 		var mass_caption: Label = hud.config_labels["mass_kg"]
 		var mass_slider: HSlider = mass_caption.get_parent().get_child(mass_caption.get_index() + 1) as HSlider
 		mass_slider.value = 1675.0
+		print("TUNING DEBUG mass=",car.config.mass_kg," slider=",mass_slider.value,
+			" label=",mass_caption.text," expected=",Imperial.tune_text("mass_kg",1675.0))
 		check("tuning_retains_physics_in_si", is_equal_approx(car.config.mass_kg, 1675.0)
 			and mass_caption.text.ends_with(Imperial.tune_text("mass_kg", 1675.0)))
 		# No physics values should change during display-only rendering.
