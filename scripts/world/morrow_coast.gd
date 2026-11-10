@@ -23,6 +23,17 @@ var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
 var _sand_polygons: Dictionary = {}
 var boardwalk_path := PackedVector2Array()
+## Cached boardwalk coverage avoids expensive shoreline clipping in inland
+## streamed cells; coverage is expanded to include planks and rail overhang.
+var _boardwalk_cells: Dictionary = {}
+var chunk_build_count := 0
+var cached_chunk_reuses := 0
+## Optional developer-only diagnostics; no label or per-frame monitors
+## are created or sampled until F7 is requested.
+var performance_debug_enabled := false
+var performance_hud: CanvasLayer
+var performance_label: Label
+var _performance_clock := 0.0
 var debug_geometry_enabled := false
 var debug_hud: CanvasLayer
 var debug_label: Label
@@ -43,6 +54,17 @@ func _ready() -> void:
 			if p.y >= 2100.0 and p.y <= 3700.0:
 				boardwalk_path.append(p + Vector2(-35.0, 0.0))
 		break
+	# The boardwalk is long, but touches only a handful of 192-metre cells.
+	# Index its segment AABBs once instead of intersecting the full
+	# shoreline against every inland chunk when driving through the city.
+	for i in range(1, boardwalk_path.size()):
+		var a: Vector2 = boardwalk_path[i - 1]
+		var b: Vector2 = boardwalk_path[i]
+		var first := Vector2i(((a.min(b) - Vector2.ONE * 12.0) / chunk_m).floor())
+		var last := Vector2i(((a.max(b) + Vector2.ONE * 12.0) / chunk_m).floor())
+		for x in range(first.x,last.x + 1):
+			for y in range(first.y,last.y + 1):
+				_boardwalk_cells[Vector2i(x,y)] = true
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -145,6 +167,51 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
 			set_geometry_debug(not debug_geometry_enabled)
 			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and (key.keycode == KEY_F7 or key.physical_keycode == KEY_F7):
+			set_performance_debug(not performance_debug_enabled)
+			get_viewport().set_input_as_handled()
+
+
+## Useful when comparing visual changes or new map props: counts and timings
+## are measured by Godot, not theoretical speedup claims. Sampling is throttled.
+func set_performance_debug(enabled: bool) -> void:
+	performance_debug_enabled = enabled
+	if enabled and not is_instance_valid(performance_hud):
+		performance_hud = CanvasLayer.new()
+		performance_hud.name = "PerformanceHUD"
+		performance_hud.layer = 100
+		add_child(performance_hud)
+		performance_label = Label.new()
+		performance_label.name = "PerformanceStats"
+		performance_label.position = Vector2(16, 16)
+		performance_label.add_theme_font_size_override("font_size", 13)
+		performance_label.add_theme_color_override("font_color", Color("e9f1ed"))
+		performance_label.add_theme_color_override("font_shadow_color", Color(0,0,0,.9))
+		performance_label.add_theme_constant_override("shadow_offset_x", 2)
+		performance_label.add_theme_constant_override("shadow_offset_y", 2)
+		performance_hud.add_child(performance_label)
+	if is_instance_valid(performance_hud):
+		performance_hud.visible = enabled
+	if enabled:
+		_performance_clock = 10.0
+
+
+func _update_performance_display() -> void:
+	if not is_instance_valid(performance_label):
+		return
+	var fps := Performance.get_monitor(Performance.TIME_FPS)
+	var frame_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	var texture_mb := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / (1024.0 * 1024.0)
+	var traffic_count := get_tree().get_nodes_in_group("traffic_vehicle").size()
+	performance_label.text = "F7 / MORROW PERFORMANCE (toggle)\n" + \
+		"FPS %.0f | CPU frame %.2f ms | Physics %.2f ms\n" % [fps,frame_ms,physics_ms] + \
+		"Draw calls %d | Texture memory %.1f MB\n" % [draws,texture_mb] + \
+		"Active/cached chunks %d/%d | Traffic %d\n" % [
+			active_chunk_count(),chunks.size(),traffic_count] + \
+		"Chunk builds %d | Cached reuses %d | Max build %.2f ms" % [
+			chunk_build_count,cached_chunk_reuses,float(max_chunk_build_usec)/1000.0]
 
 
 func spawn_position() -> Vector2:
@@ -152,6 +219,20 @@ func spawn_position() -> Vector2:
 
 func spawn_rotation() -> float:
 	return float(data.spawn.rotation)
+
+## Only active chunks draw or participate in physics. The larger 5x5
+## resident ring exists to prevent repeated construction near cell boundaries.
+func boardwalk_near_cell(index: Vector2i) -> bool:
+	return _boardwalk_cells.has(index)
+
+
+func active_chunk_count() -> int:
+	var total := 0
+	for chunk in chunks.values():
+		if bool(chunk.stream_active):
+			total += 1
+	return total
+
 
 func _build_chunk(index: Vector2i) -> void:
 	var key := "%d,%d" % [index.x,index.y]
@@ -163,7 +244,13 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.z_index = -6
 	instance.setup(self,index,data.chunks[key])
 	add_child(instance)
+	# An initial synchronous spawn chunk is active even before stream_at()
+	# establishes current_cell; later preloads obey the live 3x3 radius.
+	var active_center: Vector2i = index if current_cell.x == -999 else current_cell
+	instance.set_stream_active(maxi(absi(index.x - active_center.x),
+		absi(index.y - active_center.y)) <= 1)
 	chunks[index] = instance
+	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
 	stream_build_usec += instance.build_microseconds
@@ -180,11 +267,18 @@ func stream_at(position_px: Vector2) -> void:
 			var index := Vector2i(x,y)
 			if not chunks.has(index):
 				pending.append(index)
+			else:
+				cached_chunk_reuses += 1
 	pending.sort_custom(func(a: Vector2i,b: Vector2i): return a.distance_squared_to(center)<b.distance_squared_to(center))
 	for index in chunks.keys():
-		if absi(index.x-center.x)>2 or absi(index.y-center.y)>2:
+		var cell_delta := maxi(absi(index.x-center.x),absi(index.y-center.y))
+		if cell_delta > 2:
 			chunks[index].queue_free()
 			chunks.erase(index)
+		else:
+			# One toggle per cell crossing, not per frame. The dormant outer
+			# ring stores geometry but contributes zero draw/collision layer.
+			chunks[index].set_stream_active(cell_delta <= 1)
 
 func _process(dt: float) -> void:
 	if vehicle:
@@ -192,6 +286,11 @@ func _process(dt: float) -> void:
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
+	if performance_debug_enabled:
+		_performance_clock += dt
+		if _performance_clock >= 0.45:
+			_performance_clock = 0.0
+			_update_performance_display()
 	if debug_geometry_enabled and is_instance_valid(debug_label) and is_instance_valid(vehicle):
 		_debug_clock += dt
 		if _debug_clock >= 0.18:

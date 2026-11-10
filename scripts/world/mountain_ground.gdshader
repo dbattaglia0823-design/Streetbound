@@ -49,12 +49,18 @@ void fragment() {
 	vec3 meadow = paint * (1.0 + (patch + small) * terrain_detail);
 	float dry = smoothstep(0.57, 0.87, broad * 0.85 + medium * 0.15);
 	meadow = mix(meadow, meadow * vec3(1.075, 1.045, 0.91), dry * 0.29 * vegetation * terrain_detail);
-	float blade = grass_tuft(world_m) * vegetation * terrain_detail;
+	// Grass silhouettes progressively fade below a screen pixel instead of
+	// aliasing into a crawling high-frequency pattern at far camera zoom.
+	float blade_visibility = 1.0 - smoothstep(0.45, 1.05, length(fwidth(world_m * 0.73)));
+	float blade = grass_tuft(world_m) * blade_visibility * vegetation * terrain_detail;
 	meadow = mix(meadow, meadow * vec3(0.57, 0.77, 0.53), clamp(blade * 0.31, 0.0, 1.0));
 
 	// Soft beach granules, and restrained static water ripples.
 	vec3 beach = paint * (1.0 + ((broad - 0.5) * 0.12 + (medium - 0.5) * 0.10 + (grit - 0.5) * 0.07) * terrain_detail);
 	beach += vec3(0.020, 0.015, 0.009) * smoothstep(0.92, 1.0, grit) * terrain_detail;
+	// Drier higher sand flecks and darker packed patches reuse existing noise,
+	// producing natural shallow depth without another sampled texture.
+	beach *= 1.0 - smoothstep(0.73, 0.96, medium) * 0.045 * terrain_detail;
 	float wave = sin(world_m.y * 1.7 + sin(world_m.x * 0.27) * 1.0);
 	float crest = smoothstep(0.94, 1.0, wave);
 	vec3 lagoon = paint * (1.0 + ((broad - 0.5) * 0.075 + (medium - 0.5) * 0.035) * terrain_detail);
