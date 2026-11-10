@@ -34,6 +34,19 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
 		38.0 if parking else 17.0)
 	var roadbed := bounds.grow(-curb)
 	_rounded(roadbed,Color("464f52"),28.0 if parking else 11.0)
+	if parking:
+		# Curb throat on the driveway-facing (-X) side; the original baked
+		# road remains authoritative for traffic and collisions.
+		var opening := maxf(115.0,minf(size.y*.36,185.0))
+		draw_rect(Rect2(-size.x*.5-3.0,-opening*.5,curb+24.0,opening),
+			Color("464f52"),true)
+		for side in [-1.0,1.0]:
+			draw_line(Vector2(-size.x*.5-2.0,side*opening*.5),
+				Vector2(-size.x*.5+curb+25.0,side*opening*.5),
+				Color("cbc7b5"),5.0,true)
+		draw_line(Vector2(-size.x*.5+curb+62.0,-opening*.37),
+			Vector2(-size.x*.5+curb+62.0,opening*.37),
+			Color(.82,.80,.70,.56),3.5,true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value + 918372
 	# World-space shader handles fine grain; static oil, cracks and rubber
@@ -62,6 +75,12 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
 					Vector2(x+15.0,side*size.y*.395),Color("b2ab94"),5.0,true)
 				draw_line(Vector2(x-12.0,side*size.y*.35),
 					Vector2(x+12.0,side*size.y*.35),Color(.12,.16,.18,.30),3.0,true)
+		# A faded arrow in the aisle keeps drivers out of the stalls.
+		var arrow := Vector2(-size.x*.11,0)
+		draw_line(arrow-Vector2(31,0),arrow+Vector2(17,0),Color(.85,.83,.71,.40),4,true)
+		for side in [-1.0,1.0]:
+			draw_line(arrow+Vector2(17,0),arrow+Vector2(2,side*11),
+				Color(.85,.83,.71,.40),4,true)
 	else:
 		for i in 3:
 			var x := -size.x*.30+float(i)*size.x*.30
@@ -110,6 +129,27 @@ func _shrub_bed(size: Vector2, seed_value: int, circular: bool) -> void:
 			_shrub(placement,minf(23.0,size.y*.30)*rng.randf_range(.8,1.15),seed_value+i)
 
 
+func _landmark_sign(kind: String, size: Vector2, title: String) -> void:
+	# Every named destination gets a roof fascia and recognizable entrance.
+	# Reuses original building art and the static scenery batch.
+	var service := kind in ["garage","workshop","fuel","showroom","warehouse"]
+	var accent := Color("c69a69") if service else Color("7ca49f")
+	var width := minf(size.x*.78,410.0)
+	var origin := Vector2(-size.x*.40,-size.y*.39)
+	draw_rect(Rect2(origin,Vector2(width,36.0)),Color(.14,.22,.24,.80),true)
+	draw_line(origin+Vector2(7,31),origin+Vector2(width-7,31),accent,3,true)
+	var name := title.to_upper()
+	if name.length()>25:
+		name=name.substr(0,24)
+	draw_string(ThemeDB.fallback_font,origin+Vector2(13,24),name,
+		HORIZONTAL_ALIGNMENT_LEFT,int(width-22.0),20,Color("f1ebd9"))
+	var entrance := Vector2(-size.x*.48,size.y*.23)
+	draw_rect(Rect2(entrance,Vector2(42,54)),
+		Color("749995") if service else Color("aeae9b"),true)
+	draw_line(entrance+Vector2(8,9),entrance+Vector2(8,45),
+		Color(.82,.90,.84,.62),3,true)
+
+
 func _draw_prop(prop: Dictionary) -> void:
 	var center := point(prop.p)
 	var size := Vector2(float(prop.size[0]),float(prop.size[1]))*PPM
@@ -124,8 +164,7 @@ func _draw_prop(prop: Dictionary) -> void:
 			tint = Color(1.0,0.98,0.94) if seed_value%2==0 else Color(0.94,0.98,1.0)
 		draw_texture_rect(sprite,Rect2(-size/2,size),false,tint)
 		if prop.has("poi"):
-			draw_set_transform(center)
-			draw_string(ThemeDB.fallback_font,Vector2(-size.x*.4,-size.y*.3),str(prop.poi).to_upper(),HORIZONTAL_ALIGNMENT_LEFT,-1,22,Color("fff0d4"))
+			_landmark_sign(kind,size,str(prop.poi))
 		return
 	if kind in ["tree","pine","palm"]:
 		var radius := size.x*.5
@@ -267,6 +306,4 @@ func _draw_prop(prop: Dictionary) -> void:
 		var stripe := Color("c88e73") if kind in ["garage","workshop"] else Color("89a49b")
 		draw_line(Vector2(-size.x/2,-size.y*.36),Vector2(-size.x/2,size.y*.36),stripe,10,true)
 	if prop.has("poi"):
-		draw_set_transform(center)
-		var text_position := Vector2(-size.x*.4,-size.y*.3)
-		draw_string(ThemeDB.fallback_font,text_position,str(prop.poi).to_upper(),HORIZONTAL_ALIGNMENT_LEFT,-1,22,Color("f1e5cc"))
+		_landmark_sign(kind,size,str(prop.poi))
