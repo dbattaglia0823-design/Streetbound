@@ -61,6 +61,10 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/map_editor_adapter_test.gd
       - name: Verify Morrow Coast right-hand traffic graph, legal turns and spawn cap
         run: timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/morrow_traffic_test.gd
+      - name: Verify imported traffic artwork, physical collisions and post-impact route recovery
+        run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_impact_recovery_test.gd
+      - name: Verify fast automatic gear shifts and immediate safe reverse/Drive transition
+        run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_shift_response_test.gd
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape
