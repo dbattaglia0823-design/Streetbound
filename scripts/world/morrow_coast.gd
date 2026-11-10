@@ -23,6 +23,11 @@ var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
 var _sand_polygons: Dictionary = {}
 var boardwalk_path := PackedVector2Array()
+## Cached boardwalk coverage avoids expensive shoreline clipping in inland
+## streamed cells; coverage is expanded to include planks and rail overhang.
+var _boardwalk_cells: Dictionary = {}
+var chunk_build_count := 0
+var cached_chunk_reuses := 0
 var debug_geometry_enabled := false
 var debug_hud: CanvasLayer
 var debug_label: Label
@@ -43,6 +48,17 @@ func _ready() -> void:
 			if p.y >= 2100.0 and p.y <= 3700.0:
 				boardwalk_path.append(p + Vector2(-35.0, 0.0))
 		break
+	# The boardwalk is long, but touches only a handful of 192-metre cells.
+	# Index its segment AABBs once instead of intersecting the full
+	# shoreline against every inland chunk when driving through the city.
+	for i in range(1, boardwalk_path.size()):
+		var a: Vector2 = boardwalk_path[i - 1]
+		var b: Vector2 = boardwalk_path[i]
+		var first := Vector2i(((a.min(b) - Vector2.ONE * 12.0) / chunk_m).floor())
+		var last := Vector2i(((a.max(b) + Vector2.ONE * 12.0) / chunk_m).floor())
+		for x in range(first.x,last.x + 1):
+			for y in range(first.y,last.y + 1):
+				_boardwalk_cells[Vector2i(x,y)] = true
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -153,6 +169,20 @@ func spawn_position() -> Vector2:
 func spawn_rotation() -> float:
 	return float(data.spawn.rotation)
 
+## Only active chunks draw or participate in physics. The larger 5x5
+## resident ring exists to prevent repeated construction near cell boundaries.
+func boardwalk_near_cell(index: Vector2i) -> bool:
+	return _boardwalk_cells.has(index)
+
+
+func active_chunk_count() -> int:
+	var total := 0
+	for chunk in chunks.values():
+		if bool(chunk.stream_active):
+			total += 1
+	return total
+
+
 func _build_chunk(index: Vector2i) -> void:
 	var key := "%d,%d" % [index.x,index.y]
 	if chunks.has(index) or not data.chunks.has(key):
@@ -163,7 +193,13 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.z_index = -6
 	instance.setup(self,index,data.chunks[key])
 	add_child(instance)
+	# An initial synchronous spawn chunk is active even before stream_at()
+	# establishes current_cell; later preloads obey the live 3x3 radius.
+	var active_center: Vector2i = index if current_cell.x == -999 else current_cell
+	instance.set_stream_active(maxi(absi(index.x - active_center.x),
+		absi(index.y - active_center.y)) <= 1)
 	chunks[index] = instance
+	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
 	stream_build_usec += instance.build_microseconds
@@ -180,11 +216,18 @@ func stream_at(position_px: Vector2) -> void:
 			var index := Vector2i(x,y)
 			if not chunks.has(index):
 				pending.append(index)
+			else:
+				cached_chunk_reuses += 1
 	pending.sort_custom(func(a: Vector2i,b: Vector2i): return a.distance_squared_to(center)<b.distance_squared_to(center))
 	for index in chunks.keys():
-		if absi(index.x-center.x)>2 or absi(index.y-center.y)>2:
+		var cell_delta := maxi(absi(index.x-center.x),absi(index.y-center.y))
+		if cell_delta > 2:
 			chunks[index].queue_free()
 			chunks.erase(index)
+		else:
+			# One toggle per cell crossing, not per frame. The dormant outer
+			# ring stores geometry but contributes zero draw/collision layer.
+			chunks[index].set_stream_active(cell_delta <= 1)
 
 func _process(dt: float) -> void:
 	if vehicle:
