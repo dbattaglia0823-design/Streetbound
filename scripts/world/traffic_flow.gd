@@ -7,6 +7,8 @@ const PPM := 20.0
 const COMFORT_BRAKE := PPM * 9.0
 const HARD_BRAKE := PPM * 24.0
 const LOOKAHEAD_SECONDS := 2.25
+const TURN_RESPONSE := 5.2
+const MAX_TURN_RATE := deg_to_rad(95.0)
 const PALETTE := [
 	Color("7b8b9b"),Color("b5b6aa"),Color("a08f7a"),Color("617a77"),
 	Color("a77c6b"),Color("8b94a4"),Color("c9c1ad"),Color("515d67")
@@ -178,9 +180,27 @@ func _crossing_speed(agent: Dictionary, desired_px: float,
 	return minf(desired_px, maxf(0.0, remaining) / LOOKAHEAD_SECONDS)
 
 
+# Only cars on the same junction's incoming roads or inside its connector
+# compete for crossing priority. A queued car at another intersection must
+# not indefinitely hold up the current one.
+func _junction_for(agent: Dictionary) -> int:
+	if network == null or not network.edges is Array or \
+		int(agent.edge) < 0 or int(agent.edge) >= network.edges.size():
+		return -1
+	var edge: Dictionary = network.edges[int(agent.edge)]
+	if bool(edge.connector):
+		return int(edge.start_j)
+	var next_id := int(agent.get("next", -2))
+	if next_id < 0 or next_id >= network.edges.size():
+		return -1
+	var upcoming: Dictionary = network.edges[next_id]
+	return int(upcoming.start_j) if bool(upcoming.connector) else -1
+
+
 func _car_following(index: int, desired_px: float) -> float:
 	var agent: Dictionary = agents[index]
 	var heading := Vector2.UP.rotated((agent.node as Node2D).rotation)
+	var my_junction := _junction_for(agent)
 	for i in agents.size():
 		if i == index:
 			continue
@@ -191,12 +211,19 @@ func _car_following(index: int, desired_px: float) -> float:
 		var other_direction := Vector2.UP.rotated(other_node.rotation)
 		var other_speed := float(other.speed) if not bool(other_node.get("recovering")) else 0.0
 		var other_velocity := other_direction * other_speed + (other_node.get("recovery_velocity") as Vector2)
-		desired_px = _safe_follow_speed(agent, desired_px,
-			other_node.global_position, other_velocity, heading)
-		# The lower ID has right of way if two AI routes cross.
-		desired_px = _crossing_speed(agent, desired_px,
-			other_node.global_position, other_velocity,
-			int(agent.uid) > int(other.uid), heading)
+		var distance := (other_node.global_position - (agent.node as Node2D).global_position).length()
+		# Cars traveling together form a moving queue. At crossing angles
+		# only respect a *nearby physical blocker*; do not wait for an
+		# unrelated stopped car with its nose pointed across this lane.
+		if heading.dot(other_direction) > 0.62 or distance < PPM * 6.2:
+			desired_px = _safe_follow_speed(agent, desired_px,
+				other_node.global_position, other_velocity, heading)
+		var other_junction := _junction_for(other)
+		if my_junction >= 0 and my_junction == other_junction:
+			var other_inside := bool(network.edges[int(other.edge)].connector)
+			var must_yield := other_inside or int(agent.uid) > int(other.uid)
+			desired_px = _crossing_speed(agent, desired_px,
+				other_node.global_position, other_velocity, must_yield, heading)
 	return desired_px
 
 
@@ -219,29 +246,50 @@ func _world_obstacle_speed(agent: Dictionary, desired_px: float, dt: float) -> f
 	var node: CharacterBody2D = agent.node
 	agent.obstacle_scan_clock = float(agent.get("obstacle_scan_clock", 0.0)) - dt
 	if float(agent.obstacle_scan_clock) <= 0.0:
-		agent.obstacle_scan_clock = 0.11
+		agent.obstacle_scan_clock = 0.12
 		agent.obstacle_position = Vector2.INF
-		var heading := Vector2.UP.rotated(node.rotation)
-		var distance := clampf(desired_px * desired_px / (2.0 * COMFORT_BRAKE) +
-			PPM * 8.0, PPM * 10.0, PPM * 45.0)
-		var query := PhysicsRayQueryParameters2D.create(
-			node.global_position + heading * PPM * 1.8,
-			node.global_position + heading * distance, 1, [node.get_rid()])
-		var hit := node.get_world_2d().direct_space_state.intersect_ray(query)
-		if not hit.is_empty():
-			var collider: Object = hit.collider
-			var dynamic_obstacle := false
-			if collider is Node:
-				dynamic_obstacle = collider.is_in_group("traffic_vehicle") or collider is VehicleController2D
-			if not dynamic_obstacle:
-				agent.obstacle_position = hit.position
+		var edge_id := int(agent.edge)
+		if network == null or edge_id < 0 or edge_id >= network.edges.size():
+			return desired_px
+		var edge: Dictionary = network.edges[edge_id]
+		var progress := float(agent.progress)
+		var lookahead := clampf(desired_px * desired_px / (2.0 * COMFORT_BRAKE) +
+			PPM * 6.0, PPM * 8.0, PPM * 28.0)
+		var checked := 0.0
+		var start: Vector2 = node.global_position
+		# Follow the actual lane and connector spline in 3-metre pieces.
+		# Straight rays into intersection corners are not lane blockers.
+		while checked < lookahead:
+			var advance := minf(PPM * 3.0, lookahead - checked)
+			checked += advance
+			progress += advance
+			if progress >= float(edge.length_px):
+				var next_id := int(agent.get("next", -2))
+				if next_id < 0 or next_id >= network.edges.size():
+					break
+				progress -= float(edge.length_px)
+				edge_id = next_id
+				edge = network.edges[edge_id]
+			var finish: Vector2 = network.point_on_edge(edge_id, progress).position
+			var query := PhysicsRayQueryParameters2D.create(start, finish, 1,
+				[node.get_rid()])
+			var hit := node.get_world_2d().direct_space_state.intersect_ray(query)
+			if not hit.is_empty():
+				var collider: Object = hit.collider
+				var dynamic_obstacle := false
+				if collider is Node:
+					dynamic_obstacle = collider.is_in_group("traffic_vehicle") or \
+						collider is VehicleController2D
+				if not dynamic_obstacle:
+					agent.obstacle_position = hit.position
+					break
+			start = finish
 	var target: Vector2 = agent.get("obstacle_position", Vector2.INF)
 	if not target.is_finite():
 		return desired_px
-	var heading := Vector2.UP.rotated(node.rotation)
-	var ahead := (target - node.global_position).dot(heading)
-	if ahead <= 0.0:
-		return desired_px
+	# Stop at a static obstacle on the lane; the stored route-distance is
+	# more useful than a straight-line curb distance on a tight turn.
+	var ahead := (target - node.global_position).length()
 	return minf(desired_px, sqrt(2.0 * COMFORT_BRAKE * maxf(0.0, ahead - PPM * 3.5)))
 
 
@@ -264,12 +312,14 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var previous_progress := float(agent.progress)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	var next_id := -2
+	# Determine upcoming connector before computing right-of-way and sensing.
+	# Waiting cars can otherwise appear to have no destination at all.
+	if remaining < maxf(PPM*35.0,float(agent.speed)*1.6):
+		next_id=_next_target(agent,edge)
 	desired=_car_following(index,desired)
 	desired=_player_awareness(agent,desired)
 	desired=_world_obstacle_speed(agent,desired,dt)
-	var next_id := -2
-	if remaining < maxf(PPM*32.0,float(agent.speed)*1.2):
-		next_id=_next_target(agent,edge)
 	if next_id>=0:
 		var next: Dictionary=network.edges[next_id]
 		if bool(next.connector):
@@ -319,7 +369,11 @@ func _tick_agent(index: int,dt: float) -> bool:
 	# collision marks the agent for local lane rejoining next tick.
 	var motion: Vector2 = sample.position - node.global_position
 	var collision: Variant = node.call("move_traffic", motion, dt)
-	node.rotation=lerp_angle(node.rotation,float(sample.angle),minf(1.0,dt*11.0))
+	# Follow the spline's *smoothed* tangent with a rate-limited yaw.
+	# Do not snap heading at each polyline vertex in a corner.
+	var angle_delta := angle_difference(node.rotation, float(sample.angle))
+	var eased := angle_delta * (1.0 - exp(-TURN_RESPONSE * dt))
+	node.rotation += clampf(eased, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
 	if collision != null or bool(node.get("recovering")):
 		agent.progress=previous_progress
 		agent.speed=minf(float(agent.speed),PPM*3.0)
@@ -415,11 +469,31 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 			node.set("recovering",false)
 	return true
 
+func _prune_junction_claims() -> void:
+	for junction in active_junctions.keys():
+		var owner_id := int(active_junctions[junction])
+		var found := false
+		for agent in agents:
+			if int(agent.uid) != owner_id:
+				continue
+			var node: CharacterBody2D = agent.node
+			if not is_instance_valid(node) or bool(node.get("recovering")):
+				break
+			var edge_id := int(agent.edge)
+			if edge_id >= 0 and edge_id < network.edges.size():
+				var edge: Dictionary = network.edges[edge_id]
+				found = bool(edge.connector) and int(edge.start_j) == int(junction)
+			break
+		if not found:
+			active_junctions.erase(junction)
+
+
 func _physics_process(dt: float) -> void:
 	if not enabled or not is_instance_valid(player) or network==null:
 		return
 	var step := minf(dt,0.05)
 	_simulation_clock+=step
+	_prune_junction_claims()
 	for i in range(agents.size()-1,-1,-1):
 		if not _tick_agent(i,step):
 			var node: Node2D=agents[i].node
