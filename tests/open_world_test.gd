@@ -145,9 +145,18 @@ func run() -> void:
 	load_at(center)
 	await physics_frame
 	var query := PhysicsPointQueryParameters2D.new()
-	query.position = center
 	query.collision_mask = 1
-	check("building_collision_active",not root.world_2d.direct_space_state.intersect_point(query,1).is_empty())
+	# Laurel Motor House is now a real drive-in garage. The empty center
+	# contains the player's parking bay, while its two wings and rear wall
+	# must remain collision-solid.
+	query.position = center
+	check("laurel_garage_bay_is_open",
+		root.world_2d.direct_space_state.intersect_point(query,1).is_empty())
+	var size := vec(target.size)
+	var solid_wall := Vector2(0.0, -size.y * 0.43).rotated(float(target.angle))
+	query.position = center + solid_wall * 20.0
+	check("building_collision_active",
+		not root.world_2d.direct_space_state.intersect_point(query,1).is_empty())
 	for district in world.data.districts:
 		load_at(vec(district.p)*20)
 		await physics_frame

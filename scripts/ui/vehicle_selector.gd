@@ -1,10 +1,12 @@
 extends CanvasLayer
-## Temporary all-vehicle showroom. G opens a scrollable catalog while the
-## world is paused; selecting an entry immediately swaps the current car.
+## Drive-in garage selection. In Morrow Coast the player must park inside
+## Laurel Motor House; proving ground keeps unrestricted testing access.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 var player: VehicleController2D
 var driving_hud: CanvasLayer
 var pause_menu: CanvasLayer
+var garage: Node2D
+var _access_clock := 0.0
 var overlay: Control
 var launch_button: Button
 var scroll: ScrollContainer
@@ -23,9 +25,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	launch_button = Button.new()
 	launch_button.name = "OpenVehicleSelector"
-	launch_button.text = "VEHICLES  [ G ]"
+	launch_button.text = "GARAGE  [ G ]"
 	launch_button.position = Vector2(410.0, 24.0)
-	launch_button.custom_minimum_size = Vector2(196.0, 42.0)
+	launch_button.custom_minimum_size = Vector2(330.0, 42.0)
 	launch_button.pressed.connect(open_menu)
 	add_child(launch_button)
 	overlay = Control.new()
@@ -50,7 +52,7 @@ func _ready() -> void:
 	var heading := HBoxContainer.new()
 	column.add_child(heading)
 	var name_label := Label.new()
-	name_label.text = "STREETBOUND  /  VEHICLES"
+	name_label.text = "LAUREL MOTOR HOUSE  /  GARAGE"
 	name_label.add_theme_font_size_override("font_size", 27)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(name_label)
@@ -60,7 +62,7 @@ func _ready() -> void:
 	close.pressed.connect(close_menu)
 	heading.add_child(close)
 	var help := Label.new()
-	help.text = "Choose any vehicle to drive it now. Purchasing and ownership will be added later."
+	help.text = "Park in the garage to change cars. Ownership and purchases are coming later."
 	help.add_theme_font_size_override("font_size", 14)
 	column.add_child(help)
 	search = LineEdit.new()
@@ -88,6 +90,7 @@ func _ready() -> void:
 	overlay.visible = false
 	get_viewport().size_changed.connect(_layout_grid)
 	_layout_grid()
+	_update_garage_access()
 
 
 func _create_card(entry: Dictionary) -> void:
@@ -143,7 +146,7 @@ func _create_card(entry: Dictionary) -> void:
 func _layout_grid() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
 	grid.columns = maxi(2, floori((viewport_size.x - 90.0) / 232.0))
-	launch_button.position = Vector2(minf(410.0, viewport_size.x - 215.0), 24.0)
+	launch_button.position = Vector2(minf(410.0, maxf(12.0, viewport_size.x - 350.0)), 24.0)
 
 
 func _apply_filter(query: String) -> void:
@@ -160,8 +163,28 @@ func _apply_filter(query: String) -> void:
 	_thumb_clock = 10.0
 
 
+func _can_open_garage() -> bool:
+	# The developer proving ground has no Morrow Coast building.
+	return not is_instance_valid(garage) or garage.can_switch()
+
+
+func _update_garage_access() -> void:
+	if overlay == null or overlay.visible or launch_button == null:
+		return
+	if not is_instance_valid(garage):
+		launch_button.visible = true
+		launch_button.disabled = false
+		launch_button.text = "VEHICLES  [ G ]"
+		return
+	var prompt_text: String = garage.prompt()
+	launch_button.visible = not prompt_text.is_empty()
+	launch_button.disabled = not garage.can_switch()
+	if not prompt_text.is_empty():
+		launch_button.text = prompt_text
+
+
 func open_menu() -> void:
-	if overlay.visible or get_tree().paused:
+	if overlay.visible or get_tree().paused or not _can_open_garage():
 		return
 	_paused_by_selector = true
 	get_tree().paused = true
@@ -178,13 +201,14 @@ func close_menu() -> void:
 	overlay.visible = false
 	launch_button.visible = true
 	get_viewport().gui_release_focus()
+	_update_garage_access()
 	if _paused_by_selector:
 		get_tree().paused = false
 	_paused_by_selector = false
 
 
 func _choose(entry: Dictionary) -> void:
-	if not Catalog.select(player, entry):
+	if not _can_open_garage() or not Catalog.select(player, entry):
 		return
 	var saved := ConfigFile.new()
 	saved.set_value("vehicle", "selected_id", str(entry.id))
@@ -225,6 +249,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	if not overlay.visible:
+		_access_clock -= dt
+		if _access_clock <= 0.0:
+			_access_clock = 0.12
+			_update_garage_access()
 		return
 	_thumb_clock += dt
 	if _thumb_clock < 0.08:
