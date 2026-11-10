@@ -89,6 +89,8 @@ func _ready() -> void:
 	dashboard.set("vehicle",vehicle)
 	dashboard.set("race",race)
 	add_child(dashboard)
+	# HUD owns the update order, including tests that invoke HUD._process(0).
+	dashboard.set_process(false)
 	speed_label = dashboard.get("speed_label") as Label
 	speed_unit_label = dashboard.get("speed_unit_label") as Label
 	gear_label = dashboard.get("gear_label") as Label
@@ -242,11 +244,8 @@ func _input(event: InputEvent) -> void:
 			_save_tuning_now()
 
 func _process(_dt: float) -> void:
-	var speed: float = Imperial.speed_mph(vehicle.linear_velocity.length())
-	speed_label.text = "%03d" % roundi(speed)
-	var mode := "AUTO" if vehicle.transmission.automatic else "MANUAL"
-	gear_label.text = " %s / %s" % ["R" if vehicle.reversing else str(vehicle.transmission.gear), mode]
-	rpm_bar.value = vehicle.transmission.rpm / vehicle.config.redline_rpm * 100
+	if is_instance_valid(dashboard):
+		dashboard.call("_process",_dt)
 	telemetry.text = "%04d RPM   /   %s\nLONG %+.1f MPH    LAT %+.1f MPH    SLIP %+.1f°\n%.0f lb   %.0f lb-ft   %.0f hp   GRIP %.2f" % [
 		vehicle.transmission.rpm, vehicle.surface,
 		Imperial.speed_mph(vehicle.longitudinal_speed),
