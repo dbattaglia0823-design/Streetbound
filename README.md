@@ -30,6 +30,34 @@ The [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview](worlds
 
 The existing driving, transmission, camera, audio, pause/settings and persistent F1 tuning systems are preserved. **Tab** opens the detailed atlas: wheel to zoom, drag to pan, select a destination, or use **Find car**. The local minimap shows nearby streets and building footprints. The ~66 km connected road network includes a ridge traverse, orchard loop, gravel quarry route, coastal highway, city streets and circuit. Juniper Pass now climbs through linked hairpins with shaded slopes, rock cuts, downhill guardrails and a matching relief atlas. Road junctions have rounded corners, trimmed lane markings and explicit side-road stop signs, all-way stops or roundabout yield priority. You start at Laurel Motor House in Larkspur. The original lab remains in `scenes/proving_ground.tscn` (open it and press F6). Service locations are reachable parking/landmark content; progression and shop transactions are not implemented. A capped, lane-following ambient traffic simulation now drives local, arterial, highway, rural, and mountain roads. Traffic currently uses noncollidable visual vehicles; F5 toggles it and F6 previews its lane routes.
 
+## Vehicle grid — temporary free selection
+
+Press **G**, or click **G / VEHICLE GRID** on the HUD, to open a scrollable,
+responsive gallery of the **88 vehicle image assets** currently in
+`assets/Vehicles/`. Click a picture to equip that car immediately at your
+current map position; its mass, torque, power, drivetrain, braking, grip, chassis
+dimensions and wheelbase change with the selected model. The camera and traffic
+continue tracking the same player node, and the garage resumes driving when a
+vehicle is selected. Escape or G closes the garage without changing cars.
+
+These are **representative game-tuned specifications**, not verified figures
+for a particular model year and trim. The wheel rig computes front/rear
+positions from each vehicle's wheelbase, and sprite size from the visible
+alpha silhouette rather than transparent PNG padding. In the source catalog
+(`resources/vehicles/catalog.json`), 46 images that originally had timestamp
+filenames are marked `verified_model: false`: their new model names follow the
+previous Streetbound roster order but still need a visual asset-by-asset
+identity check. Images that already had descriptive model names are retained.
+
+This temporary garage makes all 88 cars freely selectable for testing;
+**purchases, ownership, prices and persistence of the equipped car are not
+yet implemented**. F1 tuning for a chosen roster car is stored separately under
+`user://streetbound_vehicle_<id>_tuning.cfg`; the original starter Porsche
+keeps its legacy tuning file. **Tab** continues to open the world map.
+
+Regression tests: `tests/vehicle_catalog_test.gd` plus the existing
+handling, wheel placement and world smoke tests.
+
 ## Pause menu â€” toolkit integration
 
 Press **Escape** to pause driving. The central menu uses the **Game-Dev-Toolkit Functional UI v2 Pause Menu** template with **Resume**, **Settings**, and **Quit**. Escape in Settings returns to Pause; Escape from Pause resumes. Buttons remain operable while the vehicle, world, camera and gameplay are paused.
@@ -46,6 +74,7 @@ On this computer, double-click **Launch.cmd** to play using the installed Godot.
 
 | Action | Keyboard | Controller default |
 |---|---|---|
+| Vehicle selection grid | G | Not bound |
 | Throttle | W | Right trigger |
 | Brake / reverse | S | Left trigger |
 | Steering | A / D | Left stick |
