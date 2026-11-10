@@ -67,7 +67,7 @@ func _road_wear(path: PackedVector2Array, road: Dictionary, width: float, statio
 			var center := start + tangent * (sample - passed)
 			# Assign the mark to one chunk even if its strokes cross that
 			# chunk's edge; the neighboring chunk must not draw it twice.
-			var edge := world.chunk_m * PPM
+			var edge: float = float(world.chunk_m) * PPM
 			if center.x < 0.0 or center.y < 0.0 or center.x >= edge or center.y >= edge:
 				continue
 			var index := int(round(sample / 480.0))
