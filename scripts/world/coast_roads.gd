@@ -18,7 +18,7 @@ func _offset(path: PackedVector2Array, amount: float) -> PackedVector2Array:
 		result.append(path[i] + Vector2(-tangent.y, tangent.x) * amount)
 	return result
 
-func _dashes(path: PackedVector2Array, width: float, color: Color, dash := 55.0, gap := 85.0, station := 0.0) -> void:
+func _dashes(path: PackedVector2Array, width: float, color: Color, dash := 55.0, gap := 85.0, station := 0.0, weathered := false) -> void:
 	var cursor := station
 	for i in range(1,path.size()):
 		var a := path[i-1]
@@ -29,9 +29,76 @@ func _dashes(path: PackedVector2Array, width: float, color: Color, dash := 55.0,
 			var phase := fposmod(cursor+pos, dash+gap)
 			var step := minf(length-pos, dash-phase if phase<dash else dash+gap-phase)
 			if phase<dash:
-				draw_line(a.lerp(b,pos/length),a.lerp(b,(pos+step)/length),color,width,true)
+				var ink := color
+				if weathered:
+					var dash_index := floori((cursor + pos) / (dash + gap))
+					ink.a *= .62 if posmod(dash_index, 11) in [2, 7] else .88
+				draw_line(a.lerp(b,pos/length),a.lerp(b,(pos+step)/length),ink,width,true)
 			pos += maxf(step,0.01)
 		cursor += length
+
+## Compact world-stationed road wear. Every position is derived from the
+## baked road phase, so neighboring streamed chunks produce the same rhythm.
+## One cached drawing pass per road chunk; no decals, textures or physics nodes.
+static func wear_stations(start: float, length: float, spacing: float = 480.0) -> PackedFloat32Array:
+	var result := PackedFloat32Array()
+	if length <= 0.0 or spacing <= 0.0:
+		return result
+	var at := ceilf((start - .01) / spacing) * spacing
+	while at < start + length - .01:
+		result.append(at)
+		at += spacing
+	return result
+
+func _road_wear(path: PackedVector2Array, road: Dictionary, width: float, station: float) -> void:
+	# Race circuits stay pristine; gravel is already given its own aggregate.
+	if str(road.surface) == "GRAVEL" or str(road.kind) == "track" or width < 140.0:
+		return
+	var passed := station
+	for i in range(1, path.size()):
+		var start := path[i - 1]
+		var span := path[i] - start
+		var length := span.length()
+		if length <= .01:
+			continue
+		var tangent := span / length
+		var normal := tangent.orthogonal()
+		for sample in wear_stations(passed, length):
+			var center := start + tangent * (sample - passed)
+			# Assign the mark to one chunk even if its strokes cross that
+			# chunk's edge; the neighboring chunk must not draw it twice.
+			var edge := world.chunk_m * PPM
+			if center.x < 0.0 or center.y < 0.0 or center.x >= edge or center.y >= edge:
+				continue
+			var index := int(round(sample / 480.0))
+			var side := -1.0 if index % 2 == 0 else 1.0
+			var lane_center := center + normal * side * width * .22
+			if index % 4 == 0:
+				# Slightly irregular resurfaced rectangle, kept in a travel lane.
+				var half_long := 35.0 + float(posmod(index, 4)) * 7.0
+				var half_wide := minf(34.0, width * .12)
+				var corners := PackedVector2Array([
+					lane_center - tangent * half_long - normal * half_wide,
+					lane_center + tangent * half_long - normal * (half_wide - 4.0),
+					lane_center + tangent * (half_long - 5.0) + normal * half_wide,
+					lane_center - tangent * (half_long + 3.0) + normal * half_wide
+				])
+				draw_colored_polygon(corners, Color(.16, .22, .25, .21))
+				draw_line(corners[0], corners[1], Color(.60, .61, .56, .18), 1.7, true)
+			elif index % 3 == 0:
+				# Short sealed cracks follow the wheel-worn portion of the lane.
+				var p := lane_center - tangent * 27.0
+				var q := lane_center + tangent * 9.0 + normal * 6.0
+				var finish := lane_center + tangent * 33.0 - normal * 4.0
+				draw_line(p, q, Color(.13, .18, .21, .32), 1.9, true)
+				draw_line(q, finish, Color(.13, .18, .21, .25), 1.4, true)
+			if index % 5 == 0 and str(road.kind) not in ["local", "arterial"]:
+				# Faint edge unraveling on rural/highland roads, inside the
+				# actual pavement so the shoulder collision remains untouched.
+				var shoulder := center + normal * side * (width * .5 - 10.0)
+				draw_line(shoulder - tangent * 28.0, shoulder + tangent * 23.0,
+					Color(.30, .28, .24, .24), 6.0, true)
+		passed += length
 
 func _paver_joints(path: PackedVector2Array, width: float, station: float) -> void:
 	var cursor := station
@@ -72,6 +139,7 @@ func _roads(stage: int) -> void:
 		elif stage == 1:
 			draw_polyline(path,Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
+				_road_wear(path, r, width, float(batch.phase))
 				var lanes: Array = [-width*.375,-width*.125,width*.125,width*.375] if r.kind=="highway" else [-width*.25,width*.25]
 				for lane in lanes:
 					for wheel in [-13.0,13.0]:
@@ -131,18 +199,18 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 		return
 	var edge := Color("dcd9c4")
 	if r.kind == "track":
-		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station)
-		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station)
+		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station,true)
+		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station,true)
 	elif r.kind == "highway":
 		draw_polyline(_offset(path,-8),Color("d7c696"),3,true)
 		draw_polyline(_offset(path,8),Color("d7c696"),3,true)
-		_dashes(_offset(path,width/4),3.5,edge,60,100,station)
-		_dashes(_offset(path,-width/4),3.5,edge,60,100,station)
+		_dashes(_offset(path,width/4),3.5,edge,60,100,station,true)
+		_dashes(_offset(path,-width/4),3.5,edge,60,100,station,true)
 	elif r.kind in ["arterial","mountain"]:
 		draw_polyline(_offset(path,-5),Color("d8c69a"),3,true)
 		draw_polyline(_offset(path,5),Color("d8c69a"),3,true)
 	else:
-		_dashes(path,3,Color("ddd2a7"),55,85,station)
+		_dashes(path,3,Color("ddd2a7"),55,85,station,true)
 	draw_polyline(_offset(path,width/2-10),edge,3,true)
 	draw_polyline(_offset(path,-width/2+10),edge,3,true)
 func _draw() -> void:
