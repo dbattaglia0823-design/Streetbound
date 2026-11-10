@@ -37,7 +37,7 @@ func _bench(p: Vector2, direction: Vector2) -> void:
 	draw_line(center - tangent * 24.0, center + tangent * 24.0,
 		Color(.12,.17,.17,.24), 16.0, true)
 	for side in [-1.0, 1.0]:
-		var a := p + tangent * side * 19.0
+		var a: Vector2 = p + tangent * float(side) * 19.0
 		draw_line(a - lateral * 11.0, a + lateral * 11.0,
 			Color("7b8172"), 5.0, true)
 	for offset in [-7.0, 0.0, 7.0]:
@@ -90,7 +90,7 @@ func _urban_detail(batch: Dictionary) -> void:
 			return
 		var normal := forward.orthogonal()
 		for side in [-1.0, 1.0]:
-			var p := center + normal * side * (width * .5 + Walkways.SIDEWALK_WIDTH_PX * .83)
+			var p: Vector2 = center + normal * float(side) * (width * .5 + Walkways.SIDEWALK_WIDTH_PX * .83)
 			if _in_chunk(p):
 				if index % 3 == 0 and side > 0.0:
 					_bench(p, forward)
@@ -114,7 +114,7 @@ func _rural_detail(batch: Dictionary) -> void:
 			if _near_junction(center, width * .60 + 100.0):
 				return
 			for side in [-1.0,1.0]:
-				var p := center + forward.orthogonal() * side * (width * .5 + 76.0)
+				var p: Vector2 = center + forward.orthogonal() * float(side) * (width * .5 + 76.0)
 				if _in_chunk(p):
 					_post(p, 4.8 if road_kind == "rural" else 3.4)
 	)

@@ -114,7 +114,7 @@ func _street_surface_details(path: PackedVector2Array, road: Dictionary, width: 
 				draw_circle(cover, 15.0, Color(.15,.21,.23,.30))
 				draw_arc(cover, 11.0, 0.0, TAU, 12, Color(.53,.56,.53,.34), 2.1, true)
 				for side in [-1.0, 1.0]:
-					var drain := center + normal * side * (width * .5 - 18.0)
+					var drain: Vector2 = center + normal * float(side) * (width * .5 - 18.0)
 					draw_line(drain - tangent * 13.0, drain + tangent * 13.0,
 						Color(.13,.18,.20,.44), 7.0, true)
 			sample += spacing
