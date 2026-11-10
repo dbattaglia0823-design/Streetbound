@@ -202,12 +202,28 @@ function drawTree(ctx,type,seed){
   }
   ctx.restore();
 }
-function drawBuilding(ctx,kind){
+function drawBuilding(ctx,kind,prop={}){
   const size={house:[66,54],building:[76,87],warehouse:[116,72],garage:[96,75],gas_station:[92,63],parking:[135,100]}[kind]||[76,62];
   const [w,h]=size;
   if(kind==='parking'){
-    rect(ctx,-w/2,-h/2,w,h,'#575b5b');ctx.strokeStyle='#e4dfbc';ctx.lineWidth=2;
-    for(let i=-w/2+16;i<w/2;i+=20){ctx.beginPath();ctx.moveTo(i,-h/2+4);ctx.lineTo(i,-h/2+38);ctx.stroke();}
+    rect(ctx,-w/2,-h/2,w,h,'#50585a');
+    const spaces=Math.max(3,Math.floor(38*.84/(prop.stallWidth??3.2)));
+    const occupied=prop.occupancy??.4;
+    ctx.strokeStyle='#ddd9c3';ctx.lineWidth=1.3;
+    for(const side of [-1,1]){
+      for(let i=0;i<=spaces;i++){
+        const x=-w*.42+w*.84*i/spaces;
+        ctx.beginPath();ctx.moveTo(x,side*h*.44);ctx.lineTo(x,side*h*.22);ctx.stroke();
+      }
+      for(let i=0;i<spaces;i++){
+        const seed=(i*37+(side>0?23:0)+stringSeed(prop.id||'lot')%97)%100;
+        if(seed>=occupied*100)continue;
+        const x=-w*.42+w*.84*(i+.5)/spaces;
+        rect(ctx,x-4,side*h*.33-11,8,22,side>0?'#b6c3bc':'#9caead');
+      }
+    }
+    const opening=(prop.entranceWidth??8)*h/28;
+    rect(ctx,-w*.5-1,-opening*.5,10,opening,'#50585a');
     return;
   }
   if(kind==='gas_station'){
@@ -244,7 +260,7 @@ export function drawProp(ctx,prop,assets=[]){
   if(['oak','pine','palm','bush'].includes(type)){
     if(type==='bush'){circle(ctx,0,0,18,'#3c7650');circle(ctx,-8,-5,11,'#549461');}
     else drawTree(ctx,type,stringSeed(prop.id));
-  }else if(['house','building','warehouse','garage','gas_station','parking'].includes(type))drawBuilding(ctx,type);
+  }else if(['house','building','warehouse','garage','gas_station','parking'].includes(type))drawBuilding(ctx,type,prop);
   else if(type==='rock'||type==='boulder'){
     const r=type==='boulder'?26:15;
     ctx.fillStyle='#8b918d';ctx.beginPath();ctx.moveTo(-r,3);ctx.lineTo(-r*.6,-r*.7);ctx.lineTo(r*.4,-r);ctx.lineTo(r,r*.4);ctx.lineTo(0,r*.7);ctx.closePath();ctx.fill();
