@@ -103,7 +103,11 @@ func run() -> void:
 			continue
 		worst_px = maxi(worst_px,maxi(image.get_width(),image.get_height()))
 		optimized_art = optimized_art and image.get_width() <= 512 and image.get_height() <= 512
-		all_mipmapped = all_mipmapped and image.has_mipmaps()
+		# CompressedTexture2D does not expose has_mipmaps() in Godot 4.4.
+		# Check the source-import contract directly; runtime dimensions
+		# above verify the imported GPU texture was actually resized.
+		var settings := FileAccess.get_file_as_string(path + ".import")
+		all_mipmapped = all_mipmapped and settings.contains("mipmaps/generate=true")
 	check("traffic_10_textures_import_at_gpu_friendly_size",optimized_art and
 		art_paths.size() == 10,worst_px)
 	check("distant_vehicle_models_have_mipmaps",all_mipmapped)
