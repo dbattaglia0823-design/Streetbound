@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "units": "metres",
+  "shops": [
+    {
+      "id": "junk",
+      "name": "Quarry Salvage Autos",
+      "tier": "JUNK & PROJECT CARS",
+      "region": "Western Quarry Outskirts",
+      "road_name": "Quarry Rally Road",
+      "near_m": [
+        660,
+        4150
+      ],
+      "texture": "res://assets/Buildings/Dealerships/01_junk_car_dealership.png"
+    },
+    {
+      "id": "budget",
+      "name": "Willowmere Budget Motors",
+      "tier": "BUDGET CARS",
+      "region": "Willowmere Outskirts",
+      "road_name": "West Orchard Road",
+      "near_m": [
+        1190,
+        3090
+      ],
+      "texture": "res://assets/Buildings/Dealerships/02_budget_used_car_dealership.png"
+    },
+    {
+      "id": "used",
+      "name": "South County Used Cars",
+      "tier": "USED VEHICLES",
+      "region": "Southern Outskirts",
+      "road_name": "South County Road",
+      "near_m": [
+        2400,
+        3820
+      ],
+      "texture": "res://assets/Buildings/Dealerships/03_used_car_dealership.png"
+    },
+    {
+      "id": "modern",
+      "name": "Eastgate Motor Center",
+      "tier": "MODERN CARS",
+      "region": "East Larkspur",
+      "road_name": "Eastgate Boulevard",
+      "near_m": [
+        3550,
+        2640
+      ],
+      "texture": "res://assets/Buildings/Dealerships/04_modern_dealership.png"
+    },
+    {
+      "id": "showroom",
+      "name": "Civic Auto Showroom",
+      "tier": "PERFORMANCE",
+      "region": "Central Larkspur",
+      "road_name": "Civic Crescent",
+      "near_m": [
+        3060,
+        2500
+      ],
+      "texture": "res://assets/Buildings/Dealerships/05_modern_showroom_dealership.png"
+    },
+    {
+      "id": "premium",
+      "name": "Market Street Performance",
+      "tier": "PREMIUM",
+      "region": "Central Larkspur",
+      "road_name": "Market Street",
+      "near_m": [
+        3150,
+        2820
+      ],
+      "texture": "res://assets/Buildings/Dealerships/06_premium_dealership.png"
+    },
+    {
+      "id": "luxury",
+      "name": "Foundry Luxury Collection",
+      "tier": "LUXURY",
+      "region": "Downtown Larkspur",
+      "road_name": "Foundry Crescent",
+      "near_m": [
+        3470,
+        2760
+      ],
+      "texture": "res://assets/Buildings/Dealerships/07_luxury_dealership.png"
+    },
+    {
+      "id": "exotic",
+      "name": "Canal Street Exotics",
+      "tier": "EXOTIC & HYPERCARS",
+      "region": "Downtown Larkspur",
+      "road_name": "Canal Street",
+      "near_m": [
+        3040,
+        2910
+      ],
+      "texture": "res://assets/Buildings/Dealerships/08_exotic_dealership.png"
+    },
+    {
+      "id": "trail",
+      "name": "Juniper Trail Outfitters",
+      "tier": "OFF-ROAD & 4x4",
+      "region": "Northwest Mountains",
+      "road_name": "Juniper Pass",
+      "near_m": [
+        600,
+        1595
+      ],
+      "texture": "res://assets/Buildings/Dealerships/09_offroad_dealership_service.png"
+    },
+    {
+      "id": "summit",
+      "name": "Summit 4x4 Showroom",
+      "tier": "PREMIUM OFF-ROAD",
+      "region": "Northwest Mountains",
+      "road_name": "Summit Ribbon",
+      "near_m": [
+        1390,
+        795
+      ],
+      "texture": "res://assets/Buildings/Dealerships/10_offroad_dealership_showroom.png"
+    }
+  ]
+}
