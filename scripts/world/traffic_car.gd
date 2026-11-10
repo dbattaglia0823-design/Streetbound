@@ -17,6 +17,9 @@ const MODEL_PATHS := [
 	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
 static var crop_cache: Dictionary = {}
+## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
+## moving traffic and static parked cars; each chunk does not rescan PNG data.
+static var art_cache: Dictionary = {}
 var car_color := Color("718899") # Only used when artwork is unavailable.
 var accent_color := Color("e4d5b9")
 var model_index := 0
@@ -50,43 +53,54 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func _add_sprite() -> void:
-	var path: String = MODEL_PATHS[posmod(model_index, MODEL_PATHS.size())]
+static func appearance_for(index: int) -> Dictionary:
+	var slot := posmod(index,MODEL_PATHS.size())
+	if art_cache.has(slot):
+		return art_cache[slot]
+	var path: String = MODEL_PATHS[slot]
 	var texture := load(path) as Texture2D
 	if texture == null:
 		push_warning("Traffic artwork unavailable: " + path)
-		return
+		return {}
 	var rect: Rect2i
 	if crop_cache.has(path):
 		rect = crop_cache[path]
 	else:
 		var pixels: Image = texture.get_image()
 		if pixels == null:
-			return
-		# ImageGen's PNGs have almost invisible edge pixels (~0.4%
-		# alpha) that make get_used_rect() expand to the whole square
-		# canvas. Threshold sampling finds the actual opaque car body.
+			return {}
 		rect = _visible_alpha_bounds(pixels)
 		crop_cache[path] = rect
 	if rect.size.x < 2 or rect.size.y < 2:
+		return {}
+	var degrees := 0.0
+	var aspect := Vector2(rect.size)
+	if aspect.x > aspect.y * 1.08:
+		degrees = -PI / 2.0
+		aspect = Vector2(aspect.y, aspect.x)
+	var art := {
+		"texture": texture, "region": rect, "rotation": degrees,
+		"aspect": aspect, "source_aspect": Vector2(rect.size)
+	}
+	art_cache[slot] = art
+	return art
+
+
+func _add_sprite() -> void:
+	var art := appearance_for(model_index)
+	if art.is_empty():
 		return
 	var sprite := Sprite2D.new()
 	sprite.name = "VehicleArtwork"
-	sprite.texture = texture
+	sprite.texture = art.texture
 	sprite.region_enabled = true
-	sprite.region_rect = Rect2(rect)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	# Top-down cars in portrait artwork face upward. If an asset is
-	# landscape, rotate its visual only; keep the physics body aligned.
-	var aspect := Vector2(rect.size)
-	if aspect.x > aspect.y * 1.08:
-		sprite.rotation = -PI / 2.0
-		aspect = Vector2(aspect.y, aspect.x)
-	var scale_factor := minf(width_px / aspect.x, length_px / aspect.y)
-	sprite.scale = Vector2.ONE * scale_factor
+	sprite.region_rect = Rect2(art.region)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	sprite.rotation = float(art.rotation)
+	var aspect: Vector2 = art.aspect
+	sprite.scale = Vector2.ONE * minf(width_px / aspect.x, length_px / aspect.y)
 	add_child(sprite)
 	model_loaded = true
-
 
 
 static func _visible_alpha_bounds(image: Image) -> Rect2i:
