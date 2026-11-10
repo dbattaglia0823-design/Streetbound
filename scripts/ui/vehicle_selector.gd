@@ -6,6 +6,7 @@ var player: VehicleController2D
 var driving_hud: CanvasLayer
 var pause_menu: CanvasLayer
 var garage: Node2D
+var inventory: VehicleOwnership
 var _access_clock := 0.0
 var overlay: Control
 var launch_button: Button
@@ -62,7 +63,7 @@ func _ready() -> void:
 	close.pressed.connect(close_menu)
 	heading.add_child(close)
 	var help := Label.new()
-	help.text = "Park in the garage to change cars. Ownership and purchases are coming later."
+	help.text = "Select a car you own. Buy additional vehicles from dealerships across Morrow Coast."
 	help.add_theme_font_size_override("font_size", 14)
 	column.add_child(help)
 	search = LineEdit.new()
@@ -91,6 +92,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout_grid)
 	_layout_grid()
 	_update_garage_access()
+	if is_instance_valid(inventory):
+		inventory.changed.connect(_refresh_owned_cars)
 
 
 func _create_card(entry: Dictionary) -> void:
@@ -154,13 +157,20 @@ func _apply_filter(query: String) -> void:
 	var visible_count := 0
 	for item in cards:
 		var entry: Dictionary = item.entry
-		var keep := needle.is_empty() or needle in str(entry.display_name).to_lower()
+		var keep := (needle.is_empty() or needle in str(entry.display_name).to_lower()) and \
+			(not is_instance_valid(inventory) or inventory.owns(str(entry.id)))
 		(item.button as Button).visible = keep
 		if keep:
 			visible_count += 1
-	title_label.text = "%d VEHICLES   /   CLICK TO DRIVE" % visible_count
+	title_label.text = "%d OWNED VEHICLES   /   CLICK TO DRIVE" % visible_count if \
+		is_instance_valid(inventory) else "%d VEHICLES   /   CLICK TO DRIVE" % visible_count
 	scroll.scroll_vertical = 0
 	_thumb_clock = 10.0
+
+
+func _refresh_owned_cars() -> void:
+	if search != null:
+		_apply_filter(search.text)
 
 
 func _can_open_garage() -> bool:
@@ -208,7 +218,13 @@ func close_menu() -> void:
 
 
 func _choose(entry: Dictionary) -> void:
-	if not _can_open_garage() or not Catalog.select(player, entry):
+	if not _can_open_garage():
+		return
+	if is_instance_valid(inventory) and not inventory.owns(str(entry.id)):
+		return
+	if not Catalog.select(player, entry):
+		return
+	if is_instance_valid(inventory) and not inventory.equip(str(entry.id)):
 		return
 	var saved := ConfigFile.new()
 	saved.set_value("vehicle", "selected_id", str(entry.id))
@@ -221,10 +237,15 @@ func _choose(entry: Dictionary) -> void:
 func restore_selection() -> void:
 	# Called after HUD initialization, so its stock tuning resources remain
 	# valid and the selected car replaces only the active runtime instance.
-	var file := ConfigFile.new()
-	if file.load("user://streetbound_selected_vehicle.cfg") != OK:
-		return
-	var entry := Catalog.find_by_id(str(file.get_value("vehicle", "selected_id", "")))
+	var selected_id := ""
+	if is_instance_valid(inventory):
+		selected_id = str(inventory.active_id)
+	else:
+		var file := ConfigFile.new()
+		if file.load("user://streetbound_selected_vehicle.cfg") != OK:
+			return
+		selected_id = str(file.get_value("vehicle", "selected_id", ""))
+	var entry := Catalog.find_by_id(selected_id)
 	if not entry.is_empty() and Catalog.select(player, entry):
 		if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
 			driving_hud.on_vehicle_selected(entry)
