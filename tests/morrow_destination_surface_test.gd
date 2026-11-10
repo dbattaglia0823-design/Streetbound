@@ -40,7 +40,8 @@ func run() -> void:
 		marks.last_strip_start.distance_to(marks.last_strip_end) < 13.0)
 	check("gravel_and_grass_marks_differ",
 		marks.last_strip_color != grass_color)
-	check("tracks_remain_bounded",marks.multimesh.instance_count == 1800)
+	check("tracks_remain_bounded",marks.point_count() <= marks.CAPACITY and \
+		marks.trail_count() <= marks.MAX_TRAILS)
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
