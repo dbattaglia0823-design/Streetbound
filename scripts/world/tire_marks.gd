@@ -25,7 +25,8 @@ var last_strip_track := -1
 
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	z_index = 0
+	# Road layers render at z=1..3; tyre ink must sit ON the pavement.
+	z_index = 4
 
 
 func reset_tracks() -> void:
