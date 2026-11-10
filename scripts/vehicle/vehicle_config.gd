@@ -21,6 +21,7 @@ enum Drivetrain { FWD, RWD, AWD }
 @export_group("Sound character")
 ## Original sound-design profile; individual trims may differ from these
 ## modeled family defaults. All values only affect audio, never horsepower.
+@export var audio_sample_id: String = "" # Used for per-model, licensed sample banks.
 @export var audio_family: String = "v8_cross"
 @export var audio_aggression: float = 0.75
 @export var audio_induction: String = "naturally_aspirated"
