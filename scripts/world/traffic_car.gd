@@ -101,6 +101,12 @@ func _add_sprite() -> void:
 	sprite.rotation = float(art.rotation)
 	var aspect: Vector2 = art.aspect
 	sprite.scale = Vector2.ONE * minf(width_px / aspect.x, length_px / aspect.y)
+	# Fit the real alpha-trimmed body rather than a one-size-fits-all hitbox.
+	# The capsule stays slightly inside the painted silhouette.
+	var shape := ($VehicleCollider as CollisionShape2D).shape as CapsuleShape2D
+	var actual_size := aspect * sprite.scale.x
+	shape.radius = clampf(actual_size.x * 0.44, 8.0, width_px * 0.45)
+	shape.height = maxf(shape.radius * 2.1, actual_size.y * 0.95)
 	add_child(sprite)
 	model_loaded = true
 
@@ -146,7 +152,14 @@ func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 	var motion := motion_px + recovery_velocity * dt
 	var hit := move_and_collide(motion)
 	if hit:
-		recovering = true
+		var other: Object = hit.get_collider()
+		var dynamic_blocker := false
+		if other is Node:
+			dynamic_blocker = other.is_in_group("traffic_vehicle") or other is VehicleController2D
+		# Waiting behind a stopped car is not a crash. Otherwise both
+		# drivers keep trying to recover from an ordinary queue, causing jams.
+		if not dynamic_blocker or recovery_velocity.length() > PPM * 0.8:
+			recovering = true
 		recovery_velocity = recovery_velocity.slide(hit.get_normal()) * 0.38
 	recovery_velocity = recovery_velocity.move_toward(Vector2.ZERO, PPM * 10.0 * dt)
 	return hit
