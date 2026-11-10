@@ -4,6 +4,7 @@ extends SceneTree
 const CarScript = preload("res://scripts/world/traffic_car.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
+const PPM := 20.0
 var failures: Array[String] = []
 
 
@@ -42,7 +43,7 @@ func run() -> void:
 		check("model_%02d_has_live_collision" % i,
 			car.collision_layer == 1 and car.collision_mask == 3 and
 			collider != null and not collider.disabled and
-			car.is_in_group("traffic_vehicle"))
+			car.is_in_group("traffic_vehicle") and not collider.visible)
 		car.queue_free()
 		await physics_frame
 
@@ -105,6 +106,18 @@ func run() -> void:
 		int(agent.edge)<graph.edges.size(),agent.edge)
 	var target: Dictionary = graph.recovery_target(actor.position,Vector2.UP.rotated(actor.rotation),0)
 	check("recovery_search_uses_real_road",not target.is_empty(),target.get("distance_px",INF))
+	# Actual post-crash body coordinates take priority over stale route progress.
+	# A player ahead must make both normal AI driving and recovery yield.
+	actor.rotation = 0.0
+	player.position = actor.position + Vector2.UP * PPM * 5.0
+	check("player_ahead_stops_post_crash_traffic",
+		flow._player_awareness(agent, PPM * 6.0) <= 0.01)
+	player.position = actor.position + Vector2.DOWN * PPM * 5.0
+	check("player_behind_does_not_stop_traffic",
+		is_equal_approx(flow._player_awareness(agent, PPM * 6.0), PPM * 6.0))
+	player.position = actor.position + Vector2.RIGHT * PPM * 5.0
+	check("neighboring_lane_does_not_stop_traffic",
+		is_equal_approx(flow._player_awareness(agent, PPM * 6.0), PPM * 6.0))
 	var other=CharacterBody2D.new()
 	other.set_script(CarScript)
 	other.position=Vector2(9000,9000)
@@ -124,6 +137,8 @@ func run() -> void:
 		if int(other.impact_count)>0:
 			break
 	check("player_car_collision_pushes_traffic",other.impact_count>0,other.impact_count)
+	check("player_keeps_momentum_against_traffic",
+		player2.linear_velocity.length() > 4.5,player2.linear_velocity)
 	check("collision_keeps_player_velocity_synced",player2.velocity.distance_to(
 		player2.linear_velocity*20.0)<0.02,player2.velocity)
 	print("TRAFFIC ART / COLLISION / RECOVERY: ","PASS" if failures.is_empty() else "FAIL")

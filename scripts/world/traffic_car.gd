@@ -44,6 +44,8 @@ func _ready() -> void:
 	z_index = 2
 	var shape_node := CollisionShape2D.new()
 	shape_node.name = "VehicleCollider"
+	# Hide the debug shape without removing its physics registration.
+	shape_node.visible = false
 	var shape := CapsuleShape2D.new()
 	shape.radius = width_px * 0.43
 	shape.height = length_px * 0.94
@@ -151,10 +153,14 @@ func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 
 
 func _draw() -> void:
-	# Shadow remains under the user-supplied artwork.
-	draw_rect(Rect2(-width_px * .55 + 3, -length_px * .50 + 5,
-		width_px * 1.1, length_px * 1.03),
-		Color(0.06, 0.08, 0.10, 0.21), true)
+	# A soft oval shadow follows the silhouette instead of drawing a box
+	# around the collision footprint. The physical shape is never rendered.
+	for layer in range(3, 0, -1):
+		var spread := float(layer) * 0.07
+		draw_set_transform(Vector2(2.0, 4.0), 0.0,
+			Vector2(width_px * (0.48 + spread), length_px * (0.47 + spread)))
+		draw_circle(Vector2.ZERO, 1.0, Color(0.03, 0.04, 0.05, 0.048))
+	draw_set_transform(Vector2.ZERO)
 	if model_loaded:
 		return
 	# Emergency fallback keeps traffic visible if an asset is missing,
