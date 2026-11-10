@@ -1,8 +1,6 @@
 extends Node2D
-## Near-player ambient traffic: right-hand lanes, slow/safe turns,
-## priority/all-way-stop/yield handling and simple time-headway car following.
-## Traffic is deliberately capped, spatially spawned and cosmetic-collision
-## until a robust vehicle-vs-vehicle collision/damage system is implemented.
+## Bounded near-player traffic with real car artwork, physical collision,
+## directed lane routing and local post-collision path recovery.
 const Network = preload("res://scripts/world/traffic_network.gd")
 const Car = preload("res://scripts/world/traffic_car.gd")
 const PPM := 20.0
@@ -84,9 +82,10 @@ func _spawn_one() -> bool:
 				break
 		if not free:
 			continue
-		var car := StaticBody2D.new()
+		var car := CharacterBody2D.new()
 		car.set_script(Car)
 		car.name = "TrafficCar%02d" % _id_serial
+		car.set("model_index", _id_serial % Car.MODEL_PATHS.size())
 		car.car_color = PALETTE[_id_serial%PALETTE.size()]
 		car.accent_color=Color("d2c4a7")
 		car.global_position=p
@@ -96,7 +95,8 @@ func _spawn_one() -> bool:
 		agents.append({
 			"uid":_id_serial,"node":car,"edge":id,
 			"progress":progress,"speed":speed*0.65,"cruise":speed,
-			"next":-2,"stop_wait":0.0,"stop_done":false
+			"next":-2,"stop_wait":0.0,"stop_done":false,
+			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{}
 		})
 		_id_serial+=1
 		return true
@@ -126,7 +126,7 @@ func _car_following(index: int,desired_px: float) -> float:
 		if i==index:
 			continue
 		var other: Dictionary=agents[i]
-		if int(other.edge)!=int(agent.edge):
+		if int(other.edge)!=int(agent.edge) or bool(other.node.get("recovering")):
 			continue
 		var gap := float(other.progress)-float(agent.progress)
 		if gap>0.0:
@@ -137,8 +137,8 @@ func _car_following(index: int,desired_px: float) -> float:
 
 
 func _player_awareness(agent: Dictionary,desired_px: float) -> float:
-	# These first-generation traffic agents have no gameplay collision bodies:
-	# deliberately brake around the player rather than clipping through.
+	# Avoid the player proactively; collision bodies also prevent clipping
+	# and can be knocked off the road in a genuine player impact.
 	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
 	var location: Vector2=sample.position
 	var heading: Vector2=sample.tangent
@@ -159,11 +159,14 @@ func _next_target(agent: Dictionary,edge: Dictionary) -> int:
 func _tick_agent(index: int,dt: float) -> bool:
 	var agent: Dictionary=agents[index]
 	var edge: Dictionary=network.edges[int(agent.edge)]
-	var node: Node2D=agent.node
+	var node: CharacterBody2D=agent.node
 	if not is_instance_valid(node):
 		return false
 	if node.global_position.distance_to(player.global_position)>PPM*530.0:
 		return false
+	if bool(node.get("recovering")):
+		return _recover_agent(agent,dt)
+	var previous_progress := float(agent.progress)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
 	desired=_car_following(index,desired)
@@ -214,10 +217,79 @@ func _tick_agent(index: int,dt: float) -> bool:
 		agent.stop_wait=0.0
 		agent.stop_done=false
 	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
-	node.global_position=sample.position
+	# Move through the physics server, not by teleporting a sprite. A
+	# collision marks the agent for local lane rejoining next tick.
+	var motion: Vector2 = sample.position - node.global_position
+	var collision: Variant = node.call("move_traffic", motion, dt)
 	node.rotation=lerp_angle(node.rotation,float(sample.angle),minf(1.0,dt*11.0))
+	if collision != null or bool(node.get("recovering")):
+		agent.progress=previous_progress
+		agent.speed=minf(float(agent.speed),PPM*3.0)
+		agent.recovery_time=0.0
+		agent.recovery_refresh=0.0
+		agent.recovery_goal={}
 	return true
 
+
+
+func _recover_agent(agent: Dictionary, dt: float) -> bool:
+	# The vehicle stays where the collision left it, including on grass or a
+	# shoulder. Reproject onto a FORWARD legal lane only, and drive toward a
+	# point ahead of the projection. Never reset to the original waypoint.
+	var node: CharacterBody2D = agent.node
+	var age: float = float(agent.get("recovery_time",0.0)) + dt
+	agent.recovery_time=age
+	# Release previous junction claims when a crash blocks the intersection.
+	if age <= dt + 0.0001:
+		for key in active_junctions.keys():
+			if int(active_junctions[key]) == int(agent.uid):
+				active_junctions.erase(key)
+	agent.recovery_refresh=float(agent.get("recovery_refresh",0.0))-dt
+	if float(agent.recovery_refresh) <= 0.0:
+		var forward := Vector2.UP.rotated(node.rotation)
+		var goal: Dictionary = network.recovery_target(node.global_position,
+			forward,int(agent.edge))
+		agent.recovery_goal=goal
+		agent.recovery_refresh=0.24
+	var target: Dictionary = agent.recovery_goal
+	if target.is_empty():
+		agent.speed=0.0
+		node.call("move_traffic", Vector2.ZERO, dt)
+		# If a car gets trapped outside all routes, don't pop it out of
+		# existence while the player watches. Recycle after they drive away.
+		return age < 18.0 or node.global_position.distance_to(player.global_position) < PPM*130.0
+	var intended: Vector2 = target.lookahead
+	var delta: Vector2 = intended - node.global_position
+	var desired_angle := delta.angle() + PI * 0.5
+	# Gentle low-speed steering makes a recovery visible rather than an
+	# impossible sideways slide. Knockback fades in move_traffic().
+	node.rotation=lerp_angle(node.rotation,desired_angle,minf(1.0,dt*2.65))
+	var direction := Vector2.UP.rotated(node.rotation)
+	var goal_speed := clampf(delta.length() * 0.75,PPM*1.0,PPM*6.0)
+	var speed := move_toward(float(agent.speed),goal_speed,PPM*5.5*dt)
+	agent.speed=speed
+	var hit: Variant = node.call("move_traffic", direction*speed*dt,dt)
+	if hit != null:
+		agent.speed=0.0
+	# Once aligned with a real sampled lane, switch back to the existing
+	# lane-following and intersection decision logic. The nearest station is
+	# computed afresh so the NPC never warps back to its pre-crash progress.
+	if node.global_position.distance_to(target.nearest) < PPM*1.25 and \
+		direction.dot(Vector2(target.heading)) > 0.77 and \
+		(node.get("recovery_velocity") as Vector2).length() < PPM*1.2:
+		var found: Dictionary = network.recovery_target(node.global_position,
+			direction,int(target.edge),PPM*6.0)
+		if not found.is_empty() and float(found.distance_px) < PPM*1.4:
+			agent.edge=int(found.edge)
+			agent.progress=float(found.progress)
+			agent.next=-2
+			agent.stop_wait=0.0
+			agent.stop_done=false
+			agent.recovery_time=0.0
+			agent.recovery_refresh=0.0
+			agent.recovery_goal={}
+			node.set("recovering",false)
+	return true
 
 func _physics_process(dt: float) -> void:
 	if not enabled or not is_instance_valid(player) or network==null:
