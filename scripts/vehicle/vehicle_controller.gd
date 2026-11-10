@@ -18,6 +18,7 @@ var brake := 0.0
 var handbrake := 0.0
 var handbrake_grip_loss := 0.0 # Persistent rear tire slip after a moving wheel lock
 var wheel_spin := 0.0 # Driven-wheel overspeed estimate, independent of lateral slip
+var boost_psi := 0.0 # Modeled manifold charge pressure; zero for N/A engines
 var arcade_assist_fraction := 0.0
 var cornering_grip_fraction := 1.0 # Fraction of lateral grip remaining after braking
 var reversing := false
@@ -48,6 +49,7 @@ func reset_vehicle() -> void:
 	handbrake = 0.0
 	handbrake_grip_loss = 0.0
 	wheel_spin = 0.0
+	boost_psi = 0.0
 	arcade_assist_fraction = 0.0
 	cornering_grip_fraction = 1.0
 	command = Vector4.ZERO
@@ -117,6 +119,21 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	arcade_assist_fraction = arcade
 	var brake_turn := 1.0 + config.brake_turn_boost * stopping_input * arcade
 	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.6), drive_input, reversing, config)
+	# Pressure is simulated only for a configured turbo engine. Power and
+	# torque stats already represent boosted peak output; spool temporarily
+	# reduces available torque rather than applying a fictitious extra gain.
+	if config.boost_max_psi > 0.05:
+		var pressure_start := config.idle_rpm + 300.0
+		var pressure_full := maxf(pressure_start + 500.0,config.redline_rpm * 0.65)
+		var spool := smoothstep(pressure_start,pressure_full,transmission.rpm)
+		var target_boost := config.boost_max_psi * drive_input * spool
+		if reversing or transmission.shift_timer > 0.0:
+			target_boost = 0.0
+		var response := 7.0 if target_boost < boost_psi else \
+			1.0 / maxf(config.boost_spool_seconds,0.1)
+		boost_psi = lerpf(boost_psi,target_boost,1.0-exp(-response*dt))
+	else:
+		boost_psi = 0.0
 	var max_steer := deg_to_rad(lerpf(config.max_steer_degrees, config.high_speed_steer_degrees, clampf(speed / 55.0, 0.0, 1.0)))
 	# Keep high-speed steering requests close to the tire envelope instead of
 	# demanding impossible slip angles. Handbrake deliberately relaxes this aid.
@@ -147,6 +164,9 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		traction_load = front_load + rear_load
 	var curve_factor := config.torque_curve.sample_baked(transmission.rpm / config.redline_rpm) if config.torque_curve else 1.0
 	var engine_force := config.engine_torque_nm * curve_factor * ratio * 0.9 / config.wheel_radius_m
+	if config.boost_max_psi > 0.05:
+		# Full modeled pressure reaches the catalog's rated output.
+		engine_force *= lerpf(0.85,1.0,clampf(boost_psi/config.boost_max_psi,0,1))
 	engine_force = minf(engine_force, config.engine_power_kw * 1000.0 / maxf(speed, 3.0))
 	var requested_force := engine_force * drive_input
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0

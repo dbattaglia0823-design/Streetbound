@@ -57,6 +57,7 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.mass_kg = float(entry.mass_kg)
 	config.engine_torque_nm = float(entry.torque_nm)
 	config.engine_power_kw = float(entry.power_kw)
+	config.boost_max_psi = maxf(0.0,float(entry.get("boost_max_psi",0.0)))
 	config.wheelbase_m = float(entry.wheelbase_m)
 	config.brake_force_n = float(entry.brake_force_n)
 	config.tire_grip = float(entry.tire_grip)

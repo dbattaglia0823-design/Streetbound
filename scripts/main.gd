@@ -102,6 +102,7 @@ func _ready() -> void:
 	hud.set_script(HudScript)
 	hud.vehicle = vehicle
 	hud.camera = camera
+	hud.race = drag_race
 	if not proving_ground:
 		hud.environment_title = "MORROW COAST    /    OPEN ROAD"
 		get_window().title = "Streetbound | Morrow Coast"

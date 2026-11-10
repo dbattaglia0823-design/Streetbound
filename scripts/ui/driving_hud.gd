@@ -1,6 +1,7 @@
 extends CanvasLayer
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
 const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
+const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
 const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 100.0, 1600.0, 10.0], ["engine_power_kw", "Engine power / hp", 65.0, 1200.0, 10.0], ["mass_kg", "Mass / lb", 800.0, 3500.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 42000.0, 500.0],
 	["steering_response", "Steering response", 6.0, 25.0, 0.5],
 	["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05],
@@ -13,6 +14,8 @@ const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_b
 	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],
 	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
 var vehicle: VehicleController2D
+var race: Node2D
+var dashboard: Control
 var environment_title := "DRIVING LAB    /    PROTOTYPE 01"
 var active_vehicle_label: Label
 var camera: Camera2D
@@ -76,26 +79,22 @@ func _ready() -> void:
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
+	label(header, "F1 TUNING / DATA  ·  ESC PAUSE  ·  C CAMERA", 11, Color("93afa7"))
 	active_vehicle_label = label(header, "SPORT COUPE  /  LAUREL MOTOR HOUSE GARAGE", 13, Color("c4d4d0"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
-	var dash := VBoxContainer.new()
-	panel(Vector2(24, 650), Vector2(365, 220)).add_child(dash)
-	var row := HBoxContainer.new()
-	dash.add_child(row)
-	speed_label = label(row, "000", 64)
-	var column := VBoxContainer.new()
-	row.add_child(column)
-	speed_unit_label = label(column, " MPH", 16, Color("a1c779"))
-	gear_label = label(column, " 1  /  AUTO", 23)
-	rpm_bar = ProgressBar.new()
-	rpm_bar.show_percentage = false
-	rpm_bar.custom_minimum_size.y = 7
-	dash.add_child(rpm_bar)
-	telemetry = label(dash, "", 14)
-	var hints := VBoxContainer.new()
-	panel(Vector2(413, 802), Vector2(1003, 68)).add_child(hints)
-	label(hints, "W / S  DRIVE & REVERSE     A / D  STEER     SPACE  HANDBRAKE     R  RESET", 15)
-	label(hints, "ESC  PAUSE / SETTINGS     C  CAMERA     F1  TUNING & BINDINGS     M  AUTO / MANUAL     Q / E  SHIFT     V  MUTE", 13, Color("a2b4ab"))
+	# All primary driving instrumentation now shares a purpose-built,
+	# responsive cluster rather than the old text-filled prototype box.
+	dashboard = Control.new()
+	dashboard.set_script(DashboardScript)
+	dashboard.set("vehicle",vehicle)
+	dashboard.set("race",race)
+	add_child(dashboard)
+	# HUD owns the update order, including tests that invoke HUD._process(0).
+	dashboard.set_process(false)
+	speed_label = dashboard.get("speed_label") as Label
+	speed_unit_label = dashboard.get("speed_unit_label") as Label
+	gear_label = dashboard.get("gear_label") as Label
+	rpm_bar = dashboard.get("rpm_bar") as ProgressBar
 	tuning = panel(Vector2(1000, 24), Vector2(416, 750))
 	tuning.visible = false
 	var scroll := ScrollContainer.new()
@@ -106,6 +105,9 @@ func _ready() -> void:
 	scroll.add_child(tune_box)
 	label(tune_box, "LIVE HANDLING / F1", 22)
 	label(tune_box, "Tuning saves automatically. R only resets your car.", 12)
+	# Detailed engineering readouts belong in the inspectable F1 panel,
+	# not over the road and race timing instruments.
+	telemetry = label(tune_box, "", 12, Color("c2d5d0"))
 	tuning_save_label = label(tune_box, "Changes saved on adjustment.", 12, Color("a1c779"))
 	reset_tuning_button = Button.new()
 	reset_tuning_button.text = "Restore stock vehicle tuning"
@@ -242,11 +244,8 @@ func _input(event: InputEvent) -> void:
 			_save_tuning_now()
 
 func _process(_dt: float) -> void:
-	var speed: float = Imperial.speed_mph(vehicle.linear_velocity.length())
-	speed_label.text = "%03d" % roundi(speed)
-	var mode := "AUTO" if vehicle.transmission.automatic else "MANUAL"
-	gear_label.text = " %s / %s" % ["R" if vehicle.reversing else str(vehicle.transmission.gear), mode]
-	rpm_bar.value = vehicle.transmission.rpm / vehicle.config.redline_rpm * 100
+	if is_instance_valid(dashboard):
+		dashboard.call("_process",_dt)
 	telemetry.text = "%04d RPM   /   %s\nLONG %+.1f MPH    LAT %+.1f MPH    SLIP %+.1f°\n%.0f lb   %.0f lb-ft   %.0f hp   GRIP %.2f" % [
 		vehicle.transmission.rpm, vehicle.surface,
 		Imperial.speed_mph(vehicle.longitudinal_speed),
