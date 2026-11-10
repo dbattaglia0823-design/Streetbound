@@ -63,7 +63,10 @@ func _add_sprite() -> void:
 		var pixels: Image = texture.get_image()
 		if pixels == null:
 			return
-		rect = pixels.get_used_rect()
+		# ImageGen's PNGs have almost invisible edge pixels (~0.4%
+		# alpha) that make get_used_rect() expand to the whole square
+		# canvas. Threshold sampling finds the actual opaque car body.
+		rect = _visible_alpha_bounds(pixels)
 		crop_cache[path] = rect
 	if rect.size.x < 2 or rect.size.y < 2:
 		return
@@ -83,6 +86,33 @@ func _add_sprite() -> void:
 	sprite.scale = Vector2.ONE * scale_factor
 	add_child(sprite)
 	model_loaded = true
+
+
+
+static func _visible_alpha_bounds(image: Image) -> Rect2i:
+	var w := image.get_width()
+	var h := image.get_height()
+	var x_min := w
+	var y_min := h
+	var x_max := -1
+	var y_max := -1
+	# Four-pixel stride keeps one-time per-model analysis fast even for
+	# 1254px source PNGs. A generous margin preserves antialiased edges.
+	for y in range(0,h,4):
+		for x in range(0,w,4):
+			if image.get_pixel(x,y).a < 0.17:
+				continue
+			x_min = mini(x_min,x)
+			y_min = mini(y_min,y)
+			x_max = maxi(x_max,x)
+			y_max = maxi(y_max,y)
+	if x_max < x_min:
+		return image.get_used_rect()
+	var x0 := maxi(0,x_min-12)
+	var y0 := maxi(0,y_min-12)
+	var x1 := mini(w,x_max+16)
+	var y1 := mini(h,y_max+16)
+	return Rect2i(x0,y0,maxi(1,x1-x0),maxi(1,y1-y0))
 
 
 func receive_impact(impulse_px_per_sec: Vector2) -> void:

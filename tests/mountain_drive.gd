@@ -15,6 +15,14 @@ func run() -> void:
 	root.add_child(main)
 	world = main.ground
 	car = main.vehicle
+	# These legacy deterministic world-drive scripts test ROAD geometry.
+	# With new real traffic collision they otherwise hit a random moving car
+	# instead of testing the authored drivable route. Traffic collisions and
+	# route recovery have their own dedicated regression suite.
+	var traffic: Node2D = world.get_node_or_null("AmbientTraffic")
+	if traffic != null:
+		traffic.set("enabled",false)
+		traffic.call("clear_traffic")
 	car.set_physics_process(false)
 	var hops := ["mwest","mstart","hairpin","overlook","summit"]
 	for i in hops.size()-1:
