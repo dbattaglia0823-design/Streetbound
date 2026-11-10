@@ -1,6 +1,7 @@
 extends Node2D
 const Art = preload("res://scripts/world/coast_art.gd")
 const TrafficCar = preload("res://scripts/world/traffic_car.gd")
+const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const PPM := 20.0
 var prop_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
@@ -237,6 +238,53 @@ func _landmark_sign(kind: String, size: Vector2, title: String) -> void:
 		Color(.82,.90,.84,.62),3,true)
 
 
+func _draw_player_garage(size: Vector2) -> void:
+	# A genuine roof opening, not a switch-car icon on top of a solid prop.
+	# The center drive-in bay is visible beneath the vehicle; roof/walls
+	# have exactly the same geometry as the collision carve-out.
+	var bounds := Rect2(-size * 0.5, size)
+	_rounded(bounds.grow(12.0), Color("b3b7a7"), 16.0)
+	_rounded(bounds, Color("26353b"), 11.0)
+	var bay: Rect2 = GarageGeometry.bay_rect(size / PPM)
+	bay = Rect2(bay.position * PPM, bay.size * PPM)
+	_rounded(bay, Color("1c2b2e"), 5.0)
+	_rounded(bay.grow(-18.0), Color("34464a"), 4.0)
+	# Interior driving lines, wheel guide and target parking pad.
+	var parking: Rect2 = GarageGeometry.parking_rect(size / PPM)
+	parking = Rect2(parking.position * PPM, parking.size * PPM)
+	draw_rect(parking, Color("9eb59c"), false, 5.0, true)
+	draw_line(Vector2(parking.end.x - 15.0, parking.position.y + 16.0),
+		Vector2(parking.end.x - 15.0, parking.end.y - 16.0),
+		Color("c5a46c"), 6.0, true)
+	for side in [-1.0, 1.0]:
+		var y := side * bay.size.y * 0.32
+		draw_line(Vector2(bay.position.x - 100.0, y),
+			Vector2(bay.position.x + 90.0, y),
+			Color("c6ba91"), 4.0, true)
+	for wall: Rect2 in GarageGeometry.wall_rects(size / PPM):
+		var wall_px := Rect2(wall.position * PPM, wall.size * PPM)
+		_rounded(wall_px, Color("6b8284"), 9.0)
+		_rounded(wall_px.grow(-17.0), Color("a2b8b1"), 6.0)
+		# Painted metal roof ribs communicate solid, roofed side wings.
+		for i in int(wall_px.size.x / 90.0):
+			var x := wall_px.position.x + 30.0 + float(i) * 90.0
+			draw_line(Vector2(x, wall_px.position.y + 15.0),
+				Vector2(x, wall_px.end.y - 15.0),
+				Color("cadaae"), 4.0, true)
+	# Bay posts mark the edge of the wide, physically unobstructed doorway.
+	for side in [-1.0, 1.0]:
+		var y := side * bay.size.y * 0.5
+		_rounded(Rect2(Vector2(bay.position.x - 8.0, y - 15.0),
+			Vector2(29.0, 30.0)), Color("e6b36b"), 5.0)
+	# Sign is on the solid wing, not across the drivable entrance.
+	var sign_pos := Vector2(-size.x * 0.35, -size.y * 0.35)
+	draw_rect(Rect2(sign_pos, Vector2(size.x * 0.7, 42.0)),
+		Color("17282e"), true)
+	draw_string(ThemeDB.fallback_font, sign_pos + Vector2(18.0, 29.0),
+		"LAUREL MOTOR HOUSE  /  GARAGE", HORIZONTAL_ALIGNMENT_LEFT,
+		int(size.x * 0.7 - 20.0), 24, Color("f3dfb7"))
+
+
 func _draw_prop(prop: Dictionary) -> void:
 	var center := point(prop.p)
 	var size := Vector2(float(prop.size[0]),float(prop.size[1]))*PPM
@@ -244,6 +292,9 @@ func _draw_prop(prop: Dictionary) -> void:
 	var kind: String = prop.kind
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
+	if GarageGeometry.is_player_garage(prop):
+		_draw_player_garage(size)
+		return
 	var sprite: Texture2D = Art.sprite(kind,seed_value)
 	if sprite!=null:
 		var tint := Color.WHITE
