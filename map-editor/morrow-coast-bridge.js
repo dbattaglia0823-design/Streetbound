@@ -77,7 +77,9 @@ export function convertMorrowWorld(raw){
       id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
-      rotation:+prop.angle*180/Math.PI,assetId:''
+      rotation:+prop.angle*180/Math.PI,assetId:'',
+      stallWidth:prop.stall_width,occupancy:prop.occupancy,
+      entranceWidth:prop.entrance_width
     }));
   const result=normalizeWorld({
     format:'gdt.racing-world',version:2,name:'Morrow Coast',

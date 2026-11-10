@@ -26,7 +26,7 @@ static func parked_art_for(seed_value: int) -> Dictionary:
 	return TrafficCar.appearance_for(seed_value)
 
 
-func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
+func _asphalt_apron(size: Vector2, seed_value: int, parking: bool, stall_width_m := 0.0, entrance_width_m := 0.0) -> void:
 	# Warm rounded concrete curb and actual weathered charcoal asphalt.
 	var bounds := Rect2(-size*.5,size)
 	var curb := 16.0 if parking else 9.0
@@ -37,7 +37,7 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
 	if parking:
 		# Curb throat on the driveway-facing (-X) side; the original baked
 		# road remains authoritative for traffic and collisions.
-		var opening := maxf(115.0,minf(size.y*.36,185.0))
+		var opening := clampf(entrance_width_m * PPM, 110.0, size.y * .63) if entrance_width_m > 0.0 else maxf(115.0,minf(size.y*.36,185.0))
 		draw_rect(Rect2(-size.x*.5-3.0,-opening*.5,curb+24.0,opening),
 			Color("464f52"),true)
 		for side in [-1.0,1.0]:
@@ -62,7 +62,7 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
 		draw_line(p,p+Vector2(rng.randf_range(7.0,27.0),rng.randf_range(-4.0,4.0)),
 			Color(.16,.19,.21,.27),rng.randf_range(1.2,2.6),true)
 	if parking:
-		var stalls := clampi(int(size.x/105.0),3,9)
+		var stalls := clampi(int((size.x*.84)/(stall_width_m*PPM)),3,16) if stall_width_m > 0.0 else clampi(int(size.x/105.0),3,9)
 		for side in [-1.0,1.0]:
 			for i in stalls+1:
 				var x := lerpf(-size.x*.42,size.x*.42,float(i)/float(stalls))
@@ -243,7 +243,8 @@ func _draw_prop(prop: Dictionary) -> void:
 		_asphalt_apron(size,seed_value,false)
 		return
 	if kind == "lot":
-		_asphalt_apron(size,seed_value,true)
+		_asphalt_apron(size,seed_value,true,
+			float(prop.get("stall_width",0.0)),float(prop.get("entrance_width",0.0)))
 		return
 	if kind == "parked_car":
 		var art := parked_art_for(seed_value)

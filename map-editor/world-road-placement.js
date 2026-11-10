@@ -87,12 +87,13 @@ export function nearestRoadPlacement(doc,p,maxDistance=500){
 /** Minimum conservative clearance from the nearest roadway shoulder.
  * >= 0 is safe. A negative result means part of the footprint occupies road.
  */
-export function roadwayClearance(doc,p,radius=0){
+export function roadwayClearance(doc,p,radius=0,excludedRoadIds=null){
   if(!doc.roads.length)return Infinity;
   if(!Number.isFinite(radius)||radius<0)throw new RangeError('Invalid footprint radius');
   const search=radius+getIndex(doc).highest+BUFFER;
   let result=Infinity;
   for(const seg of nearby(doc,p,search)){
+    if(excludedRoadIds?.has(seg.road.id))continue;
     const gap=pointSegment(p,seg.a,seg.b).distance-
       (seg.road.width/2+seg.road.shoulder+radius+BUFFER);
     if(gap<result)result=gap;

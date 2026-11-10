@@ -32,10 +32,40 @@ test('parking generator creates a connected paved service access and valid lot',
   assert.equal(result.roadsAdded,1);
   assert.ok(result.doc.roads.some(r=>r.name==='Parking access'&&r.surface==='asphalt'));
   assert.ok(result.doc.props.some(p=>p.type==='parking'));
+  const parking=result.doc.props.find(p=>p.type==='parking');
+  assert.equal(parking.stallWidth,3.2);
+  assert.equal(parking.entranceWidth,8);
+  assert.equal(parking.occupancy,.4);
   const access=result.doc.roads.at(-1);
   assert.ok(access.points[0].y===700,'access starts on main street centerline');
   assert.ok(access.points[1].y>700,'access points toward parking');
   assert.equal(auditWorld(result.doc).counts.errors,0);
+});
+test('parking layout options roundtrip without damaging paved access',()=>{
+  const source=roadsOnly();
+  const result=applyEnvironmentPreset(source,{preset:'parking',
+    anchor:point(700,885),parkingSize:1.25,stallWidth:2.8,
+    occupancy:.8,entranceWidth:9});
+  const lot=result.doc.props.find(p=>p.type==='parking');
+  assert.ok(lot);
+  assert.equal(lot.scale,1.25);
+  assert.equal(lot.stallWidth,2.8);
+  assert.equal(lot.occupancy,.8);
+  assert.equal(lot.entranceWidth,9);
+  assert.equal(result.doc.roads.at(-1).width,9);
+  assert.ok(result.stallCapacity>=22);
+  const roundtrip=normalizeWorld(JSON.parse(serializeWorld(result.doc)));
+  assert.deepEqual(roundtrip.props.find(p=>p.id===lot.id),lot);
+  assert.equal(auditWorld(result.doc).counts.errors,0);
+});
+test('invalid parking options do not mutate the source map',()=>{
+  const source=roadsOnly(),before=serializeWorld(source);
+  for(const options of [{occupancy:2},{stallWidth:0},{entranceWidth:16},
+    {parkingSize:3},{occupancy:Number.NaN}]){
+    assert.throws(()=>applyEnvironmentPreset(source,{preset:'parking',
+      anchor:point(700,885),...options}),/parking/i);
+  }
+  assert.equal(serializeWorld(source),before);
 });
 test('parking near world edge fails safely with no mutations',()=>{
   const source=roadsOnly(),snapshot=serializeWorld(source);
@@ -99,7 +129,8 @@ test('UI provides each preset and controls',async()=>{
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const script=await readFile(new URL('../world-editor.js',import.meta.url),'utf8');
   assert.ok(ENVIRONMENT_PRESETS.length>=5);
-  for(const id of ['environment-preset','environment-density','apply-environment-preset',
+  for(const id of ['parking-size','parking-stall-width','parking-occupancy',
+      'parking-entrance','environment-preset','environment-density','apply-environment-preset',
       'environment-preset-status'])assert.ok(html.includes('id="'+id+'"'));
   assert.ok(script.includes('applyEnvironmentPreset('));
 });

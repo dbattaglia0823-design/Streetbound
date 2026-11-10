@@ -54,10 +54,16 @@ function validEntity(item,type,w,h){
       elevation:real(item.elevation,0,2000,'elevation'),points};
   }
   if(type==='props'){
-    return {id:item.id,name:title(item.name,'Scenery'),type:oneOf(item.type,PROPS,'prop type'),
+    const entity={id:item.id,name:title(item.name,'Scenery'),type:oneOf(item.type,PROPS,'prop type'),
       x:real(item.x,0,w,'prop x'),y:real(item.y,0,h,'prop y'),
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.25,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
+    if(entity.type==='parking'){
+      entity.stallWidth=real(item.stallWidth??3.2,2.6,5.2,'parking stall width');
+      entity.occupancy=real(item.occupancy??.4,0,1,'parking occupancy');
+      entity.entranceWidth=real(item.entranceWidth??8,6,10,'parking entrance width');
+    }
+    return entity;
   }
   if(type==='markers'){
     return {id:item.id,name:title(item.name,'Marker'),type:oneOf(item.type,MARKERS,'marker type'),

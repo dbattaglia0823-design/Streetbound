@@ -692,6 +692,10 @@ $('repair-roadside').addEventListener('click',()=>{
   $('roadside-status').textContent='Moved '+result.moved+' scenery, rotated '+result.rotated+
     ', adjusted '+result.adjustedMarkers+' site markers'+(result.failed?'; '+result.failed+' need manual relocation.':'.');
 });
+$('environment-preset').addEventListener('change',()=>{
+  $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
+});
+$('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
 $('apply-environment-preset').addEventListener('click',()=>{
   const preset=$('environment-preset').value;
   const entity=selection?getEntity(doc,selection.id):null;
@@ -705,13 +709,18 @@ $('apply-environment-preset').addEventListener('click',()=>{
   let result=null;
   const succeeded=change(d=>{
     result=applyEnvironmentPreset(d,{preset,anchor,
-      selectedId:selection?.id||null,density:Number($('environment-density').value)});
+      selectedId:selection?.id||null,density:Number($('environment-density').value),
+      parkingSize:Number($('parking-size').value),
+      stallWidth:Number($('parking-stall-width').value),
+      occupancy:Number($('parking-occupancy').value),
+      entranceWidth:Number($('parking-entrance').value)});
     return result.doc;
   },'Environment preset created. Undo removes the entire preset.');
   if(succeeded&&result){
     const summary=result.count+' objects'+
       (result.roadsAdded?' and '+result.roadsAdded+' road access':'')+
-      (result.regionsUpdated?' with updated biome':'');
+      (result.regionsUpdated?' with updated biome':'')+
+      (result.stallCapacity?' · '+result.stallCapacity+' marked stalls':'');
     $('environment-preset-status').textContent='Added '+summary+
       '. Inspect and run Map health before exporting.';
     status('Placed '+summary+'. All scenery clearances are checked.');
