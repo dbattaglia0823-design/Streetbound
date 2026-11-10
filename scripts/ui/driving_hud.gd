@@ -14,6 +14,7 @@ const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_b
 	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
 var vehicle: VehicleController2D
 var environment_title := "DRIVING LAB    /    PROTOTYPE 01"
+var active_vehicle_label: Label
 var camera: Camera2D
 var telemetry: Label
 var speed_label: Label
@@ -75,6 +76,7 @@ func _ready() -> void:
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
+	active_vehicle_label = label(header, "SPORT COUPE  /  PRESS G FOR VEHICLES", 13, Color("c4d4d0"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
 	var dash := VBoxContainer.new()
 	panel(Vector2(24, 650), Vector2(365, 220)).add_child(dash)
@@ -129,6 +131,26 @@ func _ready() -> void:
 	vehicle.impacted.connect(func(strength: float):
 		if strength > 5:
 			status.text = "IMPACT / R TO RESET")
+
+func on_vehicle_selected(entry: Dictionary) -> void:
+	# F1 controls should reflect the newly equipped vehicle rather than
+	# falsely displaying values from the previously driven car.
+	if is_instance_valid(active_vehicle_label):
+		active_vehicle_label.text = str(entry.display_name).to_upper()
+	_stock_tune = vehicle.config.duplicate(true)
+	if _save_timer != null:
+		_save_timer.stop()
+	_tuning_dirty = false
+	for setting in TUNING_FIELDS:
+		var field: String = setting[0]
+		var value := float(vehicle.config.get(field))
+		(tuning_sliders[field] as HSlider).set_value_no_signal(value)
+		(config_labels[field] as Label).text = "%s   %s" % [
+			setting[1], Imperial.tune_text(field, value)]
+	if is_instance_valid(drivetrain_select):
+		drivetrain_select.select(vehicle.config.drivetrain)
+	if is_instance_valid(tuning_save_label):
+		tuning_save_label.text = "Vehicle baseline loaded. F1 adjustments save separately."
 
 func add_slider(entry: Array) -> void:
 	var property: String = entry[0]
