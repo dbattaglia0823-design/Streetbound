@@ -1,6 +1,8 @@
 class_name VehicleController2D
 extends CharacterBody2D
 signal impacted(strength: float)
+signal vehicle_changed(vehicle_id: String)
+const VehicleCatalogData = preload("res://scripts/vehicle/vehicle_catalog.gd")
 const PIXELS_PER_METER := 20.0
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
@@ -25,6 +27,7 @@ var reverse_hold := 0.0
 var spawn_transform := Transform2D.IDENTITY
 var external_input := false
 var command := Vector4.ZERO # throttle, brake, steer, handbrake; AI/test seam
+var selected_vehicle_id := ""
 var _traffic_impact_id := -1
 var _traffic_impact_cooldown := 0.0
 
@@ -57,6 +60,35 @@ func reset_vehicle() -> void:
 	reversing = false
 	transmission.reset(config)
 	reset_physics_interpolation()
+
+## Switch models in-place so the camera and world references stay valid.
+## Physics, collision and wheel positions change together; it is not a skin swap.
+func select_catalog_vehicle(entry: Dictionary) -> bool:
+	if entry.is_empty() or not entry.has("texture"):
+		return false
+	var appearance: VehicleAppearanceProfile = VehicleCatalogData.build_appearance(entry)
+	if appearance == null:
+		return false
+	var current_transform := global_transform
+	config = VehicleCatalogData.build_config(entry)
+	# Clear motion before changing the physical chassis; preserve map location.
+	reset_vehicle()
+	global_transform = current_transform
+	var collider: CollisionShape2D = get_node_or_null("CollisionShape2D")
+	if collider != null:
+		var capsule := CapsuleShape2D.new()
+		capsule.radius = clampf(float(entry.get("width_m", 1.9)) * PIXELS_PER_METER * 0.41, 12.0, 25.0)
+		capsule.height = maxf(capsule.radius * 2.08,
+			float(entry.get("length_m", 4.7)) * PIXELS_PER_METER * 0.92)
+		collider.shape = capsule
+	var wheels: Node2D = get_node_or_null("Art/Wheels")
+	if wheels != null and wheels.has_method("apply_appearance"):
+		wheels.call("apply_appearance", appearance)
+	selected_vehicle_id = str(entry.id)
+	reset_physics_interpolation()
+	vehicle_changed.emit(selected_vehicle_id)
+	return true
+
 
 func _physics_process(dt: float) -> void:
 	if not external_input:
