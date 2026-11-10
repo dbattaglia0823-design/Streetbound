@@ -28,6 +28,12 @@ var boardwalk_path := PackedVector2Array()
 var _boardwalk_cells: Dictionary = {}
 var chunk_build_count := 0
 var cached_chunk_reuses := 0
+## Optional developer-only diagnostics; no label or per-frame monitors
+## are created or sampled until F7 is requested.
+var performance_debug_enabled := false
+var performance_hud: CanvasLayer
+var performance_label: Label
+var _performance_clock := 0.0
 var debug_geometry_enabled := false
 var debug_hud: CanvasLayer
 var debug_label: Label
@@ -161,6 +167,51 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
 			set_geometry_debug(not debug_geometry_enabled)
 			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and (key.keycode == KEY_F7 or key.physical_keycode == KEY_F7):
+			set_performance_debug(not performance_debug_enabled)
+			get_viewport().set_input_as_handled()
+
+
+## Useful when comparing visual changes or new map props: counts and timings
+## are measured by Godot, not theoretical speedup claims. Sampling is throttled.
+func set_performance_debug(enabled: bool) -> void:
+	performance_debug_enabled = enabled
+	if enabled and not is_instance_valid(performance_hud):
+		performance_hud = CanvasLayer.new()
+		performance_hud.name = "PerformanceHUD"
+		performance_hud.layer = 100
+		add_child(performance_hud)
+		performance_label = Label.new()
+		performance_label.name = "PerformanceStats"
+		performance_label.position = Vector2(16, 16)
+		performance_label.add_theme_font_size_override("font_size", 13)
+		performance_label.add_theme_color_override("font_color", Color("e9f1ed"))
+		performance_label.add_theme_color_override("font_shadow_color", Color(0,0,0,.9))
+		performance_label.add_theme_constant_override("shadow_offset_x", 2)
+		performance_label.add_theme_constant_override("shadow_offset_y", 2)
+		performance_hud.add_child(performance_label)
+	if is_instance_valid(performance_hud):
+		performance_hud.visible = enabled
+	if enabled:
+		_performance_clock = 10.0
+
+
+func _update_performance_display() -> void:
+	if not is_instance_valid(performance_label):
+		return
+	var fps := Performance.get_monitor(Performance.TIME_FPS)
+	var frame_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	var texture_mb := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / (1024.0 * 1024.0)
+	var traffic_count := get_tree().get_nodes_in_group("traffic_vehicle").size()
+	performance_label.text = "F7 / MORROW PERFORMANCE (toggle)\n" + \
+		"FPS %.0f | CPU frame %.2f ms | Physics %.2f ms\n" % [fps,frame_ms,physics_ms] + \
+		"Draw calls %d | Texture memory %.1f MB\n" % [draws,texture_mb] + \
+		"Active/cached chunks %d/%d | Traffic %d\n" % [
+			active_chunk_count(),chunks.size(),traffic_count] + \
+		"Chunk builds %d | Cached reuses %d | Max build %.2f ms" % [
+			chunk_build_count,cached_chunk_reuses,float(max_chunk_build_usec)/1000.0]
 
 
 func spawn_position() -> Vector2:
@@ -235,6 +286,11 @@ func _process(dt: float) -> void:
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
+	if performance_debug_enabled:
+		_performance_clock += dt
+		if _performance_clock >= 0.45:
+			_performance_clock = 0.0
+			_update_performance_display()
 	if debug_geometry_enabled and is_instance_valid(debug_label) and is_instance_valid(vehicle):
 		_debug_clock += dt
 		if _debug_clock >= 0.18:
