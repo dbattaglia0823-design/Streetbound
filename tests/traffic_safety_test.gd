@@ -90,6 +90,18 @@ func run() -> void:
 	player.position = actor.position + Vector2(7.0, -9.0) * PPM
 	check("non_intersecting_crossing_does_not_brake",
 		is_equal_approx(flow._player_awareness(agent, PPM * 9.0), PPM * 9.0))
+	# Actual crossing priority belongs to vehicles approaching the
+	# SAME junction; otherwise cars stop for unrelated traffic.
+	var graph = preload("res://scripts/world/traffic_network.gd").new()
+	graph.edges.append({"connector": false, "start_j": -1})
+	graph.edges.append({"connector": false, "start_j": -1})
+	graph.edges.append({"connector": true, "start_j": 7})
+	graph.edges.append({"connector": true, "start_j": 7})
+	flow.network = graph
+	agent.edge = 0
+	agent.next = 2
+	lead.edge = 1
+	lead.next = 3
 	# Cross-traffic has a stable priority rule; the lower NPC ID proceeds.
 	other.position = actor.position + Vector2(-9.0, -9.0) * PPM
 	other.rotation = PI * 0.5
@@ -101,6 +113,10 @@ func run() -> void:
 		flow._car_following(1, PPM * 9.0) >= PPM * 8.0)
 	check("higher_id_yields_at_crossing",
 		flow._car_following(0, PPM * 9.0) < PPM * 9.0)
+	lead.next = -2
+	check("unrelated_junction_traffic_does_not_hold_queue",
+		is_equal_approx(flow._car_following(0, PPM * 9.0), PPM * 9.0))
+	lead.next = 3
 	# Move to an isolated site and exercise the real player collision routine.
 	var crash_car := make_car(Vector2(26000, 26000))
 	var driver := PlayerScene.instantiate()
