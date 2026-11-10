@@ -6,7 +6,7 @@ var gravel := Rect2(850, -1850, 1050, 1650)
 var skidpad_center := Vector2(1250, 600)
 var skidpad_radius := 780.0
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
-var tire_marks: MultiMeshInstance2D
+var tire_marks: TireMarks2D
 var mark_clock := 0.0
 var vehicle: VehicleController2D
 
@@ -74,18 +74,24 @@ func _physics_process(dt: float) -> void:
 		tire_marks.reset_tracks()
 		return
 	mark_clock += dt
-	if mark_clock < 0.045:
+	if mark_clock < 0.035:
 		return
 	mark_clock = 0.0
-	if absf(vehicle.slip_angle) <= 0.13 and vehicle.handbrake <= 0.1 and vehicle.wheel_spin <= 0.15 and vehicle.surface == "ASPHALT":
+	var slide := smoothstep(0.08,0.34,absf(vehicle.slip_angle))
+	var loss := maxf(slide,maxf(vehicle.handbrake_grip_loss,vehicle.wheel_spin*1.8))
+	if loss < 0.13 and vehicle.surface == "ASPHALT":
 		tire_marks.reset_tracks()
 		return
-	var right := Vector2.RIGHT.rotated(vehicle.rotation)
-	var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
+	var rig := vehicle.get_node_or_null("Art/Wheels")
 	for track in 2:
-		var side := -1.0 if track == 0 else 1.0
-		var p: Vector2 = rear + right * side * 16.0
-		tire_marks.add_mark(p, vehicle.rotation, vehicle.surface == "ASPHALT", track)
+		var wheel: Vector2 = Vector2(-16.0,25.0) if track == 0 else Vector2(16.0,25.0)
+		if is_instance_valid(rig) and rig.has_method("wheel_anchor"):
+			wheel = rig.wheel_anchor(2+track)
+		var point := vehicle.global_position + wheel.rotated(vehicle.rotation)
+		var contact_surface: Dictionary = surface_at(point)
+		tire_marks.add_mark(point,vehicle.rotation,
+			str(contact_surface.name) == "ASPHALT",track,
+			str(contact_surface.name),loss)
 
 func text_at(point: Vector2, text: String, size := 30, color := Color("b1bba8")) -> void:
 	draw_string(ThemeDB.fallback_font, point, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
