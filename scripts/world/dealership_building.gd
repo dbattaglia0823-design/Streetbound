@@ -70,7 +70,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2(-PPM * 6.0, parking_y - PPM * 6.5),
 		Vector2(PPM * 12.0, PPM * 13.0)), Color("c8b58b"), false, 4.0, true)
 	for side in [-1.0, 1.0]:
-		var x := side * PPM * 12.0
+		var x: float = float(side) * PPM * 12.0
 		draw_line(Vector2(x, -d + PPM * 7.0),
 			Vector2(x, -PPM * 10.5), Color("d5d6c5"), 3.0, true)
 	# Storefront signage is near the sidewalk, visible at driving zoom.
