@@ -1,4 +1,5 @@
 extends CanvasLayer
+signal garage_requested
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
 const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
 const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / hp", 150.0, 650.0, 10.0], ["mass_kg", "Mass / lb", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 25000.0, 500.0],
@@ -21,6 +22,7 @@ var speed_unit_label: Label
 var gear_label: Label
 var rpm_bar: ProgressBar
 var status: Label
+var current_car_label: Label
 var tuning: PanelContainer
 var tune_box: VBoxContainer
 var waiting_action := ""
@@ -76,6 +78,14 @@ func _ready() -> void:
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
+	current_car_label = label(header, "STARTER VEHICLE  /  PORSCHE", 14, Color("b3d2a3"))
+	var garage_button := Button.new()
+	garage_button.name = "OpenVehicleGrid"
+	garage_button.text = "G  /  VEHICLE GRID"
+	garage_button.custom_minimum_size.y = 35.0
+	garage_button.pressed.connect(func(): garage_requested.emit())
+	header.add_child(garage_button)
+	vehicle.vehicle_changed.connect(_on_vehicle_changed)
 	var dash := VBoxContainer.new()
 	panel(Vector2(24, 650), Vector2(365, 220)).add_child(dash)
 	var row := HBoxContainer.new()
@@ -93,7 +103,7 @@ func _ready() -> void:
 	var hints := VBoxContainer.new()
 	panel(Vector2(413, 802), Vector2(1003, 68)).add_child(hints)
 	label(hints, "W / S  DRIVE & REVERSE     A / D  STEER     SPACE  HANDBRAKE     R  RESET", 15)
-	label(hints, "ESC  PAUSE / SETTINGS     C  CAMERA     F1  TUNING & BINDINGS     M  AUTO / MANUAL     Q / E  SHIFT     V  MUTE", 13, Color("a2b4ab"))
+	label(hints, "ESC  PAUSE     G  VEHICLES     C  CAMERA     F1  TUNING     M  AUTO/MANUAL     Q/E  SHIFT     V  MUTE", 13, Color("a2b4ab"))
 	tuning = panel(Vector2(1000, 24), Vector2(416, 750))
 	tuning.visible = false
 	var scroll := ScrollContainer.new()
@@ -165,6 +175,36 @@ func _save_tuning_now() -> void:
 		tuning_save_label.text = "Tuning saved automatically."
 	else:
 		tuning_save_label.text = "Could not save tuning (error %s)." % result
+
+func _on_vehicle_changed(id: String) -> void:
+	# Each selectable model has its own tuning file. A global saved tune
+	# cannot accidentally turn a heavy truck into a 900kg hypercar.
+	_save_timer.stop()
+	_tuning_dirty = false
+	var rows: Array = TUNING_FIELDS.duplicate(true)
+	for entry in rows:
+		var value := float(vehicle.config.get(str(entry[0])))
+		entry[2] = minf(float(entry[2]), value * 0.75)
+		entry[3] = maxf(float(entry[3]), value * 1.3)
+	# Load only valid fields from this specific model's tuning profile.
+	tuning_profile = TuningProfile.new(rows, "user://streetbound_vehicle_%s_tuning.cfg" % id)
+	_stock_tune = vehicle.config.duplicate(true)
+	tuning_profile.load_into(vehicle.config)
+	for entry in rows:
+		var field: String = str(entry[0])
+		var current := float(vehicle.config.get(field))
+		var slider: HSlider = tuning_sliders[field]
+		slider.min_value = float(entry[2])
+		slider.max_value = float(entry[3])
+		slider.set_value_no_signal(current)
+		(config_labels[field] as Label).text = "%s   %s" % [
+			str(entry[1]), Imperial.tune_text(field, current)]
+	drivetrain_select.select(vehicle.config.drivetrain)
+	var record := preload("res://scripts/vehicle/vehicle_catalog.gd").find_vehicle(id)
+	current_car_label.text = "%s  /  %s" % [str(record.get("brand","CAR")).to_upper(),
+		str(record.get("model","Selected"))]
+	tuning_save_label.text = "Model-specific tuning loaded."
+
 
 func _restore_stock_tuning() -> void:
 	if tuning_profile.clear_profile() != OK:
