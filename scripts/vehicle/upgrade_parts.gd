@@ -107,6 +107,15 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				"auto_shift_duration": value = clampf(value,0.03,0.35)
 				"final_drive": value = clampf(value,2.0,6.0)
 			config.set(key,value)
+		# Exhaust inventory changes the sound of the equipped engine as well
+		# as the vehicle stats, and restores cleanly when the part is removed.
+		if str(part.get("slot","")) == "exhaust":
+			var upgrade_fraction := maxf(0.0,
+				float(mods.get("engine_power_kw",0.0)))
+			config.audio_aggression = clampf(
+				config.audio_aggression+upgrade_fraction*7.0,0.0,1.4)
+			config.audio_exhaust_roughness = clampf(
+				config.audio_exhaust_roughness+upgrade_fraction*5.0,0.0,1.0)
 
 
 static func reward_template(race_id: String, car_level: int) -> Dictionary:

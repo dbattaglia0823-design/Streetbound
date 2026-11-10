@@ -18,6 +18,14 @@ enum Drivetrain { FWD, RWD, AWD }
 ## Rated power/torque figures already include full boost.
 @export var boost_max_psi: float = 0.0
 @export var boost_spool_seconds: float = 0.65
+@export_group("Sound character")
+## Original sound-design profile; individual trims may differ from these
+## modeled family defaults. All values only affect audio, never horsepower.
+@export var audio_family: String = "v8_cross"
+@export var audio_aggression: float = 0.75
+@export var audio_induction: String = "naturally_aspirated"
+@export var audio_flutter: float = 0.0
+@export var audio_exhaust_roughness: float = 0.4
 @export var shift_duration: float = 0.18
 ## Automatic power-on changes need only a short torque interruption.
 @export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085

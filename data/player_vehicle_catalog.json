@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars. Dashboard boost values are gameplay-model calibrations for representative turbo trims, not OEM pressure specifications; no boost is displayed for unconfigured powertrains.",
+  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars. Dashboard boost values are gameplay-model calibrations for representative turbo trims, not OEM pressure specifications; no boost is displayed for unconfigured powertrains. Per-vehicle audio profiles are original tuned-sound characterizations inspired by real clips; they are not exact OEM powertrain specifications or copies of copyrighted recordings. Some vehicle artwork/trim associations remain provisional.",
   "vehicles": [
     {
       "id": "acura-integra",
@@ -21,7 +21,12 @@
       "kind": "compact",
       "price_usd": 23900,
       "dealership_id": "used",
-      "required_player_level": 4
+      "required_player_level": 4,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "acura-tl",
@@ -42,7 +47,12 @@
       "kind": "sedan",
       "price_usd": 11500,
       "dealership_id": "budget",
-      "required_player_level": 1
+      "required_player_level": 1,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "acura-tlx",
@@ -63,7 +73,12 @@
       "kind": "sedan",
       "price_usd": 32700,
       "dealership_id": "used",
-      "required_player_level": 18
+      "required_player_level": 18,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "acura-tsx",
@@ -84,7 +99,12 @@
       "kind": "sedan",
       "price_usd": 13500,
       "dealership_id": "budget",
-      "required_player_level": 3
+      "required_player_level": 3,
+      "audio_family": "i4",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "acura-ilx",
@@ -105,7 +125,12 @@
       "kind": "compact",
       "price_usd": 17800,
       "dealership_id": "budget",
-      "required_player_level": 7
+      "required_player_level": 7,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-giulia",
@@ -127,7 +152,12 @@
       "price_usd": 42500,
       "dealership_id": "modern",
       "required_player_level": 20,
-      "boost_max_psi": 15
+      "boost_max_psi": 15,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-stelvio",
@@ -149,7 +179,12 @@
       "price_usd": 54000,
       "dealership_id": "trail",
       "required_player_level": 28,
-      "boost_max_psi": 15
+      "boost_max_psi": 15,
+      "audio_family": "v6",
+      "audio_aggression": 0.62,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-tonale",
@@ -171,7 +206,12 @@
       "price_usd": 36500,
       "dealership_id": "trail",
       "required_player_level": 10,
-      "boost_max_psi": 12
+      "boost_max_psi": 12,
+      "audio_family": "i4",
+      "audio_aggression": 0.62,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-mito",
@@ -192,7 +232,12 @@
       "kind": "compact",
       "price_usd": 9900,
       "dealership_id": "junk",
-      "required_player_level": 2
+      "required_player_level": 2,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-giulietta",
@@ -213,7 +258,12 @@
       "kind": "compact",
       "price_usd": 15500,
       "dealership_id": "budget",
-      "required_player_level": 5
+      "required_player_level": 5,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-brera",
@@ -234,7 +284,12 @@
       "kind": "sedan",
       "price_usd": 21900,
       "dealership_id": "budget",
-      "required_player_level": 8
+      "required_player_level": 8,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-4c",
@@ -256,7 +311,12 @@
       "price_usd": 82000,
       "dealership_id": "showroom",
       "required_player_level": 31,
-      "boost_max_psi": 17
+      "boost_max_psi": 17,
+      "audio_family": "i4",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "alfa-romeo-33-stradale",
@@ -277,7 +337,12 @@
       "kind": "hyper",
       "price_usd": 1850000,
       "dealership_id": "exotic",
-      "required_player_level": 75
+      "required_player_level": 75,
+      "audio_family": "v6",
+      "audio_aggression": 1.12,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "aston-martin-db9",
@@ -298,7 +363,12 @@
       "kind": "sport",
       "price_usd": 98000,
       "dealership_id": "premium",
-      "required_player_level": 42
+      "required_player_level": 42,
+      "audio_family": "v12",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-db11",
@@ -320,7 +390,12 @@
       "price_usd": 155000,
       "dealership_id": "premium",
       "required_player_level": 53,
-      "boost_max_psi": 15
+      "boost_max_psi": 15,
+      "audio_family": "v12",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-db12",
@@ -342,7 +417,12 @@
       "price_usd": 245000,
       "dealership_id": "luxury",
       "required_player_level": 58,
-      "boost_max_psi": 17
+      "boost_max_psi": 17,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "aston-martin-dbs",
@@ -364,7 +444,12 @@
       "price_usd": 265000,
       "dealership_id": "luxury",
       "required_player_level": 69,
-      "boost_max_psi": 17
+      "boost_max_psi": 17,
+      "audio_family": "v12",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-vantage",
@@ -386,7 +471,12 @@
       "price_usd": 165000,
       "dealership_id": "premium",
       "required_player_level": 56,
-      "boost_max_psi": 15
+      "boost_max_psi": 15,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "aston-martin-vanquish",
@@ -408,7 +498,12 @@
       "price_usd": 385000,
       "dealership_id": "luxury",
       "required_player_level": 83,
-      "boost_max_psi": 18
+      "boost_max_psi": 18,
+      "audio_family": "v12",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-rapide",
@@ -429,7 +524,12 @@
       "kind": "sport",
       "price_usd": 115000,
       "dealership_id": "premium",
-      "required_player_level": 45
+      "required_player_level": 45,
+      "audio_family": "v12",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-dbx",
@@ -451,7 +551,12 @@
       "price_usd": 245000,
       "dealership_id": "luxury",
       "required_player_level": 61,
-      "boost_max_psi": 16
+      "boost_max_psi": 16,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.62,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "aston-martin-valkyrie",
@@ -472,7 +577,12 @@
       "kind": "hyper",
       "price_usd": 3300000,
       "dealership_id": "exotic",
-      "required_player_level": 92
+      "required_player_level": 92,
+      "audio_family": "v12",
+      "audio_aggression": 1.12,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "aston-martin-one-77",
@@ -493,7 +603,12 @@
       "kind": "hyper",
       "price_usd": 1350000,
       "dealership_id": "exotic",
-      "required_player_level": 70
+      "required_player_level": 70,
+      "audio_family": "v12",
+      "audio_aggression": 1.12,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "audi-a3",
@@ -514,7 +629,12 @@
       "kind": "compact",
       "price_usd": 25500,
       "dealership_id": "used",
-      "required_player_level": 8
+      "required_player_level": 8,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-a4",
@@ -535,7 +655,12 @@
       "kind": "sedan",
       "price_usd": 34500,
       "dealership_id": "modern",
-      "required_player_level": 12
+      "required_player_level": 12,
+      "audio_family": "i4",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-a5",
@@ -556,7 +681,12 @@
       "kind": "sedan",
       "price_usd": 43000,
       "dealership_id": "modern",
-      "required_player_level": 22
+      "required_player_level": 22,
+      "audio_family": "i4",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-a6",
@@ -577,7 +707,12 @@
       "kind": "sedan",
       "price_usd": 47500,
       "dealership_id": "modern",
-      "required_player_level": 26
+      "required_player_level": 26,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-a7",
@@ -598,7 +733,12 @@
       "kind": "sedan",
       "price_usd": 59500,
       "dealership_id": "modern",
-      "required_player_level": 32
+      "required_player_level": 32,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-a8",
@@ -619,7 +759,12 @@
       "kind": "sedan",
       "price_usd": 92000,
       "dealership_id": "showroom",
-      "required_player_level": 43
+      "required_player_level": 43,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "audi-q3",
@@ -640,7 +785,12 @@
       "kind": "suv",
       "price_usd": 34500,
       "dealership_id": "trail",
-      "required_player_level": 7
+      "required_player_level": 7,
+      "audio_family": "i4",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-q5",
@@ -661,7 +811,12 @@
       "kind": "suv",
       "price_usd": 45500,
       "dealership_id": "trail",
-      "required_player_level": 20
+      "required_player_level": 20,
+      "audio_family": "i4",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "audi-q7",
@@ -682,7 +837,12 @@
       "kind": "suv",
       "price_usd": 69500,
       "dealership_id": "summit",
-      "required_player_level": 35
+      "required_player_level": 35,
+      "audio_family": "v6",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-i8",
@@ -703,7 +863,12 @@
       "kind": "sport",
       "price_usd": 105000,
       "dealership_id": "showroom",
-      "required_player_level": 50
+      "required_player_level": 50,
+      "audio_family": "i3",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-m2",
@@ -725,7 +890,12 @@
       "price_usd": 67000,
       "dealership_id": "modern",
       "required_player_level": 34,
-      "boost_max_psi": 17
+      "boost_max_psi": 17,
+      "audio_family": "i6",
+      "audio_aggression": 0.54,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.66,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-m3",
@@ -747,7 +917,12 @@
       "price_usd": 85000,
       "dealership_id": "showroom",
       "required_player_level": 35,
-      "boost_max_psi": 18
+      "boost_max_psi": 18,
+      "audio_family": "i6",
+      "audio_aggression": 0.71,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.66,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-m4",
@@ -769,7 +944,12 @@
       "price_usd": 88000,
       "dealership_id": "showroom",
       "required_player_level": 39,
-      "boost_max_psi": 18
+      "boost_max_psi": 18,
+      "audio_family": "i6",
+      "audio_aggression": 0.58,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.66,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-m8",
@@ -791,7 +971,12 @@
       "price_usd": 142000,
       "dealership_id": "premium",
       "required_player_level": 51,
-      "boost_max_psi": 19
+      "boost_max_psi": 19,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.66,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "bmw-x3",
@@ -812,7 +997,12 @@
       "kind": "suv",
       "price_usd": 47500,
       "dealership_id": "trail",
-      "required_player_level": 25
+      "required_player_level": 25,
+      "audio_family": "i4",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-x5",
@@ -833,7 +1023,12 @@
       "kind": "suv",
       "price_usd": 74500,
       "dealership_id": "summit",
-      "required_player_level": 47
+      "required_player_level": 47,
+      "audio_family": "i6",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bmw-z4",
@@ -855,7 +1050,12 @@
       "price_usd": 41000,
       "dealership_id": "modern",
       "required_player_level": 19,
-      "boost_max_psi": 15
+      "boost_max_psi": 15,
+      "audio_family": "i6",
+      "audio_aggression": 0.54,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bentley-continental-gt",
@@ -876,7 +1076,12 @@
       "kind": "sport",
       "price_usd": 255000,
       "dealership_id": "luxury",
-      "required_player_level": 63
+      "required_player_level": 63,
+      "audio_family": "w12",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bentley-flying-spur",
@@ -897,7 +1102,12 @@
       "kind": "sedan",
       "price_usd": 235000,
       "dealership_id": "luxury",
-      "required_player_level": 55
+      "required_player_level": 55,
+      "audio_family": "w12",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "bentley-bentayga",
@@ -918,7 +1128,12 @@
       "kind": "suv",
       "price_usd": 225000,
       "dealership_id": "luxury",
-      "required_player_level": 52
+      "required_player_level": 52,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "bentley-mulsanne",
@@ -939,7 +1154,12 @@
       "kind": "sedan",
       "price_usd": 185000,
       "dealership_id": "premium",
-      "required_player_level": 59
+      "required_player_level": 59,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "bentley-arnage",
@@ -960,7 +1180,12 @@
       "kind": "sedan",
       "price_usd": 79000,
       "dealership_id": "premium",
-      "required_player_level": 36
+      "required_player_level": 36,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "bugatti-eb110",
@@ -982,7 +1207,12 @@
       "price_usd": 1650000,
       "dealership_id": "exotic",
       "required_player_level": 73,
-      "boost_max_psi": 20
+      "boost_max_psi": 20,
+      "audio_family": "v12",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.85,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "bugatti-veyron",
@@ -1004,7 +1234,12 @@
       "price_usd": 1850000,
       "dealership_id": "exotic",
       "required_player_level": 78,
-      "boost_max_psi": 23
+      "boost_max_psi": 23,
+      "audio_family": "w16",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.4,
+      "audio_exhaust_roughness": 0.3
     },
     {
       "id": "bugatti-chiron",
@@ -1026,7 +1261,12 @@
       "price_usd": 2850000,
       "dealership_id": "exotic",
       "required_player_level": 86,
-      "boost_max_psi": 26
+      "boost_max_psi": 26,
+      "audio_family": "w16",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.4,
+      "audio_exhaust_roughness": 0.3
     },
     {
       "id": "bugatti-divo",
@@ -1048,7 +1288,12 @@
       "price_usd": 4700000,
       "dealership_id": "exotic",
       "required_player_level": 95,
-      "boost_max_psi": 26
+      "boost_max_psi": 26,
+      "audio_family": "w16",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.4,
+      "audio_exhaust_roughness": 0.3
     },
     {
       "id": "bugatti-centodieci",
@@ -1070,7 +1315,12 @@
       "price_usd": 7800000,
       "dealership_id": "exotic",
       "required_player_level": 100,
-      "boost_max_psi": 27
+      "boost_max_psi": 27,
+      "audio_family": "w16",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.4,
+      "audio_exhaust_roughness": 0.3
     },
     {
       "id": "bugatti-bolide",
@@ -1092,7 +1342,12 @@
       "price_usd": 5800000,
       "dealership_id": "exotic",
       "required_player_level": 97,
-      "boost_max_psi": 28
+      "boost_max_psi": 28,
+      "audio_family": "w16",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.4,
+      "audio_exhaust_roughness": 0.3
     },
     {
       "id": "cadillac-escalade",
@@ -1113,7 +1368,12 @@
       "kind": "suv",
       "price_usd": 105000,
       "dealership_id": "summit",
-      "required_player_level": 58
+      "required_player_level": 58,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "cadillac-ct4",
@@ -1134,7 +1394,12 @@
       "kind": "sedan",
       "price_usd": 38000,
       "dealership_id": "modern",
-      "required_player_level": 17
+      "required_player_level": 17,
+      "audio_family": "i4",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "cadillac-ct5",
@@ -1155,7 +1420,12 @@
       "kind": "sedan",
       "price_usd": 56500,
       "dealership_id": "modern",
-      "required_player_level": 31
+      "required_player_level": 31,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "chevrolet-camaro-z28",
@@ -1176,7 +1446,12 @@
       "kind": "sport",
       "price_usd": 46500,
       "dealership_id": "modern",
-      "required_player_level": 24
+      "required_player_level": 24,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-camaro-zl1",
@@ -1197,7 +1472,12 @@
       "kind": "sport",
       "price_usd": 79000,
       "dealership_id": "showroom",
-      "required_player_level": 24
+      "required_player_level": 24,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "supercharger",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-corvette-c5",
@@ -1218,7 +1498,12 @@
       "kind": "sport",
       "price_usd": 25500,
       "dealership_id": "used",
-      "required_player_level": 11
+      "required_player_level": 11,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-corvette-c6",
@@ -1239,7 +1524,12 @@
       "kind": "sport",
       "price_usd": 35500,
       "dealership_id": "modern",
-      "required_player_level": 15
+      "required_player_level": 15,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-corvette-c7",
@@ -1260,7 +1550,12 @@
       "kind": "sport",
       "price_usd": 54000,
       "dealership_id": "modern",
-      "required_player_level": 29
+      "required_player_level": 29,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-corvette-c8",
@@ -1281,7 +1576,12 @@
       "kind": "sport",
       "price_usd": 79500,
       "dealership_id": "showroom",
-      "required_player_level": 28
+      "required_player_level": 28,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "chevrolet-corvette-z06",
@@ -1302,7 +1602,12 @@
       "kind": "sport",
       "price_usd": 138000,
       "dealership_id": "premium",
-      "required_player_level": 48
+      "required_player_level": 48,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "chevrolet-corvette-zr1",
@@ -1324,7 +1629,12 @@
       "price_usd": 245000,
       "dealership_id": "premium",
       "required_player_level": 65,
-      "boost_max_psi": 20
+      "boost_max_psi": 20,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "chevrolet-corvette-zr1x",
@@ -1346,7 +1656,12 @@
       "price_usd": 315000,
       "dealership_id": "luxury",
       "required_player_level": 75,
-      "boost_max_psi": 22
+      "boost_max_psi": 22,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "dodge-charger",
@@ -1367,7 +1682,12 @@
       "kind": "sedan",
       "price_usd": 28000,
       "dealership_id": "used",
-      "required_player_level": 15
+      "required_player_level": 15,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "dodge-challenger",
@@ -1388,7 +1708,12 @@
       "kind": "sedan",
       "price_usd": 35000,
       "dealership_id": "modern",
-      "required_player_level": 14
+      "required_player_level": 14,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "dodge-viper",
@@ -1409,7 +1734,12 @@
       "kind": "sport",
       "price_usd": 102000,
       "dealership_id": "showroom",
-      "required_player_level": 46
+      "required_player_level": 46,
+      "audio_family": "v10",
+      "audio_aggression": 1.07,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "dodge-durango",
@@ -1430,7 +1760,12 @@
       "kind": "suv",
       "price_usd": 45500,
       "dealership_id": "trail",
-      "required_player_level": 23
+      "required_player_level": 23,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "dodge-dart",
@@ -1451,7 +1786,12 @@
       "kind": "compact",
       "price_usd": 9500,
       "dealership_id": "junk",
-      "required_player_level": 2
+      "required_player_level": 2,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "dodge-neon",
@@ -1472,7 +1812,12 @@
       "kind": "compact",
       "price_usd": 7400,
       "dealership_id": "junk",
-      "required_player_level": 1
+      "required_player_level": 1,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "dodge-avenger",
@@ -1493,7 +1838,12 @@
       "kind": "sedan",
       "price_usd": 10200,
       "dealership_id": "junk",
-      "required_player_level": 3
+      "required_player_level": 3,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "dodge-magnum",
@@ -1514,7 +1864,12 @@
       "kind": "sedan",
       "price_usd": 13500,
       "dealership_id": "budget",
-      "required_player_level": 4
+      "required_player_level": 4,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "ferrari-308",
@@ -1535,7 +1890,12 @@
       "kind": "sport",
       "price_usd": 94000,
       "dealership_id": "premium",
-      "required_player_level": 39
+      "required_player_level": 39,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-f40",
@@ -1557,7 +1917,12 @@
       "price_usd": 1850000,
       "dealership_id": "exotic",
       "required_player_level": 81,
-      "boost_max_psi": 18
+      "boost_max_psi": 18,
+      "audio_family": "v8_flat",
+      "audio_aggression": 1.12,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.85,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-f50",
@@ -1578,7 +1943,12 @@
       "kind": "hyper",
       "price_usd": 2800000,
       "dealership_id": "exotic",
-      "required_player_level": 84
+      "required_player_level": 84,
+      "audio_family": "v12",
+      "audio_aggression": 1.12,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "ferrari-enzo",
@@ -1599,7 +1969,12 @@
       "kind": "hyper",
       "price_usd": 3200000,
       "dealership_id": "exotic",
-      "required_player_level": 89
+      "required_player_level": 89,
+      "audio_family": "v12",
+      "audio_aggression": 1.12,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "ferrari-458-italia",
@@ -1620,7 +1995,12 @@
       "kind": "sport",
       "price_usd": 185000,
       "dealership_id": "premium",
-      "required_player_level": 62
+      "required_player_level": 62,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-488-gtb",
@@ -1642,7 +2022,12 @@
       "price_usd": 255000,
       "dealership_id": "luxury",
       "required_player_level": 66,
-      "boost_max_psi": 19
+      "boost_max_psi": 19,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-f8-tributo",
@@ -1664,7 +2049,12 @@
       "price_usd": 335000,
       "dealership_id": "luxury",
       "required_player_level": 78,
-      "boost_max_psi": 20
+      "boost_max_psi": 20,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-roma",
@@ -1686,7 +2076,12 @@
       "price_usd": 265000,
       "dealership_id": "luxury",
       "required_player_level": 72,
-      "boost_max_psi": 19
+      "boost_max_psi": 19,
+      "audio_family": "v8_flat",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.5
     },
     {
       "id": "ferrari-296-gtb",
@@ -1708,7 +2103,12 @@
       "price_usd": 355000,
       "dealership_id": "luxury",
       "required_player_level": 80,
-      "boost_max_psi": 22
+      "boost_max_psi": 22,
+      "audio_family": "v6",
+      "audio_aggression": 0.94,
+      "audio_induction": "turbo",
+      "audio_flutter": 0.5,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "ferrari-purosangue",
@@ -1729,7 +2129,12 @@
       "kind": "suv",
       "price_usd": 465000,
       "dealership_id": "luxury",
-      "required_player_level": 86
+      "required_player_level": 86,
+      "audio_family": "v12",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.33
     },
     {
       "id": "ford-bronco",
@@ -1750,7 +2155,12 @@
       "kind": "suv",
       "price_usd": 41000,
       "dealership_id": "trail",
-      "required_player_level": 15
+      "required_player_level": 15,
+      "audio_family": "v6",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "ford-explorer",
@@ -1771,7 +2181,12 @@
       "kind": "suv",
       "price_usd": 36500,
       "dealership_id": "trail",
-      "required_player_level": 12
+      "required_player_level": 12,
+      "audio_family": "v6",
+      "audio_aggression": 0.62,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "ford-f150",
@@ -1792,7 +2207,12 @@
       "kind": "truck",
       "price_usd": 43000,
       "dealership_id": "trail",
-      "required_player_level": 18
+      "required_player_level": 18,
+      "audio_family": "v8_cross",
+      "audio_aggression": 0.7,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "ford-fiesta",
@@ -1813,7 +2233,12 @@
       "kind": "compact",
       "price_usd": 12000,
       "dealership_id": "budget",
-      "required_player_level": 1
+      "required_player_level": 1,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "ford-focus",
@@ -1834,7 +2259,12 @@
       "kind": "compact",
       "price_usd": 16500,
       "dealership_id": "budget",
-      "required_player_level": 6
+      "required_player_level": 6,
+      "audio_family": "i4",
+      "audio_aggression": 0.54,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     },
     {
       "id": "ford-mustang",
@@ -1855,7 +2285,12 @@
       "kind": "sport",
       "price_usd": 49500,
       "dealership_id": "modern",
-      "required_player_level": 27
+      "required_player_level": 27,
+      "audio_family": "v8_cross",
+      "audio_aggression": 1.07,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.65
     },
     {
       "id": "ford-taurus",
@@ -1876,7 +2311,12 @@
       "kind": "sedan",
       "price_usd": 15000,
       "dealership_id": "budget",
-      "required_player_level": 5
+      "required_player_level": 5,
+      "audio_family": "v6",
+      "audio_aggression": 0.58,
+      "audio_induction": "naturally_aspirated",
+      "audio_flutter": 0,
+      "audio_exhaust_roughness": 0.25
     }
   ]
 }

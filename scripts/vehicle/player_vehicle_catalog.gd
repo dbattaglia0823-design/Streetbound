@@ -58,6 +58,12 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.engine_torque_nm = float(entry.torque_nm)
 	config.engine_power_kw = float(entry.power_kw)
 	config.boost_max_psi = maxf(0.0,float(entry.get("boost_max_psi",0.0)))
+	config.audio_family = str(entry.get("audio_family","v8_cross"))
+	config.audio_aggression = clampf(float(entry.get("audio_aggression",0.7)),0.0,1.4)
+	config.audio_induction = str(entry.get("audio_induction","naturally_aspirated"))
+	config.audio_flutter = clampf(float(entry.get("audio_flutter",0.0)),0.0,1.0)
+	config.audio_exhaust_roughness = clampf(
+		float(entry.get("audio_exhaust_roughness",0.4)),0.0,1.0)
 	config.wheelbase_m = float(entry.wheelbase_m)
 	config.brake_force_n = float(entry.brake_force_n)
 	config.tire_grip = float(entry.tire_grip)

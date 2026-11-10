@@ -39,6 +39,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_test.gd -- output=test_results_ci.json
       - name: Verify racing handling and steering tuning
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_tune_test.gd
+      - name: Verify 88 engine audio profiles, loop blending, turbo spool, blowoff, flutter and tuned exhaust
+        run: timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/engine_turbo_audio_test.gd
       - name: Verify HUD, camera, input, sound and playable scene
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/runtime_test.gd
       - name: Verify camera speed feedback and bounded visual effects
