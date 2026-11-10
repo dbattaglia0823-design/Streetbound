@@ -25,6 +25,8 @@ var reverse_hold := 0.0
 var spawn_transform := Transform2D.IDENTITY
 var external_input := false
 var command := Vector4.ZERO # throttle, brake, steer, handbrake; AI/test seam
+var _traffic_impact_id := -1
+var _traffic_impact_cooldown := 0.0
 
 func _ready() -> void:
 	config = config.duplicate(true)
@@ -49,6 +51,8 @@ func reset_vehicle() -> void:
 	arcade_assist_fraction = 0.0
 	cornering_grip_fraction = 1.0
 	command = Vector4.ZERO
+	_traffic_impact_id = -1
+	_traffic_impact_cooldown = 0.0
 	reverse_hold = 0.0
 	reversing = false
 	transmission.reset(config)
@@ -68,6 +72,7 @@ func _physics_process(dt: float) -> void:
 	step_vehicle(dt, command)
 
 func step_vehicle(dt: float, controls: Vector4) -> void:
+	_traffic_impact_cooldown = maxf(0.0, _traffic_impact_cooldown - dt)
 	var forward := Vector2.UP.rotated(rotation)
 	# Godot's orthogonal() points left for Vector2.UP. Axle forces and slip
 	# must use the actual right vector or steering pushes against the turn.
@@ -236,22 +241,40 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			if is_instance_valid(other) and other is Node:
 				is_traffic = other.is_in_group("traffic_vehicle")
 			if is_traffic:
-				# Treat NPC cars as lighter movable objects, not concrete walls.
-				# The solver still blocks overlap, but the player retains some
-				# forward momentum while sending a stronger impulse to traffic.
-				if impact_speed > 0.7 and other.has_method("receive_impact"):
-					other.receive_impact(-normal * minf(impact_speed, 22.0) * \
-						PIXELS_PER_METER * 1.25)
-				linear_velocity += normal * impact_speed * 0.65
-				linear_velocity *= 0.97
-				yaw_rate *= 0.8
+				# A shallow sideswipe should retain tangential speed; a direct
+				# impact transfers more energy. The collider itself still prevents
+				# the player from passing through the traffic car.
+				var frontal := absf(normal.dot(forward))
+				var loss := lerpf(0.18, 0.56, frontal)
+				linear_velocity += normal * impact_speed * loss
+				linear_velocity *= 0.985
+				# Off-center contacts produce a small, limited rotation rather
+				# than the same fixed yaw penalty for every contact angle.
+				var lever := (collision.get_position() - global_position).dot(right)
+				var off_center := clampf(lever / maxf(1.0, config.wheelbase_m *
+					PIXELS_PER_METER * 0.5), -1.0, 1.0)
+				yaw_rate = clampf(yaw_rate * 0.84 + off_center * impact_speed * 0.012,
+					-2.4, 2.4)
+				# Multiple physics contacts in a single crash should not apply
+				# a fresh full-strength shove or play an impact effect each tick.
+				var contact_id := other.get_instance_id()
+				var fresh_contact := contact_id != _traffic_impact_id or \
+					_traffic_impact_cooldown <= 0.0
+				if fresh_contact:
+					_traffic_impact_id = contact_id
+					_traffic_impact_cooldown = 0.18
+					if impact_speed > 0.7 and other.has_method("receive_impact"):
+						var weight_factor := clampf(mass / (mass + 1200.0) * 2.0,
+							0.8, 1.35)
+						other.receive_impact(-normal * minf(impact_speed, 22.0) *
+							PIXELS_PER_METER * 1.25 * weight_factor)
+					impacted.emit(impact_speed)
 			else:
-				# Solid buildings, barriers and trees keep their original
-				# restitution and deceleration behavior.
+				# Buildings and barriers stay hard, with the original response.
 				linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
 				linear_velocity *= 0.88
 				yaw_rate *= 0.4
-			impacted.emit(impact_speed)
+				impacted.emit(impact_speed)
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
 		linear_velocity = Vector2.ZERO

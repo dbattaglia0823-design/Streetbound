@@ -4,6 +4,9 @@ extends Node2D
 const Network = preload("res://scripts/world/traffic_network.gd")
 const Car = preload("res://scripts/world/traffic_car.gd")
 const PPM := 20.0
+const COMFORT_BRAKE := PPM * 9.0
+const HARD_BRAKE := PPM * 24.0
+const LOOKAHEAD_SECONDS := 2.25
 const PALETTE := [
 	Color("7b8b9b"),Color("b5b6aa"),Color("a08f7a"),Color("617a77"),
 	Color("a77c6b"),Color("8b94a4"),Color("c9c1ad"),Color("515d67")
@@ -96,7 +99,9 @@ func _spawn_one() -> bool:
 			"uid":_id_serial,"node":car,"edge":id,
 			"progress":progress,"speed":speed*0.65,"cruise":speed,
 			"next":-2,"stop_wait":0.0,"stop_done":false,
-			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{}
+			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{},
+			"obstacle_scan_clock":0.0,"obstacle_position":Vector2.INF,
+			"recovery_stall":0.0
 		})
 		_id_serial+=1
 		return true
@@ -119,44 +124,125 @@ func _choose_next(edge: Dictionary) -> int:
 	return int(choices[random.randi_range(0,choices.size()-1)])
 
 
-func _car_following(index: int,desired_px: float) -> float:
-	var agent: Dictionary=agents[index]
-	var distance_to_front := INF
+# Kinematic safety envelope shared by players, moving AI and stopped AI.
+# It uses the current body centers, so stale waypoint progress after a crash
+# cannot make the car drive into another vehicle.
+func _safe_follow_speed(agent: Dictionary, desired_px: float,
+		obstacle_position: Vector2, obstacle_velocity: Vector2,
+		direction: Vector2 = Vector2.ZERO) -> float:
+	if desired_px <= 0.0:
+		return desired_px
+	var node: CharacterBody2D = agent.node
+	var heading := direction.normalized() if direction.length_squared() > 0.001 \
+		else Vector2.UP.rotated(node.rotation)
+	var offset := obstacle_position - node.global_position
+	var ahead := offset.dot(heading)
+	var lateral := absf(heading.cross(offset))
+	# The half-widths of both cars plus a small clearance. Adjacent lanes do
+	# not count as obstacles unless their collision paths really intersect.
+	if ahead < -PPM * 0.5 or lateral > PPM * 2.85:
+		return desired_px
+	var lead_speed := maxf(0.0, obstacle_velocity.dot(heading))
+	var closing_speed := maxf(0.0, desired_px - lead_speed)
+	var minimum_gap := PPM * 5.4 + closing_speed * 0.48
+	var available := maxf(0.0, ahead - minimum_gap)
+	return minf(desired_px, lead_speed + sqrt(2.0 * COMFORT_BRAKE * available))
+
+
+# Predict an intersection crossing before either vehicle occupies the same
+# collision footprint. Controlled right-of-way prevents AI/AI deadlocks.
+func _crossing_speed(agent: Dictionary, desired_px: float,
+		other_position: Vector2, other_velocity: Vector2,
+		must_yield: bool, direction: Vector2 = Vector2.ZERO) -> float:
+	if not must_yield or desired_px <= 0.0:
+		return desired_px
+	var node: CharacterBody2D = agent.node
+	var heading := direction.normalized() if direction.length_squared() > 0.001 \
+		else Vector2.UP.rotated(node.rotation)
+	var offset := other_position - node.global_position
+	if offset.length_squared() > pow(PPM * 45.0, 2.0):
+		return desired_px
+	var velocity_delta := other_velocity - heading * maxf(float(agent.speed), desired_px)
+	if velocity_delta.length_squared() < 10.0:
+		return desired_px
+	var closest_time := -offset.dot(velocity_delta) / velocity_delta.length_squared()
+	if closest_time < 0.10 or closest_time > LOOKAHEAD_SECONDS:
+		return desired_px
+	var closest_offset := offset + velocity_delta * closest_time
+	if closest_offset.length() > PPM * 4.7:
+		return desired_px
+	# Avoid applying a cross-lane prediction to a car already safely ahead.
+	if offset.dot(heading) < -PPM * 2.0:
+		return desired_px
+	var remaining := offset.length() - PPM * 5.5
+	return minf(desired_px, maxf(0.0, remaining) / LOOKAHEAD_SECONDS)
+
+
+func _car_following(index: int, desired_px: float) -> float:
+	var agent: Dictionary = agents[index]
+	var heading := Vector2.UP.rotated((agent.node as Node2D).rotation)
 	for i in agents.size():
-		if i==index:
+		if i == index:
 			continue
-		var other: Dictionary=agents[i]
-		if int(other.edge)!=int(agent.edge) or bool(other.node.get("recovering")):
+		var other: Dictionary = agents[i]
+		var other_node: CharacterBody2D = other.node
+		if not is_instance_valid(other_node):
 			continue
-		var gap := float(other.progress)-float(agent.progress)
-		if gap>0.0:
-			distance_to_front=minf(distance_to_front,gap)
-	if distance_to_front < PPM*24.0:
-		return minf(desired_px,maxf(0.0,(distance_to_front-PPM*6.0)*0.7))
+		var other_direction := Vector2.UP.rotated(other_node.rotation)
+		var other_speed := float(other.speed) if not bool(other_node.get("recovering")) else 0.0
+		var other_velocity := other_direction * other_speed + (other_node.get("recovery_velocity") as Vector2)
+		desired_px = _safe_follow_speed(agent, desired_px,
+			other_node.global_position, other_velocity, heading)
+		# The lower ID has right of way if two AI routes cross.
+		desired_px = _crossing_speed(agent, desired_px,
+			other_node.global_position, other_velocity,
+			int(agent.uid) > int(other.uid), heading)
 	return desired_px
 
 
 func _player_awareness(agent: Dictionary, desired_px: float,
 		travel_direction: Vector2 = Vector2.ZERO) -> float:
-	# Use the NPC's actual body, not the saved lane station. After an impact
-	# the car may be several metres away from its old route sample.
-	if not is_instance_valid(player) or desired_px <= 0.0:
+	if not is_instance_valid(player):
 		return desired_px
+	var player_velocity := player.linear_velocity * PPM
+	var heading := travel_direction if travel_direction.length_squared() > 0.001 \
+		else Vector2.UP.rotated((agent.node as Node2D).rotation)
+	var safe := _safe_follow_speed(agent, desired_px,
+		player.global_position, player_velocity, heading)
+	return _crossing_speed(agent, safe, player.global_position,
+		player_velocity, true, heading)
+
+
+# Only static obstacles are sensed here; traffic and player awareness are
+# handled above. Cache raycasts to avoid querying physics every frame.
+func _world_obstacle_speed(agent: Dictionary, desired_px: float, dt: float) -> float:
 	var node: CharacterBody2D = agent.node
-	var heading := travel_direction.normalized() if travel_direction.length_squared() > 0.001 \
-		else Vector2.UP.rotated(node.rotation)
-	var relative := player.global_position - node.global_position
-	var ahead := relative.dot(heading)
-	var sideways := absf(heading.cross(relative))
-	# Both body half-lengths plus a buffer; include the real lateral width.
-	# Do not yield to a player behind or on a neighboring lane.
-	if ahead < -PPM * 0.5 or sideways > PPM * 3.1:
+	agent.obstacle_scan_clock = float(agent.get("obstacle_scan_clock", 0.0)) - dt
+	if float(agent.obstacle_scan_clock) <= 0.0:
+		agent.obstacle_scan_clock = 0.11
+		agent.obstacle_position = Vector2.INF
+		var heading := Vector2.UP.rotated(node.rotation)
+		var distance := clampf(desired_px * desired_px / (2.0 * COMFORT_BRAKE) +
+			PPM * 8.0, PPM * 10.0, PPM * 45.0)
+		var query := PhysicsRayQueryParameters2D.create(
+			node.global_position + heading * PPM * 1.8,
+			node.global_position + heading * distance, 1, [node.get_rid()])
+		var hit := node.get_world_2d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			var collider: Object = hit.collider
+			var dynamic_obstacle := false
+			if collider is Node:
+				dynamic_obstacle = collider.is_in_group("traffic_vehicle") or collider is VehicleController2D
+			if not dynamic_obstacle:
+				agent.obstacle_position = hit.position
+	var target: Vector2 = agent.get("obstacle_position", Vector2.INF)
+	if not target.is_finite():
 		return desired_px
-	var clearance := ahead - PPM * 4.9
-	var stopping_distance := desired_px * desired_px / (2.0 * PPM * 9.0)
-	if clearance > stopping_distance + PPM * 5.5:
+	var heading := Vector2.UP.rotated(node.rotation)
+	var ahead := (target - node.global_position).dot(heading)
+	if ahead <= 0.0:
 		return desired_px
-	return minf(desired_px, maxf(0.0, clearance - PPM * 2.5) * 1.5)
+	return minf(desired_px, sqrt(2.0 * COMFORT_BRAKE * maxf(0.0, ahead - PPM * 3.5)))
 
 
 func _next_target(agent: Dictionary,edge: Dictionary) -> int:
@@ -180,6 +266,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
 	desired=_car_following(index,desired)
 	desired=_player_awareness(agent,desired)
+	desired=_world_obstacle_speed(agent,desired,dt)
 	var next_id := -2
 	if remaining < maxf(PPM*32.0,float(agent.speed)*1.2):
 		next_id=_next_target(agent,edge)
@@ -207,7 +294,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var previous := float(agent.speed)
 	# Brake decisively when the player is immediately ahead, including
 	# when we have only just switched from a crash back to lane following.
-	var rate := PPM*5.5 if desired>previous else (PPM*24.0 if desired<PPM*0.2 else PPM*9.0)
+	var rate := PPM*5.5 if desired>previous else (HARD_BRAKE if desired<PPM*0.2 else COMFORT_BRAKE)
 	agent.speed=move_toward(previous,desired,rate*dt)
 	agent.progress=float(agent.progress)+float(agent.speed)*dt
 	if float(agent.progress)>=float(edge.length_px):
@@ -277,6 +364,15 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	node.rotation=lerp_angle(node.rotation,desired_angle,minf(1.0,dt*2.65))
 	var direction := Vector2.UP.rotated(node.rotation)
 	var goal_speed := clampf(delta.length() * 0.75,PPM*1.0,PPM*6.0)
+	# Recovery does not get to ignore stopped vehicles or intersection traffic.
+	for other_agent in agents:
+		if int(other_agent.uid) == int(agent.uid):
+			continue
+		var other_node: CharacterBody2D = other_agent.node
+		if is_instance_valid(other_node):
+			var other_velocity := Vector2.UP.rotated(other_node.rotation) * float(other_agent.speed)
+			goal_speed = _safe_follow_speed(agent, goal_speed,
+				other_node.global_position, other_velocity, direction)
 	# Recovery must also yield. It previously drove blindly toward its lane
 	# and repeatedly pushed a player who was already in front of the car.
 	goal_speed = _player_awareness(agent, goal_speed, direction)
@@ -293,6 +389,12 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	var hit: Variant = node.call("move_traffic", direction*speed*dt,dt)
 	if hit != null:
 		agent.speed=0.0
+		# Steer gently away from the contact surface while continuing to
+		# search the legal lane. No snapping or obstacle tunneling.
+		var escape_heading: Vector2 = (direction + (hit as KinematicCollision2D).get_normal() * 0.9).normalized()
+		node.rotation = lerp_angle(node.rotation, escape_heading.angle() + PI * 0.5,
+			minf(1.0, dt * 2.2))
+		agent.recovery_refresh = 0.0
 	# Once aligned with a real sampled lane, switch back to the existing
 	# lane-following and intersection decision logic. The nearest station is
 	# computed afresh so the NPC never warps back to its pre-crash progress.
