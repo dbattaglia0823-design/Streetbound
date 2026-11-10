@@ -112,7 +112,7 @@ func run() -> void:
 	check("front_impact_impulse_reaches_traffic", crash_car.impact_count == 1)
 	check("front_impact_keeps_player_momentum", driver.linear_velocity.length() > 5.5,
 		driver.linear_velocity)
-	var front_impacts := crash_car.impact_count
+	var front_impacts: int = int(crash_car.get("impact_count"))
 	for i in 5:
 		await physics_frame
 		driver.step_vehicle(1.0 / 60.0, Vector4.ZERO)
