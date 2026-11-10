@@ -215,7 +215,7 @@ func _draw() -> void:
 		return
 	# Local X is down-strip and local Y is across the road.
 	for x in [0.0, QUARTER_MILE_M * PPM]:
-		var finish := x > 0.0
+		var finish: bool = float(x) > 0.0
 		draw_line(Vector2(x,-LANE_HALF_WIDTH_M*PPM),
 			Vector2(x,LANE_HALF_WIDTH_M*PPM),
 			Color("eee5d3") if not finish else Color("f3e6ce"),
