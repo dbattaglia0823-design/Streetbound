@@ -39,6 +39,8 @@ func run() -> void:
 	check("twelve_vehicle_brands", brands.size() == 12, brands.size())
 	check("plausible_vehicle_baseline_data", all_metrics)
 	check("unknown_images_remain_flagged", unverified == 46, unverified)
+	var save_path := "user://streetbound_selected_vehicle.cfg"
+	var old_save := FileAccess.get_file_as_string(save_path) if FileAccess.file_exists(save_path) else ""
 	var main: Node = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
@@ -67,6 +69,7 @@ func run() -> void:
 	var player: VehicleController2D = main.vehicle
 	var first_location := player.global_transform
 	var per_brand_pass := true
+	var brand_errors: Array[String] = []
 	for brand in brands.keys():
 		var entry := {}
 		for item in vehicles:
@@ -82,15 +85,19 @@ func run() -> void:
 		var bounds: Rect2 = wheels.visible_bounds
 		var expected_width: float = float(entry.width_m) * 20.0
 		var expected_length: float = float(entry.length_m) * 20.0
-		per_brand_pass = per_brand_pass and \
-			absf(bounds.size.x - expected_width) < expected_width * 0.16 and \
+		var good := absf(bounds.size.x - expected_width) < expected_width * 0.16 and \
 			absf(bounds.size.y - expected_length) < expected_length * 0.16 and \
 			shape.radius > 8.0 and shape.height > shape.radius * 2.0 and \
 			sprite.texture != null and \
 			is_equal_approx(player.config.mass_kg, float(entry.mass_kg)) and \
 			is_equal_approx(player.config.engine_power_kw, float(entry.power_kw)) \
 			and player.global_position.distance_to(first_location.origin) < 0.01
-	check("all_brands_instantiate_with_fitted_art_and_physics", per_brand_pass)
+		if not good:
+			brand_errors.append("%s: actual=%s desired=(%.1f,%.1f) collider=%s" % [
+				str(brand), bounds.size, expected_width, expected_length,
+				[shape.radius, shape.height]])
+		per_brand_pass = per_brand_pass and good
+	check("all_brands_instantiate_with_fitted_art_and_physics", per_brand_pass, brand_errors)
 	var slow := Catalog.find_by_id("ford-fiesta")
 	var fast := Catalog.find_by_id("bugatti-chiron")
 	check("distinct_power_to_weight_ratios",
@@ -110,5 +117,11 @@ func run() -> void:
 	check("hud_shows_selected_vehicle",
 		main.get_node("VehicleSelector").driving_hud.active_vehicle_label.text == \
 		str(slow.display_name).to_upper())
+	if old_save.is_empty():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	else:
+		var file := FileAccess.open(save_path, FileAccess.WRITE)
+		if file != null:
+			file.store_string(old_save)
 	print("PLAYER VEHICLE ROSTER: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
