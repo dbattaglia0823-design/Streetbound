@@ -35,6 +35,8 @@ jobs:
         run: python3 tools/build_morrow_coast.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Verify all named drivable vehicle assets, body physics, wheel anchors and grid selector
+        run: timeout --signal=SIGINT --kill-after=5s 40s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_catalog_test.gd
       - name: Test driving forces, brakes, drift, resets and collisions
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_test.gd -- output=test_results_ci.json
       - name: Verify racing handling and steering tuning
@@ -59,8 +61,6 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/terrain_detail_test.gd
       - name: Verify four-wheel overlay, front steering and reset behavior
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/wheel_visual_test.gd
-      - name: Verify all named drivable vehicle assets, body physics, wheel anchors and grid selector
-        run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_catalog_test.gd
       - name: Verify compact, sedan, SUV and pickup wheel profiles and resizing
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd
       - name: Verify both urban sidewalks, curved junction corners and coast boardwalk
