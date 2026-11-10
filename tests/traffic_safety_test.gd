@@ -51,7 +51,9 @@ func run() -> void:
 	flow.player = player
 	var agent := make_agent(actor, 2, PPM * 16.0)
 	var lead := make_agent(other, 1, 0.0)
-	flow.agents = [agent, lead]
+	flow.agents.clear()
+	flow.agents.append(agent)
+	flow.agents.append(lead)
 	check("player_collision_capsule",
 		(player.get_node("CollisionShape2D") as CollisionShape2D).shape is CapsuleShape2D)
 	var shape := (actor.get_node("VehicleCollider") as CollisionShape2D).shape as CapsuleShape2D
@@ -70,7 +72,8 @@ func run() -> void:
 	lead.speed = PPM * 20.0
 	check("faster_traffic_ahead_does_not_block",
 		is_equal_approx(flow._car_following(0, PPM * 10.0), PPM * 10.0))
-	flow.agents = [agent]
+	flow.agents.clear()
+	flow.agents.append(agent)
 	player.position = actor.position + Vector2.UP * PPM * 5.0
 	player.linear_velocity = Vector2.ZERO
 	check("stationary_player_ahead_yields",
@@ -91,7 +94,9 @@ func run() -> void:
 	other.position = actor.position + Vector2(-9.0, -9.0) * PPM
 	other.rotation = PI * 0.5
 	lead.speed = PPM * 9.0
-	flow.agents = [agent, lead]
+	flow.agents.clear()
+	flow.agents.append(agent)
+	flow.agents.append(lead)
 	check("lower_id_has_intersection_priority",
 		flow._car_following(1, PPM * 9.0) >= PPM * 8.0)
 	check("higher_id_yields_at_crossing",
