@@ -43,6 +43,6 @@ func run() -> void:
 	check("manhole_and_drain_paint_exists",utility.contains("_street_surface_details"))
 	var baked := FileAccess.get_file_as_string("res://tools/morrow_editor_import.py")
 	check("authoring_scales_and_types_bake",baked.contains("EDITOR_PROP_STYLES"))
-	check("traffic_remains_bounded",main.get_node_or_null("AmbientTraffic")!=null)
+	check("traffic_remains_bounded",world.get_node_or_null("AmbientTraffic")!=null)
 	print("MORROW ENVIRONMENT UPGRADES: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
