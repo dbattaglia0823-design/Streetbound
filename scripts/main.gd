@@ -7,11 +7,13 @@ const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
 const VehicleSelectorScript = preload("res://scripts/ui/vehicle_selector.gd")
+const PlayerGarageScript = preload("res://scripts/world/player_garage.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 var pause_menu
+var player_garage: Node2D
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -36,6 +38,12 @@ func _ready() -> void:
 		ground.add_child(traffic)
 		# World roads/traffic stay below the player in the 2D draw stack.
 		vehicle.z_index = 8
+		# The existing Laurel Motor House building is a real drive-in garage.
+		player_garage = Node2D.new()
+		player_garage.set_script(PlayerGarageScript)
+		player_garage.world = ground
+		player_garage.player = vehicle
+		ground.add_child(player_garage)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -90,5 +98,6 @@ func _ready() -> void:
 	selector.player = vehicle
 	selector.driving_hud = hud
 	selector.pause_menu = pause_menu
+	selector.garage = player_garage
 	add_child(selector)
 	selector.restore_selection()
