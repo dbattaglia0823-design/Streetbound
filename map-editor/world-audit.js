@@ -118,7 +118,12 @@ export function auditWorld(doc,{maxIssues=180}={}){
   // second check here because imported older worlds can contain overlaps.
   for(const prop of doc.props){
     const radius=placementFootprint(doc,prop);
-    if(roadwayClearance(doc,prop,radius)<-0.5)
+    // A generated parking entry intentionally reaches the lot curb cut.
+    const accessIds=prop.type==='parking'?new Set(doc.roads
+      .filter(road=>road.name==='Parking access'&&road.roadClass==='service'&&
+        distance(road.points.at(-1),prop)<Math.max(30,32*prop.scale))
+      .map(road=>road.id)):null;
+    if(roadwayClearance(doc,prop,radius,accessIds)<-0.5)
       add('warning','scenery_over_road',prop,prop,
         'Scenery footprint overlaps a road or its shoulder.',
         'Use Fix all road overlaps in the scenery controls.');
