@@ -212,11 +212,15 @@ func _landmark_sign(kind: String, size: Vector2, title: String) -> void:
 	# Reuses original building art and the static scenery batch.
 	var service := kind in ["garage","workshop","fuel","showroom","warehouse"]
 	var motif := destination_motif(title)
-	var accent := Color("e5ae69") if motif == "motorhouse" else (
-		Color("c9886a") if motif in ["racing","industrial"] else (
-		Color("78b4c5") if motif in ["marina","coastal"] else (
-		Color("c8bd8e") if motif in ["scenic","lodge","village"] else (
-		Color("c69a69") if service else Color("7ca49f")))))
+	var accent := Color("c69a69") if service else Color("7ca49f")
+	if motif == "motorhouse":
+		accent = Color("e5ae69")
+	elif motif in ["racing","industrial"]:
+		accent = Color("c9886a")
+	elif motif in ["marina","coastal"]:
+		accent = Color("78b4c5")
+	elif motif in ["scenic","lodge","village"]:
+		accent = Color("c8bd8e")
 	var width := minf(size.x*.78,410.0)
 	var origin := Vector2(-size.x*.40,-size.y*.39)
 	draw_rect(Rect2(origin,Vector2(width,36.0)),Color(.14,.22,.24,.80),true)
@@ -408,4 +412,4 @@ func _draw_prop(prop: Dictionary) -> void:
 		draw_line(Vector2(-size.x/2,-size.y*.36),Vector2(-size.x/2,size.y*.36),stripe,10,true)
 	if prop.has("poi"):
 		_landmark_sign(kind,size,str(prop.poi))
-			_destination_roof_details(size,str(prop.poi))
+		_destination_roof_details(size,str(prop.poi))
