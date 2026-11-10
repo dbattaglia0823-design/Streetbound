@@ -52,7 +52,7 @@ func run() -> void:
 					"res://assets/Vehicles/" + brand + "/" + filename))
 	check("catalog_matches_asset_directory", count_disk == entries.size(),
 		[count_disk, entries.size()])
-	check("roster_has_all_ten_makes", makes.size() == 10, makes.keys())
+	check("roster_has_all_twelve_makes", makes.size() == 12, makes.keys())
 	check("generic_names_flagged_for_verification", provisional == 46, provisional)
 	var main: Node2D = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(main)
