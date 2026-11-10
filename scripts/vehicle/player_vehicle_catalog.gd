@@ -64,6 +64,12 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.audio_flutter = clampf(float(entry.get("audio_flutter",0.0)),0.0,1.0)
 	config.audio_exhaust_roughness = clampf(
 		float(entry.get("audio_exhaust_roughness",0.4)),0.0,1.0)
+	config.audio_tone = clampf(float(entry.get("audio_tone",0.0)),-1.0,1.0)
+	config.audio_intake_presence = clampf(float(entry.get("audio_intake_presence",0.8)),0.0,1.5)
+	config.audio_driveline_presence = clampf(float(entry.get("audio_driveline_presence",0.5)),0.0,1.5)
+	config.audio_lope = clampf(float(entry.get("audio_lope",0.1)),0.0,1.0)
+	config.audio_overrun = clampf(float(entry.get("audio_overrun",0.35)),0.0,1.0)
+	config.audio_turbo_presence = clampf(float(entry.get("audio_turbo_presence",0.0)),0.0,1.5)
 	config.wheelbase_m = float(entry.wheelbase_m)
 	config.brake_force_n = float(entry.brake_force_n)
 	config.tire_grip = float(entry.tire_grip)
