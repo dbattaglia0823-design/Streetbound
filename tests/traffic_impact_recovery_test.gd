@@ -30,6 +30,11 @@ func run() -> void:
 		check("model_%02d_png_loaded" % i,sprite != null,
 			CarScript.MODEL_PATHS[i])
 		if sprite != null:
+			var image: Image = sprite.texture.get_image()
+			var corner: Color = image.get_pixel(0,0)
+			var middle: Color = image.get_pixel(image.get_width()/2,image.get_height()/2)
+			print("TRAFFIC MODEL %d alpha corner=%.3f center=%.3f" % [
+				i,corner.a,middle.a])
 			check("model_%02d_visible_bounds" % i,
 				sprite.region_rect.size.x > 4 and sprite.region_rect.size.y > 4,
 				sprite.region_rect)

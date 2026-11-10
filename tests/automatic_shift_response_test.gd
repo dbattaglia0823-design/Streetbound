@@ -42,17 +42,17 @@ func run() -> void:
 	root.add_child(vehicle)
 	vehicle.set_physics_process(false)
 	await physics_frame
-	vehicle.reversing=true
+	# Enter reverse via the actual controller; this updates the transmission's
+	# direction state before we simulate selecting forward while rolling slowly.
+	for i in 16:
+		await physics_frame
+		vehicle.step_vehicle(1.0/60.0,Vector4(0,1,0,0))
+	check("brake_enters_reverse_promptly_at_stop",vehicle.reversing,vehicle.reverse_hold)
 	vehicle.transmission.gear=4
 	vehicle.linear_velocity=Vector2.DOWN*0.7
 	vehicle.step_vehicle(1.0/60.0,Vector4(0.8,0,0,0))
 	check("throttle_reselects_first_at_safe_low_reverse_speed",
 		not vehicle.reversing and vehicle.transmission.gear==1,
 		[vehicle.reversing,vehicle.transmission.gear])
-	vehicle.reset_vehicle()
-	for i in 16:
-		await physics_frame
-		vehicle.step_vehicle(1.0/60.0,Vector4(0,1,0,0))
-	check("brake_enters_reverse_promptly_at_stop",vehicle.reversing,vehicle.reverse_hold)
 	print("FAST AUTO / REVERSE TO FIRST: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
