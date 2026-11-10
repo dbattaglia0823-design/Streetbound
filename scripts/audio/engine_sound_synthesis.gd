@@ -1,0 +1,193 @@
+class_name EngineSoundSynthesis
+extends RefCounted
+## Offline-per-vehicle original waveforms. No real-world recordings are copied.
+## Generated only when a car is selected; active playback uses ordinary
+## AudioStreamPlayer nodes, not a per-sample GDScript audio callback.
+const RATE := 22050
+const LOOP_FRAMES := 13230 # 0.6 seconds; exact integer combustion cycles.
+const REFERENCE_RPM := [1200.0, 2600.0, 4200.0, 6400.0]
+const FAMILIES := {
+	"i3": 1.5, "i4": 2.0, "i6": 3.0, "v6": 3.0,
+	"v8_cross": 4.0, "v8_flat": 4.0, "v10": 5.0,
+	"v12": 6.0, "w12": 6.0, "w16": 8.0
+}
+static var _loops: Dictionary = {}
+static var _effects: Dictionary = {}
+
+
+static func family_supported(family: String) -> bool:
+	return FAMILIES.has(family)
+
+
+static func firing_frequency(family: String, rpm: float) -> float:
+	return rpm / 60.0 * float(FAMILIES.get(family,4.0))
+
+
+static func _pcm(samples: PackedFloat32Array, looping: bool) -> AudioStreamWAV:
+	var bytes := PackedByteArray()
+	bytes.resize(samples.size()*2)
+	for i in samples.size():
+		bytes.encode_s16(i*2,roundi(clampf(float(samples[i]),-0.95,0.95)*32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = RATE
+	stream.stereo = false
+	stream.data = bytes
+	if looping:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		stream.loop_begin = 0
+		stream.loop_end = samples.size()
+	return stream
+
+
+static func engine_loop(family: String, stage: int,
+		aggression: float = 0.8, roughness: float = 0.5) -> AudioStreamWAV:
+	var key := "%s:%d:%d:%d" % [family,clampi(stage,0,3),
+		roundi(aggression*10.0),roundi(roughness*10.0)]
+	if _loops.has(key):
+		return _loops[key]
+	var rpm := float(REFERENCE_RPM[clampi(stage,0,3)])
+	var fire_cycles := roundi(firing_frequency(family,rpm)*float(LOOP_FRAMES)/RATE)
+	# Integer firing-cycle loop removes PCM click at the wrap point, even
+	# for odd three-cylinder, V6 and W16 engines.
+	var rasp := clampf(aggression,0.1,1.4)
+	var rough := clampf(roughness,0.0,1.0)
+	var output := PackedFloat32Array()
+	output.resize(LOOP_FRAMES)
+	var mean := 0.0
+	for i in LOOP_FRAMES:
+		var x := float(i)/float(LOOP_FRAMES)
+		var phase := TAU*float(fire_cycles)*x
+		var base := sin(phase)*0.50+sin(phase*2.0+0.14)*0.19+ \
+			sin(phase*3.0+0.35)*0.10+sin(phase*4.0+0.61)*0.045
+		var uneven := 0.0
+		match family:
+			"i3":
+				uneven = sin(phase/3.0+0.31)*0.31
+				base += sin(phase*0.667)*0.11
+			"i4":
+				uneven = sin(phase*0.5)*0.17
+				base += sin(phase*2.5)*0.065
+			"i6":
+				uneven = sin(phase/3.0)*0.07
+				base += sin(phase*1.5+0.2)*0.055
+			"v6":
+				uneven = sin(phase/3.0+0.62)*0.23
+				base += sin(phase*1.333+0.33)*0.10
+			"v8_cross":
+				# Alternating exhaust-bank pulse yields the low burble and
+				# irregular note that an even-fire sine loop cannot produce.
+				uneven = sin(phase*0.25+0.41)*0.30+sin(phase*0.5)*0.20
+				base += sin(phase*1.5+0.1)*0.11
+			"v8_flat":
+				uneven = sin(phase*0.5+0.31)*0.09
+				base += sin(phase*3.0+0.21)*0.15
+			"v10":
+				uneven = sin(phase/5.0+0.37)*0.13
+				base += sin(phase*2.0+0.2)*0.11
+			"v12":
+				uneven = sin(phase/3.0)*0.05
+				base += sin(phase*2.0)*0.075
+			"w12":
+				uneven = sin(phase/3.0+0.22)*0.15
+				base += sin(phase*0.5+0.17)*0.18
+			"w16":
+				uneven = sin(phase*0.25+0.45)*0.18
+				base += sin(phase*0.5+0.15)*0.24
+		var cycle_grit := sin(phase*2.0+sin(phase*0.5)*0.17)*0.115
+		# Tiled, deterministic harmonic turbulence instead of unlooped white
+		# noise that pops when samples return to their start position.
+		var grains := sin(TAU*float(97+fire_cycles)*x+0.23)*0.11+ \
+			sin(TAU*float(171+fire_cycles)*x+1.17)*0.08+ \
+			sin(TAU*float(283+fire_cycles)*x+0.72)*0.05
+		var valve := (0.65+0.35*maxf(0.0,sin(phase)))
+		var texture := (base+uneven*0.65)*(1.0+rough*0.23*valve)+ \
+			rasp*0.38*cycle_grit+grains*rasp*(0.20+float(stage)*0.055)
+		# Soft harmonic saturation adds growl without square-wave clipping.
+		var sample := tanh(texture*(1.0+rasp*0.30))*0.52
+		output[i] = sample
+		mean += sample
+	mean /= float(LOOP_FRAMES)
+	for i in LOOP_FRAMES:
+		output[i] -= mean
+	var stream := _pcm(output,true)
+	_loops[key] = stream
+	return stream
+
+
+static func texture_loop(kind: String) -> AudioStreamWAV:
+	if _effects.has(kind):
+		return _effects[kind]
+	var output := PackedFloat32Array()
+	output.resize(LOOP_FRAMES)
+	for i in LOOP_FRAMES:
+		var x := float(i)/float(LOOP_FRAMES)
+		var value := 0.0
+		match kind:
+			"intake":
+				for j in 16:
+					value += sin(TAU*(89.0+float(j*j)*21.0)*x+float(j)*1.7) / \
+						(6.0+float(j)*0.38)
+				value *= 0.42
+			"turbo":
+				value = sin(TAU*180.0*x)*0.38+sin(TAU*360.0*x)*0.20+ \
+					sin(TAU*541.0*x)*0.08
+			"blower":
+				value = sin(TAU*235.0*x)*0.40+sin(TAU*470.0*x)*0.18+ \
+					sin(TAU*705.0*x)*0.085
+			"gear":
+				value = sin(TAU*144.0*x)*0.33+sin(TAU*288.0*x)*0.20+ \
+					sin(TAU*433.0*x)*0.08
+		output[i] = value
+	var stream := _pcm(output,true)
+	_effects[kind] = stream
+	return stream
+
+
+static func transient(kind: String) -> AudioStreamWAV:
+	if _effects.has(kind):
+		return _effects[kind]
+	var duration := 0.50
+	match kind:
+		"shift": duration = 0.09
+		"impact": duration = 0.16
+		"pop": duration = 0.11
+		"flutter": duration = 0.46
+		"bov": duration = 0.57
+	var count := roundi(duration*RATE)
+	var output := PackedFloat32Array()
+	output.resize(count)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1021 + kind.hash()
+	var filtered := 0.0
+	var phase := 0.0
+	for i in count:
+		var t := float(i)/float(RATE)
+		var progress := t/duration
+		var noise := rng.randf_range(-1.0,1.0)
+		filtered = lerpf(filtered,noise,0.18)
+		var sample := 0.0
+		match kind:
+			"bov":
+				var pitch := 2400.0*exp(-2.3*progress)+390.0
+				phase += TAU*pitch/float(RATE)
+				var envelope := pow(1.0-progress,2.1)
+				sample = (noise*0.16+filtered*0.72+sin(phase)*0.29)*envelope
+			"flutter":
+				# Compressor surge chatter after a high-boost lift: a
+				# decelerating sequence of pulse-gated resonant air bursts.
+				var chatter := (7.0+5.0*(1.0-progress))
+				var burst := pow(maxf(0.0,sin(TAU*chatter*t*5.0)),3.0)
+				phase += TAU*(850.0+260.0*(1.0-progress))/float(RATE)
+				sample = (filtered*0.68+sin(phase)*0.34)*burst*pow(1.0-progress,1.1)
+			"pop":
+				var transient_envelope := exp(-24.0*progress)
+				sample = (filtered*0.55+sin(TAU*120.0*t)*0.43)*transient_envelope
+			"shift":
+				sample = (filtered*0.42+sin(TAU*155.0*t)*0.35)*exp(-18.0*progress)
+			"impact":
+				sample = (filtered*0.67+sin(TAU*69.0*t)*0.35)*exp(-11.0*progress)
+		output[i] = clampf(sample*0.62,-0.9,0.9)
+	var stream := _pcm(output,false)
+	_effects[kind] = stream
+	return stream
