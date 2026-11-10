@@ -26,6 +26,13 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var audio_induction: String = "naturally_aspirated"
 @export var audio_flutter: float = 0.0
 @export var audio_exhaust_roughness: float = 0.4
+## Art-directed recording-inspired mix controls; no physics impact.
+@export var audio_tone: float = 0.0 # -1 dark bass to +1 bright rasp.
+@export var audio_intake_presence: float = 0.8
+@export var audio_driveline_presence: float = 0.5
+@export var audio_lope: float = 0.1 # Low-speed cam/firing pulse modulation.
+@export var audio_overrun: float = 0.35 # Coast-burble/backfire probability.
+@export var audio_turbo_presence: float = 0.0
 @export var shift_duration: float = 0.18
 ## Automatic power-on changes need only a short torque interruption.
 @export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085
