@@ -5,8 +5,9 @@
 [ext_resource type="Script" path="res://scripts/visual/car_body_animation.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/visual/steerable_wheels.gd" id="5"]
 [ext_resource type="Resource" path="res://resources/appearance/porsche_coupe.tres" id="6"]
-[sub_resource type="RectangleShape2D" id="Shape"]
-size = Vector2(39, 88)
+[sub_resource type="CapsuleShape2D" id="Shape"]
+radius = 18.5
+height = 86.0
 [node name="Player" type="CharacterBody2D"]
 script = ExtResource("1")
 config = ExtResource("2")
