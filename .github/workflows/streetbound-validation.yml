@@ -47,6 +47,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/camera_comfort_test.gd
       - name: Verify optimized chunk activation, road detail and imported texture budgets
         run: timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_stream_quality_test.gd
+      - name: Verify actual asphalt parking, illustrated shrubbery and parked traffic car art
+        run: timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/parking_ground_visual_test.gd
       - name: Verify world ground detail, beach, water and stream-safe foliage
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/terrain_detail_test.gd
       - name: Verify four-wheel overlay, front steering and reset behavior
