@@ -434,11 +434,27 @@ for prop in list(PROPS):
 for lot in list(PROPS):
     if lot["kind"]!="lot": continue
     angle=lot["angle"]
-    for x,y in [(-13.2,9.8),(2.7,-9.8),(10.7,9.8)]:
+    if "occupancy" in lot:
+        # Authored parking keeps stable occupancy on every rebake. The
+        # existing procedural lots retain their original three parked cars.
+        count=max(3,min(16,int(lot["size"][0]*.84/lot["stall_width"])))
+        slots=[]
+        for side in (-1,1):
+            for i in range(count):
+                fraction=((i*37+(23 if side>0 else 0)+lot["seed"]%97)%100)/100.0
+                if fraction>=lot["occupancy"]: continue
+                x=lot["size"][0]*(-.42+.84*(i+.5)/count)
+                y=side*lot["size"][1]*.33
+                slots.append((x,y))
+    else:
+        slots=[(-13.2,9.8),(2.7,-9.8),(10.7,9.8)]
+    for x,y in slots:
         p=[lot["p"][0]+math.cos(angle)*x-math.sin(angle)*y,lot["p"][1]+math.sin(angle)*x+math.cos(angle)*y]
         if road_clear(p,2.5) and not occupied(p,2.5):
             insert_prop(dict(kind="parked_car",p=p,size=[1.9,4.6],angle=angle,color=RNG.choice(["9eb9b4","c39b8c","c6bb95"]),radius=2.5,solid=True,seed=RNG.randrange(100000)))
-    for x,y in [(-17,-12.5),(17,-12.5),(-17,12.5),(17,12.5)]:
+    edge_x=lot["size"][0]*.46
+    edge_y=lot["size"][1]*.45
+    for x,y in [(-edge_x,-edge_y),(edge_x,-edge_y),(-edge_x,edge_y),(edge_x,edge_y)]:
         p=[lot["p"][0]+math.cos(angle)*x-math.sin(angle)*y,lot["p"][1]+math.sin(angle)*x+math.cos(angle)*y]
         if road_clear(p,1.5):
             insert_prop(dict(kind="planter",p=p,size=[2.8,2.8],angle=angle,color="7b9a73",radius=0,solid=False,seed=42))
