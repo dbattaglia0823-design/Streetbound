@@ -79,7 +79,7 @@ func run() -> void:
 	check("switch_preserves_world_position", vehicle.global_position.distance_to(
 		original_transform.origin) < 0.01)
 	check("selected_visual_is_bmw", vehicle.get_node("Art/Sprite").texture ==
-		load(str(bmw.texture)) as Texture2D)
+		(load(str(bmw.texture)) as Texture2D))
 	check("bmw_weight_and_power", is_equal_approx(vehicle.config.mass_kg, float(bmw.mass_kg))
 		and is_equal_approx(vehicle.config.engine_power_kw, float(bmw.engine_power_kw)))
 	var wheels: Node2D = vehicle.get_node("Art/Wheels")
