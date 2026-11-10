@@ -109,15 +109,21 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	var sideways := rect.size.x > rect.size.y * 1.08
 	var src_width := float(rect.size.y if sideways else rect.size.x)
 	var src_length := float(rect.size.x if sideways else rect.size.y)
-	var scale := minf(float(entry.width_m) * PPM / src_width,
-		float(entry.length_m) * PPM / src_length)
+	# Sources come from different generations and were cropped at different
+	# proportions. Fit width and length independently so the on-screen car,
+	# wheel anchors and physical measurements describe the same footprint.
+	var width_scale := float(entry.width_m) * PPM / src_width
+	var length_scale := float(entry.length_m) * PPM / src_length
+	var sprite_scale := Vector2(length_scale, width_scale) if sideways else \
+		Vector2(width_scale, length_scale)
 	var angle := -PI * 0.5 if sideways else 0.0
 	var source_mid := Vector2(rect.get_center()) - Vector2(image.get_size()) * 0.5
 	var appearance := VehicleAppearanceProfile.new()
 	appearance.body_texture = texture
-	appearance.sprite_scale = Vector2.ONE * scale
+	appearance.sprite_scale = sprite_scale
 	appearance.sprite_rotation_degrees = rad_to_deg(angle)
-	appearance.sprite_offset = -source_mid.rotated(angle) * scale
+	appearance.sprite_offset = -Vector2(
+		source_mid.x * sprite_scale.x, source_mid.y * sprite_scale.y).rotated(angle)
 	appearance.front_left_uv = Vector2(0.055, 0.245)
 	appearance.front_right_uv = Vector2(0.945, 0.245)
 	appearance.rear_left_uv = Vector2(0.055, 0.755)
