@@ -89,13 +89,13 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	handbrake = clampf(controls.w, 0.0, 1.0)
 	var steer_input := clampf(controls.z, -1.0, 1.0)
 	# Brake first, then require a deliberate hold at rest before engaging reverse.
-	if brake > 0.1 and absf(longitudinal_speed) < 0.6:
+	if brake > 0.1 and throttle < 0.1 and absf(longitudinal_speed) < 0.8:
 		reverse_hold += dt
 	else:
 		reverse_hold = 0.0
-	if reverse_hold > 0.22:
+	if reverse_hold > 0.12:
 		reversing = true
-	if throttle > 0.1 and longitudinal_speed > -0.6:
+	if throttle > 0.1 and longitudinal_speed > -1.1:
 		reversing = false
 	var drive_input := brake if reversing else throttle
 	var stopping_input := throttle if reversing else brake
@@ -234,6 +234,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
 			linear_velocity *= 0.88
 			yaw_rate *= 0.4
+			var other: Object = collision.get_collider()
+			# A real player impact knocks the AI car off its intended lane.
+			# TrafficFlow then searches the baked graph and drives it back.
+			if impact_speed > 0.7 and is_instance_valid(other) and other is Node:
+				if other.is_in_group("traffic_vehicle") and other.has_method("receive_impact"):
+					other.receive_impact(-normal * minf(impact_speed, 22.0) * PIXELS_PER_METER * 0.80)
 			impacted.emit(impact_speed)
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:

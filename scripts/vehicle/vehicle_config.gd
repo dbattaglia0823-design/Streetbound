@@ -15,6 +15,8 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var idle_rpm: float = 950.0
 @export var redline_rpm: float = 8500.0
 @export var shift_duration: float = 0.18
+## Automatic power-on changes need only a short torque interruption.
+@export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085
 @export_group("Chassis and tires")
 @export var wheelbase_m: float = 2.65
 @export_range(0.3, 0.7) var front_weight: float = 0.43

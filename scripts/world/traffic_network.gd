@@ -295,3 +295,56 @@ func nearby_edges(position_px: Vector2,range_m := 350.0) -> Array[int]:
 	for id in found:
 		result.append(int(id))
 	return result
+
+
+## Select a legal, forward-direction lane around a displaced traffic car.
+## Nearest point + forward lookahead is computed on the baked directed graph,
+## so recovery also works after crossing a junction or leaving the current
+## road entirely. The vehicle physically steers to the lane, never teleports.
+func recovery_target(position_px: Vector2, travel_heading: Vector2,
+		preferred_edge: int = -1, lookahead_px: float = PPM * 9.0) -> Dictionary:
+	var nearby: Array[int] = nearby_edges(position_px, 110.0)
+	if preferred_edge >= 0 and preferred_edge < edges.size() and not nearby.has(preferred_edge):
+		nearby.append(preferred_edge)
+	var best_score := INF
+	var best := {}
+	var direction := travel_heading.normalized()
+	for id in nearby:
+		var edge: Dictionary = edges[id]
+		if bool(edge.connector):
+			continue
+		var points: PackedVector2Array = edge.points
+		var stations: PackedFloat64Array = edge.stations
+		for i in range(1, points.size()):
+			var a: Vector2 = points[i - 1]
+			var b: Vector2 = points[i]
+			var segment := b - a
+			var len_sq := segment.length_squared()
+			if len_sq < 0.01:
+				continue
+			var t := clampf((position_px - a).dot(segment) / len_sq, 0.0, 1.0)
+			var p := a + segment * t
+			var dist := position_px.distance_to(p)
+			if dist > PPM * 55.0:
+				continue
+			var tangent := segment.normalized()
+			var facing := tangent.dot(direction)
+			# Never turn around into oncoming traffic just to choose a
+			# closer sample. A current-edge exception allows side impacts
+			# to temporarily rotate the car without losing its lane ID.
+			if facing < -0.25 and id != preferred_edge:
+				continue
+			var score := dist + (1.0 - facing) * PPM * 2.0
+			if id == preferred_edge:
+				score -= PPM * 4.0
+			if score < best_score:
+				best_score = score
+				var progress := float(stations[i - 1]) + sqrt(len_sq) * t
+				best = {"edge":id,"progress":progress,"distance_px":dist,
+					"nearest":p,"heading":tangent}
+	if best.is_empty():
+		return {}
+	var chosen: Dictionary = edges[int(best.edge)]
+	best.lookahead = point_on_edge(int(best.edge),minf(
+		float(chosen.length_px) - 1.0,float(best.progress) + lookahead_px)).position
+	return best

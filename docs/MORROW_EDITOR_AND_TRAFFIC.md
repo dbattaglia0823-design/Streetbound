@@ -54,3 +54,37 @@ specific destinations, congestion-aware rerouting or traffic collisions.
   https://github.com/TheDuckCow/godot-road-generator
 
 No external project source code was copied.
+
+
+## Traffic artwork, contact and road recovery
+
+Ambient traffic now uses the **10 existing PNG car models** from
+`assets/Traffic Vehicles/` instead of the generic polygon bodies. Each
+vehicle gets a scaled, cropped top-down sprite and its own collision shape.
+The player can hit traffic cars, and contact supplies a physically bounded
+knockback impulse. AI cars remain collidable during recovery.
+
+After a crash, the traffic car remains at its new displaced location and
+searches the closest suitable *directed* lane in the baked Morrow road graph.
+It then steers back at low speed, avoiding reversing into oncoming lanes or
+teleporting through scenery. Once position and heading are aligned with the
+road, normal intersection routing resumes. Traffic does not keep making a
+simulated crash forever if the player has driven far away.
+
+The traffic pool remains capped at 16 cars; the artwork is shared between
+cars and import cropping is cached per model. If a PNG is missing, a
+small procedural backup body remains visible as a diagnostic fallback.
+
+## Responsive automatic transmission
+
+Automatic changes now have a short ~85 ms torque interruption rather than
+using the longer manual shift duration. Switching safely between reverse and
+Drive reselects first gear immediately and clears any previous shift timer.
+Entering reverse from a near stop now requires a shorter, deliberate brake
+hold, while switching from a fast reverse speed still requires slowing down.
+Manual gear changes keep their previous shift duration.
+
+Use F5 to disable traffic or F6 to inspect lane routes while checking crash
+recovery in-game. Collision reaction and geometry are automatically verified
+by `tests/traffic_impact_recovery_test.gd`; transmission behavior is checked
+by `tests/automatic_shift_response_test.gd`.
