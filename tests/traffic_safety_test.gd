@@ -12,9 +12,9 @@ func _initialize() -> void:
 	call_deferred("run")
 
 
-func check(label: String, pass: bool, detail: Variant = "") -> void:
-	print("%s %s: %s" % ["PASS" if pass else "FAIL", label, detail])
-	if not pass:
+func check(label: String, good: bool, detail: Variant = "") -> void:
+	print("%s %s: %s" % ["PASS" if good else "FAIL", label, detail])
+	if not good:
 		failures.append(label)
 
 
@@ -76,6 +76,7 @@ func run() -> void:
 	check("stationary_player_ahead_yields",
 		flow._player_awareness(agent, PPM * 9.0) < PPM * 1.0)
 	player.linear_velocity = Vector2.UP * 13.0
+	agent.speed = PPM * 10.0
 	check("moving_player_ahead_can_be_followed",
 		is_equal_approx(flow._player_awareness(agent, PPM * 10.0), PPM * 10.0))
 	player.position = actor.position + Vector2(-9.0, -9.0) * PPM
@@ -125,6 +126,7 @@ func run() -> void:
 	root.add_child(side_player)
 	side_player.set_physics_process(false)
 	await physics_frame
+	side_player.rotation = PI * 0.5
 	side_player.linear_velocity = Vector2.RIGHT * 22.0
 	for i in 95:
 		await physics_frame
