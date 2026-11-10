@@ -88,3 +88,45 @@ Use F5 to disable traffic or F6 to inspect lane routes while checking crash
 recovery in-game. Collision reaction and geometry are automatically verified
 by `tests/traffic_impact_recovery_test.gd`; transmission behavior is checked
 by `tests/automatic_shift_response_test.gd`.
+
+## Reusable environment presets and Morrow Coast integration
+
+The browser Map Builder includes five one-click environment kits, each
+applied as a single Undo operation:
+
+- **Street furniture:** Lamps and signs following the selected city or
+  country road, including its bends and both road edges.
+- **Parking + access:** An asphalt access road joins the nearest street,
+  with a parking lot and dedicated lighting.
+- **Forest and coastal:** Repaint a selected dry terrain region and scatter
+  vegetation while avoiding roads and occupied space.
+- **Industrial:** Place compatible warehouses, signs and streetlights.
+
+Editor Map Health now warns about unusual building scale, crowded building
+footprints and garages or parking lots without a nearby vehicle route.
+
+### Applying authored scenery to the real Morrow Coast
+
+The rebake importer validates and includes up to 200 new editor-authored
+props (parking, lighting, buildings, vegetation and infrastructure). These
+are not copied over the original production map: the full baker regenerates
+collisions, streaming chunks and procedural scenery. Supported authored
+props are tagged with stable IDs and reappear as editable objects when the
+map is reopened. Unchanged procedural objects remain source-owned.
+
+Choose **Edit Morrow Coast**, apply a preset, **Save Morrow edits**, then
+run `tools/Rebuild Morrow Coast.cmd` or the documented GitHub rebake workflow.
+Custom embedded PNG assets are not baked; use source-controlled models.
+
+### Playable-world visual improvements
+
+Street furniture, benches, signs and rural reflectors follow sampled road
+paths. Urban utility covers and drains, service building fascia signs,
+parking driveway openings, warmer shadows and small biome-specific ground
+details improve cohesion without altering road grip or traffic lanes.
+Street furniture uses a single cached canvas per streamed chunk, not a
+new live physics body for every pole. It is decorative, not collidable.
+
+Validation: `map-editor/tests/environment-presets.test.mjs`,
+`tests/morrow_environment_props_test.py` and
+`tests/morrow_environment_visual_test.gd`.

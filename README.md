@@ -119,3 +119,13 @@ Test coverage: launch and upshift; stop before reversing; reverse and reverse st
 `tests/handbrake_recovery_test.gd` checks momentum continuity on release, persistent rear slip, torque-induced wheelspin, faster contact recovery when lifting, eventual recovery and reset. A repeatable right-angle corner checks that clean steering exits sooner than a handbrake turn or repeated handbrake taps under the same entry speed, engine and steering policy. This is a regression scenario for the release exploit, not a guarantee of optimal balance on every future track.
 
 The tests establish repeatability and regression bounds, not a substitute for personal handling preference. A physical controller and the subjective sound mix still benefit from a hands-on pass. Morrow Coast now includes streamed world geometry and noncollidable ambient lane-following traffic. Networking, multi-body traffic crashes, full vehicle collision/damage AI, suspension and tire heat remain future work.
+
+### Map environmental presets and completed streetscapes
+
+The map builder now offers road-furniture, paved parking access, woodland,
+coast and industrial presets. Morrow Coast's full baker imports up to 200
+validated authoring props while preserving procedural map and physics.
+Playable streets gain coherent static street furniture, POI signs, parking
+entrances and improved vegetation shading.
+
+[Map editor and rebake documentation](docs/MORROW_EDITOR_AND_TRAFFIC.md)
