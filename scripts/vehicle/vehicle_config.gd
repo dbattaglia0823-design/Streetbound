@@ -14,6 +14,10 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var wheel_radius_m: float = 0.34
 @export var idle_rpm: float = 950.0
 @export var redline_rpm: float = 8500.0
+## Positive only for explicitly modeled turbocharged configurations.
+## Rated power/torque figures already include full boost.
+@export var boost_max_psi: float = 0.0
+@export var boost_spool_seconds: float = 0.65
 @export var shift_duration: float = 0.18
 ## Automatic power-on changes need only a short torque interruption.
 @export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085
