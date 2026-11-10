@@ -3,6 +3,7 @@ extends Node
 ## synthesised beds, or optionally supplied licensed recordings. The mixer
 ## never generates PCM in _process; it only envelopes AudioStreamPlayers.
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
+const SampleBank = preload("res://scripts/audio/vehicle_audio_sample_bank.gd")
 const AsphaltTires = preload("res://assets/audio/tire_asphalt.wav")
 const LooseTires = preload("res://assets/audio/tire_loose.wav")
 
@@ -164,27 +165,52 @@ func _configure_engine(force := false) -> void:
 	_last_gear = vehicle.transmission.gear
 	_overrun_clock = 0.0
 	_shift_dip_time = 0.0
-	var streams: Array[AudioStream] = [
-		engine_stream if engine_stream != null else Synth.engine_loop(family,0,aggression,roughness,true,tone),
-		engine_low_stream if engine_low_stream != null else Synth.engine_loop(family,1,aggression,roughness,true,tone),
-		engine_mid_stream if engine_mid_stream != null else Synth.engine_loop(family,2,aggression,roughness,true,tone),
-		engine_high_stream if engine_high_stream != null else Synth.engine_loop(family,3,aggression,roughness,true,tone),
-		coast_idle_stream if coast_idle_stream != null else Synth.engine_loop(family,0,aggression,roughness,false,tone),
-		coast_low_stream if coast_low_stream != null else Synth.engine_loop(family,1,aggression,roughness,false,tone),
-		coast_mid_stream if coast_mid_stream != null else Synth.engine_loop(family,2,aggression,roughness,false,tone),
-		coast_high_stream if coast_high_stream != null else Synth.engine_loop(family,3,aggression,roughness,false,tone),
-		Synth.texture_loop("intake"),
-		Synth.texture_loop("blower" if induction == "supercharger" else "turbo"),
-		Synth.texture_loop("gear"),
-		Synth.texture_loop("wind"),
-		Synth.texture_loop("road"),
-		Synth.texture_loop("drivetrain")]
+	var streams: Array[AudioStream] = []
+	var explicit_power: Array[AudioStream] = [
+		engine_stream,engine_low_stream,engine_mid_stream,engine_high_stream]
+	var explicit_coast: Array[AudioStream] = [
+		coast_idle_stream,coast_low_stream,coast_mid_stream,coast_high_stream]
+	var band_names := ["idle","low","mid","high"]
+	for i in 4:
+		streams.append(_engine_recording_or_original(cfg,
+			"power_"+band_names[i],explicit_power[i],family,i,true,
+			aggression,roughness,tone))
+	for i in 4:
+		streams.append(_engine_recording_or_original(cfg,
+			"coast_"+band_names[i],explicit_coast[i],family,i,false,
+			aggression,roughness,tone))
+	streams.append(Synth.texture_loop("intake"))
+	streams.append(Synth.texture_loop(
+		"blower" if induction == "supercharger" else "turbo"))
+	streams.append(Synth.texture_loop("gear"))
+	streams.append(Synth.texture_loop("wind"))
+	streams.append(Synth.texture_loop("road"))
+	streams.append(Synth.texture_loop("drivetrain"))
+
 	for i in streams.size():
 		var player: AudioStreamPlayer = _loop_players[i]
 		player.stop()
 		player.stream = streams[i]
 		player.volume_db = -80.0
 		player.play()
+	# One-shots can also be replaced by a cleared model or family sample.
+	var fx_players: Array[AudioStreamPlayer] = [
+		shift,blowoff,flutter,pop,ignition,shutdown,downshift,limiter,curb]
+	var fx_slots := ["shift","blowoff","flutter","pop","ignition",
+		"shutdown","downshift","limiter","curb"]
+	var fx_overrides: Array[AudioStream] = [
+		shift_stream,blowoff_stream,flutter_stream,exhaust_pop_stream,
+		ignition_stream,shutdown_stream,downshift_stream,limiter_stream,curb_stream]
+	var fx_fallbacks := ["shift","bov","flutter","pop","ignition",
+		"shutdown","blip","limiter","curb"]
+	for i in fx_players.size():
+		var resolved: AudioStream = SampleBank.resolve(cfg.audio_sample_id,
+			family,fx_slots[i],fx_overrides[i])
+		if resolved == null:
+			resolved = Synth.transient(fx_fallbacks[i])
+		if fx_players[i].stream != resolved:
+			fx_players[i].stop()
+			fx_players[i].stream = resolved
 	if not muted and (not _started_once or switching_car):
 		if switching_car:
 			shutdown.volume_db = -38.0+_profile_aggression*5.0
@@ -193,6 +219,16 @@ func _configure_engine(force := false) -> void:
 		ignition.play()
 		ignitions_played += 1
 	_started_once = true
+
+
+func _engine_recording_or_original(cfg: VehicleConfig, slot: String,
+		override: AudioStream, family: String, stage: int, loaded: bool,
+		aggression: float, roughness: float, tone: float) -> AudioStream:
+	var sample: AudioStream = SampleBank.resolve(
+		cfg.audio_sample_id,family,slot,override)
+	if sample != null:
+		return sample
+	return Synth.engine_loop(family,stage,aggression,roughness,loaded,tone)
 
 
 func _on_shift(new_gear: int) -> void:
