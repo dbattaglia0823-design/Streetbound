@@ -11,7 +11,6 @@ func _ready() -> void:
 	vehicle = get_parent() as VehicleController2D
 	art = vehicle.get_node_or_null("Art")
 	z_index = -2
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _process(dt: float) -> void:
