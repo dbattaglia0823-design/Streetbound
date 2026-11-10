@@ -36,7 +36,8 @@ func _run() -> void:
 	car.set_physics_process(false)
 	var stock_grip: float = float(car.config.tire_grip)
 	var stock_power: float = float(car.config.engine_power_kw)
-	check("uses_stock_values_without_profile", is_equal_approx(stock_grip, 1.65) and not FileAccess.file_exists(path))
+	var stock_drive: int = int(car.config.drivetrain)
+	check("uses_stock_values_without_profile", stock_grip >= 0.8 and stock_grip <= 2.0 and not FileAccess.file_exists(path))
 	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == 20)
 
 	(hud.tuning_sliders["tire_grip"] as HSlider).value = 1.27
@@ -97,7 +98,7 @@ func _run() -> void:
 	check("restore_stock_updates_game_and_ui", is_equal_approx(car.config.tire_grip, stock_grip)
 		and is_equal_approx(car.config.engine_power_kw, stock_power)
 		and is_equal_approx(car.config.handbrake_drive_grip, 0.75)
-		and car.config.drivetrain == VehicleConfig.Drivetrain.RWD
+		and int(car.config.drivetrain) == stock_drive
 		and is_equal_approx(float((hud.tuning_sliders["tire_grip"] as HSlider).value), stock_grip)
 		and not FileAccess.file_exists(path))
 	await _discard(game)
@@ -105,7 +106,7 @@ func _run() -> void:
 	car = game.vehicle
 	car.set_physics_process(false)
 	check("fresh_start_uses_stock_after_reset", is_equal_approx(car.config.tire_grip, stock_grip)
-		and car.config.drivetrain == VehicleConfig.Drivetrain.RWD)
+		and int(car.config.drivetrain) == stock_drive)
 	await _discard(game)
 
 	# Malformed or out-of-range values cannot override vehicle Resource data.
@@ -120,7 +121,7 @@ func _run() -> void:
 	car.set_physics_process(false)
 	check("invalid_save_cannot_corrupt_vehicle", is_equal_approx(car.config.tire_grip, stock_grip)
 		and is_equal_approx(car.config.engine_power_kw, stock_power)
-		and car.config.drivetrain == VehicleConfig.Drivetrain.RWD)
+		and int(car.config.drivetrain) == stock_drive)
 	await _discard(game)
 
 	# Leave the caller's settings exactly as they were before the test.

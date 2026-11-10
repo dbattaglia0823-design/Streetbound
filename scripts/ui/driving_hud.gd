@@ -1,7 +1,7 @@
 extends CanvasLayer
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
 const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
-const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 200.0, 800.0, 10.0], ["engine_power_kw", "Engine power / hp", 150.0, 650.0, 10.0], ["mass_kg", "Mass / lb", 900.0, 2100.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 25000.0, 500.0],
+const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 100.0, 1600.0, 10.0], ["engine_power_kw", "Engine power / hp", 65.0, 1200.0, 10.0], ["mass_kg", "Mass / lb", 800.0, 3500.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 42000.0, 500.0],
 	["steering_response", "Steering response", 6.0, 25.0, 0.5],
 	["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05],
 	["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0],
@@ -9,7 +9,7 @@ const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_b
 	["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05],
 	["handbrake_drive_grip", "Handbrake drive traction", 0.4, 1.0, 0.025],
 	["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25],
-	["cornering_stiffness", "Tire response / lbf per rad", 50000.0, 150000.0, 2500.0],
+	["cornering_stiffness", "Tire response / lbf per rad", 40000.0, 190000.0, 2500.0],
 	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],
 	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
 var vehicle: VehicleController2D
@@ -132,12 +132,17 @@ func _ready() -> void:
 		if strength > 5:
 			status.text = "IMPACT / R TO RESET")
 
-func on_vehicle_selected(entry: Dictionary) -> void:
-	# F1 controls should reflect the newly equipped vehicle rather than
-	# falsely displaying values from the previously driven car.
+func on_vehicle_selected(entry: Dictionary, restore_saved_tuning: bool = false) -> void:
+	# Each selected model has its own stock baseline. Apply saved F1 edits
+	# only on startup, not when switching to a *different* vehicle.
 	if is_instance_valid(active_vehicle_label):
 		active_vehicle_label.text = str(entry.display_name).to_upper()
 	_stock_tune = vehicle.config.duplicate(true)
+	if tuning_profile != null:
+		if restore_saved_tuning:
+			tuning_profile.load_into(vehicle.config)
+		else:
+			tuning_profile.clear_profile()
 	if _save_timer != null:
 		_save_timer.stop()
 	_tuning_dirty = false
@@ -160,7 +165,9 @@ func add_slider(entry: Array) -> void:
 	tuning_sliders[property] = slider
 	slider.min_value = entry[2]
 	slider.max_value = entry[3]
-	slider.step = entry[4]
+	# Model specifications need sub-kilogram / sub-kW precision; snapping
+	# an initial 1,670 kg value to 1,675 prevented change events later.
+	slider.step = minf(float(entry[4]), 0.1)
 	slider.value = vehicle.config.get(property)
 	slider.value_changed.connect(func(value: float):
 		vehicle.config.set(property, value)

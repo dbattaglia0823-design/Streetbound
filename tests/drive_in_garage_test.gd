@@ -89,7 +89,13 @@ func run() -> void:
 	check("parked_car_opens_scrollable_catalog",
 		selector.overlay.visible and paused and selector.cards.size() == 88)
 	var parked_location := car.global_position
-	var entry: Dictionary = Catalog.all()[Catalog.all().size() - 1]
+	# Ownership is enforced outside the developer proving ground. Buy an
+	# inexpensive second car using an isolated in-memory test economy first.
+	var inventory := VehicleOwnership.new(false)
+	main.vehicle_ownership = inventory
+	selector.inventory = inventory
+	var entry: Dictionary = Catalog.find_by_id("dodge-neon")
+	check("second_garage_car_can_be_purchased", inventory.purchase(str(entry.id)) == "purchased")
 	selector._choose(entry)
 	check("garage_switch_unpauses_and_equips",
 		not selector.overlay.visible and not paused and \

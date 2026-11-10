@@ -8,12 +8,18 @@ const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
 const VehicleSelectorScript = preload("res://scripts/ui/vehicle_selector.gd")
 const PlayerGarageScript = preload("res://scripts/world/player_garage.gd")
+const DealerWorldScript = preload("res://scripts/world/dealership_world.gd")
+const DealerMenuScript = preload("res://scripts/ui/dealership_menu.gd")
+const OwnershipScript = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 var pause_menu
 var player_garage: Node2D
+var dealership_world: Node2D
+var dealership_menu: CanvasLayer
+var vehicle_ownership: VehicleOwnership
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -21,6 +27,8 @@ var ground: Node2D
 func _ready() -> void:
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
 	add_child(ground)
+	if not proving_ground:
+		vehicle_ownership = OwnershipScript.new()
 	vehicle = VehicleScene.instantiate()
 	vehicle.position = Vector2(0, 500) if proving_ground else ground.spawn_position()
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()
@@ -44,6 +52,13 @@ func _ready() -> void:
 		player_garage.world = ground
 		player_garage.player = vehicle
 		ground.add_child(player_garage)
+		# Curated storefronts reuse the existing dealer-building PNGs and roads.
+		dealership_world = Node2D.new()
+		dealership_world.set_script(DealerWorldScript)
+		dealership_world.world = ground
+		dealership_world.player = vehicle
+		ground.dealerships = dealership_world
+		ground.add_child(dealership_world)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -99,5 +114,13 @@ func _ready() -> void:
 	selector.driving_hud = hud
 	selector.pause_menu = pause_menu
 	selector.garage = player_garage
+	selector.inventory = vehicle_ownership
 	add_child(selector)
 	selector.restore_selection()
+	if not proving_ground:
+		dealership_menu = CanvasLayer.new()
+		dealership_menu.set_script(DealerMenuScript)
+		dealership_menu.manager = dealership_world
+		dealership_menu.player = vehicle
+		dealership_menu.economy = vehicle_ownership
+		add_child(dealership_menu)

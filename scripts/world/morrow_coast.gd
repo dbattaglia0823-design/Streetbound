@@ -8,6 +8,7 @@ const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
+var dealerships: Node2D
 var chunk_m := 192.0
 var vehicle: VehicleController2D
 var tire_marks: MultiMeshInstance2D
@@ -318,6 +319,9 @@ func _process(dt: float) -> void:
 func surface_at(position_px: Vector2) -> Dictionary:
 	surface_queries += 1
 	var point := position_px/PPM
+	# Dealership forecourts and access driveways are part of the driving surface.
+	if is_instance_valid(dealerships) and dealerships.is_paved_forecourt(position_px):
+		return {"name":"ASPHALT","grip":1.0}
 	# The physical opening replaces the solid center of the existing garage,
 	# so its interior must be a grippy, paved surface rather than grass.
 	if not player_garage_prop.is_empty() and GarageGeometry.inside_bay(
