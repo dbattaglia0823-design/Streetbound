@@ -43,8 +43,8 @@ func _wheel_targets() -> PackedFloat32Array:
 	for i in 4:
 		# Deliberately do not use wheel.global_position or body offsets here.
 		# Those are animated and would feed back into surface detection.
-		var contact: Vector2 = vehicle.global_position + \
-			Vector2(rig.wheel_anchor(i)).rotated(vehicle.rotation)
+		var anchor: Vector2 = rig.wheel_anchor(i)
+		var contact: Vector2 = vehicle.global_position + anchor.rotated(vehicle.rotation)
 		targets[i] = clampf(float(vehicle.surface_provider.curb_height_at(contact)),0.0,1.0)
 	return targets
 
