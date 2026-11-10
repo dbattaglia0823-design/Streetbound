@@ -35,7 +35,21 @@ func reset_tracks() -> void:
 	_track_history.clear()
 
 
-func add_mark(point: Vector2, heading: float, asphalt: bool, track: int = 0) -> void:
+static func ink_for_surface(surface: String) -> Color:
+	match surface:
+		"GRAVEL":
+			return Color(.33, .28, .22, .40)
+		"DIRT":
+			return Color(.32, .24, .15, .45)
+		"SAND":
+			return Color(.48, .40, .27, .27)
+		"GRASS":
+			return Color(.21, .25, .13, .27)
+		_:
+			return Color(.06, .08, .09, .50)
+
+func add_mark(point: Vector2, heading: float, asphalt: bool, track: int = 0, surface: String = "") -> void:
+	var kind := surface if not surface.is_empty() else ("ASPHALT" if asphalt else "GRASS")
 	var start := point + Vector2.DOWN.rotated(heading) * 6.0
 	if _track_history.has(track):
 		var previous: Dictionary = _track_history[track]
@@ -43,9 +57,9 @@ func add_mark(point: Vector2, heading: float, asphalt: bool, track: int = 0) -> 
 		var span := point.distance_to(last)
 		# Do not draw an enormous stripe across teleport/reset or across
 		# abrupt asphalt -> grass material changes.
-		if span > 0.05 and span <= MAX_BRIDGE and bool(previous.asphalt) == asphalt:
+		if span > 0.05 and span <= MAX_BRIDGE and str(previous.kind) == kind:
 			start = last
-	_track_history[track] = {"position": point, "asphalt": asphalt}
+	_track_history[track] = {"position": point, "kind": kind}
 
 	var displacement := point - start
 	var length := displacement.length()
@@ -60,7 +74,7 @@ func add_mark(point: Vector2, heading: float, asphalt: bool, track: int = 0) -> 
 	var b := point + direction * END_OVERLAP
 	var axis_y := b - a
 	var axis_x := direction.orthogonal() * STRIP_WIDTH
-	var ink := Color(0.06, 0.08, 0.09, 0.50) if asphalt else Color(0.36, 0.28, 0.19, 0.46)
+	var ink := ink_for_surface(kind)
 	last_strip_start = a
 	last_strip_end = b
 	last_strip_color = ink
