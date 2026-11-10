@@ -38,6 +38,20 @@ Beach sand gets subtle packed variation, and fine grass silhouettes fade
 out when they become subpixel to reduce shimmering while zooming.
 Surface grip, lane width and collision footprints are unchanged.
 
+## Live measurements (F7)
+
+Press **F7** while driving Morrow Coast to toggle the lightweight performance
+HUD. It shows measured FPS, per-frame/physics CPU time, draw calls, texture
+memory, active versus cached chunk counts, nearby traffic, cumulative chunk
+builds/cache reuses and worst recorded chunk setup duration.
+
+The panel is created only after F7 is first pressed and samples Godot's
+`Performance` monitors about twice per second. Those monitors can update
+at different intervals and some values are unavailable in release builds.
+Use the Godot profiler and target-device hardware measurements for exact
+benchmarking. **F4** still shows map collision boundaries and **F6** shows
+traffic routing.
+
 ## Validation and visual review
 
 GitHub Actions now runs `tests/map_stream_quality_test.gd` against the
