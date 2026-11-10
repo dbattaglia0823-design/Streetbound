@@ -7,6 +7,22 @@ var _emission := 0.0
 var _last_position := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
 
+static func loose_strength(surface: String) -> float:
+	match surface:
+		"GRAVEL": return .85
+		"DIRT": return .75
+		"SAND": return .72
+		"GRASS": return .45
+		_: return 0.0
+
+static func dust_color(surface: String) -> Color:
+	match surface:
+		"GRAVEL": return Color(.73, .69, .60)
+		"DIRT": return Color(.57, .46, .36)
+		"SAND": return Color(.86, .76, .58)
+		"GRASS": return Color(.43, .51, .35)
+		_: return Color(.76, .81, .82)
+
 func _ready() -> void:
 	_rng.seed = 60491
 	_last_position = vehicle.global_position
@@ -34,7 +50,7 @@ func _process(delta: float) -> void:
 	var moving := smoothstep(3.0, 14.0, speed)
 	var slide := smoothstep(0.10, 0.38, absf(vehicle.slip_angle))
 	var tire_loss := maxf(slide, maxf(vehicle.wheel_spin * 1.7, vehicle.handbrake_grip_loss))
-	var loose := 0.0 if vehicle.surface == "ASPHALT" else 0.55
+	var loose := loose_strength(vehicle.surface)
 	var strength := maxf(tire_loss, loose) * moving
 	if strength < 0.03:
 		_emission = 0.0
@@ -42,12 +58,12 @@ func _process(delta: float) -> void:
 		_emission = minf(_emission + dt * strength * 35.0, 4.0)
 		while _emission >= 1.0 and puffs.size() < MAX_PUFFS:
 			_emission -= 1.0
-			_spawn_puff(vehicle.surface != "ASPHALT")
+			_spawn_puff(vehicle.surface)
 		if puffs.size() >= MAX_PUFFS:
 			_emission = 0.0
 	queue_redraw()
 
-func _spawn_puff(dust: bool) -> void:
+func _spawn_puff(surface: String) -> void:
 	var side := -1.0 if _rng.randf() < 0.5 else 1.0
 	var right := Vector2.RIGHT.rotated(vehicle.rotation)
 	var rear := Vector2.DOWN.rotated(vehicle.rotation)
@@ -59,9 +75,10 @@ func _spawn_puff(dust: bool) -> void:
 		"point": point,
 		"drift": drift,
 		"age": 0.0,
-		"life": _rng.randf_range(0.42, 0.82),
-		"radius": _rng.randf_range(5.0, 9.0),
-		"color": Color(0.79, 0.73, 0.59, 1.0) if dust else Color(0.76, 0.81, 0.82, 1.0)
+		"life": _rng.randf_range(0.45, 0.86) if surface != "GRASS" else _rng.randf_range(.30, .52),
+		"radius": _rng.randf_range(5.0, 9.0) if surface != "SAND" else _rng.randf_range(7.0, 12.0),
+		"surface": surface,
+		"color": dust_color(surface)
 	})
 
 func _draw() -> void:
@@ -75,3 +92,10 @@ func _draw() -> void:
 		draw_circle(point, radius, tint)
 		tint.a = 0.11 * fade
 		draw_circle(point + Vector2(radius * 0.28, -radius * 0.20), radius * 0.62, tint)
+		if str(puff["surface"]) == "GRASS":
+			# A few quick-fading grass blades curl off the moving rear tires.
+			var blade := Color(.34, .47, .25, .23 * fade)
+			draw_line(point + Vector2(-radius * .28, radius * .12),
+				point + Vector2(-radius * .43, -radius * .55), blade, 2.0, true)
+			draw_line(point + Vector2(radius * .18, radius * .26),
+				point + Vector2(radius * .30, -radius * .50), blade, 1.6, true)
