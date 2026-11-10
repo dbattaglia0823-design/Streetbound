@@ -33,8 +33,8 @@
       "region": "Southern Outskirts",
       "road_name": "South County Road",
       "near_m": [
-        2400,
-        3820
+        2020,
+        4050
       ],
       "texture": "res://assets/Buildings/Dealerships/03_used_car_dealership.png"
     },
@@ -79,10 +79,10 @@
       "name": "Foundry Luxury Collection",
       "tier": "LUXURY",
       "region": "Downtown Larkspur",
-      "road_name": "Foundry Crescent",
+      "road_name": "Copper Lane",
       "near_m": [
-        3470,
-        2760
+        3460,
+        2970
       ],
       "texture": "res://assets/Buildings/Dealerships/07_luxury_dealership.png"
     },
