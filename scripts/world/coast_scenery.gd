@@ -217,6 +217,22 @@ func _draw_prop(prop: Dictionary) -> void:
 			draw_line(Vector2(-size.x*.46,y),Vector2(size.x*.46,y),color.lightened(row*.02),18,true)
 		_rounded(Rect2(Vector2(-size.x*.5,-size.y*.5),Vector2(size.x,size.y*.22)),Color("7b9b94"),9)
 		return
+	if kind == "bush":
+		_shrub(Vector2.ZERO,minf(size.x,size.y)*.47,seed_value)
+		return
+	if kind == "sign":
+		draw_line(Vector2(3,6),Vector2(13,16),Color(.12,.17,.18,.23),6,true)
+		draw_line(Vector2(-size.x*.4,0),Vector2(size.x*.4,0),Color("d9d5bd"),8,true)
+		draw_line(Vector2(-size.x*.33,-2),Vector2(size.x*.33,-2),
+			Color("5e8577"),4,true)
+		return
+	if kind == "barrier":
+		_rounded(Rect2(-size*.5,size),Color("c7c4af"),5)
+		for i in 4:
+			var x := -size.x*.34+size.x*.22*float(i)
+			draw_line(Vector2(x,-size.y*.46),Vector2(x+size.x*.12,size.y*.46),
+				Color("b97e62"),4,true)
+		return
 	if kind == "garden":
 		_shrub_bed(size,seed_value,false)
 		return

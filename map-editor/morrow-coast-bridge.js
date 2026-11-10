@@ -70,10 +70,19 @@ export function convertMorrowWorld(raw){
       type:poiType(poi),x:+poi.position[0],y:+poi.position[1],
       rotation:0,properties:{}});
   }
+  // Procedural forest/city props remain source-owned. Only explicit
+  // authored IDs are editable and survive a production-world rebake.
+  const props=(raw.props||[]).filter(prop=>typeof prop.authoring_id==='string')
+    .slice(0,200).map(prop=>({
+      id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
+      type:prop.editor_type,
+      x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
+      rotation:+prop.angle*180/Math.PI,assetId:''
+    }));
   const result=normalizeWorld({
     format:'gdt.racing-world',version:2,name:'Morrow Coast',
     world:{width,height,seed:28114,base:'grass'},
-    roads,regions,props:[],markers,assets:[]
+    roads,regions,props,markers,assets:[]
   });
   return {doc:result,stats:{roads:roads.length,regions:regions.length,
     landmarkMarkers:markers.length,proceduralProps:raw.props?.length||0,
