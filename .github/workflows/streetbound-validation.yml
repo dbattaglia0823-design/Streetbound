@@ -75,6 +75,8 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/morrow_traffic_test.gd
       - name: Verify imported traffic artwork, physical collisions and post-impact route recovery
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_impact_recovery_test.gd
+      - name: Verify four-way intersection queue restarts and smooth turn geometry
+        run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
       - name: Verify 88 playable vehicles, selected dimensions, wheel rig and garage grid
