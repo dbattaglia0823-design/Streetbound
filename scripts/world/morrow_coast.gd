@@ -374,4 +374,4 @@ func _physics_process(dt: float) -> void:
 	for track in 2:
 		var side := -1.0 if track == 0 else 1.0
 		tire_marks.add_mark(rear + right * side * 16.0,
-			vehicle.rotation, vehicle.surface == "ASPHALT", track)
+			vehicle.rotation, vehicle.surface == "ASPHALT", track, vehicle.surface)

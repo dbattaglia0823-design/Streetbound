@@ -129,11 +129,98 @@ func _shrub_bed(size: Vector2, seed_value: int, circular: bool) -> void:
 			_shrub(placement,minf(23.0,size.y*.30)*rng.randf_range(.8,1.15),seed_value+i)
 
 
+## Existing named destinations share the same cached building batch but
+## receive recognizable roof silhouettes and business-specific palettes.
+static func destination_motif(title: String) -> String:
+	var name := title.to_lower()
+	if name.contains("laurel motor"): return "motorhouse"
+	if name.contains("performance"): return "tuning"
+	if name.contains("auto gallery"): return "showroom"
+	if name.contains("fuel") or name.contains("harvest rest"): return "fuel"
+	if name.contains("pinecrest"): return "lodge"
+	if name.contains("marina"): return "marina"
+	if name.contains("overlook") or name.contains("lookout"): return "scenic"
+	if name.contains("raceworks") or name.contains("drag staging"): return "racing"
+	if name.contains("quarry"): return "industrial"
+	if name.contains("village") or name.contains("farm"): return "village"
+	if name.contains("saltair"): return "coastal"
+	return "service"
+
+func _destination_roof_details(size: Vector2, title: String) -> void:
+	# Every detail fits within the original static building footprint, so
+	# it cannot alter service lanes, parked traffic or solid collisions.
+	var theme_name := destination_motif(title)
+	var accent := Color("e5ae69") if theme_name == "motorhouse" else Color("8fc0b7")
+	if theme_name in ["racing", "industrial"]:
+		accent = Color("c9886a")
+	elif theme_name in ["scenic", "lodge", "village"]:
+		accent = Color("c8bd8e")
+	elif theme_name in ["marina", "coastal"]:
+		accent = Color("78b4c5")
+	var upper_left := Vector2(-size.x * .31, size.y * .12)
+	var lower_right := Vector2(size.x * .31, size.y * .31)
+	draw_line(upper_left, Vector2(lower_right.x, upper_left.y), accent.darkened(.24), 5.0, true)
+	match theme_name:
+		"motorhouse", "tuning":
+			# Three recognizable orange service-bay canopies.
+			for i in 3:
+				var x := -size.x * .25 + float(i) * size.x * .18
+				draw_rect(Rect2(Vector2(x, size.y * .16),
+					Vector2(size.x * .145, size.y * .13)), Color(.14, .24, .27, .82), true)
+				draw_line(Vector2(x, size.y * .16),
+					Vector2(x + size.x * .145, size.y * .16), accent, 5.0, true)
+		"showroom", "coastal":
+			draw_rect(Rect2(Vector2(-size.x * .22, size.y * .12),
+				Vector2(size.x * .44, size.y * .16)), Color(.36, .58, .63, .82), true)
+			for i in 4:
+				var x := -size.x * .17 + float(i) * size.x * .11
+				draw_line(Vector2(x, size.y * .12), Vector2(x, size.y * .28),
+					Color(.82, .94, .90, .62), 2.2, true)
+		"fuel":
+			for side in [-1.0, 1.0]:
+				var x := float(side) * size.x * .14
+				draw_rect(Rect2(Vector2(x - 12, size.y * .16),
+					Vector2(24, 32)), Color("b9ddd1"), true)
+				draw_rect(Rect2(Vector2(x - 7, size.y * .16 + 6),
+					Vector2(14, 8)), Color("3f7376"), true)
+		"racing":
+			for i in 6:
+				var x := -size.x * .27 + float(i) * size.x * .09
+				draw_rect(Rect2(Vector2(x, size.y * .15),
+					Vector2(size.x * .09, size.y * .11)),
+					Color("d9d5c7") if i % 2 == 0 else Color("48585a"), true)
+		"industrial":
+			for i in 4:
+				var x := -size.x * .20 + float(i) * size.x * .12
+				draw_line(Vector2(x, size.y * .13),
+					Vector2(x + 13, size.y * .28), accent, 5.0, true)
+		"marina", "scenic":
+			draw_arc(Vector2.ZERO + Vector2(0, size.y * .20),
+				minf(size.x, size.y) * .12, 0.0, TAU, 18, accent, 3.0, true)
+			for direction in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+				draw_line(Vector2(0, size.y * .20),
+					Vector2(0, size.y * .20) + direction * minf(size.x, size.y) * .13,
+					accent, 2.0, true)
+		"lodge", "village":
+			for i in 4:
+				var y := size.y * (.14 + float(i) * .04)
+				draw_line(Vector2(-size.x * .25, y),
+					Vector2(size.x * .25, y), accent.darkened(.12), 3.0, true)
+
 func _landmark_sign(kind: String, size: Vector2, title: String) -> void:
 	# Every named destination gets a roof fascia and recognizable entrance.
 	# Reuses original building art and the static scenery batch.
 	var service := kind in ["garage","workshop","fuel","showroom","warehouse"]
+	var motif := destination_motif(title)
 	var accent := Color("c69a69") if service else Color("7ca49f")
+	if motif == "motorhouse":
+		accent = Color("e5ae69")
+	elif motif in ["racing","industrial"]:
+		accent = Color("c9886a")
+	elif motif in ["marina","coastal"]:
+		accent = Color("78b4c5")
+	elif motif in ["scenic","lodge","village"]:
+		accent = Color("c8bd8e")
 	var width := minf(size.x*.78,410.0)
 	var origin := Vector2(-size.x*.40,-size.y*.39)
 	draw_rect(Rect2(origin,Vector2(width,36.0)),Color(.14,.22,.24,.80),true)
@@ -165,6 +252,7 @@ func _draw_prop(prop: Dictionary) -> void:
 		draw_texture_rect(sprite,Rect2(-size/2,size),false,tint)
 		if prop.has("poi"):
 			_landmark_sign(kind,size,str(prop.poi))
+			_destination_roof_details(size,str(prop.poi))
 		return
 	if kind in ["tree","pine","palm"]:
 		var radius := size.x*.5
@@ -324,3 +412,4 @@ func _draw_prop(prop: Dictionary) -> void:
 		draw_line(Vector2(-size.x/2,-size.y*.36),Vector2(-size.x/2,size.y*.36),stripe,10,true)
 	if prop.has("poi"):
 		_landmark_sign(kind,size,str(prop.poi))
+		_destination_roof_details(size,str(prop.poi))
