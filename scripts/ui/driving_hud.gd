@@ -76,7 +76,7 @@ func _ready() -> void:
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
-	active_vehicle_label = label(header, "SPORT COUPE  /  PRESS G FOR VEHICLES", 13, Color("c4d4d0"))
+	active_vehicle_label = label(header, "SPORT COUPE  /  LAUREL MOTOR HOUSE GARAGE", 13, Color("c4d4d0"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
 	var dash := VBoxContainer.new()
 	panel(Vector2(24, 650), Vector2(365, 220)).add_child(dash)
