@@ -114,6 +114,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		scenery.origin_m = origin_m
 		scenery.z_index = 6
 		add_child(scenery)
+	# Furnish curb edges in one static draw node per road-bearing chunk.
+	# Lamps, benches and signs follow the real spline and avoid junctions;
+	# no per-furnishing sprite or physics nodes are created.
+	if not road_batches.is_empty():
+		var details := Node2D.new()
+		details.name = "StreetDetails"
+		details.set_script(preload("res://scripts/world/coast_roadside_details.gd"))
+		details.origin_m = origin_m
+		details.chunk_size_px = world.chunk_m * PPM
+		details.road_batches = road_batches
+		details.junction_list = junction_list
+		details.z_index = 5
+		add_child(details)
 	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
 	# or submitted to the renderer unless F4 developer mode is explicitly on.
 	var geometry_overlay := Node2D.new()
