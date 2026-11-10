@@ -576,6 +576,22 @@ for r in ROADS:
 # Raised roundabout island; its planting is deliberately outside the ring lanes.
 insert_prop(dict(kind="island",p=[cx,cy],size=[23,23],angle=0,color="8da980",radius=11.5,solid=True,seed=42))
 
+# Laurel Motor House serves as the start-area art benchmark. Its existing
+# lot/garage/driveway remain untouched: add small low-cost planted borders
+# only where road and building collision clearances permit.
+laurel=POIS[0]
+laurel_lot=next((item for item in PROPS if item["kind"]=="lot" and
+                 distance(item["p"],laurel["position"])<1.0),None)
+if laurel_lot:
+    angle=laurel_lot["angle"]
+    for i,(x,y) in enumerate([(-21,-17),(-21,17),(-29,-17),(-29,17)]):
+        p=[laurel_lot["p"][0]+math.cos(angle)*x-math.sin(angle)*y,
+           laurel_lot["p"][1]+math.sin(angle)*x+math.cos(angle)*y]
+        if land(p) and road_clear(p,2.0) and not occupied(p,3.5):
+            insert_prop(dict(kind="garden",p=p,size=[8.0,2.4],angle=angle,
+                             color="91aa7c",radius=0,solid=False,
+                             seed=814+i))
+
 # Landmarks: marina finger piers remain on the safe side of the sea boundary.
 for i in range(5):
     y=2795+i*29
