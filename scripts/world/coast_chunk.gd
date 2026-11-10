@@ -10,6 +10,12 @@ var prop_list: Array[Dictionary] = []
 var ground_polys: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
 var build_microseconds := 0
+## Retained streaming cells keep prebuilt geometry but aren't submitted to
+## the renderer or queried by physics until they enter the playable 3x3 ring.
+var stream_active := true
+var collider_body: StaticBody2D
+var collision_shape_count := 0
+
 
 func point(raw: Array) -> Vector2:
 	return (Vector2(float(raw[0]), float(raw[1])) - origin_m) * PPM
@@ -62,6 +68,9 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		junction_list.append(world.data.junctions[int(junction_index)])
 	# Global stage ordering prevents neighboring shoulders painting over asphalt.
 	for stage in 4:
+		# Preserve the four-stage paint order only where roads/junctions exist.
+		if road_batches.is_empty() and junction_list.is_empty():
+			break
 		var roads := Node2D.new()
 		roads.set_script(preload("res://scripts/world/coast_roads.gd"))
 		roads.world=world
@@ -73,7 +82,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		add_child(roads)
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.
-	if world.boardwalk_path.size() >= 2:
+	if world.boardwalk_near_cell(cell):
 		var boardwalk := Node2D.new()
 		boardwalk.name = "BeachBoardwalk"
 		boardwalk.set_script(preload("res://scripts/world/coast_boardwalk.gd"))
@@ -82,6 +91,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		boardwalk.z_index = 1
 		add_child(boardwalk)
 	for stage in 2:
+		if content.get("relief", []).is_empty() and content.get("rails", []).is_empty():
+			break
 		var relief := Node2D.new()
 		relief.set_script(preload("res://scripts/world/coast_relief.gd"))
 		relief.world=world
@@ -90,18 +101,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		relief.render_stage=stage
 		relief.z_index=5
 		add_child(relief)
-	var shadows := Node2D.new()
-	shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
-	shadows.prop_list=prop_list
-	shadows.origin_m=origin_m
-	shadows.z_index=5
-	add_child(shadows)
-	var scenery := Node2D.new()
-	scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
-	scenery.prop_list = prop_list
-	scenery.origin_m = origin_m
-	scenery.z_index = 6
-	add_child(scenery)
+	if not prop_list.is_empty():
+		var shadows := Node2D.new()
+		shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
+		shadows.prop_list=prop_list
+		shadows.origin_m=origin_m
+		shadows.z_index=5
+		add_child(shadows)
+		var scenery := Node2D.new()
+		scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
+		scenery.prop_list = prop_list
+		scenery.origin_m = origin_m
+		scenery.z_index = 6
+		add_child(scenery)
 	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
 	# or submitted to the renderer unless F4 developer mode is explicitly on.
 	var geometry_overlay := Node2D.new()
@@ -115,6 +127,15 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 
+## Called once when a cached chunk enters/exits the active play ring,
+## never per render frame. Dormant collisions keep their shapes for reuse.
+func set_stream_active(active: bool) -> void:
+	stream_active = active
+	visible = active
+	if is_instance_valid(collider_body):
+		collider_body.collision_layer = 1 if active else 0
+
+
 func _ready() -> void:
 	material=preload("res://scripts/world/mountain_ground.tres")
 
@@ -126,7 +147,16 @@ func _prop_order(prop: Dictionary) -> int:
 	return 1
 
 func _build_collisions() -> void:
+	# Empty ocean/terrain cells should not allocate an invisible physics body.
+	var solids := 0
+	for prop in prop_list:
+		if bool(prop.solid):
+			solids += 1
+	if solids == 0 and content.get("walls", []).is_empty():
+		return
 	var body := StaticBody2D.new()
+	collider_body = body
+	collision_shape_count = solids + content.get("walls", []).size()
 	body.collision_layer = 1
 	body.collision_mask = 2
 	add_child(body)
