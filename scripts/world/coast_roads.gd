@@ -85,10 +85,48 @@ func _roads(stage: int) -> void:
 			for piece in batch.markings:
 				_paint(piece.path,r,width,float(piece.phase))
 
+## Manhole covers, faded utility repairs and compact rain drains. Derived
+## from the global road station so marks continue across streamed chunk seams.
+## Excludes junction mouths because _paint receives clipped marking spans.
+func _street_surface_details(path: PackedVector2Array, road: Dictionary, width: float, station: float) -> void:
+	if road.kind not in ["local", "arterial"] or path.size() < 2:
+		return
+	var spacing := 1260.0
+	var passed := station
+	for i in range(1, path.size()):
+		var a := path[i - 1]
+		var b := path[i]
+		var segment := b - a
+		var length := segment.length()
+		if length <= .01:
+			continue
+		var tangent := segment / length
+		var normal := tangent.orthogonal()
+		var sample := ceilf((passed + .05) / spacing) * spacing
+		while sample < passed + length - .05:
+			var center := a + tangent * (sample - passed)
+			# Side gutters and utility fittings must stay within this chunk.
+			if center.x >= 12.0 and center.y >= 12.0 and \
+				center.x < world.chunk_m * PPM - 12.0 and \
+				center.y < world.chunk_m * PPM - 12.0:
+				var n := int(sample / spacing)
+				var cover := center + normal * (width * (.26 if n % 2 == 0 else -.26))
+				draw_circle(cover, 15.0, Color(.15,.21,.23,.30))
+				draw_arc(cover, 11.0, 0.0, TAU, 12, Color(.53,.56,.53,.34), 2.1, true)
+				for side in [-1.0, 1.0]:
+					var drain: Vector2 = center + normal * float(side) * (width * .5 - 18.0)
+					draw_line(drain - tangent * 13.0, drain + tangent * 13.0,
+						Color(.13,.18,.20,.44), 7.0, true)
+			sample += spacing
+		passed += length
+
+
 func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
 	var urban: bool = r.kind in ["local","arterial"]
 	var gravel: bool = r.surface=="GRAVEL"
-	if urban: _paver_joints(path,width,station)
+	if urban:
+		_paver_joints(path,width,station)
+		_street_surface_details(path,r,width,station)
 	if gravel or r.kind == "driveway":
 		return
 	var edge := Color("dcd9c4")

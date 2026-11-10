@@ -66,3 +66,12 @@ stall alignment with the parked cars and confirm the new asphalt remains
 dark enough without looking black. Shader and art data are verified by
 `tests/parking_ground_visual_test.gd`, but final visual appearance is not
 measurable by headless tests alone.
+
+## Completed environment pass
+
+Improved POI parking curb openings, aisle arrows, recognizable roof fascias
+and entrances; continuous road-following lamps, benches, signs, rural posts
+and utility drain details; consistent soft static shadows on illustrated and
+procedural buildings; and biome-tinted grass, exposed earth and flowers.
+These details are rendered with cached chunks rather than live per-prop
+nodes or traffic colliders.
