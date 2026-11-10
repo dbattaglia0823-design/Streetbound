@@ -136,18 +136,27 @@ func _car_following(index: int,desired_px: float) -> float:
 	return desired_px
 
 
-func _player_awareness(agent: Dictionary,desired_px: float) -> float:
-	# Avoid the player proactively; collision bodies also prevent clipping
-	# and can be knocked off the road in a genuine player impact.
-	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
-	var location: Vector2=sample.position
-	var heading: Vector2=sample.tangent
-	var offset := player.global_position-location
-	var distance_px := offset.length()
-	if distance_px<PPM*9.0 and offset.dot(heading)>0.0 and offset.dot(heading)<PPM*12.0:
-		if absf(heading.cross(offset)) < PPM*2.6:
-			return minf(desired_px,maxf(0.0,(distance_px-PPM*4.0)*1.5))
-	return desired_px
+func _player_awareness(agent: Dictionary, desired_px: float,
+		travel_direction: Vector2 = Vector2.ZERO) -> float:
+	# Use the NPC's actual body, not the saved lane station. After an impact
+	# the car may be several metres away from its old route sample.
+	if not is_instance_valid(player) or desired_px <= 0.0:
+		return desired_px
+	var node: CharacterBody2D = agent.node
+	var heading := travel_direction.normalized() if travel_direction.length_squared() > 0.001 \
+		else Vector2.UP.rotated(node.rotation)
+	var relative := player.global_position - node.global_position
+	var ahead := relative.dot(heading)
+	var sideways := absf(heading.cross(relative))
+	# Both body half-lengths plus a buffer; include the real lateral width.
+	# Do not yield to a player behind or on a neighboring lane.
+	if ahead < -PPM * 0.5 or sideways > PPM * 3.1:
+		return desired_px
+	var clearance := ahead - PPM * 4.9
+	var stopping_distance := desired_px * desired_px / (2.0 * PPM * 9.0)
+	if clearance > stopping_distance + PPM * 5.5:
+		return desired_px
+	return minf(desired_px, maxf(0.0, clearance - PPM * 2.5) * 1.5)
 
 
 func _next_target(agent: Dictionary,edge: Dictionary) -> int:
@@ -196,7 +205,9 @@ func _tick_agent(index: int,dt: float) -> bool:
 				desired=0.0
 
 	var previous := float(agent.speed)
-	var rate := PPM*5.5 if desired>previous else PPM*9.0
+	# Brake decisively when the player is immediately ahead, including
+	# when we have only just switched from a crash back to lane following.
+	var rate := PPM*5.5 if desired>previous else (PPM*24.0 if desired<PPM*0.2 else PPM*9.0)
 	agent.speed=move_toward(previous,desired,rate*dt)
 	agent.progress=float(agent.progress)+float(agent.speed)*dt
 	if float(agent.progress)>=float(edge.length_px):
@@ -266,7 +277,18 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	node.rotation=lerp_angle(node.rotation,desired_angle,minf(1.0,dt*2.65))
 	var direction := Vector2.UP.rotated(node.rotation)
 	var goal_speed := clampf(delta.length() * 0.75,PPM*1.0,PPM*6.0)
-	var speed := move_toward(float(agent.speed),goal_speed,PPM*5.5*dt)
+	# Recovery must also yield. It previously drove blindly toward its lane
+	# and repeatedly pushed a player who was already in front of the car.
+	goal_speed = _player_awareness(agent, goal_speed, direction)
+	var blocked_by_player := goal_speed <= 0.01
+	var speed := 0.0 if blocked_by_player else move_toward(
+		float(agent.speed), goal_speed, PPM*5.5*dt)
+	if blocked_by_player:
+		# Remove residual crash momentum aimed at the player while waiting.
+		var toward_player := (player.global_position - node.global_position).normalized()
+		var recoil: Vector2 = node.recovery_velocity
+		if recoil.dot(toward_player) > 0.0:
+			node.recovery_velocity = recoil.slide(toward_player)
 	agent.speed=speed
 	var hit: Variant = node.call("move_traffic", direction*speed*dt,dt)
 	if hit != null:
