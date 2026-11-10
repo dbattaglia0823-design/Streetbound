@@ -202,7 +202,7 @@ func _on_vehicle_changed(id: String) -> void:
 	drivetrain_select.select(vehicle.config.drivetrain)
 	var record := preload("res://scripts/vehicle/vehicle_catalog.gd").find_vehicle(id)
 	current_car_label.text = "%s  /  %s" % [str(record.get("brand","CAR")).to_upper(),
-		str(record.get("model","Selected"))]
+		str(record.get("model","Selected")).to_upper()]
 	tuning_save_label.text = "Model-specific tuning loaded."
 
 
