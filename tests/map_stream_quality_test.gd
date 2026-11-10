@@ -111,5 +111,16 @@ func run() -> void:
 	check("traffic_10_textures_import_at_gpu_friendly_size",optimized_art and
 		art_paths.size() == 10,worst_px)
 	check("distant_vehicle_models_have_mipmaps",all_mipmapped)
+	check("performance_panel_is_lazy",world.get_node_or_null("PerformanceHUD") == null)
+	world.set_performance_debug(true)
+	check("performance_panel_enabled_on_demand",world.performance_debug_enabled and
+		world.performance_hud != null and world.performance_hud.visible)
+	world._update_performance_display()
+	check("live_profiler_reports_draws_and_chunks",
+		world.performance_label.text.contains("Draw calls") and
+		world.performance_label.text.contains("Active/cached chunks"))
+	world.set_performance_debug(false)
+	check("performance_panel_can_be_hidden",not world.performance_debug_enabled and
+		not world.performance_hud.visible)
 	print("MORROW MAP STREAM AND VISUAL QUALITY: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
