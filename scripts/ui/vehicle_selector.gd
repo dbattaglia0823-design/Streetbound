@@ -248,7 +248,7 @@ func restore_selection() -> void:
 	var entry := Catalog.find_by_id(selected_id)
 	if not entry.is_empty() and Catalog.select(player, entry):
 		if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
-			driving_hud.on_vehicle_selected(entry)
+			driving_hud.on_vehicle_selected(entry, true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
