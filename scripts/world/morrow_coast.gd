@@ -11,7 +11,7 @@ var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
 var chunk_m := 192.0
 var vehicle: VehicleController2D
-var tire_marks: MultiMeshInstance2D
+var tire_marks: TireMarks2D
 var chunks: Dictionary = {}
 var pending: Array[Vector2i] = []
 var current_cell := Vector2i(-999,-999)
@@ -116,7 +116,8 @@ func _ready() -> void:
 					_junction_grid[key] = []
 				_junction_grid[key].append(i)
 	tire_marks = TireMarks.new()
-	tire_marks.z_index = 0
+	# Above asphalt and lane paint, below roadside props and player cars.
+	tire_marks.z_index = 4
 	add_child(tire_marks)
 	# Spawn collision is built synchronously; neighbor loading is incremental.
 	var spawn := spawn_position()
@@ -360,6 +361,22 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		return {"name":"SAND","grip":0.32}
 	return {"name":"GRASS","grip":0.38}
 
+## Lightweight wheel-contact elevation for visuals. The paved sidewalk is
+## physically traversable and 0.93-grip; a 12 cm curb is represented only by
+## a normalized art offset. This intentionally does not modify car collision.
+func curb_height_at(position_px: Vector2) -> float:
+	var contact: Dictionary = surface_at(position_px)
+	if str(contact.name) != "ASPHALT" or absf(float(contact.grip)-0.93) > 0.015:
+		return 0.0
+	var road: Dictionary = nearest_road_at(position_px,24.0)
+	if road.is_empty() or str(road.road_kind) not in ["local","arterial"]:
+		return 0.0
+	var edge: float = float(road.distance_to_road_edge_m)
+	if edge < -0.1 or edge > 3.3:
+		return 0.0
+	return smoothstep(0.0,0.45,edge)
+
+
 func location_at(position_px: Vector2) -> Dictionary:
 	var p := position_px/PPM
 	var best := INF
@@ -378,15 +395,24 @@ func _physics_process(dt: float) -> void:
 		tire_marks.reset_tracks()
 		return
 	mark_clock += dt
-	if mark_clock < 0.045:
+	if mark_clock < 0.035:
 		return
 	mark_clock = 0.0
-	if absf(vehicle.slip_angle) <= 0.13 and vehicle.handbrake <= 0.1 and vehicle.wheel_spin <= 0.15 and vehicle.surface == "ASPHALT":
+	var slide := smoothstep(0.08,0.34,absf(vehicle.slip_angle))
+	var loss := maxf(slide,maxf(vehicle.handbrake,maxf(vehicle.handbrake_grip_loss,vehicle.wheel_spin*1.8)))
+	if loss < 0.13 and vehicle.surface == "ASPHALT":
 		tire_marks.reset_tracks()
 		return
-	var right := Vector2.RIGHT.rotated(vehicle.rotation)
-	var rear := vehicle.position + Vector2.DOWN.rotated(vehicle.rotation) * 25.0
+	# Sample the actual fitted rear wheel anchors (not a generic 16px offset),
+	# even for long trucks and narrow sports cars. Visual curb lift never
+	# changes these true contact coordinates.
+	var rig := vehicle.get_node_or_null("Art/Wheels")
 	for track in 2:
-		var side := -1.0 if track == 0 else 1.0
-		tire_marks.add_mark(rear + right * side * 16.0,
-			vehicle.rotation, vehicle.surface == "ASPHALT", track, vehicle.surface)
+		var wheel: Vector2 = Vector2(-16.0,25.0) if track == 0 else Vector2(16.0,25.0)
+		if is_instance_valid(rig) and rig.has_method("wheel_anchor"):
+			wheel = rig.wheel_anchor(2+track)
+		var contact := vehicle.global_position + wheel.rotated(vehicle.rotation)
+		var contact_surface: Dictionary = surface_at(contact)
+		tire_marks.add_mark(contact,vehicle.rotation,
+			str(contact_surface.name) == "ASPHALT",track,
+			str(contact_surface.name),loss)

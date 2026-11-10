@@ -63,6 +63,8 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd
       - name: Verify both urban sidewalks, curved junction corners and coast boardwalk
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/urban_walkways_boardwalk_test.gd
+      - name: Verify real curb-entry suspension, individual wheel lift, shadow and collision independence
+        run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/curb_suspension_animation_test.gd
       - name: Verify joined tire marks on asphalt and grass
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/continuous_tire_marks_test.gd
       - name: Verify distinctive Morrow landmarks and surface-reactive visual effects

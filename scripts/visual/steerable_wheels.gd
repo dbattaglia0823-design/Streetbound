@@ -23,6 +23,8 @@ var visible_bounds := Rect2()
 var _center := Vector2.ZERO
 var _fitted := false
 var _anchors: Array[Vector2] = []
+var _base_points: Array[Vector2] = []
+var curb_heights := PackedFloat32Array([0.0,0.0,0.0,0.0])
 
 
 func _ready() -> void:
@@ -137,12 +139,32 @@ func _sync_wheels() -> void:
 		front_right = _make_wheel("FrontRight", 1)
 		rear_left = _make_wheel("RearLeft", -1)
 		rear_right = _make_wheel("RearRight", 1)
+	_base_points = points.duplicate()
 	var wheels: Array[Node2D] = [front_left, front_right, rear_left, rear_right]
 	for i in 4:
 		wheels[i].position = points[i]
 		wheels[i].set("tire_size", tire_size)
 		wheels[i].rotation = 0.0
 		wheels[i].queue_redraw()
+
+
+## Stable tyre ground-contact anchors, before the purely visual curb rise.
+## Skid marks must follow these, not the animating sprite offset.
+func wheel_anchor(index: int) -> Vector2:
+	if index < 0 or index >= _base_points.size():
+		return Vector2.ZERO
+	return _base_points[index]
+
+
+func set_curb_heights(heights: PackedFloat32Array) -> void:
+	if heights.size() != 4 or _base_points.size() != 4:
+		return
+	curb_heights = heights
+	var wheels: Array[Node2D] = [front_left,front_right,rear_left,rear_right]
+	for i in 4:
+		var height := clampf(float(heights[i]),0.0,1.0)
+		wheels[i].position = _base_points[i] + Vector2(-2.0,-6.0)*height
+		wheels[i].scale = Vector2.ONE*(1.0+height*0.025)
 
 
 func _make_wheel(wheel_name: String, wheel_side: int) -> Node2D:
