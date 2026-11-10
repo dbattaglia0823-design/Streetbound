@@ -38,3 +38,31 @@ Juniper Pass, ocean and sandy beach visually at low and high camera zoom.
 Also check chunk streaming and FPS on the target hardware.
 
 Reference: https://docs.godotengine.org/en/stable/tutorials/shaders/shader_reference/canvas_item_shader.html
+
+## Parking lots, ground cover and landscaping
+
+Parking lots and service forecourts now use a warm concrete perimeter with
+**dark charcoal asphalt**, deterministic faded tire scuffs, oil spots, subtle
+cracks and worn parking bay separators. The existing shared scenery shader
+adds a procedural world-aligned aggregate to the exact asphalt paint color,
+so neighboring chunks have no visible texture seams. No asphalt sprites or
+additional geometry/physics actors are spawned.
+
+**Parked cars use the same ten top-down PNG vehicle models as ambient traffic.**
+The parked scenery renderer and moving traffic reference one shared, cached
+texture, visible alpha rectangle and source aspect ratio. Baked seed values
+give stable model variation when chunks stream out and back in. Existing
+parked-car collider records are unchanged.
+
+Grass has deeper vegetation tone shifts and organic brown exposed-earth
+patches. Those variations use the original world-space terrain shader,
+rather than particle or grass nodes. Planters, house gardens and the roundabout
+island now have a warmer soil bed with varied foliage using the same tree
+and pine atlas cutouts as the rest of Morrow Coast.
+
+**Visual review:** Inspect Laurel Motor House parking, rural farmland,
+city planting beds and the roundabout at several camera zooms. Check painted
+stall alignment with the parked cars and confirm the new asphalt remains
+dark enough without looking black. Shader and art data are verified by
+`tests/parking_ground_visual_test.gd`, but final visual appearance is not
+measurable by headless tests alone.

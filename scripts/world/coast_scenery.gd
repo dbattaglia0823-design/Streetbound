@@ -1,5 +1,6 @@
 extends Node2D
 const Art = preload("res://scripts/world/coast_art.gd")
+const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const PPM := 20.0
 var prop_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
@@ -18,6 +19,96 @@ func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	style.bg_color = color
 	style.set_corner_radius_all(int(radius))
 	draw_style_box(style, rect)
+
+## Parked cars share the alpha-trimmed model cache with moving traffic.
+## Seed-based choices remain stable across streamed chunk reloads.
+static func parked_art_for(seed_value: int) -> Dictionary:
+	return TrafficCar.appearance_for(seed_value)
+
+
+func _asphalt_apron(size: Vector2, seed_value: int, parking: bool) -> void:
+	# Warm rounded concrete curb and actual weathered charcoal asphalt.
+	var bounds := Rect2(-size*.5,size)
+	var curb := 16.0 if parking else 9.0
+	_rounded(bounds,Color("b9b6a6") if parking else Color("a8aaa0"),
+		38.0 if parking else 17.0)
+	var roadbed := bounds.grow(-curb)
+	_rounded(roadbed,Color("464f52"),28.0 if parking else 11.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 918372
+	# World-space shader handles fine grain; static oil, cracks and rubber
+	# add depth without extra textures, collision or draw nodes.
+	for i in (13 if parking else 5):
+		var p := Vector2(rng.randf_range(roadbed.position.x+30.0,roadbed.end.x-30.0),
+			rng.randf_range(roadbed.position.y+30.0,roadbed.end.y-30.0))
+		draw_circle(p,rng.randf_range(8.0,32.0 if parking else 18.0),
+			Color(.17,.21,.23,.20))
+	for i in (18 if parking else 7):
+		var p := Vector2(rng.randf_range(roadbed.position.x+24.0,roadbed.end.x-40.0),
+			rng.randf_range(roadbed.position.y+24.0,roadbed.end.y-24.0))
+		draw_line(p,p+Vector2(rng.randf_range(7.0,27.0),rng.randf_range(-4.0,4.0)),
+			Color(.16,.19,.21,.27),rng.randf_range(1.2,2.6),true)
+	if parking:
+		var stalls := clampi(int(size.x/105.0),3,9)
+		for side in [-1.0,1.0]:
+			for i in stalls+1:
+				var x := lerpf(-size.x*.42,size.x*.42,float(i)/float(stalls))
+				draw_line(Vector2(x,side*size.y*.44),
+					Vector2(x,side*size.y*.22),Color("c9c8b4"),3.2,true)
+			for i in stalls:
+				var x := lerpf(-size.x*.42,size.x*.42,
+					(float(i)+.5)/float(stalls))
+				draw_line(Vector2(x-15.0,side*size.y*.395),
+					Vector2(x+15.0,side*size.y*.395),Color("b2ab94"),5.0,true)
+				draw_line(Vector2(x-12.0,side*size.y*.35),
+					Vector2(x+12.0,side*size.y*.35),Color(.12,.16,.18,.30),3.0,true)
+	else:
+		for i in 3:
+			var x := -size.x*.30+float(i)*size.x*.30
+			draw_line(Vector2(x,-size.y*.40),Vector2(x,size.y*.40),
+				Color(.22,.26,.28,.23),1.8,true)
+
+
+func _shrub(p: Vector2, radius: float, seed_value: int) -> void:
+	# The same vegetation atlas used for street trees makes the small
+	# roadside planting beds fit the existing illustrated buildings.
+	var sprite := Art.sprite("pine" if seed_value%4==0 else "tree",seed_value)
+	draw_circle(p+Vector2(2.8,4.0),radius*.95,Color(.13,.19,.14,.26))
+	draw_circle(p,radius*.92,Color("55734c"))
+	if sprite != null:
+		var diameter := radius*(1.7 if seed_value%3==0 else 1.9)
+		draw_texture_rect(sprite,Rect2(p-Vector2.ONE*diameter*.5,
+			Vector2.ONE*diameter),false,Color(.88,.96,.86,1.0))
+	else:
+		for i in 5:
+			var leaf := p+Vector2.from_angle((float(i)+.4)*TAU/5.0)*radius*.43
+			draw_circle(leaf,radius*.47,
+				Color("769b68") if i%2==0 else Color("83a577"))
+
+
+func _shrub_bed(size: Vector2, seed_value: int, circular: bool) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 645192
+	if circular:
+		var r := minf(size.x,size.y)*.5
+		draw_circle(Vector2.ZERO,r+8.0,Color("bcb8a6"))
+		draw_circle(Vector2.ZERO,r,Color("6d785b"))
+		draw_circle(Vector2.ZERO,r*.87,Color("635e48"))
+		var count := clampi(int(r/25.0),3,9)
+		for i in count:
+			var angle := (float(i)+.15)*TAU/float(count)
+			var placement := Vector2.from_angle(angle)*r*(.30 if i%3==0 else .51)
+			_shrub(placement,minf(35.0,r*.32)*rng.randf_range(.78,1.18),seed_value+i)
+	else:
+		_rounded(Rect2(-size*.5,size),Color("bab9a5"),8.0)
+		_rounded(Rect2(-size*.5+Vector2.ONE*5.0,
+			size-Vector2.ONE*10.0),Color("625e48"),5.0)
+		var count := clampi(int(size.x/maxf(25.0,size.y*.85)),2,12)
+		for i in count:
+			var x := lerpf(-size.x*.39,size.x*.39,(float(i)+.5)/float(count))
+			var placement := Vector2(x,rng.randf_range(-size.y*.10,size.y*.10))
+			_shrub(placement,minf(23.0,size.y*.30)*rng.randf_range(.8,1.15),seed_value+i)
+
 
 func _draw_prop(prop: Dictionary) -> void:
 	var center := point(prop.p)
@@ -88,59 +179,40 @@ func _draw_prop(prop: Dictionary) -> void:
 		_rounded(Rect2(Vector2(-size.x*.5,-size.y*.5),Vector2(size.x,size.y*.22)),Color("7b9b94"),9)
 		return
 	if kind == "garden":
-		_rounded(Rect2(-size/2,size),color.darkened(.06),22)
-		draw_line(Vector2(-size.x*.45,0),Vector2(size.x*.45,0),color.lightened(.12),8,true)
-		for i in 4:
-			var p := Vector2(-size.x*.35+i*size.x*.23,0)
-			draw_circle(p,16,Color("779b6c"))
-			draw_circle(p+Vector2(-3,-3),11,Color("adc28a") if i%2==0 else Color("92b37a"))
-			draw_circle(p+Vector2(4,-5),3,Color("e3d49c") if i%2==0 else Color("c3d6aa"))
+		_shrub_bed(size,seed_value,false)
 		return
 	if kind == "planter":
-		_rounded(Rect2(-size/2,size),Color("b8b5a0"),10)
-		draw_circle(Vector2.ZERO,size.x*.39,color)
-		for i in 5:
-			draw_circle(Vector2.from_angle(i*TAU/5)*size.x*.25,5,Color("d5bf9c"))
+		_shrub_bed(size,seed_value,true)
 		return
 	if kind == "forecourt":
-		_rounded(Rect2(-size/2,size),Color("8b9290"),18)
-		# Faint slab joints and non-repeating low-contrast scuffs.
-		for i in 3:
-			var x := -size.x*.32+float(i)*size.x*.32
-			draw_line(Vector2(x,-size.y*.45),Vector2(x,size.y*.45),Color(0.28,0.34,0.33,0.12),2,true)
-		for i in 6:
-			var p := Vector2(-size.x*.34+float(i%3)*size.x*.29,-size.y*.22+float(i/3)*size.y*.40)
-			draw_circle(p,5.0+float(seed_value%3),Color(0.29,0.36,0.35,0.045))
+		_asphalt_apron(size,seed_value,false)
 		return
 	if kind == "lot":
-		_rounded(Rect2(-size/2,size),Color("d0c9b7"),45)
-		_rounded(Rect2(-size/2+Vector2.ONE*18,size-Vector2.ONE*36),Color("8b9290"),32)
-		for index in 4:
-			var x := -size.x*.32+float(index)*size.x*.20
-			draw_line(Vector2(x,-size.y*.35),Vector2(x,size.y*.35),Color(0.28,0.34,0.33,0.065),2,true)
-		for side in [-1.0,1.0]:
-			for i in 8:
-				var x := -size.x*.4+i*size.x*.105
-				draw_line(Vector2(x,side*size.y*.44),Vector2(x,side*size.y*.22),Color("ded8bf"),3,true)
+		_asphalt_apron(size,seed_value,true)
 		return
 	if kind == "parked_car":
-		_rounded(Rect2(-size/2,size),color.darkened(.18),9)
-		_rounded(Rect2(-size/2+Vector2(3,5),size-Vector2(6,10)),color,8)
-		_rounded(Rect2(Vector2(-size.x*.37,-size.y*.17),Vector2(size.x*.74,size.y*.42)),Color("708e93"),7)
-		_rounded(Rect2(Vector2(-size.x*.31,-size.y*.02),Vector2(size.x*.62,size.y*.18)),color.lightened(.08),5)
-		draw_line(Vector2(-size.x*.3,-size.y*.42),Vector2(size.x*.3,-size.y*.42),Color("e5dcc2"),3)
+		var art := parked_art_for(seed_value)
+		# Same top-down models, alpha crop and proportions as moving traffic.
+		# Paint into the static chunk draw list to avoid extra parked nodes.
+		if not art.is_empty():
+			var angle := float(art.rotation)
+			var source: Vector2 = art.source_aspect
+			var target := Vector2(size.y,size.x) if absf(angle)>0.01 else size
+			var fitted := source*minf(target.x/source.x,target.y/source.y)
+			_rounded(Rect2(-size*.5+Vector2(4,7),size),
+				Color(.06,.09,.10,.22),9.0)
+			draw_set_transform(center,float(prop.angle)+angle)
+			draw_texture_rect_region(art.texture,Rect2(-fitted*.5,fitted),
+				Rect2(art.region),Color.WHITE)
+		else:
+			_rounded(Rect2(-size*.5,size),color,9.0)
 		return
 	if kind == "rock":
 		_rounded(Rect2(-size/2,size),color.darkened(.07),size.y*.4)
 		_rounded(Rect2(-size*.35,size*.68),color.lightened(.09),size.y*.28)
 		return
 	if kind == "island":
-		draw_circle(Vector2.ZERO,size.x/2+7,Color("ded2ba"))
-		draw_circle(Vector2.ZERO,size.x/2,color)
-		for i in 9:
-			var p := Vector2.from_angle(i*TAU/9)*size.x*.33
-			draw_circle(p,19,Color("d7bc94"))
-			draw_circle(p*.3,22,Color("6d916c"))
+		_shrub_bed(size,seed_value,true)
 		return
 	if kind == "dock":
 		_rounded(Rect2(-size/2,size),color,7)
