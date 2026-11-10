@@ -230,6 +230,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not key.pressed or key.echo or (key.keycode != KEY_ESCAPE and key.physical_keycode != KEY_ESCAPE):
 			return
 		get_viewport().set_input_as_handled()
+		# The vehicle selector can also pause the scene. Do not treat its
+		# Escape key as an unrelated Pause resume request.
+		if get_tree().paused and menu_state.is_empty():
+			return
 		if not get_tree().paused:
 			pause_game()
 		elif menu_state == "settings":

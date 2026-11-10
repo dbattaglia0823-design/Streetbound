@@ -6,6 +6,7 @@ const TrafficFlowScript = preload("res://scripts/world/traffic_flow.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
+const VehicleSelectorScript = preload("res://scripts/ui/vehicle_selector.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
@@ -84,3 +85,10 @@ func _ready() -> void:
 	pause_menu.vehicle_audio = audio
 	pause_menu.driving_camera = camera
 	add_child(pause_menu)
+	var selector := CanvasLayer.new()
+	selector.set_script(VehicleSelectorScript)
+	selector.player = vehicle
+	selector.driving_hud = hud
+	selector.pause_menu = pause_menu
+	add_child(selector)
+	selector.restore_selection()
