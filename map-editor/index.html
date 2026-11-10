@@ -124,6 +124,21 @@
             <option value=".55">Light</option><option value="1" selected>Balanced</option>
             <option value="1.6">Detailed</option>
           </select></div>
+        <div id="parking-generator-controls">
+          <div class="double-fields">
+            <div class="field"><label for="parking-size">Lot size</label>
+              <select id="parking-size"><option value=".85">Compact</option><option value="1" selected>Standard</option><option value="1.25">Large</option></select></div>
+            <div class="field"><label for="parking-stall-width">Parking stall width</label>
+              <select id="parking-stall-width"><option value="2.8">Tight · 2.8 m</option><option value="3.2" selected>Standard · 3.2 m</option><option value="3.8">Wide · 3.8 m</option></select></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="parking-occupancy">Parked-car density</label>
+              <select id="parking-occupancy"><option value="0">Empty</option><option value=".25">Light · 25%</option><option value=".5" selected>Medium · 50%</option><option value=".8">Busy · 80%</option></select></div>
+            <div class="field"><label for="parking-entrance">Entrance width</label>
+              <select id="parking-entrance"><option value="7">Single lane · 7 m</option><option value="9" selected>Wide · 9 m</option></select></div>
+          </div>
+          <p class="asset-hint">Parking access connects to the street. Stalls and parked traffic-model cars are generated at world bake; landscaping stays clear of driving aisles.</p>
+        </div>
         <button class="gdt-btn gdt-btn--primary" id="apply-environment-preset" type="button">Apply preset near map center</button>
         <p id="environment-preset-status" class="asset-hint" role="status">Select a road or terrain region for targeted presets. Parking uses the viewport center.</p>
       </section>
