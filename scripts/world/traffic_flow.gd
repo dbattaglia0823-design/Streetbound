@@ -391,7 +391,7 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 		agent.speed=0.0
 		# Steer gently away from the contact surface while continuing to
 		# search the legal lane. No snapping or obstacle tunneling.
-		var escape_heading := (direction + hit.get_normal() * 0.9).normalized()
+		var escape_heading: Vector2 = (direction + (hit as KinematicCollision2D).get_normal() * 0.9).normalized()
 		node.rotation = lerp_angle(node.rotation, escape_heading.angle() + PI * 0.5,
 			minf(1.0, dt * 2.2))
 		agent.recovery_refresh = 0.0
