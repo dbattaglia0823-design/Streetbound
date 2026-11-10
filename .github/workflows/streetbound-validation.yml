@@ -79,6 +79,8 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+      - name: Verify drive-in Laurel garage, parked-only selection and physical bay collision
+        run: timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/drive_in_garage_test.gd
       - name: Verify 88 playable vehicles, selected dimensions, wheel rig and garage grid
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/player_vehicle_roster_test.gd
       - name: Verify fast automatic gear shifts and immediate safe reverse/Drive transition
