@@ -232,8 +232,9 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		var impact_speed := -linear_velocity.dot(normal)
 		if impact_speed > 0.0:
 			var other: Object = collision.get_collider()
-			var is_traffic := is_instance_valid(other) and other is Node and \
-				other.is_in_group("traffic_vehicle")
+			var is_traffic := false
+			if is_instance_valid(other) and other is Node:
+				is_traffic = other.is_in_group("traffic_vehicle")
 			if is_traffic:
 				# Treat NPC cars as lighter movable objects, not concrete walls.
 				# The solver still blocks overlap, but the player retains some
