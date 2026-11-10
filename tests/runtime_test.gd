@@ -72,7 +72,9 @@ func run() -> void:
 			controls.bind_key("throttle", binding.physical_keycode)
 	car.linear_velocity = Vector2.UP * 20
 	car.handbrake = 1
-	for i in 1000:
+	for i in 2600:
+		# Exceed the 30-path budget, so this actually exercises old-line
+		# eviction rather than simply checking a short simulated skid.
 		# Simulate the real rear contact moving; stationary contact produces
 		# no visible mark and must not use an artificial quad stamp.
 		car.global_position += Vector2(0,-8)
