@@ -257,7 +257,7 @@ func _draw_player_garage(size: Vector2) -> void:
 		Vector2(parking.end.x - 15.0, parking.end.y - 16.0),
 		Color("c5a46c"), 6.0, true)
 	for side in [-1.0, 1.0]:
-		var y := side * bay.size.y * 0.32
+		var y: float = float(side) * bay.size.y * 0.32
 		draw_line(Vector2(bay.position.x - 100.0, y),
 			Vector2(bay.position.x + 90.0, y),
 			Color("c6ba91"), 4.0, true)
@@ -273,7 +273,7 @@ func _draw_player_garage(size: Vector2) -> void:
 				Color("cadaae"), 4.0, true)
 	# Bay posts mark the edge of the wide, physically unobstructed doorway.
 	for side in [-1.0, 1.0]:
-		var y := side * bay.size.y * 0.5
+		var y: float = float(side) * bay.size.y * 0.5
 		_rounded(Rect2(Vector2(bay.position.x - 8.0, y - 15.0),
 			Vector2(29.0, 30.0)), Color("e6b36b"), 5.0)
 	# Sign is on the solid wing, not across the drivable entrance.
