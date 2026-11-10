@@ -67,6 +67,7 @@ func run() -> void:
 	check("teleport_never_creates_one_giant_track",
 		marks.active_line(0).get_point_count() == 1)
 	var long_start := Vector2(900,1400)
+	var long_drift_first_id := marks.count
 	marks.reset_tracks()
 	marks.add_mark(long_start,0.0,true,0)
 	for i in 245:
@@ -81,16 +82,24 @@ func run() -> void:
 		if line.get_point_count() >= marks.POINTS_PER_TRAIL:
 			splits += 1
 	var seam_ok := true
+	var valid_seams := 0
 	for i in range(1,marks._trails.size()):
 		var previous: Line2D = marks._trails[i-1]
 		var next: Line2D = marks._trails[i]
-		if str(previous.name).begins_with("Tire_0_") and \
+		# Intentionally broken tracks (reset/material/teleport) must NOT
+		# connect. Inspect only chunks belonging to this single long drift.
+		var previous_id := int(str(previous.name).get_slice("_",2))
+		var next_id := int(str(next.name).get_slice("_",2))
+		if previous_id >= long_drift_first_id and next_id >= long_drift_first_id \
+			and str(previous.name).begins_with("Tire_0_") and \
 			str(next.name).begins_with("Tire_0_"):
+			valid_seams += 1
 			var p := previous.get_point_position(previous.get_point_count()-1)
 			var n := next.get_point_position(0)
 			if p.distance_to(n) > 0.05:
 				seam_ok = false
-	check("new_path_chunks_carry_old_endpoint_without_seams",seam_ok)
+	check("new_path_chunks_carry_old_endpoint_without_seams",
+		seam_ok and valid_seams >= 2,valid_seams)
 	check("skidmark_memory_stays_bounded_during_long_drifts",
 		marks.trail_count() <= marks.MAX_TRAILS and
 		marks.point_count() <= marks.CAPACITY,
