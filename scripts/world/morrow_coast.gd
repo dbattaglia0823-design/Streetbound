@@ -116,7 +116,8 @@ func _ready() -> void:
 					_junction_grid[key] = []
 				_junction_grid[key].append(i)
 	tire_marks = TireMarks.new()
-	tire_marks.z_index = 0
+	# Above asphalt and lane paint, below roadside props and player cars.
+	tire_marks.z_index = 4
 	add_child(tire_marks)
 	# Spawn collision is built synchronously; neighbor loading is incremental.
 	var spawn := spawn_position()
