@@ -167,7 +167,7 @@ func _rebuild_cards() -> void:
 func _add_card(entry: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "Stock_" + str(entry.id).replace("-","_")
-	panel.custom_minimum_size = Vector2(256,300)
+	panel.custom_minimum_size = Vector2(256,320)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("14272b")
@@ -205,6 +205,12 @@ func _add_card(entry: Dictionary) -> void:
 	price.add_theme_font_size_override("font_size",19)
 	price.add_theme_color_override("font_color",Color("ecd29b"))
 	column.add_child(price)
+	var requirement := Label.new()
+	requirement.name = "RequiredLevel"
+	requirement.text = "DRIVER LV %d REQUIRED" % int(entry.get("required_player_level",1))
+	requirement.add_theme_font_size_override("font_size",12)
+	requirement.add_theme_color_override("font_color",Color("b9cfb8"))
+	column.add_child(requirement)
 	var action := Button.new()
 	action.name = "Buy_" + str(entry.id).replace("-","_")
 	action.custom_minimum_size.y = 35
@@ -219,12 +225,15 @@ func _refresh_cards() -> void:
 	if not is_instance_valid(economy) or wallet == null:
 		return
 	wallet.text = "BALANCE  " + VehicleOwnership.dollars(economy.balance) + \
-		"    /    OWNED  %d" % economy.owned_count()
+		"  /  DRIVER LV %d/100  /  OWNED %d" % [economy.player_level(),economy.owned_count()]
 	for item in cards:
 		var entry: Dictionary = item.entry
 		var action: Button = item.action
 		if economy.owns(str(entry.id)):
 			action.text = "OWNED  /  IN GARAGE"
+			action.disabled = true
+		elif not economy.can_buy_at_level(entry):
+			action.text = "LOCKED  /  DRIVER LV %d" % economy.required_player_level(entry)
 			action.disabled = true
 		elif economy.can_afford(entry):
 			action.text = "BUY  " + VehicleOwnership.dollars(int(entry.price_usd))
@@ -247,6 +256,9 @@ func _purchase(id: String) -> void:
 			feedback.text = "PURCHASED: %s. Drive to Laurel Motor House to equip it." % str(entry.display_name)
 		"insufficient":
 			feedback.text = "Not enough funds for " + str(entry.display_name)
+		"level_locked":
+			feedback.text = "Requires driver level %d to buy %s." % [
+				economy.required_player_level(entry),str(entry.display_name)]
 		"owned":
 			feedback.text = "Already owned."
 		_:
