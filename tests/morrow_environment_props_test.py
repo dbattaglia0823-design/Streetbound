@@ -23,7 +23,25 @@ class EnvironmentPropsTests(unittest.TestCase):
         self.assertEqual([v["kind"] for v in first],["lot","lamp","bush"])
         self.assertEqual(first[0]["authoring_id"],"prop-1")
         self.assertFalse(first[0]["solid"])
+        self.assertEqual(first[0]["stall_width"],3.2)
+        self.assertEqual(first[0]["occupancy"],.4)
+        self.assertEqual(first[0]["entrance_width"],8.0)
         self.assertEqual(first[1]["editor_scale"],.75)
+
+    def test_parking_options_preserve_size_and_validate_occupancy(self):
+        base={"id":"prop-35","type":"parking","x":880,"y":760,
+              "scale":1.25,"rotation":90,"stallWidth":2.8,
+              "occupancy":.75,"entranceWidth":9}
+        lot=_authoring_props({"props":[base]})[0]
+        self.assertEqual(lot["stall_width"],2.8)
+        self.assertEqual(lot["occupancy"],.75)
+        self.assertEqual(lot["entrance_width"],9.0)
+        self.assertEqual(lot["size"],[47.5,35.0])
+        for key,value in [("stallWidth",1),("occupancy",1.5),
+                          ("entranceWidth",12),("stallWidth",float("nan")),
+                          ("occupancy",True)]:
+            with self.assertRaises(ValueError):
+                _authoring_props({"props":[{**base,key:value}]})
 
     def test_solid_buildings_use_real_collision_footprints(self):
         result=_authoring_props({"props":[
