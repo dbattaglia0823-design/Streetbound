@@ -47,7 +47,7 @@ func run() -> void:
 			continue
 		var a := vec(segment.a)
 		var b := vec(segment.b)
-		if a.distance_to(b) < 22.0:
+		if a.distance_to(b) < 3.0:
 			continue
 		var tangent := (b-a).normalized()
 		var normal := tangent.orthogonal()
