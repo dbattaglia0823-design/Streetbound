@@ -63,7 +63,7 @@ func run() -> void:
 	var available := true
 	for kind in ["intake","turbo","blower","gear","wind","road","drivetrain"]:
 		var stream := Synth.texture_loop(kind)
-		available = available and stream.loop_mode == AudioStreamWAV.LOOP_FORWARD and
+		available = available and stream.loop_mode == AudioStreamWAV.LOOP_FORWARD and \
 			stream.get_length() > 0.2
 	check("wind_road_driveline_layers_have_original_looped_samples",available)
 	var events := true
