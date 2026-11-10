@@ -367,7 +367,7 @@ func curb_height_at(position_px: Vector2) -> float:
 	var contact: Dictionary = surface_at(position_px)
 	if str(contact.name) != "ASPHALT" or absf(float(contact.grip)-0.93) > 0.015:
 		return 0.0
-	var road: Dictionary = nearest_road_at(position_px,8.0)
+	var road: Dictionary = nearest_road_at(position_px,24.0)
 	if road.is_empty() or str(road.road_kind) not in ["local","arterial"]:
 		return 0.0
 	var edge: float = float(road.distance_to_road_edge_m)
