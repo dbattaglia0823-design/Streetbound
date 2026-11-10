@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars.",
+  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars. Dashboard boost values are gameplay-model calibrations for representative turbo trims, not OEM pressure specifications; no boost is displayed for unconfigured powertrains.",
   "vehicles": [
     {
       "id": "acura-integra",
@@ -126,7 +126,8 @@
       "kind": "sedan",
       "price_usd": 42500,
       "dealership_id": "modern",
-      "required_player_level": 20
+      "required_player_level": 20,
+      "boost_max_psi": 15
     },
     {
       "id": "alfa-romeo-stelvio",
@@ -147,7 +148,8 @@
       "kind": "suv",
       "price_usd": 54000,
       "dealership_id": "trail",
-      "required_player_level": 28
+      "required_player_level": 28,
+      "boost_max_psi": 15
     },
     {
       "id": "alfa-romeo-tonale",
@@ -168,7 +170,8 @@
       "kind": "suv",
       "price_usd": 36500,
       "dealership_id": "trail",
-      "required_player_level": 10
+      "required_player_level": 10,
+      "boost_max_psi": 12
     },
     {
       "id": "alfa-romeo-mito",
@@ -252,7 +255,8 @@
       "kind": "sport",
       "price_usd": 82000,
       "dealership_id": "showroom",
-      "required_player_level": 31
+      "required_player_level": 31,
+      "boost_max_psi": 17
     },
     {
       "id": "alfa-romeo-33-stradale",
@@ -315,7 +319,8 @@
       "kind": "sport",
       "price_usd": 155000,
       "dealership_id": "premium",
-      "required_player_level": 53
+      "required_player_level": 53,
+      "boost_max_psi": 15
     },
     {
       "id": "aston-martin-db12",
@@ -336,7 +341,8 @@
       "kind": "sport",
       "price_usd": 245000,
       "dealership_id": "luxury",
-      "required_player_level": 58
+      "required_player_level": 58,
+      "boost_max_psi": 17
     },
     {
       "id": "aston-martin-dbs",
@@ -357,7 +363,8 @@
       "kind": "sport",
       "price_usd": 265000,
       "dealership_id": "luxury",
-      "required_player_level": 69
+      "required_player_level": 69,
+      "boost_max_psi": 17
     },
     {
       "id": "aston-martin-vantage",
@@ -378,7 +385,8 @@
       "kind": "sport",
       "price_usd": 165000,
       "dealership_id": "premium",
-      "required_player_level": 56
+      "required_player_level": 56,
+      "boost_max_psi": 15
     },
     {
       "id": "aston-martin-vanquish",
@@ -399,7 +407,8 @@
       "kind": "sport",
       "price_usd": 385000,
       "dealership_id": "luxury",
-      "required_player_level": 83
+      "required_player_level": 83,
+      "boost_max_psi": 18
     },
     {
       "id": "aston-martin-rapide",
@@ -441,7 +450,8 @@
       "kind": "suv",
       "price_usd": 245000,
       "dealership_id": "luxury",
-      "required_player_level": 61
+      "required_player_level": 61,
+      "boost_max_psi": 16
     },
     {
       "id": "aston-martin-valkyrie",
@@ -714,7 +724,8 @@
       "kind": "compact",
       "price_usd": 67000,
       "dealership_id": "modern",
-      "required_player_level": 34
+      "required_player_level": 34,
+      "boost_max_psi": 17
     },
     {
       "id": "bmw-m3",
@@ -735,7 +746,8 @@
       "kind": "sedan",
       "price_usd": 85000,
       "dealership_id": "showroom",
-      "required_player_level": 35
+      "required_player_level": 35,
+      "boost_max_psi": 18
     },
     {
       "id": "bmw-m4",
@@ -756,7 +768,8 @@
       "kind": "sedan",
       "price_usd": 88000,
       "dealership_id": "showroom",
-      "required_player_level": 39
+      "required_player_level": 39,
+      "boost_max_psi": 18
     },
     {
       "id": "bmw-m8",
@@ -777,7 +790,8 @@
       "kind": "sport",
       "price_usd": 142000,
       "dealership_id": "premium",
-      "required_player_level": 51
+      "required_player_level": 51,
+      "boost_max_psi": 19
     },
     {
       "id": "bmw-x3",
@@ -840,7 +854,8 @@
       "kind": "compact",
       "price_usd": 41000,
       "dealership_id": "modern",
-      "required_player_level": 19
+      "required_player_level": 19,
+      "boost_max_psi": 15
     },
     {
       "id": "bentley-continental-gt",
@@ -966,7 +981,8 @@
       "kind": "hyper",
       "price_usd": 1650000,
       "dealership_id": "exotic",
-      "required_player_level": 73
+      "required_player_level": 73,
+      "boost_max_psi": 20
     },
     {
       "id": "bugatti-veyron",
@@ -987,7 +1003,8 @@
       "kind": "hyper",
       "price_usd": 1850000,
       "dealership_id": "exotic",
-      "required_player_level": 78
+      "required_player_level": 78,
+      "boost_max_psi": 23
     },
     {
       "id": "bugatti-chiron",
@@ -1008,7 +1025,8 @@
       "kind": "hyper",
       "price_usd": 2850000,
       "dealership_id": "exotic",
-      "required_player_level": 86
+      "required_player_level": 86,
+      "boost_max_psi": 26
     },
     {
       "id": "bugatti-divo",
@@ -1029,7 +1047,8 @@
       "kind": "hyper",
       "price_usd": 4700000,
       "dealership_id": "exotic",
-      "required_player_level": 95
+      "required_player_level": 95,
+      "boost_max_psi": 26
     },
     {
       "id": "bugatti-centodieci",
@@ -1050,7 +1069,8 @@
       "kind": "hyper",
       "price_usd": 7800000,
       "dealership_id": "exotic",
-      "required_player_level": 100
+      "required_player_level": 100,
+      "boost_max_psi": 27
     },
     {
       "id": "bugatti-bolide",
@@ -1071,7 +1091,8 @@
       "kind": "hyper",
       "price_usd": 5800000,
       "dealership_id": "exotic",
-      "required_player_level": 97
+      "required_player_level": 97,
+      "boost_max_psi": 28
     },
     {
       "id": "cadillac-escalade",
@@ -1302,7 +1323,8 @@
       "kind": "sport",
       "price_usd": 245000,
       "dealership_id": "premium",
-      "required_player_level": 65
+      "required_player_level": 65,
+      "boost_max_psi": 20
     },
     {
       "id": "chevrolet-corvette-zr1x",
@@ -1323,7 +1345,8 @@
       "kind": "sport",
       "price_usd": 315000,
       "dealership_id": "luxury",
-      "required_player_level": 75
+      "required_player_level": 75,
+      "boost_max_psi": 22
     },
     {
       "id": "dodge-charger",
@@ -1533,7 +1556,8 @@
       "kind": "hyper",
       "price_usd": 1850000,
       "dealership_id": "exotic",
-      "required_player_level": 81
+      "required_player_level": 81,
+      "boost_max_psi": 18
     },
     {
       "id": "ferrari-f50",
@@ -1617,7 +1641,8 @@
       "kind": "sport",
       "price_usd": 255000,
       "dealership_id": "luxury",
-      "required_player_level": 66
+      "required_player_level": 66,
+      "boost_max_psi": 19
     },
     {
       "id": "ferrari-f8-tributo",
@@ -1638,7 +1663,8 @@
       "kind": "sport",
       "price_usd": 335000,
       "dealership_id": "luxury",
-      "required_player_level": 78
+      "required_player_level": 78,
+      "boost_max_psi": 20
     },
     {
       "id": "ferrari-roma",
@@ -1659,7 +1685,8 @@
       "kind": "sport",
       "price_usd": 265000,
       "dealership_id": "luxury",
-      "required_player_level": 72
+      "required_player_level": 72,
+      "boost_max_psi": 19
     },
     {
       "id": "ferrari-296-gtb",
@@ -1680,7 +1707,8 @@
       "kind": "sport",
       "price_usd": 355000,
       "dealership_id": "luxury",
-      "required_player_level": 80
+      "required_player_level": 80,
+      "boost_max_psi": 22
     },
     {
       "id": "ferrari-purosangue",
