@@ -207,7 +207,7 @@ function drawBuilding(ctx,kind,prop={}){
   const [w,h]=size;
   if(kind==='parking'){
     rect(ctx,-w/2,-h/2,w,h,'#50585a');
-    const spaces=Math.max(3,Math.floor(38*.84/(prop.stallWidth??3.2)));
+    const spaces=Math.max(3,Math.floor(38*prop.scale*.84/(prop.stallWidth??3.2)));
     const occupied=prop.occupancy??.4;
     ctx.strokeStyle='#ddd9c3';ctx.lineWidth=1.3;
     for(const side of [-1,1]){
