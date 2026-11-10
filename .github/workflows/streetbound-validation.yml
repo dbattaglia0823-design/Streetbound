@@ -79,6 +79,8 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+      - name: Verify race-earned upgrade inventory, car slots, grip/drift stats, garage UI and save migration
+        run: timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/garage_upgrades_test.gd
       - name: Verify Ashford quarter-mile racing XP, player and car level caps, rarity gates and purchase locks
         run: timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_progression_test.gd
       - name: Verify dealership locations, building art, stock, purchases and owned garage collection

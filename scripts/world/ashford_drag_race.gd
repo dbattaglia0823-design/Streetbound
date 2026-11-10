@@ -54,7 +54,7 @@ func _ready() -> void:
 	_race_panel = PanelContainer.new()
 	_race_panel.name = "RaceStatus"
 	_race_panel.position = Vector2(770, 143)
-	_race_panel.custom_minimum_size = Vector2(327, 82)
+	_race_panel.custom_minimum_size = Vector2(367, 105)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.035,0.075,0.09,0.94)
 	style.border_color = Color("b39b67")
@@ -127,6 +127,10 @@ func _complete() -> void:
 		_result_text = "FINISH  %.2fs\nDRIVER +%d XP  /  CAR +%d XP  /  +%s" % [
 			elapsed,int(result.player_xp),int(result.car_xp),
 			VehicleOwnership.dollars(int(result.cash))]
+		var reward_part: Dictionary = result.get("part",{})
+		if not reward_part.is_empty():
+			_result_text += "\nPART EARNED  /  %s  /  %s" % [
+				str(reward_part.rarity).to_upper(),str(reward_part.name)]
 	else:
 		_result_text = "RESULT NOT SAVED: " + str(result.get("result","unknown"))
 	race_finished.emit(result)
