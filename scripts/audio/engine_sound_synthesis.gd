@@ -64,16 +64,16 @@ static func engine_loop(family: String, stage: int,
 		match family:
 			"i3":
 				uneven = sin(phase/3.0+0.31)*0.31
-				base += sin(phase*0.667)*0.11
+				base += sin(phase*2.0/3.0)*0.11
 			"i4":
 				uneven = sin(phase*0.5)*0.17
 				base += sin(phase*2.5)*0.065
 			"i6":
 				uneven = sin(phase/3.0)*0.07
-				base += sin(phase*1.5+0.2)*0.055
+				base += sin(phase*2.0+0.2)*0.055
 			"v6":
 				uneven = sin(phase/3.0+0.62)*0.23
-				base += sin(phase*1.333+0.33)*0.10
+				base += sin(phase*4.0/3.0+0.33)*0.10
 			"v8_cross":
 				# Alternating exhaust-bank pulse yields the low burble and
 				# irregular note that an even-fire sine loop cannot produce.
@@ -158,7 +158,7 @@ static func transient(kind: String) -> AudioStreamWAV:
 	var output := PackedFloat32Array()
 	output.resize(count)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 1021 + kind.hash()
+	rng.seed = 1021 + (int(kind.hash()) & 0x7fffffff)
 	var filtered := 0.0
 	var phase := 0.0
 	for i in count:
