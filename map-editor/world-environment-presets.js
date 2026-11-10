@@ -64,33 +64,54 @@ function placeRoadside(doc,road,density=1){
   return {doc,count:built};
 }
 
-function parkingLot(doc,anchor){
+function parkingLot(doc,anchor,{size=1,stallWidth=3.2,occupancy=.4,entranceWidth=8}={}){
   const hit=nearestRoadPlacement(doc,anchor,250);
   if(!hit)throw new RangeError('Place parking within 250 world units of a road.');
   const side=Math.sign((anchor.x-hit.x)*hit.normal.x+(anchor.y-hit.y)*hit.normal.y)||1;
   const outward={x:hit.normal.x*side,y:hit.normal.y*side};
-  const depth=hit.width/2+hit.shoulder+105;
-  const p={x:hit.x+outward.x*depth,y:hit.y+outward.y*depth};
-  if(!pointInside(doc,p,115))throw new RangeError('The parking footprint would cross the world boundary.');
-  if(nearbyObjects(doc,p,115))throw new RangeError('Move this parking lot away from other scenery.');
-  const start={x:hit.x,y:hit.y};
-  const end={x:hit.x+outward.x*(hit.width/2+48),y:hit.y+outward.y*(hit.width/2+48)};
-  // A narrow dedicated asphalt access route touches the real street and
-  // stops at the first parking bay; it does not extend through parked cars.
-  let next=createEntity(doc,'roads',{name:'Parking access',roadClass:'service',
-    surface:'asphalt',width:14,lanes:1,shoulder:1,
-    smooth:false,markings:false,points:[start,end]});
-  next=addProp(next,'parking','Parking lot',p,1);
-  if(next.props.length===doc.props.length)
-    throw new RangeError('No legal parking footprint here. Try a clearer roadside location.');
-  let created=1;
-  for(const sideOffset of [-42,42]){
-    const sign={x:p.x+hit.tangent.x*sideOffset+outward.x*20,
-      y:p.y+hit.tangent.y*sideOffset+outward.y*20};
-    const adjusted=addProp(next,'streetlight','Parking lighting',sign,.75);
-    if(adjusted!==next){next=adjusted;created++;}
+  const requested={x:hit.x+outward.x*(hit.width/2+hit.shoulder+105*size),
+    y:hit.y+outward.y*(hit.width/2+hit.shoulder+105*size)};
+  if(!pointInside(doc,requested,115*size))
+    throw new RangeError('The parking footprint would cross the world boundary.');
+  if(nearbyObjects(doc,requested,110*size))
+    throw new RangeError('Move this parking lot away from other scenery.');
+  if(doc.name==='Morrow Coast'&&doc.props.length>=196)
+    throw new RangeError('Morrow Coast supports at most 200 editor-authored scenery props.');
+  // Place the lot before making its access road so it isn't pushed away
+  // from the asphalt connection by the safety-placement system.
+  let next=createEntity(doc,'props',{name:'Parking lot',type:'parking',
+    x:requested.x,y:requested.y,rotation:0,scale:size,assetId:'',
+    stallWidth,occupancy,entranceWidth});
+  const original=next.props.at(-1);
+  const near=nearestRoadPlacement(doc,original,300)||hit;
+  const roadSide=Math.sign((original.x-near.x)*near.normal.x+
+    (original.y-near.y)*near.normal.y)||side;
+  const facing={x:near.normal.x*roadSide,y:near.normal.y*roadSide};
+  // Parking artwork has its curb opening on local -X.
+  next=updateEntity(next,original.id,{rotation:Math.atan2(facing.y,facing.x)*180/Math.PI});
+  const lot=next.props.at(-1);
+  const mouth={x:lot.x-facing.x*(19*size-1.4),
+    y:lot.y-facing.y*(19*size-1.4)};
+  const entrance={x:near.x,y:near.y};
+  if(distance(entrance,mouth)<8)
+    throw new RangeError('Parking access is too short.');
+  next=createEntity(next,'roads',{name:'Parking access',roadClass:'service',
+    surface:'asphalt',width:entranceWidth,lanes:1,shoulder:1,
+    smooth:false,markings:false,points:[entrance,mouth]});
+  let count=1;
+  const lateral=near.tangent;
+  for(const direction of [-1,1]){
+    const lamp={x:lot.x+lateral.x*direction*(24*size)+facing.x*8,
+      y:lot.y+lateral.y*direction*(24*size)+facing.y*8};
+    const lit=addProp(next,'streetlight','Parking lighting',lamp,.75);
+    if(lit!==next){next=lit;count++;}
+    const landscape={x:lot.x+lateral.x*direction*(31*size)+facing.x*(13*size),
+      y:lot.y+lateral.y*direction*(31*size)+facing.y*(13*size)};
+    const planted=addProp(next,'bush','Parking landscaping',landscape,.9);
+    if(planted!==next){next=planted;count++;}
   }
-  return {doc:next,count:created,roadsAdded:1};
+  const stalls=Math.max(3,Math.floor(38*.84/stallWidth));
+  return {doc:next,count,roadsAdded:1,stallCapacity:stalls*2};
 }
 
 function naturalLandscape(doc,selectedId,coastal,density){
@@ -123,7 +144,8 @@ function industry(doc,anchor,density){
 }
 
 export function applyEnvironmentPreset(doc,{
-  preset,anchor,selectedId=null,density=1
+  preset,anchor,selectedId=null,density=1,parkingSize=1,stallWidth=3.2,
+  occupancy=.4,entranceWidth=8
 }={}){
   if(!ENVIRONMENT_PRESETS.some(p=>p.value===preset))
     throw new TypeError('Unknown environment preset');
@@ -132,7 +154,15 @@ export function applyEnvironmentPreset(doc,{
   const d=bounded(Number(density)||1,.35,2);
   if(preset==='forest'||preset==='coastal')
     return naturalLandscape(doc,selectedId,preset==='coastal',d);
-  if(preset==='parking')return parkingLot(doc,anchor);
+  if(preset==='parking'){
+    for(const [value,min,max,label] of [
+      [parkingSize,.75,1.35,'lot size'],[stallWidth,2.6,5.2,'stall width'],
+      [occupancy,0,1,'occupancy'],[entranceWidth,6,10,'entrance width']]){
+      if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)
+        throw new RangeError('Invalid parking '+label+'.');
+    }
+    return parkingLot(doc,anchor,{size:parkingSize,stallWidth,occupancy,entranceWidth});
+  }
   if(preset==='industrial')return industry(doc,anchor,d);
   const road=doc.roads.find(r=>r.id===selectedId)||
     doc.roads.find(r=>r.id===nearestRoadPlacement(doc,anchor,65)?.roadId);
