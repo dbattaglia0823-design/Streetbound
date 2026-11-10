@@ -1,0 +1,261 @@
+extends CanvasLayer
+## Temporary all-vehicle showroom. G opens a scrollable catalog while the
+## world is paused; selecting an entry immediately swaps the current car.
+const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+var player: VehicleController2D
+var driving_hud: CanvasLayer
+var pause_menu: CanvasLayer
+var overlay: Control
+var launch_button: Button
+var scroll: ScrollContainer
+var grid: GridContainer
+var search: LineEdit
+var title_label: Label
+var cards: Array[Dictionary] = []
+var _thumb_cache: Dictionary = {}
+var _thumb_clock := 0.0
+var _paused_by_selector := false
+
+
+func _ready() -> void:
+	name = "VehicleSelector"
+	layer = 16
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	launch_button = Button.new()
+	launch_button.name = "OpenVehicleSelector"
+	launch_button.text = "VEHICLES  [ G ]"
+	launch_button.position = Vector2(410.0, 24.0)
+	launch_button.custom_minimum_size = Vector2(196.0, 42.0)
+	launch_button.pressed.connect(open_menu)
+	add_child(launch_button)
+	overlay = Control.new()
+	overlay.name = "VehicleCatalogOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.025, 0.04, 0.05, 0.94)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(backdrop)
+	var frame := MarginContainer.new()
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.add_theme_constant_override("margin_left", 35)
+	frame.add_theme_constant_override("margin_right", 35)
+	frame.add_theme_constant_override("margin_top", 25)
+	frame.add_theme_constant_override("margin_bottom", 25)
+	overlay.add_child(frame)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 13)
+	frame.add_child(column)
+	var heading := HBoxContainer.new()
+	column.add_child(heading)
+	var name_label := Label.new()
+	name_label.text = "STREETBOUND  /  VEHICLES"
+	name_label.add_theme_font_size_override("font_size", 27)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(name_label)
+	var close := Button.new()
+	close.name = "CloseVehicleSelector"
+	close.text = "BACK TO DRIVING   [ ESC ]"
+	close.pressed.connect(close_menu)
+	heading.add_child(close)
+	var help := Label.new()
+	help.text = "Choose any vehicle to drive it now. Purchasing and ownership will be added later."
+	help.add_theme_font_size_override("font_size", 14)
+	column.add_child(help)
+	search = LineEdit.new()
+	search.name = "VehicleSearch"
+	search.placeholder_text = "Search manufacturer or model"
+	search.custom_minimum_size.y = 39
+	search.text_changed.connect(_apply_filter)
+	column.add_child(search)
+	title_label = Label.new()
+	title_label.add_theme_font_size_override("font_size", 13)
+	column.add_child(title_label)
+	scroll = ScrollContainer.new()
+	scroll.name = "VehicleScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	grid = GridContainer.new()
+	grid.name = "VehicleGrid"
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	scroll.add_child(grid)
+	for entry in Catalog.all():
+		_create_card(entry)
+	overlay.visible = false
+	get_viewport().size_changed.connect(_layout_grid)
+	_layout_grid()
+
+
+func _create_card(entry: Dictionary) -> void:
+	var button := Button.new()
+	button.name = "Car_" + str(entry.id).replace("-", "_")
+	button.custom_minimum_size = Vector2(210, 224)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.tooltip_text = "%s  |  %.0f kg  |  %.0f kW  |  %s" % [
+		str(entry.display_name), float(entry.mass_kg), float(entry.power_kw),
+		str(entry.drivetrain)]
+	button.pressed.connect(_choose.bind(entry))
+	grid.add_child(button)
+	var photo := TextureRect.new()
+	photo.name = "Preview"
+	photo.position = Vector2(12, 9)
+	photo.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	photo.offset_left = 12.0
+	photo.offset_right = -12.0
+	photo.offset_top = 10.0
+	photo.offset_bottom = 143.0
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(photo)
+	var label := Label.new()
+	label.name = "VehicleName"
+	label.text = str(entry.display_name)
+	label.position = Vector2(12, 151)
+	label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	label.offset_left = 12
+	label.offset_right = -12
+	label.offset_top = -70
+	label.offset_bottom = -38
+	label.clip_text = true
+	label.add_theme_font_size_override("font_size", 15)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(label)
+	var note := Label.new()
+	note.text = ("MODEL TO VERIFY" if bool(entry.source_model_unverified) else str(entry.kind).to_upper()) + \
+		"  /  " + str(entry.drivetrain)
+	note.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	note.offset_left = 12
+	note.offset_right = -12
+	note.offset_top = -39
+	note.offset_bottom = -13
+	note.add_theme_font_size_override("font_size", 11)
+	note.add_theme_color_override("font_color", Color("#a8bcab"))
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(note)
+	cards.append({"button": button, "preview": photo, "entry": entry})
+
+
+func _layout_grid() -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
+	grid.columns = maxi(2, floori((viewport_size.x - 90.0) / 232.0))
+	launch_button.position = Vector2(minf(410.0, viewport_size.x - 215.0), 24.0)
+
+
+func _apply_filter(query: String) -> void:
+	var needle := query.strip_edges().to_lower()
+	var visible_count := 0
+	for item in cards:
+		var entry: Dictionary = item.entry
+		var keep := needle.is_empty() or needle in str(entry.display_name).to_lower()
+		(item.button as Button).visible = keep
+		if keep:
+			visible_count += 1
+	title_label.text = "%d VEHICLES   /   CLICK TO DRIVE" % visible_count
+	scroll.scroll_vertical = 0
+	_thumb_clock = 10.0
+
+
+func open_menu() -> void:
+	if overlay.visible or get_tree().paused:
+		return
+	_paused_by_selector = true
+	get_tree().paused = true
+	overlay.visible = true
+	launch_button.visible = false
+	search.clear()
+	_apply_filter("")
+	search.grab_focus()
+
+
+func close_menu() -> void:
+	if not overlay.visible:
+		return
+	overlay.visible = false
+	launch_button.visible = true
+	get_viewport().gui_release_focus()
+	if _paused_by_selector:
+		get_tree().paused = false
+	_paused_by_selector = false
+
+
+func _choose(entry: Dictionary) -> void:
+	if not Catalog.select(player, entry):
+		return
+	var saved := ConfigFile.new()
+	saved.set_value("vehicle", "selected_id", str(entry.id))
+	saved.save("user://streetbound_selected_vehicle.cfg")
+	if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
+		driving_hud.on_vehicle_selected(entry)
+	close_menu()
+
+
+func restore_selection() -> void:
+	# Called after HUD initialization, so its stock tuning resources remain
+	# valid and the selected car replaces only the active runtime instance.
+	var file := ConfigFile.new()
+	if file.load("user://streetbound_selected_vehicle.cfg") != OK:
+		return
+	var entry := Catalog.find_by_id(str(file.get_value("vehicle", "selected_id", "")))
+	if not entry.is_empty() and Catalog.select(player, entry):
+		if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
+			driving_hud.on_vehicle_selected(entry)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventKey:
+		return
+	var key := event as InputEventKey
+	if not key.pressed or key.echo:
+		return
+	if key.keycode == KEY_G or key.physical_keycode == KEY_G:
+		if overlay.visible:
+			close_menu()
+		else:
+			open_menu()
+		get_viewport().set_input_as_handled()
+	elif overlay.visible and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
+		close_menu()
+		get_viewport().set_input_as_handled()
+
+
+func _process(dt: float) -> void:
+	if not overlay.visible:
+		return
+	_thumb_clock += dt
+	if _thumb_clock < 0.08:
+		return
+	_thumb_clock = 0.0
+	var viewport_rect := scroll.get_global_rect().grow(250.0)
+	var budget := 3
+	for item in cards:
+		var button: Button = item.button
+		var preview: TextureRect = item.preview
+		if not button.visible:
+			preview.texture = null
+			continue
+		if not viewport_rect.intersects(button.get_global_rect()):
+			preview.texture = null
+			continue
+		if preview.texture != null or budget <= 0:
+			continue
+		var path := str((item.entry as Dictionary).texture)
+		if not _thumb_cache.has(path):
+			var source := load(path) as Texture2D
+			if source == null:
+				continue
+			var pixels := source.get_image()
+			var rect := Catalog.alpha_bounds(pixels)
+			if rect.size.x <= 4 or rect.size.y <= 4:
+				continue
+			var cropped := pixels.get_region(rect)
+			var ratio := minf(200.0 / cropped.get_width(), 137.0 / cropped.get_height())
+			cropped.resize(maxi(1, roundi(cropped.get_width() * ratio)),
+				maxi(1, roundi(cropped.get_height() * ratio)), Image.INTERPOLATE_LANCZOS)
+			_thumb_cache[path] = ImageTexture.create_from_image(cropped)
+		preview.texture = _thumb_cache[path]
+		budget -= 1
