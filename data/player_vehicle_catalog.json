@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional.",
+  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars.",
   "vehicles": [
     {
       "id": "acura-integra",
@@ -20,7 +20,8 @@
       "drivetrain": "FWD",
       "kind": "compact",
       "price_usd": 23900,
-      "dealership_id": "used"
+      "dealership_id": "used",
+      "required_player_level": 4
     },
     {
       "id": "acura-tl",
@@ -40,7 +41,8 @@
       "drivetrain": "FWD",
       "kind": "sedan",
       "price_usd": 11500,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 1
     },
     {
       "id": "acura-tlx",
@@ -60,7 +62,8 @@
       "drivetrain": "FWD",
       "kind": "sedan",
       "price_usd": 32700,
-      "dealership_id": "used"
+      "dealership_id": "used",
+      "required_player_level": 18
     },
     {
       "id": "acura-tsx",
@@ -80,7 +83,8 @@
       "drivetrain": "FWD",
       "kind": "sedan",
       "price_usd": 13500,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 3
     },
     {
       "id": "acura-ilx",
@@ -100,7 +104,8 @@
       "drivetrain": "FWD",
       "kind": "compact",
       "price_usd": 17800,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 7
     },
     {
       "id": "alfa-romeo-giulia",
@@ -120,7 +125,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 42500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 20
     },
     {
       "id": "alfa-romeo-stelvio",
@@ -140,7 +146,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 54000,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 28
     },
     {
       "id": "alfa-romeo-tonale",
@@ -160,7 +167,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 36500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 10
     },
     {
       "id": "alfa-romeo-mito",
@@ -180,7 +188,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 9900,
-      "dealership_id": "junk"
+      "dealership_id": "junk",
+      "required_player_level": 2
     },
     {
       "id": "alfa-romeo-giulietta",
@@ -200,7 +209,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 15500,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 5
     },
     {
       "id": "alfa-romeo-brera",
@@ -220,7 +230,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 21900,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 8
     },
     {
       "id": "alfa-romeo-4c",
@@ -240,7 +251,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 82000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 31
     },
     {
       "id": "alfa-romeo-33-stradale",
@@ -260,7 +272,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 1850000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 75
     },
     {
       "id": "aston-martin-db9",
@@ -280,7 +293,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 98000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 42
     },
     {
       "id": "aston-martin-db11",
@@ -300,7 +314,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 155000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 53
     },
     {
       "id": "aston-martin-db12",
@@ -320,7 +335,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 245000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 58
     },
     {
       "id": "aston-martin-dbs",
@@ -340,7 +356,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 265000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 69
     },
     {
       "id": "aston-martin-vantage",
@@ -360,7 +377,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 165000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 56
     },
     {
       "id": "aston-martin-vanquish",
@@ -380,7 +398,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 385000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 83
     },
     {
       "id": "aston-martin-rapide",
@@ -400,7 +419,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 115000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 45
     },
     {
       "id": "aston-martin-dbx",
@@ -420,7 +440,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 245000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 61
     },
     {
       "id": "aston-martin-valkyrie",
@@ -440,7 +461,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 3300000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 92
     },
     {
       "id": "aston-martin-one-77",
@@ -460,7 +482,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 1350000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 70
     },
     {
       "id": "audi-a3",
@@ -480,7 +503,8 @@
       "drivetrain": "AWD",
       "kind": "compact",
       "price_usd": 25500,
-      "dealership_id": "used"
+      "dealership_id": "used",
+      "required_player_level": 8
     },
     {
       "id": "audi-a4",
@@ -500,7 +524,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 34500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 12
     },
     {
       "id": "audi-a5",
@@ -520,7 +545,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 43000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 22
     },
     {
       "id": "audi-a6",
@@ -540,7 +566,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 47500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 26
     },
     {
       "id": "audi-a7",
@@ -560,7 +587,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 59500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 32
     },
     {
       "id": "audi-a8",
@@ -580,7 +608,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 92000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 43
     },
     {
       "id": "audi-q3",
@@ -600,7 +629,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 34500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 7
     },
     {
       "id": "audi-q5",
@@ -620,7 +650,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 45500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 20
     },
     {
       "id": "audi-q7",
@@ -640,7 +671,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 69500,
-      "dealership_id": "summit"
+      "dealership_id": "summit",
+      "required_player_level": 35
     },
     {
       "id": "bmw-i8",
@@ -660,7 +692,8 @@
       "drivetrain": "AWD",
       "kind": "sport",
       "price_usd": 105000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 50
     },
     {
       "id": "bmw-m2",
@@ -680,7 +713,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 67000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 34
     },
     {
       "id": "bmw-m3",
@@ -700,7 +734,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 85000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 35
     },
     {
       "id": "bmw-m4",
@@ -720,7 +755,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 88000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 39
     },
     {
       "id": "bmw-m8",
@@ -740,7 +776,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 142000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 51
     },
     {
       "id": "bmw-x3",
@@ -760,7 +797,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 47500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 25
     },
     {
       "id": "bmw-x5",
@@ -780,7 +818,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 74500,
-      "dealership_id": "summit"
+      "dealership_id": "summit",
+      "required_player_level": 47
     },
     {
       "id": "bmw-z4",
@@ -800,7 +839,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 41000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 19
     },
     {
       "id": "bentley-continental-gt",
@@ -820,7 +860,8 @@
       "drivetrain": "AWD",
       "kind": "sport",
       "price_usd": 255000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 63
     },
     {
       "id": "bentley-flying-spur",
@@ -840,7 +881,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 235000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 55
     },
     {
       "id": "bentley-bentayga",
@@ -860,7 +902,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 225000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 52
     },
     {
       "id": "bentley-mulsanne",
@@ -880,7 +923,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 185000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 59
     },
     {
       "id": "bentley-arnage",
@@ -900,7 +944,8 @@
       "drivetrain": "AWD",
       "kind": "sedan",
       "price_usd": 79000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 36
     },
     {
       "id": "bugatti-eb110",
@@ -920,7 +965,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 1650000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 73
     },
     {
       "id": "bugatti-veyron",
@@ -940,7 +986,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 1850000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 78
     },
     {
       "id": "bugatti-chiron",
@@ -960,7 +1007,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 2850000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 86
     },
     {
       "id": "bugatti-divo",
@@ -980,7 +1028,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 4700000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 95
     },
     {
       "id": "bugatti-centodieci",
@@ -1000,7 +1049,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 7800000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 100
     },
     {
       "id": "bugatti-bolide",
@@ -1020,7 +1070,8 @@
       "drivetrain": "AWD",
       "kind": "hyper",
       "price_usd": 5800000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 97
     },
     {
       "id": "cadillac-escalade",
@@ -1040,7 +1091,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 105000,
-      "dealership_id": "summit"
+      "dealership_id": "summit",
+      "required_player_level": 58
     },
     {
       "id": "cadillac-ct4",
@@ -1060,7 +1112,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 38000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 17
     },
     {
       "id": "cadillac-ct5",
@@ -1080,7 +1133,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 56500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 31
     },
     {
       "id": "chevrolet-camaro-z28",
@@ -1100,7 +1154,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 46500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 24
     },
     {
       "id": "chevrolet-camaro-zl1",
@@ -1120,7 +1175,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 79000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 24
     },
     {
       "id": "chevrolet-corvette-c5",
@@ -1140,7 +1196,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 25500,
-      "dealership_id": "used"
+      "dealership_id": "used",
+      "required_player_level": 11
     },
     {
       "id": "chevrolet-corvette-c6",
@@ -1160,7 +1217,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 35500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 15
     },
     {
       "id": "chevrolet-corvette-c7",
@@ -1180,7 +1238,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 54000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 29
     },
     {
       "id": "chevrolet-corvette-c8",
@@ -1200,7 +1259,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 79500,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 28
     },
     {
       "id": "chevrolet-corvette-z06",
@@ -1220,7 +1280,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 138000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 48
     },
     {
       "id": "chevrolet-corvette-zr1",
@@ -1240,7 +1301,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 245000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 65
     },
     {
       "id": "chevrolet-corvette-zr1x",
@@ -1260,7 +1322,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 315000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 75
     },
     {
       "id": "dodge-charger",
@@ -1280,7 +1343,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 28000,
-      "dealership_id": "used"
+      "dealership_id": "used",
+      "required_player_level": 15
     },
     {
       "id": "dodge-challenger",
@@ -1300,7 +1364,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 35000,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 14
     },
     {
       "id": "dodge-viper",
@@ -1320,7 +1385,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 102000,
-      "dealership_id": "showroom"
+      "dealership_id": "showroom",
+      "required_player_level": 46
     },
     {
       "id": "dodge-durango",
@@ -1340,7 +1406,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 45500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 23
     },
     {
       "id": "dodge-dart",
@@ -1360,7 +1427,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 9500,
-      "dealership_id": "junk"
+      "dealership_id": "junk",
+      "required_player_level": 2
     },
     {
       "id": "dodge-neon",
@@ -1380,7 +1448,8 @@
       "drivetrain": "RWD",
       "kind": "compact",
       "price_usd": 7400,
-      "dealership_id": "junk"
+      "dealership_id": "junk",
+      "required_player_level": 1
     },
     {
       "id": "dodge-avenger",
@@ -1400,7 +1469,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 10200,
-      "dealership_id": "junk"
+      "dealership_id": "junk",
+      "required_player_level": 3
     },
     {
       "id": "dodge-magnum",
@@ -1420,7 +1490,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 13500,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 4
     },
     {
       "id": "ferrari-308",
@@ -1440,7 +1511,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 94000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 39
     },
     {
       "id": "ferrari-f40",
@@ -1460,7 +1532,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 1850000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 81
     },
     {
       "id": "ferrari-f50",
@@ -1480,7 +1553,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 2800000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 84
     },
     {
       "id": "ferrari-enzo",
@@ -1500,7 +1574,8 @@
       "drivetrain": "RWD",
       "kind": "hyper",
       "price_usd": 3200000,
-      "dealership_id": "exotic"
+      "dealership_id": "exotic",
+      "required_player_level": 89
     },
     {
       "id": "ferrari-458-italia",
@@ -1520,7 +1595,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 185000,
-      "dealership_id": "premium"
+      "dealership_id": "premium",
+      "required_player_level": 62
     },
     {
       "id": "ferrari-488-gtb",
@@ -1540,7 +1616,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 255000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 66
     },
     {
       "id": "ferrari-f8-tributo",
@@ -1560,7 +1637,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 335000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 78
     },
     {
       "id": "ferrari-roma",
@@ -1580,7 +1658,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 265000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 72
     },
     {
       "id": "ferrari-296-gtb",
@@ -1600,7 +1679,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 355000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 80
     },
     {
       "id": "ferrari-purosangue",
@@ -1620,7 +1700,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 465000,
-      "dealership_id": "luxury"
+      "dealership_id": "luxury",
+      "required_player_level": 86
     },
     {
       "id": "ford-bronco",
@@ -1640,7 +1721,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 41000,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 15
     },
     {
       "id": "ford-explorer",
@@ -1660,7 +1742,8 @@
       "drivetrain": "AWD",
       "kind": "suv",
       "price_usd": 36500,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 12
     },
     {
       "id": "ford-f150",
@@ -1680,7 +1763,8 @@
       "drivetrain": "AWD",
       "kind": "truck",
       "price_usd": 43000,
-      "dealership_id": "trail"
+      "dealership_id": "trail",
+      "required_player_level": 18
     },
     {
       "id": "ford-fiesta",
@@ -1700,7 +1784,8 @@
       "drivetrain": "FWD",
       "kind": "compact",
       "price_usd": 12000,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 1
     },
     {
       "id": "ford-focus",
@@ -1720,7 +1805,8 @@
       "drivetrain": "FWD",
       "kind": "compact",
       "price_usd": 16500,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 6
     },
     {
       "id": "ford-mustang",
@@ -1740,7 +1826,8 @@
       "drivetrain": "RWD",
       "kind": "sport",
       "price_usd": 49500,
-      "dealership_id": "modern"
+      "dealership_id": "modern",
+      "required_player_level": 27
     },
     {
       "id": "ford-taurus",
@@ -1760,7 +1847,8 @@
       "drivetrain": "RWD",
       "kind": "sedan",
       "price_usd": 15000,
-      "dealership_id": "budget"
+      "dealership_id": "budget",
+      "required_player_level": 5
     }
   ]
 }

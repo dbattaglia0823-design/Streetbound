@@ -63,7 +63,7 @@ func _ready() -> void:
 	close.pressed.connect(close_menu)
 	heading.add_child(close)
 	var help := Label.new()
-	help.text = "Select a car you own. Buy additional vehicles from dealerships across Morrow Coast."
+	help.text = "Owned vehicles only. Race to level cars; part rarity unlocks at car LV 10 / 20 / 30 / 40 / 50."
 	help.add_theme_font_size_override("font_size", 14)
 	column.add_child(help)
 	search = LineEdit.new()
@@ -132,8 +132,10 @@ func _create_card(entry: Dictionary) -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(label)
 	var note := Label.new()
-	note.text = ("MODEL TO VERIFY" if bool(entry.source_model_unverified) else str(entry.kind).to_upper()) + \
-		"  /  " + str(entry.drivetrain)
+	note.text = "LV %d/50  /  %s" % [
+		inventory.level_for_car(str(entry.id)) if is_instance_valid(inventory) else 1,
+		inventory.highest_upgrade_rarity(str(entry.id)).to_upper() if \
+			is_instance_valid(inventory) else "UPGRADES LOCKED"]
 	note.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	note.offset_left = 12
 	note.offset_right = -12
@@ -143,7 +145,8 @@ func _create_card(entry: Dictionary) -> void:
 	note.add_theme_color_override("font_color", Color("#a8bcab"))
 	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(note)
-	cards.append({"button": button, "preview": photo, "entry": entry})
+	cards.append({"button": button, "preview": photo, "entry": entry,
+		"level_note":note})
 
 
 func _layout_grid() -> void:
@@ -171,6 +174,12 @@ func _apply_filter(query: String) -> void:
 func _refresh_owned_cars() -> void:
 	if search != null:
 		_apply_filter(search.text)
+	if is_instance_valid(inventory):
+		for item in cards:
+			var entry: Dictionary = item.entry
+			(item.level_note as Label).text = "LV %d/50  /  %s" % [
+				inventory.level_for_car(str(entry.id)),
+				inventory.highest_upgrade_rarity(str(entry.id)).to_upper()]
 
 
 func _can_open_garage() -> bool:
@@ -202,6 +211,7 @@ func open_menu() -> void:
 	launch_button.visible = false
 	search.clear()
 	_apply_filter("")
+	_refresh_owned_cars()
 	search.grab_focus()
 
 

@@ -11,6 +11,8 @@ const PlayerGarageScript = preload("res://scripts/world/player_garage.gd")
 const DealerWorldScript = preload("res://scripts/world/dealership_world.gd")
 const DealerMenuScript = preload("res://scripts/ui/dealership_menu.gd")
 const OwnershipScript = preload("res://scripts/vehicle/vehicle_ownership.gd")
+const DragRaceScript = preload("res://scripts/world/ashford_drag_race.gd")
+const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
@@ -20,6 +22,8 @@ var player_garage: Node2D
 var dealership_world: Node2D
 var dealership_menu: CanvasLayer
 var vehicle_ownership: VehicleOwnership
+var drag_race: Node2D
+var progression_hud: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -59,6 +63,14 @@ func _ready() -> void:
 		dealership_world.player = vehicle
 		ground.dealerships = dealership_world
 		ground.add_child(dealership_world)
+		# Timed quarter-mile racing awards XP to the driver and ONLY the
+		# vehicle equipped when the race begins.
+		drag_race = Node2D.new()
+		drag_race.set_script(DragRaceScript)
+		drag_race.world = ground
+		drag_race.player = vehicle
+		drag_race.economy = vehicle_ownership
+		ground.add_child(drag_race)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -94,6 +106,11 @@ func _ready() -> void:
 		hud.environment_title = "MORROW COAST    /    OPEN ROAD"
 		get_window().title = "Streetbound | Morrow Coast"
 	add_child(hud)
+	if not proving_ground:
+		progression_hud = CanvasLayer.new()
+		progression_hud.set_script(ProgressHudScript)
+		progression_hud.economy = vehicle_ownership
+		add_child(progression_hud)
 	if not proving_ground:
 		var world_hud := CanvasLayer.new()
 		world_hud.layer = 3
