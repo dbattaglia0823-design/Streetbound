@@ -1,41 +1,124 @@
-extends StaticBody2D
-## Lightweight cozy top-down traffic vehicle, sized like a 2m x 4m car.
-## Uses no player car texture duplication, keeping AI traffic replaceable.
-var car_color := Color("718899")
+extends CharacterBody2D
+## Collidable, recoverable traffic vehicles. The ten authored top-down PNGs
+## are cropped by their alpha bounds and scaled to a physical car-sized body.
+## Player impacts can displace cars; TrafficFlow then returns them to a legal
+## directional road lane rather than teleporting them to a fixed waypoint.
+const PPM := 20.0
+const MODEL_PATHS := [
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
+	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
+]
+static var crop_cache: Dictionary = {}
+var car_color := Color("718899") # Only used when artwork is unavailable.
 var accent_color := Color("e4d5b9")
-var length_px := 74.0
-var width_px := 35.0
+var model_index := 0
+var length_px := 76.0
+var width_px := 38.0
+var recovering := false
+var recovery_velocity := Vector2.ZERO
+var impact_count := 0
+var model_loaded := false
+
+static func model_count() -> int:
+	return MODEL_PATHS.size()
+
 
 func _ready() -> void:
-	# Traffic collision can be enabled later without altering lane motion or
-	# changing existing deterministic vehicle physics tests. The agent already
-	# uses player spacing and vehicle-to-vehicle headway.
-	collision_layer = 0
-	collision_mask = 0
+	# Player layer=2/mask=1; world obstacles layer=1. Traffic collides with
+	# both, and the player can push it instead of driving through a sprite.
+	collision_layer = 1
+	collision_mask = 3
+	add_to_group("traffic_vehicle")
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	z_index = 2
+	var shape_node := CollisionShape2D.new()
+	shape_node.name = "VehicleCollider"
+	var shape := CapsuleShape2D.new()
+	shape.radius = width_px * 0.43
+	shape.height = length_px * 0.94
+	shape_node.shape = shape
+	add_child(shape_node)
+	_add_sprite()
 	queue_redraw()
 
 
+func _add_sprite() -> void:
+	var path: String = MODEL_PATHS[posmod(model_index, MODEL_PATHS.size())]
+	var texture := load(path) as Texture2D
+	if texture == null:
+		push_warning("Traffic artwork unavailable: " + path)
+		return
+	var rect: Rect2i
+	if crop_cache.has(path):
+		rect = crop_cache[path]
+	else:
+		var pixels: Image = texture.get_image()
+		if pixels == null:
+			return
+		rect = pixels.get_used_rect()
+		crop_cache[path] = rect
+	if rect.size.x < 2 or rect.size.y < 2:
+		return
+	var sprite := Sprite2D.new()
+	sprite.name = "VehicleArtwork"
+	sprite.texture = texture
+	sprite.region_enabled = true
+	sprite.region_rect = Rect2(rect)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# Top-down cars in portrait artwork face upward. If an asset is
+	# landscape, rotate its visual only; keep the physics body aligned.
+	var aspect := Vector2(rect.size)
+	if aspect.x > aspect.y * 1.08:
+		sprite.rotation = -PI / 2.0
+		aspect = Vector2(aspect.y, aspect.x)
+	var scale_factor := minf(width_px / aspect.x, length_px / aspect.y)
+	sprite.scale = Vector2.ONE * scale_factor
+	add_child(sprite)
+	model_loaded = true
+
+
+func receive_impact(impulse_px_per_sec: Vector2) -> void:
+	if impulse_px_per_sec.length_squared() < 1.0:
+		return
+	recovery_velocity = (recovery_velocity + impulse_px_per_sec).limit_length(PPM * 23.0)
+	recovering = true
+	impact_count += 1
+
+
+func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
+	# This is an actual swept CharacterBody collision, not a sprite teleport.
+	# Knockback is consumed gradually so a collision is visible and cars can
+	# rejoin a path without instantly snapping over buildings or sidewalks.
+	var motion := motion_px + recovery_velocity * dt
+	var hit := move_and_collide(motion)
+	if hit:
+		recovering = true
+		recovery_velocity = recovery_velocity.slide(hit.get_normal()) * 0.38
+	recovery_velocity = recovery_velocity.move_toward(Vector2.ZERO, PPM * 10.0 * dt)
+	return hit
+
+
 func _draw() -> void:
-	var w := width_px*0.5
-	var h := length_px*0.5
-	var shadow := Rect2(-w-4,-h+3,width_px+8,length_px+7)
-	draw_rect(shadow,Color(0.09,0.11,0.12,0.23),true)
-	# Wheels are recessed under the chassis, consistent with player wheel rig.
-	for side in [-1.0,1.0]:
-		draw_rect(Rect2(side*(w-2)-4,-h+10,8,17),Color("24282a"),true)
-		draw_rect(Rect2(side*(w-2)-4,h-27,8,17),Color("24282a"),true)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-w+6,-h),Vector2(w-6,-h),Vector2(w,-h+9),
-		Vector2(w,h-9),Vector2(w-6,h),Vector2(-w+6,h),
-		Vector2(-w,h-9),Vector2(-w,-h+9)]),car_color)
-	draw_rect(Rect2(-w+6,-h+17,width_px-12,20),Color("293f4a"),true)
-	draw_rect(Rect2(-w+6,h-27,width_px-12,12),Color("455e68"),true)
-	draw_line(Vector2(-w+4,-h+11),Vector2(w-4,-h+11),
-		car_color.lightened(0.26),3.0,true)
-	draw_rect(Rect2(-w+3,-h+3,7,4),Color("e9e7cf"),true)
-	draw_rect(Rect2(w-10,-h+3,7,4),Color("e9e7cf"),true)
-	draw_rect(Rect2(-w+3,h-6,7,4),Color("aa4040"),true)
-	draw_rect(Rect2(w-10,h-6,7,4),Color("aa4040"),true)
-	draw_line(Vector2(-w+5,h-12),Vector2(w-5,h-12),accent_color.darkened(0.4),2.0)
+	# Shadow remains under the user-supplied artwork.
+	draw_rect(Rect2(-width_px * .55 + 3, -length_px * .50 + 5,
+		width_px * 1.1, length_px * 1.03),
+		Color(0.06, 0.08, 0.10, 0.21), true)
+	if model_loaded:
+		return
+	# Emergency fallback keeps traffic visible if an asset is missing,
+	# but normally the ten actual vehicle images are displayed instead.
+	var w := width_px * .5
+	var h := length_px * .5
+	draw_rect(Rect2(-w, -h, width_px, length_px), car_color, true)
+	draw_rect(Rect2(-w + 5, -h + 14, width_px - 10, 19), Color("293f4a"), true)
+	draw_rect(Rect2(-w + 5, h - 27, width_px - 10, 14), Color("455e68"), true)
+	draw_line(Vector2(-w + 5, -h + 8), Vector2(w - 5, -h + 8),
+		accent_color, 3, true)
