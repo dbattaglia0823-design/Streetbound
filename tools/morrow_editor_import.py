@@ -148,12 +148,23 @@ def _authoring_props(doc):
         size = [round(v * scale, 3) for v in base_size]
         radius = math.hypot(*size) / 2.0 if solid else 0.0
         seed = zlib.crc32(item_id.encode("utf-8")) & 0x7fffffff
-        result.append(dict(kind=kind,p=[round(x,3),round(y,3)],
-                           size=size,angle=math.radians(rotation),
-                           color="9dac94" if kind in {"tree","pine","palm","bush"} else "bdb9a7",
-                           radius=radius,solid=solid,seed=seed,
-                           authoring_id=item_id,editor_type=type_name,
-                           editor_scale=scale,editor_name=str(raw.get("name", ""))[:80]))
+        entry = dict(kind=kind,p=[round(x,3),round(y,3)],
+                     size=size,angle=math.radians(rotation),
+                     color="9dac94" if kind in {"tree","pine","palm","bush"} else "bdb9a7",
+                     radius=radius,solid=solid,seed=seed,
+                     authoring_id=item_id,editor_type=type_name,
+                     editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
+        if type_name == "parking":
+            for field, raw_field, minimum, maximum, default in (
+                ("stall_width", "stallWidth", 2.6, 5.2, 3.2),
+                ("occupancy", "occupancy", 0.0, 1.0, .4),
+                ("entrance_width", "entranceWidth", 6.0, 10.0, 8.0),
+            ):
+                value = raw.get(raw_field, default)
+                if type(value) not in (int, float) or not math.isfinite(value) or not minimum <= value <= maximum:
+                    raise ValueError("Invalid parking configuration: " + raw_field)
+                entry[field] = round(float(value), 3)
+        result.append(entry)
     return result
 
 
