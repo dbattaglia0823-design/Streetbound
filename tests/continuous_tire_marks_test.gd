@@ -18,6 +18,7 @@ func check(label: String, good: bool, value: Variant = "") -> void:
 func run() -> void:
 	var marks: TireMarks2D = TireMarks.new()
 	root.add_child(marks)
+	check("tyre_ink_layers_above_asphalt_and_under_vehicle",marks.z_index == 4)
 	marks.add_mark(Vector2(100,100),0.0,true,0)
 	var first: Line2D = marks.active_line(0)
 	check("new_tyre_path_is_not_a_disconnected_footprint",
