@@ -4,8 +4,10 @@ extends Node2D
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const MapGeometry = preload("res://scripts/world/map_geometry.gd")
+const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const PPM := 20.0
 var data: Dictionary
+var player_garage_prop: Dictionary = {}
 var chunk_m := 192.0
 var vehicle: VehicleController2D
 var tire_marks: MultiMeshInstance2D
@@ -41,6 +43,10 @@ var _debug_clock := 0.0
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	for prop in data.props:
+		if GarageGeometry.is_player_garage(prop):
+			player_garage_prop = prop
+			break
 	chunk_m = float(data.chunk_size)
 	# Derive a continuous promenade from the original smoothed coastline.
 	# Beach polygons extend 65m inland; the deck sits 35m inland, never
@@ -312,6 +318,11 @@ func _process(dt: float) -> void:
 func surface_at(position_px: Vector2) -> Dictionary:
 	surface_queries += 1
 	var point := position_px/PPM
+	# The physical opening replaces the solid center of the existing garage,
+	# so its interior must be a grippy, paved surface rather than grass.
+	if not player_garage_prop.is_empty() and GarageGeometry.inside_bay(
+		player_garage_prop, position_px):
+		return {"name": "ASPHALT", "grip": 1.0}
 	var key := "%d,%d" % [floori(point.x/float(data.surface_cell)),floori(point.y/float(data.surface_cell))]
 	# Facilities are concrete parking aprons connected to the road graph.
 	for prop in _apron_grid.get(key,[]):
