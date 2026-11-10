@@ -110,7 +110,7 @@ func run() -> void:
 	race._physics_process(3.05)
 	check("race_transitions_to_live_run",race.state == "running")
 	var elapsed_step := 0.025
-	var forward := race.direction
+	var forward: Vector2 = race.direction
 	for i in range(405):
 		vehicle.global_position = start + forward * (float(i+1) * PPM)
 		vehicle.linear_velocity = forward * 40.0
