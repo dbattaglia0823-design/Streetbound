@@ -114,6 +114,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		scenery.origin_m = origin_m
 		scenery.z_index = 6
 		add_child(scenery)
+	# Furnish curb edges in one static draw node per road-bearing chunk.
+	# Lamps, benches and signs follow the real spline and avoid junctions;
+	# no per-furnishing sprite or physics nodes are created.
+	if not road_batches.is_empty():
+		var details := Node2D.new()
+		details.name = "StreetDetails"
+		details.set_script(preload("res://scripts/world/coast_roadside_details.gd"))
+		details.origin_m = origin_m
+		details.chunk_size_px = world.chunk_m * PPM
+		details.road_batches = road_batches
+		details.junction_list = junction_list
+		details.z_index = 5
+		add_child(details)
 	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
 	# or submitted to the renderer unless F4 developer mode is explicitly on.
 	var geometry_overlay := Node2D.new()
@@ -234,10 +247,19 @@ func _draw_ground_foliage() -> void:
 			if kind in ["city", "town"] and rng.randf() > 0.40:
 				continue
 			var extent := rng.randf_range(6.0, 13.0)
-			var shade := Color(0.22, 0.37, 0.23, 0.23) if kind == "forest" else Color(0.38, 0.47, 0.28, 0.21)
-			var highlight := Color(0.61, 0.68, 0.39, 0.24)
+			var shade := Color(.18,.33,.24,.27) if kind == "forest" else 				Color(.44,.42,.30,.24) if kind in ["farmland","field"] else 				Color(.36,.46,.28,.21)
+			var highlight := Color(.54,.66,.43,.27) if kind == "forest" else 				Color(.69,.67,.43,.23)
 			draw_line(p + Vector2(-extent * 0.55, extent * 0.12), p + Vector2(-extent * 0.15, -extent * 0.75), shade, 2.0, true)
 			draw_line(p + Vector2(extent * 0.50, extent * 0.16), p + Vector2(extent * 0.05, -extent), highlight, 2.3, true)
 			draw_line(p + Vector2(-extent * 0.10, extent * 0.32), p + Vector2(extent * 0.06, -extent * 0.63), shade, 2.0, true)
 			if rng.randf() < 0.08 and kind not in ["mountain", "highland"]:
-				draw_circle(p + Vector2(3.0, -extent), 2.4, Color(0.91, 0.83, 0.58, 0.45))
+				draw_circle(p + Vector2(3.0, -extent), 2.4,Color(.91,.83,.58,.45))
+			# Small warm soil breaks and wildflowers make open spaces
+			# legible without additional foliage nodes or collisions.
+			if rng.randf() < (0.23 if kind in ["farmland","field"] else 0.12):
+				draw_circle(p+Vector2(13,14),rng.randf_range(3.0,12.0),
+					Color(.43,.34,.23,.10 if kind=="forest" else .19))
+			elif rng.randf() < .045 and kind in ["grass","forest","meadow","city"]:
+				for f in 3:
+					var offset := Vector2.from_angle(float(f)*TAU/3.0)*5.0
+					draw_circle(p+offset,2.2,Color(.79,.78,.63,.58))

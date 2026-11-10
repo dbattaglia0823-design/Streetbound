@@ -90,6 +90,73 @@ def _near_node(nodes, point, tolerance=3.0):
     return min(matches)[1] if matches else None
 
 
+# Strict source-type mapping: only validated editor props are added to the
+# procedural world, never arbitrary runtime objects or client-provided flags.
+EDITOR_PROP_STYLES = {
+    "oak": ("tree", (7.0, 7.0), False),
+    "pine": ("pine", (7.0, 7.0), False),
+    "palm": ("palm", (6.5, 6.5), False),
+    "bush": ("bush", (2.5, 2.5), False),
+    "rock": ("rock", (3.0, 2.5), True),
+    "boulder": ("rock", (4.5, 3.4), True),
+    "house": ("house", (12.0, 17.0), True),
+    "building": ("building", (22.0, 29.0), True),
+    "warehouse": ("warehouse", (28.0, 37.0), True),
+    "garage": ("garage", (20.0, 21.0), True),
+    "gas_station": ("fuel", (18.0, 17.0), True),
+    "streetlight": ("lamp", (1.3, 1.3), False),
+    "sign": ("sign", (1.6, 1.4), False),
+    "barrier": ("barrier", (3.0, 1.0), True),
+    "parking": ("lot", (38.0, 28.0), False),
+    "dock": ("dock", (3.0, 11.0), False),
+}
+
+
+def _authoring_props(doc):
+    """Convert a bounded list of editor scenery to stable runtime props."""
+    import zlib
+
+    items = doc.get("props", [])
+    if not isinstance(items, list) or len(items) > 200:
+        raise ValueError("At most 200 editor-authored props may be baked")
+    ids = set()
+    result = []
+    for raw in items:
+        if not isinstance(raw, dict):
+            raise ValueError("Invalid authoring prop")
+        item_id = raw.get("id")
+        if not isinstance(item_id, str) or not re.fullmatch(r"prop-[a-zA-Z0-9_-]{1,50}", item_id):
+            raise ValueError("Invalid stable editor prop ID")
+        if item_id in ids:
+            raise ValueError("Duplicate editor prop ID")
+        ids.add(item_id)
+        type_name = raw.get("type")
+        if type_name not in EDITOR_PROP_STYLES:
+            raise ValueError("Unsupported production scenery type: " + str(type_name))
+        x, y, scale, rotation = (raw.get("x"), raw.get("y"),
+                                 raw.get("scale"), raw.get("rotation"))
+        if any(type(value) not in (int, float) or not math.isfinite(value)
+               for value in (x, y, scale, rotation)):
+            raise ValueError("Non-finite editor scenery properties")
+        if not 3 <= x <= 6397 or not 3 <= y <= 4797:
+            raise ValueError("Scenery outside safe Morrow Coast bounds")
+        if not .25 <= scale <= 2.5 or not -360 <= rotation <= 360:
+            raise ValueError("Editor prop scale or rotation out of range")
+        if raw.get("assetId"):
+            raise ValueError("Custom embedded art cannot be rebaked into Morrow Coast yet")
+        kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
+        size = [round(v * scale, 3) for v in base_size]
+        radius = math.hypot(*size) / 2.0 if solid else 0.0
+        seed = zlib.crc32(item_id.encode("utf-8")) & 0x7fffffff
+        result.append(dict(kind=kind,p=[round(x,3),round(y,3)],
+                           size=size,angle=math.radians(rotation),
+                           color="9dac94" if kind in {"tree","pine","palm","bush"} else "bdb9a7",
+                           radius=radius,solid=solid,seed=seed,
+                           authoring_id=item_id,editor_type=type_name,
+                           editor_scale=scale,editor_name=str(raw.get("name", ""))[:80]))
+    return result
+
+
 def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
     """Mutate the source-builder collections once, before tessellation/props.
 
@@ -252,6 +319,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
         elif marker.get("type") in {"traffic_spawn", "race_start", "checkpoint", "finish"}:
             extra.append(dict(kind=marker["type"],name=str(marker.get("name", ""))[:80],
                               p=[float(marker["x"]), float(marker["y"])]))
+    # Props participate in the same procedural occupancy, clearance
+    # assertions and streamed chunk indexes as native Morrow scenery.
+    authored = _authoring_props(doc)
+    props.extend(authored)
     print(f"Morrow Coast editor overlay applied: {edited} roads edited, "
           f"{len(roads)-source_count} roads added, {len(proposed_nodes)} shared nodes moved")
     return extra

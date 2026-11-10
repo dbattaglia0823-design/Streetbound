@@ -17,6 +17,9 @@ const MODEL_PATHS := [
 	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
 static var crop_cache: Dictionary = {}
+## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
+## moving traffic and static parked cars; each chunk does not rescan PNG data.
+static var art_cache: Dictionary = {}
 var car_color := Color("718899") # Only used when artwork is unavailable.
 var accent_color := Color("e4d5b9")
 var model_index := 0
@@ -41,6 +44,8 @@ func _ready() -> void:
 	z_index = 2
 	var shape_node := CollisionShape2D.new()
 	shape_node.name = "VehicleCollider"
+	# Hide the debug shape without removing its physics registration.
+	shape_node.visible = false
 	var shape := CapsuleShape2D.new()
 	shape.radius = width_px * 0.43
 	shape.height = length_px * 0.94
@@ -50,43 +55,60 @@ func _ready() -> void:
 	queue_redraw()
 
 
-func _add_sprite() -> void:
-	var path: String = MODEL_PATHS[posmod(model_index, MODEL_PATHS.size())]
+static func appearance_for(index: int) -> Dictionary:
+	var slot := posmod(index,MODEL_PATHS.size())
+	if art_cache.has(slot):
+		return art_cache[slot]
+	var path: String = MODEL_PATHS[slot]
 	var texture := load(path) as Texture2D
 	if texture == null:
 		push_warning("Traffic artwork unavailable: " + path)
-		return
+		return {}
 	var rect: Rect2i
 	if crop_cache.has(path):
 		rect = crop_cache[path]
 	else:
 		var pixels: Image = texture.get_image()
 		if pixels == null:
-			return
-		# ImageGen's PNGs have almost invisible edge pixels (~0.4%
-		# alpha) that make get_used_rect() expand to the whole square
-		# canvas. Threshold sampling finds the actual opaque car body.
+			return {}
 		rect = _visible_alpha_bounds(pixels)
 		crop_cache[path] = rect
 	if rect.size.x < 2 or rect.size.y < 2:
+		return {}
+	var degrees := 0.0
+	var aspect := Vector2(rect.size)
+	if aspect.x > aspect.y * 1.08:
+		degrees = -PI / 2.0
+		aspect = Vector2(aspect.y, aspect.x)
+	var art := {
+		"texture": texture, "region": rect, "rotation": degrees,
+		"aspect": aspect, "source_aspect": Vector2(rect.size)
+	}
+	art_cache[slot] = art
+	return art
+
+
+func _add_sprite() -> void:
+	var art := appearance_for(model_index)
+	if art.is_empty():
 		return
 	var sprite := Sprite2D.new()
 	sprite.name = "VehicleArtwork"
-	sprite.texture = texture
+	sprite.texture = art.texture
 	sprite.region_enabled = true
-	sprite.region_rect = Rect2(rect)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	# Top-down cars in portrait artwork face upward. If an asset is
-	# landscape, rotate its visual only; keep the physics body aligned.
-	var aspect := Vector2(rect.size)
-	if aspect.x > aspect.y * 1.08:
-		sprite.rotation = -PI / 2.0
-		aspect = Vector2(aspect.y, aspect.x)
-	var scale_factor := minf(width_px / aspect.x, length_px / aspect.y)
-	sprite.scale = Vector2.ONE * scale_factor
+	sprite.region_rect = Rect2(art.region)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	sprite.rotation = float(art.rotation)
+	var aspect: Vector2 = art.aspect
+	sprite.scale = Vector2.ONE * minf(width_px / aspect.x, length_px / aspect.y)
+	# Fit the real alpha-trimmed body rather than a one-size-fits-all hitbox.
+	# The capsule stays slightly inside the painted silhouette.
+	var shape := ($VehicleCollider as CollisionShape2D).shape as CapsuleShape2D
+	var actual_size := aspect * sprite.scale.x
+	shape.radius = clampf(actual_size.x * 0.44, 8.0, width_px * 0.45)
+	shape.height = maxf(shape.radius * 2.1, actual_size.y * 0.95)
 	add_child(sprite)
 	model_loaded = true
-
 
 
 static func _visible_alpha_bounds(image: Image) -> Rect2i:
@@ -130,17 +152,28 @@ func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 	var motion := motion_px + recovery_velocity * dt
 	var hit := move_and_collide(motion)
 	if hit:
-		recovering = true
+		var other: Object = hit.get_collider()
+		var dynamic_blocker := false
+		if other is Node:
+			dynamic_blocker = other.is_in_group("traffic_vehicle") or other is VehicleController2D
+		# Waiting behind a stopped car is not a crash. Otherwise both
+		# drivers keep trying to recover from an ordinary queue, causing jams.
+		if not dynamic_blocker or recovery_velocity.length() > PPM * 0.8:
+			recovering = true
 		recovery_velocity = recovery_velocity.slide(hit.get_normal()) * 0.38
 	recovery_velocity = recovery_velocity.move_toward(Vector2.ZERO, PPM * 10.0 * dt)
 	return hit
 
 
 func _draw() -> void:
-	# Shadow remains under the user-supplied artwork.
-	draw_rect(Rect2(-width_px * .55 + 3, -length_px * .50 + 5,
-		width_px * 1.1, length_px * 1.03),
-		Color(0.06, 0.08, 0.10, 0.21), true)
+	# A soft oval shadow follows the silhouette instead of drawing a box
+	# around the collision footprint. The physical shape is never rendered.
+	for layer in range(3, 0, -1):
+		var spread := float(layer) * 0.07
+		draw_set_transform(Vector2(2.0, 4.0), 0.0,
+			Vector2(width_px * (0.48 + spread), length_px * (0.47 + spread)))
+		draw_circle(Vector2.ZERO, 1.0, Color(0.03, 0.04, 0.05, 0.048))
+	draw_set_transform(Vector2.ZERO)
 	if model_loaded:
 		return
 	# Emergency fallback keeps traffic visible if an asset is missing,

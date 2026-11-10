@@ -47,6 +47,15 @@ void fragment() {
 	float patch = (broad - 0.5) * mix(0.07, 0.20, vegetation);
 	float small = (medium - 0.5) * 0.09 + (grit - 0.5) * 0.025;
 	vec3 meadow = paint * (1.0 + (patch + small) * terrain_detail);
+	// Natural grass and warm bare-soil breaks, tied to WORLD metres rather
+	// than the current 192m chunk. These patches do not affect traction.
+	float soil_noise = field_noise(world_m * 0.072 + vec2(32.4, 13.7));
+	float soil_exposure = smoothstep(.57,.79,
+		broad*.47 + medium*.27 + soil_noise*.26);
+	meadow = mix(meadow,meadow*vec3(.85,1.055,.81),
+		clamp(vegetation*.70*terrain_detail,0.0,0.85));
+	vec3 earthy = mix(vec3(.39,.35,.27),vec3(.59,.50,.35),soil_noise);
+	meadow = mix(meadow,earthy,soil_exposure*.57*vegetation*terrain_detail);
 	float dry = smoothstep(0.57, 0.87, broad * 0.85 + medium * 0.15);
 	meadow = mix(meadow, meadow * vec3(1.075, 1.045, 0.91), dry * 0.29 * vegetation * terrain_detail);
 	// Grass silhouettes progressively fade below a screen pixel instead of

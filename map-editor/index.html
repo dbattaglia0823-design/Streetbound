@@ -107,6 +107,26 @@
         </div>
         <p id="roadside-status" class="asset-hint" role="status">Placement protection is always on for new or moved objects.</p>
       </div>
+      <section class="scenery-brush-controls" aria-labelledby="preset-title">
+        <h3 id="preset-title">One-click environment presets</h3>
+        <p class="asset-hint">Create coherent streetscapes, real paved parking access,
+          landscape a selected terrain region, or furnish industry. Every preset is one Undo step.</p>
+        <div class="field"><label for="environment-preset">Environment</label>
+          <select id="environment-preset">
+            <option value="street">Street furniture along selected road</option>
+            <option value="parking">Parking lot with road access</option>
+            <option value="forest">Forest ground cover in selected region</option>
+            <option value="coastal">Coastal landscape in selected region</option>
+            <option value="industrial">Industrial roadside buildings</option>
+          </select></div>
+        <div class="field"><label for="environment-density">Density</label>
+          <select id="environment-density">
+            <option value=".55">Light</option><option value="1" selected>Balanced</option>
+            <option value="1.6">Detailed</option>
+          </select></div>
+        <button class="gdt-btn gdt-btn--primary" id="apply-environment-preset" type="button">Apply preset near map center</button>
+        <p id="environment-preset-status" class="asset-hint" role="status">Select a road or terrain region for targeted presets. Parking uses the viewport center.</p>
+      </section>
       <div class="scenery-brush-controls" aria-labelledby="brush-title">
         <h3 id="brush-title">Scenery painting</h3>
         <label class="check"><input id="scenery-paint" type="checkbox"> Hold and drag to scatter</label>

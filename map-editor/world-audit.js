@@ -7,7 +7,7 @@
  * nearby disconnected endpoints, invalid areas and obstructed sites.
  */
 import {distance,polygonArea,pointSegment,segmentIntersection,roadAt,sampleRoad} from './world-geometry.js';
-import {roadwayClearance,placementFootprint} from './world-road-placement.js';
+import {roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {findEndpointGaps} from './world-safe-edit.js';
 
@@ -122,6 +122,44 @@ export function auditWorld(doc,{maxIssues=180}={}){
       add('warning','scenery_over_road',prop,prop,
         'Scenery footprint overlaps a road or its shoulder.',
         'Use Fix all road overlaps in the scenery controls.');
+  }
+
+  // Advisory urban-design checks are intentionally bounded and conservative.
+  // They catch obvious size errors, isolated vehicle access and crowded
+  // facades without incorrectly rejecting curved streets or small courtyards.
+  const buildings=new Set(['house','building','warehouse','garage','gas_station','parking']);
+  const vehicleSites=new Set(['garage','gas_station','parking']);
+  const grid=new Map(),cell=180;
+  const keyOf=(x,y)=>x+','+y;
+  for(const prop of doc.props){
+    if(!buildings.has(prop.type))continue;
+    if(prop.scale<.47||prop.scale>2.35)
+      add('warning','building_scale_outlier',prop,prop,
+        'Building or parking scale is unusual for nearby vehicles.',
+        'Compare the footprint to road width and neighboring buildings.');
+    if(vehicleSites.has(prop.type)&&doc.roads.length){
+      const near=nearestRoadPlacement(doc,prop,260);
+      const acceptable=Math.max(105,placementFootprint(doc,prop)*1.6);
+      if(!near||near.distance>acceptable)
+        add('warning','disconnected_vehicle_access',prop,prop,
+          'Vehicle destination has no nearby drivable street or access road.',
+          'Add a connected paved driveway or move it closer to a street.');
+    }
+    const cx=Math.floor(prop.x/cell),cy=Math.floor(prop.y/cell);
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){
+      for(const other of grid.get(keyOf(x,y))||[]){
+        const minimum=(placementFootprint(doc,prop)+placementFootprint(doc,other))*.58;
+        if(distance(prop,other)<minimum){
+          add('warning','overlapping_buildings',prop,prop,
+            'Two building footprints appear crowded or overlapping.',
+            'Move one facade or verify the intended attached-building layout.');
+          break;
+        }
+      }
+    }
+    const key=keyOf(cx,cy);
+    if(!grid.has(key))grid.set(key,[]);
+    grid.get(key).push(prop);
   }
 
   const drivableTypes=new Set(['player_spawn','traffic_spawn','race_start','finish','checkpoint']);
