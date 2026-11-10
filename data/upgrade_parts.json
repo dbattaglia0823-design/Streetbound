@@ -1,0 +1,613 @@
+{
+  "version": 1,
+  "notes": "Modifiers are multiplicative fractions of stock VehicleConfig fields. Grip improves cornering consistency; Drift favors rotation, steering angle and slide control. Parts are earned only by completed races.",
+  "slots": [
+    "engine",
+    "ecu",
+    "intake",
+    "exhaust",
+    "suspension",
+    "tires",
+    "brakes",
+    "transmission"
+  ],
+  "rarities": [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Epic",
+    "Legendary"
+  ],
+  "parts": [
+    {
+      "id": "engine-street-common",
+      "slot": "engine",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common Forged Engine",
+      "modifiers": {
+        "engine_power_kw": 0.025,
+        "engine_torque_nm": 0.026
+      }
+    },
+    {
+      "id": "ecu-street-common",
+      "slot": "ecu",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common Race ECU",
+      "modifiers": {
+        "engine_power_kw": 0.022,
+        "redline_rpm": 0.01,
+        "engine_torque_nm": 0.008
+      }
+    },
+    {
+      "id": "intake-street-common",
+      "slot": "intake",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common High-Flow Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.026,
+        "engine_power_kw": 0.009
+      }
+    },
+    {
+      "id": "exhaust-street-common",
+      "slot": "exhaust",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common Lightweight Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.018,
+        "mass_kg": -0.006
+      }
+    },
+    {
+      "id": "suspension-grip-common",
+      "slot": "suspension",
+      "rarity": "Common",
+      "specialty": "Grip",
+      "name": "Common Track Coilovers Grip",
+      "modifiers": {
+        "cornering_stiffness": 0.038,
+        "rear_grip_balance": 0.028,
+        "yaw_damping": 0.012
+      }
+    },
+    {
+      "id": "suspension-drift-common",
+      "slot": "suspension",
+      "rarity": "Common",
+      "specialty": "Drift",
+      "name": "Common Drift Coilovers Drift",
+      "modifiers": {
+        "rear_grip_balance": -0.043,
+        "max_steer_degrees": 0.037,
+        "steering_response": 0.04,
+        "countersteer_assist": 0.027
+      }
+    },
+    {
+      "id": "tires-grip-common",
+      "slot": "tires",
+      "rarity": "Common",
+      "specialty": "Grip",
+      "name": "Common Circuit Compound Grip",
+      "modifiers": {
+        "tire_grip": 0.047,
+        "rear_grip_balance": 0.024,
+        "cornering_stiffness": 0.014
+      }
+    },
+    {
+      "id": "tires-drift-common",
+      "slot": "tires",
+      "rarity": "Common",
+      "specialty": "Drift",
+      "name": "Common Drift Compound Drift",
+      "modifiers": {
+        "tire_grip": 0.01,
+        "rear_grip_balance": -0.045,
+        "handbrake_drive_grip": 0.028,
+        "countersteer_assist": 0.028
+      }
+    },
+    {
+      "id": "brakes-street-common",
+      "slot": "brakes",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common Competition Brakes",
+      "modifiers": {
+        "brake_force_n": 0.045,
+        "handbrake_force_n": 0.025
+      }
+    },
+    {
+      "id": "transmission-street-common",
+      "slot": "transmission",
+      "rarity": "Common",
+      "specialty": "Street",
+      "name": "Common Quick-Shift Gearset",
+      "modifiers": {
+        "shift_duration": -0.049,
+        "auto_shift_duration": -0.045,
+        "final_drive": 0.01
+      }
+    },
+    {
+      "id": "engine-street-uncommon",
+      "slot": "engine",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon Forged Engine",
+      "modifiers": {
+        "engine_power_kw": 0.04125,
+        "engine_torque_nm": 0.0429
+      }
+    },
+    {
+      "id": "ecu-street-uncommon",
+      "slot": "ecu",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon Race ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0363,
+        "redline_rpm": 0.0165,
+        "engine_torque_nm": 0.0132
+      }
+    },
+    {
+      "id": "intake-street-uncommon",
+      "slot": "intake",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon High-Flow Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0429,
+        "engine_power_kw": 0.01485
+      }
+    },
+    {
+      "id": "exhaust-street-uncommon",
+      "slot": "exhaust",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon Lightweight Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0297,
+        "mass_kg": -0.0099
+      }
+    },
+    {
+      "id": "suspension-grip-uncommon",
+      "slot": "suspension",
+      "rarity": "Uncommon",
+      "specialty": "Grip",
+      "name": "Uncommon Track Coilovers Grip",
+      "modifiers": {
+        "cornering_stiffness": 0.0627,
+        "rear_grip_balance": 0.0462,
+        "yaw_damping": 0.0198
+      }
+    },
+    {
+      "id": "suspension-drift-uncommon",
+      "slot": "suspension",
+      "rarity": "Uncommon",
+      "specialty": "Drift",
+      "name": "Uncommon Drift Coilovers Drift",
+      "modifiers": {
+        "rear_grip_balance": -0.07095,
+        "max_steer_degrees": 0.06105,
+        "steering_response": 0.066,
+        "countersteer_assist": 0.04455
+      }
+    },
+    {
+      "id": "tires-grip-uncommon",
+      "slot": "tires",
+      "rarity": "Uncommon",
+      "specialty": "Grip",
+      "name": "Uncommon Circuit Compound Grip",
+      "modifiers": {
+        "tire_grip": 0.07755,
+        "rear_grip_balance": 0.0396,
+        "cornering_stiffness": 0.0231
+      }
+    },
+    {
+      "id": "tires-drift-uncommon",
+      "slot": "tires",
+      "rarity": "Uncommon",
+      "specialty": "Drift",
+      "name": "Uncommon Drift Compound Drift",
+      "modifiers": {
+        "tire_grip": 0.0165,
+        "rear_grip_balance": -0.07425,
+        "handbrake_drive_grip": 0.0462,
+        "countersteer_assist": 0.0462
+      }
+    },
+    {
+      "id": "brakes-street-uncommon",
+      "slot": "brakes",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon Competition Brakes",
+      "modifiers": {
+        "brake_force_n": 0.07425,
+        "handbrake_force_n": 0.04125
+      }
+    },
+    {
+      "id": "transmission-street-uncommon",
+      "slot": "transmission",
+      "rarity": "Uncommon",
+      "specialty": "Street",
+      "name": "Uncommon Quick-Shift Gearset",
+      "modifiers": {
+        "shift_duration": -0.08085,
+        "auto_shift_duration": -0.07425,
+        "final_drive": 0.0165
+      }
+    },
+    {
+      "id": "engine-street-rare",
+      "slot": "engine",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare Forged Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0625,
+        "engine_torque_nm": 0.065
+      }
+    },
+    {
+      "id": "ecu-street-rare",
+      "slot": "ecu",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare Race ECU",
+      "modifiers": {
+        "engine_power_kw": 0.055,
+        "redline_rpm": 0.025,
+        "engine_torque_nm": 0.02
+      }
+    },
+    {
+      "id": "intake-street-rare",
+      "slot": "intake",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare High-Flow Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.065,
+        "engine_power_kw": 0.0225
+      }
+    },
+    {
+      "id": "exhaust-street-rare",
+      "slot": "exhaust",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare Lightweight Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.045,
+        "mass_kg": -0.015
+      }
+    },
+    {
+      "id": "suspension-grip-rare",
+      "slot": "suspension",
+      "rarity": "Rare",
+      "specialty": "Grip",
+      "name": "Rare Track Coilovers Grip",
+      "modifiers": {
+        "cornering_stiffness": 0.095,
+        "rear_grip_balance": 0.07,
+        "yaw_damping": 0.03
+      }
+    },
+    {
+      "id": "suspension-drift-rare",
+      "slot": "suspension",
+      "rarity": "Rare",
+      "specialty": "Drift",
+      "name": "Rare Drift Coilovers Drift",
+      "modifiers": {
+        "rear_grip_balance": -0.1075,
+        "max_steer_degrees": 0.0925,
+        "steering_response": 0.1,
+        "countersteer_assist": 0.0675
+      }
+    },
+    {
+      "id": "tires-grip-rare",
+      "slot": "tires",
+      "rarity": "Rare",
+      "specialty": "Grip",
+      "name": "Rare Circuit Compound Grip",
+      "modifiers": {
+        "tire_grip": 0.1175,
+        "rear_grip_balance": 0.06,
+        "cornering_stiffness": 0.035
+      }
+    },
+    {
+      "id": "tires-drift-rare",
+      "slot": "tires",
+      "rarity": "Rare",
+      "specialty": "Drift",
+      "name": "Rare Drift Compound Drift",
+      "modifiers": {
+        "tire_grip": 0.025,
+        "rear_grip_balance": -0.1125,
+        "handbrake_drive_grip": 0.07,
+        "countersteer_assist": 0.07
+      }
+    },
+    {
+      "id": "brakes-street-rare",
+      "slot": "brakes",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare Competition Brakes",
+      "modifiers": {
+        "brake_force_n": 0.1125,
+        "handbrake_force_n": 0.0625
+      }
+    },
+    {
+      "id": "transmission-street-rare",
+      "slot": "transmission",
+      "rarity": "Rare",
+      "specialty": "Street",
+      "name": "Rare Quick-Shift Gearset",
+      "modifiers": {
+        "shift_duration": -0.1225,
+        "auto_shift_duration": -0.1125,
+        "final_drive": 0.025
+      }
+    },
+    {
+      "id": "engine-street-epic",
+      "slot": "engine",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic Forged Engine",
+      "modifiers": {
+        "engine_power_kw": 0.08875,
+        "engine_torque_nm": 0.0923
+      }
+    },
+    {
+      "id": "ecu-street-epic",
+      "slot": "ecu",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic Race ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0781,
+        "redline_rpm": 0.0355,
+        "engine_torque_nm": 0.0284
+      }
+    },
+    {
+      "id": "intake-street-epic",
+      "slot": "intake",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic High-Flow Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0923,
+        "engine_power_kw": 0.03195
+      }
+    },
+    {
+      "id": "exhaust-street-epic",
+      "slot": "exhaust",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic Lightweight Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0639,
+        "mass_kg": -0.0213
+      }
+    },
+    {
+      "id": "suspension-grip-epic",
+      "slot": "suspension",
+      "rarity": "Epic",
+      "specialty": "Grip",
+      "name": "Epic Track Coilovers Grip",
+      "modifiers": {
+        "cornering_stiffness": 0.1349,
+        "rear_grip_balance": 0.0994,
+        "yaw_damping": 0.0426
+      }
+    },
+    {
+      "id": "suspension-drift-epic",
+      "slot": "suspension",
+      "rarity": "Epic",
+      "specialty": "Drift",
+      "name": "Epic Drift Coilovers Drift",
+      "modifiers": {
+        "rear_grip_balance": -0.15265,
+        "max_steer_degrees": 0.13135,
+        "steering_response": 0.142,
+        "countersteer_assist": 0.09585
+      }
+    },
+    {
+      "id": "tires-grip-epic",
+      "slot": "tires",
+      "rarity": "Epic",
+      "specialty": "Grip",
+      "name": "Epic Circuit Compound Grip",
+      "modifiers": {
+        "tire_grip": 0.16685,
+        "rear_grip_balance": 0.0852,
+        "cornering_stiffness": 0.0497
+      }
+    },
+    {
+      "id": "tires-drift-epic",
+      "slot": "tires",
+      "rarity": "Epic",
+      "specialty": "Drift",
+      "name": "Epic Drift Compound Drift",
+      "modifiers": {
+        "tire_grip": 0.0355,
+        "rear_grip_balance": -0.15975,
+        "handbrake_drive_grip": 0.0994,
+        "countersteer_assist": 0.0994
+      }
+    },
+    {
+      "id": "brakes-street-epic",
+      "slot": "brakes",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic Competition Brakes",
+      "modifiers": {
+        "brake_force_n": 0.15975,
+        "handbrake_force_n": 0.08875
+      }
+    },
+    {
+      "id": "transmission-street-epic",
+      "slot": "transmission",
+      "rarity": "Epic",
+      "specialty": "Street",
+      "name": "Epic Quick-Shift Gearset",
+      "modifiers": {
+        "shift_duration": -0.17395,
+        "auto_shift_duration": -0.15975,
+        "final_drive": 0.0355
+      }
+    },
+    {
+      "id": "engine-street-legendary",
+      "slot": "engine",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary Forged Engine",
+      "modifiers": {
+        "engine_power_kw": 0.12,
+        "engine_torque_nm": 0.1248
+      }
+    },
+    {
+      "id": "ecu-street-legendary",
+      "slot": "ecu",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary Race ECU",
+      "modifiers": {
+        "engine_power_kw": 0.1056,
+        "redline_rpm": 0.048,
+        "engine_torque_nm": 0.0384
+      }
+    },
+    {
+      "id": "intake-street-legendary",
+      "slot": "intake",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary High-Flow Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.1248,
+        "engine_power_kw": 0.0432
+      }
+    },
+    {
+      "id": "exhaust-street-legendary",
+      "slot": "exhaust",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary Lightweight Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0864,
+        "mass_kg": -0.0288
+      }
+    },
+    {
+      "id": "suspension-grip-legendary",
+      "slot": "suspension",
+      "rarity": "Legendary",
+      "specialty": "Grip",
+      "name": "Legendary Track Coilovers Grip",
+      "modifiers": {
+        "cornering_stiffness": 0.1824,
+        "rear_grip_balance": 0.1344,
+        "yaw_damping": 0.0576
+      }
+    },
+    {
+      "id": "suspension-drift-legendary",
+      "slot": "suspension",
+      "rarity": "Legendary",
+      "specialty": "Drift",
+      "name": "Legendary Drift Coilovers Drift",
+      "modifiers": {
+        "rear_grip_balance": -0.2064,
+        "max_steer_degrees": 0.1776,
+        "steering_response": 0.192,
+        "countersteer_assist": 0.1296
+      }
+    },
+    {
+      "id": "tires-grip-legendary",
+      "slot": "tires",
+      "rarity": "Legendary",
+      "specialty": "Grip",
+      "name": "Legendary Circuit Compound Grip",
+      "modifiers": {
+        "tire_grip": 0.2256,
+        "rear_grip_balance": 0.1152,
+        "cornering_stiffness": 0.0672
+      }
+    },
+    {
+      "id": "tires-drift-legendary",
+      "slot": "tires",
+      "rarity": "Legendary",
+      "specialty": "Drift",
+      "name": "Legendary Drift Compound Drift",
+      "modifiers": {
+        "tire_grip": 0.048,
+        "rear_grip_balance": -0.216,
+        "handbrake_drive_grip": 0.1344,
+        "countersteer_assist": 0.1344
+      }
+    },
+    {
+      "id": "brakes-street-legendary",
+      "slot": "brakes",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary Competition Brakes",
+      "modifiers": {
+        "brake_force_n": 0.216,
+        "handbrake_force_n": 0.12
+      }
+    },
+    {
+      "id": "transmission-street-legendary",
+      "slot": "transmission",
+      "rarity": "Legendary",
+      "specialty": "Street",
+      "name": "Legendary Quick-Shift Gearset",
+      "modifiers": {
+        "shift_duration": -0.2352,
+        "auto_shift_duration": -0.216,
+        "final_drive": 0.048
+      }
+    }
+  ]
+}
