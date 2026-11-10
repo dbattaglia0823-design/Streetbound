@@ -1,6 +1,7 @@
 extends Node2D
 ## Cached static illustration and local collision for a 192m square.
 const PPM := 20.0
+const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 var world: Node2D
 var cell := Vector2i.ZERO
 var content: Dictionary
@@ -181,6 +182,22 @@ func _build_collisions() -> void:
 			var circle := CircleShape2D.new()
 			circle.radius = float(prop.radius) * PPM
 			collider.shape = circle
+		elif GarageGeometry.is_player_garage(prop):
+			# The starter garage has three solid walls but a physically open
+			# front bay. The car must actually drive through the entrance.
+			collider.queue_free()
+			for wall: Rect2 in GarageGeometry.wall_rects(
+				GarageGeometry.size_of(prop)):
+				var wall_collider := CollisionShape2D.new()
+				var wall_shape := RectangleShape2D.new()
+				wall_shape.size = wall.size * PPM
+				wall_collider.shape = wall_shape
+				wall_collider.position = point(prop.p) + \
+					wall.get_center().rotated(float(prop.angle)) * PPM
+				wall_collider.rotation = float(prop.angle)
+				body.add_child(wall_collider)
+			collision_shape_count += 2
+			continue
 		else:
 			var box := RectangleShape2D.new()
 			box.size = Vector2(float(prop.size[0]), float(prop.size[1])) * PPM
