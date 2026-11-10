@@ -98,6 +98,19 @@ func run() -> void:
 				[shape.radius, shape.height]])
 		per_brand_pass = per_brand_pass and good
 	check("all_brands_instantiate_with_fitted_art_and_physics", per_brand_pass, brand_errors)
+	# Every binary should be selectable, not just one representative brand.
+	var missing_models: Array[String] = []
+	for entry in vehicles:
+		if not Catalog.select(player, entry):
+			missing_models.append(str(entry.display_name))
+			continue
+		var sprite := player.get_node("Art/Sprite") as Sprite2D
+		var shape := (player.get_node("CollisionShape2D") as CollisionShape2D).shape as CapsuleShape2D
+		var wheels := player.get_node("Art/Wheels")
+		var size: Vector2 = wheels.visible_bounds.size
+		if sprite.texture == null or shape == null or size.x < 25.0 or size.y < 50.0:
+			missing_models.append(str(entry.display_name))
+	check("every_catalog_vehicle_can_be_equipped", missing_models.is_empty(), missing_models)
 	var slow := Catalog.find_by_id("ford-fiesta")
 	var fast := Catalog.find_by_id("bugatti-chiron")
 	check("distinct_power_to_weight_ratios",
