@@ -72,7 +72,6 @@ func run() -> void:
 	flow.network=graph
 	flow.player=player
 	flow.active_junctions={}
-	flow.agents=[]
 	# Bypass _ready: it requires a full streamed Morrow Coast world.
 	var agent: Dictionary = {
 		"uid":1,"node":actor,"edge":0,"progress":6000.0,
