@@ -15,6 +15,7 @@ import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,morrowEditText,MORROW_EDIT_NAME} from './morrow-coast-bridge.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
+import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {
   placeBesideRoad,placeSiteMarker,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -690,6 +691,33 @@ $('repair-roadside').addEventListener('click',()=>{
   }
   $('roadside-status').textContent='Moved '+result.moved+' scenery, rotated '+result.rotated+
     ', adjusted '+result.adjustedMarkers+' site markers'+(result.failed?'; '+result.failed+' need manual relocation.':'.');
+});
+$('apply-environment-preset').addEventListener('click',()=>{
+  const preset=$('environment-preset').value;
+  const entity=selection?getEntity(doc,selection.id):null;
+  // Use selected entity when possible; otherwise the visible canvas center.
+  const focused=entity?.item;
+  const selectedPoint=focused?.points?.[Math.floor(focused.points.length/2)];
+  const anchor=selectedPoint || (focused&&Number.isFinite(focused.x)?
+    {x:focused.x,y:focused.y}:
+    worldPoint((viewport.clientWidth*.5-offsetX)/zoom,
+      (viewport.clientHeight*.5-offsetY)/zoom));
+  let result=null;
+  const succeeded=change(d=>{
+    result=applyEnvironmentPreset(d,{preset,anchor,
+      selectedId:selection?.id||null,density:Number($('environment-density').value)});
+    return result.doc;
+  },'Environment preset created. Undo removes the entire preset.');
+  if(succeeded&&result){
+    const summary=result.count+' objects'+
+      (result.roadsAdded?' and '+result.roadsAdded+' road access':'')+
+      (result.regionsUpdated?' with updated biome':'');
+    $('environment-preset-status').textContent='Added '+summary+
+      '. Inspect and run Map health before exporting.';
+    status('Placed '+summary+'. All scenery clearances are checked.');
+  }else{
+    $('environment-preset-status').textContent=$('status').textContent;
+  }
 });
 $('scatter').addEventListener('click',()=>{
   const id=selection?.id,region=doc.regions.find(r=>r.id===id);
