@@ -51,6 +51,8 @@ jobs:
         run: python3 tests/morrow_environment_props_test.py
       - name: Verify roadside furniture, POI facades and parking/ground detail
         run: timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/morrow_environment_visual_test.gd
+      - name: Verify deterministic road patches, crack stationing and faded lane paint
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/morrow_road_wear_test.gd
       - name: Verify actual asphalt parking, illustrated shrubbery and parked traffic car art
         run: timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/parking_ground_visual_test.gd
       - name: Verify world ground detail, beach, water and stream-safe foliage
