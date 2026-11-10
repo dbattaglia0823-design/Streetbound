@@ -78,7 +78,7 @@ func _physics_process(dt: float) -> void:
 		return
 	mark_clock = 0.0
 	var slide := smoothstep(0.08,0.34,absf(vehicle.slip_angle))
-	var loss := maxf(slide,maxf(vehicle.handbrake_grip_loss,vehicle.wheel_spin*1.8))
+	var loss := maxf(slide,maxf(vehicle.handbrake,maxf(vehicle.handbrake_grip_loss,vehicle.wheel_spin*1.8)))
 	if loss < 0.13 and vehicle.surface == "ASPHALT":
 		tire_marks.reset_tracks()
 		return
