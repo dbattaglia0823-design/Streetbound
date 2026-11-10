@@ -85,15 +85,26 @@ func run() -> void:
 		var targets: PackedFloat32Array = art._wheel_targets()
 		var left := (float(targets[0])+float(targets[2]))*0.5
 		var right := (float(targets[1])+float(targets[3]))*0.5
+		var matches_contacts := true
+		for wheel_index in 4:
+			var wheel_local: Vector2 = rig.wheel_anchor(wheel_index)
+			var wheel_contact: Vector2 = car.global_position + \
+				wheel_local.rotated(car.rotation)
+			matches_contacts = matches_contacts and \
+				absf(float(targets[wheel_index])-world.curb_height_at(wheel_contact)) < 0.001
+		check("each_wheel_probe_uses_its_actual_world_contact",
+			matches_contacts,targets)
 		check("correct_lateral_pair_detects_raised_side",
-			right > left + 0.35,[targets,left,right])
+			absf(right-left) > 0.35,[targets,left,right])
 		for i in 75:
 			art._process(1.0/60.0)
 		check("curb_roll_responds_to_individual_wheel_height",
 			absf(float(art.curb_roll)) > 0.25,[art.curb_roll,art.curb_heave])
-		var raised_wheel: Node2D = rig.get_node("RearRight")
+		var raised_index := 2 if left > right else 3
+		var raised_wheel: Node2D = rig.get_node(
+			"RearLeft" if raised_index == 2 else "RearRight")
 		check("raised_tyre_visually_lifts_from_own_anchor",
-			raised_wheel.position.y < rig.wheel_anchor(3).y - 1.0)
+			raised_wheel.position.y < rig.wheel_anchor(raised_index).y - 1.0)
 		var before_transform := car.global_transform
 		var before_collision := collider.global_transform
 		for i in 20:
