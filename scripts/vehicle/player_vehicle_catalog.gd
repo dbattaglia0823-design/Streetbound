@@ -124,10 +124,16 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	appearance.sprite_rotation_degrees = rad_to_deg(angle)
 	appearance.sprite_offset = -Vector2(
 		source_mid.x * sprite_scale.x, source_mid.y * sprite_scale.y).rotated(angle)
-	appearance.front_left_uv = Vector2(0.055, 0.245)
-	appearance.front_right_uv = Vector2(0.945, 0.245)
-	appearance.rear_left_uv = Vector2(0.055, 0.755)
-	appearance.rear_right_uv = Vector2(0.945, 0.755)
+	# Front/rear axle spacing follows the modeled wheelbase, not a generic
+	# compact-car UV preset. Keep axle centers slightly inset from body edges.
+	var axle_fraction := clampf(float(entry.wheelbase_m) /
+		maxf(0.1, float(entry.length_m)), 0.45, 0.78)
+	var front_uv := 0.5 - axle_fraction * 0.5
+	var rear_uv := 0.5 + axle_fraction * 0.5
+	appearance.front_left_uv = Vector2(0.075, front_uv)
+	appearance.front_right_uv = Vector2(0.925, front_uv)
+	appearance.rear_left_uv = Vector2(0.075, rear_uv)
+	appearance.rear_right_uv = Vector2(0.925, rear_uv)
 	appearance.tire_width_ratio = 0.18
 	appearance.tire_length_ratio = 0.22
 	appearance.minimum_tire_px = Vector2(8.0, 14.0)
