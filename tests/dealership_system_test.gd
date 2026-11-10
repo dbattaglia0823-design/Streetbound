@@ -11,9 +11,9 @@ func _initialize() -> void:
 	call_deferred("run")
 
 
-func check(name: String, pass: bool, detail: Variant = "") -> void:
-	print("%s %s: %s" % ["PASS" if pass else "FAIL",name,detail])
-	if not pass:
+func check(name: String, passed: bool, detail: Variant = "") -> void:
+	print("%s %s: %s" % ["PASS" if passed else "FAIL",name,detail])
+	if not passed:
 		failures.append(name)
 
 
