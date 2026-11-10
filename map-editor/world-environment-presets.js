@@ -110,7 +110,7 @@ function parkingLot(doc,anchor,{size=1,stallWidth=3.2,occupancy=.4,entranceWidth
     const planted=addProp(next,'bush','Parking landscaping',landscape,.9);
     if(planted!==next){next=planted;count++;}
   }
-  const stalls=Math.max(3,Math.floor(38*.84/stallWidth));
+  const stalls=Math.max(3,Math.floor(38*size*.84/stallWidth));
   return {doc:next,count,roadsAdded:1,stallCapacity:stalls*2};
 }
 
