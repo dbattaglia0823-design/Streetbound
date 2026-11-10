@@ -286,9 +286,9 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	if blocked_by_player:
 		# Remove residual crash momentum aimed at the player while waiting.
 		var toward_player := (player.global_position - node.global_position).normalized()
-		var recoil: Vector2 = node.recovery_velocity
+		var recoil: Vector2 = node.get("recovery_velocity") as Vector2
 		if recoil.dot(toward_player) > 0.0:
-			node.recovery_velocity = recoil.slide(toward_player)
+			node.set("recovery_velocity", recoil.slide(toward_player))
 	agent.speed=speed
 	var hit: Variant = node.call("move_traffic", direction*speed*dt,dt)
 	if hit != null:
