@@ -21,11 +21,19 @@ enum Drivetrain { FWD, RWD, AWD }
 @export_group("Sound character")
 ## Original sound-design profile; individual trims may differ from these
 ## modeled family defaults. All values only affect audio, never horsepower.
+@export var audio_sample_id: String = "" # Used for per-model, licensed sample banks.
 @export var audio_family: String = "v8_cross"
 @export var audio_aggression: float = 0.75
 @export var audio_induction: String = "naturally_aspirated"
 @export var audio_flutter: float = 0.0
 @export var audio_exhaust_roughness: float = 0.4
+## Art-directed recording-inspired mix controls; no physics impact.
+@export var audio_tone: float = 0.0 # -1 dark bass to +1 bright rasp.
+@export var audio_intake_presence: float = 0.8
+@export var audio_driveline_presence: float = 0.5
+@export var audio_lope: float = 0.1 # Low-speed cam/firing pulse modulation.
+@export var audio_overrun: float = 0.35 # Coast-burble/backfire probability.
+@export var audio_turbo_presence: float = 0.0
 @export var shift_duration: float = 0.18
 ## Automatic power-on changes need only a short torque interruption.
 @export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085

@@ -41,9 +41,14 @@ static func _pcm(samples: PackedFloat32Array, looping: bool) -> AudioStreamWAV:
 
 
 static func engine_loop(family: String, stage: int,
-		aggression: float = 0.8, roughness: float = 0.5) -> AudioStreamWAV:
-	var key := "%s:%d:%d:%d" % [family,clampi(stage,0,3),
-		roundi(aggression*10.0),roundi(roughness*10.0)]
+		aggression: float = 0.8, roughness: float = 0.5,
+		loaded: bool = true, tone: float = 0.0) -> AudioStreamWAV:
+	# Recording-inspired power-on and off-throttle exhaust beds; they keep
+	# the same firing order and exact RPM cycle but have independent harmonic
+	# energy. Cached samples never change inside the driving frame loop.
+	var key := "%s:%d:%d:%d:%d:%d" % [family,clampi(stage,0,3),
+		roundi(aggression*20.0),roundi(roughness*20.0),
+		1 if loaded else 0,roundi(tone*20.0)]
 	if _loops.has(key):
 		return _loops[key]
 	var rpm := float(REFERENCE_RPM[clampi(stage,0,3)])
@@ -52,14 +57,17 @@ static func engine_loop(family: String, stage: int,
 	# for odd three-cylinder, V6 and W16 engines.
 	var rasp := clampf(aggression,0.1,1.4)
 	var rough := clampf(roughness,0.0,1.0)
+	var bright := clampf((tone+1.0)*0.5,0.0,1.0)
 	var output := PackedFloat32Array()
 	output.resize(LOOP_FRAMES)
 	var mean := 0.0
 	for i in LOOP_FRAMES:
 		var x := float(i)/float(LOOP_FRAMES)
 		var phase := TAU*float(fire_cycles)*x
-		var base := sin(phase)*0.50+sin(phase*2.0+0.14)*0.19+ \
-			sin(phase*3.0+0.35)*0.10+sin(phase*4.0+0.61)*0.045
+		var base := sin(phase)*(0.63-bright*0.25)+ \
+			sin(phase*2.0+0.14)*(0.12+bright*0.16)+ \
+			sin(phase*3.0+0.35)*(0.045+bright*0.115)+ \
+			sin(phase*4.0+0.61)*(0.02+bright*0.075)
 		var uneven := 0.0
 		match family:
 			"i3":
@@ -103,8 +111,19 @@ static func engine_loop(family: String, stage: int,
 		var valve := (0.65+0.35*maxf(0.0,sin(phase)))
 		var texture := (base+uneven*0.65)*(1.0+rough*0.23*valve)+ \
 			rasp*0.38*cycle_grit+grains*rasp*(0.20+float(stage)*0.055)
+		if loaded:
+			# Loud loaded firing pressure and straight-through exhaust rasp.
+			texture += rasp*(0.09+bright*0.12)*sin(phase*5.0+0.57)
+			texture += (0.07+rough*0.10)*sin(phase*6.0+0.84)
+		else:
+			# Engine braking: softer firing pulse, light driveline buzz and
+			# less high-frequency exhaust roar. Distinct from simply making
+			# the power-on sample quieter when the throttle closes.
+			texture = texture*(0.65-bright*0.06)+ \
+				(0.13+rough*0.10)*sin(phase*0.5+0.1)
 		# Soft harmonic saturation adds growl without square-wave clipping.
-		var sample := tanh(texture*(1.0+rasp*0.30))*0.52
+		var sample := tanh(texture*(1.0+rasp*(0.39 if loaded else 0.12)))* \
+			(0.52 if loaded else 0.43)
 		output[i] = sample
 		mean += sample
 	mean /= float(LOOP_FRAMES)
@@ -138,6 +157,19 @@ static func texture_loop(kind: String) -> AudioStreamWAV:
 			"gear":
 				value = sin(TAU*144.0*x)*0.33+sin(TAU*288.0*x)*0.20+ \
 					sin(TAU*433.0*x)*0.08
+			"wind":
+				for j in 14:
+					var harmonic := float(31+j*j*19)
+					value += sin(TAU*harmonic*x+float(j)*1.42)* \
+						(0.19 / sqrt(float(j)+1.0))
+			"road":
+				for j in 18:
+					var harmonic := float(64+j*j*13)
+					value += sin(TAU*harmonic*x+float(j)*2.38)* \
+						(0.29 / sqrt(float(j)+1.0))
+			"drivetrain":
+				value = sin(TAU*122.0*x)*0.32+sin(TAU*245.0*x)*0.14+ \
+					sin(TAU*491.0*x)*0.065
 		output[i] = value
 	var stream := _pcm(output,true)
 	_effects[kind] = stream
@@ -154,6 +186,11 @@ static func transient(kind: String) -> AudioStreamWAV:
 		"pop": duration = 0.11
 		"flutter": duration = 0.46
 		"bov": duration = 0.57
+		"ignition": duration = 0.95
+		"shutdown": duration = 0.45
+		"blip": duration = 0.20
+		"limiter": duration = 0.09
+		"curb": duration = 0.12
 	var count := roundi(duration*RATE)
 	var output := PackedFloat32Array()
 	output.resize(count)
@@ -187,6 +224,27 @@ static func transient(kind: String) -> AudioStreamWAV:
 				sample = (filtered*0.42+sin(TAU*155.0*t)*0.35)*exp(-18.0*progress)
 			"impact":
 				sample = (filtered*0.67+sin(TAU*69.0*t)*0.35)*exp(-11.0*progress)
+			"ignition":
+				# Relay click and repeated cranking before ignition catches.
+				var crank := sin(TAU*(61.0+110.0*progress)*t)*0.45+ \
+					sin(TAU*43.0*t)*0.25
+				sample = (filtered*0.42+crank)* \
+					(0.6+0.4*sin(TAU*7.5*t))*(1.0-smoothstep(0.68,1.0,progress))
+			"shutdown":
+				var pitch_drop := 155.0*pow(1.0-progress,1.5)+18.0
+				phase += TAU*pitch_drop/float(RATE)
+				sample = (sin(phase)*0.61+filtered*0.22)*pow(1.0-progress,1.8)
+			"blip":
+				var rev_sweep := 170.0+330.0*sin(PI*progress)
+				phase += TAU*rev_sweep/float(RATE)
+				sample = (sin(phase)*0.56+sin(phase*2.0)*0.22+ \
+					filtered*0.12)*sin(PI*progress)
+			"limiter":
+				sample = (filtered*0.51+sin(TAU*90.0*t)*0.41)* \
+					exp(-15.0*progress)
+			"curb":
+				sample = (filtered*0.59+sin(TAU*71.0*t)*0.34)* \
+					exp(-22.0*progress)
 		output[i] = clampf(sample*0.62,-0.9,0.9)
 	var stream := _pcm(output,false)
 	_effects[kind] = stream

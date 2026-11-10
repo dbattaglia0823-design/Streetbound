@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars. Dashboard boost values are gameplay-model calibrations for representative turbo trims, not OEM pressure specifications; no boost is displayed for unconfigured powertrains. Per-vehicle audio profiles are original tuned-sound characterizations inspired by real clips; they are not exact OEM powertrain specifications or copies of copyrighted recordings. Some vehicle artwork/trim associations remain provisional.",
+  "notes": "Dealership prices are fictional gameplay estimates based on model families, not authenticated real-world listings or year-specific trims. 46 generic PNG model associations remain provisional. Dealership unlock requirements are authored gameplay progression levels 1-100, not specifications of real cars. Dashboard boost values are gameplay-model calibrations for representative turbo trims, not OEM pressure specifications; no boost is displayed for unconfigured powertrains. Per-vehicle audio profiles are original tuned-sound characterizations inspired by real clips; they are not exact OEM powertrain specifications or copies of copyrighted recordings. Some vehicle artwork/trim associations remain provisional. Audio mastering metadata (tone, intake, driveline, idle pulse, overrun, turbo level) are game-mix artistic calibrations for all 88 entries, not verified factory trim recordings.",
   "vehicles": [
     {
       "id": "acura-integra",
@@ -26,7 +26,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.25,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "acura-tl",
@@ -52,7 +58,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "acura-tlx",
@@ -78,7 +90,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "acura-tsx",
@@ -104,7 +122,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.13,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "acura-ilx",
@@ -130,7 +154,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "alfa-romeo-giulia",
@@ -157,7 +187,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.41,
+      "audio_turbo_presence": 0.99
     },
     {
       "id": "alfa-romeo-stelvio",
@@ -184,7 +220,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.19,
+      "audio_intake_presence": 0.57,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.44,
+      "audio_turbo_presence": 0.99
     },
     {
       "id": "alfa-romeo-tonale",
@@ -211,7 +253,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.02,
+      "audio_intake_presence": 0.57,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.44,
+      "audio_turbo_presence": 0.95
     },
     {
       "id": "alfa-romeo-mito",
@@ -237,7 +285,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "alfa-romeo-giulietta",
@@ -263,7 +317,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "alfa-romeo-brera",
@@ -289,7 +349,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "alfa-romeo-4c",
@@ -316,7 +382,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.23,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.02
     },
     {
       "id": "alfa-romeo-33-stradale",
@@ -342,7 +414,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.04,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.92,
+      "audio_turbo_presence": 0
     },
     {
       "id": "aston-martin-db9",
@@ -368,7 +446,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.37,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "aston-martin-db11",
@@ -395,7 +479,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.37,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 0.99
     },
     {
       "id": "aston-martin-db12",
@@ -422,7 +512,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.02
     },
     {
       "id": "aston-martin-dbs",
@@ -449,7 +545,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.37,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.02
     },
     {
       "id": "aston-martin-vantage",
@@ -476,7 +578,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 0.99
     },
     {
       "id": "aston-martin-vanquish",
@@ -503,7 +611,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.37,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.04
     },
     {
       "id": "aston-martin-rapide",
@@ -529,7 +643,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.37,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "aston-martin-dbx",
@@ -556,7 +676,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.5,
+      "audio_intake_presence": 0.57,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.44,
+      "audio_turbo_presence": 1.01
     },
     {
       "id": "aston-martin-valkyrie",
@@ -582,7 +708,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.81,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.92,
+      "audio_turbo_presence": 0
     },
     {
       "id": "aston-martin-one-77",
@@ -608,7 +740,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.39,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.92,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a3",
@@ -634,7 +772,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a4",
@@ -660,7 +804,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.13,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a5",
@@ -686,7 +836,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.13,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a6",
@@ -712,7 +868,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a7",
@@ -738,7 +900,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-a8",
@@ -764,7 +932,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.39,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-q3",
@@ -790,7 +964,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.02,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-q5",
@@ -816,7 +996,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.02,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "audi-q7",
@@ -842,7 +1028,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.19,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bmw-i8",
@@ -868,7 +1060,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.15,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.34,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bmw-m2",
@@ -895,7 +1093,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "turbo",
       "audio_flutter": 0.66,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.08,
+      "audio_intake_presence": 0.93,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.38,
+      "audio_turbo_presence": 1.02
     },
     {
       "id": "bmw-m3",
@@ -922,7 +1126,13 @@
       "audio_aggression": 0.71,
       "audio_induction": "turbo",
       "audio_flutter": 0.66,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.93,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.52,
+      "audio_turbo_presence": 1.04
     },
     {
       "id": "bmw-m4",
@@ -949,7 +1159,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "turbo",
       "audio_flutter": 0.66,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.2,
+      "audio_intake_presence": 0.93,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.41,
+      "audio_turbo_presence": 1.04
     },
     {
       "id": "bmw-m8",
@@ -976,7 +1192,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.66,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.05
     },
     {
       "id": "bmw-x3",
@@ -1002,7 +1224,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.02,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bmw-x5",
@@ -1028,7 +1256,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.07,
+      "audio_intake_presence": 0.77,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bmw-z4",
@@ -1055,7 +1289,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.08,
+      "audio_intake_presence": 0.93,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.38,
+      "audio_turbo_presence": 0.99
     },
     {
       "id": "bentley-continental-gt",
@@ -1081,7 +1321,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.07,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bentley-flying-spur",
@@ -1107,7 +1353,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bentley-bentayga",
@@ -1133,7 +1385,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.5,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bentley-mulsanne",
@@ -1159,7 +1417,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.39,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bentley-arnage",
@@ -1185,7 +1449,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.39,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "bugatti-eb110",
@@ -1212,7 +1482,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.85,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.39,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.07
     },
     {
       "id": "bugatti-veyron",
@@ -1239,7 +1515,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.4,
-      "audio_exhaust_roughness": 0.3
+      "audio_exhaust_roughness": 0.3,
+      "audio_tone": -0.45,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.31
     },
     {
       "id": "bugatti-chiron",
@@ -1266,7 +1548,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.4,
-      "audio_exhaust_roughness": 0.3
+      "audio_exhaust_roughness": 0.3,
+      "audio_tone": -0.41,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.35
     },
     {
       "id": "bugatti-divo",
@@ -1293,7 +1581,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.4,
-      "audio_exhaust_roughness": 0.3
+      "audio_exhaust_roughness": 0.3,
+      "audio_tone": -0.21,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.35
     },
     {
       "id": "bugatti-centodieci",
@@ -1320,7 +1614,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.4,
-      "audio_exhaust_roughness": 0.3
+      "audio_exhaust_roughness": 0.3,
+      "audio_tone": -0.21,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.35
     },
     {
       "id": "bugatti-bolide",
@@ -1347,7 +1647,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.4,
-      "audio_exhaust_roughness": 0.3
+      "audio_exhaust_roughness": 0.3,
+      "audio_tone": -0.21,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.35
     },
     {
       "id": "cadillac-escalade",
@@ -1373,7 +1679,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.71,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "cadillac-ct4",
@@ -1399,7 +1711,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.13,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "cadillac-ct5",
@@ -1425,7 +1743,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-camaro-z28",
@@ -1451,7 +1775,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.61,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-camaro-zl1",
@@ -1477,7 +1807,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "supercharger",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.59,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 1
     },
     {
       "id": "chevrolet-corvette-c5",
@@ -1503,7 +1839,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-corvette-c6",
@@ -1529,7 +1871,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-corvette-c7",
@@ -1555,7 +1903,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-corvette-c8",
@@ -1581,7 +1935,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.29,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.3,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-corvette-z06",
@@ -1607,7 +1967,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.73,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "chevrolet-corvette-zr1",
@@ -1634,7 +2000,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.57,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.07
     },
     {
       "id": "chevrolet-corvette-zr1x",
@@ -1661,7 +2033,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.57,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.09
     },
     {
       "id": "dodge-charger",
@@ -1687,7 +2065,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.68,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-challenger",
@@ -1713,7 +2097,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.72,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-viper",
@@ -1739,7 +2129,13 @@
       "audio_aggression": 1.07,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.12,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.82,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-durango",
@@ -1765,7 +2161,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.5,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-dart",
@@ -1791,7 +2193,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-neon",
@@ -1817,7 +2225,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-avenger",
@@ -1843,7 +2257,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "dodge-magnum",
@@ -1869,7 +2289,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.39,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ferrari-308",
@@ -1895,7 +2321,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.57,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ferrari-f40",
@@ -1922,7 +2354,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "turbo",
       "audio_flutter": 0.85,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.58,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 1,
+      "audio_turbo_presence": 1.04
     },
     {
       "id": "ferrari-f50",
@@ -1948,7 +2386,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.74,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.92,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ferrari-enzo",
@@ -1974,7 +2418,13 @@
       "audio_aggression": 1.12,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.75,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 1,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.92,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ferrari-458-italia",
@@ -2000,7 +2450,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.77,
+      "audio_intake_presence": 1.15,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.71,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ferrari-488-gtb",
@@ -2027,7 +2483,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.59,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.05
     },
     {
       "id": "ferrari-f8-tributo",
@@ -2054,7 +2516,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.61,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.07
     },
     {
       "id": "ferrari-roma",
@@ -2081,7 +2549,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.5
+      "audio_exhaust_roughness": 0.5,
+      "audio_tone": 0.57,
+      "audio_intake_presence": 1.05,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.05
     },
     {
       "id": "ferrari-296-gtb",
@@ -2108,7 +2582,13 @@
       "audio_aggression": 0.94,
       "audio_induction": "turbo",
       "audio_flutter": 0.5,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.02,
+      "audio_intake_presence": 0.76,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.84,
+      "audio_turbo_presence": 1.09
     },
     {
       "id": "ferrari-purosangue",
@@ -2134,7 +2614,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.33
+      "audio_exhaust_roughness": 0.33,
+      "audio_tone": 0.16,
+      "audio_intake_presence": 0.86,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-bronco",
@@ -2160,7 +2646,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.19,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-explorer",
@@ -2186,7 +2678,13 @@
       "audio_aggression": 0.62,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.19,
+      "audio_intake_presence": 0.62,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.31,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-f150",
@@ -2212,7 +2710,13 @@
       "audio_aggression": 0.7,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.72,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.65,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.38,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-fiesta",
@@ -2238,7 +2742,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.24,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-focus",
@@ -2264,7 +2774,13 @@
       "audio_aggression": 0.54,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": 0.17,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.43,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.25,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-mustang",
@@ -2290,7 +2806,13 @@
       "audio_aggression": 1.07,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.65
+      "audio_exhaust_roughness": 0.65,
+      "audio_tone": -0.77,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.78,
+      "audio_lope": 0.83,
+      "audio_overrun": 0.82,
+      "audio_turbo_presence": 0
     },
     {
       "id": "ford-taurus",
@@ -2316,7 +2838,13 @@
       "audio_aggression": 0.58,
       "audio_induction": "naturally_aspirated",
       "audio_flutter": 0,
-      "audio_exhaust_roughness": 0.25
+      "audio_exhaust_roughness": 0.25,
+      "audio_tone": -0.08,
+      "audio_intake_presence": 0.83,
+      "audio_driveline_presence": 0.52,
+      "audio_lope": 0.12,
+      "audio_overrun": 0.28,
+      "audio_turbo_presence": 0
     }
   ]
 }
