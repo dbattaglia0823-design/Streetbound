@@ -285,11 +285,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var key: InputEventKey = event
 	if key.physical_keycode == KEY_F or key.keycode == KEY_F:
+		# Let the Ashford staging area handle F when no dealership is near.
 		if overlay.visible:
 			close_menu()
-		else:
+			get_viewport().set_input_as_handled()
+		elif is_instance_valid(manager) and manager.can_browse(manager.nearby_shop()):
 			open_menu()
-		get_viewport().set_input_as_handled()
+			get_viewport().set_input_as_handled()
 	elif overlay.visible and (key.physical_keycode == KEY_ESCAPE or key.keycode == KEY_ESCAPE):
 		close_menu()
 		get_viewport().set_input_as_handled()
