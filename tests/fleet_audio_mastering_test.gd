@@ -3,6 +3,7 @@ extends SceneTree
 ## driving telemetry, built-in license-safe source synthesis, and safety caps.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
+const Bank = preload("res://scripts/audio/vehicle_audio_sample_bank.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 var failures: Array[String] = []
 
@@ -47,6 +48,19 @@ func run() -> void:
 			is_equal_approx(config.audio_tone,
 				float(Catalog.find_by_id(id).audio_tone)) and \
 			config.audio_intake_presence > 0.0)
+	check("recording_bank_resolves_safe_per_car_paths",
+		Bank.path_for("ford-mustang","power_low") ==
+		"res://assets/audio/engines/ford-mustang/power_low.ogg")
+	check("recording_bank_rejects_path_traversal",
+		Bank.path_for("../evil","power_low").is_empty() and \
+		Bank.path_for("bmw-m3","../../secret").is_empty())
+	var licensed_override: AudioStream = Synth.texture_loop("intake")
+	check("explicit_recording_overrides_still_take_precedence",
+		Bank.resolve("ford-mustang","v8_cross","power_idle",
+			licensed_override) == licensed_override)
+	check("no_unprovided_recordings_are_misrepresented_as_recorded",
+		Bank.resolve("car-that-is-not-in-catalog","not-an-engine",
+			"power_idle") == null)
 	var engine_on := Synth.engine_loop("v8_cross",1,0.9,0.7,true,-0.7)
 	var engine_off := Synth.engine_loop("v8_cross",1,0.9,0.7,false,-0.7)
 	check("power_and_coast_use_different_combustion_waveforms",
