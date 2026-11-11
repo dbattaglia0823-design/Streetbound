@@ -91,19 +91,19 @@ func _build_labels() -> void:
 		LIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
 
 	# Main essentials stay readable but no longer dominate the lower screen.
-	speed_label = _label("000", Vector2(39,82), Vector2(86,38), 34,
+	speed_label = _label("000", Vector2(39,70), Vector2(86,38), 34,
 		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
 	speed_unit_label = _label("MPH", Vector2(58,121), Vector2(49,17), 10,
 		CYAN, HORIZONTAL_ALIGNMENT_CENTER)
-	rpm_label = _label("0950", Vector2(167,83), Vector2(88,36), 27,
+	rpm_label = _label("0950", Vector2(167,76), Vector2(88,36), 27,
 		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
 	_label("RPM", Vector2(189,121), Vector2(45,17), 10,
 		MINT, HORIZONTAL_ALIGNMENT_CENTER)
-	_label("GEAR", Vector2(278,64), Vector2(66,17), 10,
+	_label("GEAR", Vector2(278,54), Vector2(66,17), 10,
 		MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	gear_label = _label("1", Vector2(284,84), Vector2(54,42), 32,
+	gear_label = _label("1", Vector2(284,78), Vector2(54,42), 32,
 		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
-	mode_label = _label("AUTO", Vector2(279,126), Vector2(64,17), 10,
+	mode_label = _label("AUTO", Vector2(279,133), Vector2(64,17), 10,
 		GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 
 	# Small, independent vertical gauges: captions above, bottom-up meters in
