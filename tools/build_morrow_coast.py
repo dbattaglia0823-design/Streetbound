@@ -730,6 +730,26 @@ for i in range(5):
 # Real-world drag distance: 402m timed strip with additional paved run-off.
 for y,kind in [(3940,"start_line"),(4342,"finish_line")]:
     insert_prop(dict(kind=kind,p=[4340,y],size=[21,1.2],angle=0,color="e1d5b9",radius=0,solid=False,seed=0))
+# Drag racing requires lane-protected staging, clearly defined timed
+# quarter-mile, straight shoulders, return lane and readable Christmas tree.
+# Separate trackside furniture is non-solid so it cannot obstruct either lane.
+for side in (-1,1):
+    for y in range(3965,4550,35):
+        insert_prop(dict(kind="barrier",p=[4340+side*16.4,y],
+                         size=[1.1,29],angle=0,color="d8d8d1",
+                         radius=0,solid=False,seed=13000+y+side))
+    for y in (4010,4250,4350):
+        insert_prop(dict(kind="sign",p=[4340+side*27,y],
+                         size=[8,2.4],angle=0,color="d5cdb1",
+                         radius=0,solid=False,seed=14000+y+side))
+insert_prop(dict(kind="drag_tree",p=[4372,3940],size=[3.1,9],
+                 angle=0,color="d9b679",radius=0,solid=False,seed=3108))
+# Small spectator areas and paddock access remain outside the live track.
+for x,y in [(4235,4060),(4240,4190),(4235,4300)]:
+    if road_clear((x,y),20) and not occupied((x,y),20):
+        insert_prop(dict(kind="grandstand",p=[x,y],size=[28,14],
+                         angle=0,color="9fb0a5",radius=16,
+                         solid=True,seed=17000+y))
 track_road=next(r for r in ROADS if r["name"]=="Ashford Grand Circuit")
 p,q=track_road["points"][8],track_road["points"][9]
 insert_prop(dict(kind="start_line",p=p,size=[14,1.2],angle=math.atan2(q[1]-p[1],q[0]-p[0])-math.pi/2,color="e1d5b9",radius=0,solid=False,seed=0))
