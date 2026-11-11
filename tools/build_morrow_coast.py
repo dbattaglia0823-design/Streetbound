@@ -644,6 +644,12 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
         raise ValueError("Adopted game scenery changed; reload current Morrow Coast before saving")
     original=matching[0]
     PROPS.remove(original)
+    # Keep the native object's collision category. In particular, procedural
+    # trees have a small solid trunk even though normally painted editor trees
+    # are non-solid decorations.
+    replacement["solid"]=bool(original.get("solid",replacement["solid"]))
+    if original["kind"] in {"tree","pine","palm"}:
+        replacement["radius"]=float(original.get("radius",.65))
     if replacement.get("hidden",False):
         PROPS.remove(replacement)
         continue
