@@ -380,6 +380,16 @@ func _draw_prop(prop: Dictionary) -> void:
 				var p := Vector2(-size.x/2+column*12,-size.y/2+row*12)
 				draw_rect(Rect2(p,Vector2(12,12)),Color("e6dec7") if (column+row)%2==0 else Color("536764"))
 		return
+	if kind == "drag_tree":
+		# Top-down five-amber staging tree plus green launch indicators.
+		_rounded(Rect2(-size/2,size),Color("293637"),6)
+		var bulbs := [Color("dac76c"),Color("dcb565"),
+			Color("e2a85d"),Color("e3a658"),Color("65bf70")]
+		for i in bulbs.size():
+			var at := Vector2(0,-size.y*.34+float(i)*size.y*.165)
+			draw_circle(at,size.x*.22,Color("152b2d"))
+			draw_circle(at,size.x*.17,bulbs[i])
+		return
 	if kind == "grandstand":
 		_rounded(Rect2(-size/2,size),Color("c2c5b4"),12)
 		for row in 5:
