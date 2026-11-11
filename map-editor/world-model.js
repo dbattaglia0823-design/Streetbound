@@ -1,5 +1,6 @@
 import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-geometry.js';
 import {placeBesideRoad,placeSiteMarker,roadwayClearance,placementFootprint} from './world-road-placement.js';
+import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
@@ -10,6 +11,10 @@ export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','h
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
+const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
+  (GAME_ART_KINDS[type]||[]).includes(assetId.slice(5));
+const assetOk=(doc,prop)=>!prop.assetId||gameAssetOk(prop.assetId,prop.type)||
+  doc.assets.some(a=>a.id===prop.assetId);
 const title=(value, fallback)=> typeof value==='string' ? (value.trim().slice(0,80)||fallback):fallback;
 const integer=(n,min,max,label)=>{if(!Number.isInteger(n)||n<min||n>max)throw new RangeError('Invalid '+label);return n;};
 const real=(n,min,max,label)=>{if(typeof n!=='number'||!Number.isFinite(n)||n<min||n>max)throw new RangeError('Invalid '+label);return n;};
@@ -110,7 +115,7 @@ export function normalizeWorld(raw){
       ids.add(checked.id);return checked;
     });
   }
-  for(const prop of result.props)if(prop.assetId && !result.assets.some(a=>a.id===prop.assetId))throw new TypeError('Unknown sprite asset: '+prop.assetId);
+  for(const prop of result.props)if(!assetOk(result,prop))throw new TypeError('Unknown or incompatible scenery artwork: '+prop.assetId);
   return result;
 }
 export const parseWorld = raw => {
@@ -132,7 +137,7 @@ export function createEntity(doc,type,input){
     ['roads','regions','props','markers'].flatMap(t=>doc[t]));
   let item=validEntity({id,...input},type,doc.world.width,doc.world.height);
   if(type==='props'){
-    if(item.assetId&&!doc.assets.some(a=>a.id===item.assetId))throw new TypeError('Unknown sprite asset');
+    if(!assetOk(doc,item))throw new TypeError('Unknown or incompatible game asset');
     item=validEntity(placeBesideRoad(doc,item),type,doc.world.width,doc.world.height);
   }else if(type==='markers'){
     item=validEntity(placeSiteMarker(doc,item),type,doc.world.width,doc.world.height);
@@ -151,7 +156,7 @@ export function updateEntity(doc,id,patch){
   const {type,item}=found;
   let updated=validEntity({...item,...patch,id},type,doc.world.width,doc.world.height);
   if(type==='props'){
-    if(updated.assetId&&!doc.assets.some(a=>a.id===updated.assetId))throw new TypeError('Unknown sprite asset');
+    if(!assetOk(doc,updated))throw new TypeError('Unknown or incompatible game asset');
     // Hand-authored rotation remains editable. Position, type and scale edits
     // recalculate the curb setback and local road tangent automatically.
     if(['x','y','scale','type','assetId'].some(key=>Object.hasOwn(patch,key))){
