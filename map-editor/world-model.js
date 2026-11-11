@@ -1,6 +1,6 @@
 import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-geometry.js';
-import {placeBesideRoad,roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
-import {GAME_ART_KINDS,nativeAdoptedRadius} from './morrow-runtime-preview.js';
+import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
+import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
@@ -149,7 +149,8 @@ export function createEntity(doc,type,input){
   let item=validEntity({id,...input},type,doc.world.width,doc.world.height);
   if(type==='props'){
     if(!assetOk(doc,item))throw new TypeError('Unknown or incompatible game asset');
-    if(!item.replaces)item=validEntity(placeBesideRoad(doc,item),type,doc.world.width,doc.world.height);
+    // Manually authored objects use the exact chosen coordinates. Road alignment
+    // is an explicit user action and environment presets can opt in themselves.
   }
   // Gameplay markers intentionally have no spatial snapping, road clearance,
   // or overlap restrictions. Only valid coordinates within the world apply.
@@ -168,17 +169,10 @@ export function updateEntity(doc,id,patch){
   let updated=validEntity({...item,...patch,id},type,doc.world.width,doc.world.height);
   if(type==='props'){
     if(!assetOk(doc,updated))throw new TypeError('Unknown or incompatible game asset');
-    // An adopted procedural object already has an authored world position.
-    // Do not snap it to a road when the user moves it in the editor.
-    if(item.replaces){
-      const hit=nearestRoadPlacement(doc,updated,250);
-      if(hit&&hit.distance<hit.width/2+nativeAdoptedRadius(updated)+2.0)
-        throw new RangeError('Moved game scenery would overlap a driving lane.');
-    }else if(['x','y','scale','type','assetId'].some(key=>Object.hasOwn(patch,key))){
-      updated=validEntity(placeBesideRoad(doc,updated),type,doc.world.width,doc.world.height);
-    }else if(roadwayClearance(doc,updated,placementFootprint(doc,updated))<0){
-      updated=validEntity(placeBesideRoad(doc,updated,{snap:false,align:false}),type,doc.world.width,doc.world.height);
-    }
+    // Preserve exact positions and rotation for BOTH adopted game objects and
+    // newly placed props. Never move another entity as a side effect.
+    // Road overlaps are reported by Map health and the live safety overlay;
+    // they do not mutate placement during dragging, editing, or resizing.
   }
   // Dragging or editing a marker never moves it away from roads, buildings,
   // other markers or water. Retain its exact requested coordinate.
