@@ -1,6 +1,7 @@
-Use the attached existing model as a reference for style, quality, and consistency but not color scheme. Do not make the cars have wheels as the game puts the model overtop wheels that turn. No lettering or badges but still make it look exactly like the car.
-
+Use the attached existing model as a reference for style, quality, and consistency but not color scheme. Do not make the cars have wheels as the game puts the model overtop wheels that turn. No lettering or badges but still make it look exactly like the car. Don't make the empty wheel wells stand out, there should just be no visible tire. Make sure the background is transparent.
 Make these cars:
+
+
 
 STREETBOUND — VEHICLE LIST (BY MANUFACTURER)
 
