@@ -540,6 +540,81 @@ for r in list(ROADS):
             if road_clear(garden,2):
                 insert_prop(dict(kind="garden",p=garden,size=[size[0],2],angle=angle,color="94ae7c",radius=0,solid=False,seed=RNG.randrange(100000)))
 
+# Complete city blocks instead of decorating only their road edges. The
+# street-front pass above remains intact; these repeatable building parcels
+# fill the leftover interior of Larkspur and Bellwether Bay. Use a separate
+# RNG so the legacy map's unrelated rural vegetation stays reproducible.
+# Collision circles remain authoritative: visually adjacent buildings may
+# touch, but their driving blockers and road envelopes never overlap.
+def infill_city_blocks():
+    local = random.Random(28114 ^ 0xC17B10C)
+    city_zones = [t["points"] for t in TERRAIN if t["kind"] == "city"]
+    town_zones = [t["points"] for t in TERRAIN if t["kind"] == "town"]
+    city_palette = ["bba99b", "c6b9aa", "aeb8b4", "c5bba7", "9daaa5", "d0bfaa"]
+    shop_palette = ["bcaa94", "c0b8aa", "b1b5ae", "d1c2a6"]
+    # Local blocks, mixed-use core and industrial east edge all use the
+    # existing native house/shop/building/warehouse atlas sprites.
+    neighborhoods = [
+        ("larkspur", 2430, 3900, 2320, 3530, 31, 31),
+        ("bellwether", 4480, 5130, 2380, 3070, 29, 31),
+    ]
+    for district, x0, x1, y0, y1, dx, dy in neighborhoods:
+        for row, y in enumerate(range(y0, y1, dy)):
+            for col, x in enumerate(range(x0, x1, dx)):
+                # Small regular parcels convey intentional urban street
+                # blocks; occasional shared courtyards break repetition.
+                if (row * 13 + col * 7) % 19 in (0, 1):
+                    continue
+                px = x + (dx * .5 if row % 2 else 0) + local.uniform(-2, 2)
+                py = y + local.uniform(-2, 2)
+                p = [px, py]
+                zones = city_zones if district == "larkspur" else town_zones
+                if not any(in_poly(p, polygon) for polygon in zones):
+                    continue
+                if not land(p):
+                    continue
+                if district == "larkspur":
+                    core = ((px - 3080) / 410) ** 2 + ((py - 2830) / 450) ** 2 < 1
+                    industrial = px > 3470 and py > 2950
+                    # Keep the civic park as a recognizable open public space.
+                    if distance(p, (3020, 3050)) < 92:
+                        continue
+                    if industrial:
+                        kind, size = "warehouse", (18, 21)
+                    elif core:
+                        kind, size = ("building", (16, 21)) if (row + col) % 4 else ("shop", (14, 19))
+                    elif px < 2760 or py > 3300:
+                        kind, size = ("house", (12, 16)) if col % 3 else ("shop", (13, 17))
+                    else:
+                        kind, size = ("shop", (13, 19)) if col % 3 else ("building", (16, 21))
+                else:
+                    if px > 4910 or py < 2570:
+                        kind, size = ("coastal_house", (12, 16)) if col % 3 else ("shop", (13, 18))
+                    else:
+                        kind, size = ("shop", (13, 18)) if (row + col) % 3 else ("building", (15, 20))
+                # The collision footprint is the native scenery circle, not
+                # a decorative footprint without a physics blocker.
+                radius = math.hypot(*size) / 2
+                if not road_clear(p, radius + .7) or occupied(p, radius + .2):
+                    continue
+                angle = 0 if (row // 4 + col // 5) % 2 == 0 else math.pi / 2
+                color = local.choice(shop_palette if kind == "shop" else city_palette)
+                insert_prop(dict(kind=kind, p=p, size=list(size), angle=angle,
+                                 color=color, radius=radius, solid=True,
+                                 seed=local.randrange(100000)))
+                # Non-solid courtyards/greenery are used sparingly behind the
+                # building line instead of placing obstacles in streets.
+                if (row * 5 + col) % 17 == 3:
+                    garden = [px + dx * .43, py + dy * .43]
+                    if land(garden) and road_clear(garden, 2):
+                        insert_prop(dict(kind="garden", p=garden, size=[5, 4],
+                                         angle=angle, color="90a77c",
+                                         radius=0, solid=False,
+                                         seed=local.randrange(100000)))
+
+
+infill_city_blocks()
+
 # Fields are individual planted plots with soft hedges and farm access tracks.
 for x in range(350,2000,170):
     for y in range(2500,4500,160):
