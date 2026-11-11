@@ -94,7 +94,9 @@ function render(){
   // road centerlines as the main canvas. The old simplified-region mini-map
   // showed a different ocean/land boundary from the actual game.
   miniCtx.scale(scale,scale);drawWorld(miniCtx,doc,{...currentDisplay(),
-    showScenery:currentDisplay().showScenery&&doc.props.length<500,
+    // A 190px overview needs coastlines and roads, not 19k detailed game props
+    // re-rendered on every pan/zoom; this also keeps the editor responsive.
+    showScenery:false,
     runtimePreview,quality:0,junctions:false,showMarkers:false});
   miniCtx.restore();
   miniCtx.strokeStyle='#f5c18e';miniCtx.lineWidth=1.7;
