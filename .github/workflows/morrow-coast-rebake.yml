@@ -38,6 +38,16 @@ jobs:
           PY
       - name: Verify the new city, cornfields, coastal highway and race venues
         run: python tests/morrow_coast_overhaul_test.py
+      - name: Prove two future expansions preserve baked Morrow road, terrain and scenery IDs
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {convertMorrowWorld,morrowEditText} from './map-editor/morrow-coast-bridge.js';
+          const map=JSON.parse(fs.readFileSync('worlds/morrow-coast.world.json','utf8'));
+          fs.writeFileSync('/tmp/morrow-edit-roundtrip.json',morrowEditText(convertMorrowWorld(map).doc));
+          JS
+          python tests/morrow_roundtrip_validate.py /tmp/morrow-edit-roundtrip.json
+          python tests/morrow_expansion_stability_test.py
       - name: Save generated world files for review and repository commit
         uses: actions/upload-artifact@v4
         with:
