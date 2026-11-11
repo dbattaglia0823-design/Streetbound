@@ -15,7 +15,6 @@ const key=(x,y)=>x+','+y;
 const buildingTypes=new Set(['house','building','warehouse','garage','gas_station','parking','dock']);
 const alignedTypes=new Set(['house','building','warehouse','garage','gas_station','parking',
   'barrier','sign','streetlight','dock']);
-const roadsideMarkerTypes=new Set(['garage','dealership','fuel','mission','fast_travel','player_spawn']);
 const footprints={
   oak:[96,96],pine:[56,72],palm:[72,72],bush:[40,40],
   rock:[34,32],boulder:[58,58],house:[66,54],building:[92,104],
@@ -160,20 +159,14 @@ export function placeBesideRoad(doc,input,{snap=true,align=true,maxSnapDistance=
   }
   return prop;
 }
-/** Race starts, finishes, checkpoints and traffic spawns belong ON the road.
- * Only site markers are pushed outside traffic lanes.
+/** Kept as a backwards-compatible helper for existing integrations.
+ * All gameplay markers are free overlays, never automatically repositioned.
  */
-export function placeSiteMarker(doc,marker){
-  if(!roadsideMarkerTypes.has(marker.type))return marker;
-  const placed=placeBesideRoad(doc,{...marker,scale:1,assetId:'',type:'sign'},{
-    snap:true,align:true,maxSnapDistance:360
-  });
-  return {...marker,x:placed.x,y:placed.y,rotation:placed.rotation};
-}
+export function placeSiteMarker(_doc,marker){return marker;}
 /** Reflow only props that overlap a newly edited road, or optionally align all
  * roadside buildings as part of an explicit repair operation. Never delete props.
  */
-export function repairRoadsideObjects(doc,{alignAll=false,markers=true}={}){
+export function repairRoadsideObjects(doc,{alignAll=false}={}){
   let moved=0,rotated=0,failed=0;
   const props=doc.props.map(old=>{
     const radius=placementFootprint(doc,old);
@@ -187,15 +180,11 @@ export function repairRoadsideObjects(doc,{alignAll=false,markers=true}={}){
       return next;
     }catch{failed++;return old;}
   });
-  let adjustedMarkers=0;
-  const nextMarkers=markers?doc.markers.map(m=>{
-    if(!roadsideMarkerTypes.has(m.type))return m;
-    if(!alignAll&&roadwayClearance(doc,m,18)>=0)return m;
-    try{
-      const next=placeSiteMarker(doc,m);
-      if(next.x!==m.x||next.y!==m.y||next.rotation!==m.rotation)adjustedMarkers++;
-      return next;
-    }catch{failed++;return m;}
+  // Marker positions are intentionally independent of all scenery repair.
+  // Neither a road edit nor "Fix all overlaps" should silently move a marker.
+  return {doc:moved||rotated?{...doc,props}:doc,
+    moved,rotated,adjustedMarkers:0,failed};
+}
   }):doc.markers;
   return {doc:moved||rotated||adjustedMarkers?{...doc,props,markers:nextMarkers}:doc,
     moved,rotated,adjustedMarkers,failed};
