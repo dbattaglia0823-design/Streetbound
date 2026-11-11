@@ -154,6 +154,9 @@ test('UI retains manual placement with live layers and explicit confirmation',as
   assert.ok(!editor.includes('const fixed=repairRoadsideObjects(doc);'),
     'road drag completion must not relocate objects');
   assert.match(renderer,/roadSnapPreview/);
+  assert.match(renderer,/alignmentPreview/);
+  assert.match(editor,/const travel=distance\(placed,found\.item\)/);
+  assert.match(editor,/if\(travel>40&&\!window\.confirm\(/);
   assert.match(html,/<input id="road-smart-snap" type="checkbox">/,
     'automatic road-point snap should be visibly opt-in');
 });
