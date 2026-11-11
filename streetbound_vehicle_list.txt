@@ -189,6 +189,7 @@ Mazda
   MX-5 Miata
   RX-7
   RX-8
+  Murai
 
 McLaren
   F1
@@ -213,11 +214,12 @@ Mercedes-Benz
   G-Class
   SL
   AMG GT
+  AMG ONE
 
 Mitsubishi
-  Lancer
+  Lancer Evolution VIII MR
   Galant
-  Eclipse
+  Eclipse GSX
   3000GT
   Starion
 
@@ -225,8 +227,12 @@ Nissan
   Altima SR
   Maxima
   Z
+  Z Nismo
   GT-R
+  GT-R Nismo
   Frontier
+  Silvia Spec-R
+  Skyline GT-R
 
 Porsche
   911
@@ -253,11 +259,11 @@ Rolls-Royce
   Spectre
 
 Subaru
-  Impreza
-  BRZ
-  WRX
+  2005 Impreza WRX STI
+  2011 WRX STI
+  2013 BRZ
+  2015 WRX STI
   Baja
-  STI
 
 Tesla
   Model 3
@@ -269,25 +275,98 @@ Tesla
   Plaid
 
 Toyota
-  Corolla
-  Camry
-  Prius
-  Supra
+  GR Corolla
+  1998 Supra RZ
+  2020 GR Supra
   GR86
   RAV4
   Highlander
-  Tacoma
+  2019 Tacoma TRD Pro
   Tundra
   Land Cruiser
 
 Volkswagen
-  Golf
+  Golf R
+  1992 Golf GTI 16V MK2
   Jetta
-  Passat
-  Tiguan
-  Atlas
-  Taos
+  Corrado VR6
   Arteon
   Touareg
   Beetle
   Phaeton
+  Scirocco R
+
+====================================================
+
+Additional vehicles for future content/development:
+
+2001 Acura Integra Type R
+
+2016 Ariel Nomad
+2013 Ariel Atom 500 V8
+
+2022 Aston Martin Valkyrie AMR PRO
+2016 Aston Martin Vulcan
+1964 Aston Martin DB5
+
+2009 Audi R8 LMS
+2013 Audi R8 Coupe v10 Plus 5.2 FSI Quattro
+1986 Audi Sport Quattro S1
+
+2014 BAC Mono
+
+2010 Ferrari 599XX
+2005 Ferrari FXX
+
+2025 Ford Mustang GTD
+2024 Ford Mustang Dark Horse
+2017 Ford GT
+2000 Ford Mustang SVT Cobra R
+1969 Ford Mustang Boss 302
+1966 Ford #2 GT40 MK II
+
+2021 Hennessey Venom F5
+
+1997 Honda Civic Type R
+
+2022 Hyundai N Vision 74
+
+2024 Koenigsegg Gemera
+2020 Koenigsegg Jesko
+2017 Koenigsegg Agera RS
+2016 Koenigsegg Regera
+2008 Koenigsegg CCGT
+
+2020 Lamborghini Essenza SCV12
+
+2020 Lotus Evija
+
+2022 Maserati MC20
+
+2025 Mclaren W1
+19997 Mclaren F1 GT
+
+1995 Nissan Nismo GT-R LM
+1969 Nissan Fairlady Z 432
+1997 Nissan Skyline GT-R V-Spec
+
+2010 Noble M600
+
+2016 Pagani Huayra BC Coupe
+2010 Zonda Cinque Roadster
+2009 Zonda R
+
+1971 Plymouth Cuda 426 Hemi
+1968 Plymouth Barracuda Formula S
+
+1987 Pontiac Firebird Trans AM GTA
+1977 Pontiac Firebird Trans AM
+
+2023 Porsche 911 GT3 RS
+2021 Porsche 911 GT3
+2019 Porsche #70 Porsche Motorsports 935
+2018 Porsche 911 GT2 RS
+
+1990 Mercedes-Benz E 2.5-16 Evolution II
+
+Zenvo TSR-S
