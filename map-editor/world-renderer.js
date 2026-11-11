@@ -2,7 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
-import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -151,37 +151,46 @@ function drawRoads(ctx,roads,bounds,options){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
-  // Every crossing/T-junction is now repaved AFTER lane markings. The
-  // polygon joins the roadway footprints and erases overlapping painted lines.
-  // Cached geometry makes even the 132-road Atlas Coast plan practical.
-  if(options?.junctions!==false){
-    const junctions=buildRoadJunctions(roads);
-    for(const junction of junctions){
-      if(!visible({
-        minX:junction.x-junction.radius,minY:junction.y-junction.radius,
-        maxX:junction.x+junction.radius,maxY:junction.y+junction.radius
-      },bounds))continue;
-      stroke(ctx,junction.polygon,true);
-      ctx.fillStyle=ROAD_COLORS[junction.surface]||ROAD_COLORS.asphalt;
-      ctx.fill();
-      // Sidewalk/crosswalk style stop bars at urban intersections, never on
-      // highways, off-road courses, or race tracks.
-      if(options.quality===0 || junction.approaches.length<2 ||
-        junction.approaches.some(a=>a.roadClass==='highway'||a.roadClass==='track'||
-          a.surface==='dirt'||a.surface==='gravel'))continue;
-      for(const approach of junction.approaches){
-        if(!approach.markings||!['city','service'].includes(approach.roadClass))continue;
-        const v=approach.tangent,n=approach.normal;
-        for(const sign of [-1,1]){
-          const reach=Math.max(5,...junction.polygon.map(p=>
-            (p.x-junction.x)*v.x*sign+(p.y-junction.y)*v.y*sign));
-          const cx=junction.x+v.x*sign*(reach+9),cy=junction.y+v.y*sign*(reach+9);
-          const half=Math.max(5,approach.width/2-5);
-          ctx.beginPath();ctx.moveTo(cx-n.x*half,cy-n.y*half);
-          ctx.lineTo(cx+n.x*half,cy+n.y*half);
-          ctx.lineWidth=2.4;ctx.strokeStyle='#f2ebd4c9';ctx.stroke();
-        }
+  // Painted road strokes already make round intersection junctions.
+  // Filling generic convex apron polygons creates square black patches
+  // that do not exist in the game. Keep only the baked exterior curbs
+  // and legally required stop/yield bars for untouched game roads.
+  if(options?.junctions!==false && options?.runtimePreview?.junctions){
+    const preview=options.runtimePreview;
+    const unchanged=id=>{
+      const road=roads.find(item=>item.id===id);
+      const baked=preview.roads.get(id);
+      return Boolean(road&&baked&&road.points.length===baked.anchors.length&&
+        Math.abs(road.width-baked.width)<.001 &&
+        road.surface.toUpperCase()===baked.surface &&
+        road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
+          Math.abs(p.y-baked.anchors[i][1])<.005));
+    };
+    if(options.quality!==0)for(const j of preview.junctions){
+      if(!j.roads.length||!j.roads.every(unchanged)||
+        !visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
+          maxX:j.at.x+j.radius,maxY:j.at.y+j.radius},bounds))continue;
+      ctx.save();
+      ctx.strokeStyle='#eee7d5';
+      ctx.lineWidth=.3;
+      for(const curb of j.curbs){
+        if(curb.length<2)continue;
+        ctx.beginPath();
+        ctx.moveTo(curb[0][0],curb[0][1]);
+        for(const p of curb.slice(1))ctx.lineTo(p[0],p[1]);
+        ctx.stroke();
       }
+      for(const arm of j.approaches){
+        if(!['stop','yield'].includes(arm.control))continue;
+        const p=arm.p,d=arm.direction;
+        if(!Array.isArray(p)||!Array.isArray(d))continue;
+        const n={x:-d[1],y:d[0]},w=(arm.width||9)/2;
+        ctx.beginPath();
+        ctx.moveTo(p[0]-n.x*(w-.5),p[1]-n.y*(w-.5));
+        ctx.lineTo(p[0]-n.x*.5,p[1]-n.y*.5);
+        ctx.lineWidth=.4;ctx.strokeStyle='#f2ebd4';ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 }
@@ -257,6 +266,28 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  // Adopted world props use the game's own rendering code so dragging or
+  // rotating a baked car, lot, field or street fixture does not replace it
+  // with an unrelated generic placeholder.
+  if(gameArt&&prop.replaces&&BASE_SIZE[prop.type]){
+    const [w,h]=BASE_SIZE[prop.type];
+    drawNative(ctx,{
+      kind:prop.replaces.kind,p:[prop.x,prop.y],
+      size:[w*prop.scale,h*prop.scale],
+      angle:prop.rotation*Math.PI/180,
+      seed:prop.replaces.seed,solid:!['garden','field','planter','forecourt'].includes(prop.type),
+      stall_width:prop.stallWidth,occupancy:prop.occupancy,
+      entrance_width:prop.entranceWidth
+    },1);
+    return;
+  }
+  if(gameArt&&['parked_car','planter','garden','field','island','forecourt'].includes(prop.type)){
+    const [w,h]=BASE_SIZE[prop.type];
+    drawNative(ctx,{kind:prop.type,p:[prop.x,prop.y],
+      size:[w*prop.scale,h*prop.scale],angle:prop.rotation*Math.PI/180,
+      seed:stringSeed(prop.id),solid:prop.type==='parked_car'||prop.type==='island'},1);
+    return;
+  }
   const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
@@ -320,7 +351,10 @@ export function drawWorld(ctx,doc,options={}){
     }
   }
   if(options.showTerrain!==false){
-    for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    const drawEdited=region=>drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    if(!options.runtimePreview||
+      !drawRuntimeTerrain(ctx,options.runtimePreview,doc,drawEdited))
+      for(const region of doc.regions)drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
   }
   if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);

@@ -88,7 +88,7 @@ export function convertMorrowWorld(raw){
   // Procedural forest/city props remain source-owned. Only explicit
   // authored IDs are editable and survive a production-world rebake.
   const props=(raw.props||[]).filter(prop=>typeof prop.authoring_id==='string')
-    .slice(0,200).map(prop=>({
+    .slice(0,4000).map(prop=>({
       id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),

@@ -127,7 +127,8 @@ function refreshHeader(){
     $('expand-morrow').disabled=
       doc.world.width===MORROW_MAX_WIDTH&&doc.world.height===MORROW_MAX_HEIGHT;
   }
-  $('save-morrow').textContent=liveSession?'Apply to Game':'Export Morrow edits';
+  $('save-morrow').textContent=liveSession?'Save to Game':'Export Morrow edits';
+  $('save-world').textContent=isMorrowEdit(doc)&&liveSession?'Save to Game':'Save';
   $('adopt-game-prop').hidden=!runtimePreview;
   $('adopt-game-hint').hidden=!runtimePreview;
   $('game-asset-status').textContent=runtimePreview
@@ -896,7 +897,7 @@ async function openGameMap({skipConfirm=false}={}){
     $('show-traffic').checked=true;
     $('show-scenery').checked=true;
     refreshUI();
-    status(session?'Live project connected. Edits can be applied directly to the playable world.':
+    status(session?'Live project connected. Save to Game writes and rebuilds the playable world. Restart the game after saving.':
       'Current map imported. Direct write requires Start Map Editor.cmd with Python 3.');
   }catch(e){errorMessage(e);}
   finally{button.disabled=false;}
@@ -938,6 +939,8 @@ $('save-morrow').addEventListener('click',async()=>{
       const result=await response.json();
       if(!response.ok||!result.ok)
         throw new Error(result.error||'The map rebuild failed; project files were restored.');
+      // The rebuild is complete before the world is reloaded, and the
+      // revision is refreshed to avoid a second-save conflict.
       await openGameMap({skipConfirm:true});
       status('Applied directly to worlds/morrow-coast.world.json. '+
         'Rebuilt '+(result.stats?.roads||0)+' roads and '+
@@ -971,6 +974,12 @@ function download(content,filename,mime){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 $('save-world').addEventListener('click',()=>{
+  // When editing the playable map, Save means write the actual game world,
+  // not an unrelated localStorage copy that Godot never reads.
+  if(isMorrowEdit(doc)&&liveSession&&loadedWorldSha){
+    $('save-morrow').click();
+    return;
+  }
   try{
     const last=localStorage.getItem(SAVE),next=serializeWorld(doc);
     if(last&&last!==next)auditUI.stash(last);
@@ -1000,23 +1009,6 @@ $('import-world').addEventListener('change',async event=>{
 $('export-world').addEventListener('click',()=>{
   try{download(serializeWorld(doc),worldSlug(doc.name)+'.world.json','application/json');status('World geometry JSON downloaded.');}
   catch(e){errorMessage(e);}
-});
-$('export-png').addEventListener('click',()=>{
-  try{
-    const scale=Math.min(1,4096/doc.world.width,4096/doc.world.height,
-      Math.sqrt(10_000_000/(doc.world.width*doc.world.height)));
-    const out=document.createElement('canvas');
-    out.width=Math.max(1,Math.round(doc.world.width*scale));
-    out.height=Math.max(1,Math.round(doc.world.height*scale));
-    const c=out.getContext('2d');c.scale(scale,scale);
-    drawWorld(c,doc,{quality:1,showMarkers:false,
-      runtimePreview,zoom:scale});
-    out.toBlob(blob=>{
-      if(!blob)return status('Could not encode PNG.');
-      download(blob,worldSlug(doc.name)+'-overview.png','image/png');
-      status('World image preview downloaded. This is not the editable world file.');
-    },'image/png');
-  }catch(e){errorMessage(e);}
 });
 $('export-godot').addEventListener('click',async()=>{
   const button=$('export-godot');button.disabled=true;

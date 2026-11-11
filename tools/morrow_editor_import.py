@@ -140,6 +140,12 @@ EDITOR_PROP_STYLES = {
     "barrier": ("barrier", (3.0, 1.0), True),
     "parking": ("lot", (38.0, 28.0), False),
     "dock": ("dock", (3.0, 11.0), False),
+    "parked_car": ("parked_car", (1.9, 4.6), True),
+    "planter": ("planter", (2.8, 2.8), False),
+    "garden": ("garden", (8.0, 2.4), False),
+    "field": ("field", (90.0, 70.0), False),
+    "island": ("island", (23.0, 23.0), True),
+    "forecourt": ("forecourt", (23.0, 16.0), False),
 }
 
 
@@ -148,8 +154,8 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
     import zlib
 
     items = doc.get("props", [])
-    if not isinstance(items, list) or len(items) > 200:
-        raise ValueError("At most 200 editor-authored props may be baked")
+    if not isinstance(items, list) or len(items) > 4000:
+        raise ValueError("At most 4000 editor-authored props may be baked")
     ids = set()
     result = []
     for raw in items:
@@ -217,6 +223,12 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 "showroom": {"building", "warehouse", "garage", "gas_station"},
                 "fuel": {"building", "warehouse", "garage", "gas_station"},
                 "bush": {"bush"},
+                "lamp": {"streetlight"}, "sign": {"sign"},
+                "barrier": {"barrier"}, "dock": {"dock"},
+                "lot": {"parking"}, "forecourt": {"forecourt"},
+                "parked_car": {"parked_car"}, "planter": {"planter"},
+                "garden": {"garden"}, "field": {"field"},
+                "island": {"island"},
             }
             if not isinstance(source, dict) or type_name not in editable_types.get(source.get("kind"), set()):
                 raise ValueError("Replacement is not compatible with its source game scenery")
