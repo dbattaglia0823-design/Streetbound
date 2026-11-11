@@ -289,10 +289,22 @@ def add_poi(name, category, anchor, direction, style="garage"):
     norm = math.hypot(*direction)
     d = (direction[0]/norm, direction[1]/norm)
     p = (a[0]+d[0]*65,a[1]+d[1]*65)
+    # A saved Map Builder snapshot may already contain a newly generated fuel
+    # access road. Reuse its stable ID rather than making a duplicate on rebake.
+    existing=next((r for r in ROADS if r["name"]==name+" access"),None)
+    if existing is not None:
+        p=tuple(existing["anchors"][-1])
     key = "poi_" + str(len(POIS))
     node(key,*p)
-    road(name+" access",anchor,key,kind="driveway")
-    POIS.append(dict(name=name,category=category,position=list(p),anchor=anchor,road=len(ROADS)-1))
+    if existing is None:
+        access=road(name+" access",anchor,key,kind="driveway")
+    else:
+        access=existing
+        access["start"]=anchor
+        access["end"]=key
+        access["anchors"][0]=list(NODES[anchor])
+        access["anchors"][-1]=list(p)
+    POIS.append(dict(name=name,category=category,position=list(p),anchor=anchor,road=access["id"]))
     PROPS.append(dict(kind="lot", p=list(p), size=[38,28], angle=math.atan2(d[1],d[0]), color="b6b7a6", solid=False, radius=0, seed=RNG.randrange(100000)))
     apron=[p[0]+d[0]*24,p[1]+d[1]*24]
     PROPS.append(dict(kind="forecourt",p=apron,size=[23,16],angle=math.atan2(d[1],d[0]),color="8b9290",solid=False,radius=0,seed=0))
