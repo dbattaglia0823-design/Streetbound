@@ -9,6 +9,9 @@ const HARD_BRAKE := PPM * 24.0
 const LOOKAHEAD_SECONDS := 2.25
 const TURN_RESPONSE := 5.2
 const MAX_TURN_RATE := deg_to_rad(95.0)
+const PLAYER_PATH_HALF_WIDTH := PPM * 2.1
+const PASS_WAIT_SECONDS := 4.0
+const PASS_DISTANCE := PPM * 17.0
 const PALETTE := [
 	Color("7b8b9b"),Color("b5b6aa"),Color("a08f7a"),Color("617a77"),
 	Color("a77c6b"),Color("8b94a4"),Color("c9c1ad"),Color("515d67")
@@ -103,7 +106,9 @@ func _spawn_one() -> bool:
 			"next":-2,"stop_wait":0.0,"stop_done":false,
 			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{},
 			"obstacle_scan_clock":0.0,"obstacle_position":Vector2.INF,
-			"recovery_stall":0.0
+			"recovery_stall":0.0,
+			"player_block_time":0.0,"passing_lane":-1,
+			"passing_start":0.0,"pass_cooldown":0.0
 		})
 		_id_serial+=1
 		return true
@@ -142,7 +147,7 @@ func _safe_follow_speed(agent: Dictionary, desired_px: float,
 	var lateral := absf(heading.cross(offset))
 	# The half-widths of both cars plus a small clearance. Adjacent lanes do
 	# not count as obstacles unless their collision paths really intersect.
-	if ahead < -PPM * 0.5 or lateral > PPM * 2.85:
+	if ahead < -PPM * 0.5 or lateral > PLAYER_PATH_HALF_WIDTH:
 		return desired_px
 	var lead_speed := maxf(0.0, obstacle_velocity.dot(heading))
 	var closing_speed := maxf(0.0, desired_px - lead_speed)
@@ -236,6 +241,13 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 		else Vector2.UP.rotated((agent.node as Node2D).rotation)
 	var safe := _safe_follow_speed(agent, desired_px,
 		player.global_position, player_velocity, heading)
+	# A parallel player in another lane is not crossing our path.
+	# Require an actual projected overlap, not merely proximity.
+	var player_heading := Vector2.UP.rotated(player.rotation)
+	if absf(heading.normalized().dot(player_heading)) > 0.78 and \
+		(player_velocity.length() < PPM * 1.0 or
+		absf(player_velocity.normalized().dot(heading.normalized())) > 0.78):
+		return safe
 	return _crossing_speed(agent, safe, player.global_position,
 		player_velocity, true, heading)
 
@@ -293,6 +305,91 @@ func _world_obstacle_speed(agent: Dictionary, desired_px: float, dt: float) -> f
 	return minf(desired_px, sqrt(2.0 * COMFORT_BRAKE * maxf(0.0, ahead - PPM * 3.5)))
 
 
+
+# Use only another lane in the SAME direction and same road segment.
+# Never borrow an opposing lane or bypass junction priority rules.
+func _passing_lane(agent: Dictionary) -> int:
+	var edge: Dictionary = network.edges[int(agent.edge)]
+	if bool(edge.connector) or int(edge.lanes_in_direction) < 2:
+		return -1
+	var node: CharacterBody2D = agent.node
+	var heading: Vector2 = network.point_on_edge(int(agent.edge), float(agent.progress)).tangent
+	var to_player: Vector2 = player.global_position - node.global_position
+	var ahead := to_player.dot(heading)
+	if ahead < PPM * 4.0 or ahead > PPM * 22.0:
+		return -1
+	if absf(heading.cross(to_player)) > PLAYER_PATH_HALF_WIDTH:
+		return -1
+	if player.linear_velocity.length() > 1.0:
+		return -1
+	if float(edge.length_px) - float(agent.progress) < PASS_DISTANCE + PPM * 5.0:
+		return -1
+	for id in network.edges.size():
+		var candidate: Dictionary = network.edges[id]
+		if bool(candidate.connector) or int(candidate.road) != int(edge.road) or \
+			int(candidate.direction) != int(edge.direction) or \
+			int(candidate.lane) == int(edge.lane) or \
+			int(candidate.start_j) != int(edge.start_j) or \
+			int(candidate.end_j) != int(edge.end_j):
+			continue
+		var ratio := float(agent.progress) / maxf(1.0, float(edge.length_px))
+		var new_progress := ratio * float(candidate.length_px)
+		var target: Vector2 = network.point_on_edge(id, new_progress + PPM * 7.0).position
+		# The player and other cars must not occupy the destination lane
+		# or the corridor between the two lanes.
+		if target.distance_to(player.global_position) < PPM * 4.8:
+			continue
+		var clear := true
+		for other in agents:
+			if int(other.uid) == int(agent.uid):
+				continue
+			var other_node: CharacterBody2D = other.node
+			if not is_instance_valid(other_node):
+				continue
+			var other_position := other_node.global_position
+			for fraction in [0.0, 0.5, 1.0]:
+				var from_sample: Vector2 = network.point_on_edge(int(agent.edge),
+					float(agent.progress) + PASS_DISTANCE * fraction).position
+				var to_sample: Vector2 = network.point_on_edge(id,
+					new_progress + PASS_DISTANCE * fraction).position
+				var intended := from_sample.lerp(to_sample, fraction)
+				if other_position.distance_to(intended) < PPM * 7.0:
+					clear = false
+					break
+			if not clear:
+				break
+		if clear:
+			return id
+	return -1
+
+
+func _pass_sample(agent: Dictionary) -> Dictionary:
+	var edge_id := int(agent.edge)
+	var pass_id := int(agent.get("passing_lane", -1))
+	var progress := float(agent.progress)
+	var source: Dictionary = network.point_on_edge(edge_id, progress)
+	if pass_id < 0:
+		return source
+	var old_edge: Dictionary = network.edges[edge_id]
+	var target_edge: Dictionary = network.edges[pass_id]
+	var fraction := clampf((progress - float(agent.passing_start)) / PASS_DISTANCE, 0.0, 1.0)
+	var ease := fraction * fraction * (3.0 - 2.0 * fraction)
+	var target_progress := progress / maxf(1.0, float(old_edge.length_px)) * float(target_edge.length_px)
+	var target: Dictionary = network.point_on_edge(pass_id, target_progress)
+	var position: Vector2 = source.position.lerp(target.position, ease)
+	var future_progress := minf(progress + PPM * 1.2, float(old_edge.length_px))
+	var future_ratio := future_progress / maxf(1.0, float(old_edge.length_px))
+	var future_ease := clampf((future_progress - float(agent.passing_start)) / PASS_DISTANCE, 0.0, 1.0)
+	future_ease = future_ease * future_ease * (3.0 - 2.0 * future_ease)
+	var future: Vector2 = network.point_on_edge(edge_id, future_progress).position.lerp(
+		network.point_on_edge(pass_id, future_ratio * float(target_edge.length_px)).position,
+		future_ease)
+	var tangent := (future - position).normalized()
+	if tangent.length_squared() < 0.1:
+		tangent = source.tangent
+	return {"position":position,"tangent":tangent,"angle":tangent.angle() + PI * 0.5}
+
+
 func _next_target(agent: Dictionary,edge: Dictionary) -> int:
 	if int(agent.next)==-2:
 		agent.next=_choose_next(edge)
@@ -310,6 +407,11 @@ func _tick_agent(index: int,dt: float) -> bool:
 	if bool(node.get("recovering")):
 		return _recover_agent(agent,dt)
 	var previous_progress := float(agent.progress)
+	var previous_edge := int(agent.edge)
+	var previous_next := int(agent.next)
+	var previous_stop_wait := float(agent.stop_wait)
+	var previous_stop_done := bool(agent.stop_done)
+	var previous_junctions := active_junctions.duplicate()
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
 	var next_id := -2
@@ -318,7 +420,24 @@ func _tick_agent(index: int,dt: float) -> bool:
 	if remaining < maxf(PPM*35.0,float(agent.speed)*1.6):
 		next_id=_next_target(agent,edge)
 	desired=_car_following(index,desired)
-	desired=_player_awareness(agent,desired)
+	var player_limited := _player_awareness(agent,desired)
+	var blocked_by_player := player_limited < PPM * 1.0 and desired > PPM * 2.0
+	agent.pass_cooldown = maxf(0.0, float(agent.get("pass_cooldown", 0.0)) - dt)
+	if int(agent.get("passing_lane", -1)) < 0:
+		agent.player_block_time = float(agent.get("player_block_time", 0.0)) + dt \
+			if blocked_by_player else 0.0
+		if float(agent.player_block_time) >= PASS_WAIT_SECONDS and float(agent.pass_cooldown) <= 0.0:
+			var alternate := _passing_lane(agent)
+			if alternate >= 0:
+				agent.passing_lane = alternate
+				agent.passing_start = float(agent.progress)
+				agent.player_block_time = 0.0
+	if int(agent.get("passing_lane", -1)) >= 0:
+		# Move cautiously while executing the physical lane change. The
+		# swept body collision remains authoritative throughout the pass.
+		desired = minf(desired, PPM * 6.0)
+	else:
+		desired = player_limited
 	desired=_world_obstacle_speed(agent,desired,dt)
 	if next_id>=0:
 		var next: Dictionary=network.edges[next_id]
@@ -364,7 +483,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 		agent.next=-2
 		agent.stop_wait=0.0
 		agent.stop_done=false
-	var sample: Dictionary=network.point_on_edge(int(agent.edge),float(agent.progress))
+	var sample: Dictionary = _pass_sample(agent)
 	# Move through the physics server, not by teleporting a sprite. A
 	# collision marks the agent for local lane rejoining next tick.
 	var motion: Vector2 = sample.position - node.global_position
@@ -375,11 +494,30 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var eased := angle_delta * (1.0 - exp(-TURN_RESPONSE * dt))
 	node.rotation += clampf(eased, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
 	if collision != null or bool(node.get("recovering")):
+		agent.edge=previous_edge
 		agent.progress=previous_progress
+		agent.next=previous_next
+		agent.stop_wait=previous_stop_wait
+		agent.stop_done=previous_stop_done
+		active_junctions=previous_junctions
+		if int(agent.get("passing_lane", -1)) >= 0:
+			agent.passing_lane=-1
+			agent.player_block_time=0.0
+			agent.pass_cooldown=5.0
 		agent.speed=minf(float(agent.speed),PPM*3.0)
 		agent.recovery_time=0.0
 		agent.recovery_refresh=0.0
 		agent.recovery_goal={}
+	if int(agent.get("passing_lane", -1)) >= 0 and \
+		float(agent.progress) - float(agent.passing_start) >= PASS_DISTANCE:
+		var old_edge: Dictionary = network.edges[int(agent.edge)]
+		var new_edge: Dictionary = network.edges[int(agent.passing_lane)]
+		agent.progress = clampf(float(agent.progress) / maxf(1.0, float(old_edge.length_px)) *
+			float(new_edge.length_px), 0.0, float(new_edge.length_px) - 1.0)
+		agent.edge = int(agent.passing_lane)
+		agent.passing_lane = -1
+		agent.next = -2
+		agent.pass_cooldown = 8.0
 	return true
 
 
