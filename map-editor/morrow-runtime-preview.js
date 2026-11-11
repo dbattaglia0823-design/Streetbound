@@ -141,6 +141,8 @@ function bucketKey(x,y,cell){return Math.floor(x/cell)+','+Math.floor(y/cell);}
 export function buildRuntimePreview(raw){
   if(!raw||raw.format!=='streetbound.streamed-world')throw new TypeError('Invalid streamed world');
   const cell=192,buckets=new Map(),props=raw.props||[],roads=new Map();
+  const sourceSize=(raw.size||[6400,4800]).map(Number);
+  const extensionTerrain=(raw.terrain||[]).filter(t=>t.generated_extension);
   for(const [index,road] of (raw.roads||[]).entries()){
     roads.set('road-'+index,{anchors:road.anchors||road.points,
       points:(road.points||[]).map(([x,y])=>({x:+x,y:+y})),
@@ -153,7 +155,7 @@ export function buildRuntimePreview(raw){
     buckets.get(key).push(item);
   }
   preloadGameArtwork();
-  return {cell,buckets,roads,propsCount:props.length};
+  return {cell,buckets,roads,propsCount:props.length,sourceSize,extensionTerrain};
 }
 function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
@@ -213,6 +215,36 @@ function drawNative(ctx,prop,scale){
   }
   ctx.restore();
 }
+/** Existing added terrain masks plus a temporary preview of unsaved growth.
+ * Only new ground is painted; old world coordinates/polygons are untouched.
+ */
+export function drawRuntimeExpansion(ctx,preview,doc){
+  if(!preview)return;
+  const colors={ocean:'#82b5b5',beach:'#e3d4aa',foam:'#c6d9c9'};
+  const polygon=(points,color)=>{
+    if(points.length<3)return;
+    ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+    for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
+    ctx.closePath();ctx.fillStyle=color;ctx.fill();
+  };
+  for(const terrain of preview.extensionTerrain||[])
+    polygon(terrain.points,colors[terrain.kind]||'#a3b789');
+  const [oldW,oldH]=preview.sourceSize||[6400,4800];
+  const width=doc.world.width,height=doc.world.height;
+  if(width>oldW){
+    ctx.fillStyle=colors.ocean;
+    ctx.fillRect(oldW,0,width-oldW,height);
+  }
+  if(height>oldH){
+    const shore=y=>5190+115*Math.sin((y-4800)/560);
+    const coast=[[shore(oldH),oldH]];
+    for(let y=oldH+5;y<=height;y+=5)coast.push([shore(y),y]);
+    if(coast.at(-1)[1]<height)coast.push([shore(height),height]);
+    polygon([...coast,[oldW,height],[oldW,oldH]],colors.ocean);
+    polygon(coast.map(([x,y])=>[x-65,y]).concat([...coast].reverse()),colors.beach);
+  }
+}
+
 /** Draw the real baked props (including city, parking and forest details).
  * Authored prop IDs are rendered using live editor state instead to avoid
  * overlapping old and new positions before the next bake.
