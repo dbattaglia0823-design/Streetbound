@@ -29,6 +29,17 @@ func _run() -> void:
 	var car: VehicleController2D = main.get("vehicle") as VehicleController2D
 	check("actual_morrow_coast_initialized", world is MorrowCoast)
 	check("player_vehicle_spawned", car is VehicleController2D and is_instance_valid(car))
+	# On Godot 4.6.3 the wheel resource's registered class was missing on
+	# startup. Testing only the car physics would not catch its visual rig.
+	var wheel_rig: Node = car.get_node_or_null("Art/Wheels") if car != null else null
+	var appearance := wheel_rig.get("appearance") if wheel_rig != null else null
+	check("wheel_rig_script_loaded", wheel_rig != null and
+		wheel_rig.get_script() == load("res://scripts/visual/steerable_wheels.gd"))
+	check("wheel_profile_resource_loaded", appearance != null and
+		appearance.get_script() == load("res://scripts/vehicle/vehicle_appearance_profile.gd"))
+	var inventory: RefCounted = main.get("vehicle_ownership") as RefCounted
+	check("vehicle_ownership_initialized", inventory != null and inventory.has_method("owns") and
+		inventory.has_method("save"))
 	var hud: CanvasLayer = null
 	var camera: Camera2D = null
 	var map_hud: CanvasLayer = null
