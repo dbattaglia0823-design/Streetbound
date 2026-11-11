@@ -89,35 +89,27 @@ def decode(source: pathlib.Path) -> list[float]:
 
 
 def soften_loop(samples: list[float]) -> list[float]:
-    if len(samples) < 1100:
+    if len(samples) < 2000:
         raise ValueError("Recording too short to create a usable loop")
-    # Most clips are engine beds; avoid an isolated starting click/stop.
-    if len(samples) >= TARGET_SAMPLES + RATE // 5:
-        begin = (len(samples) - TARGET_SAMPLES) // 2
-        segment = samples[begin:begin + TARGET_SAMPLES]
-    else:
-        # Original source may itself be a short loop. Repeat it only after
-        # removing its edge click, not as a sequence of hard audio cuts.
-        segment = samples[:]
-    dc = sum(segment) / len(segment)
-    segment = [v - dc for v in segment]
-    width = min(round(RATE * 0.055), len(segment) // 8)
-    # Blend the *end* of the segment into its beginning over 55ms so the
-    # exact loop boundary and its first derivative are non-clicking.
+    # Proper circular crossfade. At the output's boundary, its last sample
+    # is adjacent IN THE ORIGINAL RECORDING to the first sample of the
+    # overlapped tail. Crossfading occurs at the start of the loop, where
+    # it fades to the original start before the rest of the PCM continues.
+    width = min(round(RATE * 0.055), len(samples) // 7)
+    length = min(TARGET_SAMPLES, len(samples) - width)
+    if length < 1300:
+        raise ValueError("Not enough usable steady engine audio")
+    begin = (len(samples) - (length + width)) // 2
+    raw = samples[begin:begin + length + width]
+    dc = sum(raw) / len(raw)
+    raw = [x - dc for x in raw]
+    cycle = raw[:length]
     for i in range(width):
-        w = (i + 1.0) / width
-        segment[len(segment)-width+i] = (
-            segment[len(segment)-width+i] * (1.0 - w)
-            + segment[i] * w
-        )
-    samples = (segment * math.ceil(TARGET_SAMPLES / len(segment)))[:TARGET_SAMPLES]
-    # Repeat may leave an incomplete final cycle: soften that wrap too.
-    for i in range(width):
-        w = (i + 1.0) / width
-        samples[len(samples)-width+i] = (
-            samples[len(samples)-width+i] * (1.0 - w)
-            + samples[i] * w
-        )
+        w = (i + 1.0) / (width + 1.0)
+        cycle[i] = raw[length+i] * (1.0-w) + raw[i] * w
+    # Repeat only WHOLE, now-seamless cycles to get approximately 1.25 s.
+    # Truncating a fraction of the last cycle would add a fresh click.
+    samples = cycle * math.ceil(TARGET_SAMPLES / len(cycle))
     rms = math.sqrt(sum(v*v for v in samples) / len(samples))
     if rms < 0.0015:
         raise ValueError("Silent audio source")
@@ -154,14 +146,22 @@ def main() -> None:
             rms = math.sqrt(sum(v*v for v in segment)/len(segment))
             peak = max(abs(v) for v in segment)
             edge = abs(segment[-1]-segment[0])
-            if edge > 0.08 or peak > 0.91:
-                raise ValueError(f"Clip has unacceptable seam or clipping: {family}: {edge:.3f}")
+            step_rms = math.sqrt(sum((segment[i]-segment[i-1])**2
+                for i in range(1,len(segment))) / (len(segment)-1))
+            seam_ratio = edge / max(step_rms,0.006)
+            # A natural sound can have large adjacent sample swings; check
+            # the discontinuity relative to its normal adjacent-sample noise.
+            if seam_ratio > 3.5 or peak > 0.91:
+                raise ValueError(f"Clip has unnatural seam or clipping: "
+                    f"{family}: edge={edge:.3f}, normalized={seam_ratio:.2f}")
             entry = {"family":family,"source_repo":source[0],
                 "source_revision":source[1],"source_filename":filename,
                 "source_blob_sha":sha,"license":"CC0-1.0",
                 "output":str(destination.relative_to(ROOT)),
-                "seconds":SECONDS,"rms_dbfs":round(20*math.log10(rms),1),
+                "seconds":round(len(segment)/RATE,3),
+                "rms_dbfs":round(20*math.log10(rms),1),
                 "peak":round(peak,4),"seam_delta":round(edge,5),
+                "seam_ratio":round(seam_ratio,3),
                 "bytes":destination.stat().st_size}
             report.append(entry)
             preview.extend(segment)
