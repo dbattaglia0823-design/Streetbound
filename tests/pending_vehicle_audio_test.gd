@@ -198,6 +198,36 @@ func run() -> void:
 		audio._process(0.1)
 	check("pending_audio_families_respect_mute",
 		audio.engine.volume_db < -79.0 and audio.electric_drive.volume_db < -79.0)
+	# Test the actual Godot F6 audition scene, not just its script import.
+	var preview: Control = load("res://scenes/pending_audio_preview.tscn").instantiate()
+	root.add_child(preview)
+	await process_frame
+	check("audio_only_preview_scene_opens_with_all_154_models",
+		preview.selector.item_count == 154 and preview.current_id != "" and \
+		preview.audio.engine.playing)
+	preview._select_vehicle("mazda-rx-8")
+	preview._preset("full")
+	preview._process(0.08)
+	check("preview_sliders_drive_rotary_throttle_rpm_and_no_turbo",
+		preview.car.config.audio_family == "rotary2" and \
+		preview.car.throttle > 0.9 and \
+		preview.car.boost_psi == 0.0 and \
+		preview.car.transmission.rpm > 6500.0)
+	preview._apply_filter("Tourbillon")
+	check("preview_search_finds_exact_future_model",
+		preview.selector.item_count == 1 and \
+		str(preview.selector.get_item_metadata(0)) == "bugatti-tourbillon")
+	preview._select_vehicle("tesla-model-s")
+	preview._preset("full")
+	preview._process(0.09)
+	check("preview_electric_motor_is_not_a_gasoline_engine",
+		preview.audio._induction == "electric" and \
+		preview.car.config.audio_family == "electric" and \
+		preview.audio.intake.volume_db <= -50.0)
+	preview._toggle_mute()
+	check("preview_mute_button_controls_real_mixer",
+		preview.audio.muted and preview.mute_button.text == "UNMUTE AUDIO")
+	preview.queue_free()
 	print("PENDING 154 VEHICLE AUDIO: ","PASS" if failed.is_empty() else "FAIL")
 	quit(0 if failed.is_empty() else 1)
 
