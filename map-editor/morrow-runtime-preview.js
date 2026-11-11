@@ -156,6 +156,11 @@ export function buildRuntimePreview(raw){
     radius:+j.radius||40,control:String(j.control||'none'),
     approaches:j.approaches||[],curbs:j.curbs||[]
   }));
+  const sourceTerrain=(raw.terrain||[]).map((t,index)=>({
+    index,kind:String(t.kind),color:String(t.color||''),
+    generatedExtension:t.generated_extension===true,
+    points:(t.points||[]).map(([x,y])=>({x:+x,y:+y}))
+  }));
   const extensionTerrain=(raw.terrain||[]).filter(t=>t.generated_extension);
   for(const [index,road] of (raw.roads||[]).entries()){
     roads.set('road-'+index,{anchors:road.anchors||road.points,
@@ -169,7 +174,7 @@ export function buildRuntimePreview(raw){
     buckets.get(key).push(item);
   }
   preloadGameArtwork();
-  return {cell,buckets,roads,junctions,propsCount:props.length,sourceSize,extensionTerrain};
+  return {cell,buckets,roads,junctions,sourceTerrain,propsCount:props.length,sourceSize,extensionTerrain};
 }
 function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
@@ -229,6 +234,57 @@ export function drawNative(ctx,prop,scale){
   }
   ctx.restore();
 }
+/** Preserve the full-resolution game coastline and water polygon. Imported
+ * editing proxies contain <=180 handles and must not repaint the ocean as a
+ * coarse polygon. Only actually edited regions use their editable geometry.
+ * Keep the original terrain draw order, including riverbank/foam layers.
+ */
+export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
+  if(!preview?.sourceTerrain)return false;
+  const byId=new Map(doc.regions.map(region=>[region.id,region]));
+  const sourceHeight=preview.sourceSize[1],sourceWidth=preview.sourceSize[0];
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const simplified=(points,max=180)=>{
+    const result=points.map(p=>({x:clamp(p.x,0,sourceWidth),y:clamp(p.y,0,sourceHeight)}));
+    if(result.length>1&&Math.hypot(result[0].x-result.at(-1).x,result[0].y-result.at(-1).y)<.001)
+      result.pop();
+    if(result.length<=max)return result;
+    return Array.from({length:max},(_,i)=>result[Math.floor(i*result.length/max)]);
+  };
+  const colors={forest:'#718d70',mountain:'#9baba0',highland:'#9baba0',
+    farmland:'#b4bd8a',city:'#b1b6a0',town:'#a3b789',beach:'#e3d4aa',
+    ocean:'#82b5b5',water:'#82b5b5',lake:'#82b5b5',
+    riverbank:'#c6d9c9',foam:'#c6d9c9'};
+  for(const terrain of preview.sourceTerrain){
+    if(terrain.generatedExtension)continue;
+    const edited=byId.get('region-'+terrain.index);
+    if(edited){
+      const source=simplified(terrain.points);
+      const sameShape=edited.points.length===source.length&&
+        edited.points.every((p,i)=>Math.hypot(p.x-source[i].x,p.y-source[i].y)<.025);
+      const sourceBiome=terrain.kind==='water'?'lake':
+        terrain.kind==='town'?'grass':terrain.kind;
+      if(!sameShape||edited.biome!==sourceBiome){
+        drawEdited(edited);
+        continue;
+      }
+    }
+    if(terrain.points.length<3)continue;
+    ctx.beginPath();
+    ctx.moveTo(terrain.points[0].x,terrain.points[0].y);
+    for(let i=1;i<terrain.points.length;i++)
+      ctx.lineTo(terrain.points[i].x,terrain.points[i].y);
+    ctx.closePath();
+    ctx.fillStyle=/^[0-9a-f]{6}$/i.test(terrain.color)?'#'+terrain.color:
+      colors[terrain.kind]||'#a3b789';
+    ctx.fill();
+  }
+  for(const region of doc.regions){
+    if(!/^region-\\d+$/.test(region.id))drawEdited(region);
+  }
+  return true;
+}
+
 /** Existing added terrain masks plus a temporary preview of unsaved growth.
  * Only new ground is painted; old world coordinates/polygons are untouched.
  */
