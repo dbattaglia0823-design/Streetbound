@@ -42,7 +42,7 @@ def invariant(old,new,old_size):
                   "junctions","road_connections","road_crossings"):
         if normalized_old[field] != normalized_new[field]:
             if field == "roads":
-                left,right=old[field],new[field]
+                left,right=normalized_old[field],normalized_new[field]
                 for i,(a,b) in enumerate(zip(left,right)):
                     if a!=b:
                         differing=[key for key in a if a.get(key)!=b.get(key)]
