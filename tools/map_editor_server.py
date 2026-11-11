@@ -141,6 +141,10 @@ def make_handler(token: str = TOKEN):
 
         def do_GET(self):
             route = urlsplit(self.path).path
+            if route == "/api/morrow-edits":
+                if EDIT.exists():
+                    return self._send(200, EDIT.read_bytes())
+                return self._json(404, {"error": "No persisted editable overlay"})
             if route == "/api/editor-status":
                 return self._json(200, {"live": True, "token": token,
                                         "worldSha": digest(BAKED),
