@@ -577,12 +577,57 @@ for r in list(ROADS):
             if road_clear(garden,2):
                 insert_prop(dict(kind="garden",p=garden,size=[size[0],2],angle=angle,color="94ae7c",radius=0,solid=False,seed=RNG.randrange(100000)))
 
+# Build coherent frontage blocks before farmland. Reuse the existing
+# house/cafe/shop/workshop atlas and roof palettes, rather than stacking
+# buildings in roads. A regular 38-48 m urban parcel rhythm yields continuous
+# street walls, enclosed courtyards and short pedestrian-scale blocks.
+# The dedicated RNG keeps original procedural house IDs/locations stable.
+infill_rng = random.Random(49631)
+for x in range(2490,3970,42):
+    for y in range(2390,3530,44):
+        parcel_x = (x-2490)//42
+        parcel_y = (y-2390)//44
+        # Protected pocket squares/courtyards amid closed perimeter blocks.
+        if parcel_x%7 in (3,4) and parcel_y%6 in (2,3):
+            continue
+        p=(x+infill_rng.uniform(-3.5,3.5),y+infill_rng.uniform(-3,3))
+        if not land(p) or style_at(p) not in {"house","shop","building","warehouse"}:
+            continue
+        if p[0]>3480 and p[1]>2980:
+            kind="warehouse" if parcel_x%4==0 else "shop"
+        elif 2790<p[0]<3440 and 2480<p[1]<3240:
+            kind="building" if parcel_x%3!=0 else "shop"
+        else:
+            kind="house" if parcel_y%3==0 else "shop"
+        width,height=sizes[kind]
+        if kind=="warehouse":
+            width,height=24,28
+        radius=math.hypot(width,height)/2
+        if not road_clear(p,radius+1.5) or occupied(p,radius):
+            continue
+        insert_prop(dict(kind=kind,p=list(p),size=[width,height],
+                         angle=0 if parcel_x%2==0 else math.pi/2,
+                         color=infill_rng.choice(colors),radius=radius,
+                         solid=True,seed=infill_rng.randrange(100000)))
+        # Small service courts and planted interior pockets are decorative;
+        # none add inaccessible driveways or change source road nodes.
+        if kind in {"shop","building"} and (parcel_x+parcel_y)%5==0:
+            court=[p[0]+19,p[1]+19]
+            if land(court) and road_clear(court,3):
+                insert_prop(dict(kind="garden",p=court,size=[18,4],
+                                 angle=0,color="8fa982",radius=0,
+                                 solid=False,seed=infill_rng.randrange(100000)))
+
 # Fields are individual planted plots with soft hedges and farm access tracks.
 for x in range(350,2000,170):
     for y in range(2500,4500,160):
         p = (x+RNG.uniform(-20,20),y+RNG.uniform(-20,20))
         if road_clear(p,65) and not occupied(p,65):
-            insert_prop(dict(kind="field",p=p,size=[RNG.uniform(90,125),RNG.uniform(70,115)],angle=RNG.uniform(-.12,.12),color=RNG.choice(["c4c18a","a4b67e","bab786"]),radius=0,solid=False,seed=RNG.randrange(100000)))
+            insert_prop(dict(kind="cornfield" if x<1550 else "field",
+                                  p=p,size=[RNG.uniform(90,125),RNG.uniform(70,115)],
+                                  angle=RNG.uniform(-.12,.12),
+                                  color=RNG.choice(["b6b778","a4b56c","c5bb7d"]),
+                                  radius=0,solid=False,seed=RNG.randrange(100000)))
 
 # Forests have clustered clearings rather than uniformly sprinkled obstacles.
 for y in range(90,BASE_HEIGHT-70,15):
@@ -617,7 +662,10 @@ for r in ROADS:
                     if not road_clear(q,1.0): valid=False;break
                 if not valid: break
             if valid:
-                insert_prop(dict(kind="field",p=p,size=[45,28],angle=angle,color=RNG.choice(["bec18b","aebb84","c9bf88"]),radius=0,solid=False,seed=i))
+                insert_prop(dict(kind="cornfield" if p[0]<1550 else "field",
+                                     p=p,size=[45,28],angle=angle,
+                                     color=RNG.choice(["bec18b","aebb84","c9bf88"]),
+                                     radius=0,solid=False,seed=i))
 
 for i in range(160):
     p=(RNG.uniform(220,2100),RNG.uniform(180,1600))
