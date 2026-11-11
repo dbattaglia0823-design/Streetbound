@@ -62,6 +62,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		for p in terrain.points:
 			polygon.append(point(p))
 		ground_polys.append({"points": polygon, "color": Color(terrain.color),"kind":terrain.kind})
+	# Overlay only genuinely wet clipped polygons. Its shader animates in
+	# absolute world metres so waves line up across adjacent cached chunks.
+	var wet_polys: Array[PackedVector2Array] = []
+	for ground in ground_polys:
+		if str(ground.kind) in ["ocean","water"]:
+			wet_polys.append(ground.points)
+	if not wet_polys.is_empty():
+		var water_layer := Node2D.new()
+		water_layer.name = "MovingCoastalWater"
+		water_layer.set_script(preload("res://scripts/world/coast_water.gd"))
+		water_layer.water_polys = wet_polys
+		water_layer.z_index = 0
+		add_child(water_layer)
 	for prop_index in data.get("props", []):
 		prop_list.append(world.data.props[int(prop_index)])
 	prop_list.sort_custom(func(a: Dictionary,b: Dictionary): return _prop_order(a)<_prop_order(b))
@@ -226,7 +239,14 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO,Vector2.ONE*world.chunk_m*PPM),Color("a3b789"))
 	for terrain in ground_polys:
 		if terrain.points.size()>=3:
-			draw_colored_polygon(terrain.points,terrain.color)
+			var paint: Color = terrain.color
+			if terrain.kind == "ocean":
+				# Semi-transparent saltwater over a darker sea floor; the dedicated
+				# GPU water layer brings moving clouded sediment and swell.
+				paint = Color(0.20,0.44,0.49,0.88)
+			elif terrain.kind == "water":
+				paint = Color(0.25,0.50,0.53,0.85)
+			draw_colored_polygon(terrain.points,paint)
 			if terrain.kind in ["ocean","water"]:
 				for x in range(0,int(world.chunk_m*PPM),450):
 					for y in range(0,int(world.chunk_m*PPM),470):
