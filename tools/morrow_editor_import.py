@@ -25,7 +25,7 @@ def validate_world_bounds(width, height):
             or not BASE_WIDTH <= width <= MAX_WIDTH
             or not BASE_HEIGHT <= height <= MAX_HEIGHT):
         raise ValueError(
-            f"Morrow Coast may grow to at most {MAX_WIDTH}x{MAX_HEIGHT}; "
+            f"Original Morrow Coast is 6400x4800, and may grow to at most {MAX_WIDTH}x{MAX_HEIGHT}; "
             "shrinking the original world or moving its origin is not allowed")
     return width, height
 
@@ -310,11 +310,11 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             if previous is not None and length(previous, new) > 1.0:
                 raise ValueError("Conflicting edits for shared road endpoint " + name + "; snap the endpoints first")
             proposed_nodes[name] = new
-        width = entry.get("width", road["width"])
+        road_width = entry.get("width", road["width"])
         lanes = entry.get("lanes", road["lanes"])
-        if not isinstance(width, (int, float)) or not 6 <= width <= 160 or not isinstance(lanes, int) or not 1 <= lanes <= 6:
+        if not isinstance(road_width, (int, float)) or not 6 <= road_width <= 160 or not isinstance(lanes, int) or not 1 <= lanes <= 6:
             raise ValueError("Invalid road width or lane count at road " + str(index))
-        road["width"] = float(width)
+        road["width"] = float(road_width)
         road["lanes"] = int(lanes)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
