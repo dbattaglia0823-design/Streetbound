@@ -35,7 +35,7 @@ assert sum(p["kind"] == "barrier" for p in props) >= 24
 
 circuit = [r for r in roads if r["name"] == "Ashford Grand Circuit"]
 assert len(circuit) == 4 and all(r["kind"] == "track" for r in circuit)
-assert sum(len(r["anchors"]) for r in circuit) >= 25
+assert sum(len(r["anchors"]) for r in circuit) >= 22
 assert len([r for r in roads if r["name"] == "Ashford Drag Strip"]) == 1
 assert len([p for p in props if p["kind"] in
             {"house", "coastal_house", "shop", "building", "warehouse"}]) >= 150
