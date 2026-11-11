@@ -327,6 +327,10 @@ def keys_for(bounds, cell):
 # control points BEFORE sampling, junction baking, scenery placement and collision
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS)
+# Defer objects adopted from procedural scenery until the untouched native
+# generators finish, or the replacement would suppress its own original.
+ADOPTED_PROPS=[prop for prop in PROPS if prop.get("source_replacement")]
+PROPS[:]=[prop for prop in PROPS if not prop.get("source_replacement")]
 
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
@@ -625,6 +629,7 @@ for r in ROADS:
             BRIDGES.append(dict(road=r["id"],points=run,width=r["width"]))
             run=[]
 
+PROPS.extend(ADOPTED_PROPS)
 # Authoring can adopt an existing generated object for direct editing.
 # Match by original kind/seed/location rather than runtime array position,
 # which may change when nearby roads generate different vegetation.
