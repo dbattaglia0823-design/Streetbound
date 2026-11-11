@@ -394,7 +394,8 @@ export function drawWorld(ctx,doc,options={}){
 /** Overlays are editor-only; exports intentionally omit editor node handles. */
 export function drawEditorOverlay(ctx,doc,{
   selection=null,draft=null,zoom=1,hover=null,insertMode=null,insertHover=null,
-  brushPreview=null,roadsidePreview=null,showBoundaries=true,auditIssues=[]
+  brushPreview=null,roadsidePreview=null,roadSnapPreview=null,
+  showBoundaries=true,auditIssues=[]
 }={}){
   const radius=clamp(7/zoom,5,35);
   if(showBoundaries){
@@ -471,8 +472,21 @@ export function drawEditorOverlay(ctx,doc,{
       }
     }
   }
+  if(roadSnapPreview?.from&&roadSnapPreview?.to){
+    // A road point will move only when the dedicated snapping toggle is on.
+    // Show the exact proposed target BEFORE a click commits it.
+    ctx.save();
+    const from=roadSnapPreview.from,to=roadSnapPreview.to;
+    const r=clamp(5/zoom,3,35);
+    ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.lineTo(to.x,to.y);
+    ctx.strokeStyle='#ffdf9c';ctx.lineWidth=1.8/zoom;
+    ctx.setLineDash([5/zoom,3/zoom]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(to.x,to.y,r,0,Math.PI*2);
+    ctx.strokeStyle='#dffde7';ctx.lineWidth=2/zoom;ctx.stroke();
+    ctx.restore();
+  }
   if(roadsidePreview){
-    // Dashed ghost shows where the actual asset footprint will be kept clear of the road.
+    // Dashed ghost shows the exact manually requested asset footprint.
     const p=roadsidePreview,r=clamp(p.radius,12,200);
     ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rotation*Math.PI/180);
     ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
