@@ -63,7 +63,7 @@ static func engine_loop(family: String, stage: int,
 		var motor := PackedFloat32Array()
 		motor.resize(LOOP_FRAMES)
 		var band := clampi(stage,0,3)
-		var fundamental := [67,107,169,269][band]
+		var fundamental: int = [67,107,169,269][band]
 		var bright_motor := clampf((tone+1.0)*0.5,0.0,1.0)
 		for i in LOOP_FRAMES:
 			var x := float(i)/float(LOOP_FRAMES)
