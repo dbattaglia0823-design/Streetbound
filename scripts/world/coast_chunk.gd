@@ -62,6 +62,20 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		for p in terrain.points:
 			polygon.append(point(p))
 		ground_polys.append({"points": polygon, "color": Color(terrain.color),"kind":terrain.kind})
+	# A single shader-driven polygon layer per wet chunk gives moving cloudy
+	# reflections and ripples without adding hundreds of animated sprites.
+	var wet: Array[Dictionary] = []
+	for terrain in ground_polys:
+		if terrain.kind in ["ocean","water"]:
+			wet.append(terrain)
+	if not wet.is_empty():
+		var water := Node2D.new()
+		water.name = "AnimatedWater"
+		water.set_script(preload("res://scripts/world/coast_water.gd"))
+		water.wet_polys = wet
+		water.origin_m = origin_m
+		water.z_index = 0
+		add_child(water)
 	for prop_index in data.get("props", []):
 		prop_list.append(world.data.props[int(prop_index)])
 	prop_list.sort_custom(func(a: Dictionary,b: Dictionary): return _prop_order(a)<_prop_order(b))
@@ -227,12 +241,8 @@ func _draw() -> void:
 	for terrain in ground_polys:
 		if terrain.points.size()>=3:
 			draw_colored_polygon(terrain.points,terrain.color)
-			if terrain.kind in ["ocean","water"]:
-				for x in range(0,int(world.chunk_m*PPM),450):
-					for y in range(0,int(world.chunk_m*PPM),470):
-						var p := Vector2(x+100+sin(float(y)) * 80,y+140)
-						if Geometry2D.is_point_in_polygon(p,terrain.points):
-							draw_arc(p,55,.15,2.7,12,Color(.8,.91,.86,.18),2,true)
+			# Dynamic wet polygons are drawn by AnimatedWater using the
+			# source exact terrain clip; static fake ring arcs are removed.
 	# Decorative strokes are cached with the chunk draw list, never spawned as
 	# nodes or moved each frame. Roads are painted in the later stages.
 	_draw_ground_foliage()
