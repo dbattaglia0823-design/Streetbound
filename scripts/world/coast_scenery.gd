@@ -285,6 +285,49 @@ func _draw_player_garage(size: Vector2) -> void:
 		int(size.x * 0.7 - 20.0), 24, Color("f3dfb7"))
 
 
+## Crop beds are baked into the existing static scenery batches: no
+## per-plant nodes, animation timers or extra collision shapes are required.
+## Alternating soil, irrigated furrows, tassels and paired corn leaves produce
+## recognizable rows even at the overhead racing-camera zoom.
+func _cornfield(size: Vector2, seed_value: int, color: Color) -> void:
+	var bounds := Rect2(-size * 0.5, size)
+	_rounded(bounds, Color("746c49"), 26)
+	_rounded(bounds.grow(-10), color.darkened(.18), 20)
+	var rows := maxi(5, int((size.y - 70.0) / 100.0))
+	var inner_width := maxf(80.0, size.x - 74.0)
+	var count := maxi(4, int(inner_width / 155.0))
+	for row in range(rows):
+		var y := -size.y * .5 + 48.0 + float(row) * (size.y - 96.0) / float(rows)
+		var left := -inner_width * .5
+		var right := inner_width * .5
+		var shade := Color("3f5933") if row % 3 else Color("496638")
+		draw_line(Vector2(left, y + 10), Vector2(right, y + 10),
+			Color("514a31"), 26, true)
+		draw_line(Vector2(left, y - 2), Vector2(right, y - 2), shade, 21, true)
+		draw_line(Vector2(left, y - 11), Vector2(right, y - 11),
+			Color("94a55a"), 5.0, true)
+		for plant in range(count):
+			var unit := (float(plant) + .5) / float(count)
+			var x := lerpf(left + 22.0, right - 22.0, unit)
+			var noise := sin(float(seed_value % 157) + float(plant) * 2.37 +
+				float(row) * 1.73)
+			var at := Vector2(x, y + noise * 5.0)
+			var leaf := 19.0 + noise * 3.0
+			draw_line(at - Vector2(leaf, 8), at + Vector2(leaf, 7),
+				Color("67864a"), 5.5, true)
+			draw_line(at + Vector2(-leaf * .8, 8), at + Vector2(leaf * .9, -10),
+				Color("b0bc67"), 4.5, true)
+			draw_circle(at, 5.0, Color("b9b875"))
+	# Hedges and tractor access edges give fields an intentional farm layout.
+	for side in [-1.0, 1.0]:
+		var edge := side * (size.y * .5 - 24.0)
+		draw_line(Vector2(-size.x * .47, edge), Vector2(size.x * .47, edge),
+			Color("536b3e"), 12.0, true)
+		draw_line(Vector2(-size.x * .47, edge - side * 5.0),
+			Vector2(size.x * .47, edge - side * 5.0),
+			Color("a3ab68"), 3.0, true)
+
+
 func _draw_prop(prop: Dictionary) -> void:
 	var center := point(prop.p)
 	var size := Vector2(float(prop.size[0]),float(prop.size[1]))*PPM
@@ -321,6 +364,9 @@ func _draw_prop(prop: Dictionary) -> void:
 			draw_circle(Vector2(-radius*.22,-radius*.19),radius*.58,color.lightened(.1))
 		return
 	if kind == "field":
+		if str(prop.get("crop","")) == "corn":
+			_cornfield(size,seed_value,color)
+			return
 		_rounded(Rect2(-size/2,size),color,50)
 		# Alternating shaded planting ridges and soft crop highlights break up
 		# uniform fields without adding thousands of tiny crop sprites.
@@ -342,6 +388,36 @@ func _draw_prop(prop: Dictionary) -> void:
 					var x := lerpf(start.x+24,finish.x-24,(float(spot)+.5)/4.0)
 					var p := Vector2(x+crop_rng.randf_range(-18,18),y+crop_rng.randf_range(-8,8))
 					draw_circle(p,crop_rng.randf_range(5,9),color.lightened(.14))
+		return
+	if kind == "drag_tree":
+		# Drag-racing Christmas tree with pre-stage, amber, green and red bulbs.
+		_rounded(Rect2(-size * .19,size * Vector2(.38,1.0)),Color("1d282a"),8)
+		for i in range(7):
+			var tint := Color("aebdbc") if i < 2 else \
+				(Color("e9b659") if i < 5 else \
+				(Color("82d69a") if i == 5 else Color("c96962")))
+			var bulb := Vector2(0,-size.y * .42+float(i)*size.y*.13)
+			draw_circle(bulb,size.x*.105,tint.darkened(.16))
+			draw_circle(bulb-Vector2(size.x*.025,size.x*.025),
+				size.x*.058,tint.lightened(.22))
+		return
+	if kind == "timing_board":
+		_rounded(Rect2(-size*.5,size),Color("202c30"),10)
+		_rounded(Rect2(-size*.36,size*.66),Color("34484c"),6)
+		for row in 2:
+			for digit in 3:
+				var at := Vector2(-size.x*.26+digit*size.x*.24,
+					-size.y*.23+float(row)*size.y*.28)
+				draw_rect(Rect2(at,Vector2(size.x*.16,size.y*.095)),
+					Color("e99d72"))
+		return
+	if kind == "track_barrier":
+		_rounded(Rect2(-size*.5,size),Color("d7d5c9"),8)
+		for i in range(5):
+			var x := -size.x*.46+float(i)*size.x*.2
+			draw_rect(Rect2(Vector2(x,-size.y*.44),
+				Vector2(size.x*.1,size.y*.88)),
+				Color("b85e55") if i%2==0 else Color("e5e2d4"))
 		return
 	if kind in ["start_line","finish_line"]:
 		for row in 2:
