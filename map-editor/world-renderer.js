@@ -2,7 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
-import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -299,6 +299,21 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  // Adopted world props use the game's own rendering code so dragging or
+  // rotating a baked car, lot, field or street fixture does not replace it
+  // with an unrelated generic placeholder.
+  if(gameArt&&prop.replaces&&BASE_SIZE[prop.type]){
+    const [w,h]=BASE_SIZE[prop.type];
+    drawNative(ctx,{
+      kind:prop.replaces.kind,p:[prop.x,prop.y],
+      size:[w*prop.scale,h*prop.scale],
+      angle:prop.rotation*Math.PI/180,
+      seed:prop.replaces.seed,solid:!['garden','field','planter','forecourt'].includes(prop.type),
+      stall_width:prop.stallWidth,occupancy:prop.occupancy,
+      entrance_width:prop.entranceWidth
+    },1);
+    return;
+  }
   const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
