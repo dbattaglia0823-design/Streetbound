@@ -457,6 +457,15 @@ for name,anchor,direction in [
         add_poi(name,"FUEL",anchor,direction,"fuel")
 RNG.setstate(poi_rng_state)
 
+# Browser-imported default highway endpoints may initially receive temporary
+# editor_N node aliases. After matching them back to canonical route nodes,
+# remove only unused aliases; otherwise each expansion accumulates orphan nodes
+# and violates the original-world identity invariant.
+road_node_keys={name for route in ROADS for name in (route["start"],route["end"])}
+for key in list(NODES):
+    if key.startswith("editor_") and key not in road_node_keys:
+        del NODES[key]
+
 # New terrain is derived, never editable source geometry. Generate it AFTER
 # importing the stable old terrain IDs so the additional land cannot silently
 # reorder any pre-existing roads, regions, assets or destinations.
