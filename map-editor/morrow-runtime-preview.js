@@ -24,14 +24,19 @@ export const BASE_SIZE = Object.freeze({
   rock:[3,2.5],boulder:[4.5,3.4],house:[12,17],
   building:[22,29],warehouse:[28,37],garage:[20,21],
   gas_station:[18,17],streetlight:[1.3,1.3],sign:[1.6,1.4],
-  barrier:[3,1],parking:[38,28],dock:[3,11]
+  barrier:[3,1],parking:[38,28],dock:[3,11],
+  parked_car:[1.9,4.6],planter:[2.8,2.8],garden:[8,2.4],
+  field:[90,70],island:[23,23],forecourt:[23,16]
 });
 export const REPLACEABLE_KINDS = Object.freeze({
   tree:'oak',pine:'pine',palm:'palm',rock:'rock',
   house:'house',coastal_house:'house',
   shop:'building',building:'building',warehouse:'warehouse',
   garage:'garage',workshop:'garage',showroom:'building',
-  fuel:'gas_station',bush:'bush'
+  fuel:'gas_station',bush:'bush',lamp:'streetlight',sign:'sign',
+  barrier:'barrier',dock:'dock',lot:'parking',forecourt:'forecourt',
+  parked_car:'parked_car',planter:'planter',garden:'garden',
+  field:'field',island:'island'
 });
 export function nativeAdoptedRadius(prop){
   if(!prop.replaces)return null;
@@ -170,7 +175,7 @@ function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
   return ['#819c78','#778c72','#90a481','#6f8670'][n%4];
 }
-function drawNative(ctx,prop,scale){
+export function drawNative(ctx,prop,scale){
   const kind=String(prop.kind),seed=Number(prop.seed)||0;
   const size=prop.size.map(Number),w=size[0],h=size[1];
   if(scale<.2 && !['house','lodge','garage','shop','showroom',
