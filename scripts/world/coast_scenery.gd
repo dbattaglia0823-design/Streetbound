@@ -320,6 +320,37 @@ func _draw_prop(prop: Dictionary) -> void:
 				draw_circle(offset,radius*.7,color.lightened(float(i%3)*.035))
 			draw_circle(Vector2(-radius*.22,-radius*.19),radius*.58,color.lightened(.1))
 		return
+	if kind == "cornfield":
+		# Mown headlands, alternating soil bands and staggered plants make
+		# western farm plots read as maize rows at both close and far zoom.
+		_rounded(Rect2(-size/2,size),Color("9d9870"),12)
+		var margin := minf(size.x,size.y)*.065
+		var interior := size-Vector2.ONE*margin*2.0
+		draw_rect(Rect2(-interior*.5,interior),color.darkened(.18),true)
+		var spacing := 43.0
+		var rows := maxi(2,int(interior.y/spacing))
+		var crop_rng := RandomNumberGenerator.new()
+		crop_rng.seed = seed_value
+		for row in rows:
+			var y := -interior.y*.5+(float(row)+.5)*interior.y/float(rows)
+			var soil := Color("a99c6e") if row%2==0 else Color("8d9360")
+			draw_line(Vector2(-interior.x*.5+8,y),
+			Vector2(interior.x*.5-8,y),soil,13.0,true)
+			var plant_count := maxi(3,int(interior.x/48.0))
+			for plant in plant_count:
+				var x := -interior.x*.5+(float(plant)+.5)*interior.x/float(plant_count)
+				x += crop_rng.randf_range(-6.0,6.0)
+				var center := Vector2(x,y+crop_rng.randf_range(-2.0,2.0))
+				draw_line(center+Vector2(-10,-9),center+Vector2(9,7),
+					Color("5b854c"),7.0,true)
+				draw_line(center+Vector2(-8,8),center+Vector2(10,-7),
+					Color("93b15d"),6.0,true)
+				draw_circle(center,3.4,Color("b6bd68"))
+		# Farm access headlands remain free of standing crop.
+		for side in [-1.0,1.0]:
+			draw_line(Vector2(-size.x*.47,side*size.y*.46),
+				Vector2(size.x*.47,side*size.y*.46),Color("c5ba84"),9,true)
+		return
 	if kind == "field":
 		_rounded(Rect2(-size/2,size),color,50)
 		# Alternating shaded planting ridges and soft crop highlights break up
