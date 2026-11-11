@@ -78,6 +78,17 @@ func run() -> void:
 	player.linear_velocity = Vector2.ZERO
 	check("stationary_player_ahead_yields",
 		flow._player_awareness(agent, PPM * 9.0) < PPM * 1.0)
+	# A stationary player one lane over must not cause a phantom
+	# intersection crossing, regardless of the player's orientation.
+	player.position = actor.position + Vector2(PPM * 3.5, -PPM * 5.0)
+	player.rotation = PI * 0.5
+	player.linear_velocity = Vector2.ZERO
+	check("stationary_player_in_adjacent_lane_does_not_brake",
+		is_equal_approx(flow._player_awareness(agent, PPM * 9.0), PPM * 9.0))
+	player.rotation = 0.0
+	check("parallel_stopped_player_in_adjacent_lane_does_not_brake",
+		is_equal_approx(flow._player_awareness(agent, PPM * 9.0), PPM * 9.0))
+	player.position = actor.position + Vector2.UP * PPM * 5.0
 	player.linear_velocity = Vector2.UP * 13.0
 	agent.speed = PPM * 10.0
 	check("moving_player_ahead_can_be_followed",
