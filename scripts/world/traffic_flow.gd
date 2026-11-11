@@ -377,13 +377,17 @@ func _pass_sample(agent: Dictionary) -> Dictionary:
 	var old_edge: Dictionary = network.edges[edge_id]
 	var target_edge: Dictionary = network.edges[pass_id]
 	var fraction := clampf((progress - float(agent.passing_start)) / PASS_DISTANCE, 0.0, 1.0)
-	var ease := fraction * fraction * (3.0 - 2.0 * fraction)
+	# Clear the obstructed lane early in the maneuver before approaching
+	# the stopped player's bumper; keep the remaining distance for
+	# establishing a stable position in the passing lane.
+	var lateral_fraction := clampf(fraction * 3.0, 0.0, 1.0)
+	var ease := lateral_fraction * lateral_fraction * (3.0 - 2.0 * lateral_fraction)
 	var target_progress := progress / maxf(1.0, float(old_edge.length_px)) * float(target_edge.length_px)
 	var target: Dictionary = network.point_on_edge(pass_id, target_progress)
 	var position: Vector2 = source.position.lerp(target.position, ease)
 	var future_progress := minf(progress + PPM * 1.2, float(old_edge.length_px))
 	var future_ratio := future_progress / maxf(1.0, float(old_edge.length_px))
-	var future_ease := clampf((future_progress - float(agent.passing_start)) / PASS_DISTANCE, 0.0, 1.0)
+	var future_ease := clampf((future_progress - float(agent.passing_start)) / PASS_DISTANCE * 3.0, 0.0, 1.0)
 	future_ease = future_ease * future_ease * (3.0 - 2.0 * future_ease)
 	var future: Vector2 = network.point_on_edge(edge_id, future_progress).position.lerp(
 		network.point_on_edge(pass_id, future_ratio * float(target_edge.length_px)).position,
