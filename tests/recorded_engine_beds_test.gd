@@ -42,7 +42,7 @@ func run() -> void:
 		source_links_ok = source_links_ok and \
 			str(row.get("source_blob_sha","")).length() == 40 and \
 			str(row.get("source_revision","")).length() == 40
-		qc_ok = qc_ok and float(row.get("seam_delta",1.0)) < 0.081 and \
+		qc_ok = qc_ok and float(row.get("seam_ratio",999.0)) < 3.51 and \
 			float(row.get("rms_dbfs",-99.0)) > -28.0 and \
 			float(row.get("peak",999)) <= 0.91
 		var filename := Bank.path_for(family,"recorded_texture")
