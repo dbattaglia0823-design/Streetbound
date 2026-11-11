@@ -235,6 +235,12 @@ func _configure_engine(force := false) -> void:
 			fx_players[i].stream = resolved
 	# Battery-electric cars do not start a fake combustion engine or
 	# play gasoline cranking sounds on a vehicle swap.
+	if _induction == "electric":
+		# Cancel any still-playing petrol transient from the previously
+		# selected car; otherwise an EV can inherit a one-second crank/pop.
+		for transient in [ignition,shutdown,pop,limiter,shift,downshift,
+				blowoff,flutter]:
+			transient.stop()
 	if not muted and (not _started_once or switching_car) and \
 		_induction != "electric":
 		if switching_car:
