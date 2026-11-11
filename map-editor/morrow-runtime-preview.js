@@ -140,7 +140,12 @@ export function drawGameVectorProp(ctx,prop){
 function bucketKey(x,y,cell){return Math.floor(x/cell)+','+Math.floor(y/cell);}
 export function buildRuntimePreview(raw){
   if(!raw||raw.format!=='streetbound.streamed-world')throw new TypeError('Invalid streamed world');
-  const cell=192,buckets=new Map(),props=raw.props||[];
+  const cell=192,buckets=new Map(),props=raw.props||[],roads=new Map();
+  for(const [index,road] of (raw.roads||[]).entries()){
+    roads.set('road-'+index,{anchors:road.anchors||road.points,
+      points:(road.points||[]).map(([x,y])=>({x:+x,y:+y})),
+      width:+road.width,surface:road.surface});
+  }
   for(const item of props){
     if(!item.p||!item.size)continue;
     const key=bucketKey(+item.p[0],+item.p[1],cell);
@@ -148,7 +153,7 @@ export function buildRuntimePreview(raw){
     buckets.get(key).push(item);
   }
   preloadGameArtwork();
-  return {cell,buckets,propsCount:props.length};
+  return {cell,buckets,roads,propsCount:props.length};
 }
 function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
