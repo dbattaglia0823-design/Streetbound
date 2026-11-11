@@ -17,6 +17,12 @@ func make_texture(canvas_size: Vector2i, opaque_area: Rect2i) -> ImageTexture:
 	image.fill_rect(opaque_area, Color.WHITE)
 	return ImageTexture.create_from_image(image)
 
+func inset_point(bounds: Rect2, uv: Vector2, track_scale: float) -> Vector2:
+	var point := bounds.position + bounds.size * uv
+	point.x = bounds.get_center().x + (point.x - bounds.get_center().x) * track_scale
+	return point
+
+
 func run() -> void:
 	var main: Node = load("res://scenes/proving_ground.tscn").instantiate()
 	root.add_child(main)
@@ -69,13 +75,23 @@ func run() -> void:
 		compact_bounds.size.x < 65.0 and compact_bounds.size.x > 49.0 and
 		compact_bounds.size.y > 120.0 and compact_bounds.size.y < 143.0, compact_bounds)
 	check("normalized_front_axle_exact",
-		fl.position.distance_to(compact_bounds.position +
-			compact_bounds.size * compact.front_left_uv) < 0.01, fl.position)
+		fl.position.distance_to(inset_point(compact_bounds,
+			compact.front_left_uv, rig.visual_track_scale)) < 0.01, fl.position)
 	check("normalized_rear_axle_exact",
-		rr.position.distance_to(compact_bounds.position +
-			compact_bounds.size * compact.rear_right_uv) < 0.01, rr.position)
+		rr.position.distance_to(inset_point(compact_bounds,
+			compact.rear_right_uv, rig.visual_track_scale)) < 0.01, rr.position)
 	check("four_wheels_reused_on_swap", rig.get_child_count() == 4)
-	check("small_car_tires_scale_with_silhouette", compact_width > 8.0 and compact_width < 12.0, compact_width)
+	check("small_car_tires_scale_with_silhouette",
+		compact_width > 6.5 and compact_width < 9.0, compact_width)
+	var front_left_before: Vector2 = fl.position
+	rig.apply_appearance(compact)
+	check("reapplying_profile_does_not_double_inset",
+		fl.position.is_equal_approx(front_left_before), fl.position)
+	check("narrow_tires_share_centered_track",
+		fl.position.x > compact_bounds.position.x +
+			compact_bounds.size.x * compact.front_left_uv.x and
+		fr.position.x < compact_bounds.position.x +
+			compact_bounds.size.x * compact.front_right_uv.x)
 
 	var suv: VehicleAppearanceProfile = compact.duplicate(true) as VehicleAppearanceProfile
 	suv.body_texture = make_texture(Vector2i(256, 384),
@@ -98,7 +114,7 @@ func run() -> void:
 		not is_equal_approx(fr.position.x, rr.position.x),
 		[fl.position, rl.position])
 	check("updated_front_anchor_exact", fl.position.distance_to(
-		suv_bounds.position + suv_bounds.size * suv.front_left_uv) < 0.01,
+		inset_point(suv_bounds, suv.front_left_uv, rig.visual_track_scale)) < 0.01,
 		fl.position)
 	check("no_duplicate_wheels_after_runtime_swap", rig.get_child_count() == 4)
 	check("car_appearance_does_not_change_physics",

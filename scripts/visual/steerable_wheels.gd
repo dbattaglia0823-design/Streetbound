@@ -12,7 +12,11 @@ const AppearanceProfile = preload("res://scripts/vehicle/vehicle_appearance_prof
 @export_range(8.0, 42.0, 0.5) var front_axle_distance := 27.0
 @export_range(8.0, 42.0, 0.5) var rear_axle_distance := 27.0
 @export_range(10.0, 45.0, 0.5) var half_track_width := 21.0
-@export var tire_size := Vector2(10.0, 21.0)
+@export var tire_size := Vector2(7.4, 21.0)
+# Narrow only the rendered tread, and move both wheel rows toward the body.
+# These are visual measurements: vehicle grip, steering and collision remain untouched.
+@export_range(0.50, 1.0, 0.01) var visual_tire_width_scale := 0.74
+@export_range(0.65, 1.0, 0.01) var visual_track_scale := 0.88
 @export_range(0.5, 2.0, 0.05) var visual_steer_multiplier := 1.35
 @export_range(10.0, 45.0, 1.0) var max_visual_steer_degrees := 38.0
 @export_range(5.0, 40.0, 1.0) var steer_animation_speed := 20.0
@@ -68,7 +72,8 @@ func _apply_profile_layout(bounds: Rect2, profile: AppearanceProfile) -> void:
 	var max_width := maxf(profile.minimum_tire_px.x, profile.maximum_tire_px.x)
 	var min_length := minf(profile.minimum_tire_px.y, profile.maximum_tire_px.y)
 	var max_length := maxf(profile.minimum_tire_px.y, profile.maximum_tire_px.y)
-	tire_size = Vector2(clampf(width * profile.tire_width_ratio, min_width, max_width),
+	tire_size = Vector2(
+		clampf(width * profile.tire_width_ratio, min_width, max_width) * visual_tire_width_scale,
 		clampf(length * profile.tire_length_ratio, min_length, max_length))
 	_anchors.assign([
 		_anchor(bounds, profile.front_left_uv),
@@ -91,7 +96,7 @@ func _fit_to_bounds(bounds: Rect2) -> bool:
 	if extent.x < 23.0 or extent.x > 110.0 or extent.y < 45.0 or extent.y > 150.0:
 		return false
 	_center = bounds.get_center()
-	tire_size = Vector2(clampf(extent.x * 0.21, 8.0, 15.0),
+	tire_size = Vector2(clampf(extent.x * 0.21, 8.0, 15.0) * visual_tire_width_scale,
 		clampf(extent.y * 0.235, 16.0, 26.0))
 	half_track_width = extent.x * 0.5 - tire_size.x * 0.19
 	front_axle_distance = extent.y * 0.245
@@ -129,7 +134,8 @@ func _visible_bounds(body: Sprite2D) -> Rect2:
 
 
 func _sync_wheels() -> void:
-	var points: Array[Vector2] = _anchors
+	# Work from a copy so repeating a vehicle swap never compounds the inset.
+	var points: Array[Vector2] = _anchors.duplicate()
 	if points.size() != 4:
 		points = [
 			Vector2(_center.x - half_track_width, _center.y - front_axle_distance),
@@ -137,6 +143,13 @@ func _sync_wheels() -> void:
 			Vector2(_center.x - half_track_width, _center.y + rear_axle_distance),
 			Vector2(_center.x + half_track_width, _center.y + rear_axle_distance)
 		]
+	# Keep the original per-model axle Y positions and left/right asymmetry,
+	# but narrow the visible track symmetrically about the car centerline.
+	var center_x := visible_bounds.get_center().x if visible_bounds.has_area() else _center.x
+	for i in 4:
+		var point: Vector2 = points[i]
+		point.x = center_x + (point.x - center_x) * visual_track_scale
+		points[i] = point
 	if not is_instance_valid(front_left):
 		front_left = _make_wheel("FrontLeft", -1)
 		front_right = _make_wheel("FrontRight", 1)
