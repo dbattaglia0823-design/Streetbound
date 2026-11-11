@@ -90,9 +90,14 @@ function render(){
   miniCtx.save();
   const scale=Math.min(mini.width/doc.world.width,mini.height/doc.world.height);
   // Detailed scenery is unreadable on a 190px-wide minimap and costly with large worlds.
+  // The overview must use the same source-resolution coastline and baked
+  // road centerlines as the main canvas. The old simplified-region mini-map
+  // showed a different ocean/land boundary from the actual game.
   miniCtx.scale(scale,scale);drawWorld(miniCtx,doc,{...currentDisplay(),
-    showScenery:currentDisplay().showScenery&&doc.props.length<500,
-    quality:0,junctions:false,showMarkers:false});
+    // A 190px overview needs coastlines and roads, not 19k detailed game props
+    // re-rendered on every pan/zoom; this also keeps the editor responsive.
+    showScenery:false,
+    runtimePreview,quality:0,junctions:false,showMarkers:false});
   miniCtx.restore();
   miniCtx.strokeStyle='#f5c18e';miniCtx.lineWidth=1.7;
   miniCtx.strokeRect(Math.max(0,-offsetX/zoom)*scale,Math.max(0,-offsetY/zoom)*scale,

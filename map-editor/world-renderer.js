@@ -11,6 +11,13 @@ export const BIOME_COLORS={
   beach:'#d9c28d',ocean:'#417f9a',lake:'#5b9aa9',city:'#95958b',desert:'#bd9e71',farmland:'#9b9d68'
 };
 export const ROAD_COLORS={asphalt:'#3d4550',concrete:'#777a7c',dirt:'#a18359',gravel:'#888476',track:'#4b505a'};
+/** Real Godot baked terrain colors. World Forge's standalone demo palette is
+ * intentionally different and must not recolor the Morrow Coast shoreline. */
+export const GAME_BIOME_COLORS={
+  grass:'#a3b789',forest:'#718d70',mountain:'#9baba0',rock:'#9e9580',
+  beach:'#e3d4aa',ocean:'#82b5b5',lake:'#82b5b5',city:'#b1b6a0',
+  desert:'#bd9e71',farmland:'#b4bd8a'
+};
 const stroke=(ctx,points,closed=false)=>{
   if(!points?.length)return;
   ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
@@ -43,6 +50,18 @@ function regionDetails(region,seed){
   const dots=scatterPoints(region.points,count,stringSeed(region.id+seed));
   decoCache.set(region,dots);
   return dots;
+}
+function drawRuntimeEditedRegion(ctx,region,bounds,sourceTerrain=null){
+  // Editing a shoreline must retain the real game's colors and avoid the
+  // stylized water-edge strokes used by standalone World Forge examples.
+  if(!visible(boundsOf(region.points),bounds))return;
+  stroke(ctx,region.points,true);
+  const originalBiome=sourceTerrain?.kind==='water'?'lake':
+    sourceTerrain?.kind==='town'?'grass':sourceTerrain?.kind;
+  const sourceColor=sourceTerrain?.color;
+  ctx.fillStyle=originalBiome===region.biome&&/^[0-9a-f]{6}$/i.test(sourceColor||'')
+    ? '#'+sourceColor:GAME_BIOME_COLORS[region.biome]||GAME_BIOME_COLORS.grass;
+  ctx.fill();
 }
 function drawRegion(ctx,region,seed,quality,bounds){
   const a=boundsOf(region.points);
@@ -340,8 +359,9 @@ function drawMarkers(ctx,markers,bounds){
 export function drawWorld(ctx,doc,options={}){
   const bounds=options.bounds||null,quality=options.quality??1;
   ctx.save();
-  rect(ctx,0,0,doc.world.width,doc.world.height,BIOME_COLORS[doc.world.base]);
-  if(quality){
+  rect(ctx,0,0,doc.world.width,doc.world.height,
+    options.runtimePreview?GAME_BIOME_COLORS.grass:BIOME_COLORS[doc.world.base]);
+  if(quality&&!options.runtimePreview){
     const rand=seeded(doc.world.seed+17);
     const step=65;
     for(let y=22;y<doc.world.height;y+=step)for(let x=25;x<doc.world.width;x+=step){
@@ -351,7 +371,9 @@ export function drawWorld(ctx,doc,options={}){
     }
   }
   if(options.showTerrain!==false){
-    const drawEdited=region=>drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    const drawEdited=(region,sourceTerrain=null)=>options.runtimePreview
+      ? drawRuntimeEditedRegion(ctx,region,bounds,sourceTerrain)
+      : drawRegion(ctx,region,doc.world.seed,quality,bounds);
     if(!options.runtimePreview||
       !drawRuntimeTerrain(ctx,options.runtimePreview,doc,drawEdited))
       for(const region of doc.regions)drawEdited(region);

@@ -265,7 +265,9 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
       const sourceBiome=terrain.kind==='water'?'lake':
         terrain.kind==='town'?'grass':terrain.kind;
       if(!sameShape||edited.biome!==sourceBiome){
-        drawEdited(edited);
+        // Changed geometry replaces only this source region in its original
+        // draw order; preserve the baked palette for a moved, same-kind coast.
+        drawEdited(edited,terrain);
         continue;
       }
     }
@@ -279,8 +281,14 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
       colors[terrain.kind]||'#a3b789';
     ctx.fill();
   }
+  // The ID format alone cannot identify a new region: the editor allocates
+  // numeric region-N IDs too. Compare against actual source terrain indices.
+  // Derived foam/riverbank/highland are not independent editable regions.
+  const sourceIds=new Set(preview.sourceTerrain
+    .filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind))
+    .map(t=>'region-'+t.index));
   for(const region of doc.regions){
-    if(!/^region-\\d+$/.test(region.id))drawEdited(region);
+    if(!sourceIds.has(region.id))drawEdited(region);
   }
   return true;
 }
