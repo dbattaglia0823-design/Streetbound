@@ -4,6 +4,7 @@ extends RefCounted
 ## Internal turn links are cubic splines, never straight shortcuts through
 ## painted intersections. Skips dirt/gravel and racing-track roads.
 const PPM := 20.0
+const JunctionPriority = preload("res://scripts/world/junction_priority.gd")
 const SPEEDS := {"local": 36.0, "arterial": 51.0, "highway": 82.0,
 	"rural": 60.0, "mountain": 34.0}
 const CELL_M := 192.0
@@ -77,7 +78,7 @@ func _road_cuts(data: Dictionary, road: Dictionary, road_id: int, total: float) 
 			if s<1.0 or total-s<1.0:
 				continue
 			result.append({"station":s,"junction":j,"side":int(arm.side),
-				"node":"","control":str(arm.control)})
+				"node":"","control":JunctionPriority.arm_control(data.junctions[j], data.roads, arm)})
 	result.sort_custom(func(a: Dictionary,b: Dictionary)->bool:
 		return float(a.station)<float(b.station))
 	# Near-duplicate junction cuts can leave zero-length lanes. Keep one
