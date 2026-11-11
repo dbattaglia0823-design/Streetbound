@@ -309,7 +309,12 @@ func _tick_agent(index: int,dt: float) -> bool:
 		return false
 	if bool(node.get("recovering")):
 		return _recover_agent(agent,dt)
+	var previous_edge := int(agent.edge)
 	var previous_progress := float(agent.progress)
+	var previous_next := int(agent.next)
+	var previous_stop_wait := float(agent.stop_wait)
+	var previous_stop_done := bool(agent.stop_done)
+	var previous_junctions := active_junctions.duplicate()
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
 	var next_id := -2
@@ -375,7 +380,15 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var eased := angle_delta * (1.0 - exp(-TURN_RESPONSE * dt))
 	node.rotation += clampf(eased, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
 	if collision != null or bool(node.get("recovering")):
+		# A collision may happen on the very frame we enter or leave a
+		# connector. Restore the complete route state, not just the distance
+		# on the new edge: that distance belongs to the previous edge.
+		agent.edge=previous_edge
 		agent.progress=previous_progress
+		agent.next=previous_next
+		agent.stop_wait=previous_stop_wait
+		agent.stop_done=previous_stop_done
+		active_junctions=previous_junctions
 		agent.speed=minf(float(agent.speed),PPM*3.0)
 		agent.recovery_time=0.0
 		agent.recovery_refresh=0.0
