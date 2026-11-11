@@ -40,8 +40,14 @@ static func controls(junction: Dictionary, roads: Array) -> Dictionary:
 			main.append(arm)
 	# Preserve equal-priority all-way stops unless we find an unambiguous
 	# through road with two approaches.
-	if main.size() < 2:
+	if main.size() != 2:
 		return result
+	# Roads bending sharply into a junction are not two through arms.
+	if main[0].has("direction") and main[1].has("direction"):
+		var a := Vector2(float(main[0].direction[0]), float(main[0].direction[1]))
+		var b := Vector2(float(main[1].direction[0]), float(main[1].direction[1]))
+		if a.dot(b) > -0.45:
+			return result
 	for arm in arms:
 		var key := "%d:%d" % [int(arm.road), int(arm.side)]
 		if main.has(arm):
