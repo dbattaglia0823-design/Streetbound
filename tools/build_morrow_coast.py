@@ -122,15 +122,6 @@ def polygon(kind, points, color):
 COAST = [(5280, 0), (5350, 400), (5200, 850), (5260, 1250), (5420, 1650), (5350, 2050),
          (5200, 2420), (5230, 2680), (5400, 3020), (5330, 3380), (5150, 3800), (5270, 4270), (5190, 4800)]
 COAST = smooth(COAST)
-if HEIGHT > BASE_HEIGHT:
-    # Preserve EVERY original coastline sample, including the last one.
-    # Smoothing an enlarged control list would change the last legacy bend.
-    # Only smooth the newly appended shore, then join at the same fixed point.
-    tail = [tuple(COAST[-1])]
-    for y in range(BASE_HEIGHT+360, HEIGHT, 360):
-        tail.append((5190.0+115.0*math.sin((y-BASE_HEIGHT)/560),y))
-    tail.append((5190.0+115.0*math.sin((HEIGHT-BASE_HEIGHT)/560),HEIGHT))
-    COAST.extend(smooth(tail)[1:])
 
 def shore_x(y):
     for a,b in zip(COAST,COAST[1:]):
@@ -148,8 +139,12 @@ for zone in TERRAIN:
     if zone["kind"] in ["forest","mountain","highland","farmland","city","town"]:
         controls=zone["points"]
         zone["points"]=smooth(controls+[controls[0]],controls[-1],controls[1])[:-1]
-polygon("beach", [(x-65,y) for x,y in COAST] + [(WIDTH,HEIGHT),(WIDTH,0)], "e3d4aa")
-polygon("ocean", COAST + [(WIDTH,HEIGHT),(WIDTH,0)], "82b5b5")
+# Legacy masks are always identical to the original playable map. Additive
+# ocean/beach polygons beyond the old southern/eastern edge are generated
+# separately below, and never enter the editor's authored terrain indices.
+polygon("beach", [(x-65,y) for x,y in COAST] +
+        [(BASE_WIDTH,BASE_HEIGHT),(BASE_WIDTH,0)], "e3d4aa")
+polygon("ocean", COAST + [(BASE_WIDTH,BASE_HEIGHT),(BASE_WIDTH,0)], "82b5b5")
 polygon("foam",[(x-1.0,y) for x,y in COAST]+[(x+1.2,y) for x,y in COAST[::-1]],"c6d9c9")
 RIVER_LEFT, RIVER_RIGHT = [], []
 for i, p in enumerate(RIVER):
@@ -341,6 +336,30 @@ def keys_for(bounds, cell):
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
                              width=WIDTH, height=HEIGHT)
+
+# New terrain is derived, never editable source geometry. Generate it AFTER
+# importing the stable old terrain IDs so the additional land cannot silently
+# reorder any pre-existing roads, regions, assets or destinations.
+if HEIGHT > BASE_HEIGHT:
+    extension_shore = [list(COAST[-1])]
+    # Fixed world-aligned 5m station samples, independent of requested size.
+    # A second expansion repeats identical coordinates in existing space.
+    for y in range(BASE_HEIGHT+5, HEIGHT+1, 5):
+        extension_shore.append([
+            round(5190+115*math.sin((y-BASE_HEIGHT)/560),3),float(y)])
+    COAST.extend(extension_shore[1:])
+    polygon("beach",[(p[0]-65,p[1]) for p in extension_shore]+
+            list(reversed(extension_shore)), "e3d4aa")
+    TERRAIN[-1]["generated_extension"]=True
+    polygon("ocean",extension_shore+
+            [[BASE_WIDTH,HEIGHT],[BASE_WIDTH,BASE_HEIGHT]],"82b5b5")
+    TERRAIN[-1]["generated_extension"]=True
+    polygon("foam",[(p[0]-1,p[1]) for p in extension_shore]+
+            [(p[0]+1.2,p[1]) for p in reversed(extension_shore)],"c6d9c9")
+    TERRAIN[-1]["generated_extension"]=True
+if WIDTH > BASE_WIDTH:
+    polygon("ocean",[[BASE_WIDTH,0],[WIDTH,0],[WIDTH,HEIGHT],[BASE_WIDTH,HEIGHT]],"82b5b5")
+    TERRAIN[-1]["generated_extension"]=True
 # Defer objects adopted from procedural scenery until the untouched native
 # generators finish, or the replacement would suppress its own original.
 ADOPTED_PROPS=[prop for prop in PROPS if prop.get("source_replacement")]
