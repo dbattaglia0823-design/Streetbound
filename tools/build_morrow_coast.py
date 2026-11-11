@@ -741,6 +741,28 @@ for x in [3190,3240,3290]:
     if road_clear(p,22) and not occupied(p,22):
         insert_prop(dict(kind="grandstand",p=p,size=[35,16],angle=-.05,color="a0b5ab",radius=19.3,solid=True,seed=int(x)))
 
+# Real drag facility: staging lights beside two marked lanes, burnout
+# approach, timing boards at the measured quarter-mile line, rigid barrier
+# runs, and 208m shutdown beyond the timing beam. Everything is derived
+# scenery, not a driveable lane or teleporting gameplay landmark.
+for i,(x,y) in enumerate([(4320,3937),(4360,3937)]):
+    insert_prop(dict(kind="drag_tree",p=[x,y],size=[3.5,10],
+        angle=0,color="e2c17b",radius=0,solid=False,seed=910+i))
+for i,x in enumerate([4317,4363]):
+    insert_prop(dict(kind="timing_board",p=[x,4342],size=[7,9],
+        angle=0,color="28474b",radius=0,solid=False,seed=920+i))
+for y in range(3940,4560,35):
+    for x in [4325,4355]:
+        insert_prop(dict(kind="track_barrier",p=[x,y],size=[2.0,33],
+            angle=0,color="d3cbc0",radius=0,solid=False,seed=y+x))
+# Expanded spectators in the safe paddock berm, away from turn-in apexes.
+for i,(x,y) in enumerate([(3110,3804),(3190,3804),(3270,3804),
+                           (3065,4638),(3650,4644),(3890,4636)]):
+    p=[x,y]
+    if road_clear(p,17) and not occupied(p,18) and land(p):
+        insert_prop(dict(kind="grandstand",p=p,size=[31,14],angle=0,
+            color="9faba7",radius=17,solid=True,seed=930+i))
+
 # Bridge spans are detected only over authored water. They are not graph
 # intersections with other roads; endpoint/grade connectivity remains explicit.
 BRIDGES=[]
