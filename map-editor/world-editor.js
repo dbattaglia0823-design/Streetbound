@@ -72,8 +72,8 @@ function render(){
     try{
       const proposed={type:$('prop-type').value,assetId:$('prop-asset').value,
         x:hover.x,y:hover.y,rotation:0,scale:1};
-      const placed=placeBesideRoad(doc,proposed);
-      roadsidePreview={...placed,radius:placementFootprint(doc,placed)};
+      // Preview the exact cursor position; there is no automatic move.
+      roadsidePreview={...proposed,radius:placementFootprint(doc,proposed)};
     }catch{/* Invalid placements do not render a misleading ghost. */}
   }
   if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
@@ -166,13 +166,9 @@ function makeSnapshot(before,label){
 function change(edit,label){
   const before=doc;
   try{
-    let next=edit(doc);
-    if(next.roads!==before.roads){
-      const fixed=repairRoadsideObjects(next);
-      if(fixed.failed)throw new RangeError('Road change would overlap '+fixed.failed+
-        ' placed objects. Try moving them or widening the surrounding area first.');
-      next=fixed.doc;
-    }
+    // Only the requested edit is committed. Do not reflow unrelated buildings
+    // when a road changes: live clearances show potential problems instead.
+    const next=edit(doc);
     if(next!==doc){doc=next;makeSnapshot(before,label);}else requestRender();
     return true;
   }catch(e){doc=before;errorMessage(e);return false;}
@@ -237,9 +233,8 @@ function insertSelectedPoint(p,mode='between'){
     const before=doc;
     let next=result.doc;
     if(found.type==='roads'){
-      const fixed=repairRoadsideObjects(next);
-      if(fixed.failed)throw new RangeError('Some roadside props cannot be moved clear of this edit.');
-      next=fixed.doc;
+      // Moving/inserting a control point must never move other scenery.
+      // The live overlap overlay and Map health report any new conflicts.
     }
     doc=next;pointInsertMode=null;makeSnapshot(before,'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
     setSelection(found.item.id,result.index);
@@ -639,13 +634,12 @@ function pointerEnd(event,wasCancelled=false){
         if(jump>350&&!window.confirm(
           'This road moved '+Math.round(jump)+' world units. It may create unintended intersections. Keep the change?'))
           throw new RangeError('Large road move canceled; previous road geometry restored.');
-        const fixed=repairRoadsideObjects(doc);
-        if(fixed.failed)throw new RangeError('Road edit would overlap '+fixed.failed+
-          ' existing object(s). Try another curve or clear the area first.');
-        doc=fixed.doc;
+        // New junctions and overlap indicators update live, but unchanged
+        // scenery and game markers remain at their authored coordinates.
       }
       makeSnapshot(current.before,'Moved '+(current.mode==='control'?'control point':
-        current.mode==='shape'?'entire shape':'object')+' and updated roadside clearance.');
+        current.mode==='shape'?'entire shape':'object')+
+        '. Other assets stayed in place; review live road clearances if needed.');
     }catch(e){doc=current.before;refreshUI();errorMessage(e);}
   }
   else requestRender();
