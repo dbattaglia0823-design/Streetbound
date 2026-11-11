@@ -106,6 +106,8 @@ jobs:
           python3 tests/morrow_roundtrip_validate.py /tmp/morrow-edit-roundtrip.json
       - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
         run: python3 tools/build_morrow_coast.py
+      - name: Verify baked city, coast expressway, western corn, raceway and water art
+        run: python3 tests/morrow_world_makeover_test.py
       - name: Prove edit-existing-scenery and Apply to Game rebuild the playable world safely
         run: python3 tests/map_editor_live_apply_test.py
       - name: Ensure two consecutive map expansions leave every existing object and landmark in place
