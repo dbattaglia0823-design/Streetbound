@@ -10,10 +10,14 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
-from morrow_editor_import import apply_edits
+from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 
 ROOT = Path(__file__).resolve().parents[1]
-WIDTH, HEIGHT, CHUNK, CELL = 6400, 4800, 192, 64
+# Source coordinates retain their original origin. Only grow the east and
+# south edges; never multiply or translate the legacy 6400x4800 layout.
+WIDTH, HEIGHT = world_bounds_from_overlay()
+CHUNK, CELL = 192, 64
+LEGACY_LAYOUT = True
 RNG = random.Random(28114)
 NODES, ROADS, PROPS, POIS, TERRAIN, WALLS = {}, [], [], [], [], []
 
@@ -118,6 +122,15 @@ def polygon(kind, points, color):
 COAST = [(5280, 0), (5350, 400), (5200, 850), (5260, 1250), (5420, 1650), (5350, 2050),
          (5200, 2420), (5230, 2680), (5400, 3020), (5330, 3380), (5150, 3800), (5270, 4270), (5190, 4800)]
 COAST = smooth(COAST)
+if HEIGHT > BASE_HEIGHT:
+    # Preserve EVERY original coastline sample, including the last one.
+    # Smoothing an enlarged control list would change the last legacy bend.
+    # Only smooth the newly appended shore, then join at the same fixed point.
+    tail = [tuple(COAST[-1])]
+    for y in range(BASE_HEIGHT+360, HEIGHT, 360):
+        tail.append((5190.0+115.0*math.sin((y-BASE_HEIGHT)/560),y))
+    tail.append((5190.0+115.0*math.sin((HEIGHT-BASE_HEIGHT)/560),HEIGHT))
+    COAST.extend(smooth(tail)[1:])
 
 def shore_x(y):
     for a,b in zip(COAST,COAST[1:]):
@@ -326,7 +339,8 @@ def keys_for(bounds, cell):
 # Optional versioned overlay from the browser Map Builder. Applied to authored
 # control points BEFORE sampling, junction baking, scenery placement and collision
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
-EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS)
+EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
+                             width=WIDTH, height=HEIGHT)
 # Defer objects adopted from procedural scenery until the untouched native
 # generators finish, or the replacement would suppress its own original.
 ADOPTED_PROPS=[prop for prop in PROPS if prop.get("source_replacement")]
@@ -396,7 +410,13 @@ for j in JUNCTIONS:
 
 
 def land(p):
-    return 60 < p[0] < WIDTH-60 and 60 < p[1] < HEIGHT-60 and not any(in_poly(p,t["points"]) for t in TERRAIN if t["kind"] in ["ocean","water"])
+    # The original procedural pass is deliberately confined to the original
+    # map. New width/height may not introduce new props along old boundaries,
+    # alter occupied checks or consume the original RNG sequence.
+    right = BASE_WIDTH if LEGACY_LAYOUT else WIDTH
+    bottom = BASE_HEIGHT if LEGACY_LAYOUT else HEIGHT
+    return 60 < p[0] < right-60 and 60 < p[1] < bottom-60 and not any(
+        in_poly(p,t["points"]) for t in TERRAIN if t["kind"] in ["ocean","water"])
 
 
 # Fix dedicated facilities conservatively before any decorative placement.
@@ -509,7 +529,7 @@ for x in range(350,2000,170):
             insert_prop(dict(kind="field",p=p,size=[RNG.uniform(90,125),RNG.uniform(70,115)],angle=RNG.uniform(-.12,.12),color=RNG.choice(["c4c18a","a4b67e","bab786"]),radius=0,solid=False,seed=RNG.randrange(100000)))
 
 # Forests have clustered clearings rather than uniformly sprinkled obstacles.
-for y in range(90,HEIGHT-70,15):
+for y in range(90,BASE_HEIGHT-70,15):
     for x in range(80,5350,15):
         p = (x+RNG.uniform(-6,6),y+RNG.uniform(-6,6))
         forest = y<1650 or (x<1000 and y<2600) or (x>3900 and y<1500)
@@ -628,6 +648,30 @@ for r in ROADS:
             run.append(p)
             BRIDGES.append(dict(road=r["id"],points=run,width=r["width"]))
             run=[]
+
+# All original scenery generators have finished using the unchanged
+# base-world limits and shared RNG. Populate only truly new southern land
+# with a separate coordinate-seeded stream, keeping old trees, rocks,
+# buildings and parked cars precisely where they were.
+LEGACY_LAYOUT = False
+if HEIGHT > BASE_HEIGHT:
+    for y in range(BASE_HEIGHT+18, HEIGHT-65, 36):
+        for x in range(80, min(WIDTH-65, 5280), 36):
+            local = random.Random((x*73856093) ^ (y*19349663) ^ 28114)
+            p = [x+local.uniform(-8,8), y+local.uniform(-8,8)]
+            density = .32 if x<2100 else .15
+            if x>4500:
+                density=.23
+            if local.random()>density or not land(p):
+                continue
+            if not road_clear(p,5) or occupied(p,5):
+                continue
+            kind = "pine" if x<1900 else ("palm" if x>4500 else "tree")
+            canopy=local.uniform(5.5,10.0)
+            insert_prop(dict(kind=kind,p=p,size=[canopy,canopy],
+                             angle=local.random()*math.tau,
+                             color=local.choice(["668765","789663","5e8269","839d72"]),
+                             radius=.65,solid=True,seed=local.randrange(100000)))
 
 PROPS.extend(ADOPTED_PROPS)
 # Authoring can adopt an existing generated object for direct editing.
@@ -814,6 +858,7 @@ assert all(land(p["position"]) for p in POIS)
 assert all(distance(NODES[r["start"]],r["points"][0])<.01 and distance(NODES[r["end"]],r["points"][-1])<.01 for r in ROADS)
 length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
+          original_extent=[BASE_WIDTH,BASE_HEIGHT],
           size=[WIDTH,HEIGHT],chunk_size=CHUNK,surface_cell=CELL,spawn=SPAWN,nodes=NODES,roads=ROADS,segments=SEGMENTS,
           props=PROPS,pois=POIS,districts=DISTRICTS,terrain=TERRAIN,walls=WALLS,junctions=JUNCTIONS,bridges=BRIDGES,
           road_connections=sorted(connections),surface_index=GRID,chunks=CHUNKS,road_crossings=CROSSINGS,
