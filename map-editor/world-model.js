@@ -63,6 +63,17 @@ function validEntity(item,type,w,h){
       x:real(item.x,0,w,'prop x'),y:real(item.y,0,h,'prop y'),
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.25,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
+    if(item.replaces){
+      const source=item.replaces;
+      if(!source||typeof source!=='object'||Array.isArray(source)||
+         typeof source.kind!=='string'||!/^[a-z_]{2,25}$/.test(source.kind)||
+         !Number.isInteger(source.seed)||source.seed<0||source.seed>2147483647||
+         !Array.isArray(source.p)||source.p.length!==2)
+        throw new TypeError('Invalid original game-object reference.');
+      entity.replaces={kind:source.kind,seed:source.seed,
+        p:[real(source.p[0],0,w,'source x'),real(source.p[1],0,h,'source y')]};
+      entity.hidden=item.hidden===true;
+    }
     if(entity.type==='parking'){
       entity.stallWidth=real(item.stallWidth??3.2,2.6,5.2,'parking stall width');
       entity.occupancy=real(item.occupancy??.4,0,1,'parking occupancy');
@@ -138,7 +149,7 @@ export function createEntity(doc,type,input){
   let item=validEntity({id,...input},type,doc.world.width,doc.world.height);
   if(type==='props'){
     if(!assetOk(doc,item))throw new TypeError('Unknown or incompatible game asset');
-    item=validEntity(placeBesideRoad(doc,item),type,doc.world.width,doc.world.height);
+    if(!item.replaces)item=validEntity(placeBesideRoad(doc,item),type,doc.world.width,doc.world.height);
   }else if(type==='markers'){
     item=validEntity(placeSiteMarker(doc,item),type,doc.world.width,doc.world.height);
   }
@@ -157,9 +168,12 @@ export function updateEntity(doc,id,patch){
   let updated=validEntity({...item,...patch,id},type,doc.world.width,doc.world.height);
   if(type==='props'){
     if(!assetOk(doc,updated))throw new TypeError('Unknown or incompatible game asset');
-    // Hand-authored rotation remains editable. Position, type and scale edits
-    // recalculate the curb setback and local road tangent automatically.
-    if(['x','y','scale','type','assetId'].some(key=>Object.hasOwn(patch,key))){
+    // An adopted procedural object already has an authored world position.
+    // Do not snap it to a road when the user moves it in the editor.
+    if(item.replaces){
+      if(roadwayClearance(doc,updated,placementFootprint(doc,updated))<0)
+        throw new RangeError('Moved game scenery would overlap a driving lane.');
+    }else if(['x','y','scale','type','assetId'].some(key=>Object.hasOwn(patch,key))){
       updated=validEntity(placeBesideRoad(doc,updated),type,doc.world.width,doc.world.height);
     }else if(roadwayClearance(doc,updated,placementFootprint(doc,updated))<0){
       updated=validEntity(placeBesideRoad(doc,updated,{snap:false,align:false}),type,doc.world.width,doc.world.height);
