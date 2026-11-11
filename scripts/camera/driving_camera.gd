@@ -1,6 +1,9 @@
 extends Camera2D
 ## Telemetry-driven visual framing. No changes to vehicle handling.
 @export var target: VehicleController2D
+# World-only magnification: CanvasLayer HUD and minimap sizes stay unchanged.
+# Keep the existing speed-dependent zoom-out, multiplied by 1.20 everywhere.
+@export_range(0.8, 1.6, 0.01) var world_zoom_multiplier := 1.20
 var follow_heading := false
 var impact_strength := 0.0
 var _impact_time := 0.0
@@ -17,6 +20,8 @@ func _ready() -> void:
 	position_smoothing_enabled = false
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	global_position = target.global_position
+	# Start at the intended framing rather than briefly flashing a smaller scene.
+	zoom = Vector2.ONE * (1.06 * world_zoom_multiplier)
 	_previous_longitudinal = target.longitudinal_speed
 	target.impacted.connect(_on_impact)
 
@@ -40,7 +45,7 @@ func _physics_process(dt: float) -> void:
 	# Widen the view for road reading, with a subtle surge during acceleration.
 	var speed_mix := smoothstep(5.0, 57.0, speed)
 	var base_zoom := lerpf(1.06, 0.64, speed_mix)
-	var target_zoom := base_zoom * (1.0 - _surge * 0.012 + impact_strength * 0.022)
+	var target_zoom := base_zoom * world_zoom_multiplier * (1.0 - _surge * 0.012 + impact_strength * 0.022)
 	zoom = zoom.lerp(Vector2.ONE * target_zoom, 1.0 - exp(-2.8 * dt))
 	_impact_time += dt
 	impact_strength = maxf(0.0, impact_strength - dt * 4.0)
