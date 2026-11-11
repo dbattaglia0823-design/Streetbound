@@ -320,7 +320,7 @@ func _cornfield(size: Vector2, seed_value: int, color: Color) -> void:
 			draw_circle(at, 5.0, Color("b9b875"))
 	# Hedges and tractor access edges give fields an intentional farm layout.
 	for side in [-1.0, 1.0]:
-		var edge := side * (size.y * .5 - 24.0)
+		var edge: float = float(side) * (size.y * .5 - 24.0)
 		draw_line(Vector2(-size.x * .47, edge), Vector2(size.x * .47, edge),
 			Color("536b3e"), 12.0, true)
 		draw_line(Vector2(-size.x * .47, edge - side * 5.0),
