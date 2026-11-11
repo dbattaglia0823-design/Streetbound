@@ -261,7 +261,7 @@ function adoptRuntimeScenery(source){
   // Numeric IDs must be parsed correctly even when several prior houses
   // have already been adopted. Keep stable, collision-free authoring IDs.
   const id='prop-'+(Math.max(0,...doc.props.map(item=>
-    /^prop-\\d+$/.test(item.id)?Number(item.id.slice(5)):0))+1);
+    /^prop-\d+$/.test(item.id)?Number(item.id.slice(5)):0))+1);
   const next={id,type,name:'Game '+source.kind.replaceAll('_',' '),
     x:Number(source.p[0]),y:Number(source.p[1]),
     rotation:Number(source.angle)*180/Math.PI,scale,
@@ -285,7 +285,7 @@ function hitTest(p){
   // directly without first turning on a separate adoption mode.
   if($('show-markers').checked)
     for(let i=doc.markers.length-1;i>=0;i--)
-      if(distance(p,doc.markers[i])<Math.max(18,12/zoom))
+      if(distance(p,doc.markers[i])<clamp(10/zoom,9,36))
         return {id:doc.markers[i].id,point:-1,kind:'entity'};
   if($('show-scenery').checked){
     const edited=pickEditableScenery(doc.props,p,{
