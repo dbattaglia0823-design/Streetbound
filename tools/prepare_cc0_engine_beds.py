@@ -34,7 +34,7 @@ BUNTINE = ("buntine/CarEngines",
 # Families are acoustic approximations, not claims that the recording comes
 # from the depicted make/model. CC0 evidence is documented separately.
 SOURCES = [
-    ("i3", AUTOMOBILITY, "creative_engine.ogg", "aa37c49356b7b2b987505f198e66a35b158ddc7"),
+    ("i3", AUTOMOBILITY, "creative_engine.ogg", "aa37c49356b7b2b987505f198e66a35b158ddc7d"),
     ("i4", AUTOMOBILITY, "copper_engine.ogg", "a3f8b760c1c3030861362e7ec67f231e5873b887"),
     ("i6", AUTOMOBILITY, "iron_engine.ogg", "6ca61feab3f47442feb8488f7e99438545dff452"),
     ("v6", AUTOMOBILITY, "stone_engine.ogg", "f693af48a11413ebad4d1ab4cc85ee1647817512"),
@@ -42,7 +42,7 @@ SOURCES = [
     ("v8_flat", BORDER, "loop_3_0.wav", "48345e4b0e579aa097be65cc45f324137e5ebb41"),
     ("v10", BORDER, "loop_5_0.wav", "60d961be63cf7b203e01b781cd29b24cbbedb81c"),
     ("v12", AUTOMOBILITY, "diamond_engine.ogg", "f2993b85c1ae01767fd1539a7759618e2d5dda07"),
-    ("w12", AUTOMOBILITY, "gold_engine.ogg", "c7c75560ff8d2727464189953c853ca24f25c69"),
+    ("w12", AUTOMOBILITY, "gold_engine.ogg", "c7c75560ff8d2727464189953c853ca24f25c69e"),
     ("w16", BORDER, "loop_4_0.wav", "fa9909ff69107b549145ef8d983839579fe9bd4e"),
 ]
 
