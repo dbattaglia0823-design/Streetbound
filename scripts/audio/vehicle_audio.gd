@@ -44,6 +44,9 @@ var gear_whine := AudioStreamPlayer.new()
 var wind := AudioStreamPlayer.new()
 var road := AudioStreamPlayer.new()
 var driveline := AudioStreamPlayer.new()
+## Real CC0 recorded engine bed: subtle organic texture beneath each
+## vehicle's model-specific, RPM-correct power/coast synthesis.
+var recorded_texture := AudioStreamPlayer.new()
 var tires := AudioStreamPlayer.new()
 var scrub := AudioStreamPlayer.new()
 var shift := AudioStreamPlayer.new()
@@ -98,13 +101,13 @@ func _ready() -> void:
 	name = "VehicleAudio"
 	_loop_players.assign([engine,low,mid,high,coast_idle,coast_low,
 		coast_mid,coast_high,intake,turbo,gear_whine,wind,road,driveline,
-		tires,scrub])
+		tires,scrub,recorded_texture])
 	_all_players.assign(_loop_players+[shift,blowoff,flutter,pop,impact,
 		ignition,shutdown,downshift,limiter,curb])
 	var names := ["EngineIdle","EngineLow","EngineMid","EngineHigh",
 		"CoastIdle","CoastLow","CoastMid","CoastHigh","Intake",
 		"ForcedInduction","GearWhine","Wind","Road","Driveline",
-		"Tires","LooseTires","Shift","BlowOff","CompressorFlutter",
+		"Tires","LooseTires","RecordedEngineTexture","Shift","BlowOff","CompressorFlutter",
 		"ExhaustPop","Impact","Ignition","Shutdown","DownshiftBlip",
 		"RevLimiter","CurbContact"]
 	for i in _all_players.size():
@@ -203,6 +206,22 @@ func _configure_engine(force := false) -> void:
 		ignition_stream,shutdown_stream,downshift_stream,limiter_stream,curb_stream]
 	var fx_fallbacks := ["shift","bov","flutter","pop","ignition",
 		"shutdown","blip","limiter","curb"]
+	# Recorded references share an acoustic family, never an invented exact
+	# make/model identity. A future per-car recording overrides that family.
+	var recording: AudioStream = SampleBank.resolve(
+		cfg.audio_sample_id,family,"recorded_texture")
+	if recorded_texture.stream != recording:
+		recorded_texture.stop()
+		recorded_texture.stream = recording
+		if recording is AudioStreamOggVorbis:
+			(recording as AudioStreamOggVorbis).loop = true
+		elif recording is AudioStreamMP3:
+			(recording as AudioStreamMP3).loop = true
+		elif recording is AudioStreamWAV:
+			(recording as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+		if recording != null:
+			recorded_texture.volume_db = -80.0
+			recorded_texture.play()
 	for i in fx_players.size():
 		var resolved: AudioStream = SampleBank.resolve(cfg.audio_sample_id,
 			family,fx_slots[i],fx_overrides[i])
@@ -442,6 +461,18 @@ func _process(dt: float) -> void:
 		-63.0+smoothstep(3.0,40.0,speed)*21.0+surface_roughness*10.0
 	road.volume_db = lerpf(road.volume_db,
 		-80.0 if muted else road_db,1.0-exp(-7.0*delta))
+	# One family-matched CC0 field texture is mixed underneath the accurate
+	# engine synth, rather than passing a generic recording off as each car.
+	# Pitch follows its real RPM, but a single recording is NOT treated as a
+	# multi-RPM OEM pack. Its restrained level preserves tonal identity.
+	if recorded_texture.stream != null:
+		var texture_pitch := clampf(0.71+revs*0.92,0.7,1.7)
+		recorded_texture.pitch_scale = lerpf(recorded_texture.pitch_scale,
+			texture_pitch,1.0-exp(-8.0*delta))
+		var recorded_db := -40.0+throttle*8.0+revs*2.5+ \
+			cfg.audio_aggression*1.5
+		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
+			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
 	# Surface-reactive tyres remain quiet unless actual loss of grip occurs.
 	var speed_gate := smoothstep(2.0,12.0,speed)
 	var slip_sound := smoothstep(deg_to_rad(5.0),
