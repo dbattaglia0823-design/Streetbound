@@ -214,6 +214,16 @@ export function drawNative(ctx,prop,scale){
       ctx.fillStyle='#eed3a3';
       ctx.fillText(title.slice(0,24),0,h*.33,Math.max(5,w*.86));
     }
+  }else if(kind==='cornfield'){
+    ctx.fillStyle='#a5a879';ctx.fillRect(-w/2,-h/2,w,h);
+    if(scale>.08){
+      ctx.strokeStyle='#6c8b54';ctx.lineWidth=Math.max(.3,h/34);
+      for(let y=-h*.43;y<h*.43;y+=Math.max(2.5,h/16)){
+        ctx.beginPath();ctx.moveTo(-w*.45,y);ctx.lineTo(w*.45,y);ctx.stroke();
+      }
+      ctx.strokeStyle='#bbc28a';ctx.lineWidth=.3;
+      ctx.strokeRect(-w*.49,-h*.49,w*.98,h*.98);
+    }
   }else if(kind==='field'||kind==='garden'){
     ctx.fillStyle=kind==='field'?'#abb48a':'#67945f';
     ctx.globalAlpha=.7;ctx.fillRect(-w/2,-h/2,w,h);
