@@ -5,23 +5,56 @@ https://github.com/dbattaglia0823-design/Game-Dev-Toolkit/tree/main/web/map-buil
 with Streetbound-specific road precedence. It lives inside this repository.
 No separate Toolkit setup is required.
 
-## Launch from the repository files
+## Open the real game project (recommended)
 
-On Windows 10/11, double-click **map-editor/Start Map Editor.cmd** from your
-Streetbound checkout. It runs a tiny local-only PowerShell web server on
-http://127.0.0.1:8765/ and opens the default browser. No Node, Python,
-downloads, external accounts or software installation are needed. Keep the
-terminal window open while editing; press Ctrl+C to stop.
+On Windows 11, open your local Streetbound checkout and double-click
+**map-editor/Start Map Editor.cmd**. This now starts the local-only Python 3
+project server at http://127.0.0.1:8765/ and opens the browser. It requires
+the same Python 3 installation used by the production Morrow Coast rebaker;
+no Node or additional Python packages are needed.
 
-On other systems, run:
-    python3 -m http.server 8765 --directory map-editor
-from the repository root and open http://127.0.0.1:8765/.
+The editor **automatically imports the current**
+`worlds/morrow-coast.world.json` on startup. It previews the actual baked
+road layout, biome regions, named destinations, parked traffic, existing
+buildings, scenery and foliage. The imagery comes from the **real game-folder
+scenery atlas and traffic-vehicle PNGs** rather than placeholder symbols.
 
-Do not double-click index.html itself: modern browser ES modules need
-an HTTP origin rather than a file:// URL.
+Select a building, tree or rock from the current baked world with
+**Edit existing game scenery** (or Ctrl-click it in Select mode).
+That adopts it as an editable game object. Move, rotate, resize, change its
+compatible game atlas artwork, or use **Hide original from game**. The next
+world rebuild replaces/hides the original instead of creating an overlapping
+duplicate. Important game structures such as Laurel Motor House's active
+garage are protected from this conversion.
 
-If port 8765 is occupied, run PowerShell with:
-    powershell.exe -NoProfile -File ".\map-editor\serve.ps1" -Port 8766
+Click **Apply to Game** after editing. The local server validates the document,
+writes its authoring source to
+`map-editor/maps/morrow-coast.edits.world.json`, runs the actual
+`tools/build_morrow_coast.py` generation, then updates the playable
+`worlds/morrow-coast.world.json` and overview. **No manual export, moving
+files, or separate rebuild step is required.** A failed validation restores
+the previous authoring, playable map, and overview together. External file
+changes are detected before applying, to prevent overwriting a newer map.
+
+Restart Streetbound after Apply to Game: a game that was already launched
+keeps its old world in memory. Review the changes, then commit the edited
+authoring JSON and generated `worlds/` files to Git as normal.
+
+The browser still cannot write a checkout opened remotely from GitHub Pages.
+If Python 3 is absent or you use a regular static server, Morrow Coast import
+is read-only; **Export Morrow edits** remains a fallback, followed by running
+`tools/Rebuild Morrow Coast.cmd` yourself. To use a different port:
+`python tools/map_editor_server.py --port 8766`.
+
+The project server binds **only to 127.0.0.1**, serves a restricted asset
+allowlist, requires a same-origin private session token for writes, and
+accepts changes only to the single Morrow Coast map. Keep its terminal open
+during editing; press Ctrl+C to stop.
+
+The canvas uses the same game sprite atlas and real baked object positions,
+but Godot's shaders, dynamic shadows and animated vehicles are not reproduced
+pixel-for-pixel inside the browser. Run the game to confirm final lighting,
+collision behavior, traffic navigation and framerate.
 
 ## Editing
 
@@ -53,42 +86,33 @@ traversableCenterlines are separated across paved crossings. No false
 dirt-to-pavement connections are exported. Traffic AI must use the
 traversable centerlines rather than the author's unbroken control spline.
 
-## Editing the actual Morrow Coast
+## Production-world editing notes
 
-Select **Edit Morrow Coast** in the top toolbar to import the playable
-`worlds/morrow-coast.world.json` into editable road anchor points, terrain
-preview regions, POIs and player start. Check **Traffic lanes / travel
-direction** to preview where vehicles travel in each direction; **Map health**
-helps review road geometry before applying changes.
+Morrow Coast has more baked objects than authorable control points. The
+editor keeps full production scenery in spatial preview buckets, rather
+than adding thousands of generated trees to the regular 200-prop editing
+budget. Click-to-edit converts only selected ordinary objects into a stable
+source replacement. Other procedural items remain driven by the normal world
+generator, so future road and biome changes still generate coherent scenery.
 
-Click **Save Morrow edits** to save
-`map-editor/maps/morrow-coast.edits.world.json` using Chrome/Edge's
-Save File dialog, or move the JSON downloaded by other browsers into that
-folder. **Run a full rebake** with `tools/Rebuild Morrow Coast.cmd`
-(requires Python 3) or the manual GitHub Actions
-**Morrow Coast World Rebake** workflow, which makes the generated world and
-overview available as downloadable artifacts. Commit the source overlay
-and generated `worlds/` files together.
+Existing roads keep their source IDs, and unchanged high-detail coastline
+polygons keep their original geometry. Marker and new building edits take the
+same path through production junction, collision and chunk generation.
+The editable `gdt.racing-world` document must never replace the game's
+`streetbound.streamed-world` runtime JSON directly.
 
-The editable World Forge v2 document is NOT the game's streamed-world format
-and must not replace `worlds/morrow-coast.world.json` directly. The
-Python rebake regenerates actual road geometry, junctions, world chunks,
-surface/collision indexes and traffic lanes; simply saving an edit does not
-alter the running game.
+The inspector's game-art picker lists compatible **actual game-folder assets**
+(houses, shops, garages, trees, palms, pines and rocks). Its references are
+saved as game asset identifiers and resolve to the atlas at runtime.
+Custom imported PNG/WebP files are still supported for standalone test maps;
+unapproved external images cannot be installed in Morrow Coast through the
+editor because the production game must ship them in its own assets folder.
 
-Generated scenery is rebuilt from the original world generator rather than
-being individually editable in this first Morrow integration. Original road
-IDs remain stable and high-detail coastline points are preserved when
-their preview regions are unmodified.
-
-On the playable Morrow Coast, **F5** enables/disables ambient traffic and
-**F6** draws its actual lane/turn graph; **F4** shows the underlying map
-geometry. Ambient vehicles currently follow lanes and yield but do not
-physically collide with the player. The proving-ground's existing F6
-function remains unchanged.
-
-See [Morrow editor / traffic integration](../docs/MORROW_EDITOR_AND_TRAFFIC.md)
-for the full workflow and limitations.
+Safety: selected source props cannot be reassigned to gameplay landmark
+buildings; adopted object identity is checked on rebuild. Duplicate, stale
+or obstructing object replacements cause validation failure, and the
+previous playable world remains intact. At most 200 additional authored
+scenery objects/replacements are supported in one overlay.
 
 ## Tests
 
