@@ -142,8 +142,23 @@ def _authoring_props(doc):
             raise ValueError("Scenery outside safe Morrow Coast bounds")
         if not .25 <= scale <= 2.5 or not -360 <= rotation <= 360:
             raise ValueError("Editor prop scale or rotation out of range")
-        if raw.get("assetId"):
-            raise ValueError("Custom embedded art cannot be rebaked into Morrow Coast yet")
+        game_art = raw.get("assetId", "")
+        available = {
+            "oak": {"tree", "pine", "palm"},
+            "pine": {"tree", "pine", "palm"},
+            "palm": {"tree", "pine", "palm"},
+            "house": {"house", "coastal_house"},
+            "building": {"shop", "garage"},
+            "warehouse": {"shop", "garage"},
+            "garage": {"shop", "garage"},
+            "gas_station": {"shop", "garage"},
+            "rock": {"rock"},
+            "boulder": {"rock"},
+        }
+        if game_art:
+            if (not isinstance(game_art, str) or not game_art.startswith("game-")
+                    or game_art[5:] not in available.get(type_name, set())):
+                raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
         size = [round(v * scale, 3) for v in base_size]
         radius = math.hypot(*size) / 2.0 if solid else 0.0
@@ -154,6 +169,9 @@ def _authoring_props(doc):
                      radius=radius,solid=solid,seed=seed,
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
+        if game_art:
+            entry["asset_kind"] = game_art[5:]
+            entry["asset_id"] = game_art
         if type_name == "parking":
             for field, raw_field, minimum, maximum, default in (
                 ("stall_width", "stallWidth", 2.6, 5.2, 3.2),
