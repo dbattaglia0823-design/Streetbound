@@ -103,4 +103,6 @@ test('main canvas and minimap share the same source terrain and road projection'
   assert.match(mainCall,/runtimePreview/);
   assert.match(miniCall,/runtimePreview/);
   assert.match(miniCall,/quality:0/);
+  assert.match(miniCall,/showScenery:false/,
+    'overview must not redraw thousands of game props on each map interaction');
 });
