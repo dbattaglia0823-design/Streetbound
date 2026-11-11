@@ -2,7 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
-import {BASE_SIZE,drawAtlas,gameArtKind,drawRuntimeScenery} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -245,7 +245,7 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
-  const size=prop.type==='building'||prop.type==='warehouse'?1.2:1;
+  const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
   if(gameArt){
@@ -255,7 +255,9 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
     if(size&&drawAtlas(ctx,kind,size,stringSeed(prop.id))){
       ctx.restore();return;
     }
-    if(size)ctx.scale(size[0]/40,size[1]/40);
+    if(drawGameVectorProp(ctx,prop)){
+      ctx.restore();return;
+    }
   }
   const asset=prop.assetId?assets.find(item=>item.id===prop.assetId):null;
   if(asset){
