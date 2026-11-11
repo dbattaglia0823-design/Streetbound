@@ -1,0 +1,62 @@
+name: Bake and verify Morrow Coast world art
+
+on:
+  push:
+    branches:
+      - feature/morrow-coast-world-makeover-20261111
+    paths:
+      - tools/build_morrow_coast.py
+      - tools/morrow_editor_import.py
+      - tests/morrow_world_makeover_test.py
+      - .github/workflows/morrow-world-bake.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bake-and-commit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Generate actual streamed game world and reference overview
+        run: python3 tools/build_morrow_coast.py
+      - name: Validate high-density city, highway, corn, race facilities and textures
+        run: python3 tests/morrow_world_makeover_test.py
+      - name: Validate runtime scenery and destination contract
+        run: python3 tests/morrow_environment_props_test.py
+      - name: Install matching Godot 4.6.3 for baked-world smoke test
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x ./Godot_v4.6.3-stable_linux.x86_64
+      - name: Cold import ALL art and report Godot compilation errors
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --editor --path . --import 2>&1 | tee /tmp/morrow-world-import.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/morrow-world-import.log; then
+            exit 1
+          fi
+      - name: Launch the rebuilt game world in the real startup scene
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/game_startup_smoke_test.gd 2>&1 | tee /tmp/morrow-world-startup.log
+          grep -q 'REAL GAME STARTUP: PASS' /tmp/morrow-world-startup.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Invalid assignment of property' /tmp/morrow-world-startup.log; then
+            exit 1
+          fi
+      - name: Commit the generated game JSON and overview, not just scripts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worlds/morrow-coast.world.json worlds/morrow-coast-overview.svg
+          if git diff --cached --quiet; then
+            echo "Baked world matches committed data"
+          else
+            git commit -m "Bake expanded Morrow Coast city, highway and racing world"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
