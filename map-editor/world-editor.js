@@ -13,7 +13,8 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
-import {loadMorrowCoast,isMorrowEdit,morrowEditText,MORROW_EDIT_NAME} from './morrow-coast-bridge.js';
+import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
+  MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
 import {buildRuntimePreview,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
   GAME_ART,GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
@@ -117,6 +118,15 @@ function focusPoint(p){
 function refreshHeader(){
   $('world-title').value=doc.name;
   $('save-morrow').hidden=!isMorrowEdit(doc);
+  $('morrow-expand-panel').hidden=!isMorrowEdit(doc);
+  if(isMorrowEdit(doc)){
+    const w=$('expand-world-width'),h=$('expand-world-height');
+    w.value=doc.world.width;h.value=doc.world.height;
+    w.min=doc.world.width;h.min=doc.world.height;
+    w.max=MORROW_MAX_WIDTH;h.max=MORROW_MAX_HEIGHT;
+    $('expand-morrow').disabled=
+      doc.world.width===MORROW_MAX_WIDTH&&doc.world.height===MORROW_MAX_HEIGHT;
+  }
   $('save-morrow').textContent=liveSession?'Apply to Game':'Export Morrow edits';
   $('adopt-game-prop').hidden=!runtimePreview;
   $('adopt-game-hint').hidden=!runtimePreview;
@@ -892,6 +902,22 @@ async function openGameMap({skipConfirm=false}={}){
   finally{button.disabled=false;}
 }
 $('load-morrow').addEventListener('click',()=>openGameMap());
+$('expand-morrow').addEventListener('click',()=>{
+  if(!isMorrowEdit(doc))return status('Open Game Map first.');
+  const width=Number($('expand-world-width').value);
+  const height=Number($('expand-world-height').value);
+  const old=doc;
+  if(width===old.world.width&&height===old.world.height)
+    return status('Increase width or height to add space.');
+  if(change(d=>expandMorrowWorld(d,{width,height}),
+      'Expanded the map boundary. All original roads, terrain, landmarks and objects retain their exact coordinates.')){
+    $('morrow-expand-status').textContent=
+      'Current map '+width+' × '+height+' m · +'+(width-old.world.width)+
+      ' m east, +'+(height-old.world.height)+
+      ' m south. Click Apply to Game to rebuild the playable world.';
+    fit();
+  }
+});
 $('save-morrow').addEventListener('click',async()=>{
   const button=$('save-morrow');
   if(!isMorrowEdit(doc))return status('Open Game Map first.');

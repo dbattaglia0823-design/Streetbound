@@ -9,6 +9,21 @@ import {normalizeWorld} from './world-model.js';
 
 export const MORROW_SOURCE='../worlds/morrow-coast.world.json';
 export const MORROW_EDIT_NAME='morrow-coast.edits.world.json';
+export const MORROW_MIN_WIDTH=6400,MORROW_MIN_HEIGHT=4800;
+export const MORROW_MAX_WIDTH=9600,MORROW_MAX_HEIGHT=7200;
+
+/** Grow the rectangle only: this must not touch any existing entity or
+ * source coordinate. East is the coast/ocean; south adds land for building.
+ */
+export function expandMorrowWorld(doc,{width,height}){
+  if(!isMorrowEdit(doc))throw new TypeError('Open Morrow Coast before expanding.');
+  if(!Number.isInteger(width)||!Number.isInteger(height)||
+    width<doc.world.width||height<doc.world.height||
+    width>MORROW_MAX_WIDTH||height>MORROW_MAX_HEIGHT)
+    throw new RangeError('Only increase the east or south edges within the supported map limits.');
+  if(width===doc.world.width&&height===doc.world.height)return doc;
+  return {...doc,world:{...doc.world,width,height}};
+}
 const BIOMES=new Set(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
 const biomeOf=kind=>BIOMES.has(kind)?kind:kind==='water'?'lake':
   ['town','highland'].includes(kind)?'grass':kind==='riverbank'?'beach':'grass';
@@ -22,12 +37,12 @@ const clamp=(v,low,high)=>Math.max(low,Math.min(high,v));
 function pointsOf(items){
   return items.map(point=>({x:+point[0],y:+point[1]}));
 }
-function simplifyPolygon(items,max=180){
+function simplifyPolygon(items,max=180,width=MORROW_MIN_WIDTH,height=MORROW_MIN_HEIGHT){
   // Import is intentionally a reviewable proxy, not lossy overwriting of
   // original coast/river masks. The rebaker only changes edited polygons.
   // Original ocean/river masks may intentionally extend past the game map.
   // The editor clamps only its preview; unchanged high-detail source is safe.
-  const pts=pointsOf(items).map(p=>({x:clamp(p.x,0,6400),y:clamp(p.y,0,4800)}));
+  const pts=pointsOf(items).map(p=>({x:clamp(p.x,0,width),y:clamp(p.y,0,height)}));
   if(pts.length>1 && Math.hypot(pts[0].x-pts.at(-1).x,pts[0].y-pts.at(-1).y)<.001)pts.pop();
   if(pts.length<=max)return pts;
   return Array.from({length:max},(_,i)=>pts[Math.floor(i*pts.length/max)]);
@@ -53,10 +68,10 @@ export function convertMorrowWorld(raw){
   const regions=[];
   for(const [index,terrain] of raw.terrain.entries()){
     if(regions.length>=220)break;
-    if(!terrain.points||terrain.points.length<3)continue;
+    if(terrain.generated_extension||!terrain.points||terrain.points.length<3)continue;
     // Avoid duplicating riverbank/foam masks with identical footprints.
     if(['foam','riverbank','highland'].includes(terrain.kind))continue;
-    const polygon=simplifyPolygon(terrain.points);
+    const polygon=simplifyPolygon(terrain.points,180,width,height);
     if(polygon.length<3)continue;
     regions.push({id:'region-'+index,name:String(terrain.kind)+' '+index,
       biome:biomeOf(terrain.kind),elevation:0,points:polygon});
@@ -102,7 +117,9 @@ export async function loadMorrowCoast(){
 export function isMorrowEdit(doc){
   // Explicit selection, not just a similar-looking world name.
   return doc.name==='Morrow Coast'&&
-    doc.world.width===6400&&doc.world.height===4800&&
+    Number.isInteger(doc.world.width)&&Number.isInteger(doc.world.height)&&
+    doc.world.width>=MORROW_MIN_WIDTH&&doc.world.width<=MORROW_MAX_WIDTH&&
+    doc.world.height>=MORROW_MIN_HEIGHT&&doc.world.height<=MORROW_MAX_HEIGHT&&
     doc.roads.some(r=>/^road-\d+$/.test(r.id));
 }
 

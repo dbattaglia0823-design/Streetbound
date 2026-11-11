@@ -27,6 +27,8 @@ OVERVIEW = ROOT / "worlds" / "morrow-coast-overview.svg"
 EDIT = EDITOR / "maps" / "morrow-coast.edits.world.json"
 BUILDER = ROOT / "tools" / "build_morrow_coast.py"
 MAX_EDIT_SIZE = 8_000_000
+MIN_SIZE = (6400, 4800)
+MAX_SIZE = (9600, 7200)
 TOKEN = secrets.token_urlsafe(32)
 REBUILD_LOCK = threading.Lock()
 
@@ -64,11 +66,20 @@ def transactional_rebuild(doc: object, expected_sha: str) -> dict:
         raise ValueError("Missing editable Morrow Coast document.")
     if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2:
         raise ValueError("Unsupported editor document.")
-    if (doc.get("name") != "Morrow Coast" or doc.get("world", {}).get("width") != 6400
-            or doc.get("world", {}).get("height") != 4800):
-        raise ValueError("Open the playable Morrow Coast world before applying.")
+    if doc.get("name") != "Morrow Coast":
+        raise ValueError("Only the playable Morrow Coast map may be edited.")
     if digest(BAKED) != expected_sha:
         raise ValueError("The playable world changed since import. Reload it before applying.")
+    current = json.loads(BAKED.read_text(encoding="utf-8"))
+    if current.get("format") != "streetbound.streamed-world" or current.get("version") != 1:
+        raise ValueError("Unknown original playable world format.")
+    old_size = current.get("size", [])
+    new_size = [doc.get("world",{}).get("width"),doc.get("world",{}).get("height")]
+    if (len(old_size)!=2 or len(new_size)!=2 or
+            any(type(v) is not int for v in new_size) or
+            any(new_size[i]<max(old_size[i],MIN_SIZE[i]) or new_size[i]>MAX_SIZE[i]
+                for i in range(2))):
+        raise ValueError("Map expansion can only add space east and south; cannot shrink or shift the existing world.")
     encoded = (json.dumps(doc, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
     if len(encoded) > MAX_EDIT_SIZE:
         raise ValueError("Morrow Coast authoring document exceeds 8 MB.")

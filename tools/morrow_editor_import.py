@@ -15,6 +15,37 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EDIT_PATH = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
+BASE_WIDTH, BASE_HEIGHT = 6400, 4800
+MAX_WIDTH, MAX_HEIGHT = 9600, 7200
+
+
+def validate_world_bounds(width, height):
+    """Only add space on the east (+X) and south (+Y); never translate content."""
+    if (type(width) is not int or type(height) is not int
+            or not BASE_WIDTH <= width <= MAX_WIDTH
+            or not BASE_HEIGHT <= height <= MAX_HEIGHT):
+        raise ValueError(
+            f"Original Morrow Coast is 6400x4800, and may grow to at most {MAX_WIDTH}x{MAX_HEIGHT}; "
+            "shrinking the original world or moving its origin is not allowed")
+    return width, height
+
+
+def world_bounds_from_overlay(filename=EDIT_PATH):
+    """Read only dimension metadata before building the rest of the world.
+
+    Map topology, collision and RNG generation still run from source after
+    bounds are validated. No size change means the old deterministic build.
+    """
+    filename = Path(filename)
+    if not filename.exists():
+        return BASE_WIDTH, BASE_HEIGHT
+    if filename.stat().st_size > 8_000_000:
+        raise ValueError("Morrow editing source exceeds 8 MB")
+    doc = json.loads(filename.read_text(encoding="utf-8"))
+    if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2 or doc.get("name") != "Morrow Coast":
+        raise ValueError("Invalid Morrow Coast source map")
+    world = doc.get("world", {})
+    return validate_world_bounds(world.get("width"),world.get("height"))
 KIND_TO_CLASS = {
     "local": "city", "arterial": "city", "highway": "highway",
     "rural": "country", "mountain": "mountain", "track": "track",
@@ -37,7 +68,7 @@ def length(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def points(raw, width=6400, height=4800):
+def points(raw, width=BASE_WIDTH, height=BASE_HEIGHT):
     if not isinstance(raw, list) or not (2 <= len(raw) <= 180):
         raise ValueError("A road needs 2-180 control points")
     result = []
@@ -55,11 +86,11 @@ def points(raw, width=6400, height=4800):
     return result
 
 
-def _thin_polygon(items, maximum=180):
+def _thin_polygon(items, maximum=180, width=BASE_WIDTH, height=BASE_HEIGHT):
     # Mirrors the browser editor's in-bounds preview. Original source
     # remains high resolution when the user did not change the proxy polygon.
-    coords = [(min(6400.0, max(0.0, float(v[0]))),
-               min(4800.0, max(0.0, float(v[1])))) for v in items]
+    coords = [(min(float(width), max(0.0, float(v[0]))),
+               min(float(height), max(0.0, float(v[1])))) for v in items]
     if len(coords) > 1 and length(coords[0], coords[-1]) < 0.001:
         coords.pop()
     if len(coords) <= maximum:
@@ -68,7 +99,7 @@ def _thin_polygon(items, maximum=180):
             for i in range(maximum)]
 
 
-def _polygon_points(raw):
+def _polygon_points(raw, width=BASE_WIDTH, height=BASE_HEIGHT):
     if not isinstance(raw, list) or not 3 <= len(raw) <= 180:
         raise ValueError("Terrain polygon requires 3-180 points")
     result = []
@@ -78,7 +109,7 @@ def _polygon_points(raw):
         x, y = p.get("x"), p.get("y")
         if not all(isinstance(v, (float, int)) and math.isfinite(v) for v in (x, y)):
             raise ValueError("Invalid terrain coordinate")
-        if not 0 <= x <= 6400 or not 0 <= y <= 4800:
+        if not 0 <= x <= width or not 0 <= y <= height:
             raise ValueError("Terrain coordinate outside world")
         result.append([round(float(x), 3), round(float(y), 3)])
     return result
@@ -112,7 +143,7 @@ EDITOR_PROP_STYLES = {
 }
 
 
-def _authoring_props(doc):
+def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
     """Convert a bounded list of editor scenery to stable runtime props."""
     import zlib
 
@@ -138,7 +169,7 @@ def _authoring_props(doc):
         if any(type(value) not in (int, float) or not math.isfinite(value)
                for value in (x, y, scale, rotation)):
             raise ValueError("Non-finite editor scenery properties")
-        if not 3 <= x <= 6397 or not 3 <= y <= 4797:
+        if not 3 <= x <= width-3 or not 3 <= y <= height-3:
             raise ValueError("Scenery outside safe Morrow Coast bounds")
         if not .25 <= scale <= 2.5 or not -360 <= rotation <= 360:
             raise ValueError("Editor prop scale or rotation out of range")
@@ -193,7 +224,7 @@ def _authoring_props(doc):
             if (type(src_seed) is not int or not 0 <= src_seed <= 2147483647
                     or not isinstance(src_p, list) or len(src_p) != 2
                     or any(type(v) not in (int,float) or not math.isfinite(v) for v in src_p)
-                    or not 0 <= src_p[0] <= 6400 or not 0 <= src_p[1] <= 4800):
+                    or not 0 <= src_p[0] <= width or not 0 <= src_p[1] <= height):
                 raise ValueError("Invalid original scenery identity")
             entry["source_replacement"] = {
                 "kind": source["kind"], "seed": src_seed,
@@ -216,7 +247,8 @@ def _authoring_props(doc):
     return result
 
 
-def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
+def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
+                width=BASE_WIDTH, height=BASE_HEIGHT):
     """Mutate the source-builder collections once, before tessellation/props.
 
     This never reads or writes the 7.5 MB production JSON directly.
@@ -230,8 +262,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
     doc = json.loads(filename.read_text(encoding="utf-8"))
     if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2:
         raise ValueError("Invalid Morrow editor version: expected World Forge v2")
-    if doc.get("name") != "Morrow Coast" or doc.get("world", {}).get("width") != 6400 or doc.get("world", {}).get("height") != 4800:
-        raise ValueError("Overlay is not a 6400x4800 Morrow Coast map")
+    doc_width, doc_height = validate_world_bounds(
+        doc.get("world", {}).get("width"), doc.get("world", {}).get("height"))
+    if (doc_width,doc_height)!=(width,height):
+        raise ValueError("Map bounds mismatch between editor and production generator")
     source_count = len(roads)
     road_edits = doc.get("roads")
     if not isinstance(road_edits, list) or len(road_edits) > 180:
@@ -255,7 +289,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
     for index in range(source_count):
         road = roads[index]
         entry = numbered[index]
-        fresh = points(entry["points"])
+        fresh = points(entry["points"], width, height)
         baseline = [list(p) for p in road["anchors"]]
         unchanged = (len(fresh) == len(baseline) and
                      all(length(a, b) < 0.005 for a, b in zip(fresh, baseline)))
@@ -276,11 +310,11 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
             if previous is not None and length(previous, new) > 1.0:
                 raise ValueError("Conflicting edits for shared road endpoint " + name + "; snap the endpoints first")
             proposed_nodes[name] = new
-        width = entry.get("width", road["width"])
+        road_width = entry.get("width", road["width"])
         lanes = entry.get("lanes", road["lanes"])
-        if not isinstance(width, (int, float)) or not 6 <= width <= 160 or not isinstance(lanes, int) or not 1 <= lanes <= 6:
+        if not isinstance(road_width, (int, float)) or not 6 <= road_width <= 160 or not isinstance(lanes, int) or not 1 <= lanes <= 6:
             raise ValueError("Invalid road width or lane count at road " + str(index))
-        road["width"] = float(width)
+        road["width"] = float(road_width)
         road["lanes"] = int(lanes)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
@@ -297,7 +331,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
 
     for index in range(source_count, len(numbered)):
         entry = numbered[index]
-        new_points = points(entry["points"])
+        new_points = points(entry["points"], width, height)
         surf = str(entry.get("surface", "asphalt")).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown new-road surface " + surf)
@@ -334,8 +368,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
             raise ValueError("Terrain must keep stable region-<id> identifiers")
         index = int(match.group(1))
         if index < len(terrain):
-            original = _thin_polygon(terrain[index]["points"])
-            new = _polygon_points(entry["points"])
+            original = _thin_polygon(terrain[index]["points"],width=width,height=height)
+            new = _polygon_points(entry["points"],width,height)
             unchanged = len(original) == len(new) and all(length(a, b) < 0.02 for a, b in zip(original, new))
             if not unchanged:
                 terrain[index]["points"] = new
@@ -346,7 +380,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
             biome = str(entry.get("biome", "grass"))
             terrain.append(dict(kind="water" if biome == "lake" else biome,
                                 color=PALETTES.get(biome, PALETTES["grass"]),
-                                points=_polygon_points(entry["points"])))
+                                points=_polygon_points(entry["points"],width,height)))
 
     extra = []
     for marker in doc.get("markers", []):
@@ -380,7 +414,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH):
                               p=[float(marker["x"]), float(marker["y"])]))
     # Props participate in the same procedural occupancy, clearance
     # assertions and streamed chunk indexes as native Morrow scenery.
-    authored = _authoring_props(doc)
+    authored = _authoring_props(doc,width,height)
     props.extend(authored)
     print(f"Morrow Coast editor overlay applied: {edited} roads edited, "
           f"{len(roads)-source_count} roads added, {len(proposed_nodes)} shared nodes moved")
