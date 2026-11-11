@@ -57,7 +57,7 @@ test('game preview does not overlay square intersection polygons or simplify oce
   assert.match(renderer,/drawRuntimeTerrain\(ctx,options\.runtimePreview,doc,drawEdited\)/);
   assert.match(runtime,/sourceTerrain=\(raw\.terrain\|\|\[\]\)/);
   assert.match(runtime,/for\(const terrain of preview\.sourceTerrain\)/);
-  assert.match(renderer,/Road strokes already make round intersection junctions/);
+  assert.match(renderer,/road strokes already make round intersection junctions/i);
   assert.doesNotMatch(renderer,/stroke\(ctx,j\.polygon,true\)/);
   assert.doesNotMatch(html,/id="export-png"/);
   assert.doesNotMatch(html,/>Guide<\/a>/);
