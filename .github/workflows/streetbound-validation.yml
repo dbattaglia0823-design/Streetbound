@@ -41,6 +41,14 @@ jobs:
         run: python3 tests/morrow_expansion_stability_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Guard actual game startup against a green screen, broken HUD, or missing camera
+        run: |
+          set -o pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/game_startup_smoke_test.gd 2>&1 | tee /tmp/streetbound-startup.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Invalid assignment of property' /tmp/streetbound-startup.log; then
+            echo "Godot reported a startup script error despite the test result" >&2
+            exit 1
+          fi
       - name: Test driving forces, brakes, drift, resets and collisions
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_test.gd -- output=test_results_ci.json
       - name: Verify racing handling and steering tuning
