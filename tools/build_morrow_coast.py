@@ -236,34 +236,6 @@ road("Pacific Scenic Highway", "coastn","tn", [(shore_x(1530)-70,1530),(shore_x(
 road("Pacific Scenic Highway", "ts","coastf", [(4830,3070),(shore_x(3160)-120,3160)], kind="rural")
 road("Pacific Scenic Highway", "coastf","coasts", [(shore_x(3790)-70,3790)], kind="rural")
 road("South Coastal Link", "coasts","hse", [(4520,3990)], kind="arterial")
-# Continuous north/south coastal highway. The route runs on inland terraces
-# rather than tracing the waterline itself: centerline stays at least 120 m
-# landward of the coast and existing downtown and beach roads remain intact.
-# Shared nodes connect it to the playable road graph at regular intervals.
-for key,y in [
-    ("meridian_north",110),("meridian_foothill",710),
-    ("meridian_midn",1650),("meridian_bay",2250),
-    ("meridian_downtown",2790),("meridian_south",3180),
-    ("meridian_low",3870),("meridian_end",4670)
-]:
-    node(key,shore_x(y)-185,y)
-coastal_axis=["meridian_north","meridian_foothill","coastn",
-              "meridian_midn","meridian_bay","meridian_downtown",
-              "meridian_south","coastf","meridian_low","coasts",
-              "meridian_end"]
-chain("Coastal Meridian Highway",coastal_axis,"highway",width=20)
-road("North Coast Highway Link","forest_e","meridian_foothill",
-     [(4240,920),(4640,780)],kind="arterial")
-road("North Coast Interchange","coastn","meridian_midn",
-     [(shore_x(1390)-115,1390)],kind="arterial")
-road("Bellwether Highway Access","tn","meridian_bay",
-     [(4530,2320)],kind="arterial")
-road("Coastal Parkway Connector","tw","meridian_downtown",
-     [(4420,2730)],kind="arterial")
-road("South Coast Highway Link","ts","meridian_south",
-     [(4550,3090)],kind="arterial")
-road("Southern Highway Outlet","meridian_end","coasts",
-     [(shore_x(4460)-165,4460)],kind="arterial")
 road("Juniper Approach", "village_n","mwest", [(1050,2690),(750,2490)], kind="rural")
 road("Juniper Pass", "mwest","mstart", [(540,2100)], kind="mountain")
 # Three linked, generously spaced switchbacks climb the west-facing escarpment.
@@ -289,14 +261,10 @@ road("Quarry Rally Road","country_s","quarry",[(1050,4380),(800,4470)],kind="gra
 road("Quarry Rally Road","quarry","harvest_gate",[(400,4020),(500,3620),(820,3420)],kind="gravel",surface="GRAVEL")
 road("Paddock Avenue", "hs","trackgate", [(3530,3680)], kind="arterial")
 road("Paddock Entry", "trackgate","trackn", kind="driveway")
-road("Ashford Grand Circuit", "trackn","trackw",
-     [(3280,3885),(3080,3960),(2930,4070),(2865,4140)], kind="track",width=15)
-road("Ashford Grand Circuit", "trackw","tracks",
-     [(2805,4270),(2860,4410),(3040,4530),(3310,4560)], kind="track",width=15)
-road("Ashford Grand Circuit", "tracks","tracke",
-     [(3660,4535),(3850,4480),(4030,4420),(4120,4300)], kind="track",width=15)
-road("Ashford Grand Circuit", "tracke","trackn",
-     [(4090,4060),(3940,3900),(3740,3825)], kind="track",width=15)
+road("Ashford Grand Circuit", "trackn","trackw", [(3120,3910),(2880,4020)], kind="track")
+road("Ashford Grand Circuit", "trackw","tracks", [(2870,4380),(3100,4510)], kind="track")
+road("Ashford Grand Circuit", "tracks","tracke", [(3730,4470),(3930,4530),(4120,4410)], kind="track")
+road("Ashford Grand Circuit", "tracke","trackn", [(4050,3970),(3850,3860)], kind="track")
 road("Raceworks Service Road", "trackgate","dragn", [(3870,3690),(4320,3750)], kind="local")
 road("Ashford Drag Strip", "dragn","drags", kind="track", width=21)
 road("Drag Return Lane", "drags","dragn", [(4440,4530),(4460,4020)], kind="local")
@@ -346,11 +314,6 @@ add_poi("Drag Staging", "DRAG START", "dragn", (-1,0), "fuel")
 add_poi("Harvest Rest", "COUNTRY FUEL", "country_s", (-1,0), "fuel")
 add_poi("Applecross Farm", "LANDMARK", "applecross", (-1,-.25), "lodge")
 add_poi("Old Quarry Yard", "RALLY LANDMARK", "quarry", (-1,0), "warehouse")
-# Isolated roadside stations use existing service drives and actual assets,
-# not floating marker-only facilities in otherwise empty country stretches.
-add_poi("North Meridian Travel Stop","FUEL","meridian_foothill",(-1,0),"fuel")
-add_poi("Juniper Mountain Fuel","FUEL","mwest",(1,0),"fuel")
-add_poi("Southern Coast Service","FUEL","meridian_end",(-1,0),"fuel")
 
 # The start is the apron, facing its eastbound driveway.
 SPAWN = dict(position=[POIS[0]["position"][0]-8,POIS[0]["position"][1]], rotation=math.pi/2)
@@ -373,6 +336,86 @@ def keys_for(bounds, cell):
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
                              width=WIDTH, height=HEIGHT)
+
+# World additions must be appended AFTER saved Map Builder road IDs have
+# been validated and restored. Existing road/POI IDs and old user edits never
+# change simply because procedural content is expanded.
+#
+# This also supports later editor exports containing the new highway roads:
+# names and segment endpoints are matched before appending, preventing doubles.
+def ensure_coastal_road(name,start,end,via=(),kind="highway",width=None):
+    origin=NODES[start]
+    target=NODES[end]
+    for existing in ROADS:
+        if (existing["name"]==name
+                and distance(existing["anchors"][0],origin)<22
+                and distance(existing["anchors"][-1],target)<22):
+            return existing
+    return road(name,start,end,via,kind=kind,width=width)
+
+for key,y in [
+    ("meridian_north",110),("meridian_foothill",710),
+    ("meridian_midn",1650),("meridian_bay",2250),
+    ("meridian_downtown",2790),("meridian_south",3180),
+    ("meridian_low",3870),("meridian_end",4670)
+]:
+    node(key,shore_x(y)-185,y)
+coastal_axis=["meridian_north","meridian_foothill","coastn",
+              "meridian_midn","meridian_bay","meridian_downtown",
+              "meridian_south","coastf","meridian_low","coasts",
+              "meridian_end"]
+for a,b in zip(coastal_axis,coastal_axis[1:]):
+    ensure_coastal_road("Coastal Meridian Highway",a,b,width=20)
+ensure_coastal_road("North Coast Highway Link","forest_e","meridian_foothill",
+                    [(4240,920),(4640,780)],kind="arterial")
+ensure_coastal_road("North Coast Interchange","coastn","meridian_midn",
+                    [(shore_x(1390)-115,1390)],kind="arterial")
+ensure_coastal_road("Bellwether Highway Access","tn","meridian_bay",
+                    [(4530,2320)],kind="arterial")
+ensure_coastal_road("Coastal Parkway Connector","tw","meridian_downtown",
+                    [(4420,2730)],kind="arterial")
+ensure_coastal_road("South Coast Highway Link","ts","meridian_south",
+                    [(4550,3090)],kind="arterial")
+ensure_coastal_road("Southern Highway Outlet","meridian_end","coasts",
+                    [(shore_x(4460)-165,4460)],kind="arterial")
+
+# Upgrade the original authored circuit only where a user hasn't reshaped it
+# in Map Builder. Existing custom apexes and tangents take precedence.
+track_layouts={
+    ("trackn","trackw"):(
+        [(3120,3910),(2880,4020)],
+        [(3280,3885),(3080,3960),(2930,4070),(2865,4140)]),
+    ("trackw","tracks"):(
+        [(2870,4380),(3100,4510)],
+        [(2805,4270),(2860,4410),(3040,4530),(3310,4560)]),
+    ("tracks","tracke"):(
+        [(3730,4470),(3930,4530),(4120,4410)],
+        [(3660,4535),(3850,4480),(4030,4420),(4120,4300)]),
+    ("tracke","trackn"):(
+        [(4050,3970),(3850,3860)],
+        [(4090,4060),(3940,3900),(3740,3825)])
+}
+for circuit_road in ROADS:
+    if circuit_road["name"]!="Ashford Grand Circuit":
+        continue
+    original,new=track_layouts.get((circuit_road["start"],circuit_road["end"]),([],[]))
+    if (len(circuit_road["anchors"])==len(original)+2 and
+        all(distance(a,b)<.01 for a,b in
+            zip(circuit_road["anchors"][1:-1],original))):
+        circuit_road["anchors"]=[circuit_road["anchors"][0],*new,circuit_road["anchors"][-1]]
+        circuit_road["width"]=15
+
+# Additional destination props are generated after the original POI edits so
+# newly added service stations never shift a pre-existing marker ID.
+poi_rng_state=RNG.getstate()
+for name,anchor,direction in [
+    ("North Meridian Travel Stop","meridian_foothill",(-1,0)),
+    ("Juniper Mountain Fuel","mwest",(1,0)),
+    ("Southern Coast Service","meridian_end",(-1,0))
+]:
+    if not any(poi["name"]==name for poi in POIS):
+        add_poi(name,"FUEL",anchor,direction,"fuel")
+RNG.setstate(poi_rng_state)
 
 # New terrain is derived, never editable source geometry. Generate it AFTER
 # importing the stable old terrain IDs so the additional land cannot silently
