@@ -42,6 +42,21 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Verify slimmer and inset wheels across model changes (Godot 4.6.3)
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/wheel_visual_test.gd 2>&1 | tee /tmp/godot463-wheel-visual.log
+          grep -q 'WHEEL VISUAL TESTS: PASS' /tmp/godot463-wheel-visual.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-wheel-visual.log
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd 2>&1 | tee /tmp/godot463-multi-wheel.log
+          grep -q 'MULTI-MODEL WHEEL TESTS: PASS' /tmp/godot463-multi-wheel.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-multi-wheel.log
+      - name: Verify tire contact positions and curb animation (Godot 4.6.3)
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/curb_suspension_animation_test.gd 2>&1 | tee /tmp/godot463-curb.log
+          grep -q 'CURB SUSPENSION ANIMATIONS: PASS' /tmp/godot463-curb.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-curb.log
   physics-and-world:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
