@@ -25,8 +25,8 @@ func _run() -> void:
 	root.add_child(main)
 	await process_frame
 	await process_frame
-	var world: Node = main.get("ground")
-	var car: Node = main.get("vehicle")
+	var world: MorrowCoast = main.get("ground") as MorrowCoast
+	var car: VehicleController2D = main.get("vehicle") as VehicleController2D
 	check("actual_morrow_coast_initialized", world is MorrowCoast)
 	check("player_vehicle_spawned", car is VehicleController2D and is_instance_valid(car))
 	var hud: CanvasLayer = null
