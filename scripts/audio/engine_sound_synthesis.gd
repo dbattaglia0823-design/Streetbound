@@ -9,7 +9,10 @@ const REFERENCE_RPM := [1200.0, 2600.0, 4200.0, 6400.0]
 const FAMILIES := {
 	"i3": 1.5, "i4": 2.0, "i6": 3.0, "v6": 3.0,
 	"v8_cross": 4.0, "v8_flat": 4.0, "v10": 5.0,
-	"v12": 6.0, "w12": 6.0, "w16": 8.0
+	"v12": 6.0, "w12": 6.0, "w16": 8.0,
+	# Future roster: odd-fire five, opposed layouts, rotary, V16 hybrid and EV.
+	"i5": 2.5, "boxer4": 2.0, "boxer6": 3.0,
+	"rotary2": 2.0, "v16": 8.0, "electric": 0.0
 }
 static var _loops: Dictionary = {}
 static var _effects: Dictionary = {}
@@ -53,6 +56,25 @@ static func engine_loop(family: String, stage: int,
 		return _loops[key]
 	var rpm := float(REFERENCE_RPM[clampi(stage,0,3)])
 	var fire_cycles := roundi(firing_frequency(family,rpm)*float(LOOP_FRAMES)/RATE)
+	# EVs produce quiet motor harmonics, NOT combustion pulses, a limiter
+	# crackle or camshaft lope. This path is kept in the eight-band engine
+	# mixer so future electric models can use the same listener infrastructure.
+	if family == "electric":
+		var motor := PackedFloat32Array()
+		motor.resize(LOOP_FRAMES)
+		var band := clampi(stage,0,3)
+		var fundamental := [67,107,169,269][band]
+		var bright_motor := clampf((tone+1.0)*0.5,0.0,1.0)
+		for i in LOOP_FRAMES:
+			var x := float(i)/float(LOOP_FRAMES)
+			var phase := TAU*float(fundamental)*x
+			var hum := sin(phase+0.15)*0.32+sin(phase*2.0+0.2)* \
+				(0.11+bright_motor*0.09)+sin(phase*3.0+0.4)*0.045
+			var inverter := sin(TAU*float(fundamental*5+19)*x)*0.027
+			motor[i] = (hum+inverter)*(0.30 if loaded else 0.20)
+		var electric_stream := _pcm(motor,true)
+		_loops[key] = electric_stream
+		return electric_stream
 	# Integer firing-cycle loop removes PCM click at the wrap point, even
 	# for odd three-cylinder, V6 and W16 engines.
 	var rasp := clampf(aggression,0.1,1.4)
@@ -76,6 +98,25 @@ static func engine_loop(family: String, stage: int,
 			"i4":
 				uneven = sin(phase*0.5)*0.17
 				base += sin(phase*2.5)*0.065
+			"i5":
+				# Distinct odd-cylinder pulse beat: 2.5 combustion events
+				# per crank turn, a throaty low growl with a sharp fifth.
+				uneven = sin(phase/5.0+0.43)*0.26
+				base += sin(phase*1.6+0.2)*0.105
+			"boxer4":
+				# Opposed four-cylinder exhaust-bank asymmetry.
+				uneven = sin(phase*0.5+0.62)*0.26
+				base += sin(phase*1.5+0.55)*0.10
+			"boxer6":
+				# Opposed six is smoother, with dry rear-engine rasp.
+				uneven = sin(phase/3.0+0.25)*0.11
+				base += sin(phase*2.0+0.42)*0.095
+			"rotary2":
+				# Continuous high-frequency rotary buzzy harmonics,
+				# unlike staccato reciprocating piston exhaust pulses.
+				uneven = sin(phase*0.5+0.36)*0.05
+				base += sin(phase*3.0+0.14)*0.18+ \
+					sin(phase*4.0+0.32)*0.12
 			"i6":
 				uneven = sin(phase/3.0)*0.07
 				base += sin(phase*2.0+0.2)*0.055
@@ -102,6 +143,12 @@ static func engine_loop(family: String, stage: int,
 			"w16":
 				uneven = sin(phase*0.25+0.45)*0.18
 				base += sin(phase*0.5+0.15)*0.24
+			"v16":
+				# Naturally aspirated, smooth high-revving V16.
+				# Deliberately different from the older turbo W16 beat.
+				uneven = sin(phase*0.25+0.14)*0.065
+				base += sin(phase*2.0+0.34)*0.16+ \
+					sin(phase*3.0+0.19)*0.13
 		var cycle_grit := sin(phase*2.0+sin(phase*0.5)*0.17)*0.115
 		# Tiled, deterministic harmonic turbulence instead of unlooped white
 		# noise that pops when samples return to their start position.
@@ -170,6 +217,12 @@ static func texture_loop(kind: String) -> AudioStreamWAV:
 			"drivetrain":
 				value = sin(TAU*122.0*x)*0.32+sin(TAU*245.0*x)*0.14+ \
 					sin(TAU*491.0*x)*0.065
+			"electric_drive":
+				# Subtle EV inverter and reduction gear, no exhaust
+				# resonance or synthetic combustion pulses.
+				value = sin(TAU*211.0*x)*0.19+ \
+					sin(TAU*422.0*x+0.11)*0.08+ \
+					sin(TAU*691.0*x+0.48)*0.045
 		output[i] = value
 	var stream := _pcm(output,true)
 	_effects[kind] = stream
