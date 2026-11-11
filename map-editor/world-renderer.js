@@ -2,7 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
-import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -319,7 +319,10 @@ export function drawWorld(ctx,doc,options={}){
       circle(ctx,px,py,1+rand()*4,rand()>.5?'#afba8652':'#254d364a');
     }
   }
-  if(options.showTerrain!==false)for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
+  if(options.showTerrain!==false){
+    for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
+  }
   if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);
   if(options.showScenery!==false){
     if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
