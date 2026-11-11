@@ -115,8 +115,8 @@ export function auditWorld(doc,{maxIssues=180}={}){
     }
   }
 
-  // Roadside assets are already repaired during normal road edits. Run a
-  // second check here because imported older worlds can contain overlaps.
+  // Read-only collision review: ordinary road/scenery edits NEVER relocate
+  // props. Show conflicts here and in the live road-clearance layer instead.
   for(const prop of doc.props){
     const radius=placementFootprint(doc,prop);
     // A generated parking entry intentionally reaches the lot curb cut.
@@ -133,7 +133,7 @@ export function auditWorld(doc,{maxIssues=180}={}){
     if(unsafe)
       add('warning','scenery_over_road',prop,prop,
         'Scenery footprint overlaps a road or its shoulder.',
-        'Use Fix all road overlaps in the scenery controls.');
+        'Move it manually or use Align all overlapping scenery (with confirmation).');
   }
 
   // Advisory urban-design checks are intentionally bounded and conservative.
