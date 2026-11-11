@@ -89,6 +89,9 @@ export function duplicateEntity(doc,id,offset=40){
     clone.y=bounded(item.y+(item.y+offset<=doc.world.height?offset:-offset),0,doc.world.height);
     if(type==='markers')clone.properties=structuredClone(item.properties);
   }
+  // Copies of adopted procedural scenery become new authored placements,
+  // never a second claim on the same source object.
+  if(type==='props'){delete clone.replaces;delete clone.hidden;}
   delete clone.id;
   const next=createEntity(doc,type,clone);
   return {doc:next,id:next[type].at(-1).id};
