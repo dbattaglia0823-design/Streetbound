@@ -33,6 +33,14 @@ export const REPLACEABLE_KINDS = Object.freeze({
   garage:'garage',workshop:'garage',showroom:'building',
   fuel:'gas_station',bush:'bush'
 });
+export function nativeAdoptedRadius(prop){
+  if(!prop.replaces)return null;
+  const kind=prop.replaces.kind;
+  if(['tree','pine','palm'].includes(kind))return .65;
+  if(kind==='bush')return 0;
+  const size=BASE_SIZE[prop.type]||[3,3];
+  return Math.hypot(size[0],size[1])*.5*prop.scale;
+}
 const ATLAS_REGIONS = [
   [103,28,261,391],[532,14,273,409],[968,26,278,396],
   [1411,21,281,396],[26,477,397,380],[472,467,388,389],
