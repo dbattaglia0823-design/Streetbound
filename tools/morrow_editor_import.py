@@ -291,7 +291,12 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         if index in numbered:
             raise ValueError("Duplicate road ID")
         numbered[index] = entry
-    if any(i not in numbered for i in range(source_count)):
+    # Historical editor overlays created before the 2026 coast/city rebuild
+    # contain the 120 original road IDs. Newly appended *generator-owned*
+    # highway and service roads must not make these older overlays unusable.
+    # Never relax deletion protection for any of the 120 legacy source roads.
+    legacy_required = min(source_count, 120)
+    if any(i not in numbered for i in range(legacy_required)):
         raise ValueError("A source Morrow Coast road was removed. Restore it: deleting a baked road requires a dedicated migration.")
     if sorted(numbered) != list(range(len(numbered))):
         raise ValueError("New Morrow Coast roads must have consecutive IDs; do not renumber originals.")
@@ -299,6 +304,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
     proposed_nodes = {}
     edited = 0
     for index in range(source_count):
+        if index not in numbered:
+            # This is a new, stable generator-owned road not yet known to an
+            # older imported edit document. Keep its baked default geometry.
+            continue
         road = roads[index]
         entry = numbered[index]
         fresh = points(entry["points"], width, height)
