@@ -78,6 +78,7 @@ export function convertMorrowWorld(raw){
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
       rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
+      replaces:prop.source_replacement,hidden:prop.hidden===true,
       stallWidth:prop.stall_width,occupancy:prop.occupancy,
       entranceWidth:prop.entrance_width
     }));
