@@ -26,6 +26,13 @@ export const BASE_SIZE = Object.freeze({
   gas_station:[18,17],streetlight:[1.3,1.3],sign:[1.6,1.4],
   barrier:[3,1],parking:[38,28],dock:[3,11]
 });
+export const REPLACEABLE_KINDS = Object.freeze({
+  tree:'oak',pine:'pine',palm:'palm',rock:'rock',
+  house:'house',coastal_house:'house',
+  shop:'building',building:'building',warehouse:'warehouse',
+  garage:'garage',workshop:'garage',showroom:'building',
+  fuel:'gas_station',bush:'bush'
+});
 const ATLAS_REGIONS = [
   [103,28,261,391],[532,14,273,409],[968,26,278,396],
   [1411,21,281,396],[26,477,397,380],[472,467,388,389],
@@ -158,16 +165,39 @@ function drawNative(ctx,prop,scale){
  * Authored prop IDs are rendered using live editor state instead to avoid
  * overlapping old and new positions before the next bake.
  */
+function sourceKey(prop){
+  return String(prop.kind)+'|'+String(prop.seed)+'|'+Number(prop.p[0]).toFixed(3)+','+
+    Number(prop.p[1]).toFixed(3);
+}
+export function pickRuntimeProp(preview,doc,point,radius=12){
+  if(!preview)return null;
+  const excluded=new Set(doc.props.filter(p=>p.replaces).map(p=>sourceKey(p.replaces)));
+  let winner=null,best=radius;
+  const cell=preview.cell,x=Math.floor(point.x/cell),y=Math.floor(point.y/cell);
+  for(let ix=x-1;ix<=x+1;ix++)for(let iy=y-1;iy<=y+1;iy++)
+    for(const prop of preview.buckets.get(ix+','+iy)||[]){
+      if(!REPLACEABLE_KINDS[prop.kind]||prop.poi||prop.authoring_id||
+         excluded.has(sourceKey(prop)))continue;
+      const dx=point.x-Number(prop.p[0]),dy=point.y-Number(prop.p[1]);
+      const size=Math.max(Number(prop.size[0]),Number(prop.size[1]))*.6;
+      const distance=Math.hypot(dx,dy);
+      if(distance<=Math.max(size,Math.min(radius,26))&&distance<best){
+        winner=prop;best=distance;
+      }
+    }
+  return winner;
+}
 export function drawRuntimeScenery(ctx,preview,bounds,doc,scale=1){
   if(!preview)return;
   const ids=new Set(doc.props.map(p=>p.id));
+  const replaced=new Set(doc.props.filter(p=>p.replaces).map(p=>sourceKey(p.replaces)));
   const cell=preview.cell,area=bounds||{minX:0,minY:0,maxX:doc.world.width,maxY:doc.world.height};
   const x0=Math.max(0,Math.floor(area.minX/cell)-1),y0=Math.max(0,Math.floor(area.minY/cell)-1);
   const x1=Math.min(Math.ceil(doc.world.width/cell),Math.floor(area.maxX/cell)+1);
   const y1=Math.min(Math.ceil(doc.world.height/cell),Math.floor(area.maxY/cell)+1);
   for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
     for(const prop of preview.buckets.get(x+','+y)||[]){
-      if(prop.authoring_id&&ids.has(prop.authoring_id))continue;
+      if((prop.authoring_id&&ids.has(prop.authoring_id))||replaced.has(sourceKey(prop)))continue;
       const px=Number(prop.p[0]),py=Number(prop.p[1]);
       const pad=Math.max(+prop.size[0],+prop.size[1])*.75+3;
       if(px+pad<area.minX||px-pad>area.maxX||py+pad<area.minY||py-pad>area.maxY)continue;
