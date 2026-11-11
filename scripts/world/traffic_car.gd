@@ -23,8 +23,13 @@ static var art_cache: Dictionary = {}
 var car_color := Color("718899") # Only used when artwork is unavailable.
 var accent_color := Color("e4d5b9")
 var model_index := 0
-var length_px := 76.0
-var width_px := 38.0
+# Moving traffic is 10% larger in world units; the existing sprite-fit,
+# collision capsule, fallback art and ground shadow all follow these dimensions.
+const TRAFFIC_SIZE_MULTIPLIER := 1.10
+const BASE_LENGTH_PX := 76.0
+const BASE_WIDTH_PX := 38.0
+var length_px := BASE_LENGTH_PX * TRAFFIC_SIZE_MULTIPLIER
+var width_px := BASE_WIDTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var recovering := false
 var recovery_velocity := Vector2.ZERO
 var impact_count := 0
