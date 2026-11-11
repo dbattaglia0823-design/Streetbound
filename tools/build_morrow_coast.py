@@ -377,6 +377,11 @@ def ensure_coastal_road(name,start,end,via=(),kind="highway",width=None):
             # only endpoints that still match their known source nodes to the
             # exact double-precision authored coordinates and canonical names.
             # This preserves unchanged highways through repeated expansions.
+            # The editor intentionally collapses both local and arterial
+            # roads into its "city" class. Restore the authored access-road
+            # subtype when this is one of our known generated links.
+            if kind=="arterial" and existing["kind"]=="local":
+                existing["kind"]="arterial"
             if distance(existing["anchors"][0],origin)<0.01:
                 existing["start"]=start
                 existing["anchors"][0]=list(origin)
