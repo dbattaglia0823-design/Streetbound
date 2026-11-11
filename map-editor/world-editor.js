@@ -1010,23 +1010,6 @@ $('export-world').addEventListener('click',()=>{
   try{download(serializeWorld(doc),worldSlug(doc.name)+'.world.json','application/json');status('World geometry JSON downloaded.');}
   catch(e){errorMessage(e);}
 });
-$('export-png').addEventListener('click',()=>{
-  try{
-    const scale=Math.min(1,4096/doc.world.width,4096/doc.world.height,
-      Math.sqrt(10_000_000/(doc.world.width*doc.world.height)));
-    const out=document.createElement('canvas');
-    out.width=Math.max(1,Math.round(doc.world.width*scale));
-    out.height=Math.max(1,Math.round(doc.world.height*scale));
-    const c=out.getContext('2d');c.scale(scale,scale);
-    drawWorld(c,doc,{quality:1,showMarkers:false,
-      runtimePreview,zoom:scale});
-    out.toBlob(blob=>{
-      if(!blob)return status('Could not encode PNG.');
-      download(blob,worldSlug(doc.name)+'-overview.png','image/png');
-      status('World image preview downloaded. This is not the editable world file.');
-    },'image/png');
-  }catch(e){errorMessage(e);}
-});
 $('export-godot').addEventListener('click',async()=>{
   const button=$('export-godot');button.disabled=true;
   try{
