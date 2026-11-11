@@ -111,12 +111,12 @@
       </label>
       <p id="game-asset-status" class="asset-hint" role="status">Open Game Map to use Streetbound's real roof, foliage and rock atlas. Parked traffic also renders from the game's vehicle textures.</p>
       <button id="adopt-game-prop" class="gdt-btn" type="button" hidden>Edit existing game scenery</button>
-      <p id="adopt-game-hint" class="asset-hint" hidden>Click a tree, rock or ordinary building already present in the playable world to make it editable. Special gameplay buildings are protected. You can also Ctrl-click with the Select tool.</p>
+      <p id="adopt-game-hint" class="asset-hint" hidden>With Select active, click or drag a visible house, tree, rock or ordinary building to make it editable automatically. Special gameplay buildings remain protected. Ctrl-click is also available.</p>
       <p class="asset-hint">Game art is referenced directly from the project, not embedded into JSON. External PNG/WebP import remains for standalone maps.</p>
       <div class="roadside-controls">
         <h3>Automatic roadside placement</h3>
         <p>Buildings, lots, and scenery snap beside nearby curved roads—not on the lanes. Frontages follow the local road direction, and road shoulders stay clear.</p>
-        <p>Natural scenery stays in forests when far from roads. Garage, dealer, and fuel markers stay off-road; race starts and checkpoints remain on the roadway.</p>
+        <p>Scenery and buildings maintain their road clearances. Gameplay markers can be placed freely on roads, buildings, water, or other markers and will not auto-snap or be moved by roadside repairs.</p>
         <div class="inspector-actions">
           <button id="snap-selected-roadside" class="gdt-btn" type="button">Align selected to road</button>
           <button id="repair-roadside" class="gdt-btn" type="button">Fix all road overlaps</button>

@@ -19,9 +19,11 @@ road layout, biome regions, named destinations, parked traffic, existing
 buildings, scenery and foliage. The imagery comes from the **real game-folder
 scenery atlas and traffic-vehicle PNGs** rather than placeholder symbols.
 
-Select a building, tree or rock from the current baked world with
-**Edit existing game scenery** (or Ctrl-click it in Select mode).
-That adopts it as an editable game object. Move, rotate, resize, change its
+With **Select** active, click or drag a visible ordinary building, tree or rock
+in the baked game map. The first click makes the object editable automatically
+and it can be dragged immediately; scenery takes priority over underlying
+roads and terrain. The **Edit existing game scenery** button and Ctrl-click
+remain available as alternatives. Move, rotate, resize, change its
 compatible game atlas artwork, or use **Hide original from game**. The next
 world rebuild replaces/hides the original instead of creating an overlapping
 duplicate. Important game structures such as Laurel Motor House's active
@@ -171,8 +173,9 @@ Checks include:
 - Road self-crossings where a planar race map cannot model elevated crossings;
 - Paved lane width versus lane count, and nearby dangling road endpoints;
 - Self-intersecting terrain outlines (these block Godot ZIP export);
-- Scenery footprints on roads, off-road traffic/race spawn markers and missing
-  player starts.
+- Scenery footprints on roads and missing player starts. Gameplay markers can
+  deliberately overlap roads, water, houses and other markers; there is no
+  off-road marker warning or automatic road snapping.
 
 The audit **never interprets intentional paved-over-dirt road gaps as missing
 connections**, and does not reject a legitimate closed racing circuit. It

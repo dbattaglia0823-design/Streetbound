@@ -331,20 +331,35 @@ function sourceKey(prop){
   return String(prop.kind)+'|'+String(prop.seed)+'|'+Number(prop.p[0]).toFixed(3)+','+
     Number(prop.p[1]).toFixed(3);
 }
+/** Pick an unadopted native game object by its rotated visible footprint.
+ * The previous small-center radius rejected clicks on most of a house roof.
+ * Prefer the nearest candidate when objects have overlapping silhouettes.
+ */
 export function pickRuntimeProp(preview,doc,point,radius=12){
   if(!preview)return null;
   const excluded=new Set(doc.props.filter(p=>p.replaces).map(p=>sourceKey(p.replaces)));
-  let winner=null,best=radius;
+  let winner=null,best=Infinity,bestLayer=Infinity;
   const cell=preview.cell,x=Math.floor(point.x/cell),y=Math.floor(point.y/cell);
   for(let ix=x-1;ix<=x+1;ix++)for(let iy=y-1;iy<=y+1;iy++)
     for(const prop of preview.buckets.get(ix+','+iy)||[]){
       if(!REPLACEABLE_KINDS[prop.kind]||prop.poi||prop.authoring_id||
-         excluded.has(sourceKey(prop)))continue;
+          excluded.has(sourceKey(prop))||!prop.size||!prop.p)continue;
       const dx=point.x-Number(prop.p[0]),dy=point.y-Number(prop.p[1]);
-      const size=Math.max(Number(prop.size[0]),Number(prop.size[1]))*.6;
+      const width=Number(prop.size[0]),height=Number(prop.size[1]);
+      if(!(width>0&&height>0))continue;
+      const angle=Number(prop.angle)||0,c=Math.cos(angle),s=Math.sin(angle);
+      const localX=dx*c+dy*s,localY=-dx*s+dy*c;
+      const padding=Math.min(8,Math.max(0,radius)*.2);
+      if(Math.abs(localX)>width/2+padding ||
+          Math.abs(localY)>height/2+padding)continue;
       const distance=Math.hypot(dx,dy);
-      if(distance<=Math.max(size,Math.min(radius,26))&&distance<best){
-        winner=prop;best=distance;
+      // Houses/shops sit on top of large terrain-like props (fields, gardens,
+      // lots). Never make a ground-cover center hide a visible house roof.
+      const layer=['house','coastal_house','shop','building','warehouse',
+        'garage','workshop','showroom','fuel'].includes(prop.kind)?0:
+        ['field','garden','forecourt','lot','island'].includes(prop.kind)?2:1;
+      if(layer<bestLayer||(layer===bestLayer&&distance<best)){
+        winner=prop;best=distance;bestLayer=layer;
       }
     }
   return winner;

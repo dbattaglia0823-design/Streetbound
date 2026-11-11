@@ -93,7 +93,7 @@ test('ambiguous close endpoint cluster is not silently repaired',()=>{
   assert.ok(fixes.count<=1,'ambiguous endpoint is left for manual review');
 });
 
-test('scenery clearance and off-road race markers produce nonblocking warnings',()=>{
+test('scenery clearance warnings remain but game marker locations are unrestricted',()=>{
   let doc=addRoad(world(),coords([100,600],[1500,600]));
   doc=normalizeWorld({...doc,
     props:[{id:'prop-1',type:'house',name:'Obstructed house',x:550,y:600,rotation:0,
@@ -103,7 +103,8 @@ test('scenery clearance and off-road race markers produce nonblocking warnings',
   const result=auditWorld(doc);
   assert.equal(result.canExport,true);
   assert.ok(codes(result).includes('scenery_over_road'));
-  assert.ok(codes(result).includes('marker_off_road'));
+  assert.ok(!codes(result).includes('marker_off_road'),
+    'game markers are intentional free overlays even when placed off road');
 });
 
 test('lane width warnings and self-crossing road detection are advisory',()=>{

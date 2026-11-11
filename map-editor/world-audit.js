@@ -6,7 +6,7 @@
  * Inspired by OSM JOSM checks: tiny/repeated segments, unintended crossings,
  * nearby disconnected endpoints, invalid areas and obstructed sites.
  */
-import {distance,polygonArea,pointSegment,segmentIntersection,roadAt,sampleRoad} from './world-geometry.js';
+import {distance,polygonArea,pointSegment,segmentIntersection,sampleRoad} from './world-geometry.js';
 import {roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {findEndpointGaps} from './world-safe-edit.js';
@@ -174,14 +174,8 @@ export function auditWorld(doc,{maxIssues=180}={}){
     grid.get(key).push(prop);
   }
 
-  const drivableTypes=new Set(['player_spawn','traffic_spawn','race_start','finish','checkpoint']);
-  for(const marker of doc.markers){
-    if(!drivableTypes.has(marker.type)||!doc.roads.length)continue;
-    if(!roadAt(doc,marker))
-      add('warning','marker_off_road',marker,marker,
-        'Driving marker is not inside a road footprint.',
-        'Move it onto a drivable surface, or verify it is intentionally off-road.');
-  }
+  // Gameplay markers are intentional free overlays. They may sit on roads,
+  // scenery, terrain or each other without placement/overlap warnings.
   if(doc.roads.length&&!doc.markers.some(m=>m.type==='player_spawn'))
     add('warning','missing_spawn',null,{x:doc.world.width/2,y:doc.world.height/2},
       'No player start marker is defined.',
