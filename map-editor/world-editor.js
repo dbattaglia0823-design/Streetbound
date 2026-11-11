@@ -14,6 +14,8 @@ import {buildRoadJunctions} from './world-junctions.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,morrowEditText,MORROW_EDIT_NAME} from './morrow-coast-bridge.js';
+import {buildRuntimePreview,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
+  GAME_ART,GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {
@@ -27,6 +29,7 @@ const mini=$('minimap'),miniCtx=mini.getContext('2d');
 const AUTO='streetbound.map-editor.autosave.v2',SAVE='streetbound.map-editor.manual.v2';
 let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=null,pointInsertMode=null;
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
+let liveSession=null,loadedWorldSha='',runtimePreview=null,adoptGameProp=false;
 let undoStack=[],redoStack=[];
 const laneCache=new WeakMap();
 const trafficFor=()=>{let lanes=laneCache.get(doc.roads);if(!lanes){lanes=lanePatterns(doc.roads);laneCache.set(doc.roads,lanes);}return lanes;};
@@ -60,7 +63,8 @@ function render(){
   ctx.beginPath();ctx.rect(0,0,doc.world.width,doc.world.height);ctx.clip();
   const bounds={minX:Math.max(0,-offsetX/zoom),minY:Math.max(0,-offsetY/zoom),
     maxX:Math.min(doc.world.width,(w-offsetX)/zoom),maxY:Math.min(doc.world.height,(h-offsetY)/zoom)};
-  drawWorld(ctx,doc,{...currentDisplay(),bounds,quality:zoom<.08?0:1});
+  drawWorld(ctx,doc,{...currentDisplay(),bounds,quality:zoom<.08?0:1,
+    runtimePreview,zoom});
   let roadsidePreview=null;
   if(tool==='prop'&&hover&&!$('scenery-paint').checked&&!$('scenery-erase').checked){
     try{
@@ -113,10 +117,18 @@ function focusPoint(p){
 function refreshHeader(){
   $('world-title').value=doc.name;
   $('save-morrow').hidden=!isMorrowEdit(doc);
+  $('save-morrow').textContent=liveSession?'Apply to Game':'Export Morrow edits';
+  $('adopt-game-prop').hidden=!runtimePreview;
+  $('adopt-game-hint').hidden=!runtimePreview;
+  $('game-asset-status').textContent=runtimePreview
+    ?'Live project assets: game scenery atlas and parked-traffic PNGs. '+
+       runtimePreview.propsCount.toLocaleString()+' baked props displayed; generated props are rebuilt from the source.'
+    :'Open Game Map to load the playable scene and the asset atlas from the project folder.';
   $('world-dimensions').textContent=doc.world.width+' × '+doc.world.height+' world units';
   $('object-count').textContent=doc.roads.length+' roads · '+
     buildRoadJunctions(doc.roads).length+' intersections · '+
-    doc.regions.length+' regions · '+doc.props.length+' scenery';
+    doc.regions.length+' regions · '+doc.props.length+' placed scenery'+
+    (runtimePreview?' · '+runtimePreview.propsCount.toLocaleString()+' existing game props':'');
   const canFinish=draft && draft.points.length>=(draft.type==='road'?2:3);
   $('finish-shape').disabled=!canFinish;$('cancel-shape').disabled=!draft;
   $('delete-entity').disabled=!selection;
@@ -244,7 +256,14 @@ function hitTest(p){
 }
 function refreshInspector(){
   const found=selection?getEntity(doc,selection.id):null;
-  if(!found){$('inspector').hidden=true;$('inspector-empty').hidden=false;$('selected-type').textContent='NOTHING SELECTED';return;}
+  if(!found){
+    $('hide-game-prop').hidden=true;
+    $('inspector').hidden=true;$('inspector-empty').hidden=false;
+    $('selected-type').textContent='NOTHING SELECTED';return;
+  }
+  $('hide-game-prop').hidden=!(found.type==='props'&&found.item.replaces);
+  if(found.type==='props'&&found.item.replaces)
+    $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
   $('selected-type').textContent={roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
@@ -318,10 +337,19 @@ function refreshEntities(){
 function refreshSpriteLists(){
   for(const id of ['prop-asset','inspect-asset']){
     const select=$(id),previous=select.value;
+    const current=selection?getEntity(doc,selection.id):null;
+    const type=id==='inspect-asset'&&current?.type==='props'
+      ?current.item.type:$('prop-type').value;
     select.replaceChildren();
-    select.append(new Option('Built-in illustration',''));
+    select.append(new Option('Automatic game illustration',''));
+    if(runtimePreview){
+      for(const [assetId,name] of GAME_ART){
+        if((GAME_ART_KINDS[type]||[]).includes(assetId.slice(5)))
+          select.append(new Option('Game folder · '+name,assetId));
+      }
+    }
     for(const asset of doc.assets||[])select.append(new Option(asset.name,asset.id));
-    select.value=(doc.assets||[]).some(a=>a.id===previous)?previous:'';
+    select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
 function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();requestRender();}
@@ -330,6 +358,7 @@ function startWorld(world,message,{skipRecovery=false}={}){
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
   if(dirty&&!skipRecovery)auditUI.stash(doc);
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
+  runtimePreview=null;loadedWorldSha='';adoptGameProp=false;
   undoStack=[];redoStack=[];dirty=false;
   auditUI.invalidate();refreshUI();fit();status(message);
   try{localStorage.setItem(AUTO,serializeWorld(doc));}
@@ -455,6 +484,32 @@ canvas.addEventListener('pointerdown',event=>{
     return;
   }
   if(tool==='select'){
+    if(runtimePreview&&(adoptGameProp||event.ctrlKey)){
+      const source=pickRuntimeProp(runtimePreview,doc,p,clamp(12/zoom,12,48));
+      if(!source){
+        status('No editable baked tree, rock or building at that point. Zoom in and click another.');
+        return;
+      }
+      const type=REPLACEABLE_KINDS[source.kind],size=BASE_SIZE[type];
+      const scale=clamp(Number(source.size[0])/size[0],.25,2.5);
+      const same=(item)=>item.replaces&&item.replaces.kind===source.kind&&
+        item.replaces.seed===source.seed&&
+        Math.hypot(item.replaces.p[0]-source.p[0],item.replaces.p[1]-source.p[1])<.03;
+      if(doc.props.some(same))return status('That game object is already editable.');
+      const id='prop-'+(Math.max(0,...doc.props.map(item=>
+        /^prop-(\\d+)$/.test(item.id)?Number(item.id.slice(5)):0))+1);
+      const next={id,type,name:'Game '+source.kind.replaceAll('_',' '),
+        x:Number(source.p[0]),y:Number(source.p[1]),rotation:Number(source.angle)*180/Math.PI,
+        scale,assetId:source.kind==='coastal_house'?'game-coastal_house':'',
+        replaces:{kind:String(source.kind),seed:Number(source.seed)||0,
+          p:[Number(source.p[0]),Number(source.p[1])]},hidden:false};
+      if(change(d=>normalizeWorld({...d,props:[...d.props,next]}),
+        'Existing game scenery is now editable. Move, resize or hide it, then Apply to Game.')){
+        adoptGameProp=false;$('adopt-game-prop').classList.remove('active');
+        setSelection(id);
+      }
+      return;
+    }
     const current=selectedShape();
     if(pointInsertMode?.id===selection?.id&&current){
       insertSelectedPoint(p,pointInsertMode.mode);return;
@@ -773,41 +828,106 @@ function loadAtlasCoast(){
   if($('new-dialog').open)$('new-dialog').close();
 }
 $('load-atlas').addEventListener('click',loadAtlasCoast);
-$('load-morrow').addEventListener('click',async()=>{
-  const button=$('load-morrow');
-  if(dirty&&!window.confirm('Load the actual Morrow Coast map? Export unsaved edits first for a permanent backup.'))return;
-  button.disabled=true;
-  status('Loading Morrow Coast roads and terrain from the repository...');
+$('adopt-game-prop').addEventListener('click',()=>{
+  if(!runtimePreview)return status('Open Game Map first.');
+  setTool('select');
+  adoptGameProp=!adoptGameProp;
+  $('adopt-game-prop').classList.toggle('active',adoptGameProp);
+  status(adoptGameProp?'Click existing scenery to edit that object in the game.':
+    'Game scenery selection canceled.');
+});
+$('hide-game-prop').addEventListener('click',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='props'||!found.item.replaces)return;
+  change(d=>updateEntity(d,selection.id,{hidden:!found.item.hidden}),
+    found.item.hidden?'Restored original game scenery.':'Hidden game scenery. Apply to Game to remove it from the playable world.');
+});
+async function detectProjectMode(){
   try{
-    const {doc:world,stats}=await loadMorrowCoast();
-    startWorld(world,'Morrow Coast loaded: '+stats.roads+' road pieces, '+
-      stats.regions+' terrain regions and '+stats.landmarkMarkers+
-      ' gameplay markers. Decorative '+stats.proceduralProps+
-      ' props are regenerated at bake. Save Morrow edits and rebake to apply changes.');
+    const response=await fetch('/api/editor-status',{cache:'no-store'});
+    if(!response.ok)return null;
+    const data=await response.json();
+    if(data.live===true&&typeof data.token==='string'&&/^[a-f0-9]{64}$/.test(data.worldSha))
+      return data;
+  }catch{/* Hosted/static mode cannot write project files. */}
+  return null;
+}
+async function openGameMap({skipConfirm=false}={}){
+  const button=$('load-morrow');
+  if(!skipConfirm&&dirty&&!window.confirm(
+    'Reload current playable Morrow Coast? Keep unsaved edits with Export JSON first.'))return;
+  button.disabled=true;
+  status('Loading actual Morrow Coast, current game scenery and installed artwork...');
+  try{
+    const session=await detectProjectMode();
+    const {doc:world,stats,raw}=await loadMorrowCoast();
+    // Hidden adopted props are intentionally absent from the baked world;
+    // preserve their authoring records from the last applied source overlay.
+    if(session?.overlayExists){
+      try{
+        const response=await fetch('/api/morrow-edits',{cache:'no-store'});
+        if(response.ok){
+          const overlay=normalizeWorld(await response.json());
+          if(overlay.name===world.name){
+            const seen=new Set(world.props.map(p=>p.id));
+            for(const item of overlay.props)
+              if(item.replaces?.kind&&item.hidden&&!seen.has(item.id))
+                world.props.push(item);
+          }
+        }
+      }catch{/* Baked scene still loads if editable overlay is unavailable. */}
+    }
+    startWorld(world,'Loaded current playable Morrow Coast: '+stats.roads+' roads, '+
+      stats.regions+' regions, '+stats.landmarkMarkers+' landmarks and '+
+      stats.proceduralProps.toLocaleString()+' existing baked scenery objects.');
+    runtimePreview=buildRuntimePreview(raw);
+    liveSession=session;
+    loadedWorldSha=session?.worldSha||'';
     $('show-traffic').checked=true;
-    requestRender();
+    $('show-scenery').checked=true;
+    refreshUI();
+    status(session?'Live project connected. Edits can be applied directly to the playable world.':
+      'Current map imported. Direct write requires Start Map Editor.cmd with Python 3.');
   }catch(e){errorMessage(e);}
   finally{button.disabled=false;}
-});
+}
+$('load-morrow').addEventListener('click',()=>openGameMap());
 $('save-morrow').addEventListener('click',async()=>{
+  const button=$('save-morrow');
+  if(!isMorrowEdit(doc))return status('Open Game Map first.');
+  button.disabled=true;
   try{
     const content=morrowEditText(doc);
-    // Chrome and Edge can write directly to the checked-out repository if
-    // user chooses map-editor/maps/. The browser has NO silent file access.
-    if(typeof window.showSaveFilePicker==='function'){
-      const handle=await window.showSaveFilePicker({
-        suggestedName:MORROW_EDIT_NAME,
-        types:[{description:'Streetbound editable Morrow Coast JSON',
-          accept:{'application/json':['.json']}}]});
-      const writer=await handle.createWritable();
-      await writer.write(content);
-      await writer.close();
-      status('Saved '+MORROW_EDIT_NAME+'. Place it in map-editor/maps/ then run tools/Rebuild Morrow Coast.cmd to update the playable world.');
+    if(liveSession&&loadedWorldSha){
+      // Only the explicitly started loopback project server exposes this API.
+      // It backs up the current world, validates inputs, invokes the real
+      // Python baker and rolls back on failure. Nothing is silently written
+      // while editing; this click is the user's apply action.
+      status('Validating and rebuilding playable Morrow Coast...');
+      const response=await fetch('/api/apply-morrow',{
+        method:'POST',headers:{'Content-Type':'application/json',
+          'X-Streetbound-Editor-Token':liveSession.token},
+        body:JSON.stringify({world:doc,worldSha:loadedWorldSha})
+      });
+      const result=await response.json();
+      if(!response.ok||!result.ok)
+        throw new Error(result.error||'The map rebuild failed; project files were restored.');
+      await openGameMap({skipConfirm:true});
+      status('Applied directly to worlds/morrow-coast.world.json. '+
+        'Rebuilt '+(result.stats?.roads||0)+' roads and '+
+        (result.stats?.props||0).toLocaleString()+' scenery items. Restart the game to load changes.');
+    }else if(typeof window.showSaveFilePicker==='function'){
+      const handle=await window.showSaveFilePicker({suggestedName:MORROW_EDIT_NAME,
+        types:[{description:'Morrow Coast source overlay',accept:{'application/json':['.json']}}]});
+      const writer=await handle.createWritable();await writer.write(content);await writer.close();
+      status('Saved source overlay. To update the game, put it in map-editor/maps/ '+
+        'and run tools/Rebuild Morrow Coast.cmd, or start the live project server.');
     }else{
       download(content,MORROW_EDIT_NAME,'application/json');
-      status('Downloaded '+MORROW_EDIT_NAME+'. Move it into map-editor/maps/ and run tools/Rebuild Morrow Coast.cmd.');
+      status('Exported edit overlay. Start the local Map Editor to apply directly to the game.');
     }
   }catch(e){if(e?.name!=='AbortError')errorMessage(e);}
+  finally{button.disabled=false;}
 });
 
 $('create-atlas').addEventListener('click',loadAtlasCoast);
@@ -863,7 +983,8 @@ $('export-png').addEventListener('click',()=>{
     out.width=Math.max(1,Math.round(doc.world.width*scale));
     out.height=Math.max(1,Math.round(doc.world.height*scale));
     const c=out.getContext('2d');c.scale(scale,scale);
-    drawWorld(c,doc,{quality:1,showMarkers:false});
+    drawWorld(c,doc,{quality:1,showMarkers:false,
+      runtimePreview,zoom:scale});
     out.toBlob(blob=>{
       if(!blob)return status('Could not encode PNG.');
       download(blob,worldSlug(doc.name)+'-overview.png','image/png');
@@ -896,6 +1017,7 @@ const auditUI=createMapAuditUI({
   }
 });
 document.addEventListener('gdt-world-asset-ready',requestRender);
+$('prop-type').addEventListener('change',refreshSpriteLists);
 $('import-sprite').addEventListener('change',async event=>{
   const file=event.target.files?.[0];
   if(!file)return;
@@ -924,4 +1046,14 @@ try{const stored=localStorage.getItem(AUTO);if(stored)doc=parseWorld(stored);}ca
 window.GDTWorldForge=Object.freeze({getSnapshot:()=>structuredClone(doc)});
 window.StreetboundMapEditor=window.GDTWorldForge;
 refreshUI();
-requestAnimationFrame(()=>{fit();status('Streetbound Map Builder ready. Roads connect automatically; dirt and gravel stop at pavement. Export JSON to save to the repository.');});
+requestAnimationFrame(async()=>{
+  fit();
+  const session=await detectProjectMode();
+  if(session){
+    // Local project mode always opens the live game, not an outdated demo
+    // cached in the browser from a previous editing session.
+    liveSession=session;
+    await openGameMap({skipConfirm:true});
+  }else status('Map Builder ready. Open Game Map for the current Morrow Coast; '+
+    'launch Start Map Editor.cmd for one-click project saves.');
+});

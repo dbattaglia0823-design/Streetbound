@@ -10,6 +10,7 @@ import {distance,polygonArea,pointSegment,segmentIntersection,roadAt,sampleRoad}
 import {roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {findEndpointGaps} from './world-safe-edit.js';
+import {nativeAdoptedRadius} from './morrow-runtime-preview.js';
 
 const ENDPOINT_EPS=1.25,CELL=96;
 const inWorld=(doc,p)=>p.x>=0&&p.y>=0&&p.x<=doc.world.width&&p.y<=doc.world.height;
@@ -123,7 +124,13 @@ export function auditWorld(doc,{maxIssues=180}={}){
       .filter(road=>road.name==='Parking access'&&road.roadClass==='service'&&
         distance(road.points.at(-1),prop)<Math.max(30,32*prop.scale))
       .map(road=>road.id)):null;
-    if(roadwayClearance(doc,prop,radius,accessIds)<-0.5)
+    // Adopted native items use their real metre-based collision size, not
+    // the larger icon footprint intended for standalone editor mockups.
+    const native=prop.replaces?nearestRoadPlacement(doc,prop,250):null;
+    const unsafe=prop.replaces
+      ? Boolean(native&&native.distance<native.width/2+nativeAdoptedRadius(prop)+1.5)
+      : roadwayClearance(doc,prop,radius,accessIds)<-0.5;
+    if(unsafe)
       add('warning','scenery_over_road',prop,prop,
         'Scenery footprint overlaps a road or its shoulder.',
         'Use Fix all road overlaps in the scenery controls.');

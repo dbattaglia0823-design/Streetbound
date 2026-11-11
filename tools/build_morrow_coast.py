@@ -327,6 +327,10 @@ def keys_for(bounds, cell):
 # control points BEFORE sampling, junction baking, scenery placement and collision
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS)
+# Defer objects adopted from procedural scenery until the untouched native
+# generators finish, or the replacement would suppress its own original.
+ADOPTED_PROPS=[prop for prop in PROPS if prop.get("source_replacement")]
+PROPS[:]=[prop for prop in PROPS if not prop.get("source_replacement")]
 
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
@@ -624,6 +628,40 @@ for r in ROADS:
             run.append(p)
             BRIDGES.append(dict(road=r["id"],points=run,width=r["width"]))
             run=[]
+
+PROPS.extend(ADOPTED_PROPS)
+# Authoring can adopt an existing generated object for direct editing.
+# Match by original kind/seed/location rather than runtime array position,
+# which may change when nearby roads generate different vegetation.
+# Objects removed by this pass never enter the chunk spatial or collision bake.
+for replacement in [p for p in PROPS if p.get("source_replacement")]:
+    target=replacement["source_replacement"]
+    matching=[p for p in PROPS if p is not replacement
+              and not p.get("authoring_id") and p.get("kind")==target["kind"]
+              and p.get("seed")==target["seed"]
+              and distance(p.get("p",(0,0)),target["p"])<.025]
+    if len(matching)!=1 or matching[0].get("poi"):
+        raise ValueError("Adopted game scenery changed; reload current Morrow Coast before saving")
+    original=matching[0]
+    PROPS.remove(original)
+    # Keep the native object's collision category. In particular, procedural
+    # trees have a small solid trunk even though normally painted editor trees
+    # are non-solid decorations.
+    replacement["solid"]=bool(original.get("solid",replacement["solid"]))
+    if original["kind"] in {"tree","pine","palm"}:
+        replacement["radius"]=float(original.get("radius",.65))
+    if replacement.get("hidden",False):
+        PROPS.remove(replacement)
+        continue
+    if replacement["solid"] and (
+        not land(replacement["p"]) or
+        not road_clear(replacement["p"],replacement["radius"])):
+        raise ValueError("Moved game scenery overlaps a road or unsafe world boundary")
+    if replacement["solid"] and any(other is not replacement and other.get("solid")
+            and distance(other["p"],replacement["p"]) <
+            other.get("radius",0)+replacement["radius"]+.5
+            for other in PROPS):
+        raise ValueError("Moved game scenery overlaps another solid object")
 
 # Boundaries and river banks. Gates occur only at authored bridge crossings.
 for poly in [COAST,RIVER_LEFT,RIVER_RIGHT,LAKE+[LAKE[0]]]:

@@ -77,7 +77,8 @@ export function convertMorrowWorld(raw){
       id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
-      rotation:+prop.angle*180/Math.PI,assetId:'',
+      rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
+      replaces:prop.source_replacement,hidden:prop.hidden===true,
       stallWidth:prop.stall_width,occupancy:prop.occupancy,
       entranceWidth:prop.entrance_width
     }));
@@ -86,7 +87,7 @@ export function convertMorrowWorld(raw){
     world:{width,height,seed:28114,base:'grass'},
     roads,regions,props,markers,assets:[]
   });
-  return {doc:result,stats:{roads:roads.length,regions:regions.length,
+  return {doc:result,raw,stats:{roads:roads.length,regions:regions.length,
     landmarkMarkers:markers.length,proceduralProps:raw.props?.length||0,
     generatedJunctions:raw.junctions?.length||0}};
 }

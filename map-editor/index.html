@@ -16,12 +16,12 @@
   <div class="header-actions">
     <button id="new-world" class="gdt-btn">New world</button>
     <button id="load-atlas" class="gdt-btn" title="Load the included editable coastal sample">Coastal sample</button>
-    <button id="load-morrow" class="gdt-btn gdt-btn--primary" type="button" title="Load Morrow Coast's actual baked roads, regions and points of interest">Edit Morrow Coast</button>
+    <button id="load-morrow" class="gdt-btn gdt-btn--primary" type="button" title="Reload the current playable world including scenery and game artwork">Open Game Map</button>
     <button id="save-world" class="gdt-btn">Save</button>
     <button id="load-world" class="gdt-btn">Load</button>
     <label class="gdt-btn upload">Import JSON <input id="import-world" type="file" accept=".json,application/json" hidden></label>
     <button id="export-world" class="gdt-btn">Export JSON</button>
-    <button id="save-morrow" class="gdt-btn gdt-btn--primary" type="button" hidden title="Save authoring overlay for the Morrow Coast rebake">Save Morrow edits</button>
+    <button id="save-morrow" class="gdt-btn gdt-btn--primary" type="button" hidden title="Apply map edits directly to the project and rebuild the playable world">Apply to Game</button>
     <button id="export-png" class="gdt-btn">PNG Preview</button>
     <button id="export-godot" class="gdt-btn gdt-btn--primary">Godot 4 ZIP</button>
     <button id="audit-top" class="gdt-btn" type="button">Map health</button>
@@ -96,7 +96,10 @@
       <label class="gdt-btn upload-asset">Import PNG / WebP sprite
         <input id="import-sprite" type="file" accept="image/png,image/webp" hidden>
       </label>
-      <p class="asset-hint">Replace the built-in scenery artwork with your own top-down sprites. Imported images travel with the world file.</p>
+      <p id="game-asset-status" class="asset-hint" role="status">Open Game Map to use Streetbound's real roof, foliage and rock atlas. Parked traffic also renders from the game's vehicle textures.</p>
+      <button id="adopt-game-prop" class="gdt-btn" type="button" hidden>Edit existing game scenery</button>
+      <p id="adopt-game-hint" class="asset-hint" hidden>Click a tree, rock or ordinary building already present in the playable world to make it editable. Special gameplay buildings are protected. You can also Ctrl-click with the Select tool.</p>
+      <p class="asset-hint">Game art is referenced directly from the project, not embedded into JSON. External PNG/WebP import remains for standalone maps.</p>
       <div class="roadside-controls">
         <h3>Automatic roadside placement</h3>
         <p>Buildings, lots, and scenery snap beside nearby curved roads—not on the lanes. Frontages follow the local road direction, and road shoulders stay clear.</p>
@@ -164,7 +167,7 @@
         <option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic spawn</option><option value="custom">Custom marker</option>
       </select></div>
     </div>
-    <p class="sidebar-tip">Click points to create a curved road or terrain boundary, then press <kbd>Enter</kbd> to finish. Select a shape to move its points. Morrow edits require a full rebake to reach the playable world.</p>
+    <p class="sidebar-tip">Open Game Map loads the actual baked roads, biomes, destinations and procedural scenery. Edit road handles or place scenery, then Apply to Game to rebuild the playable world. Restart a running game to see the updates.</p>
   </aside>
   <main class="viewport-panel">
     <div class="canvasbar">
@@ -253,6 +256,7 @@
         </select></div>
         <div class="field"><label for="inspect-asset">Artwork override</label><select id="inspect-asset"><option value="">Built-in illustration</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-scale">Scale</label><input id="inspect-scale" type="number" step=".1" min=".25" max="5"></div><div class="field"><label for="inspect-rotation">Rotation</label><input id="inspect-rotation" type="number" min="-360" max="360"></div></div>
+        <button id="hide-game-prop" class="gdt-btn" type="button" hidden>Hide original from game</button>
       </div>
       <div id="inspect-marker" hidden>
         <div class="field"><label for="inspect-marker-type">Marker type</label><select id="inspect-marker-type">

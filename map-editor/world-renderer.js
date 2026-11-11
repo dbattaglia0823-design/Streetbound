@@ -2,6 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -130,13 +131,25 @@ function drawRoads(ctx,roads,bounds,options){
   // creation order, preventing the loose shoulders covering asphalt.
   const pieces=roadPieces(roads);
   const order=[...roads].sort((a,b)=>Number(isLoose(b))-Number(isLoose(a)));
+  const displayPaths=road=>{
+    const baked=options?.runtimePreview?.roads?.get(road.id);
+    // Render the precise Godot-baked centerline until the user changes any
+    // control point or surface. Edited roads immediately use the live spline.
+    if(!baked||isLoose(road)||road.points.length!==baked.anchors.length||
+      Math.abs(road.width-baked.width)>.001 ||
+      road.surface.toUpperCase()!==baked.surface ||
+      !road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
+        Math.abs(p.y-baked.anchors[i][1])<.005))
+      return pieces.get(road.id)||[];
+    return [baked.points];
+  };
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of pieces.get(road.id)||[])drawRoadBase(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadBase(ctx,road,path);
   }
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of pieces.get(road.id)||[])drawRoadLines(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
   // Every crossing/T-junction is now repaved AFTER lane markings. The
   // polygon joins the roadway footprints and erases overlapping painted lines.
@@ -243,10 +256,21 @@ function drawBuilding(ctx,kind,prop={}){
     rect(ctx,-w/2+8,-h/2+7,w-16,5,'#596772');
   }
 }
-export function drawProp(ctx,prop,assets=[]){
-  const size=prop.type==='building'||prop.type==='warehouse'?1.2:1;
+export function drawProp(ctx,prop,assets=[],gameArt=false){
+  const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
+  if(gameArt){
+    // Real metre-scale footprints, directly matching the production baker.
+    const kind=gameArtKind(prop);
+    const size=BASE_SIZE[prop.type];
+    if(size&&drawAtlas(ctx,kind,size,stringSeed(prop.id))){
+      ctx.restore();return;
+    }
+    if(drawGameVectorProp(ctx,prop)){
+      ctx.restore();return;
+    }
+  }
   const asset=prop.assetId?assets.find(item=>item.id===prop.assetId):null;
   if(asset){
     const image=getSprite(asset);
@@ -297,8 +321,13 @@ export function drawWorld(ctx,doc,options={}){
   }
   if(options.showTerrain!==false)for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
   if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);
-  if(options.showScenery!==false)for(const prop of doc.props){
-    if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))drawProp(ctx,prop,doc.assets||[]);
+  if(options.showScenery!==false){
+    if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
+    for(const prop of doc.props){
+      if(prop.hidden)continue;
+      if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))
+        drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
+    }
   }
   if(options.showMarkers!==false)drawMarkers(ctx,doc.markers,bounds);
   ctx.restore();
