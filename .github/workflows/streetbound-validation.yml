@@ -35,6 +35,8 @@ jobs:
           python3 tests/morrow_roundtrip_validate.py /tmp/morrow-edit-roundtrip.json
       - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
         run: python3 tools/build_morrow_coast.py
+      - name: Prove edit-existing-scenery and Apply to Game rebuild the playable world safely
+        run: python3 tests/map_editor_live_apply_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Test driving forces, brakes, drift, resets and collisions
