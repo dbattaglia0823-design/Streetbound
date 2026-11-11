@@ -331,6 +331,17 @@ def keys_for(bounds, cell):
             yield f"{x},{y}"
 
 
+# Reserve stable coastal junction IDs before applying an exported editor
+# overlay. Existing generated highway control points can then rebind to these
+# same names during subsequent expansions (rather than synthetic editor_N IDs).
+for key,y in [
+    ("meridian_north",110),("meridian_foothill",710),
+    ("meridian_midn",1650),("meridian_bay",2250),
+    ("meridian_downtown",2790),("meridian_south",3180),
+    ("meridian_low",3870),("meridian_end",4670)
+]:
+    node(key,shore_x(y)-185,y)
+
 # Optional versioned overlay from the browser Map Builder. Applied to authored
 # control points BEFORE sampling, junction baking, scenery placement and collision
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
@@ -353,13 +364,6 @@ def ensure_coastal_road(name,start,end,via=(),kind="highway",width=None):
             return existing
     return road(name,start,end,via,kind=kind,width=width)
 
-for key,y in [
-    ("meridian_north",110),("meridian_foothill",710),
-    ("meridian_midn",1650),("meridian_bay",2250),
-    ("meridian_downtown",2790),("meridian_south",3180),
-    ("meridian_low",3870),("meridian_end",4670)
-]:
-    node(key,shore_x(y)-185,y)
 coastal_axis=["meridian_north","meridian_foothill","coastn",
               "meridian_midn","meridian_bay","meridian_downtown",
               "meridian_south","coastf","meridian_low","coasts",
