@@ -1,6 +1,6 @@
 import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-geometry.js';
-import {placeBesideRoad,placeSiteMarker,roadwayClearance,placementFootprint} from './world-road-placement.js';
-import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
+import {placeBesideRoad,placeSiteMarker,roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
+import {GAME_ART_KINDS,nativeAdoptedRadius} from './morrow-runtime-preview.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
@@ -171,7 +171,8 @@ export function updateEntity(doc,id,patch){
     // An adopted procedural object already has an authored world position.
     // Do not snap it to a road when the user moves it in the editor.
     if(item.replaces){
-      if(roadwayClearance(doc,updated,placementFootprint(doc,updated))<0)
+      const hit=nearestRoadPlacement(doc,updated,250);
+      if(hit&&hit.distance<hit.width/2+nativeAdoptedRadius(updated)+2.0)
         throw new RangeError('Moved game scenery would overlap a driving lane.');
     }else if(['x','y','scale','type','assetId'].some(key=>Object.hasOwn(patch,key))){
       updated=validEntity(placeBesideRoad(doc,updated),type,doc.world.width,doc.world.height);
