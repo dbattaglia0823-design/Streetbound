@@ -134,12 +134,26 @@ func _roads(stage: int) -> void:
 					draw_polyline(walkway, Color("dedbcc"), Walkways.SIDEWALK_WIDTH_PX + 2.0, true)
 					var outside := Walkways.urban_sidewalk_outer(path, width, side)
 					draw_polyline(outside, Color("b5b8a9"), 3.0, true)
+			elif r.kind == "track":
+				# Genuine circuits require a runoff/verge between the race line
+				# and barriers; the drag strip instead has a graded safety shoulder.
+				var strip := str(r.name).contains("Drag Strip")
+				draw_polyline(path,Color("777e79") if strip else Color("788879"),
+					width+(90.0 if strip else 225.0),true)
+				draw_polyline(path,Color("b5b59b") if strip else Color("a7b4a7"),
+					width+(44.0 if strip else 135.0),true)
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
 			draw_polyline(path,Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
+				if str(r.kind) == "track":
+					# Rubbered-in racing line and drag burnout grooves follow the
+					# actual spline, not disconnected pavement decals.
+					for side in [-0.245,0.245]:
+						draw_polyline(_offset(path,width*side),
+							Color(.13,.17,.18,.19),16.0,true)
 				var lanes: Array = [-width*.375,-width*.125,width*.125,width*.375] if r.kind=="highway" else [-width*.25,width*.25]
 				for lane in lanes:
 					for wheel in [-13.0,13.0]:
@@ -199,8 +213,20 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 		return
 	var edge := Color("dcd9c4")
 	if r.kind == "track":
-		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station,true)
-		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station,true)
+		if str(r.name).contains("Drag Strip"):
+			# Two equal dedicated lanes, a narrow median, staging approach,
+			# white boundary beams and clear 402 m measured racing surface.
+			draw_polyline(path,Color("e5e5d8"),5.5,true)
+			for side in [-1.0,1.0]:
+				draw_polyline(_offset(path,side*(width*.5-8.0)),
+					Color("f1eee0"),6.0,true)
+		else:
+			# Circuit kerbing alternates white/red over curved entries and
+			# exits, with a stable world-stationed pattern between chunks.
+			for side in [-1.0,1.0]:
+				var curb := _offset(path,side*(width*.5-6.0))
+				_dashes(curb,12.0,Color("eee9d8"),58.0,58.0,station,true)
+				_dashes(curb,12.0,Color("bc655b"),58.0,58.0,station+58.0,true)
 	elif r.kind == "highway":
 		draw_polyline(_offset(path,-8),Color("d7c696"),3,true)
 		draw_polyline(_offset(path,8),Color("d7c696"),3,true)
