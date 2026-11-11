@@ -373,6 +373,20 @@ def ensure_coastal_road(name,start,end,via=(),kind="highway",width=None):
         if (existing["name"]==name
                 and distance(existing["anchors"][0],origin)<22
                 and distance(existing["anchors"][-1],target)<22):
+            # Map Builder round-trips added roads as 3-decimal points. Rebind
+            # only endpoints that still match their known source nodes to the
+            # exact double-precision authored coordinates and canonical names.
+            # This preserves unchanged highways through repeated expansions.
+            if distance(existing["anchors"][0],origin)<0.01:
+                existing["start"]=start
+                existing["anchors"][0]=list(origin)
+            if distance(existing["anchors"][-1],target)<0.01:
+                existing["end"]=end
+                existing["anchors"][-1]=list(target)
+            if (len(existing["anchors"])==len(via)+2
+                    and all(distance(actual,expected)<0.01
+                            for actual,expected in zip(existing["anchors"][1:-1],via))):
+                existing["anchors"][1:-1]=[list(v) for v in via]
             return existing
     return road(name,start,end,via,kind=kind,width=width)
 
