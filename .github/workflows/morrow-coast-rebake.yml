@@ -36,6 +36,8 @@ jobs:
           assert len(d["chunks"])>20
           print(d["stats"])
           PY
+      - name: Verify the new city, cornfields, coastal highway and race venues
+        run: python tests/morrow_coast_overhaul_test.py
       - name: Save generated world files for review and repository commit
         uses: actions/upload-artifact@v4
         with:
