@@ -195,16 +195,35 @@ def build_junctions(roads,nodes,segments,grid):
                         if dot<-.45 or (same and dot<.3):
                             score=min(ranks[i],ranks[j])*100+(25 if same else 0)-dot*10
                             pairs.append((score,i,j))
-                # Equal-rank urban crossroads get an explicit all-way stop.
-                all_way=len(arms)>=4 and len(set(ranks))==1 and max(ranks)<=4
-                if pairs and not all_way:
-                    _,i,j=max(pairs)
+                # When a continuous named through road outranks its side
+                # approaches, only the minor street stops. Slip roads joining
+                # a freeway yield rather than creating freeway stop signs.
+                highest=max(ranks)
+                dominant_names={}
+                for k,arm in enumerate(arms):
+                    if ranks[k]!=highest:continue
+                    name=roads[arm['road']]['name']
+                    dominant_names.setdefault(name,[]).append(k)
+                through=[indexes for indexes in dominant_names.values() if len(indexes)>=2]
+                if through:
+                    winner=max(through,key=lambda indexes:len(indexes))
                     for k,arm in enumerate(arms):
-                        if k not in [i,j]:arm['control']='stop'
+                        if k in winner:continue
+                        name=roads[arm['road']]['name'].lower()
+                        ramp='slip road' in name or 'on ramp' in name
+                        arm['control']='yield' if highest==5 and ramp else 'stop'
                     control='priority'
                 else:
-                    for arm in arms:arm['control']='stop'
-                    control='all_way_stop'
+                    # Preserve four-way stops on genuinely equal approaches.
+                    all_way=len(arms)>=4 and len(set(ranks))==1 and max(ranks)<=4
+                    if pairs and not all_way:
+                        _,i,j=max(pairs)
+                        for k,arm in enumerate(arms):
+                            if k not in [i,j]:arm['control']='stop'
+                        control='priority'
+                    else:
+                        for arm in arms:arm['control']='stop'
+                        control='all_way_stop'
         polygon=[]; curbs=[]
         for i,a in enumerate(arms):
             b=arms[(i+1)%len(arms)]
