@@ -76,6 +76,21 @@ test('editing one coastline region replaces only that original layer without mov
   assert.deepEqual(modified.roads[0],sourceRoad,'terrain preview cannot rescale or move roads');
 });
 
+test('new numeric region is painted once without redrawing existing source regions',()=>{
+  const raw=sourceWorld();
+  const {doc}=convertMorrowWorld(raw);
+  const preview=buildRuntimePreview(raw);
+  const created={id:'region-37',name:'New cove',biome:'lake',points:[
+    {x:4050,y:2050},{x:4150,y:2050},{x:4150,y:2150},{x:4050,y:2150}
+  ]};
+  const expanded={...doc,regions:[...doc.regions,created]};
+  const ctx=recordingCanvas(),calls=[];
+  drawRuntimeTerrain(ctx,preview,expanded,r=>calls.push(r.id));
+  assert.deepEqual(calls,['region-37'],
+    'numeric IDs must render when they do not refer to original source polygons');
+  assert.equal(ctx.fills.length,raw.terrain.length);
+});
+
 test('main game-map canvas uses actual Godot base color, coastal polygon and baked road path',()=>{
   const raw=sourceWorld();
   const {doc}=convertMorrowWorld(raw);
