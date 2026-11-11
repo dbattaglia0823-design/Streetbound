@@ -265,7 +265,9 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
       const sourceBiome=terrain.kind==='water'?'lake':
         terrain.kind==='town'?'grass':terrain.kind;
       if(!sameShape||edited.biome!==sourceBiome){
-        drawEdited(edited);
+        // Changed geometry replaces only this source region in its original
+        // draw order; preserve the baked palette for a moved, same-kind coast.
+        drawEdited(edited,terrain);
         continue;
       }
     }
@@ -279,8 +281,10 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
       colors[terrain.kind]||'#a3b789';
     ctx.fill();
   }
+  // Only genuinely new editor regions belong in this late overlay. Existing
+  // region-<index> proxies are already painted above in the source layer order.
   for(const region of doc.regions){
-    if(!/^region-\\d+$/.test(region.id))drawEdited(region);
+    if(!/^region-\d+$/.test(region.id))drawEdited(region);
   }
   return true;
 }
