@@ -310,6 +310,7 @@ export function drawWorld(ctx,doc,options={}){
   if(options.showScenery!==false){
     if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
     for(const prop of doc.props){
+      if(prop.hidden)continue;
       if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))
         drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
     }
