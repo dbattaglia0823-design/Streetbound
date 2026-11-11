@@ -6,7 +6,7 @@
  */
 import {createEntity,scatterVegetation,updateEntity} from './world-model.js';
 import {sampleRoad,pointInPolygon,distance} from './world-geometry.js';
-import {nearestRoadPlacement,roadwayClearance,placementFootprint} from './world-road-placement.js';
+import {nearestRoadPlacement,roadwayClearance,placementFootprint,placeBesideRoad} from './world-road-placement.js';
 
 const bounded=(v,min,max)=>Math.max(min,Math.min(max,v));
 const pointInside=(doc,p,pad=40)=>p.x>=pad&&p.y>=pad&&
@@ -18,7 +18,9 @@ function addProp(doc,type,name,p,scale=1){
   if(!compatiblePosition(doc,p)||nearbyObjects(doc,p,Math.max(25,scale*27)))return doc;
   const proposed={name,type,x:p.x,y:p.y,rotation:0,scale,assetId:''};
   try{
-    const next=createEntity(doc,'props',proposed);
+    // Preset generation explicitly chooses a safe road-aligned placement.
+    // Manual creation/dragging elsewhere in the editor never uses this path.
+    const next=createEntity(doc,'props',placeBesideRoad(doc,proposed));
     const placed=next.props.at(-1);
     if(roadwayClearance(next,placed,placementFootprint(next,placed)) < -0.001)return doc;
     if(next.props.slice(0,-1).some(a=>distance(a,placed)<Math.min(26,placementFootprint(next,placed))))
