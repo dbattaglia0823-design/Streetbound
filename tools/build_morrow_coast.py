@@ -580,12 +580,60 @@ for r in list(ROADS):
             if road_clear(garden,2):
                 insert_prop(dict(kind="garden",p=garden,size=[size[0],2],angle=angle,color="94ae7c",radius=0,solid=False,seed=RNG.randrange(100000)))
 
+# Fill the Larkspur street-facing blocks rather than scattering isolated
+# towers in the middle of empty parcels. Fine-grained mixed-use streetwalls
+# follow the nearest local street, while deep rear plots remain courtyards.
+# A dedicated RNG avoids altering legacy prop seeds/positions and adopted IDs.
+urban_rng=random.Random(426790)
+frontage_segments=[]
+for route in ROADS:
+    if route["kind"] not in {"local","arterial"} or route["name"].endswith("access"):
+        continue
+    path=route["points"]
+    if not any(2250 < p[0] < 4090 and 2200 < p[1] < 3610 for p in path):
+        continue
+    stride=max(1,len(path)//130)
+    selected=path[::stride]
+    if selected[-1]!=path[-1]: selected.append(path[-1])
+    frontage_segments.extend((a,b,route) for a,b in zip(selected,selected[1:]))
+infill_count=0
+for gx in range(2440,3975,26):
+    for gy in range(2350,3540,28):
+        p=(gx+urban_rng.uniform(-2.2,2.2),gy+urban_rng.uniform(-2.2,2.2))
+        kind=style_at(p)
+        if not kind or not (2280<p[1]<3570) or not land(p):
+            continue
+        if kind=="house":
+            kind="shop" if gx>2860 and urban_rng.random()<.52 else "house"
+        if gx>3450 and gy>3010: kind="warehouse" if urban_rng.random()<.32 else "shop"
+        if gx>2810 and gx<3450 and gy<3170:
+            kind="building" if urban_rng.random()<.54 else "shop"
+        size=sizes[kind]
+        radius=max(size)*.46
+        best=None
+        for a,b,route in frontage_segments:
+            gap,q=near(p,a,b)
+            if gap>64:continue
+            if best is None or gap<best[0]:best=(gap,q,a,b,route)
+        if best is None or best[0]<best[4]["width"]*.5+radius+2.0:
+            continue
+        if not road_clear(p,radius+1.0) or occupied(p,radius):
+            continue
+        heading=math.atan2(best[3][1]-best[2][1],best[3][0]-best[2][0])
+        # One consistent building line per block with subtle orientation changes
+        # from the street spline. Allow close rowhouse/retail wall spacing.
+        insert_prop(dict(kind=kind,p=[round(p[0],3),round(p[1],3)],
+             size=size,angle=heading,color=urban_rng.choice(colors),
+             radius=radius,solid=True,seed=urban_rng.randrange(1,2147483647),
+             urban_infill=True))
+        infill_count+=1
+
 # Fields are individual planted plots with soft hedges and farm access tracks.
 for x in range(350,2000,170):
     for y in range(2500,4500,160):
         p = (x+RNG.uniform(-20,20),y+RNG.uniform(-20,20))
         if road_clear(p,65) and not occupied(p,65):
-            insert_prop(dict(kind="field",p=p,size=[RNG.uniform(90,125),RNG.uniform(70,115)],angle=RNG.uniform(-.12,.12),color=RNG.choice(["c4c18a","a4b67e","bab786"]),radius=0,solid=False,seed=RNG.randrange(100000)))
+            insert_prop(dict(kind="field",p=p,size=[RNG.uniform(90,125),RNG.uniform(70,115)],angle=RNG.uniform(-.12,.12),color=RNG.choice(["c4c18a","a4b67e","bab786"]),radius=0,solid=False,seed=RNG.randrange(100000),crop="corn"))
 
 # Forests have clustered clearings rather than uniformly sprinkled obstacles.
 for y in range(90,BASE_HEIGHT-70,15):
@@ -620,7 +668,7 @@ for r in ROADS:
                     if not road_clear(q,1.0): valid=False;break
                 if not valid: break
             if valid:
-                insert_prop(dict(kind="field",p=p,size=[45,28],angle=angle,color=RNG.choice(["bec18b","aebb84","c9bf88"]),radius=0,solid=False,seed=i))
+                insert_prop(dict(kind="field",p=p,size=[45,28],angle=angle,color=RNG.choice(["bec18b","aebb84","c9bf88"]),radius=0,solid=False,seed=i,crop="corn"))
 
 for i in range(160):
     p=(RNG.uniform(220,2100),RNG.uniform(180,1600))
