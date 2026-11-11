@@ -1,14 +1,21 @@
 name: Morrow Coast World Rebake
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/build_morrow_coast.py'
+      - '.github/workflows/morrow-coast-rebake.yml'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-morrow:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -37,3 +44,13 @@ jobs:
           path: |
             worlds/morrow-coast.world.json
             worlds/morrow-coast-overview.svg
+      - name: Commit generated world into this repository PR branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worlds/morrow-coast.world.json worlds/morrow-coast-overview.svg
+          if ! git diff --cached --quiet; then
+            git commit -m "Bake updated Morrow Coast city, coast and racing world"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
