@@ -29,16 +29,13 @@ def invariant(old,new,old_size):
     for field in ("roads","nodes","segments","pois","spawn","districts",
                   "junctions","road_connections","road_crossings"):
         assert old[field]==new[field],f"Existing {field} changed when growing!"
-    assert new["terrain"][:len(old["terrain"]) if not any(
-        t.get("generated_extension") for t in old["terrain"]) else next(
-          i for i,t in enumerate(old["terrain"]) if t.get("generated_extension"))] == old["terrain"][:next(
-          (i for i,t in enumerate(old["terrain"]) if t.get("generated_extension")),len(old["terrain"]))],\
+    baseline_masks=[t for t in old["terrain"] if not t.get("generated_extension")]
+    assert new["terrain"][:len(baseline_masks)]==baseline_masks,\
         "Original authored terrain masks changed"
-    old_native=[p for p in old["props"] if p["p"][0]<6400 and p["p"][1]<4800]
-    new_native=[p for p in new["props"] if p["p"][0]<6400 and p["p"][1]<4800]
-    assert old_native==new_native,"Pre-existing buildings or vegetation were regenerated!"
-    for p in new["props"]:
-        if p not in old["props"] and not p.get("authoring_id"):
+    assert new["props"][:len(old["props"])]==old["props"],\
+        "Pre-existing buildings or vegetation were regenerated!"
+    for p in new["props"][len(old["props"]):]:
+        if not p.get("authoring_id"):
             assert p["p"][1]>=4800, "New procedural scenery leaked into original world"
     assert new["original_extent"] == [6400,4800]
 
