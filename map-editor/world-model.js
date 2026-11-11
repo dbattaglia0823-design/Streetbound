@@ -1,5 +1,5 @@
 import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-geometry.js';
-import {placeBesideRoad,placeSiteMarker,roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
+import {placeBesideRoad,roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
 import {GAME_ART_KINDS,nativeAdoptedRadius} from './morrow-runtime-preview.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
@@ -150,9 +150,9 @@ export function createEntity(doc,type,input){
   if(type==='props'){
     if(!assetOk(doc,item))throw new TypeError('Unknown or incompatible game asset');
     if(!item.replaces)item=validEntity(placeBesideRoad(doc,item),type,doc.world.width,doc.world.height);
-  }else if(type==='markers'){
-    item=validEntity(placeSiteMarker(doc,item),type,doc.world.width,doc.world.height);
   }
+  // Gameplay markers intentionally have no spatial snapping, road clearance,
+  // or overlap restrictions. Only valid coordinates within the world apply.
   return {...doc,[type]:[...doc[type],item]};
 }
 /** Keep imported artwork embedded in versioned world JSON; no external image hosts. */
@@ -179,9 +179,9 @@ export function updateEntity(doc,id,patch){
     }else if(roadwayClearance(doc,updated,placementFootprint(doc,updated))<0){
       updated=validEntity(placeBesideRoad(doc,updated,{snap:false,align:false}),type,doc.world.width,doc.world.height);
     }
-  }else if(type==='markers'&&['x','y','type'].some(key=>Object.hasOwn(patch,key))){
-    updated=validEntity(placeSiteMarker(doc,updated),type,doc.world.width,doc.world.height);
   }
+  // Dragging or editing a marker never moves it away from roads, buildings,
+  // other markers or water. Retain its exact requested coordinate.
   return {...doc,[type]:doc[type].map(value=>value.id===id?updated:value)};
 }
 export function removeEntity(doc,id){
