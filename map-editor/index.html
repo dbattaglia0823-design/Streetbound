@@ -78,6 +78,18 @@
       </div>
     </div>
     <div class="settings-group">
+      <section id="morrow-expand-panel" hidden aria-labelledby="morrow-expand-title">
+        <h3 id="morrow-expand-title">Expand Game Map</h3>
+        <p class="asset-hint">Increase the playable boundary without resizing or moving anything already on the map. New space appears east (+X) as ocean and south (+Y) as natural land.</p>
+        <div class="double-fields">
+          <div class="field"><label for="expand-world-width">Width / east edge (m)</label>
+            <input type="number" id="expand-world-width" min="6400" max="9600" step="100" value="6400"></div>
+          <div class="field"><label for="expand-world-height">Height / south edge (m)</label>
+            <input type="number" id="expand-world-height" min="4800" max="7200" step="100" value="4800"></div>
+        </div>
+        <button id="expand-morrow" class="gdt-btn gdt-btn--primary" type="button">Expand map</button>
+        <p id="morrow-expand-status" class="asset-hint" role="status">No existing roads, buildings, objects or terrain will be moved. Undo reverses uncommitted expansion.</p>
+      </section>
       <h3>World details</h3>
       <div class="field"><label for="prop-type">Scenery asset</label><select id="prop-type">
         <optgroup label="Nature">
