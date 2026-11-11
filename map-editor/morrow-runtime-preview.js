@@ -99,6 +99,44 @@ export function preloadGameArtwork(){
   // Traffic files are loaded only as needed by the visible viewport.
 }
 
+/** Exact metre-based preview primitives for game props without atlas art. */
+export function drawGameVectorProp(ctx,prop){
+  const size=BASE_SIZE[prop.type];
+  if(!size)return false;
+  const [w,h]=size,type=prop.type;
+  ctx.save();
+  if(type==='parking'){
+    ctx.fillStyle='#555e60';ctx.fillRect(-w/2,-h/2,w,h);
+    const stalls=Math.max(3,Math.floor(w*.84/(prop.stallWidth||3.2)));
+    ctx.strokeStyle='#dedbc8';ctx.lineWidth=.15;
+    for(const side of [-1,1])for(let i=0;i<=stalls;i++){
+      const x=-w*.42+w*.84*i/stalls;
+      ctx.beginPath();ctx.moveTo(x,side*h*.45);ctx.lineTo(x,side*h*.22);ctx.stroke();
+    }
+    ctx.fillStyle='#5b6466';ctx.fillRect(-w/2-.6,-(prop.entranceWidth||8)/2,
+      w*.17,prop.entranceWidth||8);
+  }else if(type==='bush'){
+    ctx.fillStyle='#4e8154';ctx.beginPath();
+    ctx.ellipse(0,0,w/2,h/2,0,0,Math.PI*2);ctx.fill();
+  }else if(type==='streetlight'){
+    ctx.fillStyle='#d8c9a4';ctx.beginPath();ctx.arc(0,0,.45,0,Math.PI*2);ctx.fill();
+  }else if(type==='sign'){
+    ctx.fillStyle='#d9d4b9';ctx.fillRect(-w/2,-h/2,w,h);
+  }else if(type==='dock'){
+    ctx.fillStyle='#78684b';ctx.fillRect(-w/2,-h/2,w,h);
+    for(let y=-h/2;y<h/2;y+=1.2){
+      ctx.strokeStyle='#b19b70';ctx.lineWidth=.12;
+      ctx.beginPath();ctx.moveTo(-w/2,y);ctx.lineTo(w/2,y);ctx.stroke();
+    }
+  }else if(type==='barrier'){
+    ctx.fillStyle='#d9dbd1';ctx.fillRect(-w/2,-h/2,w,h);
+    ctx.fillStyle='#c16559';ctx.fillRect(-w*.25,-h/2,w*.18,h);
+    ctx.fillRect(w*.12,-h/2,w*.18,h);
+  }else{
+    ctx.restore();return false;
+  }
+  ctx.restore();return true;
+}
 function bucketKey(x,y,cell){return Math.floor(x/cell)+','+Math.floor(y/cell);}
 export function buildRuntimePreview(raw){
   if(!raw||raw.format!=='streetbound.streamed-world')throw new TypeError('Invalid streamed world');
@@ -119,8 +157,9 @@ function hashColor(prop){
 function drawNative(ctx,prop,scale){
   const kind=String(prop.kind),seed=Number(prop.seed)||0;
   const size=prop.size.map(Number),w=size[0],h=size[1];
-  if(scale<.065 && !['house','lodge','garage','shop','showroom',
-    'warehouse','building','fuel','lot','forecourt','parked_car'].includes(kind))return;
+  if(scale<.2 && !['house','lodge','garage','shop','showroom',
+    'warehouse','building','fuel','lot','forecourt','parked_car'].includes(kind) &&
+    seed % (scale<.10?15:6)!==0)return;
   ctx.save();
   ctx.translate(Number(prop.p[0]),Number(prop.p[1]));
   ctx.rotate(Number(prop.angle)||0);
