@@ -50,7 +50,9 @@ class LocalMapEditorTests(unittest.TestCase):
             base=Path(tmp)
             edit,world,svg=(base/"edit.json",base/"world.json",base/"map.svg")
             edit.write_bytes(b'old edits')
-            world.write_bytes(b'old playable world')
+            world_bytes=json.dumps({"format":"streetbound.streamed-world",
+                "version":1,"size":[6400,4800]}).encode()
+            world.write_bytes(world_bytes)
             svg.write_bytes(b'old overview')
             def failed_process(*args,**kwargs):
                 world.write_bytes(b'partial rebuilt world')
@@ -65,7 +67,7 @@ class LocalMapEditorTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,"Invalid road"):
                     server.transactional_rebuild(doc,old_hash)
             self.assertEqual(edit.read_bytes(),b'old edits')
-            self.assertEqual(world.read_bytes(),b'old playable world')
+            self.assertEqual(world.read_bytes(),world_bytes)
             self.assertEqual(svg.read_bytes(),b'old overview')
 
     def test_stale_revision_is_rejected_before_write(self):
