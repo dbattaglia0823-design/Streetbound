@@ -1,13 +1,15 @@
 extends CanvasLayer
 ## Drive-in garage selection. In Morrow Coast the player must park inside
 ## Laurel Motor House; proving ground keeps unrestricted testing access.
+# Explicit script dependency: class_name lookups are not reliable before Godot imports.
+const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const UpgradesScript = preload("res://scripts/ui/garage_upgrades.gd")
 var player: VehicleController2D
 var driving_hud: CanvasLayer
 var pause_menu: CanvasLayer
 var garage: Node2D
-var inventory: VehicleOwnership
+var inventory: OwnershipModel
 var _access_clock := 0.0
 var overlay: Control
 var launch_button: Button

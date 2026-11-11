@@ -3,6 +3,8 @@ extends RefCounted
 ## Explicit roster: Godot also includes these images in exported builds.
 ## Entries with source_model_unverified=true are provisional associations only.
 const PendingAudio = preload("res://scripts/audio/pending_vehicle_audio.gd")
+# Explicit dependency so Godot cold-start parsing never needs the global class cache.
+const AppearanceProfileScript = preload("res://scripts/vehicle/vehicle_appearance_profile.gd")
 const CATALOG_PATH := "res://data/player_vehicle_catalog.json"
 const PPM := 20.0
 static var _vehicles: Array[Dictionary] = []
@@ -138,7 +140,7 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 		Vector2(width_scale, length_scale)
 	var angle := -PI * 0.5 if sideways else 0.0
 	var source_mid := Vector2(rect.get_center()) - Vector2(image.get_size()) * 0.5
-	var appearance := VehicleAppearanceProfile.new()
+	var appearance: AppearanceProfileScript = AppearanceProfileScript.new()
 	appearance.body_texture = texture
 	appearance.sprite_scale = sprite_scale
 	appearance.sprite_rotation_degrees = rad_to_deg(angle)

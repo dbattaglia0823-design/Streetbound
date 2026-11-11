@@ -1,9 +1,11 @@
 extends CanvasLayer
 ## Compact, always-current player + currently equipped vehicle progression.
 ## The dealership and garage share this exact economy/XP data model.
+# Explicit script dependency: class_name lookups are not reliable before Godot imports.
+const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
-var economy: VehicleOwnership
+var economy: OwnershipModel
 var player_label: Label
 var car_label: Label
 var player_bar: ProgressBar

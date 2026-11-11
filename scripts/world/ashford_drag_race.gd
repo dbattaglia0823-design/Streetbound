@@ -2,6 +2,8 @@ extends Node2D
 ## Playable race-completion source for player/car XP. Drive to Ashford Drag
 ## Staging, park on the real drag strip, press F, then race the 1/4 mile.
 ## No idling, driving around town, teleporting, or menu-opening awards XP.
+# Explicit script dependency: class_name lookups are not reliable before Godot imports.
+const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 signal race_finished(result: Dictionary)
 const PPM := 20.0
 const QUARTER_MILE_M := 402.336
@@ -10,7 +12,7 @@ const LANE_HALF_WIDTH_M := 9.5
 const MAX_VALID_SECONDS := 180.0
 var world: MorrowCoast
 var player: VehicleController2D
-var economy: VehicleOwnership
+var economy: OwnershipModel
 var start_m := Vector2.ZERO
 var direction := Vector2.DOWN
 var available := false
@@ -126,7 +128,7 @@ func _complete() -> void:
 	if str(result.get("result","")) == "completed":
 		_result_text = "FINISH  %.2fs\nDRIVER +%d XP  /  CAR +%d XP  /  +%s" % [
 			elapsed,int(result.player_xp),int(result.car_xp),
-			VehicleOwnership.dollars(int(result.cash))]
+			OwnershipModel.dollars(int(result.cash))]
 		var reward_part: Dictionary = result.get("part",{})
 		if not reward_part.is_empty():
 			_result_text += "\nPART EARNED  /  %s  /  %s" % [

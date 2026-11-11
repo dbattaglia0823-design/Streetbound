@@ -1,11 +1,13 @@
 extends Control
 ## A dedicated garage page: eight slots on the left, owned parts for the
 ## chosen slot on the right. Parts belong to the player; loadouts to each car.
+# Explicit script dependency: class_name lookups are not reliable before Godot imports.
+const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
 
-var economy: VehicleOwnership
+var economy: OwnershipModel
 var vehicle: VehicleController2D
 var driving_hud: CanvasLayer
 var selected_slot := "engine"

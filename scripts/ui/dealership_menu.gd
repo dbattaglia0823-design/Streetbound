@@ -1,11 +1,13 @@
 extends CanvasLayer
 ## Location-gated dealership storefront. Browse only while parked at the
 ## relevant real shop; purchases unlock vehicles in the Laurel garage.
+# Explicit script dependency: class_name lookups are not reliable before Godot imports.
+const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const PPM := 20.0
 var manager: Node2D
 var player: VehicleController2D
-var economy: VehicleOwnership
+var economy: OwnershipModel
 var overlay: Control
 var launch_button: Button
 var heading: Label
@@ -201,7 +203,7 @@ func _add_card(entry: Dictionary) -> void:
 	specs.add_theme_color_override("font_color",Color("c0ccc9"))
 	column.add_child(specs)
 	var price := Label.new()
-	price.text = VehicleOwnership.dollars(int(entry.price_usd))
+	price.text = OwnershipModel.dollars(int(entry.price_usd))
 	price.add_theme_font_size_override("font_size",19)
 	price.add_theme_color_override("font_color",Color("ecd29b"))
 	column.add_child(price)
@@ -224,7 +226,7 @@ func _add_card(entry: Dictionary) -> void:
 func _refresh_cards() -> void:
 	if not is_instance_valid(economy) or wallet == null:
 		return
-	wallet.text = "BALANCE  " + VehicleOwnership.dollars(economy.balance) + \
+	wallet.text = "BALANCE  " + OwnershipModel.dollars(economy.balance) + \
 		"  /  DRIVER LV %d/100  /  OWNED %d" % [economy.player_level(),economy.owned_count()]
 	for item in cards:
 		var entry: Dictionary = item.entry
@@ -236,7 +238,7 @@ func _refresh_cards() -> void:
 			action.text = "LOCKED  /  DRIVER LV %d" % economy.required_player_level(entry)
 			action.disabled = true
 		elif economy.can_afford(entry):
-			action.text = "BUY  " + VehicleOwnership.dollars(int(entry.price_usd))
+			action.text = "BUY  " + OwnershipModel.dollars(int(entry.price_usd))
 			action.disabled = false
 		else:
 			action.text = "INSUFFICIENT FUNDS"

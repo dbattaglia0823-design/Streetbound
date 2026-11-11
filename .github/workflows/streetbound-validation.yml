@@ -34,6 +34,14 @@ jobs:
             echo "Game failed to fully initialize in Godot 4.6.3" >&2
             exit 1
           fi
+      - name: Launch the normal game scene, not only the test harness
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 35s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --quit-after 90 2>&1 | tee /tmp/godot463-real-game.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Invalid assignment of property|Parse Error:' /tmp/godot463-real-game.log; then
+            echo "Normal game startup logged a script failure" >&2
+            exit 1
+          fi
   physics-and-world:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
