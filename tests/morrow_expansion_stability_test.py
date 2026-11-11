@@ -28,7 +28,20 @@ def invariant(old,new,old_size):
     assert new["size"][0]>=old["size"][0] and new["size"][1]>=old["size"][1]
     for field in ("roads","nodes","segments","pois","spawn","districts",
                   "junctions","road_connections","road_crossings"):
-        assert old[field]==new[field],f"Existing {field} changed when growing!"
+        if old[field] != new[field]:
+            if field == "roads":
+                left,right=old[field],new[field]
+                for i,(a,b) in enumerate(zip(left,right)):
+                    if a!=b:
+                        differing=[key for key in a if a.get(key)!=b.get(key)]
+                        raise AssertionError(
+                            f"Existing road {i} changed when growing: "
+                            f"{a.get('name')} fields={differing}; "
+                            f"old={{{', '.join(repr(k)+': '+repr(a.get(k))[:350] for k in differing)}}}, "
+                            f"new={{{', '.join(repr(k)+': '+repr(b.get(k))[:350] for k in differing)}}}")
+                raise AssertionError(f"Existing roads length changed: "
+                    f"{len(left)} -> {len(right)}")
+            raise AssertionError(f"Existing {field} changed when growing!")
     baseline_masks=[t for t in old["terrain"] if not t.get("generated_extension")]
     assert new["terrain"][:len(baseline_masks)]==baseline_masks,\
         "Original authored terrain masks changed"
