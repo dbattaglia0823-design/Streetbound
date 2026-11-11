@@ -1,6 +1,7 @@
 extends Node2D
 const PPM := 20.0
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
+const JunctionPriority = preload("res://scripts/world/junction_priority.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
@@ -266,11 +267,12 @@ func _draw() -> void:
 			var direction := Vector2(float(arm.direction[0]),float(arm.direction[1]))
 			var normal := Vector2(-direction.y,direction.x)
 			var width := float(arm.width)*PPM
-			if arm.control=="stop":
+			var arm_control: String = JunctionPriority.arm_control(j, world.data.roads, arm)
+			if arm_control=="stop":
 				var bar := p+direction*20
 				draw_line(bar-normal*6,bar-normal*(width*.5-8),Color("e9e0cb"),8,true)
 				_sign(p+direction*30-normal*(width*.5+32),direction,false)
-			elif arm.control=="yield":
+			elif arm_control=="yield":
 				_dashes(PackedVector2Array([p-normal*6,p-normal*(width*.5-8)]),7,Color("e9e0cb"),9,8)
 				_sign(p+direction*30-normal*(width*.5+32),direction,true)
 			if r.kind in ["local","arterial"] and j.control!="roundabout" and j.approaches.size()>=3:
