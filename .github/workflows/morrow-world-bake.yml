@@ -58,5 +58,10 @@ jobs:
             echo "Baked world matches committed data"
           else
             git commit -m "Bake expanded Morrow Coast city, highway and racing world"
+            # The author may have pushed later art/UI commits while the
+            # expensive cold import ran. Rebase the verified data commit onto
+            # their newest branch tip; never force-push over those changes.
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
