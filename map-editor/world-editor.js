@@ -152,7 +152,12 @@ function render(){
     }catch{/* Invalid placements do not render a misleading ghost. */}
   }
   if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
-  drawEditorOverlay(ctx,doc,{selection,hover:draft?hover:null,draft,zoom,roadsidePreview,
+  const roadSnapPreview=tool==='road'&&hover&&$('road-smart-snap').checked?
+    snapEnd(hover,$('road-surface').value):null;
+  drawEditorOverlay(ctx,doc,{selection,
+    hover:draft?(roadSnapPreview?.point||hover):null,draft,zoom,roadsidePreview,
+    roadSnapPreview:roadSnapPreview?.snapped?{from:hover,to:roadSnapPreview.point,
+      kind:roadSnapPreview.snapped.kind}:null,
     insertMode:pointInsertMode,insertHover:tool==='select'?hover:null,
     brushPreview:tool==='prop'&&($('scenery-paint').checked||$('scenery-erase').checked)&&hover
       ?{position:hover,radius:Number($('brush-radius').value),erase:$('scenery-erase').checked}:null,
@@ -861,19 +866,28 @@ $('snap-selected-roadside').addEventListener('click',()=>{
   }catch(e){errorMessage(e);}
 });
 $('repair-roadside').addEventListener('click',()=>{
-  const result=repairRoadsideObjects(doc,{alignAll:true});
+  // Only actual roadway conflicts are candidates, never every authored house.
+  const result=repairRoadsideObjects(doc);
+  const count=result.moved+result.rotated;
+  if(count&&!window.confirm(
+      'Move '+count+' overlapping scenery object(s) to safe roadside positions? '+
+      'All other assets and gameplay markers will stay exactly where they are. '+
+      'This can be undone.'))return;
   if(result.doc!==doc){
     const before=doc;doc=result.doc;
-    makeSnapshot(before,'Aligned '+(result.moved+result.rotated)+
-      ' scenery objects. Markers were not moved.');
+    makeSnapshot(before,'Moved '+count+' overlapping scenery objects (explicit repair).');
   }
-  $('roadside-status').textContent='Moved '+result.moved+' scenery, rotated '+result.rotated+
-    ' scenery. Game markers remain at their chosen positions'+
-    (result.failed?'; '+result.failed+' scenery objects need manual relocation.':'.');
+  $('roadside-status').textContent='Repaired '+count+' overlapping scenery objects.'+
+    (result.failed?' '+result.failed+' still need manual review.':
+      ' All other scenery and markers were left unchanged.');
 });
 $('environment-preset').addEventListener('change',()=>{
   $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
+  requestRender();
 });
+for(const id of ['environment-density','parking-size','parking-stall-width',
+  'parking-occupancy','parking-entrance'])$(id).addEventListener('change',requestRender);
+$('road-smart-snap').addEventListener('change',requestRender);
 $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
 $('apply-environment-preset').addEventListener('click',()=>{
   const preset=$('environment-preset').value;
