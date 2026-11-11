@@ -281,10 +281,14 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
       colors[terrain.kind]||'#a3b789';
     ctx.fill();
   }
-  // Only genuinely new editor regions belong in this late overlay. Existing
-  // region-<index> proxies are already painted above in the source layer order.
+  // The ID format alone cannot identify a new region: the editor allocates
+  // numeric region-N IDs too. Compare against actual source terrain indices.
+  // Derived foam/riverbank/highland are not independent editable regions.
+  const sourceIds=new Set(preview.sourceTerrain
+    .filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind))
+    .map(t=>'region-'+t.index));
   for(const region of doc.regions){
-    if(!/^region-\d+$/.test(region.id))drawEdited(region);
+    if(!sourceIds.has(region.id))drawEdited(region);
   }
   return true;
 }
