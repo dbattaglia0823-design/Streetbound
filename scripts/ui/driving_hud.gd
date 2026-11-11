@@ -1,6 +1,10 @@
 extends CanvasLayer
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
 const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
+# Explicit script dependency: the Controls autoload name can be unresolved
+# when Godot compiles the HUD in a fresh project import / headless session.
+# Static default action metadata must not rely on that global identifier.
+const ControlsScript = preload("res://scripts/input/controls.gd")
 const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
 const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 100.0, 1600.0, 10.0], ["engine_power_kw", "Engine power / hp", 65.0, 1200.0, 10.0], ["mass_kg", "Mass / lb", 800.0, 3500.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 42000.0, 500.0],
 	["steering_response", "Steering response", 6.0, 25.0, 0.5],
@@ -123,7 +127,7 @@ func _ready() -> void:
 	drivetrain_select.item_selected.connect(_on_drivetrain_selected)
 	tune_box.add_child(drivetrain_select)
 	label(tune_box, "CONTROLS / click to rebind", 17)
-	for action in Controls.KEYS:
+	for action in ControlsScript.KEYS:
 		var button := Button.new()
 		button.text = binding_text(action)
 		button.pressed.connect(func(): waiting_action = action; button.text = "Press key / pad…  (Esc cancels)")
@@ -234,7 +238,16 @@ func _input(event: InputEvent) -> void:
 			var binding: InputEvent = event.duplicate()
 			if binding is InputEventJoypadMotion:
 				binding.axis_value = signf(binding.axis_value)
-			Controls.bind_event(waiting_action, binding)
+			# Resolve the autoload at runtime instead of referencing its global
+			# symbol at compile time. This prevents a HUD compilation failure
+			# from stopping main._ready before the camera and interface spawn.
+			var bindings: Node = get_node_or_null("/root/Controls")
+			if bindings == null:
+				push_error("Controls autoload missing; binding was not saved.")
+				waiting_action = ""
+				get_viewport().set_input_as_handled()
+				return
+			bindings.call("bind_event", waiting_action, binding)
 		rebind_buttons[waiting_action].text = binding_text(waiting_action)
 		waiting_action = ""
 		get_viewport().set_input_as_handled()
