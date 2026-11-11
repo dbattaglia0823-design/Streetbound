@@ -32,7 +32,7 @@ func _run() -> void:
 	# On Godot 4.6.3 the wheel resource's registered class was missing on
 	# startup. Testing only the car physics would not catch its visual rig.
 	var wheel_rig: Node = car.get_node_or_null("Art/Wheels") if car != null else null
-	var appearance := wheel_rig.get("appearance") if wheel_rig != null else null
+	var appearance: Variant = wheel_rig.get("appearance") if wheel_rig != null else null
 	check("wheel_rig_script_loaded", wheel_rig != null and
 		wheel_rig.get_script() == load("res://scripts/visual/steerable_wheels.gd"))
 	check("wheel_profile_resource_loaded", appearance != null and
