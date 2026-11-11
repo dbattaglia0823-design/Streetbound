@@ -142,6 +142,15 @@ export function buildRuntimePreview(raw){
   if(!raw||raw.format!=='streetbound.streamed-world')throw new TypeError('Invalid streamed world');
   const cell=192,buckets=new Map(),props=raw.props||[],roads=new Map();
   const sourceSize=(raw.size||[6400,4800]).map(Number);
+  // Use the exact baked intersection polygons instead of inventing wide
+  // convex junction aprons that do not exist in the playable game.
+  const junctions=(raw.junctions||[]).map(j=>({
+    roads:(j.roads||[]).map(id=>'road-'+id),
+    polygon:(j.polygon||[]).map(([x,y])=>({x:+x,y:+y})),
+    at:{x:+j.p[0],y:+j.p[1]},
+    radius:+j.radius||40,control:String(j.control||'none'),
+    approaches:j.approaches||[],curbs:j.curbs||[]
+  }));
   const extensionTerrain=(raw.terrain||[]).filter(t=>t.generated_extension);
   for(const [index,road] of (raw.roads||[]).entries()){
     roads.set('road-'+index,{anchors:road.anchors||road.points,
@@ -155,7 +164,7 @@ export function buildRuntimePreview(raw){
     buckets.get(key).push(item);
   }
   preloadGameArtwork();
-  return {cell,buckets,roads,propsCount:props.length,sourceSize,extensionTerrain};
+  return {cell,buckets,roads,junctions,propsCount:props.length,sourceSize,extensionTerrain};
 }
 function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
