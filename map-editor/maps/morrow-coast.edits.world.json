@@ -1,0 +1,8523 @@
+{
+  "format": "gdt.racing-world",
+  "version": 2,
+  "name": "Morrow Coast",
+  "world": {
+    "width": 6400,
+    "height": 4800,
+    "seed": 28114,
+    "base": "grass"
+  },
+  "roads": [
+    {
+      "id": "road-0",
+      "name": "Laurel Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2500,
+          "y": 3200
+        },
+        {
+          "x": 2485,
+          "y": 3080
+        }
+      ]
+    },
+    {
+      "id": "road-1",
+      "name": "Laurel Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2485,
+          "y": 3080
+        },
+        {
+          "x": 2500,
+          "y": 2870
+        }
+      ]
+    },
+    {
+      "id": "road-2",
+      "name": "Laurel Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2500,
+          "y": 2870
+        },
+        {
+          "x": 2620,
+          "y": 2500
+        }
+      ]
+    },
+    {
+      "id": "road-3",
+      "name": "Laurel Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2620,
+          "y": 2500
+        },
+        {
+          "x": 2780,
+          "y": 2330
+        }
+      ]
+    },
+    {
+      "id": "road-4",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2780,
+          "y": 2330
+        },
+        {
+          "x": 3020,
+          "y": 2370
+        }
+      ]
+    },
+    {
+      "id": "road-5",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3020,
+          "y": 2370
+        },
+        {
+          "x": 3520,
+          "y": 2400
+        }
+      ]
+    },
+    {
+      "id": "road-6",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3520,
+          "y": 2400
+        },
+        {
+          "x": 3760,
+          "y": 2600
+        }
+      ]
+    },
+    {
+      "id": "road-7",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3760,
+          "y": 2600
+        },
+        {
+          "x": 3770,
+          "y": 2900
+        }
+      ]
+    },
+    {
+      "id": "road-8",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3770,
+          "y": 2900
+        },
+        {
+          "x": 3540,
+          "y": 3290
+        }
+      ]
+    },
+    {
+      "id": "road-9",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3540,
+          "y": 3290
+        },
+        {
+          "x": 3080,
+          "y": 3290
+        }
+      ]
+    },
+    {
+      "id": "road-10",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3080,
+          "y": 3290
+        },
+        {
+          "x": 2830,
+          "y": 3280
+        }
+      ]
+    },
+    {
+      "id": "road-11",
+      "name": "Foundry Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2830,
+          "y": 3280
+        },
+        {
+          "x": 2500,
+          "y": 3200
+        }
+      ]
+    },
+    {
+      "id": "road-12",
+      "name": "Market Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2500,
+          "y": 2870
+        },
+        {
+          "x": 2780,
+          "y": 2820
+        }
+      ]
+    },
+    {
+      "id": "road-13",
+      "name": "Market Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2780,
+          "y": 2820
+        },
+        {
+          "x": 3070,
+          "y": 2790
+        }
+      ]
+    },
+    {
+      "id": "road-14",
+      "name": "Market Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3070,
+          "y": 2790
+        },
+        {
+          "x": 3400,
+          "y": 2830
+        }
+      ]
+    },
+    {
+      "id": "road-15",
+      "name": "Market Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3400,
+          "y": 2830
+        },
+        {
+          "x": 3770,
+          "y": 2900
+        }
+      ]
+    },
+    {
+      "id": "road-16",
+      "name": "Civic Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3020,
+          "y": 2370
+        },
+        {
+          "x": 3100,
+          "y": 2520
+        },
+        {
+          "x": 3070,
+          "y": 2790
+        }
+      ]
+    },
+    {
+      "id": "road-17",
+      "name": "Orchard Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2620,
+          "y": 2500
+        },
+        {
+          "x": 2730,
+          "y": 2620
+        },
+        {
+          "x": 2780,
+          "y": 2820
+        }
+      ]
+    },
+    {
+      "id": "road-18",
+      "name": "Museum Walk",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2780,
+          "y": 2820
+        },
+        {
+          "x": 2800,
+          "y": 3000
+        },
+        {
+          "x": 3020,
+          "y": 3050
+        }
+      ]
+    },
+    {
+      "id": "road-19",
+      "name": "Garden Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3020,
+          "y": 3050
+        },
+        {
+          "x": 3100,
+          "y": 3170
+        },
+        {
+          "x": 3080,
+          "y": 3290
+        }
+      ]
+    },
+    {
+      "id": "road-20",
+      "name": "Canal Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3070,
+          "y": 2790
+        },
+        {
+          "x": 3010,
+          "y": 2920
+        },
+        {
+          "x": 3020,
+          "y": 3050
+        }
+      ]
+    },
+    {
+      "id": "road-21",
+      "name": "Eastgate Boulevard",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3520,
+          "y": 2400
+        },
+        {
+          "x": 3500,
+          "y": 2590
+        },
+        {
+          "x": 3400,
+          "y": 2830
+        }
+      ]
+    },
+    {
+      "id": "road-22",
+      "name": "Copper Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3400,
+          "y": 2830
+        },
+        {
+          "x": 3460,
+          "y": 2960
+        },
+        {
+          "x": 3390,
+          "y": 3100
+        }
+      ]
+    },
+    {
+      "id": "road-23",
+      "name": "Warehouse Way",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3390,
+          "y": 3100
+        },
+        {
+          "x": 3630,
+          "y": 3110
+        },
+        {
+          "x": 3860,
+          "y": 3250
+        }
+      ]
+    },
+    {
+      "id": "road-24",
+      "name": "Harbor Service Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3860,
+          "y": 3250
+        },
+        {
+          "x": 3930,
+          "y": 3070
+        },
+        {
+          "x": 3770,
+          "y": 2900
+        }
+      ]
+    },
+    {
+      "id": "road-25",
+      "name": "Station Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3390,
+          "y": 3100
+        },
+        {
+          "x": 3430,
+          "y": 3230
+        },
+        {
+          "x": 3540,
+          "y": 3290
+        }
+      ]
+    },
+    {
+      "id": "road-26",
+      "name": "Willow Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2830,
+          "y": 3280
+        },
+        {
+          "x": 2590,
+          "y": 3400
+        },
+        {
+          "x": 2300,
+          "y": 3450
+        }
+      ]
+    },
+    {
+      "id": "road-27",
+      "name": "Orchard Crescent",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2300,
+          "y": 3450
+        },
+        {
+          "x": 2290,
+          "y": 3280
+        },
+        {
+          "x": 2500,
+          "y": 3200
+        }
+      ]
+    },
+    {
+      "id": "road-28",
+      "name": "Westgate Drive",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2500,
+          "y": 2870
+        },
+        {
+          "x": 2350,
+          "y": 2840
+        },
+        {
+          "x": 2190,
+          "y": 2800
+        }
+      ]
+    },
+    {
+      "id": "road-29",
+      "name": "Meadow Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2190,
+          "y": 2800
+        },
+        {
+          "x": 1970,
+          "y": 2890
+        },
+        {
+          "x": 1740,
+          "y": 3060
+        },
+        {
+          "x": 1550,
+          "y": 2970
+        }
+      ]
+    },
+    {
+      "id": "road-30",
+      "name": "Meadow Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1550,
+          "y": 2970
+        },
+        {
+          "x": 1400,
+          "y": 2920
+        }
+      ]
+    },
+    {
+      "id": "road-31",
+      "name": "Old Mill Lane",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1400,
+          "y": 2920
+        },
+        {
+          "x": 1430,
+          "y": 2850
+        },
+        {
+          "x": 1460,
+          "y": 2800
+        }
+      ]
+    },
+    {
+      "id": "road-32",
+      "name": "Old Mill Lane",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1460,
+          "y": 2800
+        },
+        {
+          "x": 1550,
+          "y": 2740
+        },
+        {
+          "x": 1600,
+          "y": 2590
+        },
+        {
+          "x": 1750,
+          "y": 2500
+        }
+      ]
+    },
+    {
+      "id": "road-33",
+      "name": "Mill Bypass",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1750,
+          "y": 2500
+        },
+        {
+          "x": 2020,
+          "y": 2560
+        },
+        {
+          "x": 2190,
+          "y": 2800
+        }
+      ]
+    },
+    {
+      "id": "road-34",
+      "name": "West Orchard Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1400,
+          "y": 2920
+        },
+        {
+          "x": 1290,
+          "y": 2970
+        }
+      ]
+    },
+    {
+      "id": "road-35",
+      "name": "West Orchard Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1290,
+          "y": 2970
+        },
+        {
+          "x": 1190,
+          "y": 3110
+        }
+      ]
+    },
+    {
+      "id": "road-36",
+      "name": "West Orchard Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1190,
+          "y": 3110
+        },
+        {
+          "x": 1100,
+          "y": 3250
+        }
+      ]
+    },
+    {
+      "id": "road-37",
+      "name": "Harvest Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1100,
+          "y": 3250
+        },
+        {
+          "x": 1040,
+          "y": 3320
+        },
+        {
+          "x": 980,
+          "y": 3400
+        }
+      ]
+    },
+    {
+      "id": "road-38",
+      "name": "Harvest Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 980,
+          "y": 3400
+        },
+        {
+          "x": 850,
+          "y": 3560
+        },
+        {
+          "x": 1000,
+          "y": 3820
+        },
+        {
+          "x": 1300,
+          "y": 4040
+        }
+      ]
+    },
+    {
+      "id": "road-39",
+      "name": "South County Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1300,
+          "y": 4040
+        },
+        {
+          "x": 1650,
+          "y": 4240
+        },
+        {
+          "x": 2050,
+          "y": 4050
+        },
+        {
+          "x": 2200,
+          "y": 3630
+        }
+      ]
+    },
+    {
+      "id": "road-40",
+      "name": "Farmstead Link",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1190,
+          "y": 3110
+        },
+        {
+          "x": 1480,
+          "y": 3290
+        },
+        {
+          "x": 1810,
+          "y": 3530
+        },
+        {
+          "x": 2200,
+          "y": 3630
+        }
+      ]
+    },
+    {
+      "id": "road-41",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2100,
+          "y": 2060
+        },
+        {
+          "x": 2960,
+          "y": 2020
+        }
+      ]
+    },
+    {
+      "id": "road-42",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2960,
+          "y": 2020
+        },
+        {
+          "x": 3980,
+          "y": 2110
+        }
+      ]
+    },
+    {
+      "id": "road-43",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3980,
+          "y": 2110
+        },
+        {
+          "x": 4160,
+          "y": 2800
+        }
+      ]
+    },
+    {
+      "id": "road-44",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4160,
+          "y": 2800
+        },
+        {
+          "x": 4240,
+          "y": 3510
+        }
+      ]
+    },
+    {
+      "id": "road-45",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4240,
+          "y": 3510
+        },
+        {
+          "x": 3450,
+          "y": 3620
+        }
+      ]
+    },
+    {
+      "id": "road-46",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3450,
+          "y": 3620
+        },
+        {
+          "x": 2200,
+          "y": 3630
+        }
+      ]
+    },
+    {
+      "id": "road-47",
+      "name": "Morrow Parkway",
+      "roadClass": "highway",
+      "surface": "asphalt",
+      "width": 18,
+      "lanes": 4,
+      "shoulder": 4,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2200,
+          "y": 3630
+        },
+        {
+          "x": 1970,
+          "y": 3240
+        },
+        {
+          "x": 2020,
+          "y": 2540
+        },
+        {
+          "x": 2100,
+          "y": 2060
+        }
+      ]
+    },
+    {
+      "id": "road-48",
+      "name": "Westgate Slip Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2190,
+          "y": 2800
+        },
+        {
+          "x": 2260,
+          "y": 2530
+        },
+        {
+          "x": 2200,
+          "y": 2240
+        },
+        {
+          "x": 2100,
+          "y": 2060
+        }
+      ]
+    },
+    {
+      "id": "road-49",
+      "name": "Southern Slip Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2300,
+          "y": 3450
+        },
+        {
+          "x": 2180,
+          "y": 3520
+        },
+        {
+          "x": 2200,
+          "y": 3630
+        }
+      ]
+    },
+    {
+      "id": "road-50",
+      "name": "Eastgate Slip Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3770,
+          "y": 2900
+        },
+        {
+          "x": 3970,
+          "y": 2840
+        },
+        {
+          "x": 4160,
+          "y": 2800
+        }
+      ]
+    },
+    {
+      "id": "road-51",
+      "name": "Port Slip Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3860,
+          "y": 3250
+        },
+        {
+          "x": 4000,
+          "y": 3390
+        },
+        {
+          "x": 4240,
+          "y": 3510
+        }
+      ]
+    },
+    {
+      "id": "road-52",
+      "name": "Juniper Valley Bridge",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1750,
+          "y": 2500
+        },
+        {
+          "x": 1900,
+          "y": 2220
+        },
+        {
+          "x": 2030,
+          "y": 1900
+        },
+        {
+          "x": 1950,
+          "y": 1570
+        }
+      ]
+    },
+    {
+      "id": "road-53",
+      "name": "Forest Bridge",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2960,
+          "y": 2020
+        },
+        {
+          "x": 2790,
+          "y": 1700
+        },
+        {
+          "x": 2590,
+          "y": 1350
+        },
+        {
+          "x": 2490,
+          "y": 970
+        }
+      ]
+    },
+    {
+      "id": "road-54",
+      "name": "Seabreeze Causeway",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3980,
+          "y": 2110
+        },
+        {
+          "x": 4300,
+          "y": 2100
+        },
+        {
+          "x": 4530,
+          "y": 2230
+        },
+        {
+          "x": 4700,
+          "y": 2390
+        }
+      ]
+    },
+    {
+      "id": "road-55",
+      "name": "Coast Connector",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4160,
+          "y": 2800
+        },
+        {
+          "x": 4340,
+          "y": 2710
+        },
+        {
+          "x": 4520,
+          "y": 2690
+        }
+      ]
+    },
+    {
+      "id": "road-56",
+      "name": "Waterfront Drive",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4700,
+          "y": 2390
+        },
+        {
+          "x": 4920,
+          "y": 2410
+        },
+        {
+          "x": 5050,
+          "y": 2520
+        },
+        {
+          "x": 5204.888243373494,
+          "y": 2670
+        }
+      ]
+    },
+    {
+      "id": "road-57",
+      "name": "Bellwether High Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4700,
+          "y": 2390
+        },
+        {
+          "x": 4790,
+          "y": 2670
+        }
+      ]
+    },
+    {
+      "id": "road-58",
+      "name": "Bellwether High Street",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4790,
+          "y": 2670
+        },
+        {
+          "x": 4780,
+          "y": 2960
+        }
+      ]
+    },
+    {
+      "id": "road-59",
+      "name": "Sailmaker Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4520,
+          "y": 2690
+        },
+        {
+          "x": 4790,
+          "y": 2670
+        }
+      ]
+    },
+    {
+      "id": "road-60",
+      "name": "Sailmaker Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4790,
+          "y": 2670
+        },
+        {
+          "x": 5204.888243373494,
+          "y": 2670
+        }
+      ]
+    },
+    {
+      "id": "road-61",
+      "name": "Waterfront Esplanade",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5204.888243373494,
+          "y": 2670
+        },
+        {
+          "x": 5246.21887058386,
+          "y": 2750
+        }
+      ]
+    },
+    {
+      "id": "road-62",
+      "name": "Waterfront Esplanade",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5246.21887058386,
+          "y": 2750
+        },
+        {
+          "x": 5267.070166697923,
+          "y": 2951.1465247669157
+        }
+      ]
+    },
+    {
+      "id": "road-63",
+      "name": "Sailmaker Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5267.070166697923,
+          "y": 2951.8636470601878
+        },
+        {
+          "x": 4910,
+          "y": 2965
+        }
+      ]
+    },
+    {
+      "id": "road-64",
+      "name": "Sailmaker Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4910,
+          "y": 2965
+        },
+        {
+          "x": 4780,
+          "y": 2960
+        }
+      ]
+    },
+    {
+      "id": "road-65",
+      "name": "Sailmaker Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4780,
+          "y": 2960
+        },
+        {
+          "x": 4520,
+          "y": 2690
+        }
+      ]
+    },
+    {
+      "id": "road-66",
+      "name": "Pacific Scenic Highway",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3580,
+          "y": 1110
+        },
+        {
+          "x": 4150,
+          "y": 850
+        },
+        {
+          "x": 4750,
+          "y": 900
+        },
+        {
+          "x": 5179.995341758633,
+          "y": 1190
+        }
+      ]
+    },
+    {
+      "id": "road-67",
+      "name": "Pacific Scenic Highway",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5179.995341758633,
+          "y": 1190
+        },
+        {
+          "x": 5310.872527931147,
+          "y": 1530
+        },
+        {
+          "x": 5323.945143851508,
+          "y": 1870
+        },
+        {
+          "x": 4930,
+          "y": 2160
+        },
+        {
+          "x": 4700,
+          "y": 2390
+        }
+      ]
+    },
+    {
+      "id": "road-68",
+      "name": "Pacific Scenic Highway",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4780,
+          "y": 2960
+        },
+        {
+          "x": 4830,
+          "y": 3070
+        },
+        {
+          "x": 5266.951971556886,
+          "y": 3160
+        },
+        {
+          "x": 5215.234953488372,
+          "y": 3500
+        }
+      ]
+    },
+    {
+      "id": "road-69",
+      "name": "Pacific Scenic Highway",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5215.234953488372,
+          "y": 3500
+        },
+        {
+          "x": 5081.094385356455,
+          "y": 3790
+        },
+        {
+          "x": 5190.196530866219,
+          "y": 4170
+        }
+      ]
+    },
+    {
+      "id": "road-70",
+      "name": "South Coastal Link",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5190.196530866219,
+          "y": 4170
+        },
+        {
+          "x": 4520,
+          "y": 3990
+        },
+        {
+          "x": 4240,
+          "y": 3510
+        }
+      ]
+    },
+    {
+      "id": "road-71",
+      "name": "Juniper Approach",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1460,
+          "y": 2800
+        },
+        {
+          "x": 1050,
+          "y": 2690
+        },
+        {
+          "x": 750,
+          "y": 2490
+        },
+        {
+          "x": 650,
+          "y": 2280
+        }
+      ]
+    },
+    {
+      "id": "road-72",
+      "name": "Juniper Pass",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 7.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 650,
+          "y": 2280
+        },
+        {
+          "x": 540,
+          "y": 2100
+        },
+        {
+          "x": 600,
+          "y": 1880
+        }
+      ]
+    },
+    {
+      "id": "road-73",
+      "name": "Juniper Pass",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 8.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 600,
+          "y": 1880
+        },
+        {
+          "x": 510,
+          "y": 1800
+        },
+        {
+          "x": 345,
+          "y": 1750
+        },
+        {
+          "x": 265,
+          "y": 1700
+        },
+        {
+          "x": 245,
+          "y": 1645
+        },
+        {
+          "x": 290,
+          "y": 1600
+        },
+        {
+          "x": 570,
+          "y": 1595
+        },
+        {
+          "x": 650,
+          "y": 1560
+        },
+        {
+          "x": 670,
+          "y": 1510
+        },
+        {
+          "x": 625,
+          "y": 1470
+        },
+        {
+          "x": 365,
+          "y": 1465
+        },
+        {
+          "x": 285,
+          "y": 1430
+        },
+        {
+          "x": 275,
+          "y": 1380
+        },
+        {
+          "x": 325,
+          "y": 1340
+        },
+        {
+          "x": 590,
+          "y": 1345
+        },
+        {
+          "x": 700,
+          "y": 1320
+        }
+      ]
+    },
+    {
+      "id": "road-74",
+      "name": "Juniper Pass",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 8.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 700,
+          "y": 1320
+        },
+        {
+          "x": 825,
+          "y": 1240
+        },
+        {
+          "x": 855,
+          "y": 1165
+        },
+        {
+          "x": 800,
+          "y": 1120
+        },
+        {
+          "x": 585,
+          "y": 1105
+        },
+        {
+          "x": 520,
+          "y": 1060
+        },
+        {
+          "x": 525,
+          "y": 1000
+        },
+        {
+          "x": 590,
+          "y": 965
+        },
+        {
+          "x": 840,
+          "y": 970
+        },
+        {
+          "x": 1010,
+          "y": 900
+        }
+      ]
+    },
+    {
+      "id": "road-75",
+      "name": "Summit Ribbon",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 7.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1010,
+          "y": 900
+        },
+        {
+          "x": 1160,
+          "y": 760
+        },
+        {
+          "x": 1370,
+          "y": 810
+        },
+        {
+          "x": 1490,
+          "y": 720
+        },
+        {
+          "x": 1600,
+          "y": 710
+        }
+      ]
+    },
+    {
+      "id": "road-76",
+      "name": "Pinecrest Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1600,
+          "y": 710
+        },
+        {
+          "x": 1900,
+          "y": 600
+        },
+        {
+          "x": 2150,
+          "y": 740
+        },
+        {
+          "x": 2490,
+          "y": 970
+        }
+      ]
+    },
+    {
+      "id": "road-77",
+      "name": "Forest Canopy Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2490,
+          "y": 970
+        },
+        {
+          "x": 2840,
+          "y": 1160
+        },
+        {
+          "x": 3200,
+          "y": 950
+        },
+        {
+          "x": 3580,
+          "y": 1110
+        }
+      ]
+    },
+    {
+      "id": "road-78",
+      "name": "Reservoir Loop",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 7.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 600,
+          "y": 1880
+        },
+        {
+          "x": 750,
+          "y": 1810
+        },
+        {
+          "x": 970,
+          "y": 1720
+        }
+      ]
+    },
+    {
+      "id": "road-79",
+      "name": "Reservoir Loop",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 7.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 970,
+          "y": 1720
+        },
+        {
+          "x": 920,
+          "y": 1430
+        },
+        {
+          "x": 1080,
+          "y": 1220
+        },
+        {
+          "x": 1010,
+          "y": 900
+        }
+      ]
+    },
+    {
+      "id": "road-80",
+      "name": "Reservoir Loop",
+      "roadClass": "mountain",
+      "surface": "asphalt",
+      "width": 7.5,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1010,
+          "y": 900
+        },
+        {
+          "x": 1300,
+          "y": 1100
+        },
+        {
+          "x": 1680,
+          "y": 1250
+        },
+        {
+          "x": 1950,
+          "y": 1570
+        }
+      ]
+    },
+    {
+      "id": "road-81",
+      "name": "Ranger Trail",
+      "roadClass": "service",
+      "surface": "gravel",
+      "width": 6,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": false,
+      "points": [
+        {
+          "x": 1950,
+          "y": 1570
+        },
+        {
+          "x": 2070,
+          "y": 1370
+        },
+        {
+          "x": 2300,
+          "y": 1340
+        },
+        {
+          "x": 2490,
+          "y": 970
+        }
+      ]
+    },
+    {
+      "id": "road-82",
+      "name": "Ridgeline Traverse",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1600,
+          "y": 710
+        },
+        {
+          "x": 2200,
+          "y": 380
+        },
+        {
+          "x": 2900,
+          "y": 420
+        },
+        {
+          "x": 3600,
+          "y": 300
+        },
+        {
+          "x": 4300,
+          "y": 420
+        },
+        {
+          "x": 4800,
+          "y": 650
+        },
+        {
+          "x": 5179.995341758633,
+          "y": 1190
+        }
+      ]
+    },
+    {
+      "id": "road-83",
+      "name": "Orchard Heritage Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1290,
+          "y": 2970
+        },
+        {
+          "x": 1080,
+          "y": 2840
+        },
+        {
+          "x": 780,
+          "y": 2950
+        },
+        {
+          "x": 680,
+          "y": 3220
+        }
+      ]
+    },
+    {
+      "id": "road-84",
+      "name": "Orchard Heritage Road",
+      "roadClass": "country",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 680,
+          "y": 3220
+        },
+        {
+          "x": 720,
+          "y": 3300
+        },
+        {
+          "x": 820,
+          "y": 3210
+        },
+        {
+          "x": 940,
+          "y": 3200
+        },
+        {
+          "x": 1100,
+          "y": 3250
+        }
+      ]
+    },
+    {
+      "id": "road-85",
+      "name": "Quarry Rally Road",
+      "roadClass": "service",
+      "surface": "gravel",
+      "width": 6,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": false,
+      "points": [
+        {
+          "x": 1300,
+          "y": 4040
+        },
+        {
+          "x": 1050,
+          "y": 4380
+        },
+        {
+          "x": 800,
+          "y": 4470
+        },
+        {
+          "x": 650,
+          "y": 4330
+        }
+      ]
+    },
+    {
+      "id": "road-86",
+      "name": "Quarry Rally Road",
+      "roadClass": "service",
+      "surface": "gravel",
+      "width": 6,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": false,
+      "points": [
+        {
+          "x": 650,
+          "y": 4330
+        },
+        {
+          "x": 400,
+          "y": 4020
+        },
+        {
+          "x": 500,
+          "y": 3620
+        },
+        {
+          "x": 820,
+          "y": 3420
+        },
+        {
+          "x": 980,
+          "y": 3400
+        }
+      ]
+    },
+    {
+      "id": "road-87",
+      "name": "Paddock Avenue",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3450,
+          "y": 3620
+        },
+        {
+          "x": 3530,
+          "y": 3680
+        },
+        {
+          "x": 3490,
+          "y": 3770
+        }
+      ]
+    },
+    {
+      "id": "road-88",
+      "name": "Paddock Entry",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3490,
+          "y": 3770
+        },
+        {
+          "x": 3490,
+          "y": 3870
+        }
+      ]
+    },
+    {
+      "id": "road-89",
+      "name": "Ashford Grand Circuit",
+      "roadClass": "track",
+      "surface": "asphalt",
+      "width": 14,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3490,
+          "y": 3870
+        },
+        {
+          "x": 3120,
+          "y": 3910
+        },
+        {
+          "x": 2880,
+          "y": 4020
+        },
+        {
+          "x": 2860,
+          "y": 4200
+        }
+      ]
+    },
+    {
+      "id": "road-90",
+      "name": "Ashford Grand Circuit",
+      "roadClass": "track",
+      "surface": "asphalt",
+      "width": 14,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2860,
+          "y": 4200
+        },
+        {
+          "x": 2870,
+          "y": 4380
+        },
+        {
+          "x": 3100,
+          "y": 4510
+        },
+        {
+          "x": 3470,
+          "y": 4510
+        }
+      ]
+    },
+    {
+      "id": "road-91",
+      "name": "Ashford Grand Circuit",
+      "roadClass": "track",
+      "surface": "asphalt",
+      "width": 14,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3470,
+          "y": 4510
+        },
+        {
+          "x": 3730,
+          "y": 4470
+        },
+        {
+          "x": 3930,
+          "y": 4530
+        },
+        {
+          "x": 4120,
+          "y": 4410
+        },
+        {
+          "x": 4150,
+          "y": 4190
+        }
+      ]
+    },
+    {
+      "id": "road-92",
+      "name": "Ashford Grand Circuit",
+      "roadClass": "track",
+      "surface": "asphalt",
+      "width": 14,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4150,
+          "y": 4190
+        },
+        {
+          "x": 4050,
+          "y": 3970
+        },
+        {
+          "x": 3850,
+          "y": 3860
+        },
+        {
+          "x": 3490,
+          "y": 3870
+        }
+      ]
+    },
+    {
+      "id": "road-93",
+      "name": "Raceworks Service Road",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3490,
+          "y": 3770
+        },
+        {
+          "x": 3870,
+          "y": 3690
+        },
+        {
+          "x": 4320,
+          "y": 3750
+        },
+        {
+          "x": 4340,
+          "y": 3910
+        }
+      ]
+    },
+    {
+      "id": "road-94",
+      "name": "Ashford Drag Strip",
+      "roadClass": "track",
+      "surface": "asphalt",
+      "width": 21,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4340,
+          "y": 3910
+        },
+        {
+          "x": 4340,
+          "y": 4550
+        }
+      ]
+    },
+    {
+      "id": "road-95",
+      "name": "Drag Return Lane",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4340,
+          "y": 4550
+        },
+        {
+          "x": 4440,
+          "y": 4530
+        },
+        {
+          "x": 4460,
+          "y": 4020
+        },
+        {
+          "x": 4340,
+          "y": 3910
+        }
+      ]
+    },
+    {
+      "id": "road-96",
+      "name": "South Paddock Link",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3470,
+          "y": 4510
+        },
+        {
+          "x": 3790,
+          "y": 4690
+        },
+        {
+          "x": 4160,
+          "y": 4680
+        },
+        {
+          "x": 4340,
+          "y": 4550
+        }
+      ]
+    },
+    {
+      "id": "road-97",
+      "name": "Civic Roundabout",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2950,
+          "y": 2216
+        },
+        {
+          "x": 2966.9705627484773,
+          "y": 2223.0294372515227
+        },
+        {
+          "x": 2974,
+          "y": 2240
+        }
+      ]
+    },
+    {
+      "id": "road-98",
+      "name": "Civic Roundabout",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2974,
+          "y": 2240
+        },
+        {
+          "x": 2966.9705627484773,
+          "y": 2256.9705627484773
+        },
+        {
+          "x": 2950,
+          "y": 2264
+        }
+      ]
+    },
+    {
+      "id": "road-99",
+      "name": "Civic Roundabout",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2950,
+          "y": 2264
+        },
+        {
+          "x": 2933.0294372515227,
+          "y": 2256.9705627484773
+        },
+        {
+          "x": 2926,
+          "y": 2240
+        }
+      ]
+    },
+    {
+      "id": "road-100",
+      "name": "Civic Roundabout",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2926,
+          "y": 2240
+        },
+        {
+          "x": 2933.0294372515227,
+          "y": 2223.0294372515227
+        },
+        {
+          "x": 2950,
+          "y": 2216
+        }
+      ]
+    },
+    {
+      "id": "road-101",
+      "name": "Civic Gateway",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2960,
+          "y": 2020
+        },
+        {
+          "x": 2900,
+          "y": 2120
+        },
+        {
+          "x": 2950,
+          "y": 2216
+        }
+      ]
+    },
+    {
+      "id": "road-102",
+      "name": "Civic Gateway",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2950,
+          "y": 2264
+        },
+        {
+          "x": 3020,
+          "y": 2370
+        }
+      ]
+    },
+    {
+      "id": "road-103",
+      "name": "Library Approach",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2926,
+          "y": 2240
+        },
+        {
+          "x": 2780,
+          "y": 2330
+        }
+      ]
+    },
+    {
+      "id": "road-104",
+      "name": "East Civic Link",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 9,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2974,
+          "y": 2240
+        },
+        {
+          "x": 3230,
+          "y": 2270
+        },
+        {
+          "x": 3520,
+          "y": 2400
+        }
+      ]
+    },
+    {
+      "id": "road-105",
+      "name": "Laurel Motor House access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 2485,
+          "y": 3080
+        },
+        {
+          "x": 2420,
+          "y": 3080
+        }
+      ]
+    },
+    {
+      "id": "road-106",
+      "name": "Larkspur Performance access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3390,
+          "y": 3100
+        },
+        {
+          "x": 3325,
+          "y": 3100
+        }
+      ]
+    },
+    {
+      "id": "road-107",
+      "name": "Eastgate Auto Gallery access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3760,
+          "y": 2600
+        },
+        {
+          "x": 3818.1377674149944,
+          "y": 2570.931116292503
+        }
+      ]
+    },
+    {
+      "id": "road-108",
+      "name": "Parkway Fuel & Coffee access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4160,
+          "y": 2800
+        },
+        {
+          "x": 4205.961940777125,
+          "y": 2845.9619407771256
+        }
+      ]
+    },
+    {
+      "id": "road-109",
+      "name": "Willowmere Village access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1550,
+          "y": 2970
+        },
+        {
+          "x": 1537.252451216018,
+          "y": 2906.26225608009
+        }
+      ]
+    },
+    {
+      "id": "road-110",
+      "name": "Juniper Lookout access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1010,
+          "y": 900
+        },
+        {
+          "x": 991.3223874381875,
+          "y": 837.7412914606251
+        }
+      ]
+    },
+    {
+      "id": "road-111",
+      "name": "Pinecrest Lodge access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1600,
+          "y": 710
+        },
+        {
+          "x": 1600,
+          "y": 645
+        }
+      ]
+    },
+    {
+      "id": "road-112",
+      "name": "Bellwether Marina access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5246.21887058386,
+          "y": 2750
+        },
+        {
+          "x": 5239.751128847495,
+          "y": 2814.6774173636495
+        }
+      ]
+    },
+    {
+      "id": "road-113",
+      "name": "Saltair Motors access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4910,
+          "y": 2965
+        },
+        {
+          "x": 4916.467741736365,
+          "y": 2900.3225826363505
+        }
+      ]
+    },
+    {
+      "id": "road-114",
+      "name": "Seaglass Overlook access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 5179.995341758633,
+          "y": 1190
+        },
+        {
+          "x": 5114.995341758633,
+          "y": 1190
+        }
+      ]
+    },
+    {
+      "id": "road-115",
+      "name": "Ashford Raceworks access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 3490,
+          "y": 3770
+        },
+        {
+          "x": 3425,
+          "y": 3770
+        }
+      ]
+    },
+    {
+      "id": "road-116",
+      "name": "Drag Staging access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 4340,
+          "y": 3910
+        },
+        {
+          "x": 4275,
+          "y": 3910
+        }
+      ]
+    },
+    {
+      "id": "road-117",
+      "name": "Harvest Rest access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 1300,
+          "y": 4040
+        },
+        {
+          "x": 1235,
+          "y": 4040
+        }
+      ]
+    },
+    {
+      "id": "road-118",
+      "name": "Applecross Farm access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 680,
+          "y": 3220
+        },
+        {
+          "x": 616.9407374905534,
+          "y": 3204.2351843726383
+        }
+      ]
+    },
+    {
+      "id": "road-119",
+      "name": "Old Quarry Yard access",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 8,
+      "lanes": 1,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 650,
+          "y": 4330
+        },
+        {
+          "x": 585,
+          "y": 4330
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "id": "region-0",
+      "name": "forest 0",
+      "biome": "forest",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 23.827,
+          "y": 0
+        },
+        {
+          "x": 51.661,
+          "y": 0
+        },
+        {
+          "x": 86.443,
+          "y": 0
+        },
+        {
+          "x": 122.237,
+          "y": 0
+        },
+        {
+          "x": 161.639,
+          "y": 0
+        },
+        {
+          "x": 208.583,
+          "y": 0
+        },
+        {
+          "x": 255.108,
+          "y": 0
+        },
+        {
+          "x": 304.839,
+          "y": 0
+        },
+        {
+          "x": 362.596,
+          "y": 0
+        },
+        {
+          "x": 418.614,
+          "y": 0
+        },
+        {
+          "x": 477.438,
+          "y": 0
+        },
+        {
+          "x": 544.658,
+          "y": 0
+        },
+        {
+          "x": 608.932,
+          "y": 0
+        },
+        {
+          "x": 675.612,
+          "y": 0
+        },
+        {
+          "x": 750.945,
+          "y": 0
+        },
+        {
+          "x": 822.237,
+          "y": 0
+        },
+        {
+          "x": 895.535,
+          "y": 0
+        },
+        {
+          "x": 977.633,
+          "y": 0
+        },
+        {
+          "x": 1054.706,
+          "y": 0
+        },
+        {
+          "x": 1133.386,
+          "y": 0
+        },
+        {
+          "x": 1220.897,
+          "y": 0
+        },
+        {
+          "x": 1302.515,
+          "y": 0
+        },
+        {
+          "x": 1385.338,
+          "y": 0
+        },
+        {
+          "x": 1476.914,
+          "y": 0
+        },
+        {
+          "x": 1561.839,
+          "y": 0
+        },
+        {
+          "x": 1647.569,
+          "y": 0
+        },
+        {
+          "x": 1741.859,
+          "y": 0
+        },
+        {
+          "x": 1828.854,
+          "y": 0
+        },
+        {
+          "x": 1916.254,
+          "y": 0
+        },
+        {
+          "x": 2011.909,
+          "y": 0
+        },
+        {
+          "x": 2099.736,
+          "y": 0
+        },
+        {
+          "x": 2195.549,
+          "y": 0
+        },
+        {
+          "x": 2283.239,
+          "y": 0
+        },
+        {
+          "x": 2370.662,
+          "y": 0
+        },
+        {
+          "x": 2465.577,
+          "y": 0
+        },
+        {
+          "x": 2552.026,
+          "y": 0
+        },
+        {
+          "x": 2637.807,
+          "y": 0
+        },
+        {
+          "x": 2730.475,
+          "y": 0
+        },
+        {
+          "x": 2814.444,
+          "y": 0
+        },
+        {
+          "x": 2897.347,
+          "y": 0
+        },
+        {
+          "x": 2986.418,
+          "y": 0
+        },
+        {
+          "x": 3066.672,
+          "y": 0
+        },
+        {
+          "x": 3145.458,
+          "y": 0
+        },
+        {
+          "x": 3229.582,
+          "y": 0
+        },
+        {
+          "x": 3304.883,
+          "y": 0
+        },
+        {
+          "x": 3378.316,
+          "y": 0
+        },
+        {
+          "x": 3456.144,
+          "y": 0
+        },
+        {
+          "x": 3525.254,
+          "y": 0
+        },
+        {
+          "x": 3592.097,
+          "y": 0
+        },
+        {
+          "x": 3662.279,
+          "y": 0
+        },
+        {
+          "x": 3723.962,
+          "y": 0
+        },
+        {
+          "x": 3782.977,
+          "y": 0
+        },
+        {
+          "x": 3844.163,
+          "y": 0
+        },
+        {
+          "x": 3897.182,
+          "y": 0
+        },
+        {
+          "x": 3947.132,
+          "y": 0
+        },
+        {
+          "x": 3997.972,
+          "y": 0
+        },
+        {
+          "x": 4041.089,
+          "y": 0
+        },
+        {
+          "x": 4080.737,
+          "y": 0
+        },
+        {
+          "x": 4119.882,
+          "y": 0
+        },
+        {
+          "x": 4151.86,
+          "y": 0
+        },
+        {
+          "x": 4182.329,
+          "y": 0
+        },
+        {
+          "x": 4212.116,
+          "y": 3.237
+        },
+        {
+          "x": 4253.154,
+          "y": 26.711
+        },
+        {
+          "x": 4292.051,
+          "y": 70.874
+        },
+        {
+          "x": 4322.56,
+          "y": 125.672
+        },
+        {
+          "x": 4348.372,
+          "y": 191.59
+        },
+        {
+          "x": 4371.432,
+          "y": 273.247
+        },
+        {
+          "x": 4388.133,
+          "y": 354.341
+        },
+        {
+          "x": 4400.815,
+          "y": 438.833
+        },
+        {
+          "x": 4410.323,
+          "y": 531.944
+        },
+        {
+          "x": 4415.31,
+          "y": 615.464
+        },
+        {
+          "x": 4416.956,
+          "y": 694.658
+        },
+        {
+          "x": 4415.198,
+          "y": 773.182
+        },
+        {
+          "x": 4410.566,
+          "y": 835.257
+        },
+        {
+          "x": 4403.27,
+          "y": 885.284
+        },
+        {
+          "x": 4390.33,
+          "y": 929.592
+        },
+        {
+          "x": 4368.504,
+          "y": 976.623
+        },
+        {
+          "x": 4338.008,
+          "y": 1029.677
+        },
+        {
+          "x": 4296.409,
+          "y": 1092.718
+        },
+        {
+          "x": 4252.066,
+          "y": 1153.674
+        },
+        {
+          "x": 4203.148,
+          "y": 1216.165
+        },
+        {
+          "x": 4146.123,
+          "y": 1284.382
+        },
+        {
+          "x": 4091.921,
+          "y": 1345.391
+        },
+        {
+          "x": 4037.241,
+          "y": 1403.447
+        },
+        {
+          "x": 3978.601,
+          "y": 1461.706
+        },
+        {
+          "x": 3927.2,
+          "y": 1508.894
+        },
+        {
+          "x": 3879.417,
+          "y": 1548.64
+        },
+        {
+          "x": 3832.971,
+          "y": 1581.807
+        },
+        {
+          "x": 3796.498,
+          "y": 1601.511
+        },
+        {
+          "x": 3746.533,
+          "y": 1613.756
+        },
+        {
+          "x": 3689.479,
+          "y": 1616.553
+        },
+        {
+          "x": 3623.86,
+          "y": 1612.818
+        },
+        {
+          "x": 3545.015,
+          "y": 1603.037
+        },
+        {
+          "x": 3468.384,
+          "y": 1590.437
+        },
+        {
+          "x": 3389.784,
+          "y": 1575.89
+        },
+        {
+          "x": 3304.301,
+          "y": 1559.542
+        },
+        {
+          "x": 3228.482,
+          "y": 1545.715
+        },
+        {
+          "x": 3157.29,
+          "y": 1534.527
+        },
+        {
+          "x": 3087.413,
+          "y": 1527.071
+        },
+        {
+          "x": 3032.794,
+          "y": 1526.19
+        },
+        {
+          "x": 2988.437,
+          "y": 1532.677
+        },
+        {
+          "x": 2936.41,
+          "y": 1551.255
+        },
+        {
+          "x": 2881.773,
+          "y": 1577.723
+        },
+        {
+          "x": 2821.959,
+          "y": 1611.183
+        },
+        {
+          "x": 2752.476,
+          "y": 1653.343
+        },
+        {
+          "x": 2686.439,
+          "y": 1695.049
+        },
+        {
+          "x": 2619.625,
+          "y": 1737.648
+        },
+        {
+          "x": 2547.524,
+          "y": 1782.819
+        },
+        {
+          "x": 2483.686,
+          "y": 1820.908
+        },
+        {
+          "x": 2423.472,
+          "y": 1853.79
+        },
+        {
+          "x": 2363.59,
+          "y": 1881.404
+        },
+        {
+          "x": 2315.553,
+          "y": 1897.021
+        },
+        {
+          "x": 2272.331,
+          "y": 1901.883
+        },
+        {
+          "x": 2215.651,
+          "y": 1897.35
+        },
+        {
+          "x": 2155.094,
+          "y": 1886.103
+        },
+        {
+          "x": 2088.111,
+          "y": 1869.716
+        },
+        {
+          "x": 2009.762,
+          "y": 1847.856
+        },
+        {
+          "x": 1934.988,
+          "y": 1825.886
+        },
+        {
+          "x": 1859.189,
+          "y": 1803.714
+        },
+        {
+          "x": 1777.383,
+          "y": 1781.172
+        },
+        {
+          "x": 1705.086,
+          "y": 1763.739
+        },
+        {
+          "x": 1631.268,
+          "y": 1750.176
+        },
+        {
+          "x": 1570.113,
+          "y": 1744.464
+        },
+        {
+          "x": 1516.987,
+          "y": 1746.827
+        },
+        {
+          "x": 1472.332,
+          "y": 1758.545
+        },
+        {
+          "x": 1427.752,
+          "y": 1777.984
+        },
+        {
+          "x": 1376.593,
+          "y": 1805.192
+        },
+        {
+          "x": 1314.562,
+          "y": 1842.266
+        },
+        {
+          "x": 1253.17,
+          "y": 1881.683
+        },
+        {
+          "x": 1188.568,
+          "y": 1925.008
+        },
+        {
+          "x": 1115.713,
+          "y": 1975.263
+        },
+        {
+          "x": 1047.921,
+          "y": 2022.726
+        },
+        {
+          "x": 980.288,
+          "y": 2070.239
+        },
+        {
+          "x": 907.969,
+          "y": 2120.659
+        },
+        {
+          "x": 844.189,
+          "y": 2164.239
+        },
+        {
+          "x": 783.938,
+          "y": 2204.008
+        },
+        {
+          "x": 723.512,
+          "y": 2241.579
+        },
+        {
+          "x": 674.157,
+          "y": 2269.344
+        },
+        {
+          "x": 631.698,
+          "y": 2289.439
+        },
+        {
+          "x": 591.576,
+          "y": 2301.766
+        },
+        {
+          "x": 535.913,
+          "y": 2306.863
+        },
+        {
+          "x": 467.668,
+          "y": 2304.503
+        },
+        {
+          "x": 384.046,
+          "y": 2293.993
+        },
+        {
+          "x": 303.73,
+          "y": 2277.605
+        },
+        {
+          "x": 224.45,
+          "y": 2255.256
+        },
+        {
+          "x": 144.322,
+          "y": 2224.647
+        },
+        {
+          "x": 81.446,
+          "y": 2191.399
+        },
+        {
+          "x": 33.225,
+          "y": 2153.688
+        },
+        {
+          "x": 2.512,
+          "y": 2108.027
+        },
+        {
+          "x": 0,
+          "y": 2077.803
+        },
+        {
+          "x": 0,
+          "y": 2040.213
+        },
+        {
+          "x": 0,
+          "y": 1998.255
+        },
+        {
+          "x": 0,
+          "y": 1949.657
+        },
+        {
+          "x": 0,
+          "y": 1889.678
+        },
+        {
+          "x": 0,
+          "y": 1828.872
+        },
+        {
+          "x": 0,
+          "y": 1763.029
+        },
+        {
+          "x": 0,
+          "y": 1686.065
+        },
+        {
+          "x": 0,
+          "y": 1611.365
+        },
+        {
+          "x": 0,
+          "y": 1533.23
+        },
+        {
+          "x": 0,
+          "y": 1444.684
+        },
+        {
+          "x": 0,
+          "y": 1361.043
+        },
+        {
+          "x": 0,
+          "y": 1275.569
+        },
+        {
+          "x": 0,
+          "y": 1180.845
+        },
+        {
+          "x": 0,
+          "y": 1093.217
+        },
+        {
+          "x": 0,
+          "y": 1005.358
+        },
+        {
+          "x": 0,
+          "y": 909.86
+        },
+        {
+          "x": 0,
+          "y": 823.197
+        },
+        {
+          "x": 0,
+          "y": 737.907
+        },
+        {
+          "x": 0,
+          "y": 647.038
+        },
+        {
+          "x": 0,
+          "y": 566.295
+        },
+        {
+          "x": 0,
+          "y": 488.526
+        },
+        {
+          "x": 0,
+          "y": 407.691
+        },
+        {
+          "x": 0,
+          "y": 337.82
+        },
+        {
+          "x": 0,
+          "y": 272.527
+        },
+        {
+          "x": 0,
+          "y": 207.129
+        },
+        {
+          "x": 0,
+          "y": 153.083
+        },
+        {
+          "x": 0,
+          "y": 105.219
+        },
+        {
+          "x": 0,
+          "y": 60.661
+        },
+        {
+          "x": 0,
+          "y": 27.395
+        }
+      ]
+    },
+    {
+      "id": "region-1",
+      "name": "mountain 1",
+      "biome": "mountain",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 13.161,
+          "y": 0
+        },
+        {
+          "x": 31.667,
+          "y": 0
+        },
+        {
+          "x": 53.424,
+          "y": 0
+        },
+        {
+          "x": 78.282,
+          "y": 0
+        },
+        {
+          "x": 101.945,
+          "y": 0
+        },
+        {
+          "x": 132.166,
+          "y": 0
+        },
+        {
+          "x": 165.062,
+          "y": 0
+        },
+        {
+          "x": 200.481,
+          "y": 0
+        },
+        {
+          "x": 232.736,
+          "y": 0
+        },
+        {
+          "x": 272.446,
+          "y": 0
+        },
+        {
+          "x": 314.252,
+          "y": 0
+        },
+        {
+          "x": 358.005,
+          "y": 0
+        },
+        {
+          "x": 396.943,
+          "y": 0
+        },
+        {
+          "x": 443.913,
+          "y": 0
+        },
+        {
+          "x": 492.403,
+          "y": 0
+        },
+        {
+          "x": 542.261,
+          "y": 0
+        },
+        {
+          "x": 593.338,
+          "y": 0
+        },
+        {
+          "x": 637.976,
+          "y": 0
+        },
+        {
+          "x": 690.921,
+          "y": 0
+        },
+        {
+          "x": 744.657,
+          "y": 0
+        },
+        {
+          "x": 799.035,
+          "y": 0
+        },
+        {
+          "x": 846.043,
+          "y": 0
+        },
+        {
+          "x": 901.215,
+          "y": 0
+        },
+        {
+          "x": 956.602,
+          "y": 0
+        },
+        {
+          "x": 1012.053,
+          "y": 0
+        },
+        {
+          "x": 1059.52,
+          "y": 0
+        },
+        {
+          "x": 1114.693,
+          "y": 0
+        },
+        {
+          "x": 1169.503,
+          "y": 0
+        },
+        {
+          "x": 1223.8,
+          "y": 0
+        },
+        {
+          "x": 1277.433,
+          "y": 0
+        },
+        {
+          "x": 1322.763,
+          "y": 0
+        },
+        {
+          "x": 1374.768,
+          "y": 0
+        },
+        {
+          "x": 1425.683,
+          "y": 0
+        },
+        {
+          "x": 1475.356,
+          "y": 0
+        },
+        {
+          "x": 1516.833,
+          "y": 0
+        },
+        {
+          "x": 1563.806,
+          "y": 0
+        },
+        {
+          "x": 1609.11,
+          "y": 0
+        },
+        {
+          "x": 1652.597,
+          "y": 0
+        },
+        {
+          "x": 1688.31,
+          "y": 0
+        },
+        {
+          "x": 1728.023,
+          "y": 0
+        },
+        {
+          "x": 1765.49,
+          "y": 0
+        },
+        {
+          "x": 1800.562,
+          "y": 0
+        },
+        {
+          "x": 1828.603,
+          "y": 0
+        },
+        {
+          "x": 1858.828,
+          "y": 0
+        },
+        {
+          "x": 1886.231,
+          "y": 0
+        },
+        {
+          "x": 1910.66,
+          "y": 0
+        },
+        {
+          "x": 1931.966,
+          "y": 0
+        },
+        {
+          "x": 1947.63,
+          "y": 0
+        },
+        {
+          "x": 1973.286,
+          "y": 11.123
+        },
+        {
+          "x": 1999.837,
+          "y": 29.919
+        },
+        {
+          "x": 2025.669,
+          "y": 54.438
+        },
+        {
+          "x": 2047.193,
+          "y": 79.575
+        },
+        {
+          "x": 2071.529,
+          "y": 113.204
+        },
+        {
+          "x": 2094.974,
+          "y": 150.922
+        },
+        {
+          "x": 2117.469,
+          "y": 192.156
+        },
+        {
+          "x": 2135.948,
+          "y": 229.865
+        },
+        {
+          "x": 2156.518,
+          "y": 276.112
+        },
+        {
+          "x": 2175.966,
+          "y": 324.243
+        },
+        {
+          "x": 2194.232,
+          "y": 373.684
+        },
+        {
+          "x": 2211.256,
+          "y": 423.864
+        },
+        {
+          "x": 2224.815,
+          "y": 467.029
+        },
+        {
+          "x": 2239.374,
+          "y": 517.064
+        },
+        {
+          "x": 2252.52,
+          "y": 566.203
+        },
+        {
+          "x": 2264.193,
+          "y": 613.875
+        },
+        {
+          "x": 2272.98,
+          "y": 653.136
+        },
+        {
+          "x": 2281.759,
+          "y": 696.566
+        },
+        {
+          "x": 2288.894,
+          "y": 736.895
+        },
+        {
+          "x": 2294.324,
+          "y": 773.551
+        },
+        {
+          "x": 2297.577,
+          "y": 801.613
+        },
+        {
+          "x": 2299.684,
+          "y": 829.93
+        },
+        {
+          "x": 2299.852,
+          "y": 854.16
+        },
+        {
+          "x": 2295.571,
+          "y": 885.143
+        },
+        {
+          "x": 2287.687,
+          "y": 914.013
+        },
+        {
+          "x": 2274.075,
+          "y": 949.931
+        },
+        {
+          "x": 2256.248,
+          "y": 987.758
+        },
+        {
+          "x": 2234.774,
+          "y": 1026.971
+        },
+        {
+          "x": 2210.22,
+          "y": 1067.046
+        },
+        {
+          "x": 2187.151,
+          "y": 1101.685
+        },
+        {
+          "x": 2158.38,
+          "y": 1141.972
+        },
+        {
+          "x": 2128.149,
+          "y": 1181.624
+        },
+        {
+          "x": 2097.024,
+          "y": 1220.119
+        },
+        {
+          "x": 2070.065,
+          "y": 1251.796
+        },
+        {
+          "x": 2038.786,
+          "y": 1286.751
+        },
+        {
+          "x": 2008.234,
+          "y": 1319.052
+        },
+        {
+          "x": 1978.976,
+          "y": 1348.175
+        },
+        {
+          "x": 1955.357,
+          "y": 1370.211
+        },
+        {
+          "x": 1930.006,
+          "y": 1392.044
+        },
+        {
+          "x": 1907.95,
+          "y": 1408.791
+        },
+        {
+          "x": 1882.849,
+          "y": 1424.887
+        },
+        {
+          "x": 1853.118,
+          "y": 1441.764
+        },
+        {
+          "x": 1824.368,
+          "y": 1456.743
+        },
+        {
+          "x": 1787.506,
+          "y": 1474.688
+        },
+        {
+          "x": 1747.598,
+          "y": 1493.001
+        },
+        {
+          "x": 1705.197,
+          "y": 1511.537
+        },
+        {
+          "x": 1667.289,
+          "y": 1527.493
+        },
+        {
+          "x": 1621.73,
+          "y": 1546.061
+        },
+        {
+          "x": 1575.263,
+          "y": 1564.438
+        },
+        {
+          "x": 1528.441,
+          "y": 1582.48
+        },
+        {
+          "x": 1488.446,
+          "y": 1597.568
+        },
+        {
+          "x": 1442.438,
+          "y": 1614.604
+        },
+        {
+          "x": 1397.66,
+          "y": 1630.892
+        },
+        {
+          "x": 1354.667,
+          "y": 1646.287
+        },
+        {
+          "x": 1319.656,
+          "y": 1658.662
+        },
+        {
+          "x": 1281.448,
+          "y": 1672.014
+        },
+        {
+          "x": 1246.608,
+          "y": 1684.059
+        },
+        {
+          "x": 1215.692,
+          "y": 1694.653
+        },
+        {
+          "x": 1188.342,
+          "y": 1703.949
+        },
+        {
+          "x": 1162.386,
+          "y": 1712.639
+        },
+        {
+          "x": 1128.061,
+          "y": 1723.96
+        },
+        {
+          "x": 1089.938,
+          "y": 1736.342
+        },
+        {
+          "x": 1048.594,
+          "y": 1749.568
+        },
+        {
+          "x": 1011.032,
+          "y": 1761.407
+        },
+        {
+          "x": 965.246,
+          "y": 1775.613
+        },
+        {
+          "x": 917.896,
+          "y": 1790.032
+        },
+        {
+          "x": 869.562,
+          "y": 1804.444
+        },
+        {
+          "x": 827.79,
+          "y": 1816.626
+        },
+        {
+          "x": 779.166,
+          "y": 1830.442
+        },
+        {
+          "x": 731.216,
+          "y": 1843.622
+        },
+        {
+          "x": 684.517,
+          "y": 1855.946
+        },
+        {
+          "x": 639.651,
+          "y": 1867.195
+        },
+        {
+          "x": 603.091,
+          "y": 1875.813
+        },
+        {
+          "x": 563.165,
+          "y": 1884.48
+        },
+        {
+          "x": 526.727,
+          "y": 1891.442
+        },
+        {
+          "x": 494.357,
+          "y": 1896.478
+        },
+        {
+          "x": 470.289,
+          "y": 1899.096
+        },
+        {
+          "x": 445.763,
+          "y": 1899.962
+        },
+        {
+          "x": 411.802,
+          "y": 1897.6
+        },
+        {
+          "x": 371.531,
+          "y": 1891.74
+        },
+        {
+          "x": 333.29,
+          "y": 1884.109
+        },
+        {
+          "x": 285.845,
+          "y": 1872.37
+        },
+        {
+          "x": 236.984,
+          "y": 1857.796
+        },
+        {
+          "x": 188.419,
+          "y": 1840.621
+        },
+        {
+          "x": 148.327,
+          "y": 1824.004
+        },
+        {
+          "x": 104.856,
+          "y": 1802.614
+        },
+        {
+          "x": 66.576,
+          "y": 1779.286
+        },
+        {
+          "x": 35.198,
+          "y": 1754.253
+        },
+        {
+          "x": 12.435,
+          "y": 1727.747
+        },
+        {
+          "x": 1.079,
+          "y": 1704.031
+        },
+        {
+          "x": 0,
+          "y": 1685.308
+        },
+        {
+          "x": 0,
+          "y": 1664.628
+        },
+        {
+          "x": 0,
+          "y": 1640.326
+        },
+        {
+          "x": 0,
+          "y": 1616.763
+        },
+        {
+          "x": 0,
+          "y": 1586.261
+        },
+        {
+          "x": 0,
+          "y": 1552.705
+        },
+        {
+          "x": 0,
+          "y": 1516.293
+        },
+        {
+          "x": 0,
+          "y": 1482.96
+        },
+        {
+          "x": 0,
+          "y": 1441.771
+        },
+        {
+          "x": 0,
+          "y": 1398.295
+        },
+        {
+          "x": 0,
+          "y": 1352.729
+        },
+        {
+          "x": 0,
+          "y": 1305.272
+        },
+        {
+          "x": 0,
+          "y": 1263.242
+        },
+        {
+          "x": 0,
+          "y": 1212.802
+        },
+        {
+          "x": 0,
+          "y": 1161.039
+        },
+        {
+          "x": 0,
+          "y": 1108.153
+        },
+        {
+          "x": 0,
+          "y": 1062.078
+        },
+        {
+          "x": 0,
+          "y": 1007.631
+        },
+        {
+          "x": 0,
+          "y": 952.629
+        },
+        {
+          "x": 0,
+          "y": 897.269
+        },
+        {
+          "x": 0,
+          "y": 849.683
+        },
+        {
+          "x": 0,
+          "y": 794.187
+        },
+        {
+          "x": 0,
+          "y": 738.901
+        },
+        {
+          "x": 0,
+          "y": 684.024
+        },
+        {
+          "x": 0,
+          "y": 637.463
+        },
+        {
+          "x": 0,
+          "y": 583.874
+        },
+        {
+          "x": 0,
+          "y": 531.261
+        },
+        {
+          "x": 0,
+          "y": 479.824
+        },
+        {
+          "x": 0,
+          "y": 429.762
+        },
+        {
+          "x": 0,
+          "y": 388.096
+        },
+        {
+          "x": 0,
+          "y": 341.113
+        },
+        {
+          "x": 0,
+          "y": 296.073
+        },
+        {
+          "x": 0,
+          "y": 253.173
+        },
+        {
+          "x": 0,
+          "y": 218.257
+        },
+        {
+          "x": 0,
+          "y": 179.861
+        },
+        {
+          "x": 0,
+          "y": 144.174
+        },
+        {
+          "x": 0,
+          "y": 111.395
+        },
+        {
+          "x": 0,
+          "y": 85.763
+        },
+        {
+          "x": 0,
+          "y": 58.91
+        },
+        {
+          "x": 0,
+          "y": 35.533
+        },
+        {
+          "x": 0,
+          "y": 15.83
+        }
+      ]
+    },
+    {
+      "id": "region-3",
+      "name": "farmland 3",
+      "biome": "farmland",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 250,
+          "y": 2400
+        },
+        {
+          "x": 266.173,
+          "y": 2380.893
+        },
+        {
+          "x": 286.202,
+          "y": 2362.756
+        },
+        {
+          "x": 313.555,
+          "y": 2343.198
+        },
+        {
+          "x": 341.168,
+          "y": 2327.094
+        },
+        {
+          "x": 376.657,
+          "y": 2309.823
+        },
+        {
+          "x": 410.923,
+          "y": 2295.686
+        },
+        {
+          "x": 453.487,
+          "y": 2280.627
+        },
+        {
+          "x": 493.479,
+          "y": 2268.394
+        },
+        {
+          "x": 542.055,
+          "y": 2255.472
+        },
+        {
+          "x": 586.844,
+          "y": 2245.077
+        },
+        {
+          "x": 633.554,
+          "y": 2235.518
+        },
+        {
+          "x": 689.028,
+          "y": 2225.599
+        },
+        {
+          "x": 739.172,
+          "y": 2217.784
+        },
+        {
+          "x": 798.042,
+          "y": 2209.82
+        },
+        {
+          "x": 850.691,
+          "y": 2203.683
+        },
+        {
+          "x": 911.894,
+          "y": 2197.601
+        },
+        {
+          "x": 966.121,
+          "y": 2193.079
+        },
+        {
+          "x": 1028.594,
+          "y": 2188.805
+        },
+        {
+          "x": 1083.47,
+          "y": 2185.832
+        },
+        {
+          "x": 1138.329,
+          "y": 2183.56
+        },
+        {
+          "x": 1200.748,
+          "y": 2181.804
+        },
+        {
+          "x": 1254.894,
+          "y": 2180.986
+        },
+        {
+          "x": 1315.966,
+          "y": 2180.855
+        },
+        {
+          "x": 1368.469,
+          "y": 2181.428
+        },
+        {
+          "x": 1427.133,
+          "y": 2182.848
+        },
+        {
+          "x": 1477.064,
+          "y": 2184.746
+        },
+        {
+          "x": 1532.259,
+          "y": 2187.644
+        },
+        {
+          "x": 1578.69,
+          "y": 2190.802
+        },
+        {
+          "x": 1623.17,
+          "y": 2194.527
+        },
+        {
+          "x": 1671.355,
+          "y": 2199.458
+        },
+        {
+          "x": 1710.973,
+          "y": 2204.348
+        },
+        {
+          "x": 1753.07,
+          "y": 2210.575
+        },
+        {
+          "x": 1786.897,
+          "y": 2216.566
+        },
+        {
+          "x": 1821.845,
+          "y": 2224.014
+        },
+        {
+          "x": 1848.951,
+          "y": 2231.041
+        },
+        {
+          "x": 1875.689,
+          "y": 2239.636
+        },
+        {
+          "x": 1895.146,
+          "y": 2247.635
+        },
+        {
+          "x": 1916.099,
+          "y": 2259.554
+        },
+        {
+          "x": 1940.888,
+          "y": 2279.888
+        },
+        {
+          "x": 1961.611,
+          "y": 2302.451
+        },
+        {
+          "x": 1984.203,
+          "y": 2333.268
+        },
+        {
+          "x": 2003.029,
+          "y": 2364.278
+        },
+        {
+          "x": 2023.484,
+          "y": 2403.918
+        },
+        {
+          "x": 2040.465,
+          "y": 2441.922
+        },
+        {
+          "x": 2058.841,
+          "y": 2488.726
+        },
+        {
+          "x": 2074.03,
+          "y": 2532.274
+        },
+        {
+          "x": 2088.399,
+          "y": 2577.91
+        },
+        {
+          "x": 2103.833,
+          "y": 2632.219
+        },
+        {
+          "x": 2116.486,
+          "y": 2681.268
+        },
+        {
+          "x": 2129.987,
+          "y": 2738.648
+        },
+        {
+          "x": 2140.974,
+          "y": 2789.657
+        },
+        {
+          "x": 2152.601,
+          "y": 2848.447
+        },
+        {
+          "x": 2161.974,
+          "y": 2899.965
+        },
+        {
+          "x": 2171.786,
+          "y": 2958.505
+        },
+        {
+          "x": 2179.597,
+          "y": 3009.079
+        },
+        {
+          "x": 2186.697,
+          "y": 3058.715
+        },
+        {
+          "x": 2193.954,
+          "y": 3113.889
+        },
+        {
+          "x": 2199.567,
+          "y": 3160.451
+        },
+        {
+          "x": 2205.156,
+          "y": 3211.282
+        },
+        {
+          "x": 2209.334,
+          "y": 3253.319
+        },
+        {
+          "x": 2213.313,
+          "y": 3298.147
+        },
+        {
+          "x": 2216.108,
+          "y": 3334.206
+        },
+        {
+          "x": 2218.536,
+          "y": 3371.372
+        },
+        {
+          "x": 2220,
+          "y": 3400
+        },
+        {
+          "x": 2221.094,
+          "y": 3429.014
+        },
+        {
+          "x": 2222.091,
+          "y": 3466.57
+        },
+        {
+          "x": 2222.682,
+          "y": 3502.927
+        },
+        {
+          "x": 2222.965,
+          "y": 3548.053
+        },
+        {
+          "x": 2222.81,
+          "y": 3590.315
+        },
+        {
+          "x": 2222.102,
+          "y": 3641.369
+        },
+        {
+          "x": 2220.959,
+          "y": 3688.1
+        },
+        {
+          "x": 2218.982,
+          "y": 3743.44
+        },
+        {
+          "x": 2216.606,
+          "y": 3793.203
+        },
+        {
+          "x": 2213.573,
+          "y": 3843.888
+        },
+        {
+          "x": 2209.232,
+          "y": 3902.543
+        },
+        {
+          "x": 2204.611,
+          "y": 3954.153
+        },
+        {
+          "x": 2198.316,
+          "y": 4013.043
+        },
+        {
+          "x": 2191.864,
+          "y": 4064.139
+        },
+        {
+          "x": 2183.338,
+          "y": 4121.621
+        },
+        {
+          "x": 2174.811,
+          "y": 4170.767
+        },
+        {
+          "x": 2163.775,
+          "y": 4225.199
+        },
+        {
+          "x": 2152.931,
+          "y": 4270.958
+        },
+        {
+          "x": 2140.923,
+          "y": 4314.644
+        },
+        {
+          "x": 2125.705,
+          "y": 4361.632
+        },
+        {
+          "x": 2111.022,
+          "y": 4399.824
+        },
+        {
+          "x": 2092.61,
+          "y": 4439.711
+        },
+        {
+          "x": 2075.012,
+          "y": 4470.971
+        },
+        {
+          "x": 2053.128,
+          "y": 4502.114
+        },
+        {
+          "x": 2032.369,
+          "y": 4525.005
+        },
+        {
+          "x": 2006.736,
+          "y": 4545.763
+        },
+        {
+          "x": 1987.975,
+          "y": 4556.595
+        },
+        {
+          "x": 1968.028,
+          "y": 4565.868
+        },
+        {
+          "x": 1940.994,
+          "y": 4576.489
+        },
+        {
+          "x": 1913.83,
+          "y": 4585.766
+        },
+        {
+          "x": 1879.014,
+          "y": 4596.309
+        },
+        {
+          "x": 1845.45,
+          "y": 4605.447
+        },
+        {
+          "x": 1803.786,
+          "y": 4615.748
+        },
+        {
+          "x": 1764.637,
+          "y": 4624.603
+        },
+        {
+          "x": 1717.058,
+          "y": 4634.499
+        },
+        {
+          "x": 1673.141,
+          "y": 4642.927
+        },
+        {
+          "x": 1627.28,
+          "y": 4651.107
+        },
+        {
+          "x": 1572.712,
+          "y": 4660.113
+        },
+        {
+          "x": 1523.28,
+          "y": 4667.657
+        },
+        {
+          "x": 1465.098,
+          "y": 4675.853
+        },
+        {
+          "x": 1412.912,
+          "y": 4682.618
+        },
+        {
+          "x": 1352.049,
+          "y": 4689.841
+        },
+        {
+          "x": 1297.925,
+          "y": 4695.682
+        },
+        {
+          "x": 1235.314,
+          "y": 4701.769
+        },
+        {
+          "x": 1180.069,
+          "y": 4706.544
+        },
+        {
+          "x": 1124.58,
+          "y": 4710.772
+        },
+        {
+          "x": 1061.093,
+          "y": 4714.896
+        },
+        {
+          "x": 1005.68,
+          "y": 4717.848
+        },
+        {
+          "x": 942.747,
+          "y": 4720.43
+        },
+        {
+          "x": 888.226,
+          "y": 4721.963
+        },
+        {
+          "x": 826.78,
+          "y": 4722.841
+        },
+        {
+          "x": 773.968,
+          "y": 4722.81
+        },
+        {
+          "x": 714.94,
+          "y": 4721.82
+        },
+        {
+          "x": 664.654,
+          "y": 4720.083
+        },
+        {
+          "x": 615.825,
+          "y": 4717.501
+        },
+        {
+          "x": 562.033,
+          "y": 4713.475
+        },
+        {
+          "x": 516.927,
+          "y": 4708.976
+        },
+        {
+          "x": 467.856,
+          "y": 4702.678
+        },
+        {
+          "x": 427.289,
+          "y": 4696.119
+        },
+        {
+          "x": 383.872,
+          "y": 4687.385
+        },
+        {
+          "x": 348.66,
+          "y": 4678.624
+        },
+        {
+          "x": 311.83,
+          "y": 4667.29
+        },
+        {
+          "x": 282.79,
+          "y": 4656.182
+        },
+        {
+          "x": 256.908,
+          "y": 4643.931
+        },
+        {
+          "x": 231.427,
+          "y": 4628.488
+        },
+        {
+          "x": 212.915,
+          "y": 4613.68
+        },
+        {
+          "x": 196.875,
+          "y": 4596.003
+        },
+        {
+          "x": 186.284,
+          "y": 4579.994
+        },
+        {
+          "x": 174.834,
+          "y": 4557.972
+        },
+        {
+          "x": 165.383,
+          "y": 4535.577
+        },
+        {
+          "x": 155.225,
+          "y": 4506.575
+        },
+        {
+          "x": 146.893,
+          "y": 4478.352
+        },
+        {
+          "x": 139.075,
+          "y": 4447.599
+        },
+        {
+          "x": 130.764,
+          "y": 4409.512
+        },
+        {
+          "x": 124.032,
+          "y": 4373.749
+        },
+        {
+          "x": 116.948,
+          "y": 4330.253
+        },
+        {
+          "x": 111.28,
+          "y": 4290.035
+        },
+        {
+          "x": 105.399,
+          "y": 4241.768
+        },
+        {
+          "x": 100.772,
+          "y": 4197.653
+        },
+        {
+          "x": 96.069,
+          "y": 4145.251
+        },
+        {
+          "x": 92.46,
+          "y": 4097.797
+        },
+        {
+          "x": 89.32,
+          "y": 4048.976
+        },
+        {
+          "x": 86.297,
+          "y": 3991.661
+        },
+        {
+          "x": 84.143,
+          "y": 3940.318
+        },
+        {
+          "x": 82.235,
+          "y": 3880.439
+        },
+        {
+          "x": 81.045,
+          "y": 3827.131
+        },
+        {
+          "x": 80.226,
+          "y": 3765.325
+        },
+        {
+          "x": 79.977,
+          "y": 3710.609
+        },
+        {
+          "x": 80.221,
+          "y": 3647.513
+        },
+        {
+          "x": 80.892,
+          "y": 3591.947
+        },
+        {
+          "x": 81.985,
+          "y": 3536.175
+        },
+        {
+          "x": 83.743,
+          "y": 3472.339
+        },
+        {
+          "x": 85.722,
+          "y": 3416.534
+        },
+        {
+          "x": 88.481,
+          "y": 3352.979
+        },
+        {
+          "x": 91.325,
+          "y": 3297.699
+        },
+        {
+          "x": 95.059,
+          "y": 3235.061
+        },
+        {
+          "x": 98.745,
+          "y": 3180.863
+        },
+        {
+          "x": 103.43,
+          "y": 3119.78
+        },
+        {
+          "x": 107.936,
+          "y": 3067.22
+        },
+        {
+          "x": 112.817,
+          "y": 3015.616
+        },
+        {
+          "x": 118.848,
+          "y": 2957.965
+        },
+        {
+          "x": 124.516,
+          "y": 2908.817
+        },
+        {
+          "x": 131.434,
+          "y": 2854.293
+        },
+        {
+          "x": 137.868,
+          "y": 2808.158
+        },
+        {
+          "x": 145.648,
+          "y": 2757.396
+        },
+        {
+          "x": 152.824,
+          "y": 2714.832
+        },
+        {
+          "x": 161.44,
+          "y": 2668.47
+        },
+        {
+          "x": 169.337,
+          "y": 2630.034
+        },
+        {
+          "x": 177.562,
+          "y": 2593.716
+        },
+        {
+          "x": 187.358,
+          "y": 2554.958
+        },
+        {
+          "x": 196.272,
+          "y": 2523.585
+        },
+        {
+          "x": 206.841,
+          "y": 2490.797
+        },
+        {
+          "x": 216.42,
+          "y": 2464.927
+        },
+        {
+          "x": 227.738,
+          "y": 2438.746
+        },
+        {
+          "x": 237.96,
+          "y": 2418.936
+        }
+      ]
+    },
+    {
+      "id": "region-4",
+      "name": "city 4",
+      "biome": "city",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 2350,
+          "y": 2320
+        },
+        {
+          "x": 2361.904,
+          "y": 2302.84
+        },
+        {
+          "x": 2377.233,
+          "y": 2286.085
+        },
+        {
+          "x": 2395.706,
+          "y": 2269.765
+        },
+        {
+          "x": 2417.046,
+          "y": 2253.91
+        },
+        {
+          "x": 2440.972,
+          "y": 2238.55
+        },
+        {
+          "x": 2467.206,
+          "y": 2223.713
+        },
+        {
+          "x": 2495.468,
+          "y": 2209.429
+        },
+        {
+          "x": 2525.48,
+          "y": 2195.727
+        },
+        {
+          "x": 2556.962,
+          "y": 2182.638
+        },
+        {
+          "x": 2589.635,
+          "y": 2170.19
+        },
+        {
+          "x": 2623.22,
+          "y": 2158.413
+        },
+        {
+          "x": 2657.438,
+          "y": 2147.337
+        },
+        {
+          "x": 2698.941,
+          "y": 2135.011
+        },
+        {
+          "x": 2733.569,
+          "y": 2125.58
+        },
+        {
+          "x": 2767.936,
+          "y": 2116.943
+        },
+        {
+          "x": 2801.763,
+          "y": 2109.131
+        },
+        {
+          "x": 2834.772,
+          "y": 2102.172
+        },
+        {
+          "x": 2866.683,
+          "y": 2096.097
+        },
+        {
+          "x": 2897.217,
+          "y": 2090.934
+        },
+        {
+          "x": 2926.095,
+          "y": 2086.713
+        },
+        {
+          "x": 2953.037,
+          "y": 2083.465
+        },
+        {
+          "x": 2977.765,
+          "y": 2081.217
+        },
+        {
+          "x": 3000,
+          "y": 2080
+        },
+        {
+          "x": 3018.364,
+          "y": 2079.793
+        },
+        {
+          "x": 3039.418,
+          "y": 2080.277
+        },
+        {
+          "x": 3067.936,
+          "y": 2081.736
+        },
+        {
+          "x": 3094.166,
+          "y": 2083.655
+        },
+        {
+          "x": 3122.411,
+          "y": 2086.189
+        },
+        {
+          "x": 3152.462,
+          "y": 2089.312
+        },
+        {
+          "x": 3184.108,
+          "y": 2093
+        },
+        {
+          "x": 3217.138,
+          "y": 2097.228
+        },
+        {
+          "x": 3251.343,
+          "y": 2101.974
+        },
+        {
+          "x": 3286.51,
+          "y": 2107.212
+        },
+        {
+          "x": 3322.43,
+          "y": 2112.918
+        },
+        {
+          "x": 3358.892,
+          "y": 2119.068
+        },
+        {
+          "x": 3395.686,
+          "y": 2125.637
+        },
+        {
+          "x": 3432.6,
+          "y": 2132.602
+        },
+        {
+          "x": 3469.426,
+          "y": 2139.938
+        },
+        {
+          "x": 3513.202,
+          "y": 2149.196
+        },
+        {
+          "x": 3549.089,
+          "y": 2157.263
+        },
+        {
+          "x": 3584.214,
+          "y": 2165.623
+        },
+        {
+          "x": 3618.364,
+          "y": 2174.251
+        },
+        {
+          "x": 3651.331,
+          "y": 2183.125
+        },
+        {
+          "x": 3682.903,
+          "y": 2192.219
+        },
+        {
+          "x": 3712.869,
+          "y": 2201.51
+        },
+        {
+          "x": 3741.02,
+          "y": 2210.972
+        },
+        {
+          "x": 3767.144,
+          "y": 2220.583
+        },
+        {
+          "x": 3791.031,
+          "y": 2230.316
+        },
+        {
+          "x": 3812.471,
+          "y": 2240.149
+        },
+        {
+          "x": 3831.253,
+          "y": 2250.057
+        },
+        {
+          "x": 3847.166,
+          "y": 2260.015
+        },
+        {
+          "x": 3862.76,
+          "y": 2272.544
+        },
+        {
+          "x": 3876.178,
+          "y": 2287.46
+        },
+        {
+          "x": 3888.954,
+          "y": 2305.822
+        },
+        {
+          "x": 3901.082,
+          "y": 2327.329
+        },
+        {
+          "x": 3912.559,
+          "y": 2351.683
+        },
+        {
+          "x": 3923.382,
+          "y": 2378.587
+        },
+        {
+          "x": 3933.544,
+          "y": 2407.741
+        },
+        {
+          "x": 3943.043,
+          "y": 2438.847
+        },
+        {
+          "x": 3951.875,
+          "y": 2471.607
+        },
+        {
+          "x": 3960.034,
+          "y": 2505.721
+        },
+        {
+          "x": 3967.517,
+          "y": 2540.892
+        },
+        {
+          "x": 3974.32,
+          "y": 2576.821
+        },
+        {
+          "x": 3980.438,
+          "y": 2613.21
+        },
+        {
+          "x": 3986.871,
+          "y": 2657.062
+        },
+        {
+          "x": 3991.469,
+          "y": 2693.41
+        },
+        {
+          "x": 3995.368,
+          "y": 2729.263
+        },
+        {
+          "x": 3998.566,
+          "y": 2764.322
+        },
+        {
+          "x": 4001.057,
+          "y": 2798.287
+        },
+        {
+          "x": 4002.838,
+          "y": 2830.862
+        },
+        {
+          "x": 4003.904,
+          "y": 2861.747
+        },
+        {
+          "x": 4004.252,
+          "y": 2890.643
+        },
+        {
+          "x": 4003.876,
+          "y": 2917.253
+        },
+        {
+          "x": 4002.774,
+          "y": 2941.277
+        },
+        {
+          "x": 4000.939,
+          "y": 2962.418
+        },
+        {
+          "x": 3998.189,
+          "y": 2981.662
+        },
+        {
+          "x": 3993.93,
+          "y": 3003.173
+        },
+        {
+          "x": 3986.876,
+          "y": 3032.074
+        },
+        {
+          "x": 3979.477,
+          "y": 3058.413
+        },
+        {
+          "x": 3970.786,
+          "y": 3086.512
+        },
+        {
+          "x": 3960.889,
+          "y": 3116.099
+        },
+        {
+          "x": 3949.87,
+          "y": 3146.903
+        },
+        {
+          "x": 3937.815,
+          "y": 3178.652
+        },
+        {
+          "x": 3924.807,
+          "y": 3211.074
+        },
+        {
+          "x": 3910.933,
+          "y": 3243.899
+        },
+        {
+          "x": 3896.277,
+          "y": 3276.854
+        },
+        {
+          "x": 3880.923,
+          "y": 3309.667
+        },
+        {
+          "x": 3864.957,
+          "y": 3342.068
+        },
+        {
+          "x": 3848.464,
+          "y": 3373.784
+        },
+        {
+          "x": 3828.096,
+          "y": 3410.558
+        },
+        {
+          "x": 3810.741,
+          "y": 3439.812
+        },
+        {
+          "x": 3793.131,
+          "y": 3467.513
+        },
+        {
+          "x": 3775.35,
+          "y": 3493.388
+        },
+        {
+          "x": 3757.483,
+          "y": 3517.167
+        },
+        {
+          "x": 3739.615,
+          "y": 3538.577
+        },
+        {
+          "x": 3721.831,
+          "y": 3557.348
+        },
+        {
+          "x": 3704.216,
+          "y": 3573.206
+        },
+        {
+          "x": 3686.855,
+          "y": 3585.882
+        },
+        {
+          "x": 3671.395,
+          "y": 3594.448
+        },
+        {
+          "x": 3654.631,
+          "y": 3601.551
+        },
+        {
+          "x": 3635.02,
+          "y": 3608.267
+        },
+        {
+          "x": 3612.771,
+          "y": 3614.598
+        },
+        {
+          "x": 3582.884,
+          "y": 3621.69
+        },
+        {
+          "x": 3555.567,
+          "y": 3627.182
+        },
+        {
+          "x": 3526.281,
+          "y": 3632.295
+        },
+        {
+          "x": 3495.234,
+          "y": 3637.032
+        },
+        {
+          "x": 3462.637,
+          "y": 3641.395
+        },
+        {
+          "x": 3428.697,
+          "y": 3645.385
+        },
+        {
+          "x": 3393.624,
+          "y": 3649.004
+        },
+        {
+          "x": 3357.628,
+          "y": 3652.255
+        },
+        {
+          "x": 3320.916,
+          "y": 3655.14
+        },
+        {
+          "x": 3283.699,
+          "y": 3657.66
+        },
+        {
+          "x": 3246.185,
+          "y": 3659.817
+        },
+        {
+          "x": 3208.583,
+          "y": 3661.613
+        },
+        {
+          "x": 3171.102,
+          "y": 3663.051
+        },
+        {
+          "x": 3126.579,
+          "y": 3664.306
+        },
+        {
+          "x": 3090.101,
+          "y": 3664.961
+        },
+        {
+          "x": 3054.413,
+          "y": 3665.265
+        },
+        {
+          "x": 3019.725,
+          "y": 3665.217
+        },
+        {
+          "x": 2986.244,
+          "y": 3664.822
+        },
+        {
+          "x": 2954.181,
+          "y": 3664.08
+        },
+        {
+          "x": 2923.744,
+          "y": 3662.993
+        },
+        {
+          "x": 2895.143,
+          "y": 3661.565
+        },
+        {
+          "x": 2868.586,
+          "y": 3659.795
+        },
+        {
+          "x": 2844.282,
+          "y": 3657.687
+        },
+        {
+          "x": 2822.441,
+          "y": 3655.242
+        },
+        {
+          "x": 2803.272,
+          "y": 3652.463
+        },
+        {
+          "x": 2785.849,
+          "y": 3649.1
+        },
+        {
+          "x": 2758.95,
+          "y": 3641.866
+        },
+        {
+          "x": 2734.199,
+          "y": 3633.568
+        },
+        {
+          "x": 2707.664,
+          "y": 3623.364
+        },
+        {
+          "x": 2679.659,
+          "y": 3611.399
+        },
+        {
+          "x": 2650.503,
+          "y": 3597.821
+        },
+        {
+          "x": 2620.511,
+          "y": 3582.774
+        },
+        {
+          "x": 2589.999,
+          "y": 3566.407
+        },
+        {
+          "x": 2559.284,
+          "y": 3548.864
+        },
+        {
+          "x": 2528.683,
+          "y": 3530.293
+        },
+        {
+          "x": 2498.51,
+          "y": 3510.84
+        },
+        {
+          "x": 2469.084,
+          "y": 3490.651
+        },
+        {
+          "x": 2440.719,
+          "y": 3469.873
+        },
+        {
+          "x": 2413.733,
+          "y": 3448.652
+        },
+        {
+          "x": 2383.615,
+          "y": 3422.808
+        },
+        {
+          "x": 2360.775,
+          "y": 3401.128
+        },
+        {
+          "x": 2340.326,
+          "y": 3379.474
+        },
+        {
+          "x": 2322.584,
+          "y": 3357.991
+        },
+        {
+          "x": 2307.865,
+          "y": 3336.826
+        },
+        {
+          "x": 2296.486,
+          "y": 3316.127
+        },
+        {
+          "x": 2289.123,
+          "y": 3297.262
+        },
+        {
+          "x": 2285.002,
+          "y": 3281.776
+        },
+        {
+          "x": 2281.314,
+          "y": 3263.433
+        },
+        {
+          "x": 2278.053,
+          "y": 3242.423
+        },
+        {
+          "x": 2275.214,
+          "y": 3218.936
+        },
+        {
+          "x": 2272.791,
+          "y": 3193.163
+        },
+        {
+          "x": 2270.781,
+          "y": 3165.294
+        },
+        {
+          "x": 2268.904,
+          "y": 3129.351
+        },
+        {
+          "x": 2267.78,
+          "y": 3097.539
+        },
+        {
+          "x": 2267.052,
+          "y": 3064.24
+        },
+        {
+          "x": 2266.712,
+          "y": 3029.643
+        },
+        {
+          "x": 2266.757,
+          "y": 2993.938
+        },
+        {
+          "x": 2267.181,
+          "y": 2957.317
+        },
+        {
+          "x": 2267.979,
+          "y": 2919.968
+        },
+        {
+          "x": 2269.145,
+          "y": 2882.083
+        },
+        {
+          "x": 2270.675,
+          "y": 2843.851
+        },
+        {
+          "x": 2272.562,
+          "y": 2805.462
+        },
+        {
+          "x": 2274.803,
+          "y": 2767.108
+        },
+        {
+          "x": 2277.391,
+          "y": 2728.977
+        },
+        {
+          "x": 2280.321,
+          "y": 2691.261
+        },
+        {
+          "x": 2284.281,
+          "y": 2646.815
+        },
+        {
+          "x": 2287.945,
+          "y": 2610.679
+        },
+        {
+          "x": 2291.935,
+          "y": 2575.565
+        },
+        {
+          "x": 2296.245,
+          "y": 2541.665
+        },
+        {
+          "x": 2300.87,
+          "y": 2509.167
+        },
+        {
+          "x": 2305.805,
+          "y": 2478.263
+        },
+        {
+          "x": 2311.044,
+          "y": 2449.142
+        },
+        {
+          "x": 2316.582,
+          "y": 2421.995
+        },
+        {
+          "x": 2322.414,
+          "y": 2397.011
+        },
+        {
+          "x": 2328.535,
+          "y": 2374.381
+        },
+        {
+          "x": 2334.939,
+          "y": 2354.296
+        },
+        {
+          "x": 2341.622,
+          "y": 2336.944
+        }
+      ]
+    },
+    {
+      "id": "region-5",
+      "name": "town 5",
+      "biome": "grass",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 4512.858,
+          "y": 2355.524
+        },
+        {
+          "x": 4847.88,
+          "y": 2301.137
+        },
+        {
+          "x": 4893.04,
+          "y": 2303.282
+        },
+        {
+          "x": 4969.3787264533,
+          "y": 2557.7061910942352
+        },
+        {
+          "x": 5083.122032298008,
+          "y": 3034.1642611326197
+        },
+        {
+          "x": 4993.635,
+          "y": 3083.632
+        },
+        {
+          "x": 4943.44,
+          "y": 3098.536
+        },
+        {
+          "x": 4784.861808082997,
+          "y": 3132.7417928646996
+        },
+        {
+          "x": 4633.525,
+          "y": 3092.717
+        },
+        {
+          "x": 4598.41,
+          "y": 3064.772
+        },
+        {
+          "x": 4573.804785015596,
+          "y": 3037.955704660777
+        },
+        {
+          "x": 4519.496,
+          "y": 2990.378
+        },
+        {
+          "x": 4493.952,
+          "y": 2963.194
+        },
+        {
+          "x": 4447.126,
+          "y": 2908.595
+        },
+        {
+          "x": 4403.38,
+          "y": 2847.978
+        },
+        {
+          "x": 4375.852,
+          "y": 2744.758
+        },
+        {
+          "x": 4453.742406623961,
+          "y": 2435.1161836838287
+        }
+      ]
+    },
+    {
+      "id": "region-6",
+      "name": "beach 6",
+      "biome": "beach",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 5215,
+          "y": 0
+        },
+        {
+          "x": 5216.988,
+          "y": 9.954
+        },
+        {
+          "x": 5221.057,
+          "y": 28.055
+        },
+        {
+          "x": 5226.567,
+          "y": 51.58
+        },
+        {
+          "x": 5231.784,
+          "y": 73.684
+        },
+        {
+          "x": 5239.028,
+          "y": 104.644
+        },
+        {
+          "x": 5246.756,
+          "y": 138.44
+        },
+        {
+          "x": 5253.057,
+          "y": 166.898
+        },
+        {
+          "x": 5260.796,
+          "y": 203.47
+        },
+        {
+          "x": 5268.062,
+          "y": 240.29
+        },
+        {
+          "x": 5273.304,
+          "y": 269.304
+        },
+        {
+          "x": 5278.858,
+          "y": 304.242
+        },
+        {
+          "x": 5282.982,
+          "y": 336.841
+        },
+        {
+          "x": 5285.022,
+          "y": 360.614
+        },
+        {
+          "x": 5285.71,
+          "y": 386.671
+        },
+        {
+          "x": 5284.114,
+          "y": 407.325
+        },
+        {
+          "x": 5280.04,
+          "y": 428.21
+        },
+        {
+          "x": 5275.056,
+          "y": 447.301
+        },
+        {
+          "x": 5266.971,
+          "y": 473.728
+        },
+        {
+          "x": 5257.159,
+          "y": 502.538
+        },
+        {
+          "x": 5248.305,
+          "y": 526.969
+        },
+        {
+          "x": 5236.282,
+          "y": 558.818
+        },
+        {
+          "x": 5223.532,
+          "y": 591.661
+        },
+        {
+          "x": 5213.049,
+          "y": 618.316
+        },
+        {
+          "x": 5199.89,
+          "y": 651.695
+        },
+        {
+          "x": 5187.004,
+          "y": 684.677
+        },
+        {
+          "x": 5177.132,
+          "y": 710.442
+        },
+        {
+          "x": 5165.638,
+          "y": 741.457
+        },
+        {
+          "x": 5155.417,
+          "y": 770.685
+        },
+        {
+          "x": 5148.397,
+          "y": 792.446
+        },
+        {
+          "x": 5141.368,
+          "y": 817.204
+        },
+        {
+          "x": 5136.613,
+          "y": 838.784
+        },
+        {
+          "x": 5134.269,
+          "y": 858.568
+        },
+        {
+          "x": 5133.625,
+          "y": 877.494
+        },
+        {
+          "x": 5134.234,
+          "y": 904.106
+        },
+        {
+          "x": 5136.242,
+          "y": 933.433
+        },
+        {
+          "x": 5138.732,
+          "y": 958.439
+        },
+        {
+          "x": 5142.795,
+          "y": 991.115
+        },
+        {
+          "x": 5147.742,
+          "y": 1024.799
+        },
+        {
+          "x": 5152.213,
+          "y": 1052.062
+        },
+        {
+          "x": 5158.287,
+          "y": 1086.025
+        },
+        {
+          "x": 5164.732,
+          "y": 1119.288
+        },
+        {
+          "x": 5170.029,
+          "y": 1144.987
+        },
+        {
+          "x": 5176.674,
+          "y": 1175.457
+        },
+        {
+          "x": 5183.174,
+          "y": 1203.522
+        },
+        {
+          "x": 5189.344,
+          "y": 1228.573
+        },
+        {
+          "x": 5193.919,
+          "y": 1246.034
+        },
+        {
+          "x": 5199.938,
+          "y": 1265.879
+        },
+        {
+          "x": 5208.417,
+          "y": 1288.844
+        },
+        {
+          "x": 5216.773,
+          "y": 1309.367
+        },
+        {
+          "x": 5228.817,
+          "y": 1337.25
+        },
+        {
+          "x": 5242.229,
+          "y": 1367.101
+        },
+        {
+          "x": 5253.649,
+          "y": 1392.031
+        },
+        {
+          "x": 5268.421,
+          "y": 1424.047
+        },
+        {
+          "x": 5283.336,
+          "y": 1456.499
+        },
+        {
+          "x": 5295.077,
+          "y": 1482.409
+        },
+        {
+          "x": 5309.147,
+          "y": 1514.271
+        },
+        {
+          "x": 5322.135,
+          "y": 1545.041
+        },
+        {
+          "x": 5331.453,
+          "y": 1568.502
+        },
+        {
+          "x": 5341.391,
+          "y": 1595.926
+        },
+        {
+          "x": 5349.023,
+          "y": 1620.727
+        },
+        {
+          "x": 5353.911,
+          "y": 1642.358
+        },
+        {
+          "x": 5355.706,
+          "y": 1658.119
+        },
+        {
+          "x": 5356.078,
+          "y": 1681.297
+        },
+        {
+          "x": 5354.646,
+          "y": 1708.053
+        },
+        {
+          "x": 5352.358,
+          "y": 1731.582
+        },
+        {
+          "x": 5348.263,
+          "y": 1763.083
+        },
+        {
+          "x": 5343.013,
+          "y": 1796.278
+        },
+        {
+          "x": 5338.136,
+          "y": 1823.603
+        },
+        {
+          "x": 5331.39,
+          "y": 1858.154
+        },
+        {
+          "x": 5324.138,
+          "y": 1892.518
+        },
+        {
+          "x": 5318.126,
+          "y": 1919.421
+        },
+        {
+          "x": 5310.545,
+          "y": 1951.752
+        },
+        {
+          "x": 5303.105,
+          "y": 1982.012
+        },
+        {
+          "x": 5297.411,
+          "y": 2004.277
+        },
+        {
+          "x": 5290.811,
+          "y": 2029.115
+        },
+        {
+          "x": 5285,
+          "y": 2050
+        },
+        {
+          "x": 5278.183,
+          "y": 2071.041
+        },
+        {
+          "x": 5270.918,
+          "y": 2090.567
+        },
+        {
+          "x": 5259.964,
+          "y": 2117.758
+        },
+        {
+          "x": 5247.368,
+          "y": 2147.395
+        },
+        {
+          "x": 5236.423,
+          "y": 2172.401
+        },
+        {
+          "x": 5222.05,
+          "y": 2204.695
+        },
+        {
+          "x": 5207.346,
+          "y": 2237.494
+        },
+        {
+          "x": 5195.658,
+          "y": 2263.631
+        },
+        {
+          "x": 5181.538,
+          "y": 2295.593
+        },
+        {
+          "x": 5168.397,
+          "y": 2326.119
+        },
+        {
+          "x": 5158.905,
+          "y": 2349.04
+        },
+        {
+          "x": 5148.708,
+          "y": 2375.235
+        },
+        {
+          "x": 5140.803,
+          "y": 2398.052
+        },
+        {
+          "x": 5135.657,
+          "y": 2416.8
+        },
+        {
+          "x": 5133.119,
+          "y": 2433.363
+        },
+        {
+          "x": 5131.875,
+          "y": 2459.864
+        },
+        {
+          "x": 5132.718,
+          "y": 2490.382
+        },
+        {
+          "x": 5134.68,
+          "y": 2516.707
+        },
+        {
+          "x": 5138.473,
+          "y": 2550.771
+        },
+        {
+          "x": 5143.457,
+          "y": 2584.755
+        },
+        {
+          "x": 5148.086,
+          "y": 2610.901
+        },
+        {
+          "x": 5154.407,
+          "y": 2641.054
+        },
+        {
+          "x": 5161.022,
+          "y": 2667.029
+        },
+        {
+          "x": 5166.115,
+          "y": 2683.189
+        },
+        {
+          "x": 5174.021,
+          "y": 2701.81
+        },
+        {
+          "x": 5185.312,
+          "y": 2724.366
+        },
+        {
+          "x": 5196.317,
+          "y": 2744.763
+        },
+        {
+          "x": 5211.962,
+          "y": 2772.594
+        },
+        {
+          "x": 5229.059,
+          "y": 2802.35
+        },
+        {
+          "x": 5246.921,
+          "y": 2833.313
+        },
+        {
+          "x": 5261.297,
+          "y": 2858.469
+        },
+        {
+          "x": 5278.796,
+          "y": 2889.795
+        },
+        {
+          "x": 5295.128,
+          "y": 2920.316
+        },
+        {
+          "x": 5306.891,
+          "y": 2943.672
+        },
+        {
+          "x": 5319.385,
+          "y": 2970.937
+        },
+        {
+          "x": 5328.783,
+          "y": 2995.387
+        },
+        {
+          "x": 5333.607,
+          "y": 3012.437
+        },
+        {
+          "x": 5336.145,
+          "y": 3032.024
+        },
+        {
+          "x": 5336.171,
+          "y": 3055.5
+        },
+        {
+          "x": 5334.669,
+          "y": 3076.93
+        },
+        {
+          "x": 5331.14,
+          "y": 3106.381
+        },
+        {
+          "x": 5326.053,
+          "y": 3138.074
+        },
+        {
+          "x": 5321.061,
+          "y": 3164.526
+        },
+        {
+          "x": 5313.919,
+          "y": 3198.316
+        },
+        {
+          "x": 5306.054,
+          "y": 3232.194
+        },
+        {
+          "x": 5297.762,
+          "y": 3265.39
+        },
+        {
+          "x": 5291.021,
+          "y": 3290.939
+        },
+        {
+          "x": 5282.712,
+          "y": 3320.968
+        },
+        {
+          "x": 5274.81,
+          "y": 3348.161
+        },
+        {
+          "x": 5268.983,
+          "y": 3367.356
+        },
+        {
+          "x": 5262.622,
+          "y": 3386.985
+        },
+        {
+          "x": 5254.758,
+          "y": 3406.914
+        },
+        {
+          "x": 5246.717,
+          "y": 3425.143
+        },
+        {
+          "x": 5234.833,
+          "y": 3450.388
+        },
+        {
+          "x": 5221.308,
+          "y": 3477.922
+        },
+        {
+          "x": 5209.591,
+          "y": 3501.278
+        },
+        {
+          "x": 5194.18,
+          "y": 3531.736
+        },
+        {
+          "x": 5178.313,
+          "y": 3563.153
+        },
+        {
+          "x": 5162.415,
+          "y": 3595.056
+        },
+        {
+          "x": 5149.957,
+          "y": 3620.609
+        },
+        {
+          "x": 5135.068,
+          "y": 3652.189
+        },
+        {
+          "x": 5121.332,
+          "y": 3682.926
+        },
+        {
+          "x": 5111.459,
+          "y": 3706.589
+        },
+        {
+          "x": 5100.866,
+          "y": 3734.611
+        },
+        {
+          "x": 5092.612,
+          "y": 3760.46
+        },
+        {
+          "x": 5087.977,
+          "y": 3779.257
+        },
+        {
+          "x": 5085,
+          "y": 3800
+        },
+        {
+          "x": 5085.192,
+          "y": 3819.932
+        },
+        {
+          "x": 5087.232,
+          "y": 3838.281
+        },
+        {
+          "x": 5091.848,
+          "y": 3863.845
+        },
+        {
+          "x": 5098.433,
+          "y": 3891.914
+        },
+        {
+          "x": 5104.887,
+          "y": 3915.872
+        },
+        {
+          "x": 5114.142,
+          "y": 3947.323
+        },
+        {
+          "x": 5124.393,
+          "y": 3980.029
+        },
+        {
+          "x": 5135.291,
+          "y": 4013.542
+        },
+        {
+          "x": 5144.243,
+          "y": 4040.635
+        },
+        {
+          "x": 5155.431,
+          "y": 4074.478
+        },
+        {
+          "x": 5166.292,
+          "y": 4107.878
+        },
+        {
+          "x": 5174.511,
+          "y": 4133.981
+        },
+        {
+          "x": 5183.907,
+          "y": 4165.461
+        },
+        {
+          "x": 5192.002,
+          "y": 4195.249
+        },
+        {
+          "x": 5197.308,
+          "y": 4217.562
+        },
+        {
+          "x": 5202.183,
+          "y": 4243.18
+        },
+        {
+          "x": 5204.784,
+          "y": 4265.857
+        },
+        {
+          "x": 5205.179,
+          "y": 4281.818
+        },
+        {
+          "x": 5204.38,
+          "y": 4304.91
+        },
+        {
+          "x": 5202.342,
+          "y": 4331.748
+        },
+        {
+          "x": 5199.92,
+          "y": 4355.534
+        },
+        {
+          "x": 5196.03,
+          "y": 4387.678
+        },
+        {
+          "x": 5191.324,
+          "y": 4421.971
+        },
+        {
+          "x": 5185.951,
+          "y": 4457.842
+        },
+        {
+          "x": 5181.275,
+          "y": 4487.29
+        },
+        {
+          "x": 5175.085,
+          "y": 4524.56
+        },
+        {
+          "x": 5168.651,
+          "y": 4561.808
+        },
+        {
+          "x": 5163.431,
+          "y": 4591.207
+        },
+        {
+          "x": 5156.94,
+          "y": 4626.977
+        },
+        {
+          "x": 5150.63,
+          "y": 4661.126
+        },
+        {
+          "x": 5145.812,
+          "y": 4686.894
+        },
+        {
+          "x": 5140.206,
+          "y": 4716.686
+        },
+        {
+          "x": 5135.202,
+          "y": 4743.259
+        },
+        {
+          "x": 5131.735,
+          "y": 4761.814
+        },
+        {
+          "x": 5128.197,
+          "y": 4781.152
+        },
+        {
+          "x": 5125.684,
+          "y": 4795.67
+        }
+      ]
+    },
+    {
+      "id": "region-7",
+      "name": "ocean 7",
+      "biome": "ocean",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 5280,
+          "y": 0
+        },
+        {
+          "x": 5281.988,
+          "y": 9.954
+        },
+        {
+          "x": 5286.057,
+          "y": 28.055
+        },
+        {
+          "x": 5291.567,
+          "y": 51.58
+        },
+        {
+          "x": 5296.784,
+          "y": 73.684
+        },
+        {
+          "x": 5304.028,
+          "y": 104.644
+        },
+        {
+          "x": 5311.756,
+          "y": 138.44
+        },
+        {
+          "x": 5318.057,
+          "y": 166.898
+        },
+        {
+          "x": 5325.796,
+          "y": 203.47
+        },
+        {
+          "x": 5333.062,
+          "y": 240.29
+        },
+        {
+          "x": 5338.304,
+          "y": 269.304
+        },
+        {
+          "x": 5343.858,
+          "y": 304.242
+        },
+        {
+          "x": 5347.982,
+          "y": 336.841
+        },
+        {
+          "x": 5350.022,
+          "y": 360.614
+        },
+        {
+          "x": 5350.71,
+          "y": 386.671
+        },
+        {
+          "x": 5349.114,
+          "y": 407.325
+        },
+        {
+          "x": 5345.04,
+          "y": 428.21
+        },
+        {
+          "x": 5340.056,
+          "y": 447.301
+        },
+        {
+          "x": 5331.971,
+          "y": 473.728
+        },
+        {
+          "x": 5322.159,
+          "y": 502.538
+        },
+        {
+          "x": 5313.305,
+          "y": 526.969
+        },
+        {
+          "x": 5301.282,
+          "y": 558.818
+        },
+        {
+          "x": 5288.532,
+          "y": 591.661
+        },
+        {
+          "x": 5278.049,
+          "y": 618.316
+        },
+        {
+          "x": 5264.89,
+          "y": 651.695
+        },
+        {
+          "x": 5252.004,
+          "y": 684.677
+        },
+        {
+          "x": 5242.132,
+          "y": 710.442
+        },
+        {
+          "x": 5230.638,
+          "y": 741.457
+        },
+        {
+          "x": 5220.417,
+          "y": 770.685
+        },
+        {
+          "x": 5213.397,
+          "y": 792.446
+        },
+        {
+          "x": 5206.368,
+          "y": 817.204
+        },
+        {
+          "x": 5201.613,
+          "y": 838.784
+        },
+        {
+          "x": 5199.269,
+          "y": 858.568
+        },
+        {
+          "x": 5198.625,
+          "y": 877.494
+        },
+        {
+          "x": 5199.234,
+          "y": 904.106
+        },
+        {
+          "x": 5201.242,
+          "y": 933.433
+        },
+        {
+          "x": 5203.732,
+          "y": 958.439
+        },
+        {
+          "x": 5207.795,
+          "y": 991.115
+        },
+        {
+          "x": 5212.742,
+          "y": 1024.799
+        },
+        {
+          "x": 5217.213,
+          "y": 1052.062
+        },
+        {
+          "x": 5223.287,
+          "y": 1086.025
+        },
+        {
+          "x": 5229.732,
+          "y": 1119.288
+        },
+        {
+          "x": 5235.029,
+          "y": 1144.987
+        },
+        {
+          "x": 5241.674,
+          "y": 1175.457
+        },
+        {
+          "x": 5248.174,
+          "y": 1203.522
+        },
+        {
+          "x": 5254.344,
+          "y": 1228.573
+        },
+        {
+          "x": 5258.919,
+          "y": 1246.034
+        },
+        {
+          "x": 5264.938,
+          "y": 1265.879
+        },
+        {
+          "x": 5273.417,
+          "y": 1288.844
+        },
+        {
+          "x": 5281.773,
+          "y": 1309.367
+        },
+        {
+          "x": 5293.817,
+          "y": 1337.25
+        },
+        {
+          "x": 5307.229,
+          "y": 1367.101
+        },
+        {
+          "x": 5318.649,
+          "y": 1392.031
+        },
+        {
+          "x": 5333.421,
+          "y": 1424.047
+        },
+        {
+          "x": 5348.336,
+          "y": 1456.499
+        },
+        {
+          "x": 5360.077,
+          "y": 1482.409
+        },
+        {
+          "x": 5374.147,
+          "y": 1514.271
+        },
+        {
+          "x": 5387.135,
+          "y": 1545.041
+        },
+        {
+          "x": 5396.453,
+          "y": 1568.502
+        },
+        {
+          "x": 5406.391,
+          "y": 1595.926
+        },
+        {
+          "x": 5414.023,
+          "y": 1620.727
+        },
+        {
+          "x": 5418.911,
+          "y": 1642.358
+        },
+        {
+          "x": 5420.706,
+          "y": 1658.119
+        },
+        {
+          "x": 5421.078,
+          "y": 1681.297
+        },
+        {
+          "x": 5419.646,
+          "y": 1708.053
+        },
+        {
+          "x": 5417.358,
+          "y": 1731.582
+        },
+        {
+          "x": 5413.263,
+          "y": 1763.083
+        },
+        {
+          "x": 5408.013,
+          "y": 1796.278
+        },
+        {
+          "x": 5403.136,
+          "y": 1823.603
+        },
+        {
+          "x": 5396.39,
+          "y": 1858.154
+        },
+        {
+          "x": 5389.138,
+          "y": 1892.518
+        },
+        {
+          "x": 5383.126,
+          "y": 1919.421
+        },
+        {
+          "x": 5375.545,
+          "y": 1951.752
+        },
+        {
+          "x": 5368.105,
+          "y": 1982.012
+        },
+        {
+          "x": 5362.411,
+          "y": 2004.277
+        },
+        {
+          "x": 5355.811,
+          "y": 2029.115
+        },
+        {
+          "x": 5350,
+          "y": 2050
+        },
+        {
+          "x": 5343.183,
+          "y": 2071.041
+        },
+        {
+          "x": 5335.918,
+          "y": 2090.567
+        },
+        {
+          "x": 5324.964,
+          "y": 2117.758
+        },
+        {
+          "x": 5312.368,
+          "y": 2147.395
+        },
+        {
+          "x": 5301.423,
+          "y": 2172.401
+        },
+        {
+          "x": 5287.05,
+          "y": 2204.695
+        },
+        {
+          "x": 5272.346,
+          "y": 2237.494
+        },
+        {
+          "x": 5260.658,
+          "y": 2263.631
+        },
+        {
+          "x": 5246.538,
+          "y": 2295.593
+        },
+        {
+          "x": 5233.397,
+          "y": 2326.119
+        },
+        {
+          "x": 5223.905,
+          "y": 2349.04
+        },
+        {
+          "x": 5213.708,
+          "y": 2375.235
+        },
+        {
+          "x": 5205.803,
+          "y": 2398.052
+        },
+        {
+          "x": 5200.657,
+          "y": 2416.8
+        },
+        {
+          "x": 5198.119,
+          "y": 2433.363
+        },
+        {
+          "x": 5196.875,
+          "y": 2459.864
+        },
+        {
+          "x": 5197.718,
+          "y": 2490.382
+        },
+        {
+          "x": 5199.68,
+          "y": 2516.707
+        },
+        {
+          "x": 5203.473,
+          "y": 2550.771
+        },
+        {
+          "x": 5208.457,
+          "y": 2584.755
+        },
+        {
+          "x": 5213.086,
+          "y": 2610.901
+        },
+        {
+          "x": 5219.407,
+          "y": 2641.054
+        },
+        {
+          "x": 5226.022,
+          "y": 2667.029
+        },
+        {
+          "x": 5231.115,
+          "y": 2683.189
+        },
+        {
+          "x": 5239.021,
+          "y": 2701.81
+        },
+        {
+          "x": 5250.312,
+          "y": 2724.366
+        },
+        {
+          "x": 5261.317,
+          "y": 2744.763
+        },
+        {
+          "x": 5276.962,
+          "y": 2772.594
+        },
+        {
+          "x": 5294.059,
+          "y": 2802.35
+        },
+        {
+          "x": 5311.921,
+          "y": 2833.313
+        },
+        {
+          "x": 5326.297,
+          "y": 2858.469
+        },
+        {
+          "x": 5343.796,
+          "y": 2889.795
+        },
+        {
+          "x": 5360.128,
+          "y": 2920.316
+        },
+        {
+          "x": 5371.891,
+          "y": 2943.672
+        },
+        {
+          "x": 5384.385,
+          "y": 2970.937
+        },
+        {
+          "x": 5393.783,
+          "y": 2995.387
+        },
+        {
+          "x": 5398.607,
+          "y": 3012.437
+        },
+        {
+          "x": 5401.145,
+          "y": 3032.024
+        },
+        {
+          "x": 5401.171,
+          "y": 3055.5
+        },
+        {
+          "x": 5399.669,
+          "y": 3076.93
+        },
+        {
+          "x": 5396.14,
+          "y": 3106.381
+        },
+        {
+          "x": 5391.053,
+          "y": 3138.074
+        },
+        {
+          "x": 5386.061,
+          "y": 3164.526
+        },
+        {
+          "x": 5378.919,
+          "y": 3198.316
+        },
+        {
+          "x": 5371.054,
+          "y": 3232.194
+        },
+        {
+          "x": 5362.762,
+          "y": 3265.39
+        },
+        {
+          "x": 5356.021,
+          "y": 3290.939
+        },
+        {
+          "x": 5347.712,
+          "y": 3320.968
+        },
+        {
+          "x": 5339.81,
+          "y": 3348.161
+        },
+        {
+          "x": 5333.983,
+          "y": 3367.356
+        },
+        {
+          "x": 5327.622,
+          "y": 3386.985
+        },
+        {
+          "x": 5319.758,
+          "y": 3406.914
+        },
+        {
+          "x": 5311.717,
+          "y": 3425.143
+        },
+        {
+          "x": 5299.833,
+          "y": 3450.388
+        },
+        {
+          "x": 5286.308,
+          "y": 3477.922
+        },
+        {
+          "x": 5274.591,
+          "y": 3501.278
+        },
+        {
+          "x": 5259.18,
+          "y": 3531.736
+        },
+        {
+          "x": 5243.313,
+          "y": 3563.153
+        },
+        {
+          "x": 5227.415,
+          "y": 3595.056
+        },
+        {
+          "x": 5214.957,
+          "y": 3620.609
+        },
+        {
+          "x": 5200.068,
+          "y": 3652.189
+        },
+        {
+          "x": 5186.332,
+          "y": 3682.926
+        },
+        {
+          "x": 5176.459,
+          "y": 3706.589
+        },
+        {
+          "x": 5165.866,
+          "y": 3734.611
+        },
+        {
+          "x": 5157.612,
+          "y": 3760.46
+        },
+        {
+          "x": 5152.977,
+          "y": 3779.257
+        },
+        {
+          "x": 5150,
+          "y": 3800
+        },
+        {
+          "x": 5150.192,
+          "y": 3819.932
+        },
+        {
+          "x": 5152.232,
+          "y": 3838.281
+        },
+        {
+          "x": 5156.848,
+          "y": 3863.845
+        },
+        {
+          "x": 5163.433,
+          "y": 3891.914
+        },
+        {
+          "x": 5169.887,
+          "y": 3915.872
+        },
+        {
+          "x": 5179.142,
+          "y": 3947.323
+        },
+        {
+          "x": 5189.393,
+          "y": 3980.029
+        },
+        {
+          "x": 5200.291,
+          "y": 4013.542
+        },
+        {
+          "x": 5209.243,
+          "y": 4040.635
+        },
+        {
+          "x": 5220.431,
+          "y": 4074.478
+        },
+        {
+          "x": 5231.292,
+          "y": 4107.878
+        },
+        {
+          "x": 5239.511,
+          "y": 4133.981
+        },
+        {
+          "x": 5248.907,
+          "y": 4165.461
+        },
+        {
+          "x": 5257.002,
+          "y": 4195.249
+        },
+        {
+          "x": 5262.308,
+          "y": 4217.562
+        },
+        {
+          "x": 5267.183,
+          "y": 4243.18
+        },
+        {
+          "x": 5269.784,
+          "y": 4265.857
+        },
+        {
+          "x": 5270.179,
+          "y": 4281.818
+        },
+        {
+          "x": 5269.38,
+          "y": 4304.91
+        },
+        {
+          "x": 5267.342,
+          "y": 4331.748
+        },
+        {
+          "x": 5264.92,
+          "y": 4355.534
+        },
+        {
+          "x": 5261.03,
+          "y": 4387.678
+        },
+        {
+          "x": 5256.324,
+          "y": 4421.971
+        },
+        {
+          "x": 5250.951,
+          "y": 4457.842
+        },
+        {
+          "x": 5246.275,
+          "y": 4487.29
+        },
+        {
+          "x": 5240.085,
+          "y": 4524.56
+        },
+        {
+          "x": 5233.651,
+          "y": 4561.808
+        },
+        {
+          "x": 5228.431,
+          "y": 4591.207
+        },
+        {
+          "x": 5221.94,
+          "y": 4626.977
+        },
+        {
+          "x": 5215.63,
+          "y": 4661.126
+        },
+        {
+          "x": 5210.812,
+          "y": 4686.894
+        },
+        {
+          "x": 5205.206,
+          "y": 4716.686
+        },
+        {
+          "x": 5200.202,
+          "y": 4743.259
+        },
+        {
+          "x": 5196.735,
+          "y": 4761.814
+        },
+        {
+          "x": 5193.197,
+          "y": 4781.152
+        },
+        {
+          "x": 5190.684,
+          "y": 4795.67
+        }
+      ]
+    },
+    {
+      "id": "region-10",
+      "name": "water 10",
+      "biome": "lake",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 1343.8843732586643,
+          "y": 1593.696682428992
+        },
+        {
+          "x": 1360.4360535056344,
+          "y": 1601.5037974369122
+        },
+        {
+          "x": 1389.5654599793725,
+          "y": 1616.0066815765654
+        },
+        {
+          "x": 1427.5463761365563,
+          "y": 1635.1875439770856
+        },
+        {
+          "x": 1466.520729400739,
+          "y": 1654.824355759233
+        },
+        {
+          "x": 1515.9323656380868,
+          "y": 1679.4284612617944
+        },
+        {
+          "x": 1568.7523600122502,
+          "y": 1705.1696403276712
+        },
+        {
+          "x": 1616.3107707323234,
+          "y": 1727.6746920137466
+        },
+        {
+          "x": 1670.5425237613933,
+          "y": 1752.2878229905573
+        },
+        {
+          "x": 1722.9018104113109,
+          "y": 1774.5660854082787
+        },
+        {
+          "x": 1771.6154088754486,
+          "y": 1793.315000077861
+        },
+        {
+          "x": 1809.9333391802825,
+          "y": 1805.892055589136
+        },
+        {
+          "x": 1847.5637131831638,
+          "y": 1814.800827900699
+        },
+        {
+          "x": 1882.205690105213,
+          "y": 1818.1277457411268
+        },
+        {
+          "x": 1917.9431965099743,
+          "y": 1818.5754990129396
+        },
+        {
+          "x": 1964.127956937129,
+          "y": 1816.8397861021476
+        },
+        {
+          "x": 2014.8686740727774,
+          "y": 1813.2054343273721
+        },
+        {
+          "x": 2062.0010542616583,
+          "y": 1808.8565049511592
+        },
+        {
+          "x": 2117.8024756297837,
+          "y": 1802.9894643627597
+        },
+        {
+          "x": 2174.381812233982,
+          "y": 1796.6326047189311
+        },
+        {
+          "x": 2230.3828615434127,
+          "y": 1790.2683136802325
+        },
+        {
+          "x": 2277.829528967477,
+          "y": 1785.0760274677177
+        },
+        {
+          "x": 2329.030785739865,
+          "y": 1780.0077838919551
+        },
+        {
+          "x": 2375.6504305378617,
+          "y": 1776.324899220603
+        },
+        {
+          "x": 2411.528382782351,
+          "y": 1774.6125211594026
+        },
+        {
+          "x": 2445.4641635015346,
+          "y": 1774.7760525636952
+        },
+        {
+          "x": 2479.042855559427,
+          "y": 1778.0283182662893
+        },
+        {
+          "x": 2514.398006911245,
+          "y": 1783.6613438178767
+        },
+        {
+          "x": 2560.042936519471,
+          "y": 1792.6849812755374
+        },
+        {
+          "x": 2609.888653847545,
+          "y": 1803.8045249715253
+        },
+        {
+          "x": 2662.553107249528,
+          "y": 1816.324504600427
+        },
+        {
+          "x": 2709.885534987588,
+          "y": 1827.8823730641102
+        },
+        {
+          "x": 2764.21460833615,
+          "y": 1841.1581414841935
+        },
+        {
+          "x": 2817.5323770320733,
+          "y": 1853.8435328984824
+        },
+        {
+          "x": 2862.3360866516114,
+          "y": 1863.9156617413273
+        },
+        {
+          "x": 2910.2848488962622,
+          "y": 1873.635920392055
+        },
+        {
+          "x": 2953.594856192138,
+          "y": 1880.7814074732587
+        },
+        {
+          "x": 2986.8293802693024,
+          "y": 1884.3617209308768
+        },
+        {
+          "x": 3021.666642813436,
+          "y": 1884.7445765965124
+        },
+        {
+          "x": 3061.9684914169457,
+          "y": 1881.3713497117785
+        },
+        {
+          "x": 3107.5855462283694,
+          "y": 1875.0546884899427
+        },
+        {
+          "x": 3150.9679664369546,
+          "y": 1867.6939889346897
+        },
+        {
+          "x": 3203.391952666452,
+          "y": 1857.834443179115
+        },
+        {
+          "x": 3257.6186702244077,
+          "y": 1847.1173221927468
+        },
+        {
+          "x": 3305.511470405664,
+          "y": 1837.600298301913
+        },
+        {
+          "x": 3359.5556105815986,
+          "y": 1827.2067661795859
+        },
+        {
+          "x": 3411.5658676609687,
+          "y": 1818.0164128978265
+        },
+        {
+          "x": 3454.3184613372346,
+          "y": 1811.5250296420143
+        },
+        {
+          "x": 3498.738963609707,
+          "y": 1806.5128206601864
+        },
+        {
+          "x": 3536.940022674757,
+          "y": 1804.7119991742077
+        },
+        {
+          "x": 3566.6435685527654,
+          "y": 1806.2272313227734
+        },
+        {
+          "x": 3595.2824878107217,
+          "y": 1809.593424892345
+        },
+        {
+          "x": 3633.4307123439976,
+          "y": 1815.5222669164027
+        },
+        {
+          "x": 3676.485729844524,
+          "y": 1823.3563338502752
+        },
+        {
+          "x": 3717.516263212381,
+          "y": 1831.5093570700546
+        },
+        {
+          "x": 3767.5075740705556,
+          "y": 1842.0075025047684
+        },
+        {
+          "x": 3820.028566856289,
+          "y": 1853.4416748650817
+        },
+        {
+          "x": 3867.433701031444,
+          "y": 1863.9503951055094
+        },
+        {
+          "x": 3922.5563382811056,
+          "y": 1876.2347595869421
+        },
+        {
+          "x": 3977.927382797341,
+          "y": 1888.4908340901518
+        },
+        {
+          "x": 4032.762750298301,
+          "y": 1900.3851085723297
+        },
+        {
+          "x": 4079.6900207128224,
+          "y": 1910.2308460519064
+        },
+        {
+          "x": 4131.422245607472,
+          "y": 1920.5440883416095
+        },
+        {
+          "x": 4180.38997658763,
+          "y": 1929.5340613671506
+        },
+        {
+          "x": 4220.376701299269,
+          "y": 1936.052758551551
+        },
+        {
+          "x": 4262.155470488607,
+          "y": 1941.661494521647
+        },
+        {
+          "x": 4299.089293662139,
+          "y": 1944.9723282747266
+        },
+        {
+          "x": 4325.1302310930905,
+          "y": 1946.1562672108105
+        },
+        {
+          "x": 4360.281101539053,
+          "y": 1946.9892686431301
+        },
+        {
+          "x": 4400.695270112449,
+          "y": 1947.3199620764415
+        },
+        {
+          "x": 4445.807185561129,
+          "y": 1947.1946098577384
+        },
+        {
+          "x": 4488.669818045216,
+          "y": 1946.7436422544383
+        },
+        {
+          "x": 4540.999558136253,
+          "y": 1945.8782242165678
+        },
+        {
+          "x": 4596.321445504573,
+          "y": 1944.680740485593
+        },
+        {
+          "x": 4646.712530758186,
+          "y": 1943.3944629340679
+        },
+        {
+          "x": 4706.02479219462,
+          "y": 1941.6881341834887
+        },
+        {
+          "x": 4766.601747106892,
+          "y": 1939.7729044917132
+        },
+        {
+          "x": 4820.169188181063,
+          "y": 1937.9589078945726
+        },
+        {
+          "x": 4881.48802556225,
+          "y": 1935.7649123373312
+        },
+        {
+          "x": 4942.332912345441,
+          "y": 1933.4840550550873
+        },
+        {
+          "x": 5002.103298501103,
+          "y": 1931.1583015210394
+        },
+        {
+          "x": 5053.043705795869,
+          "y": 1929.1207252469233
+        },
+        {
+          "x": 5109.163087737139,
+          "y": 1926.8262601748684
+        },
+        {
+          "x": 5162.468291331472,
+          "y": 1924.6099196023774
+        },
+        {
+          "x": 5206.327020550704,
+          "y": 1922.7676790858911
+        },
+        {
+          "x": 5252.720378826535,
+          "y": 1920.8127482308557
+        },
+        {
+          "x": 5294.559331493941,
+          "y": 1919.0580013740464
+        },
+        {
+          "x": 5326.950477784013,
+          "y": 1917.7206127795855
+        },
+        {
+          "x": 5358.6028734777665,
+          "y": 1916.4567873675553
+        },
+        {
+          "x": 5383.938179675733,
+          "y": 1915.516908190842
+        },
+        {
+          "x": 5399.579190802043,
+          "y": 1885.0059038412141
+        },
+        {
+          "x": 5382.893820324267,
+          "y": 1885.535091809158
+        },
+        {
+          "x": 5357.443126522234,
+          "y": 1886.4792126324448
+        },
+        {
+          "x": 5325.731522215988,
+          "y": 1887.7453872204144
+        },
+        {
+          "x": 5293.31066850606,
+          "y": 1889.0839986259534
+        },
+        {
+          "x": 5251.459621173465,
+          "y": 1890.8392517691443
+        },
+        {
+          "x": 5205.062979449295,
+          "y": 1892.7943209141088
+        },
+        {
+          "x": 5161.215708668527,
+          "y": 1894.6360803976227
+        },
+        {
+          "x": 5107.926912262861,
+          "y": 1896.8517398251315
+        },
+        {
+          "x": 5051.830294204131,
+          "y": 1899.1452747530768
+        },
+        {
+          "x": 4993.530738810943,
+          "y": 1901.4736181083917
+        },
+        {
+          "x": 4941.187087654559,
+          "y": 1903.5059449449125
+        },
+        {
+          "x": 4880.38797443775,
+          "y": 1905.785087662669
+        },
+        {
+          "x": 4819.124811818937,
+          "y": 1907.9770921054276
+        },
+        {
+          "x": 4765.616252893109,
+          "y": 1909.7890955082867
+        },
+        {
+          "x": 4705.11720780538,
+          "y": 1911.7018658165111
+        },
+        {
+          "x": 4645.897469241814,
+          "y": 1913.4055370659323
+        },
+        {
+          "x": 4595.606554495427,
+          "y": 1914.6892595144068
+        },
+        {
+          "x": 4540.422441863748,
+          "y": 1915.8837757834324
+        },
+        {
+          "x": 4488.266181954784,
+          "y": 1916.7463577455615
+        },
+        {
+          "x": 4439.747616763683,
+          "y": 1917.234278365779
+        },
+        {
+          "x": 4400.762729887551,
+          "y": 1917.3200379235584
+        },
+        {
+          "x": 4360.736898460947,
+          "y": 1916.9927313568699
+        },
+        {
+          "x": 4326.153768906909,
+          "y": 1916.1737327891894
+        },
+        {
+          "x": 4300.910706337861,
+          "y": 1915.0276717252734
+        },
+        {
+          "x": 4265.570529511394,
+          "y": 1911.856505478353
+        },
+        {
+          "x": 4224.857298700731,
+          "y": 1906.389241448449
+        },
+        {
+          "x": 4185.5200234123695,
+          "y": 1899.9759386328496
+        },
+        {
+          "x": 4137.087754392528,
+          "y": 1891.0839116583907
+        },
+        {
+          "x": 4085.7299792871777,
+          "y": 1880.8451539480936
+        },
+        {
+          "x": 4032.257916054894,
+          "y": 1869.5968171515744
+        },
+        {
+          "x": 3984.362617202659,
+          "y": 1859.189165909848
+        },
+        {
+          "x": 3929.0736617188945,
+          "y": 1846.951240413058
+        },
+        {
+          "x": 3873.954298968556,
+          "y": 1834.6676048944905
+        },
+        {
+          "x": 3826.4834331437105,
+          "y": 1824.144325134918
+        },
+        {
+          "x": 3773.798425929444,
+          "y": 1812.6744974952314
+        },
+        {
+          "x": 3723.5317367876187,
+          "y": 1802.1186429299455
+        },
+        {
+          "x": 3682.1382701554758,
+          "y": 1793.8936661497248
+        },
+        {
+          "x": 3638.465287656002,
+          "y": 1785.947733083597
+        },
+        {
+          "x": 3599.3655121892784,
+          "y": 1779.872575107655
+        },
+        {
+          "x": 3565.4996952739616,
+          "y": 1776.0059191250439
+        },
+        {
+          "x": 3536.9499773252433,
+          "y": 1774.7120008257923
+        },
+        {
+          "x": 3496.215036390293,
+          "y": 1776.6191793398136
+        },
+        {
+          "x": 3450.273538662765,
+          "y": 1781.7989703579858
+        },
+        {
+          "x": 3406.6761323390315,
+          "y": 1788.4175871021737
+        },
+        {
+          "x": 3354.0663894184017,
+          "y": 1797.7132338204142
+        },
+        {
+          "x": 3299.7145295943355,
+          "y": 1808.165701698087
+        },
+        {
+          "x": 3251.7513297755922,
+          "y": 1817.696677807253
+        },
+        {
+          "x": 3197.668047333548,
+          "y": 1828.3855568208849
+        },
+        {
+          "x": 3145.656033563045,
+          "y": 1838.1680110653103
+        },
+        {
+          "x": 3097.0877460009606,
+          "y": 1846.3249502168555
+        },
+        {
+          "x": 3058.5335085830548,
+          "y": 1851.5686502882215
+        },
+        {
+          "x": 3020.351357186564,
+          "y": 1854.7734234034876
+        },
+        {
+          "x": 2988.9146197306973,
+          "y": 1854.434279069123
+        },
+        {
+          "x": 2957.7071438078615,
+          "y": 1851.0645925267413
+        },
+        {
+          "x": 2915.783151103738,
+          "y": 1844.1440796079453
+        },
+        {
+          "x": 2868.6719133483884,
+          "y": 1834.5923382586725
+        },
+        {
+          "x": 2824.3156229679266,
+          "y": 1824.6204671015175
+        },
+        {
+          "x": 2771.2793916638498,
+          "y": 1812.0018585158064
+        },
+        {
+          "x": 2717.030465012412,
+          "y": 1798.74562693589
+        },
+        {
+          "x": 2662.900465978771,
+          "y": 1785.543732591977
+        },
+        {
+          "x": 2616.663346152455,
+          "y": 1774.5794750284747
+        },
+        {
+          "x": 2566.273063480529,
+          "y": 1763.3390187244624
+        },
+        {
+          "x": 2519.7059930887553,
+          "y": 1754.134656182123
+        },
+        {
+          "x": 2483.039144440573,
+          "y": 1748.2956817337108
+        },
+        {
+          "x": 2446.8898364984657,
+          "y": 1744.8099474363046
+        },
+        {
+          "x": 2410.717617217649,
+          "y": 1744.6234788405973
+        },
+        {
+          "x": 2373.719569462138,
+          "y": 1746.387100779397
+        },
+        {
+          "x": 2326.323214260135,
+          "y": 1750.1302161080448
+        },
+        {
+          "x": 2274.678471032523,
+          "y": 1755.2419725322825
+        },
+        {
+          "x": 2220.096964021868,
+          "y": 1761.2366065141416
+        },
+        {
+          "x": 2170.9861877660182,
+          "y": 1766.825395281069
+        },
+        {
+          "x": 2114.5295243702167,
+          "y": 1773.1685356372402
+        },
+        {
+          "x": 2059.034945738342,
+          "y": 1779.003495048841
+        },
+        {
+          "x": 2012.3593259272227,
+          "y": 1783.310565672628
+        },
+        {
+          "x": 1962.424043062871,
+          "y": 1786.8882138978524
+        },
+        {
+          "x": 1917.5188034900257,
+          "y": 1788.5785009870604
+        },
+        {
+          "x": 1883.558309894787,
+          "y": 1788.1582542588733
+        },
+        {
+          "x": 1852.4362868168362,
+          "y": 1785.199172099301
+        },
+        {
+          "x": 1818.3466608197177,
+          "y": 1777.095944410864
+        },
+        {
+          "x": 1776.0816383985975,
+          "y": 1763.0282980498384
+        },
+        {
+          "x": 1734.222189588689,
+          "y": 1746.7839145917212
+        },
+        {
+          "x": 1682.6514762386066,
+          "y": 1724.8401770094429
+        },
+        {
+          "x": 1628.9632292676765,
+          "y": 1700.4733079862535
+        },
+        {
+          "x": 1581.7476399877498,
+          "y": 1678.130359672329
+        },
+        {
+          "x": 1529.207634361913,
+          "y": 1652.5255387382058
+        },
+        {
+          "x": 1479.9772705992611,
+          "y": 1628.0116442407668
+        },
+        {
+          "x": 1441.0776238634435,
+          "y": 1608.4124560229143
+        },
+        {
+          "x": 1403.0525400206275,
+          "y": 1589.2093184234345
+        },
+        {
+          "x": 1373.5999464943657,
+          "y": 1574.546202563088
+        }
+      ]
+    },
+    {
+      "id": "region-11",
+      "name": "water 11",
+      "biome": "lake",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 1570,
+          "y": 1490
+        },
+        {
+          "x": 1592.8223773359787,
+          "y": 1515.5121614935138
+        },
+        {
+          "x": 1551.6990404152714,
+          "y": 1540.328417726726
+        },
+        {
+          "x": 1521.988560879483,
+          "y": 1563.7718459207465
+        },
+        {
+          "x": 1533.9049284138976,
+          "y": 1585.2029704668985
+        },
+        {
+          "x": 1513.2790817708612,
+          "y": 1604.0372061543353
+        },
+        {
+          "x": 1460.2228022647248,
+          "y": 1619.760804130692
+        },
+        {
+          "x": 1431.8177981890965,
+          "y": 1631.944865631534
+        },
+        {
+          "x": 1409.5748775466102,
+          "y": 1640.2570412205962
+        },
+        {
+          "x": 1369.0323880327912,
+          "y": 1644.470596416034
+        },
+        {
+          "x": 1333.9284815924061,
+          "y": 1644.470596416034
+        },
+        {
+          "x": 1296.9588282277216,
+          "y": 1640.2570412205962
+        },
+        {
+          "x": 1251.024443609628,
+          "y": 1631.944865631534
+        },
+        {
+          "x": 1231.2400558774439,
+          "y": 1619.760804130692
+        },
+        {
+          "x": 1218.37403735835,
+          "y": 1604.0372061543353
+        },
+        {
+          "x": 1168.9087141335367,
+          "y": 1585.2029704668985
+        },
+        {
+          "x": 1136.1007186789423,
+          "y": 1563.7718459207465
+        },
+        {
+          "x": 1156.543322415089,
+          "y": 1540.328417726726
+        },
+        {
+          "x": 1151.9669827858736,
+          "y": 1515.5121614935138
+        },
+        {
+          "x": 1109.5841437154518,
+          "y": 1490
+        },
+        {
+          "x": 1119.2232326911274,
+          "y": 1464.4878385064862
+        },
+        {
+          "x": 1164.6341971777638,
+          "y": 1439.671582273274
+        },
+        {
+          "x": 1163.3574915174524,
+          "y": 1416.2281540792537
+        },
+        {
+          "x": 1155.855771915983,
+          "y": 1394.7970295331015
+        },
+        {
+          "x": 1200.2704492994153,
+          "y": 1375.9627938456647
+        },
+        {
+          "x": 1244.0543279178594,
+          "y": 1360.239195869308
+        },
+        {
+          "x": 1259.3365136258135,
+          "y": 1348.055134368466
+        },
+        {
+          "x": 1289.8984449498387,
+          "y": 1339.7429587794038
+        },
+        {
+          "x": 1332.8317368996811,
+          "y": 1335.529403583966
+        },
+        {
+          "x": 1366.3747127955503,
+          "y": 1335.529403583966
+        },
+        {
+          "x": 1408.350439714192,
+          "y": 1339.7429587794038
+        },
+        {
+          "x": 1445.2619814020989,
+          "y": 1348.055134368466
+        },
+        {
+          "x": 1458.2337334900055,
+          "y": 1360.239195869308
+        },
+        {
+          "x": 1491.2461166047028,
+          "y": 1375.9627938456647
+        },
+        {
+          "x": 1543.39013648808,
+          "y": 1394.7970295331015
+        },
+        {
+          "x": 1547.8751087620224,
+          "y": 1416.2281540792535
+        },
+        {
+          "x": 1533.1567459018022,
+          "y": 1439.671582273274
+        },
+        {
+          "x": 1568.7726553842504,
+          "y": 1464.4878385064862
+        }
+      ]
+    }
+  ],
+  "props": [],
+  "markers": [
+    {
+      "id": "marker-0",
+      "name": "Morrow Coast Player Start",
+      "type": "player_spawn",
+      "x": 2420,
+      "y": 3035,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-1",
+      "name": "Laurel Motor House",
+      "type": "garage",
+      "x": 2420,
+      "y": 3035,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-2",
+      "name": "Larkspur Performance",
+      "type": "garage",
+      "x": 3325,
+      "y": 3055,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-3",
+      "name": "Eastgate Auto Gallery",
+      "type": "dealership",
+      "x": 3838.26,
+      "y": 2611.18,
+      "rotation": 153.43,
+      "properties": {}
+    },
+    {
+      "id": "marker-4",
+      "name": "Parkway Fuel & Coffee",
+      "type": "fuel",
+      "x": 4237.78,
+      "y": 2814.14,
+      "rotation": 45,
+      "properties": {}
+    },
+    {
+      "id": "marker-5",
+      "name": "Willowmere Village",
+      "type": "garage",
+      "x": 1581.38,
+      "y": 2897.44,
+      "rotation": 78.69,
+      "properties": {}
+    },
+    {
+      "id": "marker-6",
+      "name": "Juniper Lookout",
+      "type": "custom",
+      "x": 991.3223874381875,
+      "y": 837.7412914606251,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-7",
+      "name": "Pinecrest Lodge",
+      "type": "custom",
+      "x": 1600,
+      "y": 645,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-8",
+      "name": "Bellwether Marina",
+      "type": "custom",
+      "x": 5239.751128847495,
+      "y": 2814.6774173636495,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-9",
+      "name": "Saltair Motors",
+      "type": "garage",
+      "x": 4961.24,
+      "y": 2904.8,
+      "rotation": 95.71,
+      "properties": {}
+    },
+    {
+      "id": "marker-10",
+      "name": "Seaglass Overlook",
+      "type": "custom",
+      "x": 5114.995341758633,
+      "y": 1190,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-11",
+      "name": "Ashford Raceworks",
+      "type": "race_start",
+      "x": 3425,
+      "y": 3770,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-12",
+      "name": "Drag Staging",
+      "type": "race_start",
+      "x": 4275,
+      "y": 3910,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-13",
+      "name": "Harvest Rest",
+      "type": "fuel",
+      "x": 1296.75,
+      "y": 3975,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-14",
+      "name": "Applecross Farm",
+      "type": "custom",
+      "x": 616.9407374905534,
+      "y": 3204.2351843726383,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-15",
+      "name": "Old Quarry Yard",
+      "type": "custom",
+      "x": 585,
+      "y": 4330,
+      "rotation": 0,
+      "properties": {}
+    }
+  ],
+  "assets": []
+}
