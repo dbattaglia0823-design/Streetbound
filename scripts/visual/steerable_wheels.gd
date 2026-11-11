@@ -2,8 +2,11 @@ extends Node2D
 ## Reusable four-wheel rig for different car silhouettes and display scales.
 ## Wheels are drawn below the car body and inherit its suspension sway.
 const WheelVisual = preload("res://scripts/visual/wheel_visual.gd")
+# Explicit class dependency prevents missing global class registration on
+# Godot 4.6.x cold starts (and preserves resource inspector type safety).
+const AppearanceProfile = preload("res://scripts/vehicle/vehicle_appearance_profile.gd")
 
-@export var appearance: VehicleAppearanceProfile
+@export var appearance: AppearanceProfile
 @export var auto_fit_to_body := true
 # Legacy/manual defaults when a car does not yet have an appearance resource.
 @export_range(8.0, 42.0, 0.5) var front_axle_distance := 27.0
@@ -33,7 +36,7 @@ func _ready() -> void:
 	apply_appearance(appearance)
 
 
-func apply_appearance(profile: VehicleAppearanceProfile) -> void:
+func apply_appearance(profile: AppearanceProfile) -> void:
 	# Safe to call when selecting a different vehicle art asset at runtime.
 	# It only changes render properties; handling, grip and collision are intact.
 	appearance = profile
@@ -58,7 +61,7 @@ func apply_appearance(profile: VehicleAppearanceProfile) -> void:
 	_sync_wheels()
 
 
-func _apply_profile_layout(bounds: Rect2, profile: VehicleAppearanceProfile) -> void:
+func _apply_profile_layout(bounds: Rect2, profile: AppearanceProfile) -> void:
 	var width := bounds.size.x
 	var length := bounds.size.y
 	var min_width := minf(profile.minimum_tire_px.x, profile.maximum_tire_px.x)

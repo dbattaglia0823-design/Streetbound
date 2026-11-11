@@ -4,6 +4,36 @@ on:
     branches: [main]
   pull_request:
 jobs:
+  # The Windows player in the reported logs uses Godot 4.6.3, not the
+  # project's older pinned 4.4.1 CI binary. Validate the exact player release.
+  godot-463-game-startup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.6.3 matching the reported Windows logs
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Cold-import clean game resources and verify typed script compilation
+        run: |
+          set -o pipefail
+          test ! -d .godot
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot463-import.log; then
+            echo "Godot 4.6.3 import reported unresolved script classes" >&2
+            exit 1
+          fi
+      - name: Start real Morrow Coast with ownership, wheel rig, HUD and camera
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/game_startup_smoke_test.gd 2>&1 | tee /tmp/godot463-startup.log
+          grep -q 'REAL GAME STARTUP: PASS' /tmp/godot463-startup.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Invalid assignment of property' /tmp/godot463-startup.log; then
+            echo "Game failed to fully initialize in Godot 4.6.3" >&2
+            exit 1
+          fi
   physics-and-world:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
