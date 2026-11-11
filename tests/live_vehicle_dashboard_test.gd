@@ -3,6 +3,7 @@ extends SceneTree
 ## including boost-equipped and naturally aspirated model swaps.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
+const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
 var failures: Array[String] = []
 
 
@@ -43,6 +44,42 @@ func run() -> void:
 		dash.position.x >= 0.0 and dash.position.y >= 0.0 and \
 		dash.position.x + dash.size.x * dash.scale.x <= viewport_size.x + 1.0 and \
 		dash.position.y + dash.size.y * dash.scale.y <= viewport_size.y + 1.0)
+	check("dashboard_is_substantially_smaller", dash.size.x <= 600.0 and
+		dash.size.y <= 190.0, dash.size)
+	check("rpm_uses_arc_instead_of_duplicate_horizontal_bar",
+		dash.rpm_bar != null and not dash.rpm_bar.visible)
+	var labels: Array[Label] = []
+	for child in dash.get_children():
+		if child is Label and child.visible:
+			labels.append(child as Label)
+	var collisions: Array[String] = []
+	for i in labels.size():
+		for j in range(i+1,labels.size()):
+			if labels[i].get_rect().intersects(labels[j].get_rect()):
+				collisions.append("%s %s / %s %s" % [labels[i].text,
+					labels[i].get_rect(),labels[j].text,labels[j].get_rect()])
+	check("dashboard_label_rects_never_overlap",collisions.is_empty(),collisions)
+	var meter_size: Vector2 = DashboardScript.METER_SIZE
+	var vertical := meter_size.y > meter_size.x * 3.0 and meter_size.y < 70.0
+	var tracks: Array[Rect2] = [
+		Rect2(DashboardScript.LOAD_METER_AT,meter_size),
+		Rect2(DashboardScript.THROTTLE_METER_AT,meter_size),
+		Rect2(DashboardScript.BRAKE_METER_AT,meter_size)
+	]
+	var clear_tracks := true
+	for track in tracks:
+		clear_tracks = clear_tracks and Rect2(Vector2.ZERO,dash.size).encloses(track)
+		for item in labels:
+			clear_tracks = clear_tracks and not item.get_rect().intersects(track)
+	check("three_small_vertical_bars_avoid_all_text",
+		vertical and clear_tracks,[tracks,clear_tracks])
+	var smaller_windows_fit := true
+	for sample in [Vector2(1280,800),Vector2(960,540),Vector2(640,360),Vector2(360,240)]:
+		var scale_factor: float = dash._layout_factor_for(sample)
+		smaller_windows_fit = smaller_windows_fit and \
+			16.0+dash.size.x*scale_factor <= sample.x and \
+			dash.size.y*scale_factor+20.0 <= sample.y
+	check("compact_dashboard_remains_inside_smaller_viewports",smaller_windows_fit)
 	car.linear_velocity = Vector2.UP * 30.0
 	car.longitudinal_speed = 30.0
 	car.lateral_speed = 2.3
@@ -76,7 +113,7 @@ func run() -> void:
 	check("ordinary_stock_engine_has_no_turbo_calibration",
 		float(na.get("boost_max_psi",0.0)) == 0.0)
 	check("boost_hides_for_naturally_aspirated_engine",
-		not bool(dash.boost_visible) and dash.boost_label.text == "ENGINE LOAD")
+		not bool(dash.boost_visible) and dash.boost_label.text == "LOAD")
 	# Test the actual pressure model using an isolated, unobstructed car.
 	var stand: VehicleController2D = load("res://scenes/vehicle.tscn").instantiate()
 	root.add_child(stand)
@@ -105,7 +142,7 @@ func run() -> void:
 	car.throttle = 0.65
 	hud._process(0.0)
 	check("turbo_instruments_enabled_after_car_swap",
-		dash.boost_visible and dash.boost_label.text == "BOOST PRESSURE" and \
+		dash.boost_visible and dash.boost_label.text == "BOOST" and \
 		dash.boost_value.text == "9.2 PSI")
 	check("boost_follows_physical_charge_pressure",
 		absf(dash.boost_fraction - 9.2 / car.config.boost_max_psi) < 0.001)
@@ -115,7 +152,7 @@ func run() -> void:
 	hud._process(0.0)
 	check("non_turbo_does_not_retain_old_boost",
 		not dash.boost_visible and car.boost_psi == 0.0 and \
-		dash.boost_label.text == "ENGINE LOAD")
+		dash.boost_label.text == "LOAD")
 	car.reversing = true
 	car.transmission.automatic = true
 	hud._process(0.0)

@@ -3,10 +3,16 @@ extends Control
 ## physics; no fabricated oil/fuel/temperature data. Optional turbo models use
 ## the controller's modeled charge pressure.
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
-const SIZE := Vector2(810.0,238.0)
-const SPEED_CENTER := Vector2(119,132)
-const RPM_CENTER := Vector2(348,132)
-const GAUGE_RADIUS := 77.0
+# Compact bottom-left instrument cluster. Each element has a dedicated
+# non-overlapping region; viewport changes only apply a uniform scale.
+const SIZE := Vector2(590.0,184.0)
+const SPEED_CENTER := Vector2(82.0,99.0)
+const RPM_CENTER := Vector2(211.0,99.0)
+const GAUGE_RADIUS := 49.0
+const METER_SIZE := Vector2(13.0,55.0)
+const LOAD_METER_AT := Vector2(393.0,72.0)
+const THROTTLE_METER_AT := Vector2(472.0,72.0)
+const BRAKE_METER_AT := Vector2(545.0,72.0)
 const ARC_START := deg_to_rad(150.0)
 const ARC_END := deg_to_rad(390.0)
 const BACK := Color("#101c24")
@@ -78,42 +84,73 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 
 
 func _build_labels() -> void:
-	_label("LIVE  /  STREETBOUND",Vector2(20,11),Vector2(233,29),14,GOLD)
-	model_label = _label("VEHICLE",Vector2(465,11),Vector2(326,29),12,LIGHT,HORIZONTAL_ALIGNMENT_RIGHT)
-	speed_label = _label("000",Vector2(57,103),Vector2(124,61),48,LIGHT,HORIZONTAL_ALIGNMENT_CENTER)
-	speed_unit_label = _label("MPH",Vector2(89,158),Vector2(61,22),12,CYAN,HORIZONTAL_ALIGNMENT_CENTER)
-	rpm_label = _label("0950",Vector2(287,109),Vector2(121,51),37,LIGHT,HORIZONTAL_ALIGNMENT_CENTER)
-	_label("RPM",Vector2(325,158),Vector2(55,22),12,MINT,HORIZONTAL_ALIGNMENT_CENTER)
-	_label("GEAR",Vector2(220,81),Vector2(50,23),11,MUTED,HORIZONTAL_ALIGNMENT_CENTER)
-	gear_label = _label("1",Vector2(215,101),Vector2(58,52),37,LIGHT,HORIZONTAL_ALIGNMENT_CENTER)
-	mode_label = _label("AUTO",Vector2(213,151),Vector2(61,22),10,GOLD,HORIZONTAL_ALIGNMENT_CENTER)
-	boost_label = _label("ENGINE LOAD",Vector2(488,54),Vector2(180,23),12,MUTED)
-	boost_value = _label("0%",Vector2(666,49),Vector2(112,35),23,LIGHT,HORIZONTAL_ALIGNMENT_RIGHT)
-	_label("THROTTLE",Vector2(488,101),Vector2(153,18),11,MUTED)
-	throttle_value = _label("0%",Vector2(698,101),Vector2(78,18),12,LIGHT,HORIZONTAL_ALIGNMENT_RIGHT)
-	_label("BRAKE",Vector2(488,139),Vector2(153,18),11,MUTED)
-	brake_value = _label("0%",Vector2(698,139),Vector2(78,18),12,LIGHT,HORIZONTAL_ALIGNMENT_RIGHT)
-	tire_value = _label("TIRES / GRIP",Vector2(488,177),Vector2(288,19),12,LIGHT)
-	surface_value = _label("ASPHALT",Vector2(22,207),Vector2(435,19),11,MUTED)
-	race_value = _label("0.00 G",Vector2(489,207),Vector2(285,20),12,GOLD,HORIZONTAL_ALIGNMENT_RIGHT)
+	# Top line: short identity and current power, without repeating the rest of
+	# the HUD or allowing either caption into the circular instruments.
+	_label("DRIVE", Vector2(16,7), Vector2(94,22), 12, GOLD)
+	model_label = _label("VEHICLE", Vector2(273,7), Vector2(301,22), 11,
+		LIGHT, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	# Main essentials stay readable but no longer dominate the lower screen.
+	speed_label = _label("000", Vector2(39,70), Vector2(86,38), 34,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	speed_unit_label = _label("MPH", Vector2(58,121), Vector2(49,17), 10,
+		CYAN, HORIZONTAL_ALIGNMENT_CENTER)
+	rpm_label = _label("0950", Vector2(167,76), Vector2(88,36), 27,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	_label("RPM", Vector2(189,121), Vector2(45,17), 10,
+		MINT, HORIZONTAL_ALIGNMENT_CENTER)
+	_label("GEAR", Vector2(278,54), Vector2(66,17), 10,
+		MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	gear_label = _label("1", Vector2(284,78), Vector2(54,42), 32,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	mode_label = _label("AUTO", Vector2(279,133), Vector2(64,17), 10,
+		GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+
+	# Small, independent vertical gauges: captions above, bottom-up meters in
+	# the middle and real values below. No labels intersect the bars or dials.
+	boost_label = _label("LOAD", Vector2(367,47), Vector2(65,17), 10,
+		MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	boost_value = _label("0%", Vector2(365,132), Vector2(68,19), 11,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	_label("THROTTLE", Vector2(439,47), Vector2(80,17), 10,
+		MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	throttle_value = _label("0%", Vector2(446,132), Vector2(66,19), 11,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+	_label("BRAKE", Vector2(519,47), Vector2(60,17), 10,
+		MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	brake_value = _label("0%", Vector2(520,132), Vector2(57,19), 11,
+		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
+
+	# Bottom strip: only actionable traction and driving/race information.
+	# Surface is already identified in the top-left HUD.
+	surface_value = _label("GRIP 1.00", Vector2(16,161), Vector2(149,19), 10, MUTED)
+	tire_value = _label("SPIN 0% / SLIP 0°", Vector2(172,161), Vector2(169,19),
+		10, LIGHT)
+	race_value = _label("0.00 G", Vector2(343,161), Vector2(233,19), 10,
+		GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	# Keep the RPMBar compatibility readout for tests and integrations but
+	# do not draw a duplicate horizontal gauge: the RPM arc/shift lights show it.
 	rpm_bar = ProgressBar.new()
 	rpm_bar.name = "RPMBar"
-	rpm_bar.position = Vector2(285,192)
-	rpm_bar.size = Vector2(126,5)
 	rpm_bar.max_value = 100.0
 	rpm_bar.show_percentage = false
+	rpm_bar.visible = false
 	rpm_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(rpm_bar)
 
 
+func _layout_factor_for(viewport_size: Vector2) -> float:
+	return maxf(0.05, minf(1.0, minf(
+		(viewport_size.x - 32.0) / SIZE.x,
+		(viewport_size.y - 28.0) / SIZE.y)))
+
+
 func _layout() -> void:
 	var viewport_size := get_viewport_rect().size
-	var factor := minf(1.0,minf((viewport_size.x - 25.0)/SIZE.x,
-		(viewport_size.y - 30.0)/560.0))
-	factor = maxf(0.35,factor)
+	var factor := _layout_factor_for(viewport_size)
 	scale = Vector2.ONE * factor
-	position = Vector2(20.0,viewport_size.y - SIZE.y * factor - 16.0)
-
+	position = Vector2(16.0, maxf(8.0, viewport_size.y - SIZE.y * factor - 12.0))
 
 func _refresh_vehicle_configuration() -> void:
 	if not is_instance_valid(vehicle) or vehicle.config == null:
@@ -123,7 +160,7 @@ func _refresh_vehicle_configuration() -> void:
 	# Scale the speed dial with the rated vehicle power, not current speed.
 	_speed_max_mph = clampf(ceilf(sqrt(vehicle.config.engine_power_kw/130.0)*4.5)*20.0,
 		140.0,360.0)
-	boost_label.text = "BOOST PRESSURE" if boost_visible else "ENGINE LOAD"
+	boost_label.text = "BOOST" if boost_visible else "LOAD"
 	_last_speed_mps = vehicle.longitudinal_speed
 	_longitudinal_g = 0.0
 
@@ -168,11 +205,11 @@ func _update_readouts(dt: float) -> void:
 		grip_color = ALERT
 	elif vehicle.wheel_spin > 0.06:
 		grip_color = GOLD
-	tire_value.text = "WHEELSPIN %d%%   /   SLIP %.0f°" % [
+	tire_value.text = "SPIN %d%% / SLIP %.0f°" % [
 		roundi(vehicle.wheel_spin*100.0),absf(rad_to_deg(vehicle.slip_angle))]
 	tire_value.add_theme_color_override("font_color",grip_color)
-	surface_value.text = "%s   /   GRIP %.2f   /   %s" % [
-		vehicle.surface,vehicle.config.tire_grip*vehicle.surface_grip,
+	surface_value.text = "GRIP %.2f / %s" % [
+		vehicle.config.tire_grip*vehicle.surface_grip,
 		["FWD","RWD","AWD"][clampi(int(vehicle.config.drivetrain),0,2)]]
 	throttle_value.text = "%d%%" % roundi(vehicle.throttle*100.0)
 	brake_value.text = "%d%%" % roundi(vehicle.brake*100.0)
@@ -201,8 +238,8 @@ func _update_readouts(dt: float) -> void:
 	else:
 		race_value.text = "%+.2f G   /   %s" % [
 			_longitudinal_g,"HANDBRAKE" if vehicle.handbrake > 0.15 else "LIVE"]
-	model_label.text = "RACING  /  LIVE TELEMETRY" if race_state == "running" else \
-		"ENGINE  /  %d HP  /  %d LB-FT" % [
+	model_label.text = "RACE / LIVE" if race_state == "running" else \
+		"%d HP  /  %d LB-FT" % [
 			roundi(vehicle.config.engine_power_kw*1.34102),
 			roundi(vehicle.config.engine_torque_nm*0.73756)]
 	queue_redraw()
@@ -213,55 +250,51 @@ func _draw() -> void:
 	frame.bg_color = Color(0.045,0.078,0.101,0.96)
 	frame.border_color = Color("#385159")
 	frame.set_border_width_all(1)
-	frame.set_corner_radius_all(16)
-	frame.set_content_margin_all(10)
-	draw_style_box(frame,Rect2(Vector2.ZERO,SIZE))
-	draw_line(Vector2(19,44),Vector2(792,44),Color("#304952"),1.0,true)
-	draw_line(Vector2(465,50),Vector2(465,198),Color("#304952"),1.0,true)
-	draw_line(Vector2(19,200),Vector2(790,200),Color("#304952"),1.0,true)
+	frame.set_corner_radius_all(12)
+	frame.set_content_margin_all(8)
+	draw_style_box(frame, Rect2(Vector2.ZERO, SIZE))
+	draw_line(Vector2(14,33),Vector2(576,33),Color("#304952"),1.0,true)
+	draw_line(Vector2(355,41),Vector2(355,152),Color("#304952"),1.0,true)
+	draw_line(Vector2(14,155),Vector2(576,155),Color("#304952"),1.0,true)
 	_gauge(SPEED_CENTER,_speed_fraction,CYAN,false)
 	_gauge(RPM_CENTER,_rpm_fraction,MINT,true)
-	# Shift lights use the real RPM/redline ratio; amber -> red near limiter.
-	for i in range(7):
-		var lit := _rpm_fraction >= (0.63 + float(i)*0.052)
-		var color := ALERT if i >= 5 else (GOLD if i >= 3 else MINT)
-		draw_circle(Vector2(288 + i*20,52),5.0,
+	# Six restrained shift lights below the RPM arc, never over its digits.
+	for i in range(6):
+		var lit := _rpm_fraction >= (0.68 + float(i)*0.052)
+		var color := ALERT if i >= 4 else (GOLD if i >= 2 else MINT)
+		draw_circle(Vector2(181 + i*12,146),3.0,
 			color if lit else Color("#263b42"))
-	# Right-hand bar instrumentation
-	_meter(Vector2(489,84),Vector2(286,7),boost_fraction,CYAN if boost_visible else MINT)
-	_meter(Vector2(489,124),Vector2(286,7),_throttle_fraction,MINT)
-	_meter(Vector2(489,162),Vector2(286,7),_brake_fraction,GOLD)
-	# Engine redline zone stays visible even when revs are low.
-	draw_rect(Rect2(Vector2(285,192),Vector2(126,5)),Color("#253b42"),false,1.0)
+	# All three short gauges fill from bottom to top.
+	_vertical_meter(LOAD_METER_AT,boost_fraction,CYAN if boost_visible else MINT)
+	_vertical_meter(THROTTLE_METER_AT,_throttle_fraction,MINT)
+	_vertical_meter(BRAKE_METER_AT,_brake_fraction,GOLD)
 
 
-func _meter(at: Vector2, dimensions: Vector2, fraction: float, color: Color) -> void:
-	draw_rect(Rect2(at,dimensions),Color("#253740"),true)
-	if fraction > 0.001:
-		draw_rect(Rect2(at,Vector2(dimensions.x*clampf(fraction,0,1),dimensions.y)),
-			color,true)
+func _vertical_meter(at: Vector2, fraction: float, color: Color) -> void:
+	draw_rect(Rect2(at,METER_SIZE),Color("#253740"),true)
+	var fill_height := METER_SIZE.y * clampf(fraction,0.0,1.0)
+	if fill_height > 0.01:
+		draw_rect(Rect2(Vector2(at.x,at.y+METER_SIZE.y-fill_height),
+			Vector2(METER_SIZE.x,fill_height)),color,true)
+	draw_rect(Rect2(at,METER_SIZE),Color("#48616a"),false,1.0)
 
 
 func _gauge(center: Vector2, value: float, color: Color, tachometer: bool) -> void:
-	draw_arc(center,GAUGE_RADIUS,ARC_START,ARC_END,64,Color("#293f48"),8.0,true)
+	draw_arc(center,GAUGE_RADIUS,ARC_START,ARC_END,52,Color("#293f48"),6.0,true)
 	draw_arc(center,GAUGE_RADIUS,ARC_START,
-		lerpf(ARC_START,ARC_END,clampf(value,0.0,1.0)),40,color,8.0,true)
+		lerpf(ARC_START,ARC_END,clampf(value,0.0,1.0)),36,color,6.0,true)
 	if tachometer:
 		draw_arc(center,GAUGE_RADIUS+1,lerpf(ARC_START,ARC_END,0.88),
-			ARC_END,18,ALERT,3.0,true)
+			ARC_END,14,ALERT,2.5,true)
 	for i in range(13):
 		var fraction := float(i)/12.0
 		var angle := lerpf(ARC_START,ARC_END,fraction)
 		var direction := Vector2(cos(angle),sin(angle))
-		var length := 11.0 if i%3 == 0 else 6.0
-		draw_line(center+direction*(GAUGE_RADIUS-16),
-			center+direction*(GAUGE_RADIUS-16+length),
+		var tick_length := 8.0 if i%3 == 0 else 4.0
+		draw_line(center+direction*(GAUGE_RADIUS-12),
+			center+direction*(GAUGE_RADIUS-12+tick_length),
 			ALERT if tachometer and fraction>=0.9 else MUTED,
-			2.0 if i%3==0 else 1.0,true)
-	var needle_angle := lerpf(ARC_START,ARC_END,clampf(value,0,1))
+			1.4 if i%3==0 else 1.0,true)
+	var needle_angle := lerpf(ARC_START,ARC_END,clampf(value,0.0,1.0))
 	var needle_dir := Vector2(cos(needle_angle),sin(needle_angle))
-	draw_line(center+needle_dir*50.0,center+needle_dir*65.0,color,4.0,true)
-	var maximum := vehicle.config.redline_rpm/1000.0 if tachometer else _speed_max_mph
-	var text := "%d" % roundi(maximum) if not tachometer else "%.1f" % maximum
-	draw_string(ThemeDB.fallback_font,center+Vector2(39,61),text,
-		HORIZONTAL_ALIGNMENT_LEFT,45,11,MUTED)
+	draw_line(center+needle_dir*29.0,center+needle_dir*42.0,color,3.0,true)

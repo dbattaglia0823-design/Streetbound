@@ -66,6 +66,15 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-size.log
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-size.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-traffic-size.log
+      - name: Validate compact dashboard, vertical meters, zero text overlap and telemetry on Godot 4.6.3
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/live_vehicle_dashboard_test.gd 2>&1 | tee /tmp/streetbound-dashboard-layout.log
+          grep -q 'LIVE DRIVING DASHBOARD: PASS' /tmp/streetbound-dashboard-layout.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/streetbound-dashboard-layout.log; then
+            echo "Dashboard rendered incorrectly or lost telemetry in Godot 4.6.3" >&2
+            exit 1
+          fi
   physics-and-world:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
