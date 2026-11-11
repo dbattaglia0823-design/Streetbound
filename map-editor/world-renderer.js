@@ -131,13 +131,25 @@ function drawRoads(ctx,roads,bounds,options){
   // creation order, preventing the loose shoulders covering asphalt.
   const pieces=roadPieces(roads);
   const order=[...roads].sort((a,b)=>Number(isLoose(b))-Number(isLoose(a)));
+  const displayPaths=road=>{
+    const baked=options?.runtimePreview?.roads?.get(road.id);
+    // Render the precise Godot-baked centerline until the user changes any
+    // control point or surface. Edited roads immediately use the live spline.
+    if(!baked||isLoose(road)||road.points.length!==baked.anchors.length||
+      Math.abs(road.width-baked.width)>.001 ||
+      road.surface.toUpperCase()!==baked.surface ||
+      !road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
+        Math.abs(p.y-baked.anchors[i][1])<.005))
+      return pieces.get(road.id)||[];
+    return [baked.points];
+  };
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of pieces.get(road.id)||[])drawRoadBase(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadBase(ctx,road,path);
   }
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of pieces.get(road.id)||[])drawRoadLines(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
   // Every crossing/T-junction is now repaved AFTER lane markings. The
   // polygon joins the roadway footprints and erases overlapping painted lines.
