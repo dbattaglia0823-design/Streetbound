@@ -45,7 +45,7 @@ func run() -> void:
 		found[id] = true
 		valid = valid and expected_names.has(name) and \
 			Pending.find_by_id(id).id == id and \
-			not Catalog.find_by_id(id) and \
+			Catalog.find_by_id(id).is_empty() and \
 			Synth.family_supported(str(profile.audio_family)) and \
 			str(profile.audio_status) == "prepared_unreleased" and \
 			float(profile.audio_aggression) >= 0.0 and \
