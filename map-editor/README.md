@@ -86,6 +86,38 @@ traversableCenterlines are separated across paved crossings. No false
 dirt-to-pavement connections are exported. Traffic AI must use the
 traversable centerlines rather than the author's unbroken control spline.
 
+## Increasing the existing map size
+
+Open **Game Map** in the editor and use **Expand Game Map** under World
+details. Enter a larger Width to extend the **east (+X) edge** and/or a
+larger Height to extend the **south (+Y) edge**, then click **Expand map**.
+The editor refreshes the overview and keeps this change in Undo/Redo until
+you choose **Apply to Game**. This action writes the updated source and
+rebakes the playable world as usual.
+
+Morrow Coast starts at **6,400 × 4,800 metres**. Expansion is supported
+up to **9,600 × 7,200 metres**, in steps of 100 metres in the UI. It is
+**growth only**: the west/north origin always stays (0,0), no existing
+objects are repositioned, and no roads, building dimensions, region IDs,
+garage positions or road samples are scaled. The old map remains fully
+playable. New room to the east is ocean/coast; new room south is natural
+land with sparse, deterministic vegetation and a continuous shoreline.
+Build new roads and districts there using the existing Map Builder tools.
+The existing world is not automatically stretched or tiled into the new
+area.
+
+The first 6,400 × 4,800 metres are generated using the exact original
+source coastline, procedural RNG sequence, props, buildings, and road
+layout. Added scenery uses an independent coordinate-seeded generator
+and never consumes the original random sequence. Future expansions
+reproduce the same trees in previously added areas.
+
+The project server rejects shrinking, oversized bounds or overwriting a
+newer map revision; failed rebakes restore the playable world and
+authoring file. Commit both the edited source and rebuilt world files to
+Git, restart Streetbound, and check the new area in the actual game.
+Large maps use more storage, streaming chunks, and rendering resources.
+
 ## Production-world editing notes
 
 Morrow Coast has more baked objects than authorable control points. The
