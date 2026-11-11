@@ -154,7 +154,19 @@ function render(){
   if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
   const roadSnapPreview=tool==='road'&&hover&&$('road-smart-snap').checked?
     snapEnd(hover,$('road-surface').value):null;
-  drawEditorOverlay(ctx,doc,{selection,
+  const selected=selection?getEntity(doc,selection.id):null;
+  let alignmentPreview=null;
+  if(selected?.type==='props'&&$('show-road-clearances').checked){
+    try{
+      const proposed=placeBesideRoad(doc,selected.item,
+        {snap:true,align:true,maxSnapDistance:1500});
+      const displacement=distance(proposed,selected.item);
+      if(displacement>.1)
+        alignmentPreview={from:selected.item,to:proposed,
+          radius:placementFootprint(doc,proposed)};
+    }catch{/* No safe projected alignment; the explicit action will report it. */}
+  }
+  drawEditorOverlay(ctx,doc,{selection,alignmentPreview,
     hover:draft?(roadSnapPreview?.point||hover):null,draft,zoom,roadsidePreview,
     roadSnapPreview:roadSnapPreview?.snapped?{from:hover,to:roadSnapPreview.point,
       kind:roadSnapPreview.snapped.kind}:null,
@@ -860,6 +872,10 @@ $('snap-selected-roadside').addEventListener('click',()=>{
   try{
     const before=doc;
     const placed=placeBesideRoad(doc,found.item,{snap:true,align:true,maxSnapDistance:1500});
+    const travel=distance(placed,found.item);
+    if(travel>40&&!window.confirm(
+      'Align '+found.item.name+' to the road '+Math.round(travel)+
+      ' world units away? This only moves the selected object and can be undone.'))return;
     doc=updateEntity(doc,selection.id,{x:placed.x,y:placed.y,rotation:placed.rotation});
     if(before!==doc)makeSnapshot(before,'Aligned scenery with the road and cleared the shoulder.');
     $('roadside-status').textContent='Selected scenery checked against nearby roads.';
