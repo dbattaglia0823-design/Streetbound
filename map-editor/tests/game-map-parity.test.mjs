@@ -46,6 +46,19 @@ test('Save to Game uses the live project transaction, not browser-only storage',
   assert.match(editor,/\$\('save-morrow'\)\.click\(\)/);
   assert.match(server,/def transactional_rebuild\(/);
   assert.match(server,/os\.replace\(tmp, EDIT\)/);
-  assert.match(renderer,/preview\?\.junctions/);
-  assert.match(renderer,/j\.roads\.every\(sameRoad\)/);
+  assert.match(renderer,/options\?\.runtimePreview\?\.junctions/);
+  assert.match(renderer,/j\.roads\.every\(unchanged\)/);
+});
+
+test('game preview does not overlay square intersection polygons or simplify ocean',async()=>{
+  const renderer=await file('../world-renderer.js');
+  const runtime=await file('../morrow-runtime-preview.js');
+  const html=await file('../index.html');
+  assert.match(renderer,/drawRuntimeTerrain\(ctx,options\.runtimePreview,doc,drawEdited\)/);
+  assert.match(runtime,/sourceTerrain=\(raw\.terrain\|\|\[\]\)/);
+  assert.match(runtime,/for\(const terrain of preview\.sourceTerrain\)/);
+  assert.match(renderer,/Road strokes already make round intersection junctions/);
+  assert.doesNotMatch(renderer,/stroke\(ctx,j\.polygon,true\)/);
+  assert.doesNotMatch(html,/id="export-png"/);
+  assert.doesNotMatch(html,/>Guide<\/a>/);
 });
