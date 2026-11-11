@@ -295,7 +295,7 @@ func _draw_prop(prop: Dictionary) -> void:
 	if GarageGeometry.is_player_garage(prop):
 		_draw_player_garage(size)
 		return
-	var sprite: Texture2D = Art.sprite(kind,seed_value)
+	var sprite: Texture2D = Art.sprite(str(prop.get("asset_kind",kind)),seed_value)
 	if sprite!=null:
 		var tint := Color.WHITE
 		if kind in ["house","building","warehouse"]:
