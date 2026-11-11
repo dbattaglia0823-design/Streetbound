@@ -21,7 +21,9 @@ var pause_menu
 var player_garage: Node2D
 var dealership_world: Node2D
 var dealership_menu: CanvasLayer
-var vehicle_ownership: VehicleOwnership
+# Use the already-preloaded ownership class instead of relying on the
+# editor's global class cache during startup on Godot 4.6.x.
+var vehicle_ownership: OwnershipScript
 var drag_race: Node2D
 var progression_hud: CanvasLayer
 var vehicle: VehicleController2D
