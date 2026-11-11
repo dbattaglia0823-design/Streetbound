@@ -70,14 +70,38 @@ void fragment() {
 	// Drier higher sand flecks and darker packed patches reuse existing noise,
 	// producing natural shallow depth without another sampled texture.
 	beach *= 1.0 - smoothstep(0.73, 0.96, medium) * 0.045 * terrain_detail;
-	float wave = sin(world_m.y * 1.7 + sin(world_m.x * 0.27) * 1.0);
-	float crest = smoothstep(0.94, 1.0, wave);
-	vec3 lagoon = paint * (1.0 + ((broad - 0.5) * 0.075 + (medium - 0.5) * 0.035) * terrain_detail);
-	lagoon += vec3(0.025, 0.033, 0.029) * crest * terrain_detail;
+	// Wind-driven water is evaluated in world metres, not per streamed cell:
+	// all ocean, river and lake polygons therefore share seamless motion.
+	// Two low-frequency noise layers give the muted, silt-clouded look of
+	// natural coastal water without texture allocations or CPU animation.
+	vec2 drift = vec2(TIME * 0.045, -TIME * 0.025);
+	float turbidity = field_noise(world_m * 0.046 + drift);
+	float sediment = field_noise(world_m * 0.12 - drift * 1.65);
+	float cloud = smoothstep(0.24, 0.82, turbidity * 0.70 + sediment * 0.30);
+	vec3 deep_water = paint * vec3(0.69, 0.84, 0.88);
+	vec3 shallow_water = paint * vec3(1.13, 1.09, 0.92);
+	vec3 lagoon = mix(deep_water, shallow_water, cloud * 0.70 + 0.12);
+	// Broad slow-moving swells carry thinner, faster capillary ripples.
+	// Derivative filtering removes tiny waves when zoomed far out.
+	float swell = sin(world_m.y * 0.30 + world_m.x * 0.12
+		- TIME * 0.75 + (turbidity - 0.5) * 2.6);
+	float cross_swell = sin(world_m.x * 0.22 - world_m.y * 0.15
+		+ TIME * 0.49 + sediment * 1.4);
+	float ripple_phase = world_m.y * 2.15 + world_m.x * 0.34
+		- TIME * 1.85 + sin(world_m.x * 0.29 + TIME * 0.27);
+	float ripple_visibility = 1.0 - smoothstep(0.8, 2.2, fwidth(ripple_phase));
+	float ripple = smoothstep(0.74, 0.985, sin(ripple_phase))
+		* ripple_visibility;
+	float wave_light = swell * 0.033 + cross_swell * 0.018;
+	lagoon = clamp(lagoon + vec3(wave_light * 0.78, wave_light, wave_light * 1.08)
+		+ vec3(0.021, 0.032, 0.028) * ripple * terrain_detail,
+		vec3(0.0), vec3(1.0));
 
 	vec3 textured = mix(meadow, beach, sand);
 	textured = mix(textured, lagoon, water);
-	textured = mix(textured, paint, foam);
+	// Narrow breaker/riverbank foam drifts subtly rather than remaining ink-flat.
+	vec3 foam_tint = paint * (0.95 + 0.05 * sin(world_m.y * 0.55 + world_m.x * 0.19 - TIME * 0.7));
+	textured = mix(textured, foam_tint, foam);
 
 	// Preserve the existing northwest-lit terrain relief, never tinting water.
 	vec2 uv = world_m / vec2(2800.0, 2400.0);
@@ -88,4 +112,7 @@ void fragment() {
 	vec3 shaded = mix(textured, upland, 0.45 + field.b * 0.25);
 	shaded *= 0.67 + field.r * 0.57;
 	COLOR.rgb = clamp(mix(textured, shaded, relief_mask), vec3(0.0), vec3(1.0));
+	// Let the ground/base layer show faintly through the silty water; higher
+	// turbidity makes it less transparent. Keep land and foam fully opaque.
+	COLOR.a *= mix(1.0, mix(0.84, 0.94, cloud), water);
 }
