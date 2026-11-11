@@ -1,6 +1,6 @@
 # Streetbound vehicle audio: 88-car mastering and licensed recordings
 
-This iteration ships 88 art-directed vehicle profiles and **original synthesized** engine and effects audio. No third-party sound recordings are automatically downloaded, copied from YouTube, or bundled without a verified license.
+Streetbound now ships 88 art-directed vehicle profiles, original synthesized RPM and effects audio, **plus ten CC0 recorded engine texture loops** with source hashes and a reproducible processing manifest. These are acoustic-family recordings, not authenticated make/model-specific audio. See [CC0 recorded source and license audit](CC0_RECORDED_ENGINE_TEXTURES.md). No source audio from YouTube has been copied.
 
 ## Playable changes
 
@@ -13,7 +13,7 @@ This iteration ships 88 art-directed vehicle profiles and **original synthesized
 
 The synthesized source loops are generated on **car selection**, not in the frame-by-frame audio callback, and are cached by engine family, RPM band, power/coast mode, and selected tone.
 
-## Upgrading to actual cleared recordings
+## Upgrading to vehicle-accurate RPM recordings
 
 Place loop-edited, properly licensed .ogg or .wav files under:
 
@@ -44,13 +44,13 @@ Examples:
 - `assets/audio/engines/bmw-m3/coast_high.ogg`
 - `assets/audio/engines/ferrari-f40/flutter.ogg`
 
-The import resolver checks **per-car first**, then shared engine family (`assets/audio/engines/v8_cross/...`, `i6`, `w16`, etc.), then the existing explicitly configured AudioStream override. Without a supplied recording the original procedural loop remains active. `AudioStream` overrides set directly on the audio node take precedence over the bank.
+Explicitly configured `AudioStream` overrides take precedence. Otherwise the importer looks for **per-car files first**, then shared family files. The bundled CC0 `recorded_texture.ogg` loops add a separate low-volume real-recording bed; they do **not** replace any missing power/coast RPM stem, which continues to be generated procedurally. Adding cleared per-car `recorded_texture.ogg` will override its shared family layer.
 
 **Processing requirements:** Record each engine at stable RPM under load and on engine braking, reduce background wind/other car noise, loudness-match clips, find click-free loop points, enable OGG loop support or set the WAV loop end in Godot, and verify that playback pitch still follows the reference RPM. Do not use multi-second accelerating rev recordings as fixed-RPM loops without extracting and editing stable intervals.
 
 **Rights:** Use real field clips only when you can verify commercial redistribution rights. Store a source URL, author, license, retrieval date and edits in `docs/VEHICLE_AUDIO_REFERENCES.md`. If using CC BY, include the exact attribution in the game's credits; check CC BY-SA terms before distributing derivatives.
 
-### Sources reviewed (not bundled)
+### Additional sources reviewed (not bundled)
 
 - [muted.io Performance Cars](https://muted.io/performance-cars/) — 68 field recordings, advertised CC0, but requires a separate Ko-fi download.
 - [Soundza: Car Engine, Gear Shift & Hum Loops](https://soundza.com/packs/car-engine-gear-shift-and-hum-loops) — CC0, some recordings, some synthesis; separately downloadable zip.
