@@ -51,6 +51,31 @@ const ATLAS_REGIONS = [
   [1411,21,281,396],[26,477,397,380],[472,467,388,389],
   [910,467,406,387],[1366,500,361,323]
 ];
+// Exact matching files used by coast_art.gd in the playable world.
+const buildingFiles = [
+  'ChatGPT Image Nov 8, 2026, 10_00_32 PM-1.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_34 PM-2.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_35 PM-3.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_38 PM-4.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_39 PM-5.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_41 PM-6.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_42 PM-7.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_44 PM-8.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_46 PM-9.png',
+  'ChatGPT Image Nov 8, 2026, 10_00_48 PM-10.png'
+];
+const dealerFiles = [
+  '01_junk_car_dealership.png',
+  '02_budget_used_car_dealership.png',
+  '03_used_car_dealership.png',
+  '04_modern_dealership.png',
+  '05_modern_showroom_dealership.png',
+  '06_premium_dealership.png',
+  '07_luxury_dealership.png',
+  '08_exotic_dealership.png',
+  '09_offroad_dealership_service.png',
+  '10_offroad_dealership_showroom.png'
+];
 const trafficFiles = [
   'ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png',
   'ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png',
@@ -93,6 +118,23 @@ export function gameArtKind(prop){
 }
 /** Call within a translation/rotation at the actual footprint and scale. */
 export function drawAtlas(ctx,kind,size,seed=0){
+  // The game uses the supplied ten city roof images and ten dealer images.
+  // Reuse their exact files and seed-indexing rules here instead of a generic
+  // roof placeholder that gives misleading building density and scale.
+  let file=null;
+  if(['shop','building','warehouse','workshop','fuel','garage'].includes(kind))
+    file='/game-assets/Buildings/'+encodeURIComponent(
+      buildingFiles[((seed%10)+10)%10]);
+  else if(kind==='showroom')
+    file='/game-assets/Buildings/Dealerships/'+encodeURIComponent(
+      dealerFiles[((seed%10)+10)%10]);
+  if(file){
+    const texture=imageAt(file);
+    if(ready(texture)){
+      ctx.drawImage(texture,-size[0]/2,-size[1]/2,size[0],size[1]);
+      return true;
+    }
+  }
   const img=imageAt(GAME_ATLAS),index=atlasIndex(kind,seed);
   if(index<0||!ready(img))return false;
   const [sx,sy,sw,sh]=ATLAS_REGIONS[index];
@@ -214,6 +256,21 @@ export function drawNative(ctx,prop,scale){
       ctx.fillStyle='#eed3a3';
       ctx.fillText(title.slice(0,24),0,h*.33,Math.max(5,w*.86));
     }
+  }else if(kind==='field'&&prop.crop==='corn'){
+    ctx.fillStyle='#79714e';ctx.fillRect(-w/2,-h/2,w,h);
+    ctx.strokeStyle='#596d3e';ctx.lineWidth=1.65;
+    for(let y=-h/2+2.5;y<h/2-2;y+=4.5){
+      ctx.beginPath();ctx.moveTo(-w/2+2,y);ctx.lineTo(w/2-2,y);ctx.stroke();
+      ctx.strokeStyle='#abb86d';ctx.lineWidth=.32;
+      ctx.beginPath();ctx.moveTo(-w/2+2,y-1.0);ctx.lineTo(w/2-2,y-1.0);ctx.stroke();
+      ctx.strokeStyle='#596d3e';ctx.lineWidth=1.65;
+    }
+    ctx.strokeStyle='#50683c';ctx.lineWidth=.9;
+    ctx.strokeRect(-w/2+1,-h/2+1,w-2,h-2);
+  }else if(kind==='drag_tree'||kind==='timing_board'||kind==='track_barrier'){
+    ctx.fillStyle=kind==='drag_tree'?'#e4bd67':
+      kind==='timing_board'?'#254147':'#d6c6b6';
+    ctx.fillRect(-w/2,-h/2,w,h);
   }else if(kind==='field'||kind==='garden'){
     ctx.fillStyle=kind==='field'?'#abb48a':'#67945f';
     ctx.globalAlpha=.7;ctx.fillRect(-w/2,-h/2,w,h);
