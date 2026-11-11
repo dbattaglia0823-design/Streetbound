@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - feature/licensed-field-engine-textures
+    paths:
+      - tools/prepare_cc0_engine_beds.py
+      - .github/workflows/import-verified-cc0-engine-beds.yml
   workflow_dispatch:
 
 permissions:
@@ -59,5 +62,9 @@ jobs:
             echo "All recorded assets already committed."
           else
             git commit -m "Import ten verified CC0 recorded engine layers with acoustic QA manifest"
+            # Other commits may land while ffmpeg is downloading; rebase
+            # the data-only commit without overwriting someone else's work.
+            git fetch origin feature/licensed-field-engine-textures
+            git rebase FETCH_HEAD
             git push origin HEAD:feature/licensed-field-engine-textures
           fi
