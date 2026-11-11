@@ -32,8 +32,21 @@ func run() -> void:
 		and fl.position.x < fr.position.x and rl.position.x < rr.position.x,
 		[fl.position, fr.position, rl.position, rr.position])
 	var size: Vector2 = rig.tire_size
-	check("wheel_size_reasonable", size.x >= 8.0 and size.x <= 15.0
+	check("wheel_size_reasonable", size.x >= 5.5 and size.x <= 12.0
 		and size.y >= 16.0 and size.y <= 26.0, size)
+	var profile: VehicleAppearanceProfile = rig.appearance
+	var bounds: Rect2 = rig.visible_bounds
+	var original_width: float = clampf(bounds.size.x * profile.tire_width_ratio,
+		minf(profile.minimum_tire_px.x, profile.maximum_tire_px.x),
+		maxf(profile.minimum_tire_px.x, profile.maximum_tire_px.x))
+	check("tire_width_is_calibrated_smaller_than_original",
+		is_equal_approx(size.x, original_width * rig.visual_tire_width_scale) and
+		size.x < original_width, [size.x, original_width])
+	var left_edge_anchor := bounds.position.x + bounds.size.x * profile.front_left_uv.x
+	var right_edge_anchor := bounds.position.x + bounds.size.x * profile.front_right_uv.x
+	check("front_wheels_inset_toward_body_center",
+		fl.position.x > left_edge_anchor and fr.position.x < right_edge_anchor,
+		[fl.position.x, fr.position.x, left_edge_anchor, right_edge_anchor])
 	check("visual_wheels_have_no_colliders",
 		not (fl is CollisionObject2D) and not (rl is CollisionObject2D))
 	var car_heading: float = car.rotation
