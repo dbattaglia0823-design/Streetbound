@@ -37,6 +37,8 @@ jobs:
         run: python3 tools/build_morrow_coast.py
       - name: Prove edit-existing-scenery and Apply to Game rebuild the playable world safely
         run: python3 tests/map_editor_live_apply_test.py
+      - name: Ensure two consecutive map expansions leave every existing object and landmark in place
+        run: python3 tests/morrow_expansion_stability_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Test driving forces, brakes, drift, resets and collisions
