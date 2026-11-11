@@ -172,6 +172,36 @@ def _authoring_props(doc):
         if game_art:
             entry["asset_kind"] = game_art[5:]
             entry["asset_id"] = game_art
+        if raw.get("replaces") is not None:
+            source = raw["replaces"]
+            editable_types = {
+                "tree": {"oak", "pine", "palm"}, "pine": {"oak", "pine", "palm"},
+                "palm": {"oak", "pine", "palm"}, "rock": {"rock", "boulder"},
+                "house": {"house"}, "coastal_house": {"house"},
+                "shop": {"building", "warehouse", "garage", "gas_station"},
+                "building": {"building", "warehouse", "garage", "gas_station"},
+                "warehouse": {"building", "warehouse", "garage", "gas_station"},
+                "garage": {"building", "warehouse", "garage", "gas_station"},
+                "workshop": {"building", "warehouse", "garage", "gas_station"},
+                "showroom": {"building", "warehouse", "garage", "gas_station"},
+                "fuel": {"building", "warehouse", "garage", "gas_station"},
+                "bush": {"bush"},
+            }
+            if not isinstance(source, dict) or type_name not in editable_types.get(source.get("kind"), set()):
+                raise ValueError("Replacement is not compatible with its source game scenery")
+            src_seed, src_p = source.get("seed"), source.get("p")
+            if (type(src_seed) is not int or not 0 <= src_seed <= 2147483647
+                    or not isinstance(src_p, list) or len(src_p) != 2
+                    or any(type(v) not in (int,float) or not math.isfinite(v) for v in src_p)
+                    or not 0 <= src_p[0] <= 6400 or not 0 <= src_p[1] <= 4800):
+                raise ValueError("Invalid original scenery identity")
+            entry["source_replacement"] = {
+                "kind": source["kind"], "seed": src_seed,
+                "p": [round(float(v),3) for v in src_p]
+            }
+            if raw.get("hidden") is not None and type(raw.get("hidden")) is not bool:
+                raise ValueError("Invalid scenery visibility")
+            entry["hidden"] = raw.get("hidden", False)
         if type_name == "parking":
             for field, raw_field, minimum, maximum, default in (
                 ("stall_width", "stallWidth", 2.6, 5.2, 3.2),
