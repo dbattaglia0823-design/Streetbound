@@ -395,7 +395,7 @@ export function drawWorld(ctx,doc,options={}){
 export function drawEditorOverlay(ctx,doc,{
   selection=null,draft=null,zoom=1,hover=null,insertMode=null,insertHover=null,
   brushPreview=null,roadsidePreview=null,roadSnapPreview=null,
-  showBoundaries=true,auditIssues=[]
+  alignmentPreview=null,showBoundaries=true,auditIssues=[]
 }={}){
   const radius=clamp(7/zoom,5,35);
   if(showBoundaries){
@@ -471,6 +471,17 @@ export function drawEditorOverlay(ctx,doc,{
         }
       }
     }
+  }
+  if(alignmentPreview?.from&&alignmentPreview?.to){
+    const from=alignmentPreview.from,to=alignmentPreview.to;
+    const u=1/Math.max(.007,zoom);
+    ctx.save();
+    ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.lineTo(to.x,to.y);
+    ctx.strokeStyle='#e7d89dbb';ctx.lineWidth=1.5*u;
+    ctx.setLineDash([6*u,4*u]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(to.x,to.y,alignmentPreview.radius,0,Math.PI*2);
+    ctx.strokeStyle='#b4f0ce';ctx.lineWidth=1.5*u;ctx.stroke();
+    ctx.restore();
   }
   if(roadSnapPreview?.from&&roadSnapPreview?.to){
     // A road point will move only when the dedicated snapping toggle is on.
