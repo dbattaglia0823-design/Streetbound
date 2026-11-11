@@ -261,10 +261,17 @@ road("Quarry Rally Road","country_s","quarry",[(1050,4380),(800,4470)],kind="gra
 road("Quarry Rally Road","quarry","harvest_gate",[(400,4020),(500,3620),(820,3420)],kind="gravel",surface="GRAVEL")
 road("Paddock Avenue", "hs","trackgate", [(3530,3680)], kind="arterial")
 road("Paddock Entry", "trackgate","trackn", kind="driveway")
-road("Ashford Grand Circuit", "trackn","trackw", [(3120,3910),(2880,4020)], kind="track")
-road("Ashford Grand Circuit", "trackw","tracks", [(2870,4380),(3100,4510)], kind="track")
-road("Ashford Grand Circuit", "tracks","tracke", [(3730,4470),(3930,4530),(4120,4410)], kind="track")
-road("Ashford Grand Circuit", "tracke","trackn", [(4050,3970),(3850,3860)], kind="track")
+# Purposeful race geometry: continuous-radius approach, a technical braking
+# hairpin, a broad exit, a short chicane, and a longer back straight. Keep the
+# same shared track nodes so paddock access and lap graph stay connected.
+road("Ashford Grand Circuit", "trackn","trackw",
+     [(3320,3885),(3110,3940),(2950,4050),(2840,4130)],kind="track")
+road("Ashford Grand Circuit", "trackw","tracks",
+     [(2830,4300),(2940,4430),(3130,4520),(3320,4580)],kind="track")
+road("Ashford Grand Circuit", "tracks","tracke",
+     [(3620,4570),(3780,4440),(3870,4510),(4040,4460),(4120,4330)],kind="track")
+road("Ashford Grand Circuit", "tracke","trackn",
+     [(4130,4070),(4000,3970),(3830,3920),(3640,3860)],kind="track")
 road("Raceworks Service Road", "trackgate","dragn", [(3870,3690),(4320,3750)], kind="local")
 road("Ashford Drag Strip", "dragn","drags", kind="track", width=21)
 road("Drag Return Lane", "drags","dragn", [(4440,4530),(4460,4020)], kind="local")
@@ -314,6 +321,39 @@ add_poi("Drag Staging", "DRAG START", "dragn", (-1,0), "fuel")
 add_poi("Harvest Rest", "COUNTRY FUEL", "country_s", (-1,0), "fuel")
 add_poi("Applecross Farm", "LANDMARK", "applecross", (-1,-.25), "lodge")
 add_poi("Old Quarry Yard", "RALLY LANDMARK", "quarry", (-1,0), "warehouse")
+
+# Four small, accessible service stations on isolated outskirt routes. Roads
+# connect to the named graph; the original landmarks and their IDs stay fixed.
+add_poi("Pinecrest Fuel & Market","FUEL / OUTSKIRTS","forest_e",(0,-1),"fuel")
+add_poi("Orchard Crossroads Fuel","FUEL / COUNTRY","harvest_gate",(-1,0),"fuel")
+add_poi("Southern Coast Fuel","FUEL / COAST","coasts",(-1,0),"fuel")
+add_poi("Quarry Road Service","FUEL / RURAL","quarry",(1,0),"fuel")
+
+# The existing Pacific Scenic Highway stays available as the slow waterfront
+# boulevard. A separate uninterrupted 4-lane arterial-scale coast highway now
+# runs from the northern boundary to the south coast, with city bypass arcs
+# inland of Bellwether Bay and explicit connections to the legacy road graph.
+# Append these roads AFTER original roads/POIs to preserve every legacy road ID.
+node("coastal_h_top",shore_x(115)-190,115)
+node("coastal_h_n",shore_x(900)-230,900)
+node("coastal_h_mid",shore_x(1710)-285,1710)
+node("coastal_h_city_n",4470,2340)
+node("coastal_h_city_s",4390,3190)
+node("coastal_h_lower",shore_x(3780)-290,3780)
+node("coastal_h_south",shore_x(4660)-230,4660)
+chain("Coastal Meridian Highway",
+      ["coastal_h_top","coastal_h_n","coastal_h_mid",
+       "coastal_h_city_n","coastal_h_city_s","coastal_h_lower",
+       "coasts","coastal_h_south"],"highway",width=20)
+road("Coastal North Interchange","forest_e","coastal_h_n",
+     [(4090,910),(4470,820)],kind="arterial",width=12)
+road("Bellwether North Interchange","coastal_h_city_n","tn",
+     [(4530,2310)],kind="arterial",width=12)
+road("Bellwether South Interchange","coastal_h_city_s","he",
+     [(4250,3120),(4190,3020)],kind="arterial",width=12)
+road("South Coast Connector","coastal_h_south","drags",
+     [(4820,4650),(4500,4670)],kind="arterial",width=11)
+
 
 # The start is the apron, facing its eastbound driveway.
 SPAWN = dict(position=[POIS[0]["position"][0]-8,POIS[0]["position"][1]], rotation=math.pi/2)
