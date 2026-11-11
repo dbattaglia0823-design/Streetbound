@@ -338,7 +338,7 @@ function sourceKey(prop){
 export function pickRuntimeProp(preview,doc,point,radius=12){
   if(!preview)return null;
   const excluded=new Set(doc.props.filter(p=>p.replaces).map(p=>sourceKey(p.replaces)));
-  let winner=null,best=Infinity;
+  let winner=null,best=Infinity,bestLayer=Infinity;
   const cell=preview.cell,x=Math.floor(point.x/cell),y=Math.floor(point.y/cell);
   for(let ix=x-1;ix<=x+1;ix++)for(let iy=y-1;iy<=y+1;iy++)
     for(const prop of preview.buckets.get(ix+','+iy)||[]){
@@ -353,7 +353,14 @@ export function pickRuntimeProp(preview,doc,point,radius=12){
       if(Math.abs(localX)>width/2+padding ||
           Math.abs(localY)>height/2+padding)continue;
       const distance=Math.hypot(dx,dy);
-      if(distance<best){winner=prop;best=distance;}
+      // Houses/shops sit on top of large terrain-like props (fields, gardens,
+      // lots). Never make a ground-cover center hide a visible house roof.
+      const layer=['house','coastal_house','shop','building','warehouse',
+        'garage','workshop','showroom','fuel'].includes(prop.kind)?0:
+        ['field','garden','forecourt','lot','island'].includes(prop.kind)?2:1;
+      if(layer<bestLayer||(layer===bestLayer&&distance<best)){
+        winner=prop;best=distance;bestLayer=layer;
+      }
     }
   return winner;
 }
