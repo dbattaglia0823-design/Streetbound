@@ -56,7 +56,8 @@ func run() -> void:
 	for i in labels.size():
 		for j in range(i+1,labels.size()):
 			if labels[i].get_rect().intersects(labels[j].get_rect()):
-				collisions.append("%s / %s" % [labels[i].text,labels[j].text])
+				collisions.append("%s %s / %s %s" % [labels[i].text,
+					labels[i].get_rect(),labels[j].text,labels[j].get_rect()])
 	check("dashboard_label_rects_never_overlap",collisions.is_empty(),collisions)
 	var meter_size: Vector2 = DashboardScript.METER_SIZE
 	var vertical := meter_size.y > meter_size.x * 3.0 and meter_size.y < 70.0
