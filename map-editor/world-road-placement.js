@@ -185,7 +185,3 @@ export function repairRoadsideObjects(doc,{alignAll=false}={}){
   return {doc:moved||rotated?{...doc,props}:doc,
     moved,rotated,adjustedMarkers:0,failed};
 }
-  }):doc.markers;
-  return {doc:moved||rotated||adjustedMarkers?{...doc,props,markers:nextMarkers}:doc,
-    moved,rotated,adjustedMarkers,failed};
-}
