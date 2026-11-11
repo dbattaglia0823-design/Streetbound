@@ -2,6 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
+import {BASE_SIZE,drawAtlas,gameArtKind,drawRuntimeScenery} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -243,10 +244,19 @@ function drawBuilding(ctx,kind,prop={}){
     rect(ctx,-w/2+8,-h/2+7,w-16,5,'#596772');
   }
 }
-export function drawProp(ctx,prop,assets=[]){
+export function drawProp(ctx,prop,assets=[],gameArt=false){
   const size=prop.type==='building'||prop.type==='warehouse'?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
+  if(gameArt){
+    // Real metre-scale footprints, directly matching the production baker.
+    const kind=gameArtKind(prop);
+    const size=BASE_SIZE[prop.type];
+    if(size&&drawAtlas(ctx,kind,size,stringSeed(prop.id))){
+      ctx.restore();return;
+    }
+    if(size)ctx.scale(size[0]/40,size[1]/40);
+  }
   const asset=prop.assetId?assets.find(item=>item.id===prop.assetId):null;
   if(asset){
     const image=getSprite(asset);
@@ -297,8 +307,12 @@ export function drawWorld(ctx,doc,options={}){
   }
   if(options.showTerrain!==false)for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
   if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);
-  if(options.showScenery!==false)for(const prop of doc.props){
-    if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))drawProp(ctx,prop,doc.assets||[]);
+  if(options.showScenery!==false){
+    if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
+    for(const prop of doc.props){
+      if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))
+        drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
+    }
   }
   if(options.showMarkers!==false)drawMarkers(ctx,doc.markers,bounds);
   ctx.restore();
