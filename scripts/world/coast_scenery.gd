@@ -340,12 +340,12 @@ func _draw_prop(prop: Dictionary) -> void:
 			for plant in plant_count:
 				var x := -interior.x*.5+(float(plant)+.5)*interior.x/float(plant_count)
 				x += crop_rng.randf_range(-6.0,6.0)
-				var center := Vector2(x,y+crop_rng.randf_range(-2.0,2.0))
-				draw_line(center+Vector2(-10,-9),center+Vector2(9,7),
+				var plant_center := Vector2(x,y+crop_rng.randf_range(-2.0,2.0))
+				draw_line(plant_center+Vector2(-10,-9),plant_center+Vector2(9,7),
 					Color("5b854c"),7.0,true)
-				draw_line(center+Vector2(-8,8),center+Vector2(10,-7),
+				draw_line(plant_center+Vector2(-8,8),plant_center+Vector2(10,-7),
 					Color("93b15d"),6.0,true)
-				draw_circle(center,3.4,Color("b6bd68"))
+				draw_circle(plant_center,3.4,Color("b6bd68"))
 		# Farm access headlands remain free of standing crop.
 		for side in [-1.0,1.0]:
 			draw_line(Vector2(-size.x*.47,side*size.y*.46),
