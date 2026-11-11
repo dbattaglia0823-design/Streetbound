@@ -293,7 +293,12 @@ def add_poi(name, category, anchor, direction, style="garage"):
     # access road. Reuse its stable ID rather than making a duplicate on rebake.
     existing=next((r for r in ROADS if r["name"]==name+" access"),None)
     if existing is not None:
-        p=tuple(existing["anchors"][-1])
+        # For an unchanged exported generated fuel stop, prefer the exact
+        # computed default position over browser-rounded three-decimal data.
+        # Preserve intentional moves of more than 1 cm in the Map Builder.
+        imported_p=tuple(existing["anchors"][-1])
+        if distance(imported_p,p)>=0.01:
+            p=imported_p
     key = "poi_" + str(len(POIS))
     node(key,*p)
     if existing is None:
