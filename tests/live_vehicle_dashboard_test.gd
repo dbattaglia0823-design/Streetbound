@@ -75,8 +75,8 @@ func run() -> void:
 	var smaller_windows_fit := true
 	for sample in [Vector2(1280,800),Vector2(960,540),Vector2(640,360),Vector2(360,240)]:
 		var scale_factor: float = dash._layout_factor_for(sample)
-		smaller_windows_fit = smaller_windows_fit and
-			16.0+dash.size.x*scale_factor <= sample.x and
+		smaller_windows_fit = smaller_windows_fit and \
+			16.0+dash.size.x*scale_factor <= sample.x and \
 			dash.size.y*scale_factor+20.0 <= sample.y
 	check("compact_dashboard_remains_inside_smaller_viewports",smaller_windows_fit)
 	car.linear_velocity = Vector2.UP * 30.0
