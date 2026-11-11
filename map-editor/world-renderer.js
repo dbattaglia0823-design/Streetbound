@@ -314,6 +314,13 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
     },1);
     return;
   }
+  if(gameArt&&['parked_car','planter','garden','field','island','forecourt'].includes(prop.type)){
+    const [w,h]=BASE_SIZE[prop.type];
+    drawNative(ctx,{kind:prop.type,p:[prop.x,prop.y],
+      size:[w*prop.scale,h*prop.scale],angle:prop.rotation*Math.PI/180,
+      seed:stringSeed(prop.id),solid:prop.type==='parked_car'||prop.type==='island'},1);
+    return;
+  }
   const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
   ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
   const type=prop.type;
