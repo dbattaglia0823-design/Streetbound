@@ -2,7 +2,7 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
-import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawNative} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
@@ -198,8 +198,8 @@ function drawRoads(ctx,roads,bounds,options){
     const derived=buildRoadJunctions(roads);
     for(const junction of derived){
       // Baked intersection already covers this area if the roads match.
-      if(exact.some(j=>junction.roads.every(id=>j.roads.includes(id))&&
-        Math.hypot(j.at.x-junction.x,j.at.y-junction.y)<Math.max(12,j.radius)))continue;
+      if(exact.some(j=>Math.hypot(j.at.x-junction.x,j.at.y-junction.y)<
+        Math.max(12,j.radius*.9)))continue;
       if(!visible({
         minX:junction.x-junction.radius,minY:junction.y-junction.radius,
         maxX:junction.x+junction.radius,maxY:junction.y+junction.radius
@@ -384,7 +384,10 @@ export function drawWorld(ctx,doc,options={}){
     }
   }
   if(options.showTerrain!==false){
-    for(const region of doc.regions)drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    const drawEdited=region=>drawRegion(ctx,region,doc.world.seed,quality,bounds);
+    if(!options.runtimePreview||
+      !drawRuntimeTerrain(ctx,options.runtimePreview,doc,drawEdited))
+      for(const region of doc.regions)drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
   }
   if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);
