@@ -12,6 +12,7 @@ import {drawWorld,drawEditorOverlay} from './world-renderer.js';
 import {pickEditableScenery} from './world-selection.js';
 import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
+import {liveRoadAutomation,liveRoadClearances,drawLiveAutomation} from './world-automation-preview.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
@@ -33,6 +34,7 @@ let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=n
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
 let liveSession=null,loadedWorldSha='',runtimePreview=null,adoptGameProp=false;
 let undoStack=[],redoStack=[];
+let presetCache=null;
 const laneCache=new WeakMap();
 const trafficFor=()=>{let lanes=laneCache.get(doc.roads);if(!lanes){lanes=lanePatterns(doc.roads);laneCache.set(doc.roads,lanes);}return lanes;};
 const minZoom=.007,maxZoom=5; // Entire 22k+ worlds still fit on narrow mobile viewports.
@@ -48,11 +50,73 @@ const snapEnd = (p,surface) => {
   const hit=smartRoadSnap(doc,p,surface,{radius:clamp(15/zoom,8,28)});
   return {point:hit?{x:hit.x,y:hit.y}:p,snapped:hit};
 };
+function previewPreset(){
+  if(!$('show-preset-preview').checked)return null;
+  const chosen=selection?getEntity(doc,selection.id):null;
+  const item=chosen?.item;
+  const mid=item?.points?.[Math.floor(item.points.length/2)];
+  const anchor=mid||(item&&Number.isFinite(item.x)?{x:item.x,y:item.y}:
+    worldPoint((viewport.clientWidth*.5-offsetX)/zoom,
+      (viewport.clientHeight*.5-offsetY)/zoom));
+  const options={preset:$('environment-preset').value,anchor,
+    selectedId:selection?.id||null,density:Number($('environment-density').value),
+    parkingSize:Number($('parking-size').value),
+    stallWidth:Number($('parking-stall-width').value),
+    occupancy:Number($('parking-occupancy').value),
+    entranceWidth:Number($('parking-entrance').value)};
+  const key=JSON.stringify(options);
+  if(presetCache?.doc===doc&&presetCache.key===key)return presetCache.value;
+  let value;
+  try{
+    const generated=applyEnvironmentPreset(doc,options).doc;
+    value={addedProps:generated.props.slice(doc.props.length),
+      addedRoads:generated.roads.slice(doc.roads.length),
+      changedRegions:generated.regions.filter((r,i)=>r!==doc.regions[i])};
+  }catch(e){value={error:e.message,addedProps:[],addedRoads:[],changedRegions:[]};}
+  presetCache={doc,key,value};
+  return value;
+}
 const currentDisplay = ()=>({
   showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,
   junctions:$('show-junctions').checked,
   showScenery:$('show-scenery').checked,showMarkers:$('show-markers').checked
 });
+/** A transparent, uncommitted simulation of the selected environment
+ * generator. This is the exact output of applyEnvironmentPreset, not a random
+ * approximation. It disappears when disabled; Apply remains a separate action.
+ */
+function drawPresetGhost(ctx,generated,source,zoom,bounds){
+  if(generated.error)return;
+  const u=1/Math.max(.007,zoom);
+  ctx.save();
+  ctx.globalAlpha=.66;
+  for(const road of generated.addedRoads){
+    const pts=sampleRoad(road.points,road.smooth,12);
+    if(pts.length<2)continue;
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+    for(const p of pts.slice(1))ctx.lineTo(p.x,p.y);
+    ctx.lineWidth=road.width+2*u;ctx.strokeStyle='#a8e9e055';ctx.stroke();
+    ctx.lineWidth=1.5*u;ctx.strokeStyle='#dbf9de';ctx.setLineDash([5*u,3*u]);
+    ctx.stroke();ctx.setLineDash([]);
+  }
+  for(const prop of generated.addedProps){
+    if(bounds&&(prop.x<bounds.minX-120||prop.x>bounds.maxX+120||
+      prop.y<bounds.minY-120||prop.y>bounds.maxY+120))continue;
+    const size=placementFootprint(source,prop);
+    ctx.beginPath();ctx.arc(prop.x,prop.y,size,0,Math.PI*2);
+    ctx.fillStyle='#9ce6bd30';ctx.fill();ctx.strokeStyle='#a8f8cf';
+    ctx.lineWidth=1.5*u;ctx.setLineDash([4*u,3*u]);ctx.stroke();ctx.setLineDash([]);
+  }
+  for(const region of generated.changedRegions){
+    if(region.points.length<3)continue;
+    ctx.beginPath();ctx.moveTo(region.points[0].x,region.points[0].y);
+    for(const p of region.points.slice(1))ctx.lineTo(p.x,p.y);
+    ctx.closePath();ctx.strokeStyle='#b7f0cc';ctx.lineWidth=2*u;
+    ctx.setLineDash([6*u,4*u]);ctx.stroke();ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
 function render(){
   const dpr=clamp(window.devicePixelRatio||1,1,2);
   const w=Math.max(1,viewport.clientWidth),h=Math.max(1,viewport.clientHeight);
@@ -67,17 +131,45 @@ function render(){
     maxX:Math.min(doc.world.width,(w-offsetX)/zoom),maxY:Math.min(doc.world.height,(h-offsetY)/zoom)};
   drawWorld(ctx,doc,{...currentDisplay(),bounds,quality:zoom<.08?0:1,
     runtimePreview,zoom});
+  // The live preview is derived from the CURRENT source, including the road
+  // being dragged; no auto geometry modifies the saved map.
+  const auto=liveRoadAutomation(doc.roads);
+  const showClearances=$('show-road-clearances').checked;
+  drawLiveAutomation(ctx,auto,{zoom,bounds,
+    showJunctions:$('show-junctions').checked,
+    showLoosePriority:$('show-road-priority').checked,
+    showGaps:$('show-road-gaps').checked,
+    showClearances,clearances:showClearances?liveRoadClearances(doc):[]});
+  const generated=previewPreset();
+  if(generated)drawPresetGhost(ctx,generated,doc,zoom,bounds);
   let roadsidePreview=null;
   if(tool==='prop'&&hover&&!$('scenery-paint').checked&&!$('scenery-erase').checked){
     try{
       const proposed={type:$('prop-type').value,assetId:$('prop-asset').value,
         x:hover.x,y:hover.y,rotation:0,scale:1};
-      const placed=placeBesideRoad(doc,proposed);
-      roadsidePreview={...placed,radius:placementFootprint(doc,placed)};
+      // Preview the exact cursor position; there is no automatic move.
+      roadsidePreview={...proposed,radius:placementFootprint(doc,proposed)};
     }catch{/* Invalid placements do not render a misleading ghost. */}
   }
   if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
-  drawEditorOverlay(ctx,doc,{selection,hover:draft?hover:null,draft,zoom,roadsidePreview,
+  const roadSnapPreview=tool==='road'&&hover&&$('road-smart-snap').checked?
+    snapEnd(hover,$('road-surface').value):null;
+  const selected=selection?getEntity(doc,selection.id):null;
+  let alignmentPreview=null;
+  if(selected?.type==='props'&&$('show-road-clearances').checked){
+    try{
+      const proposed=placeBesideRoad(doc,selected.item,
+        {snap:true,align:true,maxSnapDistance:1500});
+      const displacement=distance(proposed,selected.item);
+      if(displacement>.1)
+        alignmentPreview={from:selected.item,to:proposed,
+          radius:placementFootprint(doc,proposed)};
+    }catch{/* No safe projected alignment; the explicit action will report it. */}
+  }
+  drawEditorOverlay(ctx,doc,{selection,alignmentPreview,
+    hover:draft?(roadSnapPreview?.point||hover):null,draft,zoom,roadsidePreview,
+    roadSnapPreview:roadSnapPreview?.snapped?{from:hover,to:roadSnapPreview.point,
+      kind:roadSnapPreview.snapped.kind}:null,
     insertMode:pointInsertMode,insertHover:tool==='select'?hover:null,
     brushPreview:tool==='prop'&&($('scenery-paint').checked||$('scenery-erase').checked)&&hover
       ?{position:hover,radius:Number($('brush-radius').value),erase:$('scenery-erase').checked}:null,
@@ -86,6 +178,15 @@ function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.strokeStyle='#f5c29699';ctx.lineWidth=1;ctx.strokeRect(offsetX+.5,offsetY+.5,doc.world.width*zoom,doc.world.height*zoom);
   $('zoom-value').textContent=Math.round(zoom*100)+'%';
+  const conflicts=$('show-road-clearances').checked?liveRoadClearances(doc).length:null;
+  $('live-automation-status').textContent=
+    auto.junctions.length+' live intersections · '+
+    auto.looseEnds.length+' loose-road cut ends · '+
+    auto.gaps.length+' possible road-end joins'+
+    (conflicts===null?'':(' · '+conflicts+' scenery overlaps'))+
+    (generated?.error?' · Preset: '+generated.error:
+      generated?(' · Preset preview: '+generated.addedProps.length+
+      ' props, '+generated.addedRoads.length+' access roads'):'');
   // The minimap is lightweight (no procedural ground texture).
   miniCtx.setTransform(1,0,0,1,0,0);miniCtx.clearRect(0,0,mini.width,mini.height);
   miniCtx.save();
@@ -166,13 +267,9 @@ function makeSnapshot(before,label){
 function change(edit,label){
   const before=doc;
   try{
-    let next=edit(doc);
-    if(next.roads!==before.roads){
-      const fixed=repairRoadsideObjects(next);
-      if(fixed.failed)throw new RangeError('Road change would overlap '+fixed.failed+
-        ' placed objects. Try moving them or widening the surrounding area first.');
-      next=fixed.doc;
-    }
+    // Only the requested edit is committed. Do not reflow unrelated buildings
+    // when a road changes: live clearances show potential problems instead.
+    const next=edit(doc);
     if(next!==doc){doc=next;makeSnapshot(before,label);}else requestRender();
     return true;
   }catch(e){doc=before;errorMessage(e);return false;}
@@ -237,9 +334,8 @@ function insertSelectedPoint(p,mode='between'){
     const before=doc;
     let next=result.doc;
     if(found.type==='roads'){
-      const fixed=repairRoadsideObjects(next);
-      if(fixed.failed)throw new RangeError('Some roadside props cannot be moved clear of this edit.');
-      next=fixed.doc;
+      // Moving/inserting a control point must never move other scenery.
+      // The live overlap overlay and Map health report any new conflicts.
     }
     doc=next;pointInsertMode=null;makeSnapshot(before,'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
     setSelection(found.item.id,result.index);
@@ -639,13 +735,12 @@ function pointerEnd(event,wasCancelled=false){
         if(jump>350&&!window.confirm(
           'This road moved '+Math.round(jump)+' world units. It may create unintended intersections. Keep the change?'))
           throw new RangeError('Large road move canceled; previous road geometry restored.');
-        const fixed=repairRoadsideObjects(doc);
-        if(fixed.failed)throw new RangeError('Road edit would overlap '+fixed.failed+
-          ' existing object(s). Try another curve or clear the area first.');
-        doc=fixed.doc;
+        // New junctions and overlap indicators update live, but unchanged
+        // scenery and game markers remain at their authored coordinates.
       }
       makeSnapshot(current.before,'Moved '+(current.mode==='control'?'control point':
-        current.mode==='shape'?'entire shape':'object')+' and updated roadside clearance.');
+        current.mode==='shape'?'entire shape':'object')+
+        '. Other assets stayed in place; review live road clearances if needed.');
     }catch(e){doc=current.before;refreshUI();errorMessage(e);}
   }
   else requestRender();
@@ -777,25 +872,38 @@ $('snap-selected-roadside').addEventListener('click',()=>{
   try{
     const before=doc;
     const placed=placeBesideRoad(doc,found.item,{snap:true,align:true,maxSnapDistance:1500});
+    const travel=distance(placed,found.item);
+    if(travel>40&&!window.confirm(
+      'Align '+found.item.name+' to the road '+Math.round(travel)+
+      ' world units away? This only moves the selected object and can be undone.'))return;
     doc=updateEntity(doc,selection.id,{x:placed.x,y:placed.y,rotation:placed.rotation});
     if(before!==doc)makeSnapshot(before,'Aligned scenery with the road and cleared the shoulder.');
     $('roadside-status').textContent='Selected scenery checked against nearby roads.';
   }catch(e){errorMessage(e);}
 });
 $('repair-roadside').addEventListener('click',()=>{
-  const result=repairRoadsideObjects(doc,{alignAll:true});
+  // Only actual roadway conflicts are candidates, never every authored house.
+  const result=repairRoadsideObjects(doc);
+  const count=result.moved+result.rotated;
+  if(count&&!window.confirm(
+      'Move '+count+' overlapping scenery object(s) to safe roadside positions? '+
+      'All other assets and gameplay markers will stay exactly where they are. '+
+      'This can be undone.'))return;
   if(result.doc!==doc){
     const before=doc;doc=result.doc;
-    makeSnapshot(before,'Aligned '+(result.moved+result.rotated)+
-      ' scenery objects. Markers were not moved.');
+    makeSnapshot(before,'Moved '+count+' overlapping scenery objects (explicit repair).');
   }
-  $('roadside-status').textContent='Moved '+result.moved+' scenery, rotated '+result.rotated+
-    ' scenery. Game markers remain at their chosen positions'+
-    (result.failed?'; '+result.failed+' scenery objects need manual relocation.':'.');
+  $('roadside-status').textContent='Repaired '+count+' overlapping scenery objects.'+
+    (result.failed?' '+result.failed+' still need manual review.':
+      ' All other scenery and markers were left unchanged.');
 });
 $('environment-preset').addEventListener('change',()=>{
   $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
+  requestRender();
 });
+for(const id of ['environment-density','parking-size','parking-stall-width',
+  'parking-occupancy','parking-entrance'])$(id).addEventListener('change',requestRender);
+$('road-smart-snap').addEventListener('change',requestRender);
 $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
 $('apply-environment-preset').addEventListener('click',()=>{
   const preset=$('environment-preset').value;
@@ -835,7 +943,9 @@ $('scatter').addEventListener('click',()=>{
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
-for(const id of ['show-roads','show-junctions','show-terrain','show-scenery','show-markers','show-boundaries','audit-show-overlay','show-traffic'])
+for(const id of ['show-roads','show-junctions','show-road-priority','show-road-gaps',
+  'show-road-clearances','show-preset-preview','show-terrain','show-scenery',
+  'show-markers','show-boundaries','audit-show-overlay','show-traffic'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
 const fields={

@@ -127,9 +127,9 @@ export function paintSceneryBrush(doc,center,opts,random=Math.random){
     const scale=variation?Math.round((.75+random()*.55)*100)/100:1;
     const proposed={type:opts.type,assetId,name:opts.type.replaceAll('_',' '),
       x:+p.x.toFixed(2),y:+p.y.toFixed(2),rotation,scale};
-    let placed;
-    try{placed=placeBesideRoad(next,proposed);}
-    catch{continue;}
+    // The brush scatters at sampled positions, never silently pushes every
+    // sampled prop to a distant roadside. "Avoid roads" rejects bad samples.
+    const placed=proposed;
     if(avoidRoads&&roadwayClearance(next,placed,placementFootprint(next,placed))<0)continue;
     const region=avoidWater?regionAt(next,placed):null;
     if(region&&(region.biome==='ocean'||region.biome==='lake'))continue;

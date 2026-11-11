@@ -57,7 +57,7 @@
       <div class="field"><label for="road-shoulder">Shoulder width</label><input id="road-shoulder" type="range" min="0" max="16" value="5"><output id="shoulder-label">5 m</output></div>
       <label class="check"><input id="road-smooth" type="checkbox" checked> Smooth Bézier-style curves</label>
       <label class="check"><input id="road-markings" type="checkbox" checked> Lane lines / road edges</label>
-      <label class="check"><input id="road-smart-snap" type="checkbox" checked> Smart road endpoint snapping (compatible surfaces only)</label>
+      <label class="check"><input id="road-smart-snap" type="checkbox"> Snap NEW road points to nearby compatible roads (preview before clicking)</label>
       <p class="sidebar-tip compact-tip">Select an existing road to add or extend its control points from the Inspector. Shift-click the selected road to insert a point immediately.</p>
     </div>
     <div class="settings-group">
@@ -114,14 +114,14 @@
       <p id="adopt-game-hint" class="asset-hint" hidden>With Select active, click or drag a visible house, tree, rock or ordinary building to make it editable automatically. Special gameplay buildings remain protected. Ctrl-click is also available.</p>
       <p class="asset-hint">Game art is referenced directly from the project, not embedded into JSON. External PNG/WebP import remains for standalone maps.</p>
       <div class="roadside-controls">
-        <h3>Automatic roadside placement</h3>
-        <p>Buildings, lots, and scenery snap beside nearby curved roads—not on the lanes. Frontages follow the local road direction, and road shoulders stay clear.</p>
-        <p>Scenery and buildings maintain their road clearances. Gameplay markers can be placed freely on roads, buildings, water, or other markers and will not auto-snap or be moved by roadside repairs.</p>
+        <h3>Manual placement &amp; optional road alignment</h3>
+        <p>Place and drag scenery exactly where you click. Road edits never move nearby buildings. Overlapping road footprints are shown in Map health, not silently repaired.</p>
+        <p>Choose Align selected to road to move one object deliberately, or align all overlapping scenery with confirmation. Gameplay markers always stay at their chosen positions.</p>
         <div class="inspector-actions">
           <button id="snap-selected-roadside" class="gdt-btn" type="button">Align selected to road</button>
-          <button id="repair-roadside" class="gdt-btn" type="button">Fix all road overlaps</button>
+          <button id="repair-roadside" class="gdt-btn" type="button">Align all overlapping scenery…</button>
         </div>
-        <p id="roadside-status" class="asset-hint" role="status">Placement protection is always on for new or moved objects.</p>
+        <p id="roadside-status" class="asset-hint" role="status">Manual positions are preserved. Automatic alignment only runs when requested.</p>
       </div>
       <section class="scenery-brush-controls" aria-labelledby="preset-title">
         <h3 id="preset-title">One-click environment presets</h3>
@@ -209,13 +209,18 @@
     <div class="visibility-list">
       <label class="check"><input type="checkbox" id="show-terrain" checked> Terrain regions</label>
       <label class="check"><input type="checkbox" id="show-roads" checked> Roads and curves</label>
-      <label class="check"><input type="checkbox" id="show-junctions" checked> Auto intersections & junctions</label>
+      <label class="check"><input type="checkbox" id="show-junctions" checked> Live generated intersections</label>
+      <label class="check"><input type="checkbox" id="show-road-priority" checked> Dirt/gravel cutoffs at pavement</label>
+      <label class="check"><input type="checkbox" id="show-road-gaps" checked> Suggested road-end connections</label>
+      <label class="check"><input type="checkbox" id="show-road-clearances" checked> Road/scenery overlap warnings (may block game bake)</label>
+      <label class="check"><input type="checkbox" id="show-preset-preview"> Preview selected environment preset (no changes)</label>
       <label class="check"><input type="checkbox" id="show-scenery" checked> Buildings and nature</label>
       <label class="check"><input type="checkbox" id="show-markers" checked> Gameplay markers</label>
       <label class="check"><input type="checkbox" id="show-boundaries"> Terrain outlines</label>
       <label class="check"><input type="checkbox" id="show-traffic"> Traffic lanes / travel direction</label>
       <p class="muted-copy">Traffic preview: cyan / amber one-way paths, arrows and lane offsets. Paved junctions connect; dirt crossings remain separate.</p>
-      <p class="muted-copy">Road overlaps, T-junctions and joined endpoints generate paved intersections automatically as roads are edited.</p>
+      <p id="live-automation-status" class="muted-copy" role="status">Live automation is loading.</p>
+      <p class="muted-copy">Cyan: derived intersections. Orange: dirt/gravel cutoffs. Amber dashed: optional endpoint joins. Red dashed: road overlaps. Green dashed: environment preset ghost. All update as the source changes; nothing is moved unless you apply an action.</p>
     </div>
     <div class="panel-head section-divider" id="audit-heading"><h2>Map health</h2><span id="audit-count" class="micro-tag">NOT CHECKED</span></div>
     <section class="map-audit-panel" aria-label="Map geometry checks and safe repair tools">
@@ -261,7 +266,7 @@
         <div class="field"><label for="inspect-elevation">Height metadata (m)</label><input id="inspect-elevation" type="number" min="0" max="2000"></div>
       </div>
       <div id="inspect-prop" hidden>
-        <p class="muted-copy">Roadside objects automatically face the local road curve. Rotation remains adjustable for your custom artwork.</p>
+        <p class="muted-copy">Scenery keeps the position and rotation you enter. Use Align selected to road only when you want automatic road-facing placement.</p>
         <div class="field"><label for="inspect-prop-type">Asset type</label><select id="inspect-prop-type">
           <option value="oak">Tree</option><option value="pine">Pine</option><option value="palm">Palm</option><option value="bush">Bush</option><option value="rock">Rock</option><option value="boulder">Boulder</option>
           <option value="house">House</option><option value="building">Building</option><option value="warehouse">Warehouse</option><option value="garage">Garage</option><option value="gas_station">Fuel station</option>

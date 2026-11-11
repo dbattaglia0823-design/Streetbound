@@ -74,6 +74,22 @@ the ends, and adjust width, surface, lanes, shoulder and curvature.
 - Edit biome terrain polygons, paint scenery, import PNG/WebP props, insert
   garages/dealers/traffic/race markers; use minimap, undo/redo and Layers
   visibility controls.
+- **Manual scenery placement is exact by default.** Creating, dragging,
+  resizing, rotating, duplicating or moving roads does not push houses or other
+  props toward unrelated road segments. A new road may cross scenery without
+  modifying the authored scenery coordinates. Run Map health or enable the
+  live road-clearance overlay to identify conflicts. Markers remain free.
+- **Live generated-map layers** draw cyan junction locations and pavement
+  outlines, orange dirt/gravel terminations, amber possible endpoint joins,
+  and optional red scenery-road overlaps. These are read-only previews derived
+  from the latest editable roads, including during drags. Traffic lanes and
+  their direction remain separately toggleable.
+- **Preview selected environment preset** simulates the selected generator in
+  place, showing ghost objects, access roads and updated region outlines
+  without editing the source. Apply is always a separate action; the entire
+  application remains undoable. The original baked trees and game structures
+  appear in the editor, but source-generated scenery not yet baked into Godot
+  can differ until Apply to Game rebuilds the runtime world.
 
 ## Save and import/export
 
@@ -187,13 +203,16 @@ is invalidated when the map changes.
 endpoints in the same compatible network (paved to paved; loose to loose).
 Roads within different networks remain separate. Clean duplicate points
 removes immediately repeated control points while leaving valid loops intact.
-Both operations use the ordinary Undo workflow. The existing Fix all road
-overlaps helper remains available for mispositioned scenery.
+Both operations use the ordinary Undo workflow. The optional Align selected
+to road button moves only the chosen object. Align all overlapping scenery
+previews candidates and asks before moving only conflicted objects; it never
+adjusts unrelated scenery or gameplay markers.
 
-**Smart draw snapping:** New roads snap to compatible road endpoints first,
-then nearby road centerlines to create deliberate T connections. Turn off
-Smart road endpoint snapping in Road designer to place freehand control points.
-Dirt/gravel never snap onto paved centerlines. A moved road handle or entire
+**Smart draw snapping:** New roads are **freehand by default**. Enable the
+dedicated Road designer toggle when you want new control points to snap to
+nearby compatible endpoints and centerlines; a dashed line shows the exact
+target before clicking. Dirt/gravel never snap onto paved centerlines.
+Existing road handles do not snap automatically. A moved road handle or entire
 road that jumps over 350 world units prompts before the change is committed,
 to catch accidental drags.
 
