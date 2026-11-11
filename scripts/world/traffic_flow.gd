@@ -244,9 +244,12 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 	# A parallel player in another lane is not crossing our path.
 	# Require an actual projected overlap, not merely proximity.
 	var player_heading := Vector2.UP.rotated(player.rotation)
+	if player_velocity.length() < PPM * 1.0:
+		# A parked car is an obstacle only when its footprint overlaps
+		# our lane; its facing angle cannot turn it into cross traffic.
+		return safe
 	if absf(heading.normalized().dot(player_heading)) > 0.78 and \
-		(player_velocity.length() < PPM * 1.0 or
-		absf(player_velocity.normalized().dot(heading.normalized())) > 0.78):
+		absf(player_velocity.normalized().dot(heading.normalized())) > 0.78:
 		return safe
 	return _crossing_speed(agent, safe, player.global_position,
 		player_velocity, true, heading)
@@ -334,10 +337,11 @@ func _passing_lane(agent: Dictionary) -> int:
 			continue
 		var ratio := float(agent.progress) / maxf(1.0, float(edge.length_px))
 		var new_progress := ratio * float(candidate.length_px)
-		var target: Vector2 = network.point_on_edge(id, new_progress + PPM * 7.0).position
-		# The player and other cars must not occupy the destination lane
-		# or the corridor between the two lanes.
-		if target.distance_to(player.global_position) < PPM * 4.8:
+		var player_station := clampf(new_progress + ahead, 0.0, float(candidate.length_px))
+		var target: Dictionary = network.point_on_edge(id, player_station)
+		# Only reject a destination lane when the player actually
+		# occupies that lane, not because they are nearby in ours.
+		if target.position.distance_to(player.global_position) < PLAYER_PATH_HALF_WIDTH:
 			continue
 		var clear := true
 		for other in agents:
