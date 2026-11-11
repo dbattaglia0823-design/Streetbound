@@ -2,6 +2,7 @@ class_name PlayerVehicleCatalog
 extends RefCounted
 ## Explicit roster: Godot also includes these images in exported builds.
 ## Entries with source_model_unverified=true are provisional associations only.
+const PendingAudio = preload("res://scripts/audio/pending_vehicle_audio.gd")
 const CATALOG_PATH := "res://data/player_vehicle_catalog.json"
 const PPM := 20.0
 static var _vehicles: Array[Dictionary] = []
@@ -105,6 +106,11 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	# Keep driven tire size and acceleration consistent with vehicle class.
 	config.wheel_radius_m = 0.37 if str(entry.kind) in ["truck", "suv"] else 0.34
 	config.cornering_stiffness = 68000.0 * config.mass_kg / 1450.0
+	# Future dealership entries can omit authored sound settings if their
+	# audio profile was prepared from streetbound_vehicle_list.txt.
+	# These fallbacks are AUDIO ONLY and cannot add cars to the roster.
+	if not entry.has("audio_family"):
+		PendingAudio.apply_to_config(config,str(entry.id))
 	return config
 
 

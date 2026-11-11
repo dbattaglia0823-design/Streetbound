@@ -34,6 +34,9 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var audio_lope: float = 0.1 # Low-speed cam/firing pulse modulation.
 @export var audio_overrun: float = 0.35 # Coast-burble/backfire probability.
 @export var audio_turbo_presence: float = 0.0
+## Hybrid engine can idle silently and blend with electric drive at low load.
+## Audio only; does not grant any additional drivetrain power.
+@export var audio_hybrid_assist: float = 0.0
 @export var shift_duration: float = 0.18
 ## Automatic power-on changes need only a short torque interruption.
 @export_range(0.03, 0.3, 0.005) var auto_shift_duration: float = 0.085

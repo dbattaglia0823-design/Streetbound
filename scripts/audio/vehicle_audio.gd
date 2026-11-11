@@ -47,6 +47,8 @@ var driveline := AudioStreamPlayer.new()
 ## Real CC0 recorded engine bed: subtle organic texture beneath each
 ## vehicle's model-specific, RPM-correct power/coast synthesis.
 var recorded_texture := AudioStreamPlayer.new()
+## Motor / inverter and final-drive whine for new BEVs and quiet hybrid launch.
+var electric_drive := AudioStreamPlayer.new()
 var tires := AudioStreamPlayer.new()
 var scrub := AudioStreamPlayer.new()
 var shift := AudioStreamPlayer.new()
@@ -101,13 +103,13 @@ func _ready() -> void:
 	name = "VehicleAudio"
 	_loop_players.assign([engine,low,mid,high,coast_idle,coast_low,
 		coast_mid,coast_high,intake,turbo,gear_whine,wind,road,driveline,
-		tires,scrub,recorded_texture])
+		tires,scrub,recorded_texture,electric_drive])
 	_all_players.assign(_loop_players+[shift,blowoff,flutter,pop,impact,
 		ignition,shutdown,downshift,limiter,curb])
 	var names := ["EngineIdle","EngineLow","EngineMid","EngineHigh",
 		"CoastIdle","CoastLow","CoastMid","CoastHigh","Intake",
 		"ForcedInduction","GearWhine","Wind","Road","Driveline",
-		"Tires","LooseTires","RecordedEngineTexture","Shift","BlowOff","CompressorFlutter",
+		"Tires","LooseTires","RecordedEngineTexture","ElectricDrive","Shift","BlowOff","CompressorFlutter",
 		"ExhaustPop","Impact","Ignition","Shutdown","DownshiftBlip",
 		"RevLimiter","CurbContact"]
 	for i in _all_players.size():
@@ -127,6 +129,7 @@ func _ready() -> void:
 	downshift.stream = downshift_stream if downshift_stream != null else Synth.transient("blip")
 	limiter.stream = limiter_stream if limiter_stream != null else Synth.transient("limiter")
 	curb.stream = curb_stream if curb_stream != null else Synth.transient("curb")
+	electric_drive.stream = Synth.texture_loop("electric_drive")
 	if is_instance_valid(vehicle):
 		_configure_engine(true)
 		vehicle.transmission.shifted.connect(_on_shift)
@@ -230,7 +233,16 @@ func _configure_engine(force := false) -> void:
 		if fx_players[i].stream != resolved:
 			fx_players[i].stop()
 			fx_players[i].stream = resolved
-	if not muted and (not _started_once or switching_car):
+	# Battery-electric cars do not start a fake combustion engine or
+	# play gasoline cranking sounds on a vehicle swap.
+	if _induction == "electric":
+		# Cancel any still-playing petrol transient from the previously
+		# selected car; otherwise an EV can inherit a one-second crank/pop.
+		for transient in [ignition,shutdown,pop,limiter,shift,downshift,
+				blowoff,flutter]:
+			transient.stop()
+	if not muted and (not _started_once or switching_car) and \
+		_induction != "electric":
 		if switching_car:
 			shutdown.volume_db = -38.0+_profile_aggression*5.0
 			shutdown.play()
@@ -253,6 +265,8 @@ func _engine_recording_or_original(cfg: VehicleConfig, slot: String,
 func _on_shift(new_gear: int) -> void:
 	var downshifted := new_gear < _last_gear
 	_last_gear = new_gear
+	if _induction == "electric":
+		return # Single-speed EVs must not fake a combustion shift event.
 	_shift_dip_time = 0.125 if not downshifted else 0.075
 	if muted:
 		return
@@ -305,7 +319,7 @@ func _release_pressure(psi: float, during_shift := false) -> void:
 
 
 func _play_pop(intensity: float) -> void:
-	if muted or _pop_cooldown > 0.0:
+	if muted or _induction == "electric" or _pop_cooldown > 0.0:
 		return
 	_pop_cooldown = 0.38
 	pop.volume_db = -37.0+clampf(intensity,0.0,1.0)*13.0+ \
@@ -316,7 +330,7 @@ func _play_pop(intensity: float) -> void:
 
 
 func _limiter_tick() -> void:
-	if muted or _limiter_cooldown > 0.0:
+	if muted or _induction == "electric" or _limiter_cooldown > 0.0:
 		return
 	_limiter_dip_time = 0.054
 	_limiter_cooldown = 0.145
@@ -374,12 +388,12 @@ func _process(dt: float) -> void:
 	_last_boost = boost
 	_last_rpm_fraction = revs
 	# Actual redline fuel cut: stuttering layer and dry mechanical ticks.
-	if revs >= 0.985 and throttle > 0.82 and \
+	if _induction != "electric" and revs >= 0.985 and throttle > 0.82 and \
 		vehicle.transmission.shift_timer <= 0.0:
 		_limiter_tick()
 	# Restrained overrun crackles on performance-oriented cars only. Do
 	# not create endless pops from low-rev traffic, braking or idle.
-	if throttle < 0.14 and revs > 0.45 and \
+	if _induction != "electric" and throttle < 0.14 and revs > 0.45 and \
 		vehicle.linear_velocity.length() > 9.0 and cfg.audio_overrun >= 0.42:
 		_overrun_clock += delta*cfg.audio_overrun
 		if _overrun_clock > 1.4 and _pop_cooldown <= 0.0:
@@ -392,6 +406,16 @@ func _process(dt: float) -> void:
 	var shift_gain := 0.46 if _shift_dip_time > 0.0 else 1.0
 	var limiter_gain := 0.33 if _limiter_dip_time > 0.0 else 1.0
 	var engine_load := (0.46+throttle*0.54)*shift_gain*limiter_gain
+	var road_speed := vehicle.linear_velocity.length()
+	var hybrid_electric_launch := cfg.audio_hybrid_assist > 0.2 and \
+		_induction != "electric" and throttle < 0.32 and road_speed < 11.0
+	var combustion_gain := 0.22 if hybrid_electric_launch else 1.0
+	engine_load *= combustion_gain
+	if _induction == "electric":
+		# A stopped BEV is almost silent. The motor grows with road speed
+		# and requested acceleration, never with a gasoline firing pulse.
+		engine_load = (0.0 if road_speed < 0.8 and throttle < 0.04 else \
+			0.14+0.27*throttle+0.18*smoothstep(1.0,40.0,road_speed))
 	var power_mix := clampf(0.16+throttle*0.84,0.0,1.0)
 	if revs < 0.11 and vehicle.linear_velocity.length() < 2.0:
 		power_mix = maxf(power_mix,0.30)
@@ -415,7 +439,8 @@ func _process(dt: float) -> void:
 				1.0-exp(-16.0*delta))
 			var mix := power_mix if side == 0 else (1.0-power_mix)
 			var gain := float(weight[i])*engine_load*mix*idle_pulse
-			var db := -25.5+_profile_aggression*3.3+revs*2.8+ \
+			var base_db := -38.0 if _induction == "electric" else -25.5
+			var db := base_db+_profile_aggression*3.3+revs*2.8+ \
 				linear_to_db(maxf(gain,0.0001))
 			player.volume_db = lerpf(player.volume_db,
 				-80.0 if muted else maxf(-80.0,db),smoothing)
@@ -423,7 +448,8 @@ func _process(dt: float) -> void:
 		cfg.audio_intake_presence*5.0
 	intake.pitch_scale = 0.76+revs*1.15
 	intake.volume_db = lerpf(intake.volume_db,
-		-80.0 if muted else intake_volume,1.0-exp(-9.0*delta))
+		-80.0 if muted or _induction == "electric" else intake_volume,
+		1.0-exp(-9.0*delta))
 	var turbo_db := -80.0
 	if _induction == "turbo" and cfg.boost_max_psi > 0.05:
 		var pressure := clampf(boost/cfg.boost_max_psi,0.0,1.0)
@@ -437,6 +463,19 @@ func _process(dt: float) -> void:
 	turbo.volume_db = lerpf(turbo.volume_db,
 		-80.0 if muted else turbo_db,1.0-exp(-13.0*delta))
 	var speed := vehicle.linear_velocity.length()
+	# Electric motor uses inverter/reduction gear tones, while petrol
+	# hybrids blend a quieter electric launch into the main exhaust mix.
+	var motor_db := -80.0
+	if _induction == "electric":
+		if speed > 0.8 or throttle > 0.04:
+			motor_db = -51.0+throttle*14.0+smoothstep(1.0,50.0,speed)*13.0
+	elif cfg.audio_hybrid_assist > 0.2:
+		motor_db = (-48.0 if hybrid_electric_launch else -61.0)+ \
+			throttle*5.0+smoothstep(1.0,35.0,speed)*4.0
+	electric_drive.pitch_scale = clampf(0.66+speed/43.0+
+		throttle*0.18,0.66,2.5)
+	electric_drive.volume_db = lerpf(electric_drive.volume_db,
+		-80.0 if muted else motor_db,1.0-exp(-9.0*delta))
 	gear_whine.pitch_scale = clampf(0.65+speed/34.0,0.65,2.4)
 	gear_whine.volume_db = lerpf(gear_whine.volume_db,
 		-80.0 if muted or speed < 4.0 else \
@@ -470,7 +509,8 @@ func _process(dt: float) -> void:
 		recorded_texture.pitch_scale = lerpf(recorded_texture.pitch_scale,
 			texture_pitch,1.0-exp(-8.0*delta))
 		var recorded_db := -40.0+throttle*8.0+revs*2.5+ \
-			cfg.audio_aggression*1.5
+			cfg.audio_aggression*1.5+ \
+			linear_to_db(maxf(combustion_gain,0.001))
 		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
 			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
 	# Surface-reactive tyres remain quiet unless actual loss of grip occurs.
