@@ -189,6 +189,52 @@ func _street_surface_details(path: PackedVector2Array, road: Dictionary, width: 
 		passed += length
 
 
+## Racecourse features in metres, with consistent global road station across
+## chunk boundaries. Only visuals change; timed checkpoints remain authoritative.
+func _race_crossbar(path: PackedVector2Array, station: float,
+		marker_station: float, width: float, ink: Color, thickness: float) -> void:
+	var cursor := station
+	for i in range(1,path.size()):
+		var a: Vector2 = path[i-1]
+		var b: Vector2 = path[i]
+		var length := a.distance_to(b)
+		if length < .01:
+			continue
+		if marker_station >= cursor and marker_station < cursor+length:
+			var at := a.lerp(b,(marker_station-cursor)/length)
+			var direction := (b-a)/length
+			var n := Vector2(-direction.y,direction.x)*width*.47
+			draw_line(at-n,at+n,ink,thickness,true)
+			return
+		cursor += length
+
+func _race_surface_details(path: PackedVector2Array,r: Dictionary,
+		width: float,station: float) -> void:
+	if str(r.name) == "Ashford Drag Strip":
+		# NHRA-style dual lanes: 30 m staging approach, 402 m timed run,
+		# separated center stripe, full rollout and dedicated paved runoff.
+		draw_polyline(path,Color("dad2ba"),3.0,true)
+		for side in [-1.0,1.0]:
+			var offset_path := _offset(path,side*width*.265)
+			_dashes(offset_path,4,Color("a4a69c"),75,115,station,true)
+		# Parallel rubberized grooves at launch are drawn on the track surface
+		# for the opening 100 m, not as extra physics or road objects.
+		for side in [-1.0,1.0]:
+			_dashes(_offset(path,side*width*.22),10,
+				Color(.10,.13,.14,.34),85,25,station,false)
+		_race_crossbar(path,station,30.0*PPM,width,Color("f9efe0"),15)
+		_race_crossbar(path,station,48.288*PPM,width,Color("eee2c5"),5)
+		_race_crossbar(path,station,231.0*PPM,width,Color("e6dfc9"),7)
+		_race_crossbar(path,station,432.0*PPM,width,Color("f7efe2"),17)
+		_race_crossbar(path,station,590.0*PPM,width,Color("a8b6b7"),5)
+	elif str(r.name) == "Ashford Grand Circuit":
+		# Short alternating painted kerb blocks mark track edge/apex approach.
+		# A continuous white boundary stays visible when dashes break.
+		for side in [-1.0,1.0]:
+			var boundary := _offset(path,side*(width*.5-8.0))
+			draw_polyline(boundary,Color("e6e4d5"),3.0,true)
+			_dashes(boundary,12,Color("bd5f57"),38,38,station,false)
+
 func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
 	var urban: bool = r.kind in ["local","arterial"]
 	var gravel: bool = r.surface=="GRAVEL"
@@ -199,6 +245,7 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 		return
 	var edge := Color("dcd9c4")
 	if r.kind == "track":
+		_race_surface_details(path,r,width,station)
 		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station,true)
 		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station,true)
 	elif r.kind == "highway":
