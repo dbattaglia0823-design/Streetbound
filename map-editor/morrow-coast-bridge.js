@@ -68,7 +68,7 @@ export function convertMorrowWorld(raw){
   const regions=[];
   for(const [index,terrain] of raw.terrain.entries()){
     if(regions.length>=220)break;
-    if(!terrain.points||terrain.points.length<3)continue;
+    if(terrain.generated_extension||!terrain.points||terrain.points.length<3)continue;
     // Avoid duplicating riverbank/foam masks with identical footprints.
     if(['foam','riverbank','highland'].includes(terrain.kind))continue;
     const polygon=simplifyPolygon(terrain.points,180,width,height);
