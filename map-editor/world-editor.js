@@ -9,6 +9,7 @@ import {
 } from './world-edit-tools.js';
 import {distance,clamp,nearestOnPath,pointInPolygon,regionAt,sampleRoad} from './world-geometry.js';
 import {drawWorld,drawEditorOverlay} from './world-renderer.js';
+import {pickEditableScenery} from './world-selection.js';
 import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
@@ -20,7 +21,7 @@ import {buildRuntimePreview,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {
-  placeBesideRoad,placeSiteMarker,nearestRoadPlacement,placementFootprint,
+  placeBesideRoad,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
 } from './world-road-placement.js';
 
@@ -245,8 +246,56 @@ function insertSelectedPoint(p,mode='between'){
     return true;
   }catch(e){errorMessage(e);return false;}
 }
+/** Make a visible native house/object editable on first click, keeping the
+ * same source replacement identity so Apply to Game never duplicates it.
+ */
+function adoptRuntimeScenery(source){
+  const type=REPLACEABLE_KINDS[source.kind],size=BASE_SIZE[type];
+  if(!size)return null;
+  const scale=clamp(Number(source.size[0])/size[0],.25,2.5);
+  const same=item=>item.replaces&&item.replaces.kind===source.kind&&
+    item.replaces.seed===source.seed&&
+    Math.hypot(item.replaces.p[0]-source.p[0],item.replaces.p[1]-source.p[1])<.03;
+  const existing=doc.props.find(same);
+  if(existing){setSelection(existing.id);return existing.id;}
+  // Numeric IDs must be parsed correctly even when several prior houses
+  // have already been adopted. Keep stable, collision-free authoring IDs.
+  const id='prop-'+(Math.max(0,...doc.props.map(item=>
+    /^prop-\\d+$/.test(item.id)?Number(item.id.slice(5)):0))+1);
+  const next={id,type,name:'Game '+source.kind.replaceAll('_',' '),
+    x:Number(source.p[0]),y:Number(source.p[1]),
+    rotation:Number(source.angle)*180/Math.PI,scale,
+    assetId:source.kind==='coastal_house'?'game-coastal_house':'',
+    replaces:{kind:String(source.kind),seed:Number(source.seed)||0,
+      p:[Number(source.p[0]),Number(source.p[1])]},hidden:false};
+  const previous=doc;
+  if(change(d=>normalizeWorld({...d,props:[...d.props,next]}),
+      'Selected game scenery is now editable. Drag it or use the Inspector, then Apply to Game.')&&doc!==previous){
+    adoptGameProp=false;$('adopt-game-prop').classList.remove('active');
+    setSelection(id);
+    return id;
+  }
+  return null;
+}
+
 function hitTest(p){
   const radius=clamp(12/zoom,9,48);
+  // Match the visible stacking order: marker > visible scenery > road >
+  // terrain. In particular, unadopted baked houses must be selectable
+  // directly without first turning on a separate adoption mode.
+  if($('show-markers').checked)
+    for(let i=doc.markers.length-1;i>=0;i--)
+      if(distance(p,doc.markers[i])<Math.max(18,12/zoom))
+        return {id:doc.markers[i].id,point:-1,kind:'entity'};
+  if($('show-scenery').checked){
+    const edited=pickEditableScenery(doc.props,p,{
+      gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8)});
+    if(edited)return {id:edited.id,point:-1,kind:'entity'};
+    const native=pickRuntimeProp(runtimePreview,doc,p,clamp(9/zoom,6,48));
+    if(native)return {kind:'native',source:native};
+  }
+  // Preserve precise selected road/terrain handles where no visible object
+  // covers them, so coastline and spline editing stays fully functional.
   if(selection){
     const found=getEntity(doc,selection.id);
     if(found&&['roads','regions'].includes(found.type)){
@@ -254,12 +303,6 @@ function hitTest(p){
         return {id:selection.id,point:i,kind:'handle'};
     }
   }
-  if($('show-markers').checked)
-    for(let i=doc.markers.length-1;i>=0;i--)
-      if(distance(p,doc.markers[i])<Math.max(18,12/zoom))return {id:doc.markers[i].id,point:-1,kind:'entity'};
-  if($('show-scenery').checked)
-    for(let i=doc.props.length-1;i>=0;i--)
-      if(distance(p,doc.props[i])<Math.max(18*doc.props[i].scale,12/zoom))return {id:doc.props[i].id,point:-1,kind:'entity'};
   if($('show-roads').checked)
     for(let i=doc.roads.length-1;i>=0;i--){
       const road=doc.roads[i],d=nearestOnPath(p,sampleRoad(road.points,road.smooth,12)).distance;
@@ -501,29 +544,12 @@ canvas.addEventListener('pointerdown',event=>{
   }
   if(tool==='select'){
     if(runtimePreview&&(adoptGameProp||event.ctrlKey)){
-      const source=pickRuntimeProp(runtimePreview,doc,p,clamp(12/zoom,12,48));
+      const source=pickRuntimeProp(runtimePreview,doc,p,clamp(9/zoom,6,48));
       if(!source){
-        status('No editable baked tree, rock or building at that point. Zoom in and click another.');
+        status('No unedited game scenery at that point. Select an already edited house normally.');
         return;
       }
-      const type=REPLACEABLE_KINDS[source.kind],size=BASE_SIZE[type];
-      const scale=clamp(Number(source.size[0])/size[0],.25,2.5);
-      const same=(item)=>item.replaces&&item.replaces.kind===source.kind&&
-        item.replaces.seed===source.seed&&
-        Math.hypot(item.replaces.p[0]-source.p[0],item.replaces.p[1]-source.p[1])<.03;
-      if(doc.props.some(same))return status('That game object is already editable.');
-      const id='prop-'+(Math.max(0,...doc.props.map(item=>
-        /^prop-(\\d+)$/.test(item.id)?Number(item.id.slice(5)):0))+1);
-      const next={id,type,name:'Game '+source.kind.replaceAll('_',' '),
-        x:Number(source.p[0]),y:Number(source.p[1]),rotation:Number(source.angle)*180/Math.PI,
-        scale,assetId:source.kind==='coastal_house'?'game-coastal_house':'',
-        replaces:{kind:String(source.kind),seed:Number(source.seed)||0,
-          p:[Number(source.p[0]),Number(source.p[1])]},hidden:false};
-      if(change(d=>normalizeWorld({...d,props:[...d.props,next]}),
-        'Existing game scenery is now editable. Move, resize or hide it, then Apply to Game.')){
-        adoptGameProp=false;$('adopt-game-prop').classList.remove('active');
-        setSelection(id);
-      }
+      adoptRuntimeScenery(source);
       return;
     }
     const current=selectedShape();
@@ -552,6 +578,16 @@ canvas.addEventListener('pointerdown',event=>{
       }
     }
     const hit=hitTest(p);
+    if(hit?.kind==='native'){
+      const id=adoptRuntimeScenery(hit.source);
+      const adopted=id?getEntity(doc,id):null;
+      if(adopted){
+        gesture={mode:'entity',before:doc,id,start:p,
+          x:adopted.item.x,y:adopted.item.y};
+        canvas.setPointerCapture(event.pointerId);
+      }
+      return;
+    }
     setSelection(hit?.id||null,hit?.point??-1);
     if(!hit)return;
     const found=getEntity(doc,hit.id);
@@ -736,32 +772,26 @@ for(const id of ['brush-radius','brush-spacing','brush-density','brush-variation
   $(id).addEventListener('input',requestRender);
 $('snap-selected-roadside').addEventListener('click',()=>{
   const found=selection?getEntity(doc,selection.id):null;
-  if(!found||!['props','markers'].includes(found.type))
-    return status('Select a building, scenery object or service marker first.');
+  if(found?.type!=='props')
+    return status('Select a scenery object to align; gameplay markers stay wherever you place them.');
   try{
-    if(found.type==='markers'&&!['garage','dealership','fuel','mission','fast_travel','player_spawn'].includes(found.item.type))
-      return status('Race starts, checkpoints, finishes and traffic spawns intentionally remain on their road paths.');
     const before=doc;
-    if(found.type==='props'){
-      const placed=placeBesideRoad(doc,found.item,{snap:true,align:true,maxSnapDistance:1500});
-      doc=updateEntity(doc,selection.id,{x:placed.x,y:placed.y,rotation:placed.rotation});
-    }else{
-      const placed=placeSiteMarker(doc,found.item);
-      doc=updateEntity(doc,selection.id,{x:placed.x,y:placed.y,rotation:placed.rotation});
-    }
-    if(before!==doc)makeSnapshot(before,'Aligned selected object to local road curve and cleared the shoulder.');
-    $('roadside-status').textContent='Selected object checked against nearby roads.';
+    const placed=placeBesideRoad(doc,found.item,{snap:true,align:true,maxSnapDistance:1500});
+    doc=updateEntity(doc,selection.id,{x:placed.x,y:placed.y,rotation:placed.rotation});
+    if(before!==doc)makeSnapshot(before,'Aligned scenery with the road and cleared the shoulder.');
+    $('roadside-status').textContent='Selected scenery checked against nearby roads.';
   }catch(e){errorMessage(e);}
 });
 $('repair-roadside').addEventListener('click',()=>{
   const result=repairRoadsideObjects(doc,{alignAll:true});
   if(result.doc!==doc){
     const before=doc;doc=result.doc;
-    makeSnapshot(before,'Aligned '+(result.moved+result.rotated+result.adjustedMarkers)+
-      ' objects. Road shoulders are clear.');
+    makeSnapshot(before,'Aligned '+(result.moved+result.rotated)+
+      ' scenery objects. Markers were not moved.');
   }
   $('roadside-status').textContent='Moved '+result.moved+' scenery, rotated '+result.rotated+
-    ', adjusted '+result.adjustedMarkers+' site markers'+(result.failed?'; '+result.failed+' need manual relocation.':'.');
+    ' scenery. Game markers remain at their chosen positions'+
+    (result.failed?'; '+result.failed+' scenery objects need manual relocation.':'.');
 });
 $('environment-preset').addEventListener('change',()=>{
   $('parking-generator-controls').hidden=$('environment-preset').value!=='parking';
