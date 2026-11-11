@@ -312,6 +312,21 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         entry = numbered[index]
         fresh = points(entry["points"], width, height)
         baseline = [list(p) for p in road["anchors"]]
+        # The curated circuit now has safer flowing corners. An older editor
+        # overlay contains the previous *unedited* spline controls; recognize
+        # those four known defaults rather than overwriting the new circuit.
+        # Any intentionally changed circuit in an editor overlay is retained.
+        old_circuit_vias = {
+            ("trackn","trackw"): [(3120,3910),(2880,4020)],
+            ("trackw","tracks"): [(2870,4380),(3100,4510)],
+            ("tracks","tracke"): [(3730,4470),(3930,4530),(4120,4410)],
+            ("tracke","trackn"): [(4050,3970),(3850,3860)]
+        }
+        previous_via = old_circuit_vias.get((road["start"],road["end"]))
+        if road["name"] == "Ashford Grand Circuit" and previous_via is not None \
+                and len(fresh) == len(previous_via)+2 \
+                and all(length(a,b)<.01 for a,b in zip(fresh[1:-1],previous_via)):
+            fresh = baseline
         unchanged = (len(fresh) == len(baseline) and
                      all(length(a, b) < 0.005 for a, b in zip(fresh, baseline)))
         if unchanged:
