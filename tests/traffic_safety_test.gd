@@ -57,9 +57,25 @@ func run() -> void:
 	check("player_collision_capsule",
 		(player.get_node("CollisionShape2D") as CollisionShape2D).shape is CapsuleShape2D)
 	var shape := (actor.get_node("VehicleCollider") as CollisionShape2D).shape as CapsuleShape2D
-	check("traffic_art_fitted_hitbox", shape.radius > 7.0 and shape.radius <= 17.1
-		and shape.height <= 76.0 and shape.height > shape.radius * 2.0,
+	check("traffic_dimensions_enlarged_exactly_ten_percent",
+		is_equal_approx(float(actor.get("length_px")),
+			TrafficCar.BASE_LENGTH_PX * 1.10) and
+		is_equal_approx(float(actor.get("width_px")),
+			TrafficCar.BASE_WIDTH_PX * 1.10),
+		[actor.get("width_px"), actor.get("length_px")])
+	check("traffic_art_fitted_hitbox", shape.radius > 7.0 and
+		shape.radius <= float(actor.get("width_px")) * 0.45 + 0.01 and
+		shape.height <= float(actor.get("length_px")) and
+		shape.height > shape.radius * 2.0,
 		[shape.radius, shape.height])
+	var sprite: Sprite2D = actor.get_node_or_null("VehicleArtwork") as Sprite2D
+	var art: Dictionary = TrafficCar.appearance_for(int(actor.get("model_index")))
+	check("traffic_sprite_is_ten_percent_larger_in_world_units",
+		sprite != null and not art.is_empty() and
+		is_equal_approx(sprite.scale.x,
+			minf(float(actor.get("width_px")) / float(art.aspect.x),
+				float(actor.get("length_px")) / float(art.aspect.y))) and
+		is_equal_approx(sprite.scale.y, sprite.scale.x))
 	check("stopped_traffic_ahead_brakes",
 		flow._car_following(0, PPM * 16.0) < PPM * 16.0)
 	other.position = actor.position + Vector2.UP * PPM * 5.0

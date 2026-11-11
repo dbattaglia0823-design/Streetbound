@@ -23,6 +23,13 @@ func run() -> void:
 	if camera == null:
 		quit(1)
 		return
+	check("driving_world_magnified_twenty_percent",
+		is_equal_approx(float(camera.world_zoom_multiplier), 1.20),
+		camera.world_zoom_multiplier)
+	check("camera_starts_at_magnified_zoom_without_pop",
+		is_equal_approx(camera.zoom.x, 1.06 * 1.20) and
+		is_equal_approx(camera.zoom.x, camera.zoom.y),
+		camera.zoom)
 	# Stop automatic stepping so this test controls speed/heading deterministically.
 	car.set_physics_process(false)
 	camera.set_physics_process(false)
