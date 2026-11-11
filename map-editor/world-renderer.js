@@ -151,79 +151,46 @@ function drawRoads(ctx,roads,bounds,options){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
-  // Draw EXACT production junctions while their connected roads remain
-  // unchanged. The generic browser hull is only a temporary preview for
-  // edited/new roads until Save to Game rebakes the authoritative geometry.
-  if(options?.junctions!==false){
-    const preview=options?.runtimePreview;
-    const sameRoad=id=>{
-      const road=roads.find(item=>item.id===id),baked=preview?.roads?.get(id);
+  // Painted road strokes already make round intersection junctions.
+  // Filling generic convex apron polygons creates square black patches
+  // that do not exist in the game. Keep only the baked exterior curbs
+  // and legally required stop/yield bars for untouched game roads.
+  if(options?.junctions!==false && options?.runtimePreview?.junctions){
+    const preview=options.runtimePreview;
+    const unchanged=id=>{
+      const road=roads.find(item=>item.id===id);
+      const baked=preview.roads.get(id);
       return Boolean(road&&baked&&road.points.length===baked.anchors.length&&
         Math.abs(road.width-baked.width)<.001 &&
         road.surface.toUpperCase()===baked.surface &&
         road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
           Math.abs(p.y-baked.anchors[i][1])<.005));
     };
-    const exact=(preview?.junctions||[]).filter(j=>
-      j.roads.length>0&&j.roads.every(sameRoad));
-    for(const j of exact){
-      if(!visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
-        maxX:j.at.x+j.radius,maxY:j.at.y+j.radius},bounds))continue;
-      if(j.polygon.length<3)continue;
-      stroke(ctx,j.polygon,true);
-      ctx.fillStyle=ROAD_COLORS.asphalt;ctx.fill();
-      // The physical apron has rounded outside curbs; do not invent
-      // stop bars over the uninterrupted through-road pavement.
-      if(options.quality!==0){
-        ctx.strokeStyle='#eee7d5';ctx.lineWidth=.3;
-        for(const curb of j.curbs){
-          if(curb.length<2)continue;
-          ctx.beginPath();
-          ctx.moveTo(curb[0][0],curb[0][1]);
-          for(const p of curb.slice(1))ctx.lineTo(p[0],p[1]);
-          ctx.stroke();
-        }
-        for(const arm of j.approaches){
-          if(!['stop','yield'].includes(arm.control))continue;
-          const p=arm.p,d=arm.direction;
-          if(!Array.isArray(p)||!Array.isArray(d))continue;
-          const n={x:-d[1],y:d[0]},w=(arm.width||9)/2;
-          ctx.beginPath();
-          ctx.moveTo(p[0]-n.x*(w-.5),p[1]-n.y*(w-.5));
-          ctx.lineTo(p[0]-n.x*.5,p[1]-n.y*.5);
-          ctx.lineWidth=.4;ctx.strokeStyle='#f2ebd4';ctx.stroke();
-        }
+    if(options.quality!==0)for(const j of preview.junctions){
+      if(!j.roads.length||!j.roads.every(unchanged)||
+        !visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
+          maxX:j.at.x+j.radius,maxY:j.at.y+j.radius},bounds))continue;
+      ctx.save();
+      ctx.strokeStyle='#eee7d5';
+      ctx.lineWidth=.3;
+      for(const curb of j.curbs){
+        if(curb.length<2)continue;
+        ctx.beginPath();
+        ctx.moveTo(curb[0][0],curb[0][1]);
+        for(const p of curb.slice(1))ctx.lineTo(p[0],p[1]);
+        ctx.stroke();
       }
-    }
-    const derived=buildRoadJunctions(roads);
-    for(const junction of derived){
-      // Baked intersection already covers this area if the roads match.
-      if(exact.some(j=>Math.hypot(j.at.x-junction.x,j.at.y-junction.y)<
-        Math.max(12,j.radius*.9)))continue;
-      if(!visible({
-        minX:junction.x-junction.radius,minY:junction.y-junction.radius,
-        maxX:junction.x+junction.radius,maxY:junction.y+junction.radius
-      },bounds))continue;
-      stroke(ctx,junction.polygon,true);
-      ctx.fillStyle=ROAD_COLORS[junction.surface]||ROAD_COLORS.asphalt;
-      ctx.fill();
-      // Updated geometry is provisional until the game's bake is saved.
-      if(options.quality===0 || junction.approaches.length<2 ||
-        junction.approaches.some(a=>a.roadClass==='highway'||a.roadClass==='track'||
-          a.surface==='dirt'||a.surface==='gravel'))continue;
-      for(const approach of junction.approaches){
-        if(!approach.markings||!['city','service'].includes(approach.roadClass))continue;
-        const v=approach.tangent,n=approach.normal;
-        for(const sign of [-1,1]){
-          const reach=Math.max(5,...junction.polygon.map(p=>
-            (p.x-junction.x)*v.x*sign+(p.y-junction.y)*v.y*sign));
-          const cx=junction.x+v.x*sign*(reach+9),cy=junction.y+v.y*sign*(reach+9);
-          const half=Math.max(5,approach.width/2-5);
-          ctx.beginPath();ctx.moveTo(cx-n.x*half,cy-n.y*half);
-          ctx.lineTo(cx+n.x*half,cy+n.y*half);
-          ctx.lineWidth=2.4;ctx.strokeStyle='#f2ebd4c9';ctx.stroke();
-        }
+      for(const arm of j.approaches){
+        if(!['stop','yield'].includes(arm.control))continue;
+        const p=arm.p,d=arm.direction;
+        if(!Array.isArray(p)||!Array.isArray(d))continue;
+        const n={x:-d[1],y:d[0]},w=(arm.width||9)/2;
+        ctx.beginPath();
+        ctx.moveTo(p[0]-n.x*(w-.5),p[1]-n.y*(w-.5));
+        ctx.lineTo(p[0]-n.x*.5,p[1]-n.y*.5);
+        ctx.lineWidth=.4;ctx.strokeStyle='#f2ebd4';ctx.stroke();
       }
+      ctx.restore();
     }
   }
 }
