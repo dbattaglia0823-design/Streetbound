@@ -122,7 +122,6 @@ def make_handler(token: str = TOKEN):
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Access-Control-Allow-Origin", "null" if False else "")
             self.end_headers()
             try:
                 self.wfile.write(payload)
