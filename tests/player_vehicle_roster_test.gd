@@ -39,6 +39,20 @@ func run() -> void:
 	check("twelve_vehicle_brands", brands.size() == 12, brands.size())
 	check("plausible_vehicle_baseline_data", all_metrics)
 	check("unknown_images_remain_flagged", unverified == 46, unverified)
+	# Calibration fields must reject malformed values, and individual
+	# axle hubs stay independent from neighboring car selections.
+	var default_front := Vector2(0.075, 0.25)
+	check("wheel_calibration_defaults_to_measured_wheelbase",
+		Catalog._wheel_uv({}, "front_left_uv", default_front) == default_front)
+	check("model_specific_front_hub_can_be_calibrated",
+		Catalog._wheel_uv({"front_left_uv": [0.11, 0.19]},
+			"front_left_uv", default_front) == Vector2(0.11, 0.19))
+	check("invalid_hub_outside_body_is_ignored",
+		Catalog._wheel_uv({"front_left_uv": [-0.2, 1.3]},
+			"front_left_uv", default_front) == default_front)
+	check("incomplete_hub_override_is_ignored",
+		Catalog._wheel_uv({"front_left_uv": [0.12]},
+			"front_left_uv", default_front) == default_front)
 	var save_path := "user://streetbound_selected_vehicle.cfg"
 	var old_save := FileAccess.get_file_as_string(save_path) if FileAccess.file_exists(save_path) else ""
 	var main: Node = load("res://scenes/proving_ground.tscn").instantiate()
