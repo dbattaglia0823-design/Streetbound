@@ -110,6 +110,13 @@ func run() -> void:
 				absf(wrapf((n.get_node("DealershipArtwork") as Sprite2D).rotation
 					- float(shop.art_rotation), -PI, PI)) < 0.001)
 		check("art_faces_entrance_" + str(shop.id), storefront_found)
+		# Sign sits above the showroom sprite rather than disappearing
+		# behind its image on the same z-layer.
+		check("visible_storefront_sign_" + str(shop.id),
+			manager.shop_nodes.any(func(n: Node2D) -> bool:
+				return str(n.site.id) == str(shop.id) and \
+					n.get_node_or_null("DealershipSign") is Panel and \
+					n.get_node("DealershipSign").z_index > 0))
 		for other in centres:
 			if other.distance_to(position) < 92.0:
 				well_spaced = false
@@ -160,6 +167,12 @@ func run() -> void:
 	car.linear_velocity = Vector2.ZERO
 	car.velocity = Vector2.ZERO
 	check("stopped_customer_can_browse",manager.can_browse(budget))
+	var off_lot: Vector2 = site_position(budget, "center_m") + \
+		Vector2(19.0,-17.0).rotated(float(budget.rotation))
+	car.global_position = off_lot * PPM
+	check("must_be_on_real_forecourt_not_grass_to_shop",
+		not manager.can_browse(budget))
+	car.global_position = site_position(budget) * PPM
 	check("dealership_parking_is_asphalt",
 		str(world.surface_at(car.global_position).name) == "ASPHALT")
 	menu.open_menu()
