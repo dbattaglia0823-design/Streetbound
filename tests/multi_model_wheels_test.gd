@@ -119,11 +119,13 @@ func run() -> void:
 	check("updated_front_anchor_exact", fl.position.distance_to(
 		inset_point(suv_bounds, suv.front_left_uv, rig.visual_track_scale)) < 0.01,
 		fl.position)
+	var sprung_art: Node2D = car.get_node("Art")
+	var rest_offset: Vector2 = sprung_art.get("_sprite_rest_position")
+	var rest_size: Vector2 = sprung_art.get("_sprite_rest_scale")
 	check("swapping_cars_recaptures_artwork_rest_pose",
-		(car.get_node("Art") as Node2D)._sprite_rest_position.is_equal_approx(
-			body.position) and
-		(car.get_node("Art") as Node2D)._sprite_rest_scale.is_equal_approx(
-			body.scale))
+		rest_offset.is_equal_approx(body.position) and
+		rest_size.is_equal_approx(body.scale),
+		[rest_offset, rest_size])
 	check("no_duplicate_wheels_after_runtime_swap", rig.get_child_count() == 4)
 	check("car_appearance_does_not_change_physics",
 		car.config == original_config and car.get_node("CollisionShape2D").shape == original_collision)
