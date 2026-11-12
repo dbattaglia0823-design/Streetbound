@@ -58,6 +58,7 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	var node := Control.new()
 	node.set_script(MapView)
 	node.model=model
+	node.world=world
 	node.miniature=miniature
 	node.custom_minimum_size=dimensions
 	node.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
@@ -112,8 +113,8 @@ func _ready() -> void:
 		entry.add_theme_font_size_override("font_size",12)
 		entry.tooltip_text=poi.category
 	scroll.add_child(destinations)
-	text(sidebar,"ROAD KEY",14,Color("c9d7b4"))
-	text(sidebar,"Gold  Parkway / main travel\nIvory  Streets & scenic routes\nRust  Motorsport circuit\nTan  Gravel backroads",12)
+	text(sidebar,"MAP DETAILS",14,Color("c9d7b4"))
+	text(sidebar,"Zoom in for actual streets, buildings,\nparking, scenery and terrain.\nGenerated from this game's world.",12)
 	text(sidebar,"G garage   W workshop   F fuel\nR racing   D dealer   M marina\nV viewpoint / landmark",11,Color("bfccb6"))
 	var right := VBoxContainer.new()
 	contents.add_child(right)
