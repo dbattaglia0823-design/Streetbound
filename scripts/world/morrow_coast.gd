@@ -7,6 +7,7 @@ const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
+const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
@@ -48,6 +49,11 @@ var _debug_clock := 0.0
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	# Road geometry, junction curvature, sidewalk placement and physical
+	# surfaces must agree before ANY chunks, traffic, parking or map are built.
+	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
+	# carries the marker and is not widened twice.
+	RoadWidthAdaptation.adapt(data)
 	# Decorate only existing commercial props in a single downtown city block.
 	# This is metadata for scenery only: road graph, terrain, prop coordinates,
 	# building collisions and authored world JSON are never modified.
@@ -381,6 +387,11 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var j: Dictionary = data.junctions[index]
 		if Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
 			return {"name":"ASPHALT","grip":1.0}
+	# Check ALL indexed road strips before assigning sidewalk or gravel grip.
+	# Otherwise an adjacent sidewalk can win simply because its segment was
+	# indexed earlier, even when the contact point is on full-width asphalt.
+	var on_sidewalk := false
+	var on_gravel := false
 	for index in data.surface_index.get(key,[]):
 		segment_tests += 1
 		var segment: Dictionary = data.segments[int(index)]
@@ -390,14 +401,20 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var distance_sq := Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)
 		var road_radius := float(r.width) * 0.5
 		if distance_sq <= road_radius * road_radius:
-			return {"name":str(r.surface),"grip":0.75 if r.surface=="GRAVEL" else 1.0}
-		# Sidewalks are actual hard ground beside BOTH sides of urban roads,
-		# rather than a pretty strip incorrectly treated as slippery grass.
-		# The baked 12m road-index margin already covers this extra 3.3m.
+			if str(r.surface) == "GRAVEL":
+				on_gravel = true
+			else:
+				return {"name":"ASPHALT","grip":1.0}
+		# Urban sidewalks remain drivable, but are lower-priority than an
+		# overlapping full-grip road and must not mask widened lanes.
 		if r.kind in ["local", "arterial"]:
 			var walk_radius := road_radius + 3.3
 			if distance_sq <= walk_radius * walk_radius:
-				return {"name":"ASPHALT","grip":0.93}
+				on_sidewalk = true
+	if on_gravel:
+		return {"name":"GRAVEL","grip":0.75}
+	if on_sidewalk:
+		return {"name":"ASPHALT","grip":0.93}
 	var chunk_key := "%d,%d" % [floori(point.x/chunk_m),floori(point.y/chunk_m)]
 	if _sand_polygons.has(chunk_key) and Geometry2D.is_point_in_polygon(point,_sand_polygons[chunk_key]):
 		return {"name":"SAND","grip":0.60}
