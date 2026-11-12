@@ -3,6 +3,7 @@ extends Node
 ## commands; VehicleController2D supplies all acceleration, torque, gear shifts,
 ## grip, braking, drag, collision and surface physics. No distance-based boosts.
 const PPM := 20.0
+const TrafficPassingScript = preload("res://scripts/world/race_traffic_overtaking.gd")
 var car: VehicleController2D
 var route := PackedVector2Array()
 var stations := PackedFloat64Array()
@@ -13,10 +14,15 @@ var throttle_limit := 0.90
 var cruise_speed_mps := 180.0
 var last_station_px := 0.0
 var navigation: RefCounted
+var traffic_planner: RefCounted
+var traffic_mode := "clear"
 
 
 func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
 	car = target
+	traffic_planner = null
+	traffic_mode = "clear"
+	navigation = null
 	route = waypoints.duplicate()
 	stations.clear()
 	if route.size() < 2:
@@ -41,6 +47,16 @@ func setup_navigation(target: VehicleController2D, guide: RefCounted) -> void:
 			world_route.append(point * PPM)
 	setup(target, world_route)
 	navigation = guide
+
+
+## A street racer uses the existing traffic actors as moving obstacles,
+## not traffic's stop-and-wait driving rules. The planner changes only the
+## physical steering target and conservative obstacle speed cap.
+func enable_race_traffic(surface: Node2D, flow: Node) -> void:
+	if navigation == null or not is_instance_valid(car):
+		return
+	traffic_planner = TrafficPassingScript.new()
+	traffic_planner.call("setup", car, surface, flow, navigation)
 
 
 func launch() -> void:
@@ -113,7 +129,20 @@ func _physics_process(dt: float) -> void:
 	# Keep checkpoint progress monotonic after a collision or wide corner.
 	last_station_px = maxf(last_station_px, station_px)
 	var lookahead_m := clampf(12.0 + speed * 0.65, 12.0, 65.0)
-	var target := _point_at(station_px + lookahead_m * PPM)
+	var target_station := station_px + lookahead_m * PPM
+	var target := _point_at(target_station)
+	var traffic_speed_cap := INF
+	if traffic_planner != null:
+		var plan: Dictionary = traffic_planner.call("plan", dt, station_px / PPM, speed)
+		traffic_speed_cap = float(plan.get("speed_cap_mps", INF))
+		traffic_mode = str(plan.get("mode", "clear"))
+		var intended_offset := float(plan.get("offset_m", 0.0))
+		if absf(intended_offset) > 0.05:
+			var before := _point_at(maxf(0.0, target_station - PPM * 2.0))
+			var after := _point_at(target_station + PPM * 2.0)
+			var tangent := (after - before).normalized()
+			if tangent.length_squared() > 0.5:
+				target += tangent.orthogonal() * intended_offset * PPM
 	var bearing := target - position_px
 	if bearing.length_squared() < 1.0:
 		car.command = Vector4.ZERO
@@ -133,6 +162,7 @@ func _physics_process(dt: float) -> void:
 		navigation.call("update_envelope", car)
 		desired_speed = minf(desired_speed, float(navigation.call(
 			"allowed_speed_at", station_px / PPM + maxf(5.0, speed * 0.35))))
+	desired_speed = minf(desired_speed, traffic_speed_cap)
 	var throttle_request := throttle_limit * clampf((desired_speed - speed) / 4.0, 0.0, 1.0)
 	var brake_request := clampf((speed - desired_speed) / 7.0, 0.0, 1.0)
 	# Never override the car's position, velocity, RPM, power or physics stats.
