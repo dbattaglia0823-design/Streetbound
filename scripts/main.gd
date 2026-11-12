@@ -120,6 +120,7 @@ func _ready() -> void:
 		world_hud.set_script(WorldHudScript)
 		world_hud.world = ground
 		world_hud.vehicle = vehicle
+		world_hud.races = [drag_race]
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 	# CanvasLayer 20 is PROCESS_MODE_ALWAYS; menu controls work while paused.
