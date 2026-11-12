@@ -32,8 +32,8 @@ func run() -> void:
 		and fl.position.x < fr.position.x and rl.position.x < rr.position.x,
 		[fl.position, fr.position, rl.position, rr.position])
 	var size: Vector2 = rig.tire_size
-	check("wheel_size_reasonable", size.x >= 5.5 and size.x <= 12.0
-		and size.y >= 16.0 and size.y <= 26.0, size)
+	check("smaller_wheel_size_reasonable", size.x >= 4.0 and size.x <= 10.0
+		and size.y >= 12.0 and size.y <= 21.0, size)
 	var profile: VehicleAppearanceProfile = rig.appearance
 	var bounds: Rect2 = rig.visible_bounds
 	var original_width: float = clampf(bounds.size.x * profile.tire_width_ratio,
@@ -41,7 +41,17 @@ func run() -> void:
 		maxf(profile.minimum_tire_px.x, profile.maximum_tire_px.x))
 	check("tire_width_is_calibrated_smaller_than_original",
 		is_equal_approx(size.x, original_width * rig.visual_tire_width_scale) and
-		size.x < original_width, [size.x, original_width])
+		rig.visual_tire_width_scale <= 0.62 and size.x < original_width,
+		[size.x, original_width])
+	var original_length: float = clampf(bounds.size.y *
+		profile.tire_length_ratio,
+		minf(profile.minimum_tire_px.y, profile.maximum_tire_px.y),
+		maxf(profile.minimum_tire_px.y, profile.maximum_tire_px.y))
+	check("tire_length_is_reduced_for_all_models",
+		is_equal_approx(size.y,
+			original_length * rig.visual_tire_length_scale) and
+		rig.visual_tire_length_scale <= 0.80,
+		[size.y, original_length])
 	var left_edge_anchor := bounds.position.x + bounds.size.x * profile.front_left_uv.x
 	var right_edge_anchor := bounds.position.x + bounds.size.x * profile.front_right_uv.x
 	check("front_wheels_inset_toward_body_center",
@@ -63,9 +73,12 @@ func run() -> void:
 	car.steering = deg_to_rad(-50.0)
 	for i in 30:
 		rig._process(1.0 / 60.0)
-	check("reverse_steer_clamped", fl.rotation <= deg_to_rad(-30.0) and
-		fl.rotation >= -deg_to_rad(float(rig.max_visual_steer_degrees)) - 0.001,
+	check("reverse_steer_is_less_exaggerated_and_clamped",
+		fl.rotation <= deg_to_rad(-24.0) and
+		fl.rotation >= -deg_to_rad(float(rig.VISUAL_STEER_LIMIT_DEGREES)) - 0.001,
 		rad_to_deg(fl.rotation))
+	check("actual_physical_steering_not_modified_by_visual_limit",
+		is_equal_approx(car.steering, deg_to_rad(-50.0)), car.steering)
 	car.reset_vehicle()
 	for i in 30:
 		rig._process(1.0 / 60.0)
