@@ -162,7 +162,7 @@ func run() -> void:
 		[previously_built, live_mirror.built_count, active_roads])
 	# A second view reconfiguration after panning reuses cached chunk
 	# illustrations, without writing PNGs or requiring a rebuild on disk.
-	var prior := atlas.ink.mirror.built_count
+	var prior: int = int(atlas.ink.mirror.built_count)
 	atlas.ink.mirror.configure(atlas.center_m, atlas.pixels_per_m,
 		atlas.custom_minimum_size, hud.model.extent)
 	check("same_view_reuses_loaded_visual_chunks",
