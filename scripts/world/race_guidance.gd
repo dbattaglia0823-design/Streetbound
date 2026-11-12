@@ -55,7 +55,6 @@ func _draw() -> void:
 	if on_map:
 		if not is_instance_valid(map_view):
 			return
-		var pixel_scale := map_view.pixels_per_m
 		var size: Vector2 = map_view.custom_minimum_size
 		var clip := Rect2(Vector2.ZERO, size).grow(12.0)
 		var player_station: float = navigation.call("station_at", player.global_position / PPM)
