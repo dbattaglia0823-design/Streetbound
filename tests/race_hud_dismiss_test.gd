@@ -22,10 +22,10 @@ func _check_strip(race: Node, hud: Control, title: String) -> void:
 	var panel: PanelContainer = hud.get("panel") as PanelContainer
 	var close: Button = hud.get("close_button") as Button
 	var restore: Button = hud.get("restore_button") as Button
-	check(title + "_compact_near_top_not_center_screen",
-		panel.position.y <= 24.0 and
-		(panel.position.x > 395.0 if hud.get_viewport_rect().size.x > 1200.0 else panel.position.x >= 8.0) and
-		panel.size.y <= 65.0 and panel.size.x <= 450.0)
+	check(title + "_compact_bottom_right_away_from_road",
+		panel.position.y > hud.get_viewport_rect().size.y * 0.65 and
+		panel.position.x >= maxf(8.0, hud.get_viewport_rect().size.x - 380.0) and
+		panel.size.y <= 80.0 and panel.size.x <= 360.0)
 	check(title + "_close_and_restore_are_real_buttons",
 		close != null and restore != null and
 		close.pressed.is_connected(Callable(hud, "dismiss")) and
@@ -82,14 +82,55 @@ func _run() -> void:
 	check("dismissed_hud_does_not_disable_race_start",
 		drag.can_stage() and drag.start_race())
 	drag._refresh_overlay()
-	check("countdown_automatically_restores_status_for_new_race",
-		not bool(hud.get("dismissed")) and (hud.get("panel") as PanelContainer).visible)
+	check("countdown_respects_manual_close_without_reopening",
+		bool(hud.get("dismissed")) and not (hud.get("panel") as PanelContainer).visible)
 	hud.call("dismiss")
 	drag._refresh_overlay()
 	check("dismissed_hud_stays_closed_during_countdown",
 		not (hud.get("panel") as PanelContainer).visible)
 	check("closing_hud_does_not_stop_race",
 		drag.state == "countdown")
+	var map_nodes: Array[Node] = get_nodes_in_group("streetbound_world_map_hud")
+	check("map_HUD_registers_for_race_overlay_visibility",map_nodes.size() == 1)
+	if map_nodes.size() == 1:
+		var world_map: Node = map_nodes[0]
+		hud.call("restore")
+		world_map.set("large",true)
+		hud.call("_process",0.0)
+		check("full_atlas_hides_race_strip",not (hud.get("panel") as PanelContainer).visible)
+		world_map.set("large",false)
+		hud.call("_process",0.0)
+		check("race_strip_restores_when_atlas_closes",
+			(hud.get("panel") as PanelContainer).visible)
+		var driving: CanvasLayer = world_map.get("driving_hud") as CanvasLayer
+		var tuning: Control = driving.get("tuning") as Control
+		tuning.visible = true
+		hud.call("_process",0.0)
+		check("F1_tuning_panel_hides_race_strip",
+			not (hud.get("panel") as PanelContainer).visible)
+		tuning.visible = false
+		hud.call("_process",0.0)
+		check("race_strip_restores_when_tuning_closes",
+			(hud.get("panel") as PanelContainer).visible)
+	# H toggles the same close and restore actions without mouse use.
+	var key := InputEventKey.new()
+	key.keycode = KEY_H
+	key.pressed = true
+	hud.call("_unhandled_input",key)
+	check("H_key_dismisses_race_status",bool(hud.get("dismissed")))
+	hud.call("_unhandled_input",key)
+	check("H_key_restores_race_status",not bool(hud.get("dismissed")))
+	var sprint_hud: Control = street.get("status_strip") as Control
+	street.set_physics_process(false)
+	car.global_position = street.start_m * 20.0 + Vector2(18.0 * 20.0,0)
+	car.linear_velocity = Vector2(12.0,0)
+	street._refresh()
+	check("fast_driveby_no_longer_shows_street_popup",
+		not (sprint_hud.get("panel") as PanelContainer).visible)
+	car.linear_velocity = Vector2.ZERO
+	street._refresh()
+	check("nearby_slow_driver_can_see_start_hint",
+		(sprint_hud.get("panel") as PanelContainer).visible)
 	print("RACE HUD DISMISS AND POSITION: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
