@@ -15,7 +15,7 @@ func check(label: String, passed: bool) -> void:
 
 
 func _run() -> void:
-	var main := load("res://scenes/main.tscn").instantiate()
+	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
 	var car: VehicleController2D = main.vehicle
