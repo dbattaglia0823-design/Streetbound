@@ -15,9 +15,17 @@ var font: Font = ThemeDB.fallback_font
 const ROAD_COLORS = {"highway":Color("d7b876"),"arterial":Color("f4e5c3"),"local":Color("f3efdf"),"rural":Color("e9e2c7"),"mountain":Color("e6d5b1"),"track":Color("c78c79"),"gravel":Color("b9aa8b"),"driveway":Color("e1d9c5")}
 const ICON_COLORS = {"garage":Color("385b59"),"workshop":Color("647a69"),"dealer":Color("b88d58"),"fuel":Color("bd845f"),"race":Color("986e64"),"marina":Color("568b9c"),"view":Color("6e8e71")}
 const Relief = preload("res://assets/scenery/mountain-relief-map.png")
+const Mirror = preload("res://scripts/world/coast_map_world_mirror.gd")
+var world: MorrowCoast
+var mirror: Node2D
+var mirror_enabled := false
 
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	mirror=Node2D.new()
+	mirror.set_script(Mirror)
+	mirror.world=world
+	add_child(mirror)
 
 func point(p: Vector2) -> Vector2:
 	return (p-center)*ppm+viewport_size*.5
@@ -34,6 +42,9 @@ func configure(next_center: Vector2, scale_value: float, dimensions: Vector2) ->
 	var overview := not miniature and ppm<.35
 	cache_area=Rect2(-Vector2.ONE*100,model.extent+Vector2.ONE*200) if overview else Rect2(center-viewport_size*.5/ppm,viewport_size/ppm).grow(120/ppm)
 	position=Vector2.ZERO
+	# No saved image: regenerate visible cells from current startup world
+	# data. Both views use this identical mirror and therefore agree.
+	mirror_enabled=mirror.configure(center,ppm,viewport_size,model.extent)
 	queue_redraw()
 
 func label(value: String, at: Vector2, size: int, color: Color, angle := 0.0) -> bool:
@@ -61,6 +72,9 @@ func _draw() -> void:
 	drawn_props=0
 	road_label_count=0
 	label_boxes.clear()
+	if mirror_enabled:
+		_draw_map_labels()
+		return
 	var overview := not miniature and ppm<.35
 	var bounds := Rect2(point(cache_area.position),cache_area.size*ppm)
 	draw_rect(bounds,Color("c0caaa"))
@@ -146,6 +160,9 @@ func _draw() -> void:
 		if cache_area.grow(60).has_point(model.v(bridge.points[0])):
 			draw_polyline(path,Color("607f80"),maxf(4,float(bridge.width)*ppm+3),true)
 			draw_polyline(path,Color("e9dfc7"),maxf(2,float(bridge.width)*ppm),true)
+	_draw_map_labels()
+
+func _draw_map_labels() -> void:
 	# Region names reserve space before street/landmark labels.
 	if not miniature:
 		for district in model.data.districts:
