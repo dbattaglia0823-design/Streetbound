@@ -44,6 +44,12 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Verify 10 percent larger road surfaces, junctions and unchanged car scale
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_width_adaptation_test.gd 2>&1 | tee /tmp/godot463-road-width.log
+          grep -q 'MORROW 10 PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
       - name: Verify compact race HUD can be closed and reopened
         run: |
           set -o pipefail
@@ -138,6 +144,8 @@ jobs:
           python3 tests/morrow_roundtrip_validate.py /tmp/morrow-edit-roundtrip.json
       - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
         run: python3 tools/build_morrow_coast.py
+      - name: Confirm source rebake widens all streets and retains vehicle sizes
+        run: python3 tests/road_width_bake_test.py
       - name: Prove edit-existing-scenery and Apply to Game rebuild the playable world safely
         run: python3 tests/map_editor_live_apply_test.py
       - name: Ensure two consecutive map expansions leave every existing object and landmark in place
