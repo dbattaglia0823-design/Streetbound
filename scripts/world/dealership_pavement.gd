@@ -7,6 +7,35 @@ const CURB := Color("c4c4b9")
 var site: Dictionary = {}
 
 
+## Shared geometry for visual paint AND driving-surface queries. Coordinates
+## are metres in the site's local (road-facing -Y) reference frame.
+static func lot_rect(site_data: Dictionary) -> Rect2:
+	var setback: float = float(site_data.get("setback_m", 36.0))
+	return Rect2(Vector2(-16.0, -setback + 5.0),
+		Vector2(32.0, setback - 14.5))
+
+
+static func entrance_polygon(site_data: Dictionary) -> PackedVector2Array:
+	var setback: float = float(site_data.get("setback_m", 36.0))
+	return PackedVector2Array([
+		Vector2(-6.0, -setback - 3.0),
+		Vector2(6.0, -setback - 3.0),
+		Vector2(7.5, -setback + 9.0),
+		Vector2(-7.5, -setback + 9.0)
+	])
+
+
+static func contains_pavement(site_data: Dictionary, position_px: Vector2) -> bool:
+	var center_raw: Array = site_data.get("center_m", [])
+	if center_raw.size() != 2:
+		return false
+	var center := Vector2(float(center_raw[0]), float(center_raw[1]))
+	var local: Vector2 = (position_px / PPM - center).rotated(
+		-float(site_data.get("rotation", 0.0)))
+	return lot_rect(site_data).has_point(local) or \
+		Geometry2D.is_point_in_polygon(local, entrance_polygon(site_data))
+
+
 func _ready() -> void:
 	name = "DealershipPavement_" + str(site.id)
 	position = Vector2(float(site.center_m[0]), float(site.center_m[1])) * PPM
@@ -21,27 +50,22 @@ func _ready() -> void:
 func _draw() -> void:
 	if site.is_empty():
 		return
-	var d: float = float(site.get("setback_m", 36.0)) * PPM
-	var half_width: float = 16.0 * PPM
-	var front: float = -9.5 * PPM
-	var back: float = -d + 5.0 * PPM
+	var lot_m: Rect2 = lot_rect(site)
+	var lot := Rect2(lot_m.position * PPM, lot_m.size * PPM)
+	var half_width: float = lot.size.x * 0.5
+	var front: float = lot.end.y
+	var back: float = lot.position.y
 	var shoulder: float = 0.6 * PPM
-	# Small road join is 12 m wide and reaches under the road centerline,
-	# so it is never a blunt slab placed over the existing asphalt.
-	var throat_half_width: float = 6.0 * PPM
-	var join_start: float = -d - 3.0 * PPM
-	var join_end: float = back + 4.0 * PPM
-	var lot := Rect2(Vector2(-half_width, back),
-		Vector2(half_width * 2.0, front - back))
-	# Flared connection replaces the old rectangle-on-road seam. The road
-	# remains authoritative because this geometry sits UNDER its roadbed.
-	var throat_inner_half: float = throat_half_width + 1.5 * PPM
-	var throat_poly := PackedVector2Array([
-		Vector2(-throat_half_width, join_start),
-		Vector2(throat_half_width, join_start),
-		Vector2(throat_inner_half, join_end),
-		Vector2(-throat_inner_half, join_end)
-	])
+	# Same tapered throat points drive both rendered asphalt and the
+	# physically drivable surface query; no visual/traction disagreement.
+	var entrance_m: PackedVector2Array = entrance_polygon(site)
+	var throat_poly := PackedVector2Array()
+	for pt in entrance_m:
+		throat_poly.append(pt * PPM)
+	var throat_half_width: float = absf(throat_poly[0].x)
+	var throat_inner_half: float = absf(throat_poly[2].x)
+	var join_start: float = throat_poly[0].y
+	var join_end: float = throat_poly[2].y
 	# Existing asphalt shader adds continuous, world-aligned aggregate.
 	draw_rect(lot.grow(shoulder), CURB)
 	draw_rect(lot, ROAD_ASPHALT)
