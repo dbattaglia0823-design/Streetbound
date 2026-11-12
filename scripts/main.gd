@@ -91,6 +91,7 @@ func _ready() -> void:
 		street_race.world = ground
 		street_race.player = vehicle
 		street_race.network = traffic.get("network") as RefCounted
+		street_race.traffic = traffic
 		ground.add_child(street_race)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
