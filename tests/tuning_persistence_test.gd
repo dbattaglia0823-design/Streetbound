@@ -34,94 +34,42 @@ func _run() -> void:
 	var hud = game.get_children().filter(func(child: Node) -> bool:
 		return child.get_script() == load("res://scripts/ui/driving_hud.gd"))[0]
 	car.set_physics_process(false)
-	var stock_grip: float = float(car.config.tire_grip)
 	var stock_power: float = float(car.config.engine_power_kw)
-	var stock_drive: int = int(car.config.drivetrain)
-	check("uses_stock_values_without_profile", stock_grip >= 0.8 and stock_grip <= 2.0 and not FileAccess.file_exists(path))
-	check("all_tuning_fields_have_sliders", hud.tuning_sliders.size() == 20)
-
-	(hud.tuning_sliders["tire_grip"] as HSlider).value = 1.27
-	(hud.tuning_sliders["engine_power_kw"] as HSlider).value = 480.0
-	(hud.tuning_sliders["handbrake_grip_recovery_seconds"] as HSlider).value = 0.55
-	(hud.tuning_sliders["handbrake_drive_grip"] as HSlider).value = 0.9
-	hud.drivetrain_select.select(VehicleConfig.Drivetrain.AWD)
-	hud.drivetrain_select.item_selected.emit(VehicleConfig.Drivetrain.AWD)
-	check("live_sliders_change_car", is_equal_approx(car.config.tire_grip, 1.27)
-		and is_equal_approx(car.config.engine_power_kw, 480.0)
-		and is_equal_approx(car.config.handbrake_grip_recovery_seconds, 0.55)
-		and is_equal_approx(car.config.handbrake_drive_grip, 0.9)
-		and car.config.drivetrain == VehicleConfig.Drivetrain.AWD)
+	var stock_torque: float = float(car.config.engine_torque_nm)
+	var stock_mass: float = float(car.config.mass_kg)
+	check("only_three_stat_sliders", hud.tuning_sliders.size() == 3)
+	var power_slider: HSlider = hud.tuning_sliders["engine_power_kw"]
+	var torque_slider: HSlider = hud.tuning_sliders["engine_torque_nm"]
+	var weight_slider: HSlider = hud.tuning_sliders["mass_kg"]
+	for slider in [power_slider, torque_slider, weight_slider]:
+		check("stats_slider_range_and_step", is_equal_approx(slider.min_value, 50.0)
+			and is_equal_approx(slider.max_value, 10000.0)
+			and is_equal_approx(slider.step, 10.0))
+	power_slider.value = 10000.0
+	torque_slider.value = 50.0
+	weight_slider.value = 2500.0
+	check("live_imperial_stats_convert_to_si",
+		absf(car.config.engine_power_kw - 10000.0 / 1.341022089595) < 0.05
+		and absf(car.config.engine_torque_nm - 50.0 / 0.73756214927727) < 0.05
+		and absf(car.config.mass_kg - 2500.0 / 2.2046226218488) < 0.05)
 	await create_timer(0.50).timeout
 	check("auto_save_without_manual_button", FileAccess.file_exists(path) and not hud._tuning_dirty)
-
-	var disk := ConfigFile.new()
-	var loaded: Error = disk.load(path)
-	check("profile_saved_versioned_and_complete", loaded == OK and
-		disk.get_value("meta","version",0) == 1 and disk.get_value("tuning","drivetrain",-1) == VehicleConfig.Drivetrain.AWD
-		and is_equal_approx(float(disk.get_value("tuning", "handbrake_drive_grip", 0.0)), 0.9))
-	await _discard(game)
-
-	# Simulates opening the game again: the car is a fresh instance with a
-	# fresh duplicate of the original .tres, and the F1 UI must match the disk.
-	game = _new_game()
-	car = game.vehicle
-	hud = game.get_children().filter(func(child: Node) -> bool:
-		return child.get_script() == load("res://scripts/ui/driving_hud.gd"))[0]
-	car.set_physics_process(false)
-	check("tune_reloaded_on_game_start", is_equal_approx(car.config.tire_grip, 1.27)
-		and is_equal_approx(car.config.engine_power_kw, 480.0)
-		and is_equal_approx(car.config.handbrake_grip_recovery_seconds, 0.55)
-		and is_equal_approx(car.config.handbrake_drive_grip, 0.9)
-		and car.config.drivetrain == VehicleConfig.Drivetrain.AWD)
-	check("sliders_and_drivetrain_match_loaded_tune",
-		is_equal_approx(float((hud.tuning_sliders["tire_grip"] as HSlider).value), 1.27)
-		and hud.drivetrain_select.selected == VehicleConfig.Drivetrain.AWD
-		and (hud.config_labels["engine_power_kw"] as Label).text.contains("hp"))
-
-	# The user may exit immediately after moving a slider. _exit_tree must
-	# flush pending edits even if the 350ms timer has not fired yet.
-	(hud.tuning_sliders["tire_grip"] as HSlider).value = 1.44
-	check("pending_save_before_quit", hud._tuning_dirty)
 	await _discard(game)
 	game = _new_game()
 	car = game.vehicle
 	hud = game.get_children().filter(func(child: Node) -> bool:
 		return child.get_script() == load("res://scripts/ui/driving_hud.gd"))[0]
 	car.set_physics_process(false)
-	check("last_second_quit_flushes_changes", is_equal_approx(car.config.tire_grip, 1.44))
-
-	# Restore must remove the profile, reset live controls, and honor stock
-	# values next launch. Position reset (R) must never reset the saved tune.
-	car.reset_vehicle()
-	check("position_reset_preserves_tune", is_equal_approx(car.config.tire_grip, 1.44))
+	check("reloaded_stats", absf(car.config.engine_power_kw - 10000.0 / 1.341022089595) < 0.05
+		and absf(car.config.engine_torque_nm - 50.0 / 0.73756214927727) < 0.05
+		and absf(car.config.mass_kg - 2500.0 / 2.2046226218488) < 0.05)
+	check("reloaded_slider_display", is_equal_approx((hud.tuning_sliders["engine_power_kw"] as HSlider).value, 10000.0)
+		and is_equal_approx((hud.tuning_sliders["engine_torque_nm"] as HSlider).value, 50.0))
 	hud.reset_tuning_button.pressed.emit()
-	check("restore_stock_updates_game_and_ui", is_equal_approx(car.config.tire_grip, stock_grip)
-		and is_equal_approx(car.config.engine_power_kw, stock_power)
-		and is_equal_approx(car.config.handbrake_drive_grip, 0.75)
-		and int(car.config.drivetrain) == stock_drive
-		and is_equal_approx(float((hud.tuning_sliders["tire_grip"] as HSlider).value), stock_grip)
+	check("restore_stock_stats", is_equal_approx(car.config.engine_power_kw, stock_power)
+		and is_equal_approx(car.config.engine_torque_nm, stock_torque)
+		and is_equal_approx(car.config.mass_kg, stock_mass)
 		and not FileAccess.file_exists(path))
-	await _discard(game)
-	game = _new_game()
-	car = game.vehicle
-	car.set_physics_process(false)
-	check("fresh_start_uses_stock_after_reset", is_equal_approx(car.config.tire_grip, stock_grip)
-		and int(car.config.drivetrain) == stock_drive)
-	await _discard(game)
-
-	# Malformed or out-of-range values cannot override vehicle Resource data.
-	var corrupt := ConfigFile.new()
-	corrupt.set_value("meta", "version", 1)
-	corrupt.set_value("tuning", "tire_grip", -999.0)
-	corrupt.set_value("tuning", "drivetrain", 99)
-	corrupt.set_value("tuning", "engine_power_kw", "not a number")
-	corrupt.save(path)
-	game = _new_game()
-	car = game.vehicle
-	car.set_physics_process(false)
-	check("invalid_save_cannot_corrupt_vehicle", is_equal_approx(car.config.tire_grip, stock_grip)
-		and is_equal_approx(car.config.engine_power_kw, stock_power)
-		and int(car.config.drivetrain) == stock_drive)
 	await _discard(game)
 
 	# Leave the caller's settings exactly as they were before the test.

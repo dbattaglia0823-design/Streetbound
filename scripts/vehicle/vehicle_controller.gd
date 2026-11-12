@@ -139,7 +139,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# demanding impossible slip angles. Handbrake deliberately relaxes this aid.
 	var tire_envelope := atan(config.tire_grip * surface_grip * 9.81 * config.wheelbase_m / maxf(speed * speed, 1.0))
 	var safe_steer := (tire_envelope * lerpf(1.8, 3.5, handbrake) + deg_to_rad(1.5)) * config.high_speed_steer_degrees / 9.0
-	max_steer = minf(max_steer, safe_steer)
+	# Sliding tires are no longer artificially locked to the stable-turn envelope.
+	var slide_request := maxf(handbrake * smoothstep(2.0, 7.0, speed),
+		smoothstep(deg_to_rad(9.0), deg_to_rad(24.0), absf(slip_angle)))
+	max_steer = minf(max_steer, lerpf(safe_steer, deg_to_rad(26.0), slide_request))
 	max_steer = minf(max_steer * brake_turn, deg_to_rad(70.0))
 	var assist := clampf(slip_angle * config.countersteer_assist, -0.18, 0.18) * clampf(speed / 8.0, 0.0, 1.0)
 	if absf(steer_input) < 0.02:
@@ -153,7 +156,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	else:
 		var steer_target := steer_input * max_steer + assist * signf(longitudinal_speed)
 		steering = lerpf(steering, steer_target, 1.0 - exp(-config.steering_response * dt))
-	var mass := maxf(config.mass_kg, 200.0)
+	var mass := maxf(config.mass_kg, 20.0)
 	var grip := config.tire_grip * surface_grip
 	var front_load := mass * 9.81 * config.front_weight
 	var rear_load := mass * 9.81 * (1.0 - config.front_weight)
@@ -231,16 +234,29 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var dynamic_blend := smoothstep(2.0, 7.0, absf(longitudinal_speed))
 	var inertia := mass * config.wheelbase_m * config.wheelbase_m * 0.3
 	var dynamic_yaw := yaw_rate + (front_force * front_arm - rear_force * rear_arm) / inertia * dt
-	dynamic_yaw *= exp(-config.yaw_damping * dt)
+	# Preserve angular inertia when the rear axle loses lateral grip.
+	var breakaway := clampf(maxf(rear_sliding,
+		wheel_spin * rear_drive_share,
+		smoothstep(deg_to_rad(10.0), deg_to_rad(32.0), absf(slip_angle))), 0.0, 1.0)
+	dynamic_yaw *= exp(-config.yaw_damping * lerpf(1.0, 0.24, breakaway) * dt)
 	var kinematic_yaw := new_long / config.wheelbase_m * tan(steering)
-	yaw_rate = lerpf(kinematic_yaw, dynamic_yaw, dynamic_blend)
+	yaw_rate = lerpf(kinematic_yaw, dynamic_yaw, maxf(dynamic_blend, breakaway * 0.96))
+	# While sliding, committed steering and rear grip loss continue rotating the
+	# chassis rather than snapping its heading to the current travel direction.
+	# Low-speed handbrake turns can now pass 90/180 degrees, with rate limited.
+	var committed_turn := absf(steer_input) * smoothstep(2.5, 8.0, speed)
+	var turn_sign := signf(steer_input) * travel_sign
+	var oversteer_drive := committed_turn * breakaway * (0.85 + 0.65 * handbrake)
+	yaw_rate += turn_sign * oversteer_drive * dt
+	if absf(steer_input) < 0.05 and breakaway < 0.25:
+		yaw_rate = move_toward(yaw_rate, kinematic_yaw, 0.5 * dt)
 	if arcade > 0.0:
 		var arcade_yaw_limit := minf(1.9, config.arcade_cornering_accel * surface_grip * brake_turn / maxf(speed, 4.0))
 		var desired_yaw := clampf(kinematic_yaw, -arcade_yaw_limit, arcade_yaw_limit)
 		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-12.0 * arcade * dt))
-	yaw_rate = clampf(yaw_rate, -2.4, 2.4)
+	yaw_rate = clampf(yaw_rate, -3.0, 3.0)
 	var new_lateral := lateral_speed + (front_force + rear_force) / mass * dt
-	new_lateral = lerpf(lateral_speed * exp(-12.0 * grip * dt), new_lateral, dynamic_blend)
+	new_lateral = lerpf(lateral_speed * exp(-12.0 * grip * lerpf(1.0, 0.20, breakaway) * dt), new_lateral, maxf(dynamic_blend, breakaway))
 	if arcade > 0.0:
 		# Scrub lateral velocity with a bounded, opposing tire force. Unlike
 		# rotating the velocity vector, this costs lateral kinetic energy and
