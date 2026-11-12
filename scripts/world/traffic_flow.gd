@@ -336,8 +336,11 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		# The road may bend out of the current car's field of view:
 		# cap the speed using real distance along that road before contact.
 		var available_px := maxf(0.0, closest_ahead - gap_px)
-		var target_speed := maxf(0.0, forward_speed)
-		var safe := target_speed + sqrt(2.0 * COMFORT_BRAKE * available_px)
+		# An oncoming vehicle has NEGATIVE velocity along our path.
+		# Preserve that sign in the closing-speed envelope; treating it as
+		# a stopped car would brake far too late in a head-on encounter.
+		var safe := maxf(0.0, forward_speed +
+			sqrt(2.0 * COMFORT_BRAKE * available_px))
 		best = minf(best, safe)
 	agent.path_speed_cap = best if best < desired_px else INF
 	return best
