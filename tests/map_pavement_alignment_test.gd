@@ -68,6 +68,24 @@ func run() -> void:
 			var check_position: Vector2 = road_position.lerp(end, float(i) / 20.0)
 			accessible = accessible and str(world.surface_at(check_position).name) == "ASPHALT"
 		check("road_to_browse_surface_continuous_" + id, accessible)
+	# All ten dealers must get a cut on the matching roadside kerb.
+	# The opposite side of that road retains its original sidewalk.
+	var road_painter := Node2D.new()
+	road_painter.set_script(Roads)
+	road_painter.world = world
+	for site in dealer.sites:
+		var road_id: int = int(site.road_id)
+		if road_id < 0 or road_id >= world.data.roads.size():
+			check("road_id_valid_" + str(site.id), false, road_id)
+			continue
+		var roadside: Array = road_painter._dealer_curb_gaps(
+			world.data.roads[road_id], float(site.road_side))
+		var station: float = float(site.road_station_m)
+		var mouth_is_open: bool = roadside.any(func(gap: Array) -> bool:
+			return float(gap[0]) <= station and float(gap[1]) >= station)
+		check("roadside_curb_break_exists_" + str(site.id),
+			mouth_is_open, [road_id, station, roadside])
+	road_painter.free()
 	# Parking-lot curb cuts must face the nearest road on ALL four sides,
 	# including when the author rotated the lot footprint.
 	var template := {"p":[100.0, 100.0], "size":[40.0, 28.0],
