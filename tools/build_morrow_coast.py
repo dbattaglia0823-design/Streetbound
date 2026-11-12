@@ -11,6 +11,7 @@ from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
+from road_widths import adapt as adapt_road_widths
 
 ROOT = Path(__file__).resolve().parents[1]
 # Source coordinates retain their original origin. Only grow the east and
@@ -1042,6 +1043,10 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
           relief_faces=RELIEF_FACES,mountain_rails=MOUNTAIN_RAILS,
           visual_relief=dict(extent=[2800,2400],sun_direction=[-.65,-.76],maximum_m=1000),
           stats=dict(road_km=round(length/1000,2),roads=len(ROADS),props=len(PROPS),junctions=len(JUNCTIONS),connected_roads=len(seen)))
+# Apply the same once-only pavement/junction/scenery transform as runtime.
+# Legacy geometry and its chunk index keep the original road centerlines,
+# and future rebakes are explicitly marked so Godot never scales twice.
+adapt_road_widths(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
 
