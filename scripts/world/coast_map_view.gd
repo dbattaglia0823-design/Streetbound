@@ -5,6 +5,7 @@ const Ink = preload("res://scripts/world/coast_map_ink.gd")
 const Scale = preload("res://scripts/world/coast_map_scale.gd")
 const RaceGuidance = preload("res://scripts/world/race_guidance.gd")
 var model: RefCounted
+var world: MorrowCoast
 var ink: Node2D
 var cursor: Polygon2D
 var scale_bar: Node2D
@@ -24,6 +25,7 @@ func _ready() -> void:
 	ink=Node2D.new()
 	ink.set_script(Ink)
 	ink.model=model
+	ink.world=world
 	ink.miniature=miniature
 	add_child(ink)
 	race_overlay = Node2D.new()
