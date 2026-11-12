@@ -296,8 +296,8 @@ func _draw_prop(prop: Dictionary) -> void:
 	# runtime nodes, animation callbacks, or full-screen overlay sprites.
 	if kind == "drag_prep":
 		draw_rect(Rect2(-size * .5, size), Color("30383b"))
-		for lane in [-1.0, 1.0]:
-			var stripe_x := lane * size.x * .24
+		for lane: float in [-1.0, 1.0]:
+			var stripe_x: float = lane * size.x * 0.24
 			draw_line(Vector2(stripe_x,-size.y*.40),Vector2(stripe_x,size.y*.40),Color("202629"),size.x*.12,true)
 		return
 	if kind == "drag_lane_mark":
@@ -307,8 +307,8 @@ func _draw_prop(prop: Dictionary) -> void:
 		draw_rect(Rect2(Vector2(-size.x*.13,-size.y*.5),Vector2(size.x*.26,size.y)),Color("303637"))
 		for side in [-1.0,1.0]:
 			for index in 6:
-				var lamp_pos := Vector2(side*size.x*.27,-size.y*.39+float(index)*size.y*.15)
-				var lamp_color := Color("ddbf74") if index<3 else Color("8eae82") if index==3 else Color("c66b5e")
+				var lamp_pos: Vector2 = Vector2(side*size.x*.27,-size.y*.39+float(index)*size.y*.15)
+				var lamp_color: Color = Color("ddbf74") if index<3 else Color("8eae82") if index==3 else Color("c66b5e")
 				draw_circle(lamp_pos,size.x*.095,lamp_color)
 		return
 	if kind == "drag_scoreboard":
