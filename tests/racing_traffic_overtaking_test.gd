@@ -107,6 +107,9 @@ func _run() -> void:
 	check("no_pass_when_car_cannot_fit_within_pavement",
 		narrow.mode == "following" and float(narrow.speed_cap_mps) < 31.0)
 	road.half_width_m = 4.5
+	var resumed: Dictionary = planner.plan(0.15,50.0,31.0)
+	check("paved_lane_reopens_after_narrow_section",
+		resumed.mode == "passing")
 	slow.global_position = Vector2(2.25,10.0) * 20.0
 	var completed: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("return_to_racing_line_after_pass",
