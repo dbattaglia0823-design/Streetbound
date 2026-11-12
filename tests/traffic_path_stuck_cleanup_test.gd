@@ -82,13 +82,14 @@ func _run() -> void:
 	# legal straight connection is available.
 	var network: RefCounted = flow.network
 	var last := origin + Vector2.UP*PPM*8.0 + Vector2.RIGHT*PPM*25.0
-	var ahead := network._add_edge({"road":0,"connector":true,
+	var ahead := int(network.call("_add_edge", {"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"straight","points":PackedVector2Array([
-		last,last+Vector2.RIGHT*PPM*25.0]),"speed_px":PPM*10.0})
-	var reverse := network._add_edge({"road":0,"connector":true,
+		last,last+Vector2.RIGHT*PPM*25.0]),"speed_px":PPM*10.0}))
+	var reverse := int(network.call("_add_edge"({"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"left","points":PackedVector2Array([
-		last,last+Vector2.LEFT*PPM*25.0]),"speed_px":PPM*10.0})
-	network.edges[0]["next"] = [reverse, ahead]
+		last,last+Vector2.LEFT*PPM*25.0]),"speed_px":PPM*10.0}))
+	var graph_edges: Array = network.get("edges")
+	graph_edges[0]["next"] = [reverse, ahead]
 	flow.random.seed = 12345
 	var smooth_routes := true
 	for i in 16:
@@ -131,6 +132,7 @@ func _run() -> void:
 	flow.agents.remove_at(1)
 	lead.queue_free()
 	follower.stuck_time = Flow.STUCK_REMOVE_SECONDS + 1.0
+	follower.stuck_clock = Flow.STUCK_WINDOW_SECONDS - 0.05
 	flow.enabled = true
 	flow._physics_process(0.05)
 	check("real_traffic_update_removes_stuck_offscreen_body",
