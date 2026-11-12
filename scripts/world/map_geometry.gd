@@ -135,6 +135,7 @@ static func nearest_road(world: Node2D, position_px: Vector2,
 				var road: Dictionary = world.data.roads[int(segment.road)]
 				best_sq = distance_sq
 				best = {"found": true, "road_id": int(segment.road),
+					"segment_index": index,
 					"road_name": str(road.name), "road_kind": str(road.kind),
 					"road_surface": str(road.surface), "road_width_m": float(road.width),
 					"closest_point_px": closest * PPM,
