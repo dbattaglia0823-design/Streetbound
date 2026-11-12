@@ -227,13 +227,12 @@ static func traffic_line(network: RefCounted, world: Node,
 ## real forward lane edges, then legal connectors, never fabricated shortcuts.
 static func city_sprint_edges(network: RefCounted, world: Node,
 		origin_px: Vector2) -> Array[int]:
-	var answer: Array[int] = []
+	var empty: Array[int] = []
 	if network == null or not is_instance_valid(world):
-		return answer
+		return empty
 	var edges: Array = network.get("edges")
 	var data: Dictionary = world.get("data")
-	var best := INF
-	var start := -1
+	var seeds: Array[Dictionary] = []
 	for i in range(edges.size()):
 		var edge: Dictionary = edges[i]
 		if bool(edge.get("connector", false)) or float(edge.length_px) < 45.0 * PPM:
@@ -241,64 +240,76 @@ static func city_sprint_edges(network: RefCounted, world: Node,
 		if str(data.roads[int(edge.road)].name) != "Laurel Avenue":
 			continue
 		var path: PackedVector2Array = edge.points
-		var direction := (path[path.size() - 1] - path[0]).normalized()
-		if direction.dot(Vector2.UP) < 0.25:
+		var heading := (path[path.size() - 1] - path[0]).normalized()
+		if heading.dot(Vector2.UP) < 0.25:
 			continue
-		var dist := path[0].distance_to(origin_px)
-		if dist < best:
-			best = dist
-			start = i
-	if start < 0 or best > 550.0 * PPM:
-		return answer
-	var used := {}
-	var length_m := 0.0
-	var turns := 0
-	var id := start
-	for step in range(30):
-		if used.has(id):
+		var distance := path[0].distance_to(origin_px) / PPM
+		if distance < 450.0:
+			seeds.append({"id":i,"proximity":distance})
+	seeds.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.proximity) < float(b.proximity))
+	var beam: Array[Dictionary] = []
+	for j in range(mini(5, seeds.size())):
+		var start_id := int(seeds[j].id)
+		var visited := {start_id:true}
+		var sequence: Array[int] = [start_id]
+		beam.append({"ids":sequence, "seen":visited,
+			"metres":float(edges[start_id].length_px) / PPM,
+			"turns":0, "score":0.0})
+	var best_ids: Array[int] = []
+	var best_value := -INF
+	# Bounded, deterministic beam search instead of greedy next-edge choice:
+	# junctions can have dead ends, unexpected one-ways and multiple lanes.
+	# Every hop still MUST use the directed ambient-traffic network's 'next'.
+	for step in range(26):
+		if beam.is_empty():
 			break
-		var edge: Dictionary = edges[id]
-		var center: Vector2 = (edge.points as PackedVector2Array)[0] / PPM
-		if center.x < 2100.0 or center.x > 4100.0 or center.y < 2100.0 or center.y > 3550.0:
-			break
-		used[id] = true
-		answer.append(id)
-		length_m += float(edge.length_px) / PPM
-		if bool(edge.get("connector", false)) and str(edge.get("turn", "straight")) in ["left", "right"]:
-			turns += 1
-		if length_m >= 1000.0 and turns >= 2 and not bool(edge.get("connector", false)):
-			break
-		var options: Array = edge.get("next", [])
-		var candidate := -1
-		var best_score := -INF
-		for raw in options:
-			var next_id := int(raw)
-			if used.has(next_id):
+		var candidates: Array[Dictionary] = []
+		for entry in beam:
+			var sequence: Array[int] = entry.ids
+			var current_id: int = sequence[sequence.size() - 1]
+			var last_edge: Dictionary = edges[current_id]
+			var metres: float = float(entry.metres)
+			var turns: int = int(entry.turns)
+			if metres >= 650.0 and turns >= 1 and not bool(last_edge.connector):
+				var quality := minf(metres, 1300.0) / 170.0 + \
+					float(turns) * 2.5 - absf(metres - 1250.0) / 400.0
+				if quality > best_value:
+					best_value = quality
+					best_ids = sequence.duplicate()
+			if metres > 1700.0 or sequence.size() >= 25:
 				continue
-			var next_edge: Dictionary = edges[next_id]
-			var next_path: PackedVector2Array = next_edge.points
-			var mid: Vector2 = next_path[mini(1, next_path.size() - 1)] / PPM
-			if mid.x < 2120.0 or mid.x > 4020.0 or mid.y < 2150.0 or mid.y > 3480.0:
-				continue
-			var kind := str(next_edge.get("kind", ""))
-			if kind in ["highway", "mountain", "rural"]:
-				continue
-			var score := float(next_edge.length_px) / PPM * 0.002
-			if kind == "connector":
-				var turn_kind := str(next_edge.get("turn", "straight"))
-				if turn_kind in ["left", "right"]:
-					score += 3.0 if length_m > 170.0 and turns < 3 else -0.9
-				else:
-					score += 1.8 if length_m < 190.0 else 0.5
-			elif kind == "arterial":
-				score += 0.4
-			# Stable tie-break: lane ID/order stays deterministic per map bake.
-			if score > best_score:
-				best_score = score
-				candidate = next_id
-		if candidate < 0:
-			break
-		id = candidate
-	if length_m < 650.0 or turns < 1:
-		answer.clear()
-	return answer
+			var next_options: Array = last_edge.get("next", [])
+			for option in next_options:
+				var next_id := int(option)
+				if (entry.seen as Dictionary).has(next_id):
+					continue
+				var next_edge: Dictionary = edges[next_id]
+				var kind := str(next_edge.get("kind", ""))
+				if kind in ["highway", "mountain", "rural"]:
+					continue
+				var path: PackedVector2Array = next_edge.points
+				var location: Vector2 = path[mini(1, path.size() - 1)] / PPM
+				if location.x < 2100.0 or location.x > 4120.0 or \
+						location.y < 2080.0 or location.y > 3580.0:
+					continue
+				var new_ids: Array[int] = sequence.duplicate()
+				new_ids.append(next_id)
+				var new_seen: Dictionary = (entry.seen as Dictionary).duplicate()
+				new_seen[next_id] = true
+				var new_metres := metres + float(next_edge.length_px) / PPM
+				var is_turn := bool(next_edge.get("connector", false)) and \
+					str(next_edge.get("turn", "straight")) in ["left", "right"]
+				var new_turns := turns + (1 if is_turn else 0)
+				var score := minf(new_metres, 1300.0) / 170.0 + \
+					minf(float(new_turns), 3.0) * 2.6
+				if new_metres > 1450.0:
+					score -= (new_metres - 1450.0) / 70.0
+				candidates.append({"ids":new_ids,"seen":new_seen,
+					"metres":new_metres, "turns":new_turns,"score":score})
+		candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return float(a.score) > float(b.score))
+		beam.clear()
+		for k in range(mini(24, candidates.size())):
+			beam.append(candidates[k])
+	return best_ids
