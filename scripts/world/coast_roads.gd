@@ -145,13 +145,17 @@ func _roads(stage: int) -> void:
 					for wheel in [-13.0,13.0]:
 						draw_polyline(_offset(path,float(lane)+wheel),Color(.18,.23,.25,.065),10,true)
 		elif stage == 2:
-			if urban:
-				for side in [-1.0, 1.0]:
-					# Bright continuous road-edge kerb on both sides.
-					draw_polyline(Walkways.offset(path, side * (width * 0.5 + 1.5)),
-						Color("f0ebdc"), 5.0, true)
+			# Road junctions and side entrances use the same station-clipped
+			# spans as lane markings. Kerbs must never cross an open junction
+			# mouth even when the main road path itself remains continuous.
 			for piece in batch.markings:
-				_paint(piece.path,r,width,float(piece.phase))
+				var visible_path: PackedVector2Array = piece.path
+				if urban and visible_path.size() >= 2:
+					for side in [-1.0, 1.0]:
+						draw_polyline(Walkways.offset(visible_path,
+							float(side) * (width * 0.5 + 1.5)),
+							Color("f0ebdc"), 5.0, true)
+				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
 ## from the global road station so marks continue across streamed chunk seams.
