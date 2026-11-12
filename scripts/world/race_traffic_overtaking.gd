@@ -95,7 +95,9 @@ func _obstacle(position_m: Vector2, velocity_mps: Vector2,
 	if absf(lateral) > 12.0:
 		return {}
 	return {"id":uid, "ahead_m":ahead, "lateral_m":lateral,
-		"speed_mps":velocity_mps.dot(tangent), "width_m":width_m}
+		"speed_mps":velocity_mps.dot(tangent),
+		"lateral_speed_mps":velocity_mps.dot(tangent.orthogonal()),
+		"width_m":width_m}
 
 
 func _traffic_obstacles(station_m: float, horizon_m: float) -> Array[Dictionary]:
@@ -145,10 +147,13 @@ func _separation(other: Dictionary) -> float:
 func _lane_clear(candidate: float, obstacles: Array[Dictionary],
 		speed_mps: float, intended_distance_m: float) -> bool:
 	for other in obstacles:
-		var difference := absf(candidate - float(other.lateral_m))
+		var ahead := float(other.ahead_m)
+		var time := clampf(ahead / maxf(speed_mps, 6.0), 0.0, 4.0)
+		var expected_lateral := float(other.lateral_m) + \
+			float(other.get("lateral_speed_mps", 0.0)) * time
+		var difference := absf(candidate - expected_lateral)
 		if difference >= _separation(other):
 			continue
-		var ahead := float(other.ahead_m)
 		var closing := speed_mps - float(other.speed_mps)
 		# Adjacent cars, faster cars approaching from behind, and oncoming
 		# vehicles must have enough real time/distance for a complete pass.
@@ -160,6 +165,26 @@ func _lane_clear(candidate: float, obstacles: Array[Dictionary],
 			if float(other.speed_mps) < -1.0 and ahead < 170.0:
 				return false
 		if ahead <= 0.0 and ahead > -18.0:
+			return false
+	return true
+
+
+## The destination lane being empty is NOT sufficient: a fast AI car
+## also needs clear space while crossing toward it. Predict side movement of
+## civilians and racers at each vehicle's time of arrival.
+func _entry_clear(current_offset: float, target_offset: float,
+		obstacles: Array[Dictionary], speed_mps: float) -> bool:
+	var distance := clampf(speed_mps * 1.85, 35.0, 75.0)
+	for other in obstacles:
+		var ahead := float(other.ahead_m)
+		if ahead <= -10.0 or ahead > distance + 9.0:
+			continue
+		var time := clampf(ahead / maxf(speed_mps, 6.0), 0.0, 4.0)
+		var other_offset := float(other.lateral_m) + \
+			float(other.get("lateral_speed_mps", 0.0)) * time
+		var position := lerpf(current_offset, target_offset,
+			smoothstep(0.0, distance, maxf(0.0, ahead)))
+		if absf(position - other_offset) < _separation(other):
 			return false
 	return true
 
@@ -230,7 +255,8 @@ func plan(dt: float, station_m: float, speed_mps: float) -> Dictionary:
 				break
 		if not tracked.is_empty() and float(tracked.ahead_m) >= -17.0 and \
 				_corridor_safe(station_m, my_offset, _chosen_offset, speed_mps) and \
-				_lane_clear(_chosen_offset, objects, speed_mps, horizon):
+				_lane_clear(_chosen_offset, objects, speed_mps, horizon) and \
+				_entry_clear(my_offset, _chosen_offset, objects, speed_mps):
 			_last_plan = {"offset_m":_chosen_offset,
 				"speed_cap_mps":_pass_transition_cap(tracked, my_offset, speed_mps),
 				"mode":"passing"}
@@ -247,6 +273,8 @@ func plan(dt: float, station_m: float, speed_mps: float) -> Dictionary:
 			if not _corridor_safe(station_m, my_offset, lane, speed_mps):
 				continue
 			if not _lane_clear(lane, objects, speed_mps, horizon):
+				continue
+			if not _entry_clear(my_offset, lane, objects, speed_mps):
 				continue
 			_pass_id = int(lead.id)
 			_chosen_offset = lane

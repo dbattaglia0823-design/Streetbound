@@ -9,6 +9,16 @@ const HARD_BRAKE := PPM * 24.0
 const LOOKAHEAD_SECONDS := 2.25
 const TURN_RESPONSE := 5.2
 const MAX_TURN_RATE := deg_to_rad(95.0)
+# Real-world movement is authoritative: zero waypoint progress or a requested
+# speed is not proof the chassis is actually moving.
+const STUCK_WINDOW_SECONDS := 0.75
+const STUCK_DISTANCE_PX := PPM * 0.65
+const STUCK_REMOVE_SECONDS := 12.0
+const STUCK_RECOVERY_SECONDS := 8.0
+const VIEW_MARGIN_PX := 80.0
+const VIEWER_PROXIMITY_PX := PPM * 35.0
+const PATH_SCAN_STEP_PX := PPM * 3.5
+const PATH_SCAN_HORIZON_PX := PPM * 85.0
 const PALETTE := [
 	Color("7b8b9b"),Color("b5b6aa"),Color("a08f7a"),Color("617a77"),
 	Color("a77c6b"),Color("8b94a4"),Color("c9c1ad"),Color("515d67")
@@ -123,6 +133,10 @@ func _spawn_one() -> bool:
 		var away := p.distance_to(player.global_position)
 		if away<PPM*75.0 or away>PPM*390.0:
 			continue
+		# Pair off-screen recycling with off-screen spawning: a newly
+		# recycled traffic car must not pop into another player's camera.
+		if _visible_to_any_player(p):
+			continue
 		if str(world.surface_at(p).name) != "ASPHALT":
 			continue
 		if on_race_route and player_station >= 0.0:
@@ -152,27 +166,261 @@ func _spawn_one() -> bool:
 			"next":-2,"stop_wait":0.0,"stop_done":false,
 			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{},
 			"obstacle_scan_clock":0.0,"obstacle_position":Vector2.INF,
-			"recovery_stall":0.0
+			"recovery_stall":0.0,
+			"stuck_time":0.0,"stuck_clock":0.0,"stuck_anchor":p,
+			"path_scan_clock":0.0,"path_speed_cap":INF
 		})
 		_id_serial+=1
 		return true
 	return false
 
 
+## Pick a continuous, legal *connected* lane rather than the first
+## straight choice. Favor long through-edges without hard steer jumps, reject
+## turn splines that put a real car outside paved roadway, and keep a small
+## deterministic variation so ambient traffic explores different streets.
 func _choose_next(edge: Dictionary) -> int:
-	var choices: Array=edge.next
+	var choices: Array = edge.next
 	if choices.is_empty():
 		return -1
-	var best := -1
-	if random.randf()<0.72:
-		for option in choices:
-			var e: Dictionary=network.edges[int(option)]
-			if str(e.get("turn","straight"))=="straight":
-				best=int(option)
+	var best_id := -1
+	var best_score := -INF
+	var current_points: PackedVector2Array = edge.points
+	var incoming := Vector2.UP
+	if current_points.size() >= 2:
+		incoming = (current_points[-1] - current_points[-2]).normalized()
+	for raw_id in choices:
+		var id := int(raw_id)
+		if id < 0 or id >= network.edges.size():
+			continue
+		var candidate: Dictionary = network.edges[id]
+		var points: PackedVector2Array = candidate.points
+		if points.size() < 2:
+			continue
+		var next_heading := (points[1] - points[0]).normalized()
+		# Disallow severe immediate direction reversals unless the legal
+		# network offers no other connection (e.g., a cul-de-sac).
+		var alignment := incoming.dot(next_heading)
+		var score := alignment * 3.0
+		match str(candidate.get("turn", "straight")):
+			"straight":
+				score += 3.0
+			"right":
+				score += 1.0
+			"left":
+				score += 0.45
+		if candidate.get("next", []).is_empty():
+			score -= 3.2
+		if not bool(candidate.connector):
+			score += minf(float(candidate.length_px) / (PPM * 90.0), 1.0)
+		# Graph splines are navigation hints; prefer an actually paved turn.
+		if is_instance_valid(world):
+			var paved := true
+			for fraction in [0.20, 0.50, 0.80]:
+				var sample: Dictionary = network.point_on_edge(
+					id, float(candidate.length_px) * float(fraction))
+				if str(world.surface_at(sample.position).get("name", "")) != "ASPHALT":
+					paved = false
+					break
+			if not paved:
+				score -= 25.0
+		if alignment < -0.5:
+			score -= 7.0
+		score += random.randf_range(0.0, 2.6)
+		if score > best_score:
+			best_score = score
+			best_id = id
+	return best_id
+
+
+## Treat a turn as a sequence of connected lane samples. A vehicle on
+## the far side of a bend may be invisible to a straight-ahead bumper check.
+## Sense the swept route at realistic braking distances and classify actors
+## using actual body positions and velocities instead of stale route progress.
+func _route_point(agent: Dictionary, distance_px: float) -> Dictionary:
+	var id := int(agent.edge)
+	if id < 0 or id >= network.edges.size():
+		return {}
+	var edge: Dictionary = network.edges[id]
+	var progress := float(agent.progress) + distance_px
+	if progress > float(edge.length_px):
+		var next_id := int(agent.get("next", -2))
+		if next_id < 0 or next_id >= network.edges.size():
+			return {}
+		progress -= float(edge.length_px)
+		id = next_id
+		edge = network.edges[id]
+		if progress > float(edge.length_px):
+			return {}
+	return network.point_on_edge(id, progress)
+
+
+func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
+	if network == null or desired_px < PPM * 0.7:
+		return desired_px
+	# The next 3-5-metre road samples don't change significantly within a
+	# tenth of a second. Cache only the extra obstruction cap, so changing
+	# stop signs and right-of-way controls still take effect immediately.
+	if float(agent.get("path_scan_clock", 0.0)) > 0.0:
+		return minf(desired_px, float(agent.get("path_speed_cap", INF)))
+	agent.path_scan_clock = 0.10
+	agent.path_speed_cap = INF
+	var node: CharacterBody2D = agent.node
+	if not is_instance_valid(node):
+		return desired_px
+	var horizon := clampf(desired_px * 2.8, PPM * 15.0, PATH_SCAN_HORIZON_PX)
+	var candidates: Array[Dictionary] = []
+	for other in agents:
+		if int(other.uid) == int(agent.uid):
+			continue
+		var other_node: CharacterBody2D = other.node
+		if not is_instance_valid(other_node):
+			continue
+		if node.global_position.distance_to(other_node.global_position) > horizon + PPM * 15.0:
+			continue
+		var velocity: Vector2 = Vector2.UP.rotated(other_node.rotation) * float(other.speed)
+		velocity += other_node.get("recovery_velocity") as Vector2
+		candidates.append({"node": other_node, "velocity": velocity,
+			"width_px": float(other_node.get("width_px"))})
+	# Player-controlled cars and independent racing rivals are also dynamic
+	# blockers; no ambient car may blindly drive through a street race.
+	for person in _player_vehicles():
+		if node.global_position.distance_to(person.global_position) <= horizon + PPM * 15.0:
+			candidates.append({"node": person,
+				"velocity": person.linear_velocity * PPM, "width_px": PPM * 2.2})
+	var racing_nodes: Array[Node] = []
+	if get_tree() != null:
+		racing_nodes = get_tree().get_nodes_in_group("race_opponent")
+	for other_racer in racing_nodes:
+		if other_racer is VehicleController2D:
+			var racer := other_racer as VehicleController2D
+			if node.global_position.distance_to(racer.global_position) <= horizon + PPM * 15.0:
+				candidates.append({"node": racer,
+					"velocity": racer.linear_velocity * PPM, "width_px": PPM * 2.2})
+	if candidates.is_empty():
+		return desired_px
+	var best := desired_px
+	var car_width := float(node.get("width_px"))
+	for other in candidates:
+		var other_node: Node2D = other.node
+		var closest_path := INF
+		var closest_ahead := INF
+		var tangent := Vector2.ZERO
+		# Find the earliest lane overlap, not simply the nearest distance.
+		var d := PPM * 2.0
+		while d < horizon:
+			var at: Dictionary = _route_point(agent, d)
+			if at.is_empty():
 				break
-	if best>=0:
-		return best
-	return int(choices[random.randi_range(0,choices.size()-1)])
+			var direction: Vector2 = at.tangent
+			var separation: Vector2 = other_node.global_position - Vector2(at.position)
+			var lateral := absf(separation.cross(direction))
+			var longitudinal := absf(separation.dot(direction))
+			# A straight lane's perpendicular line is infinite. Without the
+			# along-path check, a car 60m ahead looks "2m ahead" at the first
+			# sample and every traffic car brakes for phantom bumper proximity.
+			var local_distance := separation.length_squared()
+			if lateral < (car_width + float(other.width_px)) * 0.5 + PPM * 0.50 and \
+					longitudinal < PATH_SCAN_STEP_PX * 0.75 + PPM * 0.65 and \
+					local_distance < closest_path:
+				closest_path = local_distance
+				closest_ahead = d
+				tangent = direction
+			d += PATH_SCAN_STEP_PX
+		if not is_finite(closest_ahead):
+			continue
+		var relative_velocity: Vector2 = other.velocity
+		var forward_speed := relative_velocity.dot(tangent)
+		var approach_speed := maxf(0.0, desired_px - forward_speed)
+		var gap_px := PPM * 5.0 + approach_speed * 0.40
+		# The road may bend out of the current car's field of view:
+		# cap the speed using real distance along that road before contact.
+		var available_px := maxf(0.0, closest_ahead - gap_px)
+		# An oncoming vehicle has NEGATIVE velocity along our path.
+		# Preserve that sign in the closing-speed envelope; treating it as
+		# a stopped car would brake far too late in a head-on encounter.
+		var safe := maxf(0.0, forward_speed +
+			sqrt(2.0 * COMFORT_BRAKE * available_px))
+		best = minf(best, safe)
+	agent.path_speed_cap = best if best < desired_px else INF
+	return best
+
+
+func _player_vehicles() -> Array[VehicleController2D]:
+	var people: Array[VehicleController2D] = []
+	if is_instance_valid(player):
+		people.append(player)
+	# Recovery harnesses and editor previews may drive a TrafficFlow that
+	# has not entered the active SceneTree. The assigned player is still
+	# authoritative in those cases.
+	if get_tree() == null:
+		return people
+	for candidate in get_tree().get_nodes_in_group("player_vehicle"):
+		if candidate is VehicleController2D and not people.has(candidate):
+			people.append(candidate as VehicleController2D)
+	return people
+
+
+## Actual cameras define what a player can see. Being far from the main
+## player is NOT enough: a zoomed-out view or a second player's camera can
+## still show a stranded vehicle. Never remove any car in a live view.
+func _visible_to_any_player(position_px: Vector2) -> bool:
+	for person in _player_vehicles():
+		if person.global_position.distance_to(position_px) <= VIEWER_PROXIMITY_PX:
+			return true
+	var seen_cameras := {}
+	var camera_list: Array[Camera2D] = []
+	var local_camera := get_viewport().get_camera_2d()
+	if is_instance_valid(local_camera):
+		camera_list.append(local_camera)
+	for camera_node in get_tree().get_nodes_in_group("player_camera"):
+		if camera_node is Camera2D and not camera_list.has(camera_node):
+			camera_list.append(camera_node as Camera2D)
+	for camera in camera_list:
+		if not is_instance_valid(camera) or not camera.is_current():
+			continue
+		var viewport: Viewport = camera.get_viewport()
+		if viewport == null or seen_cameras.has(viewport.get_instance_id()):
+			continue
+		seen_cameras[viewport.get_instance_id()] = true
+		# Bound the camera's *world-space* footprint instead of relying on
+		# a canvas transform that may still be one frame behind physics or
+		# interpolation when a player moves or teleports the view. A bounding
+		# circle intentionally protects a little outside rotated view corners.
+		var zoom_x := maxf(absf(camera.zoom.x), 0.01)
+		var zoom_y := maxf(absf(camera.zoom.y), 0.01)
+		var size_px := viewport.get_visible_rect().size
+		var radius_px := Vector2(size_px.x / zoom_x, size_px.y / zoom_y).length() * 0.5
+		radius_px += VIEW_MARGIN_PX / minf(zoom_x, zoom_y) + camera.offset.length()
+		if camera.global_position.distance_to(position_px) <= radius_px:
+			return true
+	return false
+
+
+func _stalled_offscreen(agent: Dictionary, dt: float) -> bool:
+	var node: CharacterBody2D = agent.node
+	if not is_instance_valid(node):
+		return true
+	var clock := float(agent.get("stuck_clock", 0.0)) + dt
+	if clock < STUCK_WINDOW_SECONDS:
+		agent.stuck_clock = clock
+		return false
+	var anchor: Vector2 = agent.get("stuck_anchor", node.global_position)
+	if node.global_position.distance_to(anchor) >= STUCK_DISTANCE_PX:
+		agent.stuck_time = 0.0
+	else:
+		agent.stuck_time = float(agent.get("stuck_time", 0.0)) + clock
+	agent.stuck_anchor = node.global_position
+	agent.stuck_clock = 0.0
+	var recovery := bool(node.get("recovering"))
+	var threshold := STUCK_RECOVERY_SECONDS if recovery else STUCK_REMOVE_SECONDS
+	if float(agent.stuck_time) < threshold:
+		return false
+	if _visible_to_any_player(node.global_position):
+		# Keep the car visible and give it another chance to recover; do not
+		# repeatedly run full-visibility tests every frame for a stopped queue.
+		return false
+	return true
 
 
 # Kinematic safety envelope shared by players, moving AI and stopped AI.
@@ -276,17 +524,20 @@ func _car_following(index: int, desired_px: float) -> float:
 	return desired_px
 
 
+## Yield to every human-controlled car, not merely the primary player.
+## Crossing prediction uses real velocity and applies to racing participants.
 func _player_awareness(agent: Dictionary, desired_px: float,
 		travel_direction: Vector2 = Vector2.ZERO) -> float:
-	if not is_instance_valid(player):
-		return desired_px
-	var player_velocity := player.linear_velocity * PPM
 	var heading := travel_direction if travel_direction.length_squared() > 0.001 \
 		else Vector2.UP.rotated((agent.node as Node2D).rotation)
-	var safe := _safe_follow_speed(agent, desired_px,
-		player.global_position, player_velocity, heading)
-	return _crossing_speed(agent, safe, player.global_position,
-		player_velocity, true, heading)
+	var safe := desired_px
+	for person in _player_vehicles():
+		var player_velocity: Vector2 = person.linear_velocity * PPM
+		safe = _safe_follow_speed(agent, safe,
+			person.global_position, player_velocity, heading)
+		safe = _crossing_speed(agent, safe, person.global_position,
+			player_velocity, true, heading)
+	return safe
 
 
 # Only static obstacles are sensed here; traffic and player awareness are
@@ -354,7 +605,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var node: CharacterBody2D=agent.node
 	if not is_instance_valid(node):
 		return false
-	if node.global_position.distance_to(player.global_position)>PPM*530.0:
+	if node.global_position.distance_to(player.global_position) > PPM * 530.0 and \
+			not _visible_to_any_player(node.global_position):
 		return false
 	if bool(node.get("recovering")):
 		return _recover_agent(agent,dt)
@@ -364,10 +616,12 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var next_id := -2
 	# Determine upcoming connector before computing right-of-way and sensing.
 	# Waiting cars can otherwise appear to have no destination at all.
-	if remaining < maxf(PPM*35.0,float(agent.speed)*1.6):
+	if remaining < maxf(PPM * 75.0, float(agent.speed) * 2.5):
 		next_id=_next_target(agent,edge)
+	agent.path_scan_clock = float(agent.get("path_scan_clock", 0.0)) - dt
 	desired=_car_following(index,desired)
 	desired=_player_awareness(agent,desired)
+	desired=_path_aware_speed(agent,desired)
 	desired=_world_obstacle_speed(agent,desired,dt)
 	if next_id>=0:
 		var next: Dictionary=network.edges[next_id]
@@ -456,9 +710,10 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	if target.is_empty():
 		agent.speed=0.0
 		node.call("move_traffic", Vector2.ZERO, dt)
-		# If a car gets trapped outside all routes, don't pop it out of
-		# existence while the player watches. Recycle after they drive away.
-		return age < 18.0 or node.global_position.distance_to(player.global_position) < PPM*130.0
+		# Recovery failures are handled by the shared physical-stall tracker.
+		# Only a car that is genuinely stationary AND outside every player's
+		# camera may be recycled, so nothing disappears in front of anyone.
+		return true
 	var intended: Vector2 = target.lookahead
 	var delta: Vector2 = intended - node.global_position
 	var desired_angle := delta.angle() + PI * 0.5
@@ -544,7 +799,10 @@ func _physics_process(dt: float) -> void:
 	_simulation_clock+=step
 	_prune_junction_claims()
 	for i in range(agents.size()-1,-1,-1):
-		if not _tick_agent(i,step):
+		var alive := _tick_agent(i,step)
+		if alive:
+			alive = not _stalled_offscreen(agents[i],step)
+		if not alive:
 			var node: Node2D=agents[i].node
 			if is_instance_valid(node):node.queue_free()
 			var agent_id := int(agents[i].uid)

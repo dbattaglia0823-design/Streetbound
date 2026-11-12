@@ -56,6 +56,24 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_hud_dismiss_test.gd 2>&1 | tee /tmp/godot463-race-hud.log
           grep -q 'RACE HUD DISMISS AND POSITION: PASS' /tmp/godot463-race-hud.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-hud.log
+      - name: Validate traffic crash recovery, junction queues and player collision sensing
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_impact_recovery_test.gd 2>&1 | tee /tmp/godot463-traffic-recovery.log
+          grep -q 'TRAFFIC ART / COLLISION / RECOVERY: PASS' /tmp/godot463-traffic-recovery.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-recovery.log
+          timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd 2>&1 | tee /tmp/godot463-traffic-junctions.log
+          grep -q 'INTERSECTION TRAFFIC FLOW: PASS' /tmp/godot463-traffic-junctions.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-junctions.log
+          timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-safety.log
+          grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-safety.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-safety.log
+      - name: Verify traffic curve detection and safe offscreen stuck cleanup
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_path_stuck_cleanup_test.gd 2>&1 | tee /tmp/godot463-traffic-stuck.log
+          grep -q 'AI PATH DETECTION AND OFFSCREEN CLEANUP: PASS' /tmp/godot463-traffic-stuck.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-stuck.log
       - name: Verify head-to-head street racing around real moving traffic
         run: |
           set -o pipefail

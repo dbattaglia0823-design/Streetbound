@@ -6,6 +6,7 @@ const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Navigation = preload("res://scripts/world/race_navigation.gd")
 const Planner = preload("res://scripts/world/race_traffic_overtaking.gd")
 const Driver = preload("res://scripts/world/race_ai_driver.gd")
+const PPM := 20.0
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -68,6 +69,22 @@ func _run() -> void:
 	var planner := Planner.new()
 	planner.setup(car,road,flow,nav)
 	var slow := _add_traffic(flow,Vector2(2.25,119.0),10.0,51)
+	# A free destination lane is not proof that the transition corridor is
+	# free. The rival must not cross through a car while changing lanes.
+	var crossing: Array[Dictionary] = [
+		{"ahead_m":28.0,"lateral_m":0.0,"width_m":2.1,
+			"lateral_speed_mps":0.0}
+	]
+	check("race_AI_checks_entire_lane_change_not_just_target_lane",
+		not planner._entry_clear(2.25,-4.5,crossing,31.0))
+	var moving_into_path: Array[Dictionary] = [
+		{"ahead_m":28.0,"lateral_m":-6.0,"width_m":2.1,
+			"lateral_speed_mps":5.5}
+	]
+	check("race_AI_predicts_other_cars_moving_sideways_into_path",
+		not planner._entry_clear(2.25,-4.5,moving_into_path,31.0))
+	check("race_AI_keeps_full_speed_when_transition_is_truly_clear",
+		planner._entry_clear(2.25,-4.5,[],31.0))
 	var first: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("overtakes_slow_civilian_instead_of_braking_to_traffic_speed",
 		first.mode == "passing" and float(first.speed_cap_mps) == INF)
@@ -175,6 +192,26 @@ func _run() -> void:
 	check("race_stop_disables_AI_and_frees_player_group",
 		not bool(street.opponent_driver.get("active")) and
 		not player.is_in_group("race_participant"))
+	# An AI race opponent can also become physically immobilized. Preserve
+	# actual DNF timing and never delete that opponent while a human sees it.
+	street._clear_opponent()
+	street.state = "idle"
+	player.global_position = street.start_m * PPM
+	player.linear_velocity = Vector2.ZERO
+	player.velocity = Vector2.ZERO
+	check("new_race_can_start_after_completed_cleanup",street.start_race())
+	street._physics_process(3.2)
+	if is_instance_valid(street.opponent):
+		street.opponent.set_physics_process(false)
+		street.opponent.global_position = player.global_position + Vector2.RIGHT * PPM * 280.0
+		street._update_opponent(0.016)
+		street._update_opponent(19.0)
+		check("unseen_stuck_street_rival_is_released_as_DNF",
+			street.opponent_dnf and street.opponent == null and
+			street.opponent_driver == null)
+	else:
+		check("unseen_stuck_street_rival_is_released_as_DNF",false)
+	street._abort("RIVAL STUCK TEST COMPLETE")
 	print("RACING TRAFFIC OVERTAKING: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
