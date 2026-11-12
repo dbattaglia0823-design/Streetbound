@@ -78,8 +78,17 @@ func _run() -> void:
 	check("street_sprint_only_uses_legal_forward_traffic_graph_links", legal)
 	var street_points: PackedVector2Array = sprint.navigation.get("points_m")
 	var paved := true
+	var mismatches := 0
 	for i in range(0, street_points.size(), 8):
-		paved = paved and str(world.surface_at(street_points[i] * 20.0).name) == "ASPHALT"
+		var surface: Dictionary = world.surface_at(street_points[i] * 20.0)
+		if str(surface.get("name","")) != "ASPHALT":
+			if mismatches < 10:
+				print("ROUTE PAVEMENT DIAGNOSTIC: station_idx=",i,
+					" world_m=",street_points[i]," surface=",surface.get("name",""),
+					" road=",world.nearest_road_at(street_points[i]*20.0,30.0).get("road_id","none"))
+			mismatches += 1
+			paved = false
+	print("ROUTE PAVEMENT MISSES: ",mismatches)
 	check("street_line_stays_on_authored_asphalt", paved)
 	var road_center := PackedVector2Array()
 	for edge_id in sprint.edge_ids:
