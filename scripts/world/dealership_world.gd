@@ -120,7 +120,18 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 				var site := spec.duplicate(true)
 				site["road_m"] = [road_point.x,road_point.y]
 				site["road_id"] = int(sample.road_id)
-				site["road_station_m"] = float(sample.station_m)
+				# Use the authoritative baked segment station, not an
+				# estimate from source control points: chunk paint is
+				# generated from these exact indexed segments.
+				var paint_station: float = float(sample.station_m)
+				var nearest: Dictionary = world.nearest_road_at(road_point * PPM, 8.0)
+				if not nearest.is_empty() and \
+						int(nearest.road_id) == int(sample.road_id):
+					var segment_index: int = int(nearest.segment_index)
+					var segment: Dictionary = world.data.segments[segment_index]
+					paint_station = float(world.segment_stations[segment_index]) + \
+						v(segment.a).distance_to(nearest.closest_point_px / PPM)
+				site["road_station_m"] = paint_station
 				site["road_side"] = float(side)
 				site["center_m"] = [center.x,center.y]
 				site["parking_m"] = [parking.x,parking.y]
