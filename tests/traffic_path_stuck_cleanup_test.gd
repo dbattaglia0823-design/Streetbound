@@ -83,6 +83,14 @@ func _run() -> void:
 	check("distant_same_lane_car_does_not_trigger_phantom_braking",
 		is_equal_approx(distant_speed,PPM*14.0),distant_speed)
 	lead.position = origin + Vector2.UP * PPM * 8.0 + Vector2.RIGHT * PPM * 3.0
+	lead.rotation = -PI * 0.5
+	lead_agent.speed = PPM * 12.0
+	follower.path_scan_clock = 0.0
+	var oncoming_cap: float = flow._path_aware_speed(follower,PPM*14.0)
+	check("oncoming_car_on_curved_lane_brakes_earlier_than_stationary",
+		oncoming_cap < curved_speed,oncoming_cap)
+	lead.rotation = PI * 0.5
+	lead_agent.speed = 0.0
 	lead.position += Vector2.DOWN * PPM * 5.0
 	follower.path_scan_clock = 0.0
 	var adjacent_speed: float = flow._path_aware_speed(follower,PPM*14.0)
