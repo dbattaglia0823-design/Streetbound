@@ -12,10 +12,14 @@ var drawn_props := 0
 var label_boxes: Array[Rect2] = []
 var road_label_count := 0
 var font: Font = ThemeDB.fallback_font
-const ROAD_COLORS = {"highway":Color("d7b876"),"arterial":Color("f4e5c3"),"local":Color("f3efdf"),"rural":Color("e9e2c7"),"mountain":Color("e6d5b1"),"track":Color("c78c79"),"gravel":Color("b9aa8b"),"driveway":Color("e1d9c5")}
+# Wide-area zoom preserves world palette and geometry. Detailed zoom
+# switches to real CoastChunk nodes, not a separately styled road raster.
+const ROAD_COLORS = {"highway":Color("58656c"),"arterial":Color("58656c"),"local":Color("58656c"),"rural":Color("58656c"),"mountain":Color("58656c"),"track":Color("58656c"),"gravel":Color("a1947d"),"driveway":Color("58656c")}
 const ICON_COLORS = {"garage":Color("385b59"),"workshop":Color("647a69"),"dealer":Color("b88d58"),"fuel":Color("bd845f"),"race":Color("986e64"),"marina":Color("568b9c"),"view":Color("6e8e71")}
 const Relief = preload("res://assets/scenery/mountain-relief-map.png")
 const Mirror = preload("res://scripts/world/coast_map_world_mirror.gd")
+const Art = preload("res://scripts/world/coast_art.gd")
+const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 var world: MorrowCoast
 var mirror: Node2D
 var mirror_enabled := false
@@ -77,17 +81,11 @@ func _draw() -> void:
 		return
 	var overview := not miniature and ppm<.35
 	var bounds := Rect2(point(cache_area.position),cache_area.size*ppm)
-	draw_rect(bounds,Color("c0caaa"))
+	draw_rect(bounds,Color("a3b789"))
 	var terrain_entries: Array[Dictionary] = model.terrain_in(cache_area,overview)
 	for terrain in terrain_entries:
+		# Same source terrain colors and order as CoastChunk._draw().
 		var color: Color = terrain.color
-		match terrain.kind:
-			"city","town": color=Color("d0ccb8")
-			"forest": color=Color("9cb199")
-			"mountain": color=Color("b7c0ad")
-			"highland": color=Color("c8cbb5")
-			"ocean","water": color=Color("8fb9bc")
-			"beach": color=Color("e6d7b1")
 		var polygon := mapped(terrain.path)
 		if polygon.size()>2: draw_colored_polygon(polygon,color)
 		if terrain.kind=="contour" and overview:
@@ -127,7 +125,7 @@ func _draw() -> void:
 		elif kind in ["garden","planter","island"]:
 			draw_rect(rect,Color("9bb18b"))
 		elif kind in ["lot","forecourt"]:
-			draw_rect(rect,Color("b1b9b3"))
+			draw_rect(rect,Color("464f52"))
 			if ppm>.4 and kind=="lot":
 				for i in 8:
 					var x := -dimensions.x*.4+i*dimensions.x*.105
@@ -138,10 +136,16 @@ func _draw() -> void:
 		elif kind=="parked_car":
 			if ppm>.55: draw_rect(rect,Color("829c9c"))
 		else:
-			draw_rect(rect,Color("8b958d").lightened(.05))
-			draw_rect(rect.grow(-maxf(.4,ppm*.6)),Color("d8c3a6") if kind in ["house","coastal_house","lodge"] else Color("b9b9a9"))
-			if ppm>.5:
-				draw_line(Vector2(0,-dimensions.y*.4),Vector2(0,dimensions.y*.4),Color("9d9d8d"),.7)
+			# At whole-region zoom these roofs are just a few pixels.
+			# Reuse the real asset instead of drawing a fictional tan box
+			# wherever sufficient screen resolution is available.
+			var texture: Texture2D = DowntownPilot.sprite(
+				int(prop.downtown_pilot_style)) if prop.has("downtown_pilot_style") else \
+				Art.sprite(str(prop.get("asset_kind", kind)), int(prop.seed))
+			if texture != null and minf(dimensions.x, dimensions.y) >= 2.5:
+				draw_texture_rect(texture, rect, false)
+			else:
+				draw_rect(rect,Color(prop.color))
 		draw_set_transform(Vector2.ZERO)
 		drawn_props+=1
 	# Roads draw over parcels. True widths emerge naturally as you zoom in.
@@ -151,10 +155,10 @@ func _draw() -> void:
 			var road: Dictionary = entry.source
 			var path := mapped(entry.path)
 			var width := road_width(road)
-			draw_polyline(path,Color("667d76") if stage==0 else ROAD_COLORS.get(road.kind,Color("ede7d3")),width+1.6 if stage==0 else width,true)
+			draw_polyline(path,Color("c0bea5") if stage==0 else ROAD_COLORS.get(road.kind,Color("58656c")),width+2.0 if stage==0 else width,true)
 	for junction in model.data.junctions:
 		var p: Vector2 = model.v(junction.p)
-		if cache_area.has_point(p): draw_colored_polygon(mapped(model.path_of(junction.polygon)),Color("ece5ce"))
+		if cache_area.has_point(p): draw_colored_polygon(mapped(model.path_of(junction.polygon)),Color("58656c"))
 	for bridge in model.data.bridges:
 		var path := mapped(model.path_of(bridge.points))
 		if cache_area.grow(60).has_point(model.v(bridge.points[0])):
