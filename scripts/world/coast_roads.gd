@@ -168,6 +168,14 @@ func _dealer_curb_gaps(road: Dictionary, side: float) -> Array:
 		var station: float = float(site.road_station_m)
 		# 12m wide driveway plus a modest curb return on either side.
 		gaps.append([station - 7.0, station + 7.0])
+	# Procedural parking entrances share the same road-relative openings
+	# and are cut only on the near side of the matching baked road.
+	for access in world.parking_road_openings.get(road_id, []):
+		if float(access.get("road_side", 0.0)) != side:
+			continue
+		var station: float = float(access.station_m)
+		var half: float = float(access.get("half_width_m", 6.0))
+		gaps.append([station - half, station + half])
 	gaps.sort_custom(func(a: Array, b: Array) -> bool:
 		return float(a[0]) < float(b[0]))
 	return gaps
