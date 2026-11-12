@@ -65,6 +65,7 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	return node
 
 func _ready() -> void:
+	add_to_group("streetbound_world_map_hud")
 	layer=2
 	model=Model.new(world.data)
 	mini=panel(Vector2(1100,24),Vector2(316,340))

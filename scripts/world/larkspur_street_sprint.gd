@@ -276,7 +276,8 @@ func _refresh() -> void:
 	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
 	# A small staging prompt appears only close to the start, rather than
 	# occupying the driving view whenever a race is nearby.
-	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 32.0 * PPM
+	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM and \
+		player.linear_velocity.length() <= 5.0
 	match state:
 		"idle":
 			label.text = "LARKSPUR STREET SPRINT / PRACTICE\n%s" % (

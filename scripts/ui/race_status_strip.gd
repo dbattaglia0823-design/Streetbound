@@ -1,16 +1,15 @@
 extends Control
-## Shared small race status strip. The driving view stays clear, and dismissing
-## the strip never cancels a race or reopens it on the next physics frame.
-const MAX_WIDTH := 432.0
-const STRIP_HEIGHT := 54.0
-const TOP_MARGIN := 12.0
+## Shared, bottom-right race status strip with a touch-friendly restore button.
+## The driving view stays clear; closing it never changes race state or physics.
+const MAX_WIDTH := 342.0
+const STRIP_HEIGHT := 70.0
+const EDGE_MARGIN := 18.0
 
 var panel: PanelContainer
 var label: Label
 var close_button: Button
 var restore_button: Button
 var dismissed := false
-var _last_phase := "idle"
 var _available := false
 var _status_text := ""
 
@@ -44,7 +43,7 @@ func _ready() -> void:
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 13)
-	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.max_lines_visible = 2
 	content.add_child(label)
@@ -74,22 +73,24 @@ func _layout() -> void:
 	if panel == null or restore_button == null:
 		return
 	var viewport_size := get_viewport_rect().size
-	# Keep between left dashboard and right minimap at desktop widths.
-	# Scale to a narrow viewport without relying on 1440x900 coordinates.
-	var width_px := minf(MAX_WIDTH, maxf(170.0, viewport_size.x - 24.0))
-	var left := maxf(8.0, (viewport_size.x - width_px) * 0.5)
-	panel.position = Vector2(left, TOP_MARGIN)
+	# Dock under the top-right minimap. The car, road apex, central view,
+	# driver progression and top map controls all remain unobstructed.
+	var width_px := minf(MAX_WIDTH, maxf(170.0, viewport_size.x - 2.0 * EDGE_MARGIN))
+	var left := maxf(8.0, viewport_size.x - width_px - EDGE_MARGIN)
+	var top := maxf(8.0, viewport_size.y - STRIP_HEIGHT - EDGE_MARGIN)
+	panel.position = Vector2(left, top)
 	panel.size = Vector2(width_px, STRIP_HEIGHT)
 	restore_button.position = Vector2(
-		maxf(8.0, (viewport_size.x - 96.0) * 0.5), TOP_MARGIN)
+		maxf(8.0, viewport_size.x - 96.0 - EDGE_MARGIN),
+		maxf(8.0, viewport_size.y - 28.0 - EDGE_MARGIN))
 	restore_button.size = Vector2(96, 28)
 
 
 func set_status(phase: String, in_range: bool, message: String) -> void:
-	# A NEW race may reopen the strip; a dismissed current race stays hidden.
-	if phase == "countdown" and _last_phase != "countdown":
+	# If the user closes an idle prompt, do NOT pop back up at the next
+	# countdown. Only reset the preference after leaving the event area.
+	if phase == "idle" and not in_range:
 		dismissed = false
-	_last_phase = phase
 	_available = in_range or phase != "idle"
 	if label != null:
 		# Keep detailed result text readable in two compact lines.
@@ -112,8 +113,42 @@ func restore() -> void:
 	_refresh_visibility()
 
 
+func _other_ui_open() -> bool:
+	if get_tree().paused:
+		return true
+	for map_hud in get_tree().get_nodes_in_group("streetbound_world_map_hud"):
+		if bool(map_hud.get("large")):
+			return true
+		var driving: CanvasLayer = map_hud.get("driving_hud") as CanvasLayer
+		if is_instance_valid(driving):
+			var tuning: Control = driving.get("tuning") as Control
+			if is_instance_valid(tuning) and tuning.visible:
+				return true
+	return false
+
+
 func _refresh_visibility() -> void:
 	if panel == null or restore_button == null:
 		return
-	panel.visible = _available and not dismissed
-	restore_button.visible = _available and dismissed
+	var allowed := _available and not _other_ui_open()
+	panel.visible = allowed and not dismissed
+	restore_button.visible = allowed and dismissed
+
+
+func _process(_dt: float) -> void:
+	# The player can open Tab atlas or F1 settings without any race
+	# state change, so suppress the strip and restore chip immediately.
+	_refresh_visibility()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _available or _other_ui_open() or not event is InputEventKey:
+		return
+	var key := event as InputEventKey
+	if key.pressed and not key.echo and (key.keycode == KEY_H or
+			key.physical_keycode == KEY_H):
+		if dismissed:
+			restore()
+		else:
+			dismiss()
+		get_viewport().set_input_as_handled()
