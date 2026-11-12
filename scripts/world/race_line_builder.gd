@@ -160,14 +160,19 @@ static func make_line(center: PackedVector2Array,
 					float(corner.first), float(corner.last),
 					float(corner.sign), float(corner.strength))
 		offset = clampf(offset, -caps[i], caps[i])
-		var proposed := center_point + tangent.orthogonal() * offset
 		# Shrink only the offending offset when an apex touches grass,
-		# a curb, a sidewalk or a world blocker. The source lane is legal.
+		# a curb or a sidewalk. If there is no safe lateral shift at all,
+		# retain the traffic-authored centerline instead of clipping pavement.
 		var scale := 1.0
-		while scale > 0.04 and not _driveable(world,
-			center_point + tangent.orthogonal() * offset * scale, tangent):
+		var safe_shift := false
+		while scale > 0.04:
+			if _driveable(world,
+				center_point + tangent.orthogonal() * offset * scale, tangent):
+				safe_shift = true
+				break
 			scale *= 0.5
-		result.append(center_point + tangent.orthogonal() * offset * scale)
+		result.append(center_point + tangent.orthogonal() * offset * scale
+			if safe_shift else center_point)
 	return result
 
 
