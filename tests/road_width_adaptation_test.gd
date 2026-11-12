@@ -152,7 +152,7 @@ func _run() -> void:
 		width_drives_traffic = absf(lateral - float(road.width) * .25) < 0.5
 		break
 	check("ambient_traffic_lanes_follow_new_centered_width",width_drives_traffic)
-	var original_prop_count := source.props.size()
+	var original_prop_count: int = (source.get("props", []) as Array).size()
 	check("no_buildings_or_assets_deleted", world.data.props.size() == original_prop_count)
 	print("MORROW 10 PERCENT WIDER ROADS: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
