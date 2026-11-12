@@ -18,7 +18,8 @@ func _draw() -> void:
 		var center := (Vector2(float(prop.p[0]),float(prop.p[1]))-origin_m) * 20.0
 		var vegetation := kind in ["tree","pine","palm","garden","planter","island"]
 		var structural := kind in ["house","coastal_house","lodge","building","shop",
-			"warehouse","garage","workshop","showroom","fuel","cafe"]
+			"warehouse","garage","workshop","showroom","fuel","cafe",
+			"office","hotel"]
 		if not (vegetation or structural or kind == "rock" or kind == "parked_car"):
 			continue
 		var projection := Vector2(.58,.68) * (size.y*.38 if vegetation else size.y*.18)
