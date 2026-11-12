@@ -17,6 +17,11 @@ var opponent: VehicleController2D
 var opponent_driver: Node
 var opponent_station_m := 0.0
 var opponent_elapsed := -1.0
+var opponent_dnf := false
+var _opponent_stall_anchor := Vector2.ZERO
+var _opponent_stall_age := 0.0
+const OPPONENT_STALL_SECONDS := 18.0
+const OPPONENT_MOVEMENT_RESET_PX := PPM * 0.65
 var navigation: RefCounted
 var world_guidance: Node2D
 var edge_ids: Array[int] = []
@@ -107,6 +112,9 @@ func start_race() -> bool:
 	previous_station = float(navigation.call("station_at", player.global_position / PPM))
 	opponent_station_m = 0.0
 	opponent_elapsed = -1.0
+	opponent_dnf = false
+	_opponent_stall_age = 0.0
+	_opponent_stall_anchor = opponent.global_position
 	result = ""
 	_refresh()
 	return true
@@ -193,10 +201,25 @@ func _finish_race() -> void:
 		player.remove_from_group("race_participant")
 
 
-func _update_opponent() -> void:
+## Street-race rivals are not ambient traffic; keep real finish/DNF state.
+## A physically immobilized rival can retire *only* after it is no longer
+## visible in any player's camera. No vanishing rivals in the driving view.
+func _update_opponent(dt: float = 0.01667) -> void:
 	if not is_instance_valid(opponent) or opponent_elapsed >= 0.0:
 		return
-	var position_m := opponent.global_position / PPM
+	var position_px := opponent.global_position
+	if position_px.distance_to(_opponent_stall_anchor) >= OPPONENT_MOVEMENT_RESET_PX:
+		_opponent_stall_anchor = position_px
+		_opponent_stall_age = 0.0
+	else:
+		_opponent_stall_age += dt
+	if _opponent_stall_age >= OPPONENT_STALL_SECONDS and \
+			is_instance_valid(traffic) and \
+			not bool(traffic.call("_visible_to_any_player", position_px)):
+		opponent_dnf = true
+		_clear_opponent()
+		return
+	var position_m := position_px / PPM
 	var station: float = navigation.call("station_at", position_m)
 	var on_line: Vector2 = navigation.call("point_at", station)
 	if position_m.distance_to(on_line) > 15.0:
@@ -236,7 +259,7 @@ func _physics_process(dt: float) -> void:
 			previous_station = float(navigation.call("station_at", player.global_position / PPM))
 	elif state == "running":
 		elapsed += dt
-		_update_opponent()
+		_update_opponent(dt)
 		var station: float = navigation.call("station_at", player.global_position / PPM)
 		var on_line: Vector2 = navigation.call("point_at", station)
 		var advance := station - previous_station
@@ -288,7 +311,7 @@ func _refresh() -> void:
 		"running":
 			var fraction := previous_station / maxf(1.0, float(navigation.get("length_m")))
 			var rival := opponent_station_m / maxf(1.0, float(navigation.get("length_m")))
-			var maneuver := str(opponent_driver.get("traffic_mode")) if is_instance_valid(opponent_driver) else "clear"
+			var maneuver := "DNF" if opponent_dnf else str(opponent_driver.get("traffic_mode")) if is_instance_valid(opponent_driver) else "clear"
 			label.text = "STREET SPRINT  %.2fs  /  YOU %.0f%%  AI %.0f%%\nTRAFFIC ACTIVE / AI %s / FOLLOW CYAN ROUTE" % [
 				elapsed,clampf(fraction * 100.0, 0.0, 100.0),
 				clampf(rival * 100.0, 0.0, 100.0),maneuver.to_upper()]
