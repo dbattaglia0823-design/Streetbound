@@ -2,6 +2,7 @@ class_name VehicleController2D
 extends CharacterBody2D
 signal impacted(strength: float)
 const PIXELS_PER_METER := 20.0
+const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
 var surface_provider: Node
@@ -18,6 +19,9 @@ var brake := 0.0
 var handbrake := 0.0
 var handbrake_grip_loss := 0.0 # Persistent rear tire slip after a moving wheel lock
 var wheel_spin := 0.0 # Driven-wheel overspeed estimate, independent of lateral slip
+var engine_wheel_force_n := 0.0 # Unclipped driven wheel force, telemetry
+var traction_limit_n := 0.0 # Road and tire delivery limit, telemetry
+var delivered_wheel_force_n := 0.0 # After driven-wheel slip and shift cuts
 var boost_psi := 0.0 # Modeled manifold charge pressure; zero for N/A engines
 var arcade_assist_fraction := 0.0
 var cornering_grip_fraction := 1.0 # Fraction of lateral grip remaining after braking
@@ -49,6 +53,9 @@ func reset_vehicle() -> void:
 	handbrake = 0.0
 	handbrake_grip_loss = 0.0
 	wheel_spin = 0.0
+	engine_wheel_force_n = 0.0
+	traction_limit_n = 0.0
+	delivered_wheel_force_n = 0.0
 	boost_psi = 0.0
 	arcade_assist_fraction = 0.0
 	cornering_grip_fraction = 1.0
@@ -118,7 +125,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var arcade := config.arcade_steering_assist * surface_grip * (1.0 - rear_sliding) * (1.0 - wheel_spin) * settled_tires
 	arcade_assist_fraction = arcade
 	var brake_turn := 1.0 + config.brake_turn_boost * stopping_input * arcade
-	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.6), drive_input, reversing, config)
+	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.18), drive_input, reversing, config)
 	# Pressure is simulated only for a configured turbo engine. Power and
 	# torque stats already represent boosted peak output; spool temporarily
 	# reduces available torque rather than applying a fictitious extra gain.
@@ -165,43 +172,50 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		traction_load = front_load
 	elif config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		traction_load = front_load + rear_load
-	var curve_factor := config.torque_curve.sample_baked(transmission.rpm / config.redline_rpm) if config.torque_curve else 1.0
-	var engine_force := config.engine_torque_nm * curve_factor * ratio * 0.9 / config.wheel_radius_m
+	var curve_factor := config.torque_curve.sample_baked(
+		transmission.rpm / config.redline_rpm) if config.torque_curve else 1.0
+	# Compute shaft torque from actual crank RPM and the requested horsepower.
+	# Rated HP is not a soft vehicle-speed cap, so extreme F1 settings continue
+	# to pull after shifting into taller gears.
+	var boost_factor := 1.0
 	if config.boost_max_psi > 0.05:
-		# Full modeled pressure reaches the catalog's rated output.
-		engine_force *= lerpf(0.85,1.0,clampf(boost_psi/config.boost_max_psi,0,1))
-	engine_force = minf(engine_force, config.engine_power_kw * 1000.0 / maxf(speed, 3.0))
+		boost_factor = lerpf(0.85,1.0,
+			clampf(boost_psi / config.boost_max_psi,0.0,1.0))
+	var engine_force := Powertrain.wheel_force_n(config,transmission.rpm,
+		ratio,curve_factor,boost_factor)
+	engine_wheel_force_n = engine_force
 	var requested_force := engine_force * drive_input
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
-	# Rear lateral breakaway must not remove the longitudinal bite needed to
-	# power through a controlled drift. Keep these two tire responses separate.
-	var drive_grip := lerpf(1.0, config.handbrake_drive_grip, rear_sliding * rear_drive_share)
-	var traction_capacity := traction_load * grip * drive_grip
-	var spin_target := 0.0
-	if rear_drive_share > 0.0 and speed > 2.0 and (handbrake_grip_loss > 0.001 or wheel_spin > 0.001):
-		# Throttle controls modest power slip during the pull and brief release.
-		# Most of the tire's longitudinal force still reaches the ground.
-		var delivered_request := requested_force
-		if transmission.shift_timer > 0.0 or transmission.rpm >= config.redline_rpm * 0.995:
-			delivered_request *= 0.12
-		if reversing:
-			delivered_request *= 0.65
-		var torque_usage := clampf(delivered_request / maxf(traction_load * grip, 1.0), 0.0, 1.0)
-		var excess_torque := (delivered_request - traction_capacity) / maxf(traction_capacity, 1.0)
-		spin_target = clampf(maxf(excess_torque, torque_usage * rear_sliding * 0.65), 0.0, 0.55) * rear_drive_share
-	var spin_rate := 12.0 if spin_target > wheel_spin else config.wheel_spin_recovery_rate * (2.0 - drive_input)
-	wheel_spin = lerpf(wheel_spin, spin_target, 1.0 - exp(-spin_rate * dt))
+	# Tire response is independent from crank output. Extreme F1 horsepower
+	# builds can use the same prepared, loaded drag-tire longitudinal envelope
+	# instead of hitting the stock street-tire acceleration ceiling at ~500hp.
+	# Braking, steering grip and off-road contact are deliberately unaffected.
+	var drive_grip := lerpf(1.0,config.handbrake_drive_grip,
+		rear_sliding * rear_drive_share)
+	var traction_capacity := Powertrain.traction_force_n(
+		config,traction_load,surface_grip,drive_grip,surface)
+	traction_limit_n = traction_capacity
+	# Overwhelming a tire actually makes the wheel spin, even before a
+	# handbrake/drift starts. Visual wheel animation and grip recovery now
+	# communicate the added torque rather than hiding it at a silent clamp.
+	var spin_target := Powertrain.drive_wheelspin(requested_force,
+		traction_capacity,rear_drive_share,rear_sliding,drive_input)
+	var spin_rate := 12.0 if spin_target > wheel_spin else \
+		config.wheel_spin_recovery_rate * (2.0 - drive_input)
+	wheel_spin = lerpf(wheel_spin,spin_target,1.0 - exp(-spin_rate * dt))
 	if wheel_spin < 0.001 and spin_target == 0.0:
 		wheel_spin = 0.0
-	engine_force = minf(requested_force, traction_capacity) * (1.0 - wheel_spin * rear_drive_share * 0.12)
+	engine_force = minf(requested_force,traction_capacity) * \
+		(1.0 - wheel_spin * rear_drive_share * 0.12)
 	if transmission.shift_timer > 0.0 or transmission.rpm >= config.redline_rpm * 0.995:
 		engine_force *= 0.12
 	if reversing:
 		engine_force *= -0.65
 		if longitudinal_speed < -13.0:
 			engine_force = 0.0
+	delivered_wheel_force_n = engine_force
 	var braking := minf(config.brake_force_n * stopping_input + config.handbrake_force_n * handbrake, mass * 9.81 * grip)
 	var resistance := 0.5 * 1.225 * config.drag_area * longitudinal_speed * absf(longitudinal_speed)
 	resistance += signf(longitudinal_speed) * mass * 9.81 * (config.rolling_resistance + (1.0 - surface_grip) * 0.045) * minf(absf(longitudinal_speed), 1.0)
