@@ -1,6 +1,7 @@
 extends Node2D
 const PPM := 20.0
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
+const Clip = preload("res://scripts/world/road_marking_clip.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
@@ -150,6 +151,28 @@ static func approach_crosswalk(center: Vector2, direction: Vector2,
 	return result
 
 
+## Return the road-station intervals occupied by driveways on ONE side
+## of this road. Only those curb/sidewalk segments are omitted: the asphalt,
+## centerline, and opposite sidewalk are unaffected.
+func _dealer_curb_gaps(road: Dictionary, side: float) -> Array:
+	var gaps: Array = []
+	if not is_instance_valid(world.dealerships):
+		return gaps
+	var road_id: int = int(road.get("id", -1))
+	if road_id < 0:
+		return gaps
+	for site in world.dealerships.sites:
+		if int(site.get("road_id", -1)) != road_id or \
+				float(site.get("road_side", 0.0)) != side:
+			continue
+		var station: float = float(site.road_station_m)
+		# 12m wide driveway plus a modest curb return on either side.
+		gaps.append([station - 7.0, station + 7.0])
+	gaps.sort_custom(func(a: Array, b: Array) -> bool:
+		return float(a[0]) < float(b[0]))
+	return gaps
+
+
 func _roads(stage: int) -> void:
 	for batch in road_batches:
 		var path: PackedVector2Array = batch.path
@@ -162,11 +185,17 @@ func _roads(stage: int) -> void:
 				# Both sides are real road-relative paths, not disconnected
 				# rectangles. Their mitered offsets follow every road bend.
 				for side in [-1.0, 1.0]:
-					var walkway := Walkways.urban_sidewalk_center(path, width, side)
-					draw_polyline(walkway, Color("99a49b"), Walkways.SIDEWALK_WIDTH_PX + 16.0, true)
-					draw_polyline(walkway, Color("dedbcc"), Walkways.SIDEWALK_WIDTH_PX + 2.0, true)
-					var outside := Walkways.urban_sidewalk_outer(path, width, side)
-					draw_polyline(outside, Color("b5b8a9"), 3.0, true)
+					for section in Clip.parts(path, float(batch.phase),
+							_dealer_curb_gaps(r, float(side))):
+						var walkway := Walkways.urban_sidewalk_center(
+							section.path, width, float(side))
+						draw_polyline(walkway, Color("99a49b"),
+							Walkways.SIDEWALK_WIDTH_PX + 16.0, true)
+						draw_polyline(walkway, Color("dedbcc"),
+							Walkways.SIDEWALK_WIDTH_PX + 2.0, true)
+						var outside := Walkways.urban_sidewalk_outer(
+							section.path, width, float(side))
+						draw_polyline(outside, Color("b5b8a9"), 3.0, true)
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
@@ -185,9 +214,17 @@ func _roads(stage: int) -> void:
 				var visible_path: PackedVector2Array = piece.path
 				if urban and visible_path.size() >= 2:
 					for side in [-1.0, 1.0]:
-						draw_polyline(Walkways.offset(visible_path,
-							float(side) * (width * 0.5 + 1.5)),
-							Color("f0ebdc"), 5.0, true)
+						# Junctions are already removed from visible_path.
+						# Dealer openings cut only the roadside kerb and
+						# painted edge line nearest their driveway.
+						for section in Clip.parts(visible_path,
+								float(piece.phase), _dealer_curb_gaps(r, float(side))):
+							draw_polyline(Walkways.offset(section.path,
+								float(side) * (width * 0.5 + 1.5)),
+								Color("f0ebdc"), 5.0, true)
+							draw_polyline(_offset(section.path,
+								float(side) * (width * .5 - 10.0)),
+								Color("dcd9c4"), 3.0, true)
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
@@ -248,8 +285,11 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 		draw_polyline(_offset(path,5),Color("d8c69a"),3,true)
 	else:
 		_dashes(path,3,Color("ddd2a7"),55,85,station,true)
-	draw_polyline(_offset(path,width/2-10),edge,3,true)
-	draw_polyline(_offset(path,-width/2+10),edge,3,true)
+	# Urban road-edge lines are emitted above from dealer/junction-clipped
+	# paths. Non-urban road shoulders retain their original full paint.
+	if not urban:
+		draw_polyline(_offset(path,width/2-10),edge,3,true)
+		draw_polyline(_offset(path,-width/2+10),edge,3,true)
 func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
