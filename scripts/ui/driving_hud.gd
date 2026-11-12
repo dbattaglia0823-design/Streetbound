@@ -167,6 +167,13 @@ func add_slider(entry: Array) -> void:
 	slider.min_value = 50.0
 	slider.max_value = 10000.0
 	slider.step = 10.0
+	match property:
+		"engine_power_kw":
+			slider.tooltip_text = "Horsepower: high-RPM pulling power and continued acceleration."
+		"engine_torque_nm":
+			slider.tooltip_text = "Torque: launch force and low/mid-RPM response."
+		"mass_kg":
+			slider.tooltip_text = "Vehicle weight: affects acceleration, handling and braking."
 	slider.value = _display_slider_value(property, float(vehicle.config.get(property)))
 	slider.value_changed.connect(func(value: float):
 		var native := _slider_native_value(property, value)
@@ -225,5 +232,10 @@ func _process(_dt: float) -> void:
 		Imperial.tune_value("engine_power_kw", vehicle.config.engine_power_kw),
 		Imperial.tune_value("engine_torque_nm", vehicle.config.engine_torque_nm),
 		Imperial.tune_value("mass_kg", vehicle.config.mass_kg)]
+	if tuning.visible:
+		telemetry.text += "\nDRIVE %.0f lbf   /   TIRE %.0f lbf   /   SPIN %.0f%%" % [
+			vehicle.delivered_wheel_force_n * Imperial.NEWTON_TO_LBF,
+			vehicle.traction_limit_n * Imperial.NEWTON_TO_LBF,
+			vehicle.wheel_spin * 100.0]
 	if vehicle.linear_velocity.length() > 1 or Input.is_action_pressed("reset"):
 		status.text = "%s   /   %s" % [vehicle.surface, "CAR FOLLOW" if camera.follow_heading else "NORTH UP"]
