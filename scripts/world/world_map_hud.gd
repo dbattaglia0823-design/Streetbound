@@ -72,6 +72,9 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 
 func _ready() -> void:
 	add_to_group("streetbound_world_map_hud")
+	# Bring the full atlas above normal driving/progression overlays so the
+	# level/status popover cannot cover roads, map controls or search results.
+	# The small minimap remains in the regular HUD drawing layer.
 	layer=2
 	model=Model.new(world.data)
 	mini=panel(Vector2(1100,24),Vector2(316,340))
