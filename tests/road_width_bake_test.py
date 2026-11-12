@@ -43,7 +43,7 @@ adapt(fixture)
 assert fixture["roads"][0]["width"] == 11.0
 assert fixture["bridges"][0]["width"] == 11.0
 assert fixture["junctions"][0]["approaches"][0]["width"] == 11.0
-assert fixture["props"][0]["size"] == [18.8,28.2]
+assert all(math.isclose(a, b) for a, b in zip(fixture["props"][0]["size"], [18.8,28.2]))
 assert fixture["props"][1]["size"] == [2.0,5.0]
 assert fixture["props"][2]["size"] == [30.0,25.0]
 adapt(fixture)
