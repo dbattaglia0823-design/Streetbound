@@ -133,6 +133,8 @@ func _run() -> void:
 	# junction reservation instead of leaving a permanent stopped collider.
 	flow.agents.remove_at(1)
 	lead.queue_free()
+	follower.speed = 0.0
+	follower.cruise = 0.0
 	follower.stuck_time = Flow.STUCK_REMOVE_SECONDS + 1.0
 	follower.stuck_clock = Flow.STUCK_WINDOW_SECONDS - 0.05
 	flow.enabled = true
