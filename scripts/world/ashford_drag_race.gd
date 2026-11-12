@@ -4,6 +4,7 @@ extends Node2D
 ## No idling, driving around town, teleporting, or menu-opening awards XP.
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
+const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 signal race_finished(result: Dictionary)
 const PPM := 20.0
 const QUARTER_MILE_M := 402.336
@@ -27,6 +28,7 @@ var _status_clock := 0.0
 var _result_text := ""
 var _race_panel: PanelContainer
 var _race_label: Label
+var _status_strip: Control
 
 
 func _ready() -> void:
@@ -55,25 +57,11 @@ func _ready() -> void:
 	layer.name = "RaceOverlay"
 	layer.layer = 7
 	add_child(layer)
-	_race_panel = PanelContainer.new()
-	_race_panel.name = "RaceStatus"
-	_race_panel.position = Vector2(770, 143)
-	_race_panel.custom_minimum_size = Vector2(367, 105)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035,0.075,0.09,0.94)
-	style.border_color = Color("b39b67")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(9)
-	style.content_margin_left = 15
-	style.content_margin_right = 15
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	_race_panel.add_theme_stylebox_override("panel",style)
-	layer.add_child(_race_panel)
-	_race_label = Label.new()
-	_race_label.name = "RaceInstructions"
-	_race_label.add_theme_font_size_override("font_size",16)
-	_race_panel.add_child(_race_label)
+	_status_strip = Control.new()
+	_status_strip.set_script(StatusStripScript)
+	layer.add_child(_status_strip)
+	_race_panel = _status_strip.get("panel") as PanelContainer
+	_race_label = _status_strip.get("label") as Label
 	_refresh_overlay()
 
 
@@ -190,9 +178,7 @@ func _refresh_overlay() -> void:
 	if _race_label == null or not available:
 		return
 	var distance := player.global_position.distance_to(start_m * PPM)/PPM
-	_race_panel.visible = state != "idle" or distance <= 100.0
-	if not _race_panel.visible:
-		return
+	var show_prompt := distance <= 32.0
 	match state:
 		"idle":
 			_race_label.text = "ASHFORD QUARTER-MILE\n%s" % (
@@ -206,6 +192,7 @@ func _refresh_overlay() -> void:
 		"results","aborted":
 			_race_label.text = _result_text
 
+	_status_strip.call("set_status", state, show_prompt, _race_label.text)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not available or not event is InputEventKey or \
