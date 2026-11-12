@@ -107,7 +107,8 @@ func run() -> void:
 		check("lot_paints_below_road_" + str(shop.id), pavement_found)
 		var storefront_found: bool = manager.shop_nodes.any(func(n: Node2D) -> bool:
 			return str(n.site.id) == str(shop.id) and n.z_index == 6 and \
-				(n.get_node("DealershipArtwork") as Sprite2D).rotation == PI)
+				absf(wrapf((n.get_node("DealershipArtwork") as Sprite2D).rotation
+					- float(shop.art_rotation), -PI, PI)) < 0.001)
 		check("art_faces_entrance_" + str(shop.id), storefront_found)
 		for other in centres:
 			if other.distance_to(position) < 92.0:
