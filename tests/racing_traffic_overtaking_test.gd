@@ -68,6 +68,22 @@ func _run() -> void:
 	var planner := Planner.new()
 	planner.setup(car,road,flow,nav)
 	var slow := _add_traffic(flow,Vector2(2.25,119.0),10.0,51)
+	# A free destination lane is not proof that the transition corridor is
+	# free. The rival must not cross through a car while changing lanes.
+	var crossing: Array[Dictionary] = [
+		{"ahead_m":28.0,"lateral_m":0.0,"width_m":2.1,
+			"lateral_speed_mps":0.0}
+	]
+	check("race_AI_checks_entire_lane_change_not_just_target_lane",
+		not planner._entry_clear(2.25,-4.5,crossing,31.0))
+	var moving_into_path: Array[Dictionary] = [
+		{"ahead_m":28.0,"lateral_m":-6.0,"width_m":2.1,
+			"lateral_speed_mps":5.5}
+	]
+	check("race_AI_predicts_other_cars_moving_sideways_into_path",
+		not planner._entry_clear(2.25,-4.5,moving_into_path,31.0))
+	check("race_AI_keeps_full_speed_when_transition_is_truly_clear",
+		planner._entry_clear(2.25,-4.5,[],31.0))
 	var first: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("overtakes_slow_civilian_instead_of_braking_to_traffic_speed",
 		first.mode == "passing" and float(first.speed_cap_mps) == INF)
