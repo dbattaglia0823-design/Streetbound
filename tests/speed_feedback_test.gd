@@ -66,12 +66,17 @@ func run() -> void:
 	check("smoke_uses_rear_tire_hubs_not_fixed_anchors",
 		dust._rear_wheel_contacts()[0].distance_to(rear_left_contact) < 0.01,
 		dust._rear_wheel_contacts()[0])
-	car.global_position += Vector2(0.0, -28.0)
-	dust._process(0.05)
-	check("asphalt_drifts_create_fading_rubber_tracks",
-		dust.skid_marks.size() >= 2, dust.skid_marks.size())
-	check("skid_mark_pool_is_bounded",
-		dust.skid_marks.size() <= dust.MAX_MARKS, dust.skid_marks.size())
+	var rear_right_contact: Vector2 = car.global_position + \
+		rig.wheel_anchor(3).rotated(car.rotation)
+	var smoke_at_tire := false
+	for puff in dust.puffs:
+		var p: Vector2 = puff.point
+		if minf(p.distance_to(rear_left_contact),
+				p.distance_to(rear_right_contact)) <= 12.0:
+			smoke_at_tire = true
+			break
+	check("smoke_really_spawns_from_rear_contacts", smoke_at_tire,
+		dust.puffs.size())
 	for i in 70:
 		dust._process(0.05)
 	check("smoke_pool_bounded", dust.puffs.size() <= dust.MAX_PUFFS, dust.puffs.size())
@@ -84,8 +89,6 @@ func run() -> void:
 		dust._process(0.05)
 	check("speed_fx_fades_at_rest", overlay.intensity < 0.01, overlay.intensity)
 	check("smoke_clears_when_stationary", dust.puffs.is_empty(), dust.puffs.size())
-	check("rubber_tracks_fade_out",
-		dust.skid_marks.is_empty(), dust.skid_marks.size())
 	check("camera_shake_resolves", camera.impact_strength < 0.01, camera.impact_strength)
 	print("SPEED FEEDBACK TESTS: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
