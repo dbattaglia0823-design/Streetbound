@@ -5,6 +5,7 @@ const Ink = preload("res://scripts/world/coast_map_ink.gd")
 const Scale = preload("res://scripts/world/coast_map_scale.gd")
 const RaceGuidance = preload("res://scripts/world/race_guidance.gd")
 var model: RefCounted
+var world: MorrowCoast
 var ink: Node2D
 var cursor: Polygon2D
 var scale_bar: Node2D
@@ -18,12 +19,19 @@ var dragging := false
 var player_m := Vector2.ZERO
 var player_heading := 0.0
 
+func _draw() -> void:
+	# The live map builds its nearby world tiles over several frames. Use
+	# the same ground tint beneath them rather than a blank loading patch.
+	draw_rect(Rect2(Vector2.ZERO, custom_minimum_size), Color("a3b789"))
+
+
 func _ready() -> void:
 	clip_contents=true
 	mouse_filter=Control.MOUSE_FILTER_IGNORE if miniature else Control.MOUSE_FILTER_STOP
 	ink=Node2D.new()
 	ink.set_script(Ink)
 	ink.model=model
+	ink.world=world
 	ink.miniature=miniature
 	add_child(ink)
 	race_overlay = Node2D.new()

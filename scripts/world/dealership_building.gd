@@ -6,6 +6,9 @@ const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const PPM := 20.0
 const BUILDING_M := Vector2(26.0, 18.0)
 var site: Dictionary = {}
+## The map duplicates only the painted storefront. Physical collision stays
+## exclusively in the playable world even at the closest atlas zoom.
+var map_render_only := false
 
 
 func _ready() -> void:
@@ -68,7 +71,10 @@ func _build_shop() -> void:
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sign.add_child(caption)
 	add_child(sign)
-	# Collide with the actual building, not the paved sales lot.
+	# Collide with the actual building, not the paved sales lot. The map
+	# uses this same artwork without adding a duplicate physical obstacle.
+	if map_render_only:
+		return
 	var solid := StaticBody2D.new()
 	solid.name = "BuildingCollision"
 	solid.collision_layer = 1
