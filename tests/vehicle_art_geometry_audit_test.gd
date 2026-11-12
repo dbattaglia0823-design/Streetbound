@@ -40,7 +40,7 @@ func run() -> void:
 		var body: Rect2 = rig.visible_bounds
 		var points: Array[Vector2] = rig._base_points
 		var expected := Vector2(float(entry.width_m), float(entry.length_m)) * Catalog.PPM
-		var valid := body.has_area() and \
+		var valid: bool = body.has_area() and \
 			absf(body.size.x - expected.x) < expected.x * 0.17 and \
 			absf(body.size.y - expected.y) < expected.y * 0.17 and \
 			alpha_bounds.size.x > 10 and alpha_bounds.size.y > 10 and \
