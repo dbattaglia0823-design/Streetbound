@@ -1,13 +1,9 @@
 extends Node2D
-## Bounded tire smoke, surface dust and fading rear-tire skid marks.
-## Contacts follow the current car's real visual wheel hubs, not fixed offsets.
+## Bounded tire smoke and surface dust from the car's actual wheel hubs.
+## Existing TireMarks2D owns the continuous drivable-world rubber trails.
 const MAX_PUFFS := 90
-const MAX_MARKS := 150
-const SKID_LIFE := 3.4
 var vehicle: VehicleController2D
 var puffs: Array[Dictionary] = []
-var skid_marks: Array[Dictionary] = []
-var _rear_contacts: Array[Vector2] = []
 var _emission := 0.0
 var _last_position := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
@@ -31,7 +27,6 @@ static func dust_color(surface: String) -> Color:
 func _ready() -> void:
 	_rng.seed = 60491
 	_last_position = vehicle.global_position
-	_rear_contacts = _rear_wheel_contacts()
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 
@@ -67,8 +62,6 @@ func _process(delta: float) -> void:
 		return
 	if vehicle.global_position.distance_to(_last_position) > 550.0:
 		puffs.clear()
-		skid_marks.clear()
-		_rear_contacts = _rear_wheel_contacts()
 		_emission = 0.0
 	_last_position = vehicle.global_position
 	for i in range(puffs.size() - 1, -1, -1):
@@ -82,7 +75,6 @@ func _process(delta: float) -> void:
 	var speed := vehicle.linear_velocity.length()
 	var strength := tire_smoke_strength(speed, vehicle.slip_angle,
 		vehicle.wheel_spin, vehicle.handbrake_grip_loss, vehicle.surface)
-	_update_skid_marks(dt, speed)
 	if strength < 0.03:
 		_emission = 0.0
 	else:
@@ -93,33 +85,6 @@ func _process(delta: float) -> void:
 		if puffs.size() >= MAX_PUFFS:
 			_emission = 0.0
 	queue_redraw()
-
-func _update_skid_marks(dt: float, speed_mps: float) -> void:
-	for i in range(skid_marks.size() - 1, -1, -1):
-		var mark: Dictionary = skid_marks[i]
-		mark["age"] = float(mark.age) + dt
-		if float(mark.age) >= float(mark.life):
-			skid_marks.remove_at(i)
-		else:
-			skid_marks[i] = mark
-	var contacts := _rear_wheel_contacts()
-	if _rear_contacts.size() != 2:
-		_rear_contacts = contacts
-		return
-	var slip := maxf(smoothstep(0.12, 0.37, absf(vehicle.slip_angle)),
-		maxf(vehicle.wheel_spin, vehicle.handbrake_grip_loss))
-	if speed_mps >= 3.0 and slip > 0.20 and vehicle.surface == "ASPHALT":
-		for i in 2:
-			var from: Vector2 = _rear_contacts[i]
-			var to: Vector2 = contacts[i]
-			var travel: float = from.distance_to(to)
-			if travel >= 5.0 and travel <= 90.0:
-				skid_marks.append({"start":from, "end":to, "age":0.0,
-					"life":SKID_LIFE, "width":4.0 + slip * 2.0})
-				if skid_marks.size() > MAX_MARKS:
-					skid_marks.pop_front()
-	_rear_contacts = contacts
-
 
 func _spawn_puff(surface: String) -> void:
 	var contacts := _rear_wheel_contacts()
@@ -138,13 +103,6 @@ func _spawn_puff(surface: String) -> void:
 	})
 
 func _draw() -> void:
-	# Skid rubber is world-aligned. Fade every mark independently so the road
-	# clears after a drift; never paint permanent data into streamed chunks.
-	for mark in skid_marks:
-		var life: float = float(mark.life)
-		var fade: float = pow(1.0 - float(mark.age) / life, 1.8)
-		var tint := Color(0.08, 0.10, 0.12, 0.28 * fade)
-		draw_line(mark.start, mark.end, tint, float(mark.width), true)
 	for puff in puffs:
 		var progress := float(puff["age"]) / float(puff["life"])
 		var fade := (1.0 - progress) * (1.0 - progress)
