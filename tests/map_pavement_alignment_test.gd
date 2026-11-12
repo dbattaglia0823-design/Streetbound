@@ -67,6 +67,15 @@ func run() -> void:
 			var check_position: Vector2 = road_position.lerp(end, float(i) / 20.0)
 			accessible = accessible and str(world.surface_at(check_position).name) == "ASPHALT"
 		check("road_to_browse_surface_continuous_" + id, accessible)
+	# The spawn cell may have no parking lots. Stream the actual first lot
+	# before inspecting chunk draw order; do not assume its location.
+	for prop in world.data.props:
+		if str(prop.kind) in ["lot", "forecourt"]:
+			var location := Vector2(float(prop.p[0]), float(prop.p[1]))
+			world.stream_at(location * PPM)
+			while not world.pending.is_empty():
+				world._build_chunk(world.pending.pop_front())
+			break
 	# Every streamed parking lot must appear BELOW roadbed/linework while
 	# solid buildings, vehicles and foliage remain ABOVE the road.
 	var lower_lots := 0
