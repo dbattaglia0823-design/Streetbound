@@ -21,6 +21,8 @@ jobs:
           set -o pipefail
           test ! -d .godot
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
+          # Direct-load individual race scripts when a top-level preload fails.
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/racing_script_probe.gd 2>&1 | tee /tmp/godot463-race-load-probe.log || true
           if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot463-import.log; then
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
@@ -42,6 +44,12 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Verify head-to-head street racing around real moving traffic
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_traffic_overtaking_test.gd 2>&1 | tee /tmp/godot463-racing-traffic.log
+          grep -q 'RACING TRAFFIC OVERTAKING: PASS' /tmp/godot463-racing-traffic.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-traffic.log
       - name: Verify traffic graph racing line on city streets and circuit
         run: |
           set -o pipefail
