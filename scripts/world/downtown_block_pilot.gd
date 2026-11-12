@@ -79,7 +79,9 @@ static func find_block(props: Array) -> Array[int]:
 ## or depend on chunk streaming order.
 static func apply(props: Array) -> Array[int]:
 	var chosen := find_block(props)
-	for index in chosen:
-		var prop: Dictionary = props[index]
-		prop["downtown_pilot_style"] = posmod(int(prop.get("seed", index)), SPRITES.size())
+	# Cycle deliberately through the four looks, rather than relying on
+	# baked prop seeds which can share a modulus across one city block.
+	for order in chosen.size():
+		var prop: Dictionary = props[chosen[order]]
+		prop["downtown_pilot_style"] = order % SPRITES.size()
 	return chosen
