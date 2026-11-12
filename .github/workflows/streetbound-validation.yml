@@ -47,7 +47,7 @@ jobs:
       - name: Verify head-to-head street racing around real moving traffic
         run: |
           set -o pipefail
-          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_traffic_overtaking_test.gd 2>&1 | tee /tmp/godot463-racing-traffic.log
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --quit-after 1500 --script res://tests/racing_traffic_overtaking_test.gd 2>&1 | tee /tmp/godot463-racing-traffic.log
           grep -q 'RACING TRAFFIC OVERTAKING: PASS' /tmp/godot463-racing-traffic.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-traffic.log
       - name: Verify traffic graph racing line on city streets and circuit
