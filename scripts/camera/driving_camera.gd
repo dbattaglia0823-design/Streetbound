@@ -2,8 +2,20 @@ extends Camera2D
 ## Telemetry-driven visual framing. No changes to vehicle handling.
 @export var target: VehicleController2D
 # World-only magnification: CanvasLayer HUD and minimap sizes stay unchanged.
-# Keep the existing speed-dependent zoom-out, multiplied by 1.20 everywhere.
+# Preserve the original speed-follow camera at the default player setting.
+# Mouse-wheel zoom is multiplied around it, rather than replacing it.
 @export_range(0.8, 1.6, 0.01) var world_zoom_multiplier := 1.20
+# Player zoom is proportional (8% per notch) so the step feels natural at
+# every distance. Hard camera bounds prevent excessive close-ups / far views.
+const PLAYER_ZOOM_MIN := 0.72
+const PLAYER_ZOOM_MAX := 1.45
+const WHEEL_ZOOM_FACTOR := 1.08
+const ABSOLUTE_ZOOM_MIN := 0.62
+const ABSOLUTE_ZOOM_MAX := 1.76
+const WHEEL_RESPONSE := 9.0
+const CAMERA_RESPONSE := 3.8
+var player_zoom_multiplier := 1.0
+var _smoothed_player_zoom := 1.0
 var follow_heading := false
 var impact_strength := 0.0
 var _impact_time := 0.0
@@ -25,6 +37,58 @@ func _ready() -> void:
 	_previous_longitudinal = target.longitudinal_speed
 	target.impacted.connect(_on_impact)
 
+## Wheel up brings the camera closer; wheel down pulls it back. This is
+## intentionally handled only for unconsumed viewport input: scrolling the
+## full-screen map or a UI panel still belongs to that panel.
+func _unhandled_input(event: InputEvent) -> void:
+	if get_tree().paused:
+		return
+	var wheel := event as InputEventMouseButton
+	if wheel == null or not wheel.pressed:
+		return
+	var direction := 0
+	if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
+		direction = 1
+	elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		direction = -1
+	if direction == 0:
+		return
+	player_zoom_multiplier = stepped_player_zoom(player_zoom_multiplier, direction)
+	get_viewport().set_input_as_handled()
+
+
+## Pure helpers keep wheel limits and speed compensation testable.
+static func stepped_player_zoom(current: float, direction: int) -> float:
+	return clampf(current * pow(WHEEL_ZOOM_FACTOR, float(direction)),
+		PLAYER_ZOOM_MIN, PLAYER_ZOOM_MAX)
+
+
+static func speed_zoom_weight(player_magnification: float) -> float:
+	# Reduce automatic speed zoom at extreme manual settings. This keeps
+	# acceleration from producing a second huge framing change after the
+	# player has deliberately chosen a close-up or wide view.
+	if player_magnification < 1.0:
+		return lerpf(0.75, 1.0,
+			clampf(inverse_lerp(PLAYER_ZOOM_MIN, 1.0,
+				player_magnification), 0.0, 1.0))
+	return lerpf(1.0, 0.55,
+		clampf(inverse_lerp(1.0, PLAYER_ZOOM_MAX,
+			player_magnification), 0.0, 1.0))
+
+
+static func target_zoom_for(speed: float, player_magnification: float,
+		world_magnification: float, acceleration_surge: float = 0.0,
+		collision_impact: float = 0.0) -> float:
+	var user_factor := clampf(player_magnification,
+		PLAYER_ZOOM_MIN, PLAYER_ZOOM_MAX)
+	var speed_mix := smoothstep(5.0, 57.0, speed)
+	var base := lerpf(1.06, 0.64,
+		speed_mix * speed_zoom_weight(user_factor))
+	var effects := 1.0 - acceleration_surge * 0.012 + collision_impact * 0.022
+	return clampf(base * world_magnification * user_factor * effects,
+		ABSOLUTE_ZOOM_MIN, ABSOLUTE_ZOOM_MAX)
+
+
 func _on_impact(strength: float) -> void:
 	impact_strength = maxf(impact_strength, clampf((strength - 2.0) / 18.0, 0.0, 1.0))
 	_impact_time = 0.0
@@ -42,11 +106,15 @@ func _physics_process(dt: float) -> void:
 	var desired := transform_now.origin + lead.limit_length(230.0)
 	global_position = global_position.lerp(desired, 1.0 - exp(-5.0 * dt))
 	_update_heading_rotation(dt, transform_now.get_rotation(), speed)
-	# Widen the view for road reading, with a subtle surge during acceleration.
-	var speed_mix := smoothstep(5.0, 57.0, speed)
-	var base_zoom := lerpf(1.06, 0.64, speed_mix)
-	var target_zoom := base_zoom * world_zoom_multiplier * (1.0 - _surge * 0.012 + impact_strength * 0.022)
-	zoom = zoom.lerp(Vector2.ONE * target_zoom, 1.0 - exp(-2.8 * dt))
+	# Manual zoom eases independently from speed-based framing. The speed
+	# response is tempered by the player's chosen distance, and the total
+	# remains bounded even during hard acceleration or an impact.
+	_smoothed_player_zoom = lerpf(_smoothed_player_zoom,
+		player_zoom_multiplier, 1.0 - exp(-WHEEL_RESPONSE * dt))
+	var target_zoom := target_zoom_for(speed, _smoothed_player_zoom,
+		world_zoom_multiplier, _surge, impact_strength)
+	zoom = zoom.lerp(Vector2.ONE * target_zoom,
+		1.0 - exp(-CAMERA_RESPONSE * dt))
 	_impact_time += dt
 	impact_strength = maxf(0.0, impact_strength - dt * 4.0)
 	var shake := impact_strength * 9.0

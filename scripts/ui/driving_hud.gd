@@ -77,7 +77,7 @@ func _ready() -> void:
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
-	label(header, "F1 CAR STATS  ·  ESC PAUSE  ·  C CAMERA", 11, Color("93afa7"))
+	label(header, "F1 STATS  ·  ESC PAUSE  ·  C CAMERA  ·  WHEEL ZOOM", 11, Color("93afa7"))
 	active_vehicle_label = label(header, "SPORT COUPE  /  LAUREL MOTOR HOUSE GARAGE", 13, Color("c4d4d0"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
 	# All primary driving instrumentation now shares a purpose-built,
