@@ -288,7 +288,8 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		if node.global_position.distance_to(person.global_position) <= horizon + PPM * 15.0:
 			candidates.append({"node": person,
 				"velocity": person.linear_velocity * PPM, "width_px": PPM * 2.2})
-	for other_racer in get_tree().get_nodes_in_group("race_opponent"):
+	var racing_nodes: Array[Node] = get_tree().get_nodes_in_group("race_opponent") if get_tree() != null else []
+	for other_racer in racing_nodes:
 		if other_racer is VehicleController2D:
 			var racer := other_racer as VehicleController2D
 			if node.global_position.distance_to(racer.global_position) <= horizon + PPM * 15.0:
@@ -338,6 +339,11 @@ func _player_vehicles() -> Array[VehicleController2D]:
 	var people: Array[VehicleController2D] = []
 	if is_instance_valid(player):
 		people.append(player)
+	# Recovery harnesses and editor previews may drive a TrafficFlow that
+	# has not entered the active SceneTree. The assigned player is still
+	# authoritative in those cases.
+	if get_tree() == null:
+		return people
 	for candidate in get_tree().get_nodes_in_group("player_vehicle"):
 		if candidate is VehicleController2D and not people.has(candidate):
 			people.append(candidate as VehicleController2D)
