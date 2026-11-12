@@ -37,6 +37,12 @@ func run() -> void:
 		rig.get_child_count() == 4 and \
 		rig.wheel_anchor(0).x < rig.wheel_anchor(1).x and \
 		rig.wheel_anchor(0).y < rig.wheel_anchor(2).y)
+	check("road_roughness_gently_rocks_body_only",
+		is_zero_approx(float(art.bump_vibration(0.0, "DIRT", 0.1))) and
+		absf(float(art.bump_vibration(28.0, "DIRT", 0.1))) >
+		absf(float(art.bump_vibration(28.0, "ASPHALT", 0.1))) * 3.0,
+		[art.bump_vibration(28.0, "DIRT", 0.1),
+			art.bump_vibration(28.0, "ASPHALT", 0.1)])
 	var urban_found := false
 	var chosen_center := Vector2.ZERO
 	var chosen_normal := Vector2.ZERO
