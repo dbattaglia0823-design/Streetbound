@@ -3,6 +3,8 @@ extends Node2D
 ## Each chunk is rebuilt from world.data on game launch; no PNG snapshot,
 ## persistent baked atlas or approximate second building/road renderer.
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
+const DealerPavement = preload("res://scripts/world/dealership_pavement.gd")
+const DealerBuilding = preload("res://scripts/world/dealership_building.gd")
 const WORLD_PPM := 20.0
 const CACHE_PADDING_PX := 85.0
 const MAX_CACHED_CELLS := 64
@@ -10,6 +12,7 @@ const BUILD_PER_FRAME := 3
 
 var world: MorrowCoast
 var chunks: Dictionary = {}
+var dealers: Dictionary = {}
 var requested: Dictionary = {}
 var pending: Array[Vector2i] = []
 var available := false
@@ -70,6 +73,7 @@ func configure(center_m: Vector2, ppm: float, dimensions: Vector2,
 	for index in needed:
 		if not chunks.has(index):
 			pending.append(index)
+	_sync_dealerships(center_m, ppm, dimensions)
 	return true
 
 
@@ -79,6 +83,45 @@ func _clear() -> void:
 	for chunk in chunks.values():
 		chunk.queue_free()
 	chunks.clear()
+	for pair in dealers.values():
+		for piece in pair:
+			piece.queue_free()
+	dealers.clear()
+
+
+func _sync_dealerships(center_m: Vector2, ppm: float,
+		dimensions: Vector2) -> void:
+	# Dealerships are independent of world chunks: reuse their real
+	# above-road storefront and below-road paved entrance layers, too.
+	if not is_instance_valid(world.dealerships):
+		return
+	var half := (dimensions * .5 + Vector2.ONE * CACHE_PADDING_PX) / ppm
+	var area := Rect2(center_m - half, half * 2.0).grow(75.0)
+	var wanted: Dictionary = {}
+	for site in world.dealerships.sites:
+		var p := Vector2(float(site.center_m[0]), float(site.center_m[1]))
+		if not area.has_point(p):
+			continue
+		var id: String = str(site.id)
+		wanted[id] = true
+		if dealers.has(id):
+			continue
+		var pavement := Node2D.new()
+		pavement.set_script(DealerPavement)
+		pavement.site = site
+		add_child(pavement)
+		var building := Node2D.new()
+		building.set_script(DealerBuilding)
+		building.site = site
+		building.map_render_only = true
+		add_child(building)
+		dealers[id] = [pavement, building]
+	for id in dealers.keys():
+		if wanted.has(id):
+			continue
+		for node in dealers[id]:
+			node.queue_free()
+		dealers.erase(id)
 
 
 func _process(_delta: float) -> void:
