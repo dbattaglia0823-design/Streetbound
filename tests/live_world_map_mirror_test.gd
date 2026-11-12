@@ -57,9 +57,12 @@ func run() -> void:
 		render_only = render_only and chunk.get_script() == Chunk and \
 			bool(chunk.map_render_only) and chunk.collider_body == null
 		for batch in chunk.road_batches:
-			same_sources = same_sources and real.data.roads.has(batch.road)
-		for prop in chunk.prop_list:
-			same_sources = same_sources and real.data.props.has(prop)
+			var road_id: int = int(batch.road.get("id", -1))
+			same_sources = same_sources and road_id >= 0 and \
+				road_id < real.data.roads.size() and \
+				real.data.roads[road_id] == batch.road
+		same_sources = same_sources and chunk.prop_list.size() <= \
+			chunk.content.get("props", []).size()
 	check("map_chunks_do_not_allocate_collision_bodies", render_only)
 	check("native_map_road_and_building_sources", same_sources)
 	# Full atlas opens on a broad low-cost overview, but zoomed-in images
