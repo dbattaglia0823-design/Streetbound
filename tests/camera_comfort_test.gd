@@ -65,11 +65,13 @@ func run() -> void:
 		camera.player_zoom_multiplier)
 	check("zoom_is_proportional_not_fixed_world_units",
 		absf(camera.stepped_player_zoom(1.3, 1) - 1.3) >
-		absf(camera.stepped_player_zoom(0.75, 1) - 0.75))
+		absf(camera.stepped_player_zoom(0.75, 1) - 0.75),
+		[camera.stepped_player_zoom(1.3, 1),
+			camera.stepped_player_zoom(0.75, 1)])
 	var before_paused: float = camera.player_zoom_multiplier
-	get_tree().paused = true
+	paused = true
 	camera._unhandled_input(wheel_up)
-	get_tree().paused = false
+	paused = false
 	check("paused_camera_ignores_wheel_input",
 		is_equal_approx(camera.player_zoom_multiplier, before_paused),
 		camera.player_zoom_multiplier)
