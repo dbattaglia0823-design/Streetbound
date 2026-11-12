@@ -33,10 +33,6 @@ func load_into(config: VehicleConfig) -> bool:
 			continue
 		config.set(key, clampf(value, float(entry[2]), float(entry[3])))
 		applied = true
-	var gear_drive: Variant = file.get_value("tuning", "drivetrain", null)
-	if typeof(gear_drive) == TYPE_INT and gear_drive >= 0 and gear_drive <= 2:
-		config.drivetrain = gear_drive
-		applied = true
 	return applied
 
 func save_from(config: VehicleConfig) -> Error:
@@ -45,7 +41,7 @@ func save_from(config: VehicleConfig) -> Error:
 	for entry in slider_specs:
 		var key: String = str(entry[0])
 		file.set_value("tuning", key, float(config.get(key)))
-	file.set_value("tuning", "drivetrain", int(config.drivetrain))
+	# Do not change the drivetrain from the simplified F1 stats panel.
 	return file.save(save_path)
 
 func clear_profile() -> Error:
