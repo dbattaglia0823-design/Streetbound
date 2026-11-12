@@ -337,6 +337,44 @@ def keys_for(bounds, cell):
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
                              width=WIDTH, height=HEIGHT)
 
+# Upgrade the original fragmented scenic route into a continuous coastal
+# highway. Keep existing editor road IDs (66-69) and all original POI access
+# roads stable; extend the route only AFTER overlay edits have been imported.
+for index in (67, 68, 69):
+    highway = ROADS[index]
+    highway["name"] = "Morrow Coastal Highway"
+    highway["kind"] = "highway"
+    highway["width"] = 18
+    highway["lanes"] = 4
+    highway["surface"] = "ASPHALT"
+# Detour via the waterfront edge rather than the center of Bellwether Bay.
+ROADS[67]["anchors"] = [list(NODES["coastn"]),
+    [shore_x(1530)-115, 1530], [shore_x(1870)-125, 1870],
+    [shore_x(2210)-130, 2210], list(NODES["tn"])]
+ROADS[68]["anchors"] = [list(NODES["ts"]), [shore_x(3110)-135, 3110],
+    [shore_x(3310)-120, 3310], list(NODES["coastf"])]
+ROADS[69]["anchors"] = [list(NODES["coastf"]),
+    [shore_x(3800)-120, 3800], list(NODES["coasts"])]
+
+# A coast road from the northern to southern map boundaries. Existing coastal
+# towns remain connected through their original roads and new paved bypass.
+node("north_coastal_gate", shore_x(110)-120, 110)
+node("south_coastal_gate", shore_x(4660)-120, 4660)
+road("Morrow Coastal Highway", "north_coastal_gate", "coastn",
+     [(shore_x(420)-120,420), (shore_x(720)-125,720),
+      (shore_x(980)-120,980)], kind="highway")
+road("Morrow Coastal Highway", "tn", "ts",
+     [(shore_x(2490)-145,2490), (shore_x(2730)-145,2730),
+      (shore_x(2900)-155,2900)], kind="highway")
+road("Morrow Coastal Highway", "coasts", "south_coastal_gate",
+     [(shore_x(4360)-125,4360)], kind="highway")
+
+# A few spaced roadside service stops on otherwise isolated approach roads.
+# Use the native fuel art, aprons, signage and POI/garage discovery pipeline.
+add_poi("Northshore Fuel Stop", "FUEL", "north_coastal_gate", (-1,0), "fuel")
+add_poi("Southpoint Travel Stop", "FUEL", "south_coastal_gate", (-1,0), "fuel")
+add_poi("Juniper Roadside Fuel", "FUEL", "mwest", (1,-1), "fuel")
+
 # New terrain is derived, never editable source geometry. Generate it AFTER
 # importing the stable old terrain IDs so the additional land cannot silently
 # reorder any pre-existing roads, regions, assets or destinations.
@@ -717,16 +755,60 @@ for i in range(5):
     if road_clear(p,5):
         insert_prop(dict(kind="dock",p=p,size=[5,27],angle=-math.pi/2,color="b7a582",radius=0,solid=False,seed=i))
 
-# Real-world drag distance: 402m timed strip with additional paved run-off.
-for y,kind in [(3940,"start_line"),(4342,"finish_line")]:
-    insert_prop(dict(kind=kind,p=[4340,y],size=[21,1.2],angle=0,color="e1d5b9",radius=0,solid=False,seed=0))
+# A quarter-mile venue with a working 60m pre-stage, exactly 402.336m
+# between timing beams, long shutdown pavement and a separated return road.
+# These coordinates match AshfordQuarterMile's start offset and race distance.
+DRAG_X = 4340
+DRAG_START = 3910 + 60
+DRAG_FINISH = DRAG_START + 402.336
+for y,kind in [(DRAG_START,"start_line"),(DRAG_FINISH,"finish_line")]:
+    insert_prop(dict(kind=kind,p=[DRAG_X,y],size=[19,1.2],angle=0,
+                     color="eae4d4",radius=0,solid=False,seed=int(y)))
+# Dual burnout pads, separated racing lanes, distance markers and Christmas
+# tree are graphical rather than physics obstructions across the racetrack.
+for x in (4335, 4345):
+    insert_prop(dict(kind="drag_prep",p=[x,3934],size=[8.5,22],
+                     angle=0,color="424849",radius=0,solid=False,seed=int(x)))
+insert_prop(dict(kind="drag_tree",p=[4318,3965],size=[3,10],
+                 angle=0,color="e6d0a0",radius=0,solid=False,seed=113))
+for y in range(3995, 4345, 35):
+    insert_prop(dict(kind="drag_lane_mark",p=[4340,y],size=[.35,12],
+                     angle=0,color="efede2",radius=0,solid=False,seed=y))
+for y in (DRAG_START+201.168, DRAG_FINISH):
+    for x in (4292,4388):
+        p=[x,y]
+        if land(p) and road_clear(p,6):
+            insert_prop(dict(kind="drag_scoreboard",p=p,size=[4,10],
+                             angle=0,color="28363a",radius=0,solid=False,
+                             seed=int(y+x)))
+# Continuous concrete safety barriers outside the track surface. Keep the
+# return lane unobstructed; colliders are smaller than the road setbacks.
+for y in range(3975,4515,20):
+    for x in (4315,4365):
+        p=[x,y]
+        if land(p) and road_clear(p,8.1) and not occupied(p,8.1):
+            insert_prop(dict(kind="barrier",p=p,size=[2.4,17],
+                             angle=0,color="d5d1c5",radius=8.1,solid=True,
+                             seed=y+x))
+# Spectator seating, press/media viewing and service areas face the strip.
+for x,y in [(4265,4030),(4265,4090),(4265,4150),(4265,4210),
+            (4395,4080),(4395,4160)]:
+    p=[x,y]
+    if land(p) and road_clear(p,20) and not occupied(p,20):
+        insert_prop(dict(kind="grandstand",p=p,size=[36,17],
+                         angle=math.pi/2,color="a0b5ab",radius=20,
+                         solid=True,seed=int(x+y)))
 track_road=next(r for r in ROADS if r["name"]=="Ashford Grand Circuit")
 p,q=track_road["points"][8],track_road["points"][9]
-insert_prop(dict(kind="start_line",p=p,size=[14,1.2],angle=math.atan2(q[1]-p[1],q[0]-p[0])-math.pi/2,color="e1d5b9",radius=0,solid=False,seed=0))
+insert_prop(dict(kind="start_line",p=p,size=[14,1.2],
+                 angle=math.atan2(q[1]-p[1],q[0]-p[0])-math.pi/2,
+                 color="e1d5b9",radius=0,solid=False,seed=0))
 for x in [3190,3240,3290]:
     p=[x,3835]
     if road_clear(p,22) and not occupied(p,22):
-        insert_prop(dict(kind="grandstand",p=p,size=[35,16],angle=-.05,color="a0b5ab",radius=19.3,solid=True,seed=int(x)))
+        insert_prop(dict(kind="grandstand",p=p,size=[35,16],
+                         angle=-.05,color="a0b5ab",radius=19.3,
+                         solid=True,seed=int(x)))
 
 # Bridge spans are detected only over authored water. They are not graph
 # intersections with other roads; endpoint/grade connectivity remains explicit.

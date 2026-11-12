@@ -7,6 +7,7 @@ const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 signal race_finished(result: Dictionary)
 const PPM := 20.0
 const QUARTER_MILE_M := 402.336
+const DRAG_START_OFFSET_M := 60.0
 const STAGING_DISTANCE_M := 15.0
 const LANE_HALF_WIDTH_M := 9.5
 const MAX_VALID_SECONDS := 180.0
@@ -40,6 +41,7 @@ func _ready() -> void:
 			break
 		start_m = _v(points[0])
 		direction = (_v(points[points.size()-1])-start_m).normalized()
+		start_m += direction * DRAG_START_OFFSET_M
 		available = direction.length_squared() > 0.9
 		break
 	if not available:

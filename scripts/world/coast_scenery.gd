@@ -292,6 +292,30 @@ func _draw_prop(prop: Dictionary) -> void:
 	var kind: String = prop.kind
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
+	# Drag-strip fixtures stay in the static chunk draw batch: no extra
+	# runtime nodes, animation callbacks, or full-screen overlay sprites.
+	if kind == "drag_prep":
+		draw_rect(Rect2(-size * .5, size), Color("30383b"))
+		for lane: float in [-1.0, 1.0]:
+			var stripe_x: float = lane * size.x * 0.24
+			draw_line(Vector2(stripe_x,-size.y*.40),Vector2(stripe_x,size.y*.40),Color("202629"),size.x*.12,true)
+		return
+	if kind == "drag_lane_mark":
+		draw_rect(Rect2(-size*.5,size),Color("e9e4d7"))
+		return
+	if kind == "drag_tree":
+		draw_rect(Rect2(Vector2(-size.x*.13,-size.y*.5),Vector2(size.x*.26,size.y)),Color("303637"))
+		for side in [-1.0,1.0]:
+			for index in 6:
+				var lamp_pos: Vector2 = Vector2(side*size.x*.27,-size.y*.39+float(index)*size.y*.15)
+				var lamp_color: Color = Color("ddbf74") if index<3 else Color("8eae82") if index==3 else Color("c66b5e")
+				draw_circle(lamp_pos,size.x*.095,lamp_color)
+		return
+	if kind == "drag_scoreboard":
+		draw_rect(Rect2(-size*.5,size),Color("263538"))
+		draw_rect(Rect2(Vector2(-size.x*.43,-size.y*.38),Vector2(size.x*.86,size.y*.70)),Color("111e23"))
+		draw_string(ThemeDB.fallback_font,Vector2(-size.x*.35,0),"ET",HORIZONTAL_ALIGNMENT_LEFT,-1,int(size.x*.30),Color("ecb86c"))
+		return
 	if GarageGeometry.is_player_garage(prop):
 		_draw_player_garage(size)
 		return
