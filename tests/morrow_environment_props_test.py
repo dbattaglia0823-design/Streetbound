@@ -64,10 +64,17 @@ class EnvironmentPropsTests(unittest.TestCase):
             _authoring_props({"props":[base,base]})
 
     def test_do_not_allow_huge_authoring_payload(self):
-        entries=[{"id":f"prop-{i}","type":"streetlight","x":500+i,"y":600,
-            "scale":1,"rotation":0} for i in range(201)]
+        # The map editor now supports up to 4,000 carefully bounded props;
+        # the previous 200-item regression no longer matches its contract.
+        entries=[{"id":f"prop-{i}","type":"streetlight",
+                  "x":500+(i % 100),"y":600+(i // 100),
+                  "scale":1,"rotation":0} for i in range(4000)]
+        self.assertEqual(len(_authoring_props({"props": entries})), 4000)
         with self.assertRaises(ValueError):
-            _authoring_props({"props":entries})
+            _authoring_props({"props": entries + [{
+                "id": "prop-over-limit", "type": "streetlight",
+                "x":500, "y":600, "scale":1, "rotation":0
+            }]})
 
 
 if __name__ == "__main__":

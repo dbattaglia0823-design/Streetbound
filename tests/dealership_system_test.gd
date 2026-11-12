@@ -74,6 +74,19 @@ func run() -> void:
 		var parking := site_position(shop)
 		var road_point := site_position(shop, "road_m")
 		var roadward := (road_point - position).normalized()
+		# Draw order is global across streamed chunks, not dependent on
+		# which chunk the road and dealership happen to belong to.
+		var entry_road: Dictionary = world.nearest_road_at(road_point * PPM, 12.0)
+		check("dealer_road_access_exists_" + str(shop.id),
+			not entry_road.is_empty() and
+			str(entry_road.get("road_name", "")) == str(shop.road_name))
+		var rendering_order_ok := true
+		for streamed_chunk in world.chunks.values():
+			for painted in streamed_chunk.get_children():
+				if painted.get_script() == preload("res://scripts/world/coast_roads.gd") and \
+					int(painted.render_stage) >= 1:
+					rendering_order_ok = rendering_order_ok and painted.z_index > 1
+		check("road_surface_above_lot_" + str(shop.id), rendering_order_ok)
 		# Follow the actual entry line from roadside to the browse zone.
 		# Every sample should be drivable asphalt, with no unpaved gap.
 		var continuous_entry := true
