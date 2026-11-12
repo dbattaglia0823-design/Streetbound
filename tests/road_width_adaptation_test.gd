@@ -128,6 +128,11 @@ func _run() -> void:
 		var hit: Dictionary = world.surface_at(sample_m * PPM)
 		if str(hit.get("name", "")) == "ASPHALT" and float(hit.get("grip",0.0)) > .95:
 			valid_edge_samples += 1
+		else:
+			print("ROAD EDGE DIAGNOSTIC: road=",road_id, " ",str(road.name),
+				" point=",sample_m," surface=",hit,
+				" dist=",nearest.get("distance_to_center_m",-1.0),
+				" width=",road.width)
 	check("new_outer_road_edges_have_full_asphalt_grip",
 		widened_edge_samples >= 10 and valid_edge_samples >= widened_edge_samples - 2,
 		[valid_edge_samples,widened_edge_samples])
