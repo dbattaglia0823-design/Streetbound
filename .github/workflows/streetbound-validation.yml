@@ -44,6 +44,12 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Verify compact race HUD can be closed and reopened
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_hud_dismiss_test.gd 2>&1 | tee /tmp/godot463-race-hud.log
+          grep -q 'RACE HUD DISMISS AND POSITION: PASS' /tmp/godot463-race-hud.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-hud.log
       - name: Verify head-to-head street racing around real moving traffic
         run: |
           set -o pipefail
