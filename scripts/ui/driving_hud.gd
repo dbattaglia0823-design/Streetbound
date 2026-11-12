@@ -6,17 +6,11 @@ const TuningProfile = preload("res://scripts/vehicle/tuning_profile.gd")
 # Static default action metadata must not rely on that global identifier.
 const ControlsScript = preload("res://scripts/input/controls.gd")
 const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
-const TUNING_FIELDS = [["tire_grip", "Tire grip", 0.5, 1.8, 0.01], ["rear_grip_balance", "Rear grip balance", 0.65, 1.35, 0.01], ["countersteer_assist", "Countersteer assist", 0.0, 0.8, 0.01], ["handbrake_rear_grip", "Handbrake rear grip", 0.15, 0.8, 0.01], ["max_steer_degrees", "Low speed steering", 20.0, 55.0, 0.5], ["high_speed_steer_degrees", "High speed steering", 5.0, 18.0, 0.5], ["engine_torque_nm", "Engine torque / lb-ft", 100.0, 1600.0, 10.0], ["engine_power_kw", "Engine power / hp", 65.0, 1200.0, 10.0], ["mass_kg", "Mass / lb", 800.0, 3500.0, 25.0], ["brake_force_n", "Brakes / lbf", 8000.0, 42000.0, 500.0],
-	["steering_response", "Steering response", 6.0, 25.0, 0.5],
-	["arcade_steering_assist", "Arcade steering assist", 0.0, 1.0, 0.05],
-	["arcade_cornering_accel", "Arcade cornering strength", 16.0, 40.0, 1.0],
-	["brake_turn_boost", "Brake turning boost", 0.0, 1.0, 0.05],
-	["handbrake_grip_recovery_seconds", "Rear tire recovery / seconds", 0.3, 1.8, 0.05],
-	["handbrake_drive_grip", "Handbrake drive traction", 0.4, 1.0, 0.025],
-	["wheel_spin_recovery_rate", "Wheelspin settling rate", 1.0, 8.0, 0.25],
-	["cornering_stiffness", "Tire response / lbf per rad", 40000.0, 190000.0, 2500.0],
-	["rear_cornering_stiffness_ratio", "Rear tire response balance", 0.8, 1.6, 0.02],
-	["steering_return_strength", "Return-to-center strength", 4.0, 35.0, 0.5]]
+const TUNING_FIELDS = [
+	["engine_power_kw", "Horsepower (hp)", 50.0 / Imperial.KW_TO_HP, 10000.0 / Imperial.KW_TO_HP, 10.0],
+	["engine_torque_nm", "Torque (lb-ft)", 50.0 / Imperial.NM_TO_LB_FT, 10000.0 / Imperial.NM_TO_LB_FT, 10.0],
+	["mass_kg", "Weight (lb)", 50.0 / Imperial.KG_TO_LB, 10000.0 / Imperial.KG_TO_LB, 10.0]
+]
 var vehicle: VehicleController2D
 var race: Node2D
 var dashboard: Control
@@ -83,7 +77,7 @@ func _ready() -> void:
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
 	label(header, "S T R E E T B O U N D", 24)
 	label(header, environment_title, 13, Color("a1c779"))
-	label(header, "F1 TUNING / DATA  ·  ESC PAUSE  ·  C CAMERA", 11, Color("93afa7"))
+	label(header, "F1 CAR STATS  ·  ESC PAUSE  ·  C CAMERA", 11, Color("93afa7"))
 	active_vehicle_label = label(header, "SPORT COUPE  /  LAUREL MOTOR HOUSE GARAGE", 13, Color("c4d4d0"))
 	status = label(header, "ASPHALT   /   NORTH UP", 14)
 	# All primary driving instrumentation now shares a purpose-built,
@@ -107,8 +101,8 @@ func _ready() -> void:
 	tune_box = VBoxContainer.new()
 	tune_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(tune_box)
-	label(tune_box, "LIVE HANDLING / F1", 22)
-	label(tune_box, "Tuning saves automatically. R only resets your car.", 12)
+	label(tune_box, "VEHICLE STATS / F1", 22)
+	label(tune_box, "Power, torque and weight · step 10 · autosave", 12)
 	# Detailed engineering readouts belong in the inspectable F1 panel,
 	# not over the road and race timing instruments.
 	telemetry = label(tune_box, "", 12, Color("c2d5d0"))
@@ -119,21 +113,7 @@ func _ready() -> void:
 	tune_box.add_child(reset_tuning_button)
 	for entry in TUNING_FIELDS:
 		add_slider(entry)
-	label(tune_box, "DRIVETRAIN", 14, Color("a1c779"))
-	drivetrain_select = OptionButton.new()
-	for name in ["FWD", "RWD", "AWD"]:
-		drivetrain_select.add_item(name)
-	drivetrain_select.selected = vehicle.config.drivetrain
-	drivetrain_select.item_selected.connect(_on_drivetrain_selected)
-	tune_box.add_child(drivetrain_select)
-	label(tune_box, "CONTROLS / click to rebind", 17)
-	for action in ControlsScript.KEYS:
-		var button := Button.new()
-		button.text = binding_text(action)
-		button.pressed.connect(func(): waiting_action = action; button.text = "Press key / pad…  (Esc cancels)")
-		tune_box.add_child(button)
-		rebind_buttons[action] = button
-	label(tune_box, "CONTROLLER\nRT throttle · LT brake / reverse\nLeft stick steer · A handbrake · Y reset\nRB camera · D-pad up/down shift", 14)
+	# F1 is only for vehicle performance stats; bindings are managed elsewhere.
 	vehicle.impacted.connect(func(strength: float):
 		if strength > 5:
 			status.text = "IMPACT / R TO RESET")
@@ -155,7 +135,7 @@ func on_vehicle_selected(entry: Dictionary, restore_saved_tuning: bool = false) 
 	for setting in TUNING_FIELDS:
 		var field: String = setting[0]
 		var value := float(vehicle.config.get(field))
-		(tuning_sliders[field] as HSlider).set_value_no_signal(value)
+		(tuning_sliders[field] as HSlider).set_value_no_signal(_display_slider_value(field, value))
 		(config_labels[field] as Label).text = "%s   %s" % [
 			setting[1], Imperial.tune_text(field, value)]
 	if is_instance_valid(drivetrain_select):
@@ -163,23 +143,38 @@ func on_vehicle_selected(entry: Dictionary, restore_saved_tuning: bool = false) 
 	if is_instance_valid(tuning_save_label):
 		tuning_save_label.text = "Vehicle baseline loaded. F1 adjustments save separately."
 
+func _display_slider_value(property: String, native_value: float) -> float:
+	return clampf(roundf(Imperial.tune_value(property, native_value) / 10.0) * 10.0, 50.0, 10000.0)
+
+
+func _slider_native_value(property: String, value: float) -> float:
+	match property:
+		"engine_power_kw":
+			return value / Imperial.KW_TO_HP
+		"engine_torque_nm":
+			return value / Imperial.NM_TO_LB_FT
+		"mass_kg":
+			return value / Imperial.KG_TO_LB
+	return value
+
+
 func add_slider(entry: Array) -> void:
 	var property: String = entry[0]
 	var caption := label(tune_box, "%s   %s" % [entry[1], Imperial.tune_text(property, float(vehicle.config.get(property)))], 13)
 	config_labels[property] = caption
 	var slider := HSlider.new()
 	tuning_sliders[property] = slider
-	slider.min_value = entry[2]
-	slider.max_value = entry[3]
-	# Model specifications need sub-kilogram / sub-kW precision; snapping
-	# an initial 1,670 kg value to 1,675 prevented change events later.
-	slider.step = minf(float(entry[4]), 0.1)
-	slider.value = vehicle.config.get(property)
+	slider.min_value = 50.0
+	slider.max_value = 10000.0
+	slider.step = 10.0
+	slider.value = _display_slider_value(property, float(vehicle.config.get(property)))
 	slider.value_changed.connect(func(value: float):
-		vehicle.config.set(property, value)
-		caption.text = "%s   %s" % [entry[1], Imperial.tune_text(property, value)]
+		var native := _slider_native_value(property, value)
+		vehicle.config.set(property, native)
+		caption.text = "%s   %s" % [entry[1], Imperial.tune_text(property, native)]
 		_queue_tuning_save())
 	tune_box.add_child(slider)
+
 
 func _on_drivetrain_selected(index: int) -> void:
 	vehicle.config.drivetrain = index
@@ -211,11 +206,9 @@ func _restore_stock_tuning() -> void:
 		var property: String = entry[0]
 		var original: float = float(_stock_tune.get(property))
 		vehicle.config.set(property, original)
-		(tuning_sliders[property] as HSlider).set_value_no_signal(original)
+		(tuning_sliders[property] as HSlider).set_value_no_signal(_display_slider_value(property, original))
 		(config_labels[property] as Label).text = "%s   %s" % [
 			entry[1], Imperial.tune_text(property, original)]
-	vehicle.config.drivetrain = _stock_tune.drivetrain
-	drivetrain_select.select(vehicle.config.drivetrain)
 	tuning_save_label.text = "Stock tuning restored; saved override cleared."
 
 func _exit_tree() -> void:
