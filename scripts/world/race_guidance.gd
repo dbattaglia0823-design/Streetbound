@@ -43,7 +43,7 @@ func _process(dt: float) -> void:
 
 
 func _on_map(point_m: Vector2) -> Vector2:
-	return (point_m - map_view.center_m) * map_view.pixels_per_m + map_view.custom_minimum_size * 0.5
+	return (point_m - map_view.get("center_m")) * float(map_view.get("pixels_per_m")) + map_view.custom_minimum_size * 0.5
 
 
 func _draw() -> void:
@@ -67,8 +67,8 @@ func _draw() -> void:
 			var traveled := not bool(navigation.get("closed")) and float(
 				navigation.get("stations_m")[i]) < player_station
 			var color := Color(0.15, 0.48, 0.53, 0.52) if traveled else ROUTE
-			draw_line(a, b, Color(0.02, 0.16, 0.23, 0.98), 6.0 if map_view.miniature else 5.0, true)
-			draw_line(a, b, color, 3.2 if map_view.miniature else 2.8, true)
+			draw_line(a, b, Color(0.02, 0.16, 0.23, 0.98), 6.0 if bool(map_view.get("miniature")) else 5.0, true)
+			draw_line(a, b, color, 3.2 if bool(map_view.get("miniature")) else 2.8, true)
 		# Small markers identify the actual start/finish, not nearest road.
 		var start := _on_map(route[0])
 		if clip.has_point(start):
