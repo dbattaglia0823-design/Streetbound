@@ -1,0 +1,221 @@
+extends Node2D
+## Drive-up circuit test lap. No economy payouts in this first guidance pass:
+## the player must follow the whole authored course and physically cross start.
+const PPM := 20.0
+const NavigationScript = preload("res://scripts/world/race_navigation.gd")
+const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
+const ROAD_NAME := "Ashford Grand Circuit"
+var world: MorrowCoast
+var player: VehicleController2D
+var navigation: RefCounted
+var world_guidance: Node2D
+var state := "idle"
+var available := false
+var countdown := 0.0
+var elapsed := 0.0
+var distance_m := 0.0
+var previous_station := 0.0
+var status_timer := 0.0
+var result := ""
+var start_m := Vector2.ZERO
+var heading := Vector2.UP
+var panel: PanelContainer
+var label: Label
+
+
+func _ready() -> void:
+	name = "AshfordCircuitPractice"
+	if not is_instance_valid(world) or not is_instance_valid(player):
+		return
+	var full_path := PackedVector2Array()
+	var first_path := PackedVector2Array()
+	# The four track road pieces are baked in connected lap order.
+	for road in world.data.roads:
+		if str(road.name) != ROAD_NAME:
+			continue
+		var path := PackedVector2Array()
+		for raw in road.points:
+			path.append(Vector2(float(raw[0]), float(raw[1])))
+		if path.size() < 2:
+			continue
+		if first_path.is_empty():
+			first_path = path
+			full_path = path
+		elif full_path[full_path.size() - 1].distance_to(path[0]) < 3.0:
+			for i in range(1, path.size()):
+				full_path.append(path[i])
+		elif full_path[full_path.size() - 1].distance_to(path[path.size() - 1]) < 3.0:
+			path.reverse()
+			for i in range(1, path.size()):
+				full_path.append(path[i])
+		else:
+			push_warning("Ashford circuit pieces are disconnected; lap unavailable")
+			return
+	if first_path.size() < 10 or full_path.size() < 20 or \
+			full_path[0].distance_to(full_path[full_path.size() - 1]) > 3.0:
+		push_warning("Ashford circuit does not form a closed lap")
+		return
+	# Place the interaction on the actual painted track start marker,
+	# not in the paddock or at an arbitrary road waypoint.
+	var start_index := 8
+	var ordered := PackedVector2Array()
+	for i in range(start_index, full_path.size() - 1):
+		ordered.append(full_path[i])
+	for i in range(0, start_index + 1):
+		ordered.append(full_path[i])
+	navigation = NavigationScript.new()
+	navigation.setup(ordered, true)
+	if float(navigation.get("length_m")) < 1000.0:
+		push_warning("Ashford circuit lap is too short")
+		return
+	start_m = ordered[0]
+	heading = (ordered[1] - ordered[0]).normalized()
+	available = true
+	world_guidance = Node2D.new()
+	world_guidance.name = "CircuitBrakingLine"
+	world_guidance.set_script(GuidanceScript)
+	world_guidance.set("player", player)
+	world_guidance.set("navigation", navigation)
+	add_child(world_guidance)
+	var layer := CanvasLayer.new()
+	layer.name = "CircuitRaceHUD"
+	layer.layer = 7
+	add_child(layer)
+	panel = PanelContainer.new()
+	panel.name = "CircuitRaceStatus"
+	panel.position = Vector2(770, 270)
+	panel.custom_minimum_size = Vector2(367, 92)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.035, 0.075, 0.09, 0.94)
+	style.border_color = Color("65d2bb")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 15
+	style.content_margin_right = 15
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(panel)
+	label = Label.new()
+	label.name = "CircuitInstructions"
+	label.add_theme_font_size_override("font_size", 16)
+	panel.add_child(label)
+	_refresh()
+
+
+func _station() -> float:
+	return float(navigation.call("station_at", player.global_position / PPM))
+
+
+func _deviation(station: float) -> float:
+	var point: Vector2 = navigation.call("point_at", station)
+	return player.global_position.distance_to(point * PPM) / PPM
+
+
+func can_stage() -> bool:
+	if not available or state != "idle" or not is_instance_valid(player):
+		return false
+	var tangent: Vector2 = heading
+	return player.global_position.distance_to(start_m * PPM) <= 6.0 * PPM and \
+		player.linear_velocity.length() <= 1.5 and \
+		Vector2.UP.rotated(player.rotation).dot(tangent) >= 0.55
+
+
+func start_race() -> bool:
+	if not can_stage() or get_tree().paused:
+		return false
+	state = "countdown"
+	countdown = 3.0
+	elapsed = 0.0
+	distance_m = 0.0
+	previous_station = _station()
+	result = ""
+	_refresh()
+	return true
+
+
+func _abort(reason: String) -> void:
+	state = "aborted"
+	result = reason
+	status_timer = 5.0
+	_refresh()
+
+
+func _physics_process(dt: float) -> void:
+	if not available or not is_instance_valid(player) or dt <= 0.0:
+		return
+	if is_instance_valid(world_guidance):
+		world_guidance.set_guidance(navigation, player, state in ["countdown", "running"])
+	if state == "countdown":
+		if player.linear_velocity.length() > 3.0 or not can_remain_on_grid():
+			_abort("FALSE START / RETURN TO GRID")
+			return
+		countdown -= dt
+		if countdown <= 0.0:
+			state = "running"
+			previous_station = _station()
+	elif state == "running":
+		elapsed += dt
+		var station := _station()
+		var advance := station - previous_station
+		var lap_length: float = navigation.get("length_m")
+		if advance < -lap_length * 0.5:
+			advance += lap_length
+		elif advance > lap_length * 0.5:
+			advance -= lap_length
+		var maximum := maxf(3.0, player.linear_velocity.length() * dt * 2.0 + 2.0)
+		if _deviation(station) > 12.0 or advance > maximum or advance < -10.0:
+			_abort("LAP INVALID / FOLLOW THE CIRCUIT")
+			return
+		distance_m += maxf(0.0, advance)
+		previous_station = station
+		if elapsed > 480.0:
+			_abort("LAP TIMED OUT")
+			return
+		if distance_m >= lap_length - 7.0 and station <= 12.0 and \
+				player.linear_velocity.dot(heading) > 1.0:
+			state = "results"
+			result = "CIRCUIT LAP  %.2f SECONDS\nPRACTICE COMPLETE / NO XP AWARDED" % elapsed
+			status_timer = 9.0
+	elif state in ["results", "aborted"]:
+		status_timer -= dt
+		if status_timer <= 0.0:
+			state = "idle"
+			result = ""
+	_refresh()
+
+
+func can_remain_on_grid() -> bool:
+	return player.global_position.distance_to(start_m * PPM) <= 9.0 * PPM
+
+
+func _refresh() -> void:
+	if not available or label == null:
+		return
+	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
+	panel.visible = nearby or state != "idle"
+	if not panel.visible:
+		return
+	match state:
+		"idle":
+			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\n%s" % (
+				"STOP AT CHECKERED LINE / [ F ] START" if can_stage()
+				else "DRIVE TO CIRCUIT START / PARK FACING THE COURSE")
+		"countdown":
+			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\nSTART IN %d" % maxi(1, ceili(countdown))
+		"running":
+			var total: float = navigation.get("length_m")
+			label.text = "CIRCUIT  /  %.2fs  /  %.0f%% LAP\nGREEN = GO   YELLOW = LIFT   RED = BRAKE" % [
+				elapsed, clampf(distance_m / total * 100.0, 0.0, 100.0)]
+		_:
+			label.text = result
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not available or not event is InputEventKey or \
+			not event.pressed or event.echo or get_tree().paused:
+		return
+	var key: InputEventKey = event
+	if key.keycode in [KEY_F] or key.physical_keycode == KEY_F:
+		if can_stage() and start_race():
+			get_viewport().set_input_as_handled()
