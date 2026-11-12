@@ -7,7 +7,7 @@ const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const PPM := 20.0
 const LOCATION_PATH := "res://data/dealerships.json"
 const STOP_SPEED_MPS := 1.7
-const PARK_RADIUS_M := 13.5
+const PARK_RADIUS_M := 7.0
 const SIGN_DISTANCE_M := 68.0
 var world: MorrowCoast
 var player: VehicleController2D
@@ -170,7 +170,10 @@ func closest_site() -> Dictionary:
 func can_browse(site: Dictionary) -> bool:
 	if site.is_empty() or not is_instance_valid(player):
 		return false
-	return player.global_position.distance_to(v(site.parking_m)*PPM) <= \
+	# The browsing trigger belongs inside the outlined forecourt bay,
+	# not on the roadside shoulder or an invisible radius on nearby grass.
+	return Pavement.contains_pavement(site, player.global_position) and \
+		player.global_position.distance_to(v(site.parking_m)*PPM) <= \
 		PARK_RADIUS_M*PPM and player.linear_velocity.length() <= STOP_SPEED_MPS
 
 
