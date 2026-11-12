@@ -112,6 +112,7 @@ func _ready() -> void:
 							origin.distance_to(nearest_m)
 						var side: float = 1.0 if (p - nearest_m).dot(
 							road.normal) >= 0.0 else -1.0
+						access["half_width_m"] = ParkingAccess.width_m(prop) * .5 + 1.0
 						access["station_m"] = station_m
 						access["road_side"] = side
 						access["road_id"] = int(road.road_id)
