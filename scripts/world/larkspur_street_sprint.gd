@@ -26,6 +26,7 @@ var elapsed := 0.0
 var previous_station := 0.0
 var status_timer := 0.0
 var start_m := Vector2.ZERO
+var rival_grid_m := Vector2.ZERO
 var finish_m := Vector2.ZERO
 var heading := Vector2.UP
 var result := ""
@@ -54,6 +55,9 @@ func _ready() -> void:
 	if float(navigation.get("length_m")) < 600.0:
 		return
 	start_m = course[0]
+	# Spawn behind the start on the ACTUAL curved traffic lane, not by
+	# extrapolating a straight vector through the sidewalk at a bend.
+	rival_grid_m = center_course[2]
 	finish_m = course[course.size() - 1]
 	heading = (course[1] - course[0]).normalized()
 	available = true
@@ -128,7 +132,7 @@ func _spawn_opponent() -> bool:
 	_clear_opponent()
 	if not is_instance_valid(player) or not is_instance_valid(world):
 		return false
-	var start_px := (start_m - heading * 12.0) * PPM
+	var start_px := rival_grid_m * PPM
 	if str(world.surface_at(start_px).name) != "ASPHALT":
 		return false
 	if is_instance_valid(traffic):
