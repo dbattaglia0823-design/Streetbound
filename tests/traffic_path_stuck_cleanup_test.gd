@@ -75,6 +75,14 @@ func _run() -> void:
 	var curved_speed: float = flow._path_aware_speed(follower,PPM*14.0)
 	check("sees_stopped_car_around_actual_curved_lane",
 		curved_speed < PPM*14.0 and curved_speed >= 0.0,curved_speed)
+	# Distant cars centered on an otherwise straight section cannot be
+	# mistaken for an immediate bumper collision by the curve scanner.
+	lead.position = origin + Vector2.UP * PPM * 8.0 + Vector2.RIGHT * PPM * 22.0
+	follower.path_scan_clock = 0.0
+	var distant_speed: float = flow._path_aware_speed(follower,PPM*14.0)
+	check("distant_same_lane_car_does_not_trigger_phantom_braking",
+		is_equal_approx(distant_speed,PPM*14.0),distant_speed)
+	lead.position = origin + Vector2.UP * PPM * 8.0 + Vector2.RIGHT * PPM * 3.0
 	lead.position += Vector2.DOWN * PPM * 5.0
 	follower.path_scan_clock = 0.0
 	var adjacent_speed: float = flow._path_aware_speed(follower,PPM*14.0)
