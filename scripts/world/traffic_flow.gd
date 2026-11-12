@@ -163,7 +163,8 @@ func _spawn_one() -> bool:
 			"recovery_time":0.0,"recovery_refresh":0.0,"recovery_goal":{},
 			"obstacle_scan_clock":0.0,"obstacle_position":Vector2.INF,
 			"recovery_stall":0.0,
-			"stuck_time":0.0,"stuck_clock":0.0,"stuck_anchor":p
+			"stuck_time":0.0,"stuck_clock":0.0,"stuck_anchor":p,
+			"path_scan_clock":0.0,"path_speed_cap":INF
 		})
 		_id_serial+=1
 		return true
@@ -253,6 +254,13 @@ func _route_point(agent: Dictionary, distance_px: float) -> Dictionary:
 func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 	if network == null or desired_px < PPM * 0.7:
 		return desired_px
+	# The next 3-5-metre road samples don't change significantly within a
+	# tenth of a second. Cache only the extra obstruction cap, so changing
+	# stop signs and right-of-way controls still take effect immediately.
+	if float(agent.get("path_scan_clock", 0.0)) > 0.0:
+		return minf(desired_px, float(agent.get("path_speed_cap", INF)))
+	agent.path_scan_clock = 0.10
+	agent.path_speed_cap = INF
 	var node: CharacterBody2D = agent.node
 	if not is_instance_valid(node):
 		return desired_px
@@ -318,6 +326,7 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		var target_speed := maxf(0.0, forward_speed)
 		var safe := target_speed + sqrt(2.0 * COMFORT_BRAKE * available_px)
 		best = minf(best, safe)
+	agent.path_speed_cap = best if best < desired_px else INF
 	return best
 
 
@@ -486,17 +495,20 @@ func _car_following(index: int, desired_px: float) -> float:
 	return desired_px
 
 
+## Yield to every human-controlled car, not merely the primary player.
+## Crossing prediction uses real velocity and applies to racing participants.
 func _player_awareness(agent: Dictionary, desired_px: float,
 		travel_direction: Vector2 = Vector2.ZERO) -> float:
-	if not is_instance_valid(player):
-		return desired_px
-	var player_velocity := player.linear_velocity * PPM
 	var heading := travel_direction if travel_direction.length_squared() > 0.001 \
 		else Vector2.UP.rotated((agent.node as Node2D).rotation)
-	var safe := _safe_follow_speed(agent, desired_px,
-		player.global_position, player_velocity, heading)
-	return _crossing_speed(agent, safe, player.global_position,
-		player_velocity, true, heading)
+	var safe := desired_px
+	for person in _player_vehicles():
+		var player_velocity: Vector2 = person.linear_velocity * PPM
+		safe = _safe_follow_speed(agent, safe,
+			person.global_position, player_velocity, heading)
+		safe = _crossing_speed(agent, safe, person.global_position,
+			player_velocity, true, heading)
+	return safe
 
 
 # Only static obstacles are sensed here; traffic and player awareness are
@@ -564,7 +576,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var node: CharacterBody2D=agent.node
 	if not is_instance_valid(node):
 		return false
-	if node.global_position.distance_to(player.global_position)>PPM*530.0:
+	if node.global_position.distance_to(player.global_position) > PPM * 530.0 and \
+			not _visible_to_any_player(node.global_position):
 		return false
 	if bool(node.get("recovering")):
 		return _recover_agent(agent,dt)
@@ -574,8 +587,9 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var next_id := -2
 	# Determine upcoming connector before computing right-of-way and sensing.
 	# Waiting cars can otherwise appear to have no destination at all.
-	if remaining < maxf(PPM*35.0,float(agent.speed)*1.6):
+	if remaining < maxf(PPM * 75.0, float(agent.speed) * 2.5):
 		next_id=_next_target(agent,edge)
+	agent.path_scan_clock = float(agent.get("path_scan_clock", 0.0)) - dt
 	desired=_car_following(index,desired)
 	desired=_player_awareness(agent,desired)
 	desired=_path_aware_speed(agent,desired)
