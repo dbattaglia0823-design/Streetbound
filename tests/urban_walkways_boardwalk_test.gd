@@ -80,6 +80,16 @@ func run() -> void:
 			var cut := Geometry2D.intersect_polyline_with_polygon(boardwalk,region)
 			check("boardwalk_geometry_survives_chunk_clipping",not cut.is_empty(),cut.size())
 
+	# Road surface kerbs and paint share the same clipped station spans.
+	# If a junction gap exists, drawing a full-path curb would close its
+	# entrance despite lane markings being clipped correctly.
+	var clipped_mouths := 0
+	for road in world.data.roads:
+		if road.kind not in ["local", "arterial"]:
+			continue
+		if not road.get("marking_gaps", []).is_empty():
+			clipped_mouths += 1
+	check("road_junction_mouths_have_marking_gaps", clipped_mouths > 0, clipped_mouths)
 	var junction_count := 0
 	var urban_roads := 0
 	for r in world.data.roads:
