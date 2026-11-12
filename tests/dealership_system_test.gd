@@ -74,6 +74,16 @@ func run() -> void:
 		var parking := site_position(shop)
 		var road_point := site_position(shop, "road_m")
 		var roadward := (road_point - position).normalized()
+		# Follow the actual entry line from roadside to the browse zone.
+		# Every sample should be drivable asphalt, with no unpaved gap.
+		var continuous_entry := true
+		for portion in [0.10, 0.25, 0.50, 0.75, 0.90]:
+			var sampled: Vector2 = road_point.lerp(parking, float(portion))
+			continuous_entry = continuous_entry and \
+				str(world.surface_at(sampled * PPM).name) == "ASPHALT"
+		check("dealership_driveway_continuous_" + str(shop.id), continuous_entry)
+		check("road_entrance_aligned_" + str(shop.id),
+			absf((parking - road_point).normalized().dot(roadward) + 1.0) < 0.02)
 		var local_front := Vector2.UP.rotated(float(shop.rotation))
 		check("storefront_faces_road_" + str(shop.id),
 			local_front.dot(roadward) > 0.98 and
