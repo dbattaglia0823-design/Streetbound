@@ -20,8 +20,12 @@ var built_count := 0
 
 
 func _ready() -> void:
-	# Below cartographic labels, cursor and the race guidance overlay.
-	z_index = -20
+	# Negative z hid ALL world tiles behind the enclosing Control/panel
+	# background. Use an absolute layer ABOVE its background (z=0), but
+	# BELOW the atlas ink labels (z=15), markers and navigation.
+	# Child road/scenery layers occupy z=1..8 and keep world ordering.
+	z_as_relative = false
+	z_index = 1
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
