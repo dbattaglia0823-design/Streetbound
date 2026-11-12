@@ -6,6 +6,7 @@ const PPM := 20.0
 const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
+const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const RacerDriverScript = preload("res://scripts/world/race_ai_driver.gd")
 var world: MorrowCoast
@@ -30,6 +31,7 @@ var rival_grid_m := Vector2.ZERO
 var finish_m := Vector2.ZERO
 var heading := Vector2.UP
 var result := ""
+var status_strip: Control
 var panel: PanelContainer
 var label: Label
 
@@ -75,25 +77,11 @@ func _ready() -> void:
 	layer.layer = 7
 	layer.name = "StreetSprintHUD"
 	add_child(layer)
-	panel = PanelContainer.new()
-	panel.name = "StreetSprintStatus"
-	panel.position = Vector2(770, 375)
-	panel.custom_minimum_size = Vector2(367, 96)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.075, 0.09, 0.94)
-	style.border_color = Color("51c8d8")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(9)
-	style.content_margin_left = 15
-	style.content_margin_right = 15
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", style)
-	layer.add_child(panel)
-	label = Label.new()
-	label.name = "SprintInstructions"
-	label.add_theme_font_size_override("font_size", 16)
-	panel.add_child(label)
+	status_strip = Control.new()
+	status_strip.set_script(StatusStripScript)
+	layer.add_child(status_strip)
+	panel = status_strip.get("panel") as PanelContainer
+	label = status_strip.get("label") as Label
 	_refresh()
 
 
@@ -286,9 +274,9 @@ func _refresh() -> void:
 	if not available or label == null:
 		return
 	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
-	panel.visible = nearby or state != "idle"
-	if not panel.visible:
-		return
+	# A small staging prompt appears only close to the start, rather than
+	# occupying the driving view whenever a race is nearby.
+	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 32.0 * PPM
 	match state:
 		"idle":
 			label.text = "LARKSPUR STREET SPRINT / PRACTICE\n%s" % (
@@ -306,6 +294,7 @@ func _refresh() -> void:
 		_:
 			label.text = result
 
+	status_strip.call("set_status", state, nearby, label.text)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not available or not event is InputEventKey or \
