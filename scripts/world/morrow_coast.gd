@@ -7,6 +7,7 @@ const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
+const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
@@ -48,6 +49,11 @@ var _debug_clock := 0.0
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	# Road geometry, junction curvature, sidewalk placement and physical
+	# surfaces must agree before ANY chunks, traffic, parking or map are built.
+	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
+	# carries the marker and is not widened twice.
+	RoadWidthAdaptation.adapt(data)
 	# Decorate only existing commercial props in a single downtown city block.
 	# This is metadata for scenery only: road graph, terrain, prop coordinates,
 	# building collisions and authored world JSON are never modified.
