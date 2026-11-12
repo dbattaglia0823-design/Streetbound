@@ -85,13 +85,28 @@ func _step_body_suspension(dt: float, snap: bool = false) -> void:
 	body_pitch = clampf(body_pitch + _body_pitch_velocity * dt, -1.2, 1.2)
 
 
-func _apply_body_suspension() -> void:
+## Short bounded road texture vibration moves the body independently of
+## the tire contact nodes; stronger on gravel/dirt, subdued on clean roads.
+static func bump_vibration(speed_mps: float, surface: String,
+		clock: float) -> float:
+	var roughness := 0.34
+	match surface:
+		"GRAVEL", "DIRT": roughness = 1.65
+		"SAND": roughness = 1.20
+		"GRASS": roughness = 1.05
+	var moving := smoothstep(4.0, 35.0, speed_mps)
+	return (sin(clock * 29.0) * 0.68 +
+		sin(clock * 41.0) * 0.34) * moving * roughness
+
+
+func _apply_body_suspension(surface_bump: float = 0.0) -> void:
 	if not is_instance_valid(_body_sprite):
 		return
 	# The body sprite moves and leans independently from the wheel layer.
 	# Its calibrated baseline is always preserved for each selected car.
 	_body_sprite.position = _sprite_rest_position + Vector2(
-		-body_roll * 3.4, -body_heave * HEIGHT_LIFT_PX - body_pitch * 2.3)
+		-body_roll * 3.4,
+		-body_heave * HEIGHT_LIFT_PX - body_pitch * 2.3 + surface_bump)
 	_body_sprite.rotation = _sprite_rest_rotation - body_roll * 0.032 + \
 		body_pitch * 0.008
 	_body_sprite.scale = _sprite_rest_scale * Vector2(
@@ -162,7 +177,6 @@ func _process(delta: float) -> void:
 	_last_position = vehicle.global_position
 	_step_suspension(dt,_wheel_targets(),teleported)
 	_step_body_suspension(dt, teleported)
-	_apply_body_suspension()
 	var acceleration := (vehicle.longitudinal_speed-_last_speed)/dt
 	_last_speed = vehicle.longitudinal_speed
 	var corner_load := clampf(vehicle.yaw_rate*vehicle.longitudinal_speed/35.0,-1.0,1.0)
@@ -175,16 +189,14 @@ func _process(delta: float) -> void:
 	_sway = lerpf(_sway, target_sway, 1.0 - exp(-7.0 * dt))
 	_pitch = lerpf(_pitch, target_pitch, 1.0 - exp(-6.0 * dt))
 	_impact = move_toward(_impact,0.0,dt*5.0)
-	var speed_mix := smoothstep(10.0, 50.0,
-		vehicle.linear_velocity.length())
-	var rumble := (sin(_clock * 29.0) * 0.23 +
-		sin(_clock * 41.0) * 0.13) * speed_mix
+	_apply_body_suspension(bump_vibration(
+		vehicle.linear_velocity.length(), vehicle.surface, _clock))
 	var jolt := sin(_clock * 45.0) * _impact
 	# Parent Art retains mild acceleration, cornering and impact feedback,
 	# but curb rise is applied to Sprite ONLY. The wheel rig has its own
 	# four-corner lift, so the body no longer follows tires rigidly.
 	position = Vector2(-_sway * 2.8 + jolt * 1.8,
-		_pitch * 2.6 + rumble + jolt * 2.6)
+		_pitch * 2.6 + jolt * 2.6)
 	rotation = -_sway * 0.024 + jolt * 0.012
 	scale = Vector2(1.0 - _pitch * 0.004,
 		1.0 + _pitch * 0.010)
