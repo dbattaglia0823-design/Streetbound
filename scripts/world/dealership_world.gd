@@ -174,11 +174,10 @@ func parking_prompt() -> String:
 
 
 func is_paved_forecourt(point_px: Vector2) -> bool:
-	var p := point_px/PPM
+	# The artist's tapered throat and lot are also the physical asphalt.
+	# Previously a larger rectangle granted paved traction outside the art
+	# and omitted the flared entrance near some road edges.
 	for site in sites:
-		var center := v(site.center_m)
-		var local: Vector2 = (p-center).rotated(-float(site.rotation))
-		var d := float(site.setback_m)
-		if absf(local.x) <= 16.5 and local.y >= -d-2.0 and local.y <= -8.5:
+		if Pavement.contains_pavement(site, point_px):
 			return true
 	return false
