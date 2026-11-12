@@ -50,6 +50,12 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_hud_dismiss_test.gd 2>&1 | tee /tmp/godot463-race-hud.log
           grep -q 'RACE HUD DISMISS AND POSITION: PASS' /tmp/godot463-race-hud.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-hud.log
+      - name: Verify 10 percent wider roads, scaled roadside scenery and unchanged cars
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 70s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_widening_test.gd 2>&1 | tee /tmp/godot463-road-width.log
+          grep -q 'TEN PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
       - name: Verify head-to-head street racing around real moving traffic
         run: |
           set -o pipefail
