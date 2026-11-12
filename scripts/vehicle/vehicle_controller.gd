@@ -275,7 +275,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			var other: Object = collision.get_collider()
 			var is_traffic := false
 			if is_instance_valid(other) and other is Node:
-				is_traffic = other.is_in_group("traffic_vehicle")
+				is_traffic = other.is_in_group("traffic_vehicle") or other.is_in_group("race_opponent") or other is VehicleController2D
 			if is_traffic:
 				# A shallow sideswipe should retain tangential speed; a direct
 				# impact transfers more energy. The collider itself still prevents
