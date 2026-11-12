@@ -4,6 +4,7 @@ const Model = preload("res://scripts/world/coast_map_model.gd")
 const MapView = preload("res://scripts/world/coast_map_view.gd")
 var world: Node2D
 var vehicle: VehicleController2D
+var races: Array[Node2D] = []
 var driving_hud: CanvasLayer
 var model: RefCounted
 var mini: PanelContainer
@@ -134,12 +135,24 @@ func _input(event: InputEvent) -> void:
 		large=not large
 		get_viewport().set_input_as_handled()
 
+func _active_race_navigation() -> RefCounted:
+	for race in races:
+		if not is_instance_valid(race):
+			continue
+		if str(race.get("state")) in ["countdown", "running"]:
+			return race.get("navigation") as RefCounted
+	return null
+
+
 func _process(dt: float) -> void:
 	mini.visible=not driving_hud.tuning.visible and not large
 	full.visible=large and not driving_hud.tuning.visible
+	var current_course := _active_race_navigation()
 	for view in [mini_view,full_view]:
 		view.player_m=vehicle.global_position/20
 		view.player_heading=vehicle.rotation
+		if is_instance_valid(view.race_overlay):
+			view.race_overlay.set_guidance(current_course, vehicle, current_course != null)
 	refresh-=dt
 	if refresh<=0:
 		refresh=.25
