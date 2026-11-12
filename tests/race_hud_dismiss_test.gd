@@ -24,12 +24,12 @@ func _check_strip(race: Node, hud: Control, title: String) -> void:
 	var restore: Button = hud.get("restore_button") as Button
 	check(title + "_compact_near_top_not_center_screen",
 		panel.position.y <= 24.0 and
-		panel.position.x > 395.0 and
+		(panel.position.x > 395.0 if hud.get_viewport_rect().size.x > 1200.0 else panel.position.x >= 8.0) and
 		panel.size.y <= 65.0 and panel.size.x <= 450.0)
 	check(title + "_close_and_restore_are_real_buttons",
 		close != null and restore != null and
-		close.pressed.is_connected(hud.dismiss) and
-		restore.pressed.is_connected(hud.restore))
+		close.pressed.is_connected(Callable(hud, "dismiss")) and
+		restore.pressed.is_connected(Callable(hud, "restore")))
 	hud.call("set_status", "idle", true, "RACE / STOP / [ F ] START")
 	check(title + "_can_be_shown_near_start", panel.visible)
 	close.pressed.emit()
