@@ -106,9 +106,11 @@ func run() -> void:
 	check("engine_stats_come_from_current_car",
 		dash.model_label.text.contains("HP") and \
 		dash.model_label.text.contains("LB-FT"))
-	check("legacy_imperial_test_readout_stays_valid",
-		hud.telemetry.text.contains("LONG +67.1 MPH") and \
-		hud.telemetry.text.contains(" lb-ft"))
+	check("f1_stats_readout_stays_valid",
+		hud.telemetry.text.contains("POWER ") and \
+		hud.telemetry.text.contains("TORQUE ") and \
+		hud.telemetry.text.contains(" lb-ft") and \
+		hud.telemetry.text.contains("WEIGHT "))
 	var na: Dictionary = Catalog.find_by_id("ford-fiesta")
 	check("ordinary_stock_engine_has_no_turbo_calibration",
 		float(na.get("boost_max_psi",0.0)) == 0.0)

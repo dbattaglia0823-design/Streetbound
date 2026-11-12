@@ -38,29 +38,36 @@ func _run() -> void:
 		hud._process(0.0)
 		check("mph_speedometer", hud.speed_unit_label.text.strip_edges() == "MPH"
 			and hud.speed_label.text == "067")
-		check("mph_telemetry", hud.telemetry.text.contains("LONG +67.1 MPH")
-			and hud.telemetry.text.contains("LAT +8.9 MPH"))
+		# F1 is now a compact stats-only panel; the main dial retains MPH.
+		check("stats_only_telemetry", hud.telemetry.text.contains("POWER ")
+			and hud.telemetry.text.contains("TORQUE ")
+			and hud.telemetry.text.contains("WEIGHT ")
+			and not hud.telemetry.text.contains("LONG "))
 		check("imperial_vehicle_specs", hud.telemetry.text.contains(" lb")
 			and hud.telemetry.text.contains(" lb-ft")
 			and hud.telemetry.text.contains(" hp")
 			and not hud.telemetry.text.contains("m/s"))
-		for data in [
-			["mass_kg", "Mass / lb"],
-			["engine_torque_nm", "Engine torque / lb-ft"],
-			["engine_power_kw", "Engine power / hp"],
-			["brake_force_n", "Brakes / lbf"],
-			["cornering_stiffness", "Tire response / lbf per rad"]
-		]:
-			var key: String = data[0]
+		var labels := {
+			"mass_kg": "Weight (lb)",
+			"engine_torque_nm": "Torque (lb-ft)",
+			"engine_power_kw": "Horsepower (hp)"
+		}
+		check("only_three_performance_sliders", hud.tuning_sliders.size() == 3)
+		for key in labels:
 			var caption: Label = hud.config_labels[key]
-			var display: String = Imperial.tune_text(key, float(car.config.get(key)))
-			check("imperial_tuning_%s" % key, caption.text.contains(data[1])
-				and caption.text.ends_with(display))
-		var mass_caption: Label = hud.config_labels["mass_kg"]
-		var mass_slider: HSlider = mass_caption.get_parent().get_child(mass_caption.get_index() + 1) as HSlider
-		mass_slider.value = 1675.0
-		check("tuning_retains_physics_in_si", is_equal_approx(car.config.mass_kg, 1675.0)
-			and mass_caption.text.ends_with(Imperial.tune_text("mass_kg", 1675.0)))
+			check("imperial_tuning_%s" % key, caption.text.contains(labels[key])
+				and caption.text.ends_with(Imperial.tune_text(key, float(car.config.get(key)))))
+			var slider: HSlider = hud.tuning_sliders[key]
+			check("slider_range_and_step_%s" % key,
+				is_equal_approx(slider.min_value, 50.0)
+				and is_equal_approx(slider.max_value, 10000.0)
+				and is_equal_approx(slider.step, 10.0))
+		# Sliders work in displayed imperial units and convert to native kg.
+		var mass_slider: HSlider = hud.tuning_sliders["mass_kg"]
+		mass_slider.value = 1670.0
+		check("tuning_retains_physics_in_si",
+			absf(car.config.mass_kg - 1670.0 / Imperial.KG_TO_LB) < 0.01
+			and (hud.config_labels["mass_kg"] as Label).text.ends_with("1670"))
 		# No physics values should change during display-only rendering.
 		check("physics_speed_remains_mps", is_equal_approx(car.linear_velocity.length(), 30.0))
 	main.queue_free()
