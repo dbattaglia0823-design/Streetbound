@@ -2,6 +2,7 @@ extends Node2D
 const Art = preload("res://scripts/world/coast_art.gd")
 const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
+const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const PPM := 20.0
 var prop_list: Array[Dictionary] = []
@@ -350,6 +351,15 @@ func _draw_prop(prop: Dictionary) -> void:
 	if GarageGeometry.is_player_garage(prop):
 		_draw_player_garage(size)
 		return
+	# Controlled one-block pilot: original commercial rooftops replace the
+	# repeated workshop atlas sprite on a handful of existing downtown props.
+	# Footprints, orientation, collision, road/parking layers remain as baked.
+	if prop.has("downtown_pilot_style"):
+		var pilot_texture: Texture2D = DowntownPilot.sprite(
+			int(prop.downtown_pilot_style))
+		if pilot_texture != null:
+			draw_texture_rect(pilot_texture, Rect2(-size * .5, size), false)
+			return
 	var sprite: Texture2D = Art.sprite(str(prop.get("asset_kind",kind)),seed_value)
 	if sprite!=null:
 		var tint := Color.WHITE

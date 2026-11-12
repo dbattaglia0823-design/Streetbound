@@ -6,6 +6,7 @@ const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
+const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
@@ -47,6 +48,10 @@ var _debug_clock := 0.0
 
 func _ready() -> void:
 	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	# Decorate only existing commercial props in a single downtown city block.
+	# This is metadata for scenery only: road graph, terrain, prop coordinates,
+	# building collisions and authored world JSON are never modified.
+	DowntownPilot.apply(data.props)
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
 			player_garage_prop = prop
