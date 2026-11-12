@@ -4,6 +4,7 @@ extends SceneTree
 const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const Roads = preload("res://scripts/world/coast_roads.gd")
+const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const PPM := 20.0
 var failed: Array[String] = []
 
@@ -67,6 +68,51 @@ func run() -> void:
 			var check_position: Vector2 = road_position.lerp(end, float(i) / 20.0)
 			accessible = accessible and str(world.surface_at(check_position).name) == "ASPHALT"
 		check("road_to_browse_surface_continuous_" + id, accessible)
+	# Parking-lot curb cuts must face the nearest road on ALL four sides,
+	# including when the author rotated the lot footprint.
+	var template := {"p":[100.0, 100.0], "size":[40.0, 28.0],
+		"angle":0.0, "entrance_width":8.0}
+	for example in [
+		{"side":0, "road":Vector2(60, 100)},
+		{"side":1, "road":Vector2(140, 100)},
+		{"side":2, "road":Vector2(100, 60)},
+		{"side":3, "road":Vector2(100, 140)}
+	]:
+		var sample: Dictionary = template.duplicate(true)
+		var access: Dictionary = ParkingAccess.access_for(
+			sample, example.road * PPM)
+		sample["road_access"] = access
+		var aperture: PackedVector2Array = ParkingAccess.polygon(sample)
+		var midpoint := Vector2.ZERO
+		if not access.is_empty():
+			midpoint = (ParkingAccess.v(access.entry) +
+				ParkingAccess.v(access.road)) * 0.5
+		check("lot_entrance_faces_side_" + str(example.side),
+			not access.is_empty() and int(access.side) == int(example.side) and
+			aperture.size() == 4 and
+			ParkingAccess.contains_pavement(sample, midpoint))
+	var rotated: Dictionary = template.duplicate(true)
+	rotated["angle"] = PI * .5
+	check("lot_entry_honors_rotated_footprint",
+		int(ParkingAccess.access_for(rotated,
+			Vector2(100,65) * PPM).get("side",-1)) == 0)
+	var access_count := 0
+	var mismatched_access: Array[String] = []
+	for prop in world.data.props:
+		if str(prop.kind) != "lot" or not prop.has("road_access"):
+			continue
+		access_count += 1
+		var a: Dictionary = prop.road_access
+		var local_middle: Vector2 = (ParkingAccess.v(a.entry) +
+			ParkingAccess.v(a.road)) * .5
+		var center_m := Vector2(float(prop.p[0]), float(prop.p[1]))
+		var world_pos: Vector2 = (center_m +
+			local_middle.rotated(float(prop.angle))) * PPM
+		if not ParkingAccess.contains_pavement(prop, local_middle) or \
+				str(world.surface_at(world_pos).name) != "ASPHALT":
+			mismatched_access.append(str(prop.get("authoring_id", prop.get("seed","?"))))
+	check("all_connected_lots_have_real_paved_access",
+		mismatched_access.is_empty(), [access_count, mismatched_access])
 	# The spawn cell may have no parking lots. Stream the actual first lot
 	# before inspecting chunk draw order; do not assume its location.
 	for prop in world.data.props:
