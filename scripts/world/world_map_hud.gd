@@ -152,7 +152,7 @@ func _process(dt: float) -> void:
 		view.player_m=vehicle.global_position/20
 		view.player_heading=vehicle.rotation
 		if is_instance_valid(view.race_overlay):
-			view.race_overlay.set_guidance(current_course, vehicle, current_course != null)
+			view.race_overlay.call("set_guidance", current_course, vehicle, current_course != null)
 	refresh-=dt
 	if refresh<=0:
 		refresh=.25
