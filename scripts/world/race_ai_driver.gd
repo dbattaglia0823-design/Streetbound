@@ -12,6 +12,7 @@ var reaction_remaining := 0.0
 var throttle_limit := 0.90
 var cruise_speed_mps := 180.0
 var last_station_px := 0.0
+var navigation: RefCounted
 
 
 func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
@@ -27,6 +28,19 @@ func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
 	active = false
 	if is_instance_valid(car):
 		car.command = Vector4.ZERO
+
+
+## Race directors can supply the exact same physically constrained racing
+## line and speed envelope as the map guide, including street junctions.
+## Existing drag-race setup() is unchanged.
+func setup_navigation(target: VehicleController2D, guide: RefCounted) -> void:
+	var world_route := PackedVector2Array()
+	if guide != null:
+		var points: PackedVector2Array = guide.get("points_m")
+		for point in points:
+			world_route.append(point * PPM)
+	setup(target, world_route)
+	navigation = guide
 
 
 func launch() -> void:
@@ -113,6 +127,12 @@ func _physics_process(dt: float) -> void:
 	var near_corner_speed := _corner_speed(station_px + maxf(10.0, speed * 1.2) * PPM)
 	desired_speed = minf(desired_speed, sqrt(near_corner_speed * near_corner_speed +
 		2.0 * car.config.tire_grip * car.surface_grip * 9.81 * maxf(10.0, speed * 1.2)))
+	if navigation != null:
+		# The same corner-speed/braking envelope that the player sees,
+		# never a power multiplier or catch-up boost.
+		navigation.call("update_envelope", car)
+		desired_speed = minf(desired_speed, float(navigation.call(
+			"allowed_speed_at", station_px / PPM + maxf(5.0, speed * 0.35))))
 	var throttle_request := throttle_limit * clampf((desired_speed - speed) / 4.0, 0.0, 1.0)
 	var brake_request := clampf((speed - desired_speed) / 7.0, 0.0, 1.0)
 	# Never override the car's position, velocity, RPM, power or physics stats.
