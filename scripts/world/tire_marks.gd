@@ -7,7 +7,7 @@ extends Node2D
 const CAPACITY := 1800
 const MAX_TRAILS := 30
 const POINTS_PER_TRAIL := 80
-const STRIP_WIDTH := 6.0
+const STRIP_WIDTH := 7.0
 const MIN_SAMPLE_DISTANCE := 1.4
 const MAX_SAMPLE_SPACING := 20.0
 const MAX_BRIDGE := 220.0
@@ -45,7 +45,7 @@ static func ink_for_surface(surface: String) -> Color:
 		"GRASS":
 			return Color(.21, .25, .13, .29)
 		_:
-			return Color(.055, .064, .067, .56)
+			return Color(.055, .064, .067, .67)
 
 
 func _new_trail(point: Vector2, kind: String, track: int, strength: float) -> Line2D:
@@ -59,7 +59,7 @@ func _new_trail(point: Vector2, kind: String, track: int, strength: float) -> Li
 	# Bounded to 30 short lines so 2D AA draw overhead stays predictable.
 	line.antialiased = true
 	var ink := ink_for_surface(kind)
-	ink.a *= lerpf(0.62, 1.0, clampf(strength, 0.0, 1.0))
+	ink.a *= lerpf(0.66, 1.0, clampf(strength, 0.0, 1.0))
 	line.default_color = ink
 	line.add_point(point)
 	add_child(line)
