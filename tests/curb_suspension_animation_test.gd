@@ -26,6 +26,7 @@ func run() -> void:
 	var car: VehicleController2D = main.vehicle
 	car.set_physics_process(false)
 	var art: Node2D = car.get_node("Art")
+	var body_sprite: Sprite2D = car.get_node("Art/Sprite")
 	var rig: Node2D = car.get_node("Art/Wheels")
 	var shadow: Node2D = car.get_node_or_null("GroundShadow")
 	var collider: CollisionShape2D = car.get_node("CollisionShape2D")
@@ -36,6 +37,12 @@ func run() -> void:
 		rig.get_child_count() == 4 and \
 		rig.wheel_anchor(0).x < rig.wheel_anchor(1).x and \
 		rig.wheel_anchor(0).y < rig.wheel_anchor(2).y)
+	check("road_roughness_gently_rocks_body_only",
+		is_zero_approx(float(art.bump_vibration(0.0, "DIRT", 0.1))) and
+		absf(float(art.bump_vibration(28.0, "DIRT", 0.1))) >
+		absf(float(art.bump_vibration(28.0, "ASPHALT", 0.1))) * 3.0,
+		[art.bump_vibration(28.0, "DIRT", 0.1),
+			art.bump_vibration(28.0, "ASPHALT", 0.1)])
 	var urban_found := false
 	var chosen_center := Vector2.ZERO
 	var chosen_normal := Vector2.ZERO
@@ -100,6 +107,20 @@ func run() -> void:
 			art._process(1.0/60.0)
 		check("curb_roll_responds_to_individual_wheel_height",
 			absf(float(art.curb_roll)) > 0.25,[art.curb_roll,art.curb_heave])
+		var rest_position: Vector2 = art.get("_sprite_rest_position")
+		var rest_rotation: float = float(art.get("_sprite_rest_rotation"))
+		check("chassis_springs_up_over_raised_curb",
+			float(art.body_heave) > 0.15 and
+			body_sprite.position.y < rest_position.y - 2.0,
+			[body_sprite.position, rest_position, art.body_heave])
+		check("car_body_visibly_rolls_when_one_side_hits_curb",
+			absf(float(art.body_roll)) > 0.23 and
+			absf(body_sprite.rotation - rest_rotation) > 0.005,
+			[art.body_roll, body_sprite.rotation, rest_rotation])
+		check("wheel_rig_does_not_inherit_chassis_sprite_bounce",
+			rig.position.is_equal_approx(Vector2.ZERO) and
+			body_sprite.position.distance_to(rest_position) > 2.0,
+			[rig.position, body_sprite.position])
 		var raised_index := 2 if left > right else 3
 		var raised_wheel: Node2D = rig.get_node(
 			"RearLeft" if raised_index == 2 else "RearRight")
@@ -120,6 +141,12 @@ func run() -> void:
 		check("exiting_curb_restores_four_wheel_contact",
 			float(art.curb_heave) < 0.025 and \
 			absf(float(art.curb_roll)) < 0.035,art.curb_heave)
+		check("car_body_spring_settles_after_leaving_curb",
+			absf(float(art.body_heave)) < 0.025 and
+			absf(float(art.body_roll)) < 0.045 and
+			body_sprite.position.distance_to(rest_position) < 0.75 and
+			absf(body_sprite.rotation - rest_rotation) < 0.005,
+			[art.body_heave, art.body_roll, body_sprite.position])
 	# Deterministic component isolation: front-left tyre bumps before
 	# the others, causing positive front pitch and left roll.
 	art._step_suspension(1.0/60.0,PackedFloat32Array([1.0,0.0,0.0,0.0]),true)

@@ -12,14 +12,20 @@ const AppearanceProfile = preload("res://scripts/vehicle/vehicle_appearance_prof
 @export_range(8.0, 42.0, 0.5) var front_axle_distance := 27.0
 @export_range(8.0, 42.0, 0.5) var rear_axle_distance := 27.0
 @export_range(10.0, 45.0, 0.5) var half_track_width := 21.0
-@export var tire_size := Vector2(7.4, 21.0)
+@export var tire_size := Vector2(6.0, 16.5)
 # Narrow only the rendered tread, and move both wheel rows toward the body.
 # These are visual measurements: vehicle grip, steering and collision remain untouched.
-@export_range(0.50, 1.0, 0.01) var visual_tire_width_scale := 0.74
+@export_range(0.40, 1.0, 0.01) var visual_tire_width_scale := 0.60
+@export_range(0.50, 1.0, 0.01) var visual_tire_length_scale := 0.78
 @export_range(0.65, 1.0, 0.01) var visual_track_scale := 0.88
 @export_range(0.5, 2.0, 0.05) var visual_steer_multiplier := 1.35
 @export_range(10.0, 45.0, 1.0) var max_visual_steer_degrees := 38.0
 @export_range(5.0, 40.0, 1.0) var steer_animation_speed := 20.0
+# Old profile gain (1.35x) over-rotated tires, especially at full lock.
+# These final safety multipliers apply even to pre-existing per-car profiles.
+const VISUAL_STEER_GAIN := 0.76
+const VISUAL_STEER_LIMIT_DEGREES := 27.0
+const VISUAL_STEER_RESPONSE := 0.80
 
 var vehicle: VehicleController2D
 var front_left: Node2D
@@ -63,6 +69,11 @@ func apply_appearance(profile: AppearanceProfile) -> void:
 	if not _fitted:
 		visible_bounds = Rect2()
 	_sync_wheels()
+	# The car body has an independent spring and must recapture the rest
+	# pose whenever a different model's sprite rotation/size is applied.
+	var art: Node2D = get_parent() as Node2D
+	if is_instance_valid(art) and art.has_method("sync_body_rest_pose"):
+		art.sync_body_rest_pose()
 
 
 func _apply_profile_layout(bounds: Rect2, profile: AppearanceProfile) -> void:
@@ -74,7 +85,8 @@ func _apply_profile_layout(bounds: Rect2, profile: AppearanceProfile) -> void:
 	var max_length := maxf(profile.minimum_tire_px.y, profile.maximum_tire_px.y)
 	tire_size = Vector2(
 		clampf(width * profile.tire_width_ratio, min_width, max_width) * visual_tire_width_scale,
-		clampf(length * profile.tire_length_ratio, min_length, max_length))
+		clampf(length * profile.tire_length_ratio, min_length, max_length) *
+			visual_tire_length_scale)
 	_anchors.assign([
 		_anchor(bounds, profile.front_left_uv),
 		_anchor(bounds, profile.front_right_uv),
@@ -97,7 +109,8 @@ func _fit_to_bounds(bounds: Rect2) -> bool:
 		return false
 	_center = bounds.get_center()
 	tire_size = Vector2(clampf(extent.x * 0.21, 8.0, 15.0) * visual_tire_width_scale,
-		clampf(extent.y * 0.235, 16.0, 26.0))
+		clampf(extent.y * 0.235, 16.0, 26.0) *
+			visual_tire_length_scale)
 	half_track_width = extent.x * 0.5 - tire_size.x * 0.19
 	front_axle_distance = extent.y * 0.245
 	rear_axle_distance = extent.y * 0.255
@@ -161,6 +174,7 @@ func _sync_wheels() -> void:
 		wheels[i].position = points[i]
 		wheels[i].set("tire_size", tire_size)
 		wheels[i].rotation = 0.0
+		wheels[i].scale = Vector2.ONE
 		wheels[i].queue_redraw()
 
 
@@ -200,9 +214,11 @@ func _process(delta: float) -> void:
 		return
 	# The physical steering angle already includes speed limits, reversing,
 	# self-centering and slip. Visual gain only makes it visible at game zoom.
-	var target_angle := clampf(vehicle.steering * visual_steer_multiplier,
-		-deg_to_rad(max_visual_steer_degrees), deg_to_rad(max_visual_steer_degrees))
-	var ease := 1.0 - exp(-steer_animation_speed * dt)
+	var steering_limit := deg_to_rad(minf(max_visual_steer_degrees,
+		VISUAL_STEER_LIMIT_DEGREES))
+	var target_angle := clampf(vehicle.steering * visual_steer_multiplier *
+			VISUAL_STEER_GAIN, -steering_limit, steering_limit)
+	var ease := 1.0 - exp(-steer_animation_speed * VISUAL_STEER_RESPONSE * dt)
 	front_left.rotation = lerp_angle(front_left.rotation, target_angle, ease)
 	front_right.rotation = lerp_angle(front_right.rotation, target_angle, ease)
 	rear_left.rotation = 0.0

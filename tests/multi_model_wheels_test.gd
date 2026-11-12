@@ -82,7 +82,10 @@ func run() -> void:
 			compact.rear_right_uv, rig.visual_track_scale)) < 0.01, rr.position)
 	check("four_wheels_reused_on_swap", rig.get_child_count() == 4)
 	check("small_car_tires_scale_with_silhouette",
-		compact_width > 6.5 and compact_width < 9.0, compact_width)
+		compact_width > 5.0 and compact_width < 7.4, compact_width)
+	check("small_car_tires_are_shorter_than_unscaled_profile",
+		rig.tire_size.y < compact_bounds.size.y * compact.tire_length_ratio and
+		rig.tire_size.y >= 10.0, rig.tire_size)
 	var front_left_before: Vector2 = fl.position
 	rig.apply_appearance(compact)
 	check("reapplying_profile_does_not_double_inset",
@@ -116,6 +119,13 @@ func run() -> void:
 	check("updated_front_anchor_exact", fl.position.distance_to(
 		inset_point(suv_bounds, suv.front_left_uv, rig.visual_track_scale)) < 0.01,
 		fl.position)
+	var sprung_art: Node2D = car.get_node("Art")
+	var rest_offset: Vector2 = sprung_art.get("_sprite_rest_position")
+	var rest_size: Vector2 = sprung_art.get("_sprite_rest_scale")
+	check("swapping_cars_recaptures_artwork_rest_pose",
+		rest_offset.is_equal_approx(body.position) and
+		rest_size.is_equal_approx(body.scale),
+		[rest_offset, rest_size])
 	check("no_duplicate_wheels_after_runtime_swap", rig.get_child_count() == 4)
 	check("car_appearance_does_not_change_physics",
 		car.config == original_config and car.get_node("CollisionShape2D").shape == original_collision)
@@ -124,7 +134,9 @@ func run() -> void:
 	for i in 15:
 		rig._process(1.0 / 60.0)
 	check("steering_animates_after_model_swap",
-		fl.rotation > deg_to_rad(9) and is_equal_approx(fl.rotation, fr.rotation),
+		fl.rotation > deg_to_rad(9) and
+		fl.rotation < deg_to_rad(18) and
+		is_equal_approx(fl.rotation, fr.rotation),
 		rad_to_deg(fl.rotation))
 	check("rear_wheels_still_straight", is_zero_approx(rl.rotation) and is_zero_approx(rr.rotation))
 	car.reset_vehicle()
