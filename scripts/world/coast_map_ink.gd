@@ -163,6 +163,7 @@ func _draw() -> void:
 	_draw_map_labels()
 
 func _draw_map_labels() -> void:
+	var overview := not miniature and ppm < .35
 	# Region names reserve space before street/landmark labels.
 	if not miniature:
 		for district in model.data.districts:
