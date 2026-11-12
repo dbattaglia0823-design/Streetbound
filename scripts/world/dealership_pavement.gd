@@ -33,25 +33,34 @@ func _draw() -> void:
 	var join_end: float = back + 4.0 * PPM
 	var lot := Rect2(Vector2(-half_width, back),
 		Vector2(half_width * 2.0, front - back))
-	var throat := Rect2(Vector2(-throat_half_width, join_start),
-		Vector2(throat_half_width * 2.0, join_end - join_start))
+	# Flared connection replaces the old rectangle-on-road seam. The road
+	# remains authoritative because this geometry sits UNDER its roadbed.
+	var throat_inner_half: float = throat_half_width + 1.5 * PPM
+	var throat_poly := PackedVector2Array([
+		Vector2(-throat_half_width, join_start),
+		Vector2(throat_half_width, join_start),
+		Vector2(throat_inner_half, join_end),
+		Vector2(-throat_inner_half, join_end)
+	])
 	# Existing asphalt shader adds continuous, world-aligned aggregate.
 	draw_rect(lot.grow(shoulder), CURB)
 	draw_rect(lot, ROAD_ASPHALT)
-	# Draw the mouth after the curb to leave a true interruption in its
-	# road-facing edge instead of a curb across the entrance.
-	draw_rect(throat, ROAD_ASPHALT)
+	# Open a genuine curb break. The tapered opening widens as it reaches
+	# the parking aisle; no flat road-spanning rectangle can mask lane paint.
+	draw_colored_polygon(throat_poly, ROAD_ASPHALT)
 	# Recessed perimeter kerbs (only sides and the far/back edge).
 	var left: float = -half_width + shoulder * 0.55
 	var right: float = half_width - shoulder * 0.55
 	draw_line(Vector2(left, back), Vector2(left, front), Color("dfded2"), 4.0, true)
 	draw_line(Vector2(right, back), Vector2(right, front), Color("dfded2"), 4.0, true)
 	draw_line(Vector2(left, front), Vector2(right, front), Color("dfded2"), 4.0, true)
-	# Road-facing curb returns stop at the throat; traffic can enter freely.
+	# Road-facing curb returns stop at the flared opening, not across it.
 	var curb_y: float = back - shoulder * 0.4
+	var curb_mouth: float = lerpf(throat_half_width, throat_inner_half,
+		clampf((curb_y - join_start) / (join_end - join_start), 0.0, 1.0))
 	for side in [-1.0, 1.0]:
 		var sign: float = float(side)
-		draw_line(Vector2(sign * throat_half_width, curb_y),
+		draw_line(Vector2(sign * curb_mouth, curb_y),
 			Vector2(sign * (half_width + shoulder), curb_y),
 			Color("d9d7ca"), 5.0, true)
 	# Three showroom parking bays per side, leaving a wide two-way aisle.
