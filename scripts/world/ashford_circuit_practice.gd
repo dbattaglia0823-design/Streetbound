@@ -32,10 +32,12 @@ func _ready() -> void:
 		return
 	var full_path := PackedVector2Array()
 	var first_path := PackedVector2Array()
+	var track_width_m := 14.0
 	# The four track road pieces are baked in connected lap order.
 	for road in world.data.roads:
 		if str(road.name) != ROAD_NAME:
 			continue
+		track_width_m = float(road.width)
 		var path := PackedVector2Array()
 		for raw in road.points:
 			path.append(Vector2(float(raw[0]), float(raw[1])))
@@ -68,8 +70,8 @@ func _ready() -> void:
 		ordered.append(full_path[i])
 	navigation = NavigationScript.new()
 	# Track centerline comes from the actual authored road. Move within the
-	# usable 14m pavement for a consistent outside-apex-outside driving line.
-	navigation.call("setup", RacingLine.circuit_line(ordered, 14.0, world), true)
+	# usable baked track pavement for a consistent outside-apex-outside driving line.
+	navigation.call("setup", RacingLine.circuit_line(ordered, track_width_m, world), true)
 	if float(navigation.get("length_m")) < 1000.0:
 		push_warning("Ashford circuit lap is too short")
 		return
