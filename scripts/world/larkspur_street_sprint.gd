@@ -195,7 +195,8 @@ func _finish_race() -> void:
 	if is_instance_valid(opponent_driver):
 		opponent_driver.call("stop")
 	if is_instance_valid(traffic):
-		traffic.call("set_street_race_route", null, Array[int](), false)
+		var no_edges: Array[int] = []
+		traffic.call("set_street_race_route", null, no_edges, false)
 	if is_instance_valid(player):
 		player.remove_from_group("race_participant")
 
