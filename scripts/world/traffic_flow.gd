@@ -313,11 +313,17 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 			if at.is_empty():
 				break
 			var direction: Vector2 = at.tangent
-			var lateral := absf((other_node.global_position -
-				Vector2(at.position)).cross(direction))
+			var separation: Vector2 = other_node.global_position - Vector2(at.position)
+			var lateral := absf(separation.cross(direction))
+			var longitudinal := absf(separation.dot(direction))
+			# A straight lane's perpendicular line is infinite. Without the
+			# along-path check, a car 60m ahead looks "2m ahead" at the first
+			# sample and every traffic car brakes for phantom bumper proximity.
+			var local_distance := separation.length_squared()
 			if lateral < (car_width + float(other.width_px)) * 0.5 + PPM * 0.50 and \
-					lateral < closest_path:
-				closest_path = lateral
+					longitudinal < PATH_SCAN_STEP_PX * 0.75 + PPM * 0.65 and \
+					local_distance < closest_path:
+				closest_path = local_distance
 				closest_ahead = d
 				tangent = direction
 			d += PATH_SCAN_STEP_PX
