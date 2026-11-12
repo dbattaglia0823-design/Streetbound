@@ -88,6 +88,23 @@ func run() -> void:
 		downtown_count > 0, downtown_count)
 	check("atlas_does_not_duplicate_world_physics",
 		physical_collision_count == 0)
+	# Independent dealership art is not baked inside CoastChunk. Both
+	# original facade and its real asphalt throat are mirrored as render-only
+	# nodes and must be free of the showroom's physical collider.
+	var dealer_sites: Array[Dictionary] = real.dealerships.sites
+	if not dealer_sites.is_empty():
+		var site: Dictionary = dealer_sites[0]
+		var p := Vector2(float(site.center_m[0]), float(site.center_m[1]))
+		atlas.focus_on(p, atlas.fit_scale * 18.0)
+		await process_frame
+		var pair: Array = atlas.ink.mirror.dealers.get(str(site.id), [])
+		check("live_map_includes_real_dealership_and_forecourt",
+			pair.size() == 2)
+		if pair.size() == 2:
+			check("mirrored_dealership_has_no_duplicate_collision",
+				bool(pair[1].map_render_only) and
+				pair[1].get_node_or_null("DealershipArtwork") != null and
+				pair[1].get_node_or_null("BuildingCollision") == null)
 	# A second view reconfiguration after panning reuses cached chunk
 	# illustrations, without writing PNGs or requiring a rebuild on disk.
 	var prior := atlas.ink.mirror.built_count
