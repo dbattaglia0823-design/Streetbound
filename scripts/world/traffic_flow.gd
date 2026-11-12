@@ -366,8 +366,16 @@ func _visible_to_any_player(position_px: Vector2) -> bool:
 		if viewport == null or seen_cameras.has(viewport.get_instance_id()):
 			continue
 		seen_cameras[viewport.get_instance_id()] = true
-		var pixel: Vector2 = viewport.get_canvas_transform() * position_px
-		if viewport.get_visible_rect().grow(VIEW_MARGIN_PX).has_point(pixel):
+		# Bound the camera's *world-space* footprint instead of relying on
+		# a canvas transform that may still be one frame behind physics or
+		# interpolation when a player moves or teleports the view. A bounding
+		# circle intentionally protects a little outside rotated view corners.
+		var zoom_x := maxf(absf(camera.zoom.x), 0.01)
+		var zoom_y := maxf(absf(camera.zoom.y), 0.01)
+		var size_px := viewport.get_visible_rect().size
+		var radius_px := Vector2(size_px.x / zoom_x, size_px.y / zoom_y).length() * 0.5
+		radius_px += VIEW_MARGIN_PX / minf(zoom_x, zoom_y) + camera.offset.length()
+		if camera.global_position.distance_to(position_px) <= radius_px:
 			return true
 	return false
 
