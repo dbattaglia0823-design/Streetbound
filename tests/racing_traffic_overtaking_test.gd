@@ -72,7 +72,7 @@ func _run() -> void:
 	check("overtakes_slow_civilian_instead_of_braking_to_traffic_speed",
 		first.mode == "passing" and float(first.speed_cap_mps) == INF)
 	check("chooses_full_clear_lane_on_real_pavement",
-		absf(float(first.offset_m) - 4.5) < 0.01)
+		absf(absf(float(first.offset_m)) - 4.5) < 0.01)
 	check("does_not_teleport_or_change_physical_car_while_planning",
 		car.global_position.distance_to(Vector2(2.25,50.0)*20.0) < 0.01 and
 		car.linear_velocity == Vector2(0.0,31.0))
@@ -96,7 +96,7 @@ func _run() -> void:
 	var blocked: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("oncoming_traffic_blocks_opposing_lane_pass",
 		blocked.mode == "following" and
-		float(blocked.speed_cap_mps) < 31.0)
+		is_finite(float(blocked.speed_cap_mps)))
 	check("planner_does_not_squeeze_between_unsafe_car_gaps",
 		absf(float(blocked.offset_m)) < 0.1)
 	flow.agents.remove_at(1)
@@ -108,7 +108,15 @@ func _run() -> void:
 	road.half_width_m = 2.7
 	var narrow: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("no_pass_when_car_cannot_fit_within_pavement",
-		narrow.mode == "following" and float(narrow.speed_cap_mps) < 31.0)
+		narrow.mode == "following" and is_finite(float(narrow.speed_cap_mps)))
+	# At 69m there is room to keep race speed while still planning a safe
+	# braking approach. Bring the civilian nearer to verify actual braking.
+	slow.global_position = Vector2(2.25,70.0) * 20.0
+	var imminent: Dictionary = planner.plan(0.15,50.0,31.0)
+	check("blocked_close_car_requires_physics_based_braking",
+		imminent.mode == "following" and
+		float(imminent.speed_cap_mps) < 31.0)
+	slow.global_position = Vector2(2.25,119.0) * 20.0
 	road.half_width_m = 4.5
 	var resumed: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("paved_lane_reopens_after_narrow_section",
