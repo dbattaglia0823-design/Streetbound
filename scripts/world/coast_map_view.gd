@@ -3,10 +3,12 @@ extends Control
 signal view_changed
 const Ink = preload("res://scripts/world/coast_map_ink.gd")
 const Scale = preload("res://scripts/world/coast_map_scale.gd")
+const RaceGuidance = preload("res://scripts/world/race_guidance.gd")
 var model: RefCounted
 var ink: Node2D
 var cursor: Polygon2D
 var scale_bar: Node2D
+var race_overlay: Node2D
 var center_m := Vector2.ZERO
 var pixels_per_m := 0.15
 var fit_scale := 0.15
@@ -24,6 +26,12 @@ func _ready() -> void:
 	ink.model=model
 	ink.miniature=miniature
 	add_child(ink)
+	race_overlay = Node2D.new()
+	race_overlay.name = "RaceMapRoute"
+	race_overlay.set_script(RaceGuidance)
+	race_overlay.set("on_map", true)
+	race_overlay.set("map_view", self)
+	add_child(race_overlay)
 	cursor=Polygon2D.new()
 	cursor.polygon=PackedVector2Array([Vector2(0,-9),Vector2(6,6),Vector2(0,3),Vector2(-6,6)])
 	cursor.color=Color("f6c36e")
