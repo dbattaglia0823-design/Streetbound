@@ -26,6 +26,34 @@ var _id_serial := 0
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
 var show_routes := false
+# Street races do not despawn, freeze or ghost regular cars. Prefer some
+# ambient spawns ahead on the active route while all traffic uses the same
+# collision, intersections and directional lane rules as free roam.
+var street_race_active := false
+var street_race_navigation: RefCounted
+var street_race_edges: Array[int] = []
+var _pre_race_enabled := true
+const RACE_TRAFFIC_CAP := 20
+
+
+func set_street_race_route(route: RefCounted, directed_edges: Array[int],
+		active: bool) -> void:
+	if active:
+		if not street_race_active:
+			_pre_race_enabled = enabled
+		street_race_active = true
+		street_race_navigation = route
+		street_race_edges = directed_edges.duplicate()
+		# The developer's F5 free-roam toggle cannot silently empty a race.
+		enabled = true
+	else:
+		street_race_active = false
+		street_race_navigation = null
+		street_race_edges.clear()
+		if not _pre_race_enabled:
+			enabled = false
+			clear_traffic()
+
 
 
 func _ready() -> void:
@@ -43,6 +71,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and key.keycode==KEY_F5:
+			if street_race_active:
+				# No disabling active traffic during a world street event.
+				get_viewport().set_input_as_handled()
+				return
 			enabled=not enabled
 			if not enabled:
 				clear_traffic()
@@ -67,8 +99,21 @@ func _spawn_one() -> bool:
 	var ids: Array[int] = network.nearby_edges(player.global_position,400.0)
 	if ids.is_empty():
 		return false
-	for attempt in 32:
-		var id: int = ids[random.randi_range(0,ids.size()-1)]
+	var preferred: Array[int] = []
+	if street_race_active:
+		for id in street_race_edges:
+			if ids.has(id):
+				var candidate: Dictionary = network.edges[id]
+				if not bool(candidate.connector) and float(candidate.length_px) >= PPM * 35.0:
+					preferred.append(id)
+	var player_station := -1.0
+	if street_race_active and street_race_navigation != null:
+		player_station = float(street_race_navigation.call(
+			"station_at", player.global_position / PPM))
+	for attempt in 42:
+		var on_race_route := not preferred.is_empty() and random.randf() < 0.82
+		var candidates: Array[int] = preferred if on_race_route else ids
+		var id: int = candidates[random.randi_range(0,candidates.size()-1)]
 		var edge: Dictionary = network.edges[id]
 		if bool(edge.connector) or float(edge.length_px)<PPM*35.0:
 			continue
@@ -80,6 +125,10 @@ func _spawn_one() -> bool:
 			continue
 		if str(world.surface_at(p).name) != "ASPHALT":
 			continue
+		if on_race_route and player_station >= 0.0:
+			var spawn_station := float(street_race_navigation.call("station_at", p / PPM))
+			if spawn_station < player_station + 60.0 or spawn_station > player_station + 370.0:
+				continue
 		var free := true
 		for other in agents:
 			if p.distance_to(other.node.global_position)<PPM*35.0:
@@ -503,7 +552,8 @@ func _physics_process(dt: float) -> void:
 				if int(active_junctions[j])==agent_id:active_junctions.erase(j)
 			agents.remove_at(i)
 	_spawn_clock+=step
-	if _spawn_clock>0.6 and agents.size()<maximum_vehicles:
+	var limit := maxi(maximum_vehicles, RACE_TRAFFIC_CAP) if street_race_active else maximum_vehicles
+	if _spawn_clock>0.6 and agents.size()<limit:
 		_spawn_clock=0.0
 		_spawn_one()
 	if show_routes and int(_simulation_clock*3.0)!=int((_simulation_clock-step)*3.0):
