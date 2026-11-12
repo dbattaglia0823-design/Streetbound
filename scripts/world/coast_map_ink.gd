@@ -175,7 +175,7 @@ func _draw_map_labels() -> void:
 			if cache_area.has_point(p): label(str(district.name),point(p)+Vector2(0,-52),19,Color("3f5f51"))
 	# Landmarks get distinct pictograms; names use collision-aware callouts.
 	for poi in model.data.pois:
-		var p: Vector2 = model.v(poi.position)
+		var p: Vector2 = model.poi_marker_position(poi)
 		if not cache_area.has_point(p): continue
 		var pos := point(p)
 		var category: String = model.poi_type(poi)

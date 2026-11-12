@@ -33,16 +33,22 @@ func _ready() -> void:
 	ink.model=model
 	ink.world=world
 	ink.miniature=miniature
+	# Map background is drawn by this Control at z=0. The actual streamed
+	# world mirror is absolute z=1, its road/scenery goes up to z=8, and
+	# atlas ink labels live at z=15 so they cannot be hidden behind roofs.
+	ink.z_index=15
 	add_child(ink)
 	race_overlay = Node2D.new()
 	race_overlay.name = "RaceMapRoute"
 	race_overlay.set_script(RaceGuidance)
 	race_overlay.set("on_map", true)
 	race_overlay.set("map_view", self)
+	race_overlay.z_index=18
 	add_child(race_overlay)
 	cursor=Polygon2D.new()
 	cursor.polygon=PackedVector2Array([Vector2(0,-9),Vector2(6,6),Vector2(0,3),Vector2(-6,6)])
 	cursor.color=Color("f6c36e")
+	cursor.z_index=20
 	var outline := Line2D.new()
 	outline.points=PackedVector2Array([Vector2(0,-10),Vector2(7,7),Vector2(0,4),Vector2(-7,7),Vector2(0,-10)])
 	outline.default_color=Color("233f40")
@@ -52,6 +58,7 @@ func _ready() -> void:
 	scale_bar=Node2D.new()
 	scale_bar.set_script(Scale)
 	scale_bar.dimensions=custom_minimum_size
+	scale_bar.z_index=21
 	add_child(scale_bar)
 	fit_scale=minf(custom_minimum_size.x/model.extent.x,custom_minimum_size.y/model.extent.y)*.95
 	if miniature:

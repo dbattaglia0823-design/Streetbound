@@ -39,6 +39,18 @@ func run() -> void:
 		atlas.ink.world == real)
 	check("minimap_uses_native_world_art", mini.ink.mirror_enabled and
 		live_mirror.available)
+	# On the original regression, mirror z=-20 put all colored road/roof
+	# artwork BEHIND the field atlas background (z=0). Labels still drew.
+	check("actual_map_world_is_above_panel_background_below_labels",
+		not live_mirror.z_as_relative and live_mirror.z_index > 0 and
+		live_mirror.z_index + 7 < mini.ink.z_index and
+		mini.ink.z_index < mini.cursor.z_index,
+		[live_mirror.z_index, mini.ink.z_index, mini.cursor.z_index])
+	check("atlas_layer_stack_renders_road_then_labels_then_cursor",
+		atlas.ink.z_index > atlas.ink.mirror.z_index + 7 and
+		atlas.cursor.z_index > atlas.ink.z_index and
+		atlas.race_overlay.z_index > atlas.ink.z_index and
+		atlas.scale_bar.z_index > atlas.cursor.z_index)
 	check("no_persistent_png_cache_required", not FileAccess.file_exists(
 		"user://streetbound-map-cache.png"))
 	var first := Mirror.region_cells(mini.player_m, mini.pixels_per_m,
@@ -51,6 +63,14 @@ func run() -> void:
 	check("real_world_chunks_drawn_in_mini",
 		live_mirror.chunks.size() > 0 and live_mirror.built_count > 0,
 		live_mirror.chunks.size())
+	var visible_roads := 0
+	var visible_props := 0
+	for chunk in live_mirror.chunks.values():
+		visible_roads += chunk.road_batches.size()
+		visible_props += chunk.prop_list.size()
+	check("mini_contains_real_road_and_building_content_not_only_labels",
+		visible_roads > 0 and visible_props > 0,
+		[visible_roads, visible_props])
 	var render_only := true
 	var same_sources := true
 	for chunk in live_mirror.chunks.values():
@@ -88,6 +108,26 @@ func run() -> void:
 		downtown_count > 0, downtown_count)
 	check("atlas_does_not_duplicate_world_physics",
 		physical_collision_count == 0)
+	# All fifteen archive landmarks use a 42m driveway-to-facility offset.
+	# Player start stays on actual drivable access while atlas pins sit on
+	# the real buildings, rather than looking like shifted architecture.
+	var anchored := 0
+	for poi in real.data.pois:
+		var actual: Vector2 = hud.model.poi_marker_position(poi)
+		var access: Vector2 = hud.model.v(poi.position)
+		if actual.distance_to(access) > 35.0 and \
+				actual.distance_to(access) < 49.0:
+			anchored += 1
+	check("landmark_map_pins_resolve_actual_building_footprints",
+		anchored >= 15, anchored)
+	var spawn_m: Vector2 = real.spawn_position() / 20.0
+	check("player_start_matches_real_access_road_not_facade",
+		spawn_m.distance_to(hud.model.v(real.data.spawn.position)) < 0.01
+		and spawn_m.distance_to(hud.model.poi_marker_position(
+			real.data.pois[0])) > 35.0, spawn_m)
+	check("map_vehicle_cursor_uses_same_metres_as_world",
+		mini.player_m.distance_to(scene.vehicle.global_position / 20.0) < 0.01,
+		[mini.player_m, scene.vehicle.global_position / 20.0])
 	# Independent dealership art is not baked inside CoastChunk. Both
 	# original facade and its real asphalt throat are mirrored as render-only
 	# nodes and must be free of the showroom's physical collider.
@@ -105,9 +145,24 @@ func run() -> void:
 				bool(pair[1].map_render_only) and
 				pair[1].get_node_or_null("DealershipArtwork") != null and
 				pair[1].get_node_or_null("BuildingCollision") == null)
+	# Player movement across streamed cells must update the actual art,
+	# instead of retaining an empty snapshot or leaving drawn roads behind.
+	var previously_built: int = live_mirror.built_count
+	scene.vehicle.global_position = Vector2(3200.0, 2900.0) * 20.0
+	scene.vehicle.reset_physics_interpolation()
+	for i in 30:
+		await process_frame
+	var active_roads := 0
+	for chunk in live_mirror.chunks.values():
+		active_roads += chunk.road_batches.size()
+	check("minimap_rebuilds_visible_road_chunks_after_driving",
+		live_mirror.available and
+		live_mirror.built_count > previously_built and active_roads > 0 and
+		mini.center_m.distance_to(scene.vehicle.global_position / 20.0) < 0.01,
+		[previously_built, live_mirror.built_count, active_roads])
 	# A second view reconfiguration after panning reuses cached chunk
 	# illustrations, without writing PNGs or requiring a rebuild on disk.
-	var prior := atlas.ink.mirror.built_count
+	var prior: int = int(atlas.ink.mirror.built_count)
 	atlas.ink.mirror.configure(atlas.center_m, atlas.pixels_per_m,
 		atlas.custom_minimum_size, hud.model.extent)
 	check("same_view_reuses_loaded_visual_chunks",
@@ -115,6 +170,15 @@ func run() -> void:
 	atlas.fit_region()
 	check("zooming_out_releases_high_detail_world_mirror",
 		not atlas.ink.mirror_enabled and atlas.ink.mirror.chunks.is_empty())
+	# The full atlas should cover the vehicle status panel at top center.
+	# Its ordinary minimap layer is restored when the atlas closes.
+	hud.large = true
+	hud._process(0.0)
+	check("full_atlas_does_not_hide_under_progression_panel",
+		hud.layer > 2, hud.layer)
+	hud.large = false
+	hud._process(0.0)
+	check("small_map_returns_to_normal_hud_layer", hud.layer == 2, hud.layer)
 	print("LIVE WORLD MAP MIRROR: ",
 		"PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

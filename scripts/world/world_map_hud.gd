@@ -72,6 +72,9 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 
 func _ready() -> void:
 	add_to_group("streetbound_world_map_hud")
+	# Bring the full atlas above normal driving/progression overlays so the
+	# level/status popover cannot cover roads, map controls or search results.
+	# The small minimap remains in the regular HUD drawing layer.
 	layer=2
 	model=Model.new(world.data)
 	mini=panel(Vector2(1100,24),Vector2(316,340))
@@ -113,7 +116,7 @@ func _ready() -> void:
 	for poi in world.data.pois:
 		var code: String = model.poi_type(poi)
 		var tag: String = {"garage":"G","workshop":"W","fuel":"F","race":"R","dealer":"D","marina":"M","view":"V"}.get(code,"•")
-		var entry := button(destinations,"[%s] %s"%[tag,poi.name],func():full_view.focus_on(model.v(poi.position),full_view.fit_scale*5))
+		var entry := button(destinations,"[%s] %s"%[tag,poi.name],func():full_view.focus_on(model.poi_marker_position(poi),full_view.fit_scale*5))
 		entry.custom_minimum_size=Vector2(216,31)
 		entry.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		entry.add_theme_font_size_override("font_size",12)
@@ -154,6 +157,7 @@ func _active_race_navigation() -> RefCounted:
 func _process(dt: float) -> void:
 	mini.visible=not driving_hud.tuning.visible and not large
 	full.visible=large and not driving_hud.tuning.visible
+	layer=10 if full.visible else 2
 	var current_course := _active_race_navigation()
 	for view in [mini_view,full_view]:
 		view.player_m=vehicle.global_position/20

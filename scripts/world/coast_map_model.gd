@@ -5,6 +5,11 @@ var roads: Array[Dictionary] = []
 var terrain: Array[Dictionary] = []
 var chunk_terrain: Dictionary = {}
 var extent := Vector2.ZERO
+# POI route destinations are the paved access/browse points. Their map icons,
+# however, must sit on the actual rendered storefront or landmark.
+var _facility_markers: Dictionary = {}
+const FACILITY_KINDS := ["garage", "workshop", "showroom", "fuel",
+	"house", "cafe", "lodge", "warehouse"]
 
 func _init(source: Dictionary) -> void:
 	data = source
@@ -15,6 +20,46 @@ func _init(source: Dictionary) -> void:
 	for t in data.terrain:
 		var path := path_of(t.points)
 		terrain.append({"kind":str(t.kind),"color":Color(t.color),"path":path,"bounds":bounds_of(path)})
+	_index_facility_markers()
+
+## The world archive authors each roadside destination as a parking-lot
+## access point, with one featured 24x30m building 42m away. Previously its
+## map icon was drawn in the parking aisle (and on top of the player's spawn),
+## giving the impression that building positions had shifted after widening
+## roads. Keep routing/access coordinates intact; draw the icon on the
+## actual solid building footprint from current world data.
+func _index_facility_markers() -> void:
+	var featured: Array[Dictionary] = []
+	for prop in data.props:
+		if not bool(prop.get("solid", false)) or \
+				str(prop.get("kind", "")) not in FACILITY_KINDS:
+			continue
+		var dimensions: Array = prop.get("size", [])
+		if dimensions.size() < 2:
+			continue
+		# Authored featured facilities are 24x30m before the 10% road
+		# adaptation (the latter can shrink their footprints by 6%).
+		if float(dimensions[0]) < 20.0 or float(dimensions[0]) > 26.0 or \
+				float(dimensions[1]) < 26.0 or float(dimensions[1]) > 32.0:
+			continue
+		featured.append(prop)
+	for poi in data.pois:
+		var access := v(poi.position)
+		var best := 1.5
+		var chosen := Vector2.ZERO
+		for prop in featured:
+			var facility := v(prop.p)
+			var deviation := absf(access.distance_to(facility) - 42.0)
+			if deviation < best:
+				best = deviation
+				chosen = facility
+		if best < 1.5:
+			_facility_markers[str(poi.name)] = chosen
+
+
+func poi_marker_position(poi: Dictionary) -> Vector2:
+	return _facility_markers.get(str(poi.name), v(poi.position))
+
 
 func v(raw: Array) -> Vector2:
 	return Vector2(float(raw[0]),float(raw[1]))

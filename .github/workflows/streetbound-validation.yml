@@ -206,6 +206,10 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/runtime_test.gd
       - name: Verify camera speed feedback and bounded visual effects
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/speed_feedback_test.gd
+      - name: Verify real-world map and minimap shared art, automatic startup rebuild and bounded mirror chunks
+        run: timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/live_world_map_mirror_test.gd
+      - name: Verify detailed atlas navigation and local minimap caching
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_detail_test.gd
       - name: Verify comfort camera damping, dead zone and turn-rate bounds
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/camera_comfort_test.gd
       - name: Verify optimized chunk activation, road detail and imported texture budgets
@@ -277,10 +281,6 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/open_world_test.gd
       - name: Drive the real vehicle from the starting garage to the coast
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/open_world_drive.gd
-      - name: Verify real-world map and minimap shared art, automatic startup rebuild and bounded mirror chunks
-        run: timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/live_world_map_mirror_test.gd
-      - name: Verify detailed atlas navigation and local minimap caching
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_detail_test.gd
       - name: Drive linked mountain switchbacks to Pinecrest
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/mountain_drive.gd
       - name: Verify junction coverage, stop priority and lane-paint clipping
