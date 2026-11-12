@@ -3,6 +3,7 @@ extends Node2D
 ## Shops are placed only on collision-clear land with a road-facing driveway;
 ## no map rebake, detached island, road rewrite or fake teleport is required.
 const Building = preload("res://scripts/world/dealership_building.gd")
+const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const PPM := 20.0
 const LOCATION_PATH := "res://data/dealerships.json"
 const STOP_SPEED_MPS := 1.7
@@ -12,6 +13,7 @@ var world: MorrowCoast
 var player: VehicleController2D
 var sites: Array[Dictionary] = []
 var shop_nodes: Array[Node2D] = []
+var pavement_nodes: Array[Node2D] = []
 
 
 static func v(raw: Array) -> Vector2:
@@ -31,6 +33,12 @@ func _ready() -> void:
 			push_error("Cannot place dealership by " + str(spec.road_name))
 			continue
 		sites.append(site)
+		# This node is below the roadbed/markings, unlike the storefront.
+		var pavement := Node2D.new()
+		pavement.set_script(Pavement)
+		pavement.site = site
+		add_child(pavement)
+		pavement_nodes.append(pavement)
 		var node := Node2D.new()
 		node.set_script(Building)
 		node.site = site
@@ -109,7 +117,12 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 				site["road_m"] = [road_point.x,road_point.y]
 				site["center_m"] = [center.x,center.y]
 				site["parking_m"] = [parking.x,parking.y]
+				# In the local frame -Y is the side nearest the road.
 				site["rotation"] = outward.angle() - PI * 0.5
+				# Most source PNGs have the entrance on their bottom (+Y).
+				# Rotate artwork independently from the physical parking frame.
+				site["art_rotation"] = deg_to_rad(float(spec.get("art_rotation_degrees", 180.0)))
+				site["pavement_seed"] = 7301 + str(spec.id).hash() % 20000
 				site["setback_m"] = float(setback)
 				site["site_search_attempts"] = attempts
 				return site

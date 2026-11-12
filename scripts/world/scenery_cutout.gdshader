@@ -23,7 +23,9 @@ void vertex() {
 void fragment() {
 	COLOR.a = smoothstep(0.12,0.90,COLOR.a);
 	vec3 asphalt = vec3(70.0,79.0,82.0)/255.0; // #464f52
-	float paved = 1.0 - smoothstep(0.012,0.035,distance(COLOR.rgb,asphalt));
+	vec3 roadway = vec3(88.0,101.0,108.0)/255.0; // #58656c
+	float paved = max(1.0 - smoothstep(0.012,0.035,distance(COLOR.rgb,asphalt)),
+		1.0 - smoothstep(0.012,0.035,distance(COLOR.rgb,roadway)));
 	if (paved > 0.01) {
 		float broad = soft_noise(world_px * 0.0033);
 		float medium = soft_noise(world_px * 0.027);

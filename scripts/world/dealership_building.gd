@@ -31,6 +31,10 @@ func _build_shop() -> void:
 	var facade := Sprite2D.new()
 	facade.name = "DealershipArtwork"
 	facade.texture = texture
+	# Asset sprites are illustrated with their storefront toward image +Y;
+	# turn the art to face local -Y (the nearest driving road) without
+	# turning the building collider, parking bays or road approach.
+	facade.rotation = float(site.get("art_rotation", PI))
 	facade.region_enabled = true
 	facade.region_rect = Rect2(rect)
 	facade.scale = Vector2(BUILDING_M.x * PPM / rect.size.x,
@@ -53,27 +57,8 @@ func _build_shop() -> void:
 func _draw() -> void:
 	if site.is_empty():
 		return
-	var d := float(site.get("setback_m", 36.0)) * PPM
-	var apron := Rect2(Vector2(-PPM * 16.0, -d + PPM * 4.0),
-		Vector2(PPM * 32.0, d - PPM * 11.0))
-	var bounds := StyleBoxFlat.new()
-	bounds.bg_color = Color("a8aba3")
-	bounds.set_corner_radius_all(22)
-	draw_style_box(bounds, apron.grow(PPM * 0.5))
-	draw_rect(apron, Color("394549"), true)
-	# Defined access throat to road, without a raised curb across the drive.
-	var entrance := Rect2(Vector2(-PPM * 7.5, -d - PPM * 2.0),
-		Vector2(PPM * 15.0, PPM * 8.0))
-	draw_rect(entrance, Color("394549"), true)
-	# The marked bays are a real, unobstructed place to drive up and park.
-	var parking_y := -PPM * 17.0
-	draw_rect(Rect2(Vector2(-PPM * 6.0, parking_y - PPM * 6.5),
-		Vector2(PPM * 12.0, PPM * 13.0)), Color("c8b58b"), false, 4.0, true)
-	for side in [-1.0, 1.0]:
-		var x: float = float(side) * PPM * 12.0
-		draw_line(Vector2(x, -d + PPM * 7.0),
-			Vector2(x, -PPM * 10.5), Color("d5d6c5"), 3.0, true)
-	# Storefront signage is near the sidewalk, visible at driving zoom.
+	# Sign stays with the high-level building art, not with the low pavement.
+	# The solid building itself is still an independent collision body.
 	var sign_at := Vector2(-PPM * 12.5, -PPM * 10.5)
 	draw_rect(Rect2(sign_at - Vector2(14.0, 44.0),
 		Vector2(PPM * 25.0, 70.0)), Color("183038"), true)

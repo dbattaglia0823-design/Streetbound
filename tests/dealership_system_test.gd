@@ -62,6 +62,7 @@ func run() -> void:
 		return
 	check("all_dealer_sites_resolve_to_real_roadside_land",
 		manager.sites.size() == 10,manager.sites.size())
+	check("one_pavement_layer_per_dealer", manager.pavement_nodes.size() == manager.sites.size())
 	var centres: Array[Vector2] = []
 	var well_spaced := true
 	var sites_in_expected_regions := true
@@ -71,6 +72,20 @@ func run() -> void:
 		var shop: Dictionary = site
 		var position := site_position(shop,"center_m")
 		var parking := site_position(shop)
+		var road_point := site_position(shop, "road_m")
+		var roadward := (road_point - position).normalized()
+		var local_front := Vector2.UP.rotated(float(shop.rotation))
+		check("storefront_faces_road_" + str(shop.id),
+			local_front.dot(roadward) > 0.98 and
+			is_equal_approx(float(shop.art_rotation), PI))
+		var pavement_found := manager.pavement_nodes.any(func(p: Node2D) -> bool:
+			return str(p.site.id) == str(shop.id) and p.z_index == 1 and \
+				p.material == preload("res://scripts/world/scenery_cutout.tres"))
+		check("lot_paints_below_road_" + str(shop.id), pavement_found)
+		var storefront_found := manager.shop_nodes.any(func(n: Node2D) -> bool:
+			return str(n.site.id) == str(shop.id) and n.z_index == 6 and \
+				(n.get_node("DealershipArtwork") as Sprite2D).rotation == PI)
+		check("art_faces_entrance_" + str(shop.id), storefront_found)
 		for other in centres:
 			if other.distance_to(position) < 92.0:
 				well_spaced = false
