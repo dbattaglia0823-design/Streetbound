@@ -6,6 +6,7 @@ const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Navigation = preload("res://scripts/world/race_navigation.gd")
 const Planner = preload("res://scripts/world/race_traffic_overtaking.gd")
 const Driver = preload("res://scripts/world/race_ai_driver.gd")
+const PPM := 20.0
 var failures: Array[String] = []
 
 func _initialize() -> void:
