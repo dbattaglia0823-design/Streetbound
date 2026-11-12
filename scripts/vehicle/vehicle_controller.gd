@@ -235,8 +235,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var inertia := mass * config.wheelbase_m * config.wheelbase_m * 0.3
 	var dynamic_yaw := yaw_rate + (front_force * front_arm - rear_force * rear_arm) / inertia * dt
 	# Preserve angular inertia when the rear axle loses lateral grip.
-	var breakaway := clampf(maxf(rear_sliding,
-		wheel_spin * rear_drive_share,
+	var breakaway := clampf(maxf(maxf(rear_sliding,
+		wheel_spin * rear_drive_share),
 		smoothstep(deg_to_rad(10.0), deg_to_rad(32.0), absf(slip_angle))), 0.0, 1.0)
 	dynamic_yaw *= exp(-config.yaw_damping * lerpf(1.0, 0.24, breakaway) * dt)
 	var kinematic_yaw := new_long / config.wheelbase_m * tan(steering)
