@@ -184,6 +184,8 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/drive_in_garage_test.gd
       - name: Verify 88 playable vehicles, selected dimensions, wheel rig and garage grid
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/player_vehicle_roster_test.gd
+      - name: Audit 88 vehicle alpha silhouettes, wheel positions and artwork transparency
+        run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_art_geometry_audit_test.gd
       - name: Verify fast automatic gear shifts and immediate safe reverse/Drive transition
         run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_shift_response_test.gd
       - name: Verify preserved Atlas Coast map and intersections
