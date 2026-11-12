@@ -44,6 +44,7 @@ func _ready() -> void:
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()
 	vehicle.surface_provider = ground
 	add_child(vehicle)
+	vehicle.add_to_group("player_vehicle")
 	ground.vehicle = vehicle
 	if not proving_ground:
 		# Traffic uses the same baked Morrow road curves/intersections as roads
@@ -105,6 +106,7 @@ func _ready() -> void:
 	camera.set_script(CameraScript)
 	camera.target = vehicle
 	add_child(camera)
+	camera.add_to_group("player_camera")
 	var speed_layer := CanvasLayer.new()
 	speed_layer.name = "SpeedFXLayer"
 	speed_layer.layer = 1
