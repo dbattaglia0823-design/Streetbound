@@ -348,7 +348,7 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var distance_sq := Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)
 		var road_radius := float(r.width) * 0.5
 		if distance_sq <= road_radius * road_radius:
-			return {"name":str(r.surface),"grip":0.55 if r.surface=="GRAVEL" else 1.0}
+			return {"name":str(r.surface),"grip":0.75 if r.surface=="GRAVEL" else 1.0}
 		# Sidewalks are actual hard ground beside BOTH sides of urban roads,
 		# rather than a pretty strip incorrectly treated as slippery grass.
 		# The baked 12m road-index margin already covers this extra 3.3m.
@@ -358,8 +358,8 @@ func surface_at(position_px: Vector2) -> Dictionary:
 				return {"name":"ASPHALT","grip":0.93}
 	var chunk_key := "%d,%d" % [floori(point.x/chunk_m),floori(point.y/chunk_m)]
 	if _sand_polygons.has(chunk_key) and Geometry2D.is_point_in_polygon(point,_sand_polygons[chunk_key]):
-		return {"name":"SAND","grip":0.32}
-	return {"name":"GRASS","grip":0.38}
+		return {"name":"SAND","grip":0.60}
+	return {"name":"GRASS","grip":0.68}
 
 ## Lightweight wheel-contact elevation for visuals. The paved sidewalk is
 ## physically traversable and 0.93-grip; a 12 cm curb is represented only by
