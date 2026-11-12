@@ -87,18 +87,24 @@ func _draw() -> void:
 		draw_line(Vector2(sign * curb_mouth, curb_y),
 			Vector2(sign * (half_width + shoulder), curb_y),
 			Color("d9d7ca"), 5.0, true)
-	# Three showroom parking bays per side, leaving a wide two-way aisle.
+	# Parking marks scale with actual lot setback (34/42/52m): keep
+	# individual stalls ~4.5-5.0m long rather than stretching three huge
+	# spaces across larger forecourts. A clear 13m two-way aisle remains.
+	var bay_start: float = back + PPM * 6.0
+	var bay_end: float = front - PPM * 2.0
+	var stall_count: int = clampi(roundi((bay_end - bay_start) /
+		(PPM * 4.8)), 2, 8)
 	for side in [-1.0, 1.0]:
 		var bay_side: float = float(side)
-		for i in 4:
-			var y: float = lerpf(back + PPM * 7.0, front - PPM * 2.0, float(i) / 3.0)
-			var inner_x: float = bay_side * half_width * 0.42
-			var outer_x: float = bay_side * half_width * 0.90
+		var inner_x: float = bay_side * half_width * 0.42
+		var outer_x: float = bay_side * half_width * 0.90
+		for i in stall_count + 1:
+			var y: float = lerpf(bay_start, bay_end,
+				float(i) / float(stall_count))
 			draw_line(Vector2(inner_x, y), Vector2(outer_x, y),
 				Color("d9d7c9"), 3.0, true)
-		draw_line(Vector2(bay_side * half_width * .42, back + PPM * 7.0),
-			Vector2(bay_side * half_width * .42, front - PPM * 2.0),
-			Color("cbcbbd"), 3.0, true)
+		draw_line(Vector2(inner_x, bay_start),
+			Vector2(inner_x, bay_end), Color("cbcbbd"), 3.0, true)
 	# Faded tire paths and longitudinal drainage lanes reuse the road palette.
 	for side in [-1.0, 1.0]:
 		var track_x: float = float(side) * PPM * 2.4
