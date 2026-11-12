@@ -7,6 +7,7 @@ func _initialize() -> void:
 		"res://scripts/world/race_ai_driver.gd",
 		"res://scripts/world/traffic_flow.gd",
 		"res://scripts/world/larkspur_street_sprint.gd",
+		"res://tests/racing_traffic_overtaking_test.gd",
 		"res://scripts/main.gd"
 	]:
 		print("RACING LOAD PROBE ", path, " = ", load(path) != null)
