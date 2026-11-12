@@ -66,7 +66,9 @@ func _run() -> void:
 	flow.network = _graph(origin)
 	var follower := _agent(actor, 7, PPM*14.0)
 	var lead_agent := _agent(lead, 8, 0.0)
-	flow.agents = [follower, lead_agent]
+	flow.agents.clear()
+	flow.agents.append(follower)
+	flow.agents.append(lead_agent)
 	await physics_frame
 	check("curved_route_not_visible_to_straight_forward_sensor",
 		is_equal_approx(flow._car_following(0,PPM*14.0),PPM*14.0))
