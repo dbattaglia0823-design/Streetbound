@@ -3,6 +3,7 @@ extends SceneTree
 ## source of truth; only textures on a tightly bounded cluster may change.
 const Pilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
+const Shadows = preload("res://scripts/world/coast_shadows.gd")
 const PPM := 20.0
 var failures: Array[String] = []
 
@@ -97,14 +98,20 @@ func run() -> void:
 			world._build_chunk(world.pending.pop_front())
 		var cell := Vector2i((position_px / (PPM * world.chunk_m)).floor())
 		var found := false
+		var shadowed := false
 		if world.chunks.has(cell):
 			var chunk: Node2D = world.chunks[cell]
 			for node in chunk.get_children():
-				if node.get_script() != Scenery:
+				if node.get_script() not in [Scenery, Shadows]:
 					continue
 				for prop in node.prop_list:
-					if prop.has("downtown_pilot_style"):
+					if not prop.has("downtown_pilot_style"):
+						continue
+					if node.get_script() == Scenery:
 						found = found or node.z_index == 6
+					elif node.get_script() == Shadows:
+						shadowed = shadowed or node.z_index == 5
 		check("decorated_buildings_render_in_existing_above_road_scenery_layer", found)
+		check("modern_roofs_keep_consistent_projected_shadows", shadowed)
 	print("DOWNTOWN PILOT BLOCK: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
