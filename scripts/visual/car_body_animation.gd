@@ -93,20 +93,29 @@ func _process(delta: float) -> void:
 	_last_speed = vehicle.longitudinal_speed
 	var corner_load := clampf(vehicle.yaw_rate*vehicle.longitudinal_speed/35.0,-1.0,1.0)
 	var slide_load := clampf(vehicle.lateral_speed/11.0,-1.0,1.0)
-	var target_sway := clampf(corner_load*0.8+slide_load*0.25,-1.0,1.0)
-	var target_pitch := clampf(acceleration/13.0,-1.0,1.0)
-	_sway = lerpf(_sway,target_sway,1.0-exp(-8.0*dt))
-	_pitch = lerpf(_pitch,target_pitch,1.0-exp(-7.0*dt))
+	# Readable body weight transfer from actual G-forces. A slide visibly
+	# leans the body without ever changing the collision shape or wheel hubs.
+	var target_sway := clampf(corner_load * 0.85 + slide_load * 0.38,
+		-1.0, 1.0)
+	var target_pitch := clampf(acceleration / 11.0, -1.0, 1.0)
+	_sway = lerpf(_sway, target_sway, 1.0 - exp(-7.0 * dt))
+	_pitch = lerpf(_pitch, target_pitch, 1.0 - exp(-6.0 * dt))
 	_impact = move_toward(_impact,0.0,dt*5.0)
-	var speed_mix := smoothstep(10.0,40.0,vehicle.linear_velocity.length())
-	var rumble := sin(_clock*31.0)*0.18*speed_mix
-	var jolt := sin(_clock*45.0)*_impact
+	var speed_mix := smoothstep(10.0, 50.0,
+		vehicle.linear_velocity.length())
+	var rumble := (sin(_clock * 29.0) * 0.23 +
+		sin(_clock * 41.0) * 0.13) * speed_mix
+	var jolt := sin(_clock * 45.0) * _impact
 	# Offset/scale communicate actual ride height while the left-right
 	# differential produces a subtle body roll toward the raised wheel.
 	# Add existing acceleration squat, cornering sway and crash rebound.
-	position = Vector2(-_sway*1.8-curb_heave*3.0-curb_roll*1.1+jolt*1.2,
-		_pitch*1.4+rumble+jolt*2.0-curb_heave*HEIGHT_LIFT_PX-
-		curb_pitch*1.3)
-	rotation = -_sway*0.015-curb_roll*0.018+jolt*0.010
-	scale = Vector2(1.0+curb_heave*0.009-_pitch*0.003,
-		1.0+curb_heave*0.009+_pitch*0.006+curb_pitch*0.007)
+	position = Vector2(-_sway * 2.8 - curb_heave * 3.0 -
+			curb_roll * 1.5 + jolt * 1.8,
+		_pitch * 2.6 + rumble + jolt * 2.6 -
+			curb_heave * HEIGHT_LIFT_PX - curb_pitch * 1.7)
+	rotation = -_sway * 0.024 - curb_roll * 0.018 + jolt * 0.012
+	# Slight squat under acceleration and nose-dive under braking.
+	# These are presentation-only: the car collider stays rigid.
+	scale = Vector2(1.0 + curb_heave * 0.009 - _pitch * 0.004,
+		1.0 + curb_heave * 0.009 + _pitch * 0.010 +
+			curb_pitch * 0.007)
