@@ -191,6 +191,26 @@ func _run() -> void:
 	check("race_stop_disables_AI_and_frees_player_group",
 		not bool(street.opponent_driver.get("active")) and
 		not player.is_in_group("race_participant"))
+	# An AI race opponent can also become physically immobilized. Preserve
+	# actual DNF timing and never delete that opponent while a human sees it.
+	street._clear_opponent()
+	street.state = "idle"
+	player.global_position = street.start_m * PPM
+	player.linear_velocity = Vector2.ZERO
+	player.velocity = Vector2.ZERO
+	check("new_race_can_start_after_completed_cleanup",street.start_race())
+	street._physics_process(3.2)
+	if is_instance_valid(street.opponent):
+		street.opponent.set_physics_process(false)
+		street.opponent.global_position = player.global_position + Vector2.RIGHT * PPM * 280.0
+		street._update_opponent(0.016)
+		street._update_opponent(19.0)
+		check("unseen_stuck_street_rival_is_released_as_DNF",
+			street.opponent_dnf and street.opponent == null and
+			street.opponent_driver == null)
+	else:
+		check("unseen_stuck_street_rival_is_released_as_DNF",false)
+	street._abort("RIVAL STUCK TEST COMPLETE")
 	print("RACING TRAFFIC OVERTAKING: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
