@@ -3,11 +3,31 @@ extends "res://scripts/world/ashford_drag_race.gd"
 ## anti-teleport checks, and race progression while introducing a physical rival.
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
+const NavigationScript = preload("res://scripts/world/race_navigation.gd")
+const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const RIVAL_LANE_OFFSET_M := 4.1
 var opponent: VehicleController2D
 var opponent_driver: Node
 var opponent_progress_m := 0.0
 var opponent_elapsed := -1.0
+var navigation: RefCounted
+var world_guidance: Node2D
+
+
+func _ready() -> void:
+	super._ready()
+	if not available:
+		return
+	navigation = NavigationScript.new()
+	navigation.setup(PackedVector2Array([
+		start_m, start_m + direction * QUARTER_MILE_M]), false)
+	world_guidance = Node2D.new()
+	world_guidance.name = "DragRacingLine"
+	world_guidance.set_script(GuidanceScript)
+	world_guidance.set("navigation", navigation)
+	world_guidance.set("player", player)
+	add_child(world_guidance)
+
 
 
 func can_stage() -> bool:
@@ -103,6 +123,8 @@ func _update_opponent_progress() -> void:
 
 
 func _physics_process(dt: float) -> void:
+	if is_instance_valid(world_guidance):
+		world_guidance.set_guidance(navigation, player, state in ["countdown", "running"])
 	var before := state
 	if state == "running":
 		_update_opponent_progress()
