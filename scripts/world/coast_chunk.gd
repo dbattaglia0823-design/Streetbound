@@ -14,6 +14,9 @@ var build_microseconds := 0
 ## Retained streaming cells keep prebuilt geometry but aren't submitted to
 ## the renderer or queried by physics until they enter the playable 3x3 ring.
 var stream_active := true
+## True only for the read-only map's duplicate render chunks. Never allocate
+## physics bodies in a map viewport: the real world already owns collisions.
+var map_render_only := false
 var collider_body: StaticBody2D
 var collision_shape_count := 0
 
@@ -157,7 +160,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	geometry_overlay.z_index = 45
 	geometry_overlay.visible = bool(world.debug_geometry_enabled)
 	add_child(geometry_overlay)
-	_build_collisions()
+	if not map_render_only:
+		_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 
 ## Called once when a cached chunk enters/exits the active play ring,
