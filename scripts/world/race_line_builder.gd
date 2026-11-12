@@ -181,6 +181,27 @@ static func circuit_line(center: PackedVector2Array, road_width_m: float,
 	return make_line(center, bounds, true, world)
 
 
+## Traffic's road graph can include the occasional connector whose cubic
+## spline clips a curb despite being a legal graph link. Do not use those links
+## as race waypoints; sample the ACTUAL physics pavement before route selection.
+static func _edge_on_pavement(world: Node, edge: Dictionary) -> bool:
+	if not is_instance_valid(world) or not world.has_method("surface_at"):
+		return false
+	var points: PackedVector2Array = edge.points
+	if points.size() < 2:
+		return false
+	for i in range(1, points.size()):
+		var a: Vector2 = points[i - 1]
+		var b: Vector2 = points[i]
+		var steps := maxi(1, ceili(a.distance_to(b) / (PPM * 2.5)))
+		for j in range(steps + 1):
+			var p := a.lerp(b, float(j) / float(steps))
+			var sample: Dictionary = world.call("surface_at", p)
+			if str(sample.get("name", "")) != "ASPHALT":
+				return false
+	return true
+
+
 ## A city route must be a contiguous series of DIRECTED graph edges.
 ## It inherits the same intersection splines and legality as traffic.
 ## No shortcuts through buildings and no swerving into oncoming lanes.
@@ -232,6 +253,7 @@ static func city_sprint_edges(network: RefCounted, world: Node,
 		return empty
 	var edges: Array = network.get("edges")
 	var data: Dictionary = world.get("data")
+	var paved_cache := {}
 	var seeds: Array[Dictionary] = []
 	for i in range(edges.size()):
 		var edge: Dictionary = edges[i]
@@ -245,7 +267,10 @@ static func city_sprint_edges(network: RefCounted, world: Node,
 			continue
 		var distance := path[0].distance_to(origin_px) / PPM
 		if distance < 450.0:
-			seeds.append({"id":i,"proximity":distance})
+			if not paved_cache.has(i):
+				paved_cache[i] = _edge_on_pavement(world, edge)
+			if bool(paved_cache[i]):
+				seeds.append({"id":i,"proximity":distance})
 	seeds.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return float(a.proximity) < float(b.proximity))
 	var beam: Array[Dictionary] = []
@@ -285,6 +310,10 @@ static func city_sprint_edges(network: RefCounted, world: Node,
 				if (entry.seen as Dictionary).has(next_id):
 					continue
 				var next_edge: Dictionary = edges[next_id]
+				if not paved_cache.has(next_id):
+					paved_cache[next_id] = _edge_on_pavement(world, next_edge)
+				if not bool(paved_cache[next_id]):
+					continue
 				var kind := str(next_edge.get("kind", ""))
 				if kind in ["highway", "mountain", "rural"]:
 					continue
