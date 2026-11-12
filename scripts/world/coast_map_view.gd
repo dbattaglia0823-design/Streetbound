@@ -19,6 +19,12 @@ var dragging := false
 var player_m := Vector2.ZERO
 var player_heading := 0.0
 
+func _draw() -> void:
+	# The live map builds its nearby world tiles over several frames. Use
+	# the same ground tint beneath them rather than a blank loading patch.
+	draw_rect(Rect2(Vector2.ZERO, custom_minimum_size), Color("a3b789"))
+
+
 func _ready() -> void:
 	clip_contents=true
 	mouse_filter=Control.MOUSE_FILTER_IGNORE if miniature else Control.MOUSE_FILTER_STOP
