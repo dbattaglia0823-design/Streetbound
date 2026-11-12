@@ -8,6 +8,9 @@ const Planner = preload("res://scripts/world/race_traffic_overtaking.gd")
 const Driver = preload("res://scripts/world/race_ai_driver.gd")
 var failures: Array[String] = []
 
+func _initialize() -> void:
+	call_deferred("_run")
+
 
 class TestPavement:
 	extends Node2D
