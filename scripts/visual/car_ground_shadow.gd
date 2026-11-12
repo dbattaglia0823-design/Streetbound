@@ -27,7 +27,9 @@ func _draw() -> void:
 	if not is_instance_valid(body) or not body.shape is CapsuleShape2D:
 		return
 	var capsule := body.shape as CapsuleShape2D
-	var height := clampf(float(art.get("curb_heave")) if is_instance_valid(art) else 0.0,0.0,1.0)
+	# The shadow follows the damped CHASSIS height, not the instant wheel
+	# height. A high curb compresses the wheels before the body catches up.
+	var height := clampf(float(art.get("body_heave")) if is_instance_valid(art) else 0.0, 0.0, 1.0)
 	var width := capsule.radius*1.2
 	var length := capsule.height*0.56
 	for layer in 3:
