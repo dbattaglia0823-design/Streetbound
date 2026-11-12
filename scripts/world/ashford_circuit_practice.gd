@@ -4,6 +4,7 @@ extends Node2D
 const PPM := 20.0
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
+const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const ROAD_NAME := "Ashford Grand Circuit"
 var world: MorrowCoast
@@ -20,6 +21,7 @@ var status_timer := 0.0
 var result := ""
 var start_m := Vector2.ZERO
 var heading := Vector2.UP
+var status_strip: Control
 var panel: PanelContainer
 var label: Label
 
@@ -84,25 +86,11 @@ func _ready() -> void:
 	layer.name = "CircuitRaceHUD"
 	layer.layer = 7
 	add_child(layer)
-	panel = PanelContainer.new()
-	panel.name = "CircuitRaceStatus"
-	panel.position = Vector2(770, 270)
-	panel.custom_minimum_size = Vector2(367, 92)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.035, 0.075, 0.09, 0.94)
-	style.border_color = Color("65d2bb")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(9)
-	style.content_margin_left = 15
-	style.content_margin_right = 15
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", style)
-	layer.add_child(panel)
-	label = Label.new()
-	label.name = "CircuitInstructions"
-	label.add_theme_font_size_override("font_size", 16)
-	panel.add_child(label)
+	status_strip = Control.new()
+	status_strip.set_script(StatusStripScript)
+	layer.add_child(status_strip)
+	panel = status_strip.get("panel") as PanelContainer
+	label = status_strip.get("label") as Label
 	_refresh()
 
 
@@ -196,9 +184,9 @@ func _refresh() -> void:
 	if not available or label == null:
 		return
 	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
-	panel.visible = nearby or state != "idle"
-	if not panel.visible:
-		return
+	# A small staging prompt appears only close to the start, rather than
+	# occupying the driving view whenever a race is nearby.
+	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 32.0 * PPM
 	match state:
 		"idle":
 			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\n%s" % (
@@ -213,6 +201,7 @@ func _refresh() -> void:
 		_:
 			label.text = result
 
+	status_strip.call("set_status", state, nearby, label.text)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not available or not event is InputEventKey or \
