@@ -12,6 +12,7 @@ const DealerWorldScript = preload("res://scripts/world/dealership_world.gd")
 const DealerMenuScript = preload("res://scripts/ui/dealership_menu.gd")
 const OwnershipScript = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const DragRaceScript = preload("res://scripts/world/ashford_ai_race.gd")
+const CircuitPracticeScript = preload("res://scripts/world/ashford_circuit_practice.gd")
 const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
@@ -25,6 +26,7 @@ var dealership_menu: CanvasLayer
 # editor's global class cache during startup on Godot 4.6.x.
 var vehicle_ownership: OwnershipScript
 var drag_race: Node2D
+var circuit_race: Node2D
 var progression_hud: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
@@ -73,6 +75,13 @@ func _ready() -> void:
 		drag_race.player = vehicle
 		drag_race.economy = vehicle_ownership
 		ground.add_child(drag_race)
+		# A real closed-course practice lap exercises curvature-based braking
+		# guidance before additional circuit race formats and AI are added.
+		circuit_race = Node2D.new()
+		circuit_race.set_script(CircuitPracticeScript)
+		circuit_race.world = ground
+		circuit_race.player = vehicle
+		ground.add_child(circuit_race)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -120,7 +129,7 @@ func _ready() -> void:
 		world_hud.set_script(WorldHudScript)
 		world_hud.world = ground
 		world_hud.vehicle = vehicle
-		world_hud.races = [drag_race]
+		world_hud.races = [drag_race, circuit_race]
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 	# CanvasLayer 20 is PROCESS_MODE_ALWAYS; menu controls work while paused.
