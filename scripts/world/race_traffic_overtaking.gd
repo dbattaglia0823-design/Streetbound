@@ -176,6 +176,20 @@ func _following_cap(lead: Dictionary, speed_mps: float) -> float:
 	return sqrt(lead_speed * lead_speed + 2.0 * decel * free)
 
 
+## A selected pass is not an instant lane change. If the racing car is still
+## physically behind the civilian at very close range, request enough braking
+## to survive the lateral transition; keep speed when the pass began early.
+func _pass_transition_cap(target: Dictionary, actual_offset: float,
+		speed_mps: float) -> float:
+	if target.is_empty():
+		return INF
+	if absf(actual_offset - float(target.lateral_m)) >= _separation(target):
+		return INF
+	if float(target.ahead_m) > maxf(28.0, speed_mps * 0.9 + 6.0):
+		return INF
+	return _following_cap(target, speed_mps)
+
+
 func _physical_offset(station_m: float) -> float:
 	var tangent := _course_direction(station_m)
 	return (car.global_position / PPM - _course_point(station_m)).dot(
@@ -218,7 +232,8 @@ func plan(dt: float, station_m: float, speed_mps: float) -> Dictionary:
 				_corridor_safe(station_m, my_offset, _chosen_offset, speed_mps) and \
 				_lane_clear(_chosen_offset, objects, speed_mps, horizon):
 			_last_plan = {"offset_m":_chosen_offset,
-				"speed_cap_mps":INF,"mode":"passing"}
+				"speed_cap_mps":_pass_transition_cap(tracked, my_offset, speed_mps),
+				"mode":"passing"}
 			return _last_plan
 		if tracked.is_empty() or float(tracked.ahead_m) < -17.0:
 			passed_count += 1
@@ -235,7 +250,9 @@ func plan(dt: float, station_m: float, speed_mps: float) -> Dictionary:
 				continue
 			_pass_id = int(lead.id)
 			_chosen_offset = lane
-			_last_plan = {"offset_m":lane,"speed_cap_mps":INF,"mode":"passing"}
+			_last_plan = {"offset_m":lane,
+				"speed_cap_mps":_pass_transition_cap(lead, my_offset, speed_mps),
+				"mode":"passing"}
 			return _last_plan
 	# If an overtake cannot be completed safely, use only the minimum
 	# physically necessary deceleration; never follow at ambient AI pace
