@@ -160,7 +160,7 @@ func _complete() -> void:
 
 func _refresh_overlay() -> void:
 	super._refresh_overlay()
-	if _race_label == null or not available or not _race_panel.visible:
+	if _race_label == null or not available:
 		return
 	match state:
 		"idle":
@@ -172,3 +172,6 @@ func _refresh_overlay() -> void:
 		"running":
 			_race_label.text = "ASHFORD  /  %.2fs  /  PLAYER %.0fm\nRIVAL %.0fm   /   FINISH %.0fm" % [
 				elapsed, maxf(0.0, progress_m), opponent_progress_m, QUARTER_MILE_M]
+	_status_strip.call("set_status", state,
+		player.global_position.distance_to(start_m * PPM) / PPM <= 32.0,
+		_race_label.text)
