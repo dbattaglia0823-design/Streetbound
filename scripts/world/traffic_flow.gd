@@ -12,7 +12,7 @@ const MAX_TURN_RATE := deg_to_rad(95.0)
 # Real-world movement is authoritative: zero waypoint progress or a requested
 # speed is not proof the chassis is actually moving.
 const STUCK_WINDOW_SECONDS := 0.75
-const STUCK_DISTANCE_PX := PPM * 1.75
+const STUCK_DISTANCE_PX := PPM * 0.65
 const STUCK_REMOVE_SECONDS := 12.0
 const STUCK_RECOVERY_SECONDS := 8.0
 const VIEW_MARGIN_PX := 80.0
@@ -132,6 +132,10 @@ func _spawn_one() -> bool:
 		var p: Vector2=sample.position
 		var away := p.distance_to(player.global_position)
 		if away<PPM*75.0 or away>PPM*390.0:
+			continue
+		# Pair off-screen recycling with off-screen spawning: a newly
+		# recycled traffic car must not pop into another player's camera.
+		if _visible_to_any_player(p):
 			continue
 		if str(world.surface_at(p).name) != "ASPHALT":
 			continue
