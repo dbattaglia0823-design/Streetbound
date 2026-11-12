@@ -117,6 +117,39 @@ func _paver_joints(path: PackedVector2Array, width: float, station: float) -> vo
 			at+=100
 		cursor+=length
 
+## Common road-relative paint geometry. The paved approach width is supplied
+## by the junction baker; no assumptions about connecting road classes.
+static func approach_stop_line(center: Vector2, direction: Vector2,
+		width_px: float, inset_px: float = 10.0) -> PackedVector2Array:
+	var along := direction.normalized()
+	if along.length_squared() < 0.5 or width_px <= inset_px * 2.0:
+		return PackedVector2Array()
+	var across := along.orthogonal()
+	var half: float = width_px * 0.5 - inset_px
+	return PackedVector2Array([center - across * half, center + across * half])
+
+
+static func approach_crosswalk(center: Vector2, direction: Vector2,
+		width_px: float) -> Array[PackedVector2Array]:
+	var result: Array[PackedVector2Array] = []
+	var along := direction.normalized()
+	if along.length_squared() < 0.5 or width_px < 84.0:
+		return result
+	var across := along.orthogonal()
+	# Keep stripes inset from kerbs. Compute spacing from the actual approach
+	# width so arterials and narrow streets have equal, centered margins.
+	var half: float = width_px * 0.5 - 18.0
+	var spacing: float = 23.0
+	var count: int = maxi(3, floori(2.0 * half / spacing))
+	for i in count:
+		var offset: float = (float(i) - float(count - 1) * 0.5) * spacing
+		var p := center + across * offset
+		result.append(PackedVector2Array([
+			p - along * 11.0, p + along * 11.0
+		]))
+	return result
+
+
 func _roads(stage: int) -> void:
 	for batch in road_batches:
 		var path: PackedVector2Array = batch.path
@@ -270,19 +303,27 @@ func _draw() -> void:
 			var direction := Vector2(float(arm.direction[0]),float(arm.direction[1]))
 			var normal := Vector2(-direction.y,direction.x)
 			var width := float(arm.width)*PPM
-			if arm.control=="stop":
-				var bar := p+direction*20
-				draw_line(bar-normal*6,bar-normal*(width*.5-8),Color("e9e0cb"),8,true)
-				_sign(p+direction*30-normal*(width*.5+32),direction,false)
-			elif arm.control=="yield":
-				_dashes(PackedVector2Array([p-normal*6,p-normal*(width*.5-8)]),7,Color("e9e0cb"),9,8)
-				_sign(p+direction*30-normal*(width*.5+32),direction,true)
-			if r.kind in ["local","arterial"] and j.control!="roundabout" and j.approaches.size()>=3:
-				# Crossings are beyond the clear turning area and before the stop bar.
-				var stripes := maxi(3,int(width/23)-1)
-				for stripe in stripes:
-					var cross := p-direction*26+normal*(stripe-float(stripes-1)*.5)*23
-					draw_line(cross,cross+direction*21,Color("dfdac6"),9,true)
+			# Both stop/yield lines run across the usable approach, not just
+			# one lane. No transverse markings are drawn into roundabouts.
+			if j.control != "roundabout":
+				var bar: PackedVector2Array = approach_stop_line(
+					p + direction * 20.0, direction, width)
+				if bar.size() == 2:
+					if arm.control == "stop":
+						draw_line(bar[0], bar[1], Color("e9e0cb"), 8.0, true)
+						_sign(p + direction * 30.0 - normal * (width * 0.5 + 32.0),
+							direction, false)
+					elif arm.control == "yield":
+						_dashes(bar, 7.0, Color("e9e0cb"), 9.0, 8.0)
+						_sign(p + direction * 30.0 - normal * (width * 0.5 + 32.0),
+							direction, true)
+			if r.kind in ["local","arterial"] and j.control != "roundabout" and j.approaches.size() >= 3:
+				# A centered zebra crossing sits outside the turning area,
+				# with the stop line beyond its far edge; widths scale with
+				# each actual inbound road instead of a common junction width.
+				for stripe in approach_crosswalk(p - direction * 26.0,
+						direction, width):
+					draw_line(stripe[0], stripe[1], Color("dfdac6"), 9.0, true)
 	draw_set_transform(Vector2.ZERO)
 
 func _sign(p: Vector2,outward: Vector2,yield_sign: bool) -> void:

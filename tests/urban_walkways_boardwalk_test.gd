@@ -2,6 +2,7 @@ extends SceneTree
 ## New road-attached footpaths and beach promenade share the baked geometry,
 ## but retain existing lanes, curb mouths, collision clearance and streaming.
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
+const Roads = preload("res://scripts/world/coast_roads.gd")
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -35,6 +36,37 @@ func run() -> void:
 		if outer[i].distance_to(outer[i-1]) > 260.0 or inner[i].distance_to(inner[i-1]) > 260.0:
 			continuous=false
 	check("both_sidewalks_follow_sweeping_bend", continuous, [outer,inner])
+
+	# The same centerline paint geometry applies to 8 m lanes and wider
+	# arterials, with centered marks and margins at both curbs.
+	for width in [160.0, 240.0, 380.0]:
+		var stop: PackedVector2Array = Roads.approach_stop_line(
+			Vector2(300, 500), Vector2.DOWN, width)
+		check("full_width_stop_line_" + str(int(width)),
+			stop.size() == 2 and
+			absf(stop[0].distance_to(stop[1]) - (width - 20.0)) < 0.01)
+		var crossing: Array[PackedVector2Array] = Roads.approach_crosswalk(
+			Vector2(300, 450), Vector2.DOWN, width)
+		var inside := crossing.size() >= 3
+		var stripe_sum := 0.0
+		for stripe in crossing:
+			if stripe.size() != 2:
+				inside = false
+				continue
+			var stripe_center: Vector2 = (stripe[0] + stripe[1]) * 0.5
+			stripe_sum += stripe_center.x - 300.0
+			inside = inside and absf(stripe_center.x - 300.0) <= width * 0.5 - 18.0
+			inside = inside and absf(stripe[0].distance_to(stripe[1]) - 22.0) < 0.01
+		check("centered_road_width_crosswalk_" + str(int(width)),
+			inside and absf(stripe_sum) < 0.01)
+	var turned: PackedVector2Array = Roads.approach_stop_line(
+		Vector2(0, 0), Vector2.RIGHT, 200.0)
+	check("stop_line_follows_rotated_approach",
+		turned.size() == 2 and
+		absf(turned[0].x) < 0.01 and absf(turned[1].x) < 0.01 and
+		absf(turned[0].distance_to(turned[1]) - 180.0) < 0.01)
+	check("narrow_approach_has_no_crosswalk",
+		Roads.approach_crosswalk(Vector2.ZERO, Vector2.UP, 70.0).is_empty())
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
