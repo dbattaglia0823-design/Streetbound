@@ -4,6 +4,7 @@ extends Node2D
 const PPM := 20.0
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
+const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const ROAD_NAME := "Ashford Grand Circuit"
 var world: MorrowCoast
 var player: VehicleController2D
@@ -64,7 +65,9 @@ func _ready() -> void:
 	for i in range(0, start_index + 1):
 		ordered.append(full_path[i])
 	navigation = NavigationScript.new()
-	navigation.call("setup", ordered, true)
+	# Track centerline comes from the actual authored road. Move within the
+	# usable 14m pavement for a consistent outside-apex-outside driving line.
+	navigation.call("setup", RacingLine.circuit_line(ordered, 14.0, world), true)
 	if float(navigation.get("length_m")) < 1000.0:
 		push_warning("Ashford circuit lap is too short")
 		return

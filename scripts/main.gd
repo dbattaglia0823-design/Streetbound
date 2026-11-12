@@ -13,6 +13,7 @@ const DealerMenuScript = preload("res://scripts/ui/dealership_menu.gd")
 const OwnershipScript = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const DragRaceScript = preload("res://scripts/world/ashford_ai_race.gd")
 const CircuitPracticeScript = preload("res://scripts/world/ashford_circuit_practice.gd")
+const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.gd")
 const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
@@ -27,6 +28,7 @@ var dealership_menu: CanvasLayer
 var vehicle_ownership: OwnershipScript
 var drag_race: Node2D
 var circuit_race: Node2D
+var street_race: Node2D
 var progression_hud: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
@@ -82,6 +84,14 @@ func _ready() -> void:
 		circuit_race.world = ground
 		circuit_race.player = vehicle
 		ground.add_child(circuit_race)
+		# Prototype a street sprint from legal connected ambient-traffic
+		# directions. Racing-line guidance uses the same directed lane graph.
+		street_race = Node2D.new()
+		street_race.set_script(StreetSprintScript)
+		street_race.world = ground
+		street_race.player = vehicle
+		street_race.network = traffic.get("network") as RefCounted
+		ground.add_child(street_race)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -131,6 +141,7 @@ func _ready() -> void:
 		world_hud.vehicle = vehicle
 		world_hud.races.append(drag_race)
 		world_hud.races.append(circuit_race)
+		world_hud.races.append(street_race)
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 	# CanvasLayer 20 is PROCESS_MODE_ALWAYS; menu controls work while paused.

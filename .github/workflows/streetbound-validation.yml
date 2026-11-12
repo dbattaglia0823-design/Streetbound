@@ -42,6 +42,12 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Verify traffic graph racing line on city streets and circuit
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_racing_line_test.gd 2>&1 | tee /tmp/godot463-racing-line.log
+          grep -q 'TRAFFIC-AWARE RACING LINE: PASS' /tmp/godot463-racing-line.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-line.log
       - name: Check active minimap route and real-speed braking line at Ashford
         run: |
           set -o pipefail
