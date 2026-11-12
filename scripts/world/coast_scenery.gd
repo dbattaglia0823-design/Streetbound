@@ -2,6 +2,7 @@ extends Node2D
 const Art = preload("res://scripts/world/coast_art.gd")
 const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
+const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const PPM := 20.0
 var prop_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
@@ -27,7 +28,9 @@ static func parked_art_for(seed_value: int) -> Dictionary:
 	return TrafficCar.appearance_for(seed_value)
 
 
-func _asphalt_apron(size: Vector2, seed_value: int, parking: bool, stall_width_m := 0.0, entrance_width_m := 0.0) -> void:
+func _asphalt_apron(size: Vector2, seed_value: int, parking: bool,
+		stall_width_m := 0.0, entrance_width_m := 0.0,
+		prop: Dictionary = {}) -> void:
 	# Warm rounded concrete curb and actual weathered charcoal asphalt.
 	var bounds := Rect2(-size*.5,size)
 	var curb := 16.0 if parking else 9.0
@@ -36,18 +39,32 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool, stall_width_m
 	var roadbed := bounds.grow(-curb)
 	_rounded(roadbed,Color("464f52"),28.0 if parking else 11.0)
 	if parking:
-		# Curb throat on the driveway-facing (-X) side; the original baked
-		# road remains authoritative for traffic and collisions.
-		var opening := clampf(entrance_width_m * PPM, 110.0, size.y * .63) if entrance_width_m > 0.0 else maxf(115.0,minf(size.y*.36,185.0))
-		draw_rect(Rect2(-size.x*.5-3.0,-opening*.5,curb+24.0,opening),
-			Color("464f52"),true)
-		for side in [-1.0,1.0]:
-			draw_line(Vector2(-size.x*.5-2.0,side*opening*.5),
-				Vector2(-size.x*.5+curb+25.0,side*opening*.5),
-				Color("cbc7b5"),5.0,true)
-		draw_line(Vector2(-size.x*.5+curb+62.0,-opening*.37),
-			Vector2(-size.x*.5+curb+62.0,opening*.37),
-			Color(.82,.80,.70,.56),3.5,true)
+		if ParkingAccess.paints_access(prop):
+			# This throat is generated from the actual nearest road and
+			# shares its polygon with world.surface_at(), including rotation.
+			var join := PackedVector2Array()
+			for local_m in ParkingAccess.polygon(prop):
+				join.append(local_m * PPM)
+			draw_colored_polygon(join, Color("464f52"))
+			var access: Dictionary = prop.road_access
+			var mouth := ParkingAccess.v(access.entry) * PPM
+			var outward := ParkingAccess.v(access.outward)
+			var tangent := outward.orthogonal()
+			var edge_half := ParkingAccess.width_m(prop) * PPM * .5
+			for side in [-1.0, 1.0]:
+				var edge_point := mouth + tangent * float(side) * edge_half
+				draw_line(edge_point, edge_point - outward * (curb + 16.0),
+					Color("cbc7b5"), 5.0, true)
+		else:
+			# Retain a conservative -X entrance for old distant lots whose
+			# nearest road is too far away for a credible connector.
+			var opening := clampf(entrance_width_m * PPM, 110.0, size.y * .63) if entrance_width_m > 0.0 else maxf(115.0,minf(size.y*.36,185.0))
+			draw_rect(Rect2(-size.x*.5-3.0,-opening*.5,curb+24.0,opening),
+				Color("464f52"),true)
+			for side in [-1.0,1.0]:
+				draw_line(Vector2(-size.x*.5-2.0,side*opening*.5),
+					Vector2(-size.x*.5+curb+25.0,side*opening*.5),
+					Color("cbc7b5"),5.0,true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value + 918372
 	# World-space shader handles fine grain; static oil, cracks and rubber
@@ -63,24 +80,38 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool, stall_width_m
 		draw_line(p,p+Vector2(rng.randf_range(7.0,27.0),rng.randf_range(-4.0,4.0)),
 			Color(.16,.19,.21,.27),rng.randf_range(1.2,2.6),true)
 	if parking:
-		var stalls := clampi(int((size.x*.84)/(stall_width_m*PPM)),3,16) if stall_width_m > 0.0 else clampi(int(size.x/105.0),3,9)
-		for side in [-1.0,1.0]:
+		var access: Dictionary = prop.get("road_access", {})
+		var entry_side: int = int(access.get("side", 0))
+		# For an entrance from +/-Y, rotate the bay grid so the central
+		# driving aisle faces the real street and stalls stay on its sides.
+		var vertical := entry_side >= 2
+		var along := Vector2.DOWN if vertical else Vector2.RIGHT
+		var across := along.orthogonal()
+		var long_px := size.y if vertical else size.x
+		var cross_px := size.x if vertical else size.y
+		var stalls := clampi(int((long_px*.84)/(stall_width_m*PPM)),3,16) if stall_width_m > 0.0 else clampi(int(long_px/105.0),3,9)
+		for side in [-1.0, 1.0]:
 			for i in stalls+1:
-				var x := lerpf(-size.x*.42,size.x*.42,float(i)/float(stalls))
-				draw_line(Vector2(x,side*size.y*.44),
-					Vector2(x,side*size.y*.22),Color("c9c8b4"),3.2,true)
+				var t: float = lerpf(-long_px*.42,long_px*.42,float(i)/float(stalls))
+				draw_line(along*t + across*float(side)*cross_px*.44,
+					along*t + across*float(side)*cross_px*.22,
+					Color("c9c8b4"),3.2,true)
 			for i in stalls:
-				var x := lerpf(-size.x*.42,size.x*.42,
+				var t: float = lerpf(-long_px*.42,long_px*.42,
 					(float(i)+.5)/float(stalls))
-				draw_line(Vector2(x-15.0,side*size.y*.395),
-					Vector2(x+15.0,side*size.y*.395),Color("b2ab94"),5.0,true)
-				draw_line(Vector2(x-12.0,side*size.y*.35),
-					Vector2(x+12.0,side*size.y*.35),Color(.12,.16,.18,.30),3.0,true)
-		# A faded arrow in the aisle keeps drivers out of the stalls.
-		var arrow := Vector2(-size.x*.11,0)
-		draw_line(arrow-Vector2(31,0),arrow+Vector2(17,0),Color(.85,.83,.71,.40),4,true)
+				draw_line(along*(t-15.0)+across*float(side)*cross_px*.395,
+					along*(t+15.0)+across*float(side)*cross_px*.395,
+					Color("b2ab94"),5.0,true)
+		# Entry arrows follow the real road-facing side, not a fixed +X.
+		var inward := Vector2.RIGHT
+		if not access.is_empty():
+			inward = -ParkingAccess.v(access.outward)
+		var arrow := inward * (-long_px*.11)
+		draw_line(arrow-inward*31.0,arrow+inward*17.0,
+			Color(.85,.83,.71,.40),4,true)
 		for side in [-1.0,1.0]:
-			draw_line(arrow+Vector2(17,0),arrow+Vector2(2,side*11),
+			draw_line(arrow+inward*17.0,arrow+inward*2.0+
+				inward.orthogonal()*float(side)*11.0,
 				Color(.85,.83,.71,.40),4,true)
 	else:
 		for i in 3:
@@ -407,7 +438,8 @@ func _draw_prop(prop: Dictionary) -> void:
 		return
 	if kind == "lot":
 		_asphalt_apron(size,seed_value,true,
-			float(prop.get("stall_width",0.0)),float(prop.get("entrance_width",0.0)))
+			float(prop.get("stall_width",0.0)),
+			float(prop.get("entrance_width",0.0)), prop)
 		return
 	if kind == "parked_car":
 		var art := parked_art_for(seed_value)

@@ -5,6 +5,7 @@ const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
+const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
@@ -24,6 +25,8 @@ var mark_clock := 0.0
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
+## Per-road indexed curb cutouts for authored parking lots.
+var parking_road_openings: Dictionary = {}
 var _sand_polygons: Dictionary = {}
 var boardwalk_path := PackedVector2Array()
 ## Cached boardwalk coverage avoids expensive shoreline clipping in inland
@@ -91,7 +94,37 @@ func _ready() -> void:
 		if not prop.kind in ["lot","forecourt"]:
 			continue
 		var p := Vector2(float(prop.p[0]),float(prop.p[1]))
+		# Resolve the nearest real road once at world load: a source-authored
+		# parking lot may face any of four sides, not always -X.
+		if str(prop.kind) == "lot":
+			var road: Dictionary = nearest_road_at(p * PPM, 90.0)
+			if not road.is_empty():
+				var access: Dictionary = ParkingAccess.access_for(
+					prop, road.closest_point_px)
+				if not access.is_empty():
+					var segment_index: int = int(road.get("segment_index", -1))
+					if segment_index >= 0:
+						var segment: Dictionary = data.segments[segment_index]
+						var origin: Vector2 = Vector2(
+							float(segment.a[0]), float(segment.a[1]))
+						var nearest_m: Vector2 = road.closest_point_px / PPM
+						var station_m: float = float(segment_stations[segment_index]) + \
+							origin.distance_to(nearest_m)
+						var side: float = 1.0 if (p - nearest_m).dot(
+							road.normal) >= 0.0 else -1.0
+						access["half_width_m"] = ParkingAccess.width_m(prop) * .5 + 1.0
+						access["station_m"] = station_m
+						access["road_side"] = side
+						access["road_id"] = int(road.road_id)
+						if not parking_road_openings.has(int(road.road_id)):
+							parking_road_openings[int(road.road_id)] = []
+						parking_road_openings[int(road.road_id)].append(access)
+					prop["road_access"] = access
 		var radius := Vector2(float(prop.size[0]),float(prop.size[1])).length()*.5
+		# Include the driveway tongue in the same surface spatial index.
+		if prop.has("road_access"):
+			radius = maxf(radius, ParkingAccess.v(
+				prop.road_access.road).length() + ParkingAccess.width_m(prop))
 		var first := Vector2i(((p-Vector2.ONE*radius)/float(data.surface_cell)).floor())
 		var last := Vector2i(((p+Vector2.ONE*radius)/float(data.surface_cell)).floor())
 		for x in range(first.x,last.x+1):
@@ -334,6 +367,10 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var center := Vector2(float(prop.p[0]),float(prop.p[1]))
 		var local := (point-center).rotated(-float(prop.angle))
 		if absf(local.x)<=float(prop.size[0])*.5 and absf(local.y)<=float(prop.size[1])*.5:
+			return {"name":"ASPHALT","grip":1.0}
+		# The parking entrance is drawn outside the lot rectangle, so query
+		# the same polygon instead of treating the connector as grass.
+		if ParkingAccess.contains_pavement(prop, local):
 			return {"name":"ASPHALT","grip":1.0}
 	for index in _junction_grid.get(key,[]):
 		var j: Dictionary = data.junctions[index]

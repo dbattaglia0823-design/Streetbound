@@ -41,6 +41,33 @@ func _build_shop() -> void:
 		BUILDING_M.y * PPM / rect.size.y)
 	facade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(facade)
+	# The sign must be a separate ABOVE-art child: drawing it in the parent
+	# _draw() painted it underneath the storefront Sprite2D and hid names.
+	var sign := Panel.new()
+	sign.name = "DealershipSign"
+	sign.position = Vector2(-PPM * 12.5, -PPM * 12.7)
+	sign.size = Vector2(PPM * 25.0, 64.0)
+	sign.z_index = 1
+	sign.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color("183038")
+	frame.border_color = Color("b3aa90")
+	frame.set_border_width_all(2)
+	frame.set_corner_radius_all(7)
+	sign.add_theme_stylebox_override("panel", frame)
+	var caption := Label.new()
+	caption.name = "Name"
+	caption.position = Vector2(14.0, 7.0)
+	caption.size = Vector2(sign.size.x - 28.0, 50.0)
+	caption.text = str(site.name).to_upper()
+	caption.add_theme_font_size_override("font_size", 20)
+	caption.add_theme_color_override("font_color", Color("f6e8c8"))
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.clip_text = true
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sign.add_child(caption)
+	add_child(sign)
 	# Collide with the actual building, not the paved sales lot.
 	var solid := StaticBody2D.new()
 	solid.name = "BuildingCollision"
@@ -53,15 +80,3 @@ func _build_shop() -> void:
 	solid.add_child(bounds)
 	add_child(solid)
 
-
-func _draw() -> void:
-	if site.is_empty():
-		return
-	# Sign stays with the high-level building art, not with the low pavement.
-	# The solid building itself is still an independent collision body.
-	var sign_at := Vector2(-PPM * 12.5, -PPM * 10.5)
-	draw_rect(Rect2(sign_at - Vector2(14.0, 44.0),
-		Vector2(PPM * 25.0, 70.0)), Color("183038"), true)
-	draw_string(ThemeDB.fallback_font, sign_at,
-		str(site.name).to_upper(), HORIZONTAL_ALIGNMENT_LEFT,
-		int(PPM * 23.0), 24, Color("f6e8c8"))

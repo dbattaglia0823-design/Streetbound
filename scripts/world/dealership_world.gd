@@ -7,7 +7,7 @@ const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const PPM := 20.0
 const LOCATION_PATH := "res://data/dealerships.json"
 const STOP_SPEED_MPS := 1.7
-const PARK_RADIUS_M := 13.5
+const PARK_RADIUS_M := 7.0
 const SIGN_DISTANCE_M := 68.0
 var world: MorrowCoast
 var player: VehicleController2D
@@ -49,8 +49,9 @@ func _ready() -> void:
 			"name": site.name,
 			"category": "DEALERSHIP / " + str(site.tier),
 			"position": site.parking_m,
-			"road": -1
+			"road": int(site.road_id)
 		})
+	_refresh_existing_road_paint()
 
 
 func _road_samples(road_name: String, near: Vector2) -> Array[Dictionary]:
@@ -59,6 +60,7 @@ func _road_samples(road_name: String, near: Vector2) -> Array[Dictionary]:
 		if str(road.name) != road_name:
 			continue
 		var points: Array = road.points
+		var station_m := 0.0
 		for i in range(1, points.size()):
 			var a := v(points[i-1])
 			var b := v(points[i])
@@ -69,7 +71,9 @@ func _road_samples(road_name: String, near: Vector2) -> Array[Dictionary]:
 			var distance := candidate.distance_to(near)
 			if distance < 190.0:
 				result.append({"point":candidate,"direction":direction,
-					"distance":distance})
+					"distance":distance,"road_id":int(road.get("id",-1)),
+					"station_m": station_m + a.distance_to(candidate)})
+			station_m += a.distance_to(b)
 	result.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
 		return float(a.distance) < float(b.distance))
 	return result
@@ -115,6 +119,20 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 					continue
 				var site := spec.duplicate(true)
 				site["road_m"] = [road_point.x,road_point.y]
+				site["road_id"] = int(sample.road_id)
+				# Use the authoritative baked segment station, not an
+				# estimate from source control points: chunk paint is
+				# generated from these exact indexed segments.
+				var paint_station: float = float(sample.station_m)
+				var nearest: Dictionary = world.nearest_road_at(road_point * PPM, 8.0)
+				if not nearest.is_empty() and \
+						int(nearest.road_id) == int(sample.road_id):
+					var segment_index: int = int(nearest.segment_index)
+					var segment: Dictionary = world.data.segments[segment_index]
+					paint_station = float(world.segment_stations[segment_index]) + \
+						v(segment.a).distance_to(nearest.closest_point_px / PPM)
+				site["road_station_m"] = paint_station
+				site["road_side"] = float(side)
 				site["center_m"] = [center.x,center.y]
 				site["parking_m"] = [parking.x,parking.y]
 				# In the local frame -Y is the side nearest the road.
@@ -127,6 +145,17 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 				site["site_search_attempts"] = attempts
 				return site
 	return {}
+
+
+## Called once after all ten sites have been placed. The world spawns the
+## first chunk before its dealer manager, so those already-created road
+## renderers need one repaint when curb openings become known.
+func _refresh_existing_road_paint() -> void:
+	var road_script: Script = preload("res://scripts/world/coast_roads.gd")
+	for chunk in world.chunks.values():
+		for drawn in chunk.get_children():
+			if drawn.get_script() == road_script:
+				drawn.queue_redraw()
 
 
 func get_site(id: String) -> Dictionary:
@@ -152,7 +181,10 @@ func closest_site() -> Dictionary:
 func can_browse(site: Dictionary) -> bool:
 	if site.is_empty() or not is_instance_valid(player):
 		return false
-	return player.global_position.distance_to(v(site.parking_m)*PPM) <= \
+	# The browsing trigger belongs inside the outlined forecourt bay,
+	# not on the roadside shoulder or an invisible radius on nearby grass.
+	return Pavement.contains_pavement(site, player.global_position) and \
+		player.global_position.distance_to(v(site.parking_m)*PPM) <= \
 		PARK_RADIUS_M*PPM and player.linear_velocity.length() <= STOP_SPEED_MPS
 
 
@@ -174,11 +206,10 @@ func parking_prompt() -> String:
 
 
 func is_paved_forecourt(point_px: Vector2) -> bool:
-	var p := point_px/PPM
+	# The artist's tapered throat and lot are also the physical asphalt.
+	# Previously a larger rectangle granted paved traction outside the art
+	# and omitted the flared entrance near some road edges.
 	for site in sites:
-		var center := v(site.center_m)
-		var local: Vector2 = (p-center).rotated(-float(site.rotation))
-		var d := float(site.setback_m)
-		if absf(local.x) <= 16.5 and local.y >= -d-2.0 and local.y <= -8.5:
+		if Pavement.contains_pavement(site, point_px):
 			return true
 	return false

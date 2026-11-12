@@ -103,18 +103,37 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		relief.z_index=5
 		add_child(relief)
 	if not prop_list.is_empty():
-		var shadows := Node2D.new()
-		shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
-		shadows.prop_list=prop_list
-		shadows.origin_m=origin_m
-		shadows.z_index=5
-		add_child(shadows)
-		var scenery := Node2D.new()
-		scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
-		scenery.prop_list = prop_list
-		scenery.origin_m = origin_m
-		scenery.z_index = 6
-		add_child(scenery)
+		# Pavement is terrain, not an above-road prop. Previously the scenery
+		# batch at z=6 painted entire parking rectangles over roadbed, kerbs
+		# and lane markings (z=2..4) near roadside lot entrances.
+		var paved_props: Array[Dictionary] = []
+		var above_road_props: Array[Dictionary] = []
+		for prop in prop_list:
+			if str(prop.kind) in ["lot", "forecourt"]:
+				paved_props.append(prop)
+			else:
+				above_road_props.append(prop)
+		if not paved_props.is_empty():
+			var pavement := Node2D.new()
+			pavement.name = "ParkingPavement"
+			pavement.set_script(preload("res://scripts/world/coast_scenery.gd"))
+			pavement.prop_list = paved_props
+			pavement.origin_m = origin_m
+			pavement.z_index = 1
+			add_child(pavement)
+		if not above_road_props.is_empty():
+			var shadows := Node2D.new()
+			shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
+			shadows.prop_list = above_road_props
+			shadows.origin_m = origin_m
+			shadows.z_index = 5
+			add_child(shadows)
+			var scenery := Node2D.new()
+			scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
+			scenery.prop_list = above_road_props
+			scenery.origin_m = origin_m
+			scenery.z_index = 6
+			add_child(scenery)
 	# Furnish curb edges in one static draw node per road-bearing chunk.
 	# Lamps, benches and signs follow the real spline and avoid junctions;
 	# no per-furnishing sprite or physics nodes are created.
