@@ -42,6 +42,12 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Check active minimap route and real-speed braking line at Ashford
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_guidance_test.gd 2>&1 | tee /tmp/godot463-race-guidance.log
+          grep -q 'RACE ROUTE AND BRAKING GUIDE: PASS' /tmp/godot463-race-guidance.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-guidance.log
       - name: Verify head-to-head Ashford AI obeys player physics and race progression
         run: |
           set -o pipefail
