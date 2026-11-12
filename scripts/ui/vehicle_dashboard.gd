@@ -70,22 +70,24 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 		font_size: int, color: Color, alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var node := Label.new()
 	node.position = at
-	node.size = dimensions
-	# Label's inherited theme minimum can be substantially taller than
-	# the intended single-line caption in headless Linux. Explicitly use a
-	# compact font and remove default text wrapping.
+	# Apply the single-line font BEFORE sizing the Control. Godot preserves
+	# the larger initial label minimum when size is set prior to font overrides,
+	# leaving 48px high rectangles that overlap the 17px instrument captions.
 	node.add_theme_font_override("font", ThemeDB.fallback_font)
+	node.add_theme_font_size_override("font_size",font_size)
+	node.add_theme_color_override("font_color",color)
 	node.autowrap_mode = TextServer.AUTOWRAP_OFF
-	node.custom_minimum_size = dimensions
 	node.text = value
 	node.horizontal_alignment = alignment
 	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.clip_text = true
-	node.size = dimensions
-	node.add_theme_font_size_override("font_size",font_size)
-	node.add_theme_color_override("font_color",color)
+	node.custom_minimum_size = dimensions
 	add_child(node)
+	# Recompute from the final theme, then explicitly place the requested
+	# rectangle; all dashboard regions rely on these tight layout bounds.
+	node.reset_size()
+	node.size = dimensions
 	return node
 
 
