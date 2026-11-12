@@ -64,7 +64,7 @@ func _ready() -> void:
 	for i in range(0, start_index + 1):
 		ordered.append(full_path[i])
 	navigation = NavigationScript.new()
-	navigation.setup(ordered, true)
+	navigation.call("setup", ordered, true)
 	if float(navigation.get("length_m")) < 1000.0:
 		push_warning("Ashford circuit lap is too short")
 		return
@@ -145,7 +145,7 @@ func _physics_process(dt: float) -> void:
 	if not available or not is_instance_valid(player) or dt <= 0.0:
 		return
 	if is_instance_valid(world_guidance):
-		world_guidance.set_guidance(navigation, player, state in ["countdown", "running"])
+		world_guidance.call("set_guidance", navigation, player, state in ["countdown", "running"])
 	if state == "countdown":
 		if player.linear_velocity.length() > 3.0 or not can_remain_on_grid():
 			_abort("FALSE START / RETURN TO GRID")
