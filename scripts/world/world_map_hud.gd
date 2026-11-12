@@ -60,6 +60,11 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	node.model=model
 	node.world=world
 	node.miniature=miniature
+	# Avoid briefly building/rendering an unrelated (0,0) region before
+	# the first player-follow frame arrives at game startup.
+	if miniature and is_instance_valid(vehicle):
+		node.player_m=vehicle.global_position/20.0
+		node.center_m=node.player_m
 	node.custom_minimum_size=dimensions
 	node.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
 	parent.add_child(node)
