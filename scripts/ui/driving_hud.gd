@@ -176,10 +176,6 @@ func add_slider(entry: Array) -> void:
 	tune_box.add_child(slider)
 
 
-func _on_drivetrain_selected(index: int) -> void:
-	vehicle.config.drivetrain = index
-	_queue_tuning_save()
-
 func _queue_tuning_save() -> void:
 	_tuning_dirty = true
 	tuning_save_label.text = "Saving tuning…"
@@ -216,35 +212,8 @@ func _exit_tree() -> void:
 	if _tuning_dirty:
 		_save_tuning_now()
 
-func binding_text(action: String) -> String:
-	for event in InputMap.action_get_events(action):
-		if event is InputEventKey:
-			return "%s  /  %s" % [action.capitalize(), OS.get_keycode_string(event.physical_keycode)]
-	return action
-
 func _input(event: InputEvent) -> void:
-	var key_pressed: bool = event is InputEventKey and event.pressed and not event.echo
-	var pad_pressed: bool = event is InputEventJoypadButton and event.pressed
-	var axis_moved: bool = event is InputEventJoypadMotion and absf(event.axis_value) > 0.7
-	if not waiting_action.is_empty() and (key_pressed or pad_pressed or axis_moved):
-		if not (key_pressed and event.physical_keycode == KEY_ESCAPE):
-			var binding: InputEvent = event.duplicate()
-			if binding is InputEventJoypadMotion:
-				binding.axis_value = signf(binding.axis_value)
-			# Resolve the autoload at runtime instead of referencing its global
-			# symbol at compile time. This prevents a HUD compilation failure
-			# from stopping main._ready before the camera and interface spawn.
-			var bindings: Node = get_node_or_null("/root/Controls")
-			if bindings == null:
-				push_error("Controls autoload missing; binding was not saved.")
-				waiting_action = ""
-				get_viewport().set_input_as_handled()
-				return
-			bindings.call("bind_event", waiting_action, binding)
-		rebind_buttons[waiting_action].text = binding_text(waiting_action)
-		waiting_action = ""
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("tuning"):
+	if event.is_action_pressed("tuning"):
 		tuning.visible = not tuning.visible
 		if not tuning.visible:
 			_save_tuning_now()
@@ -252,16 +221,9 @@ func _input(event: InputEvent) -> void:
 func _process(_dt: float) -> void:
 	if is_instance_valid(dashboard):
 		dashboard.call("_process",_dt)
-	telemetry.text = "%04d RPM   /   %s\nLONG %+.1f MPH    LAT %+.1f MPH    SLIP %+.1f°\n%.0f lb   %.0f lb-ft   %.0f hp   GRIP %.2f" % [
-		vehicle.transmission.rpm, vehicle.surface,
-		Imperial.speed_mph(vehicle.longitudinal_speed),
-		Imperial.speed_mph(vehicle.lateral_speed),
-		rad_to_deg(vehicle.slip_angle),
-		Imperial.tune_value("mass_kg", vehicle.config.mass_kg),
-		Imperial.tune_value("engine_torque_nm", vehicle.config.engine_torque_nm),
+	telemetry.text = "POWER %.0f hp   /   TORQUE %.0f lb-ft   /   WEIGHT %.0f lb" % [
 		Imperial.tune_value("engine_power_kw", vehicle.config.engine_power_kw),
-		vehicle.config.tire_grip * vehicle.surface_grip
-	]
-	telemetry.text += "\nWHEELSPIN %d%%   REAR CONTACT %d%%" % [roundi(vehicle.wheel_spin * 100), roundi((1.0 - vehicle.handbrake_grip_loss) * 100)]
+		Imperial.tune_value("engine_torque_nm", vehicle.config.engine_torque_nm),
+		Imperial.tune_value("mass_kg", vehicle.config.mass_kg)]
 	if vehicle.linear_velocity.length() > 1 or Input.is_action_pressed("reset"):
 		status.text = "%s   /   %s" % [vehicle.surface, "CAR FOLLOW" if camera.follow_heading else "NORTH UP"]
