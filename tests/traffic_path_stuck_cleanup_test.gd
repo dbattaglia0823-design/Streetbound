@@ -85,7 +85,7 @@ func _run() -> void:
 	var ahead := int(network.call("_add_edge", {"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"straight","points":PackedVector2Array([
 		last,last+Vector2.RIGHT*PPM*25.0]),"speed_px":PPM*10.0}))
-	var reverse := int(network.call("_add_edge"({"road":0,"connector":true,
+	var reverse := int(network.call("_add_edge", {"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"left","points":PackedVector2Array([
 		last,last+Vector2.LEFT*PPM*25.0]),"speed_px":PPM*10.0}))
 	var graph_edges: Array = network.get("edges")
