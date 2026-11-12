@@ -86,10 +86,10 @@ func _run() -> void:
 	var last := origin + Vector2.UP*PPM*8.0 + Vector2.RIGHT*PPM*25.0
 	var ahead := int(network.call("_add_edge", {"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"straight","points":PackedVector2Array([
-		last,last+Vector2.RIGHT*PPM*25.0]),"speed_px":PPM*10.0}))
+		last,last+Vector2.RIGHT*PPM*25.0]),"speed_px":PPM*10.0,"control":"none"}))
 	var reverse := int(network.call("_add_edge", {"road":0,"connector":true,
 		"start_j":-1,"end_j":-1,"turn":"left","points":PackedVector2Array([
-		last,last+Vector2.LEFT*PPM*25.0]),"speed_px":PPM*10.0}))
+		last,last+Vector2.LEFT*PPM*25.0]),"speed_px":PPM*10.0,"control":"none"}))
 	var graph_edges: Array = network.get("edges")
 	graph_edges[0]["next"] = [reverse, ahead]
 	flow.random.seed = 12345
