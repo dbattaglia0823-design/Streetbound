@@ -184,7 +184,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var engine_force := Powertrain.wheel_force_n(config,transmission.rpm,
 		ratio,curve_factor,boost_factor)
 	engine_wheel_force_n = engine_force
-	var requested_force := engine_force * drive_input
+	# At five-figure builds, a linear throttle saturates street tires with
+	# barely any pedal input. Progressive pedal response keeps part throttle
+	# usable; full throttle still requests the full real engine output.
+	var high_output := Powertrain.high_output_fraction(config)
+	var pedal := pow(drive_input, 1.0 + high_output * 1.9)
+	var requested_force := engine_force * pedal
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
