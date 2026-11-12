@@ -288,7 +288,9 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		if node.global_position.distance_to(person.global_position) <= horizon + PPM * 15.0:
 			candidates.append({"node": person,
 				"velocity": person.linear_velocity * PPM, "width_px": PPM * 2.2})
-	var racing_nodes: Array[Node] = get_tree().get_nodes_in_group("race_opponent") if get_tree() != null else []
+	var racing_nodes: Array[Node] = []
+	if get_tree() != null:
+		racing_nodes = get_tree().get_nodes_in_group("race_opponent")
 	for other_racer in racing_nodes:
 		if other_racer is VehicleController2D:
 			var racer := other_racer as VehicleController2D
