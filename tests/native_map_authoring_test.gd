@@ -65,6 +65,18 @@ func _run() -> void:
 		id.begins_with("prop-native-") and
 		session.doc.props.size()==before_count+1 and
 		session.prop_at_id(id).assetId=="game-house")
+	var project_id: String = session.add_project_prop("Buildings/House.png",
+		"house",Vector2(2250,3150),Vector2(12,16))
+	check("native_browser_uses_same_project_asset_id_as_python_importer",
+		project_id.begins_with("prop-native-") and
+		session.prop_at_id(project_id).assetId==
+			"project-"+"Buildings/House.png".sha256_text().substr(0,24) and
+		session.prop_at_id(project_id).assetPath=="Buildings/House.png")
+	check("native_project_asset_is_undoable",session.undo() and
+		session.prop_at_id(project_id).is_empty())
+	check("native_rejects_untrusted_asset_paths",
+		session.add_project_prop("../outside.png","house",
+			Vector2(2250,3150),Vector2(12,16)).is_empty())
 	check("placement_does_not_move_other_objects",
 		session.doc.roads.size()>=120 and
 		session.doc.props.size()==before_count+1)
@@ -121,6 +133,12 @@ func _run() -> void:
 		game.add_child(editor)
 		await process_frame
 	check("actual_native_editor_opens_in_game",editor.open_editor())
+	check("native_editor_has_searchable_asset_thumbnail_dock",
+		is_instance_valid(editor.asset_grid) and
+		is_instance_valid(editor.asset_search) and
+		editor.asset_entries.size()>=8 and
+		editor.asset_entries.any(func(asset: Dictionary) -> bool:
+			return str(asset.get("path",""))=="Buildings/House.png"))
 	var runtime_road_count: int = game.ground.data.roads.size()
 	var runtime_prop_count: int = game.ground.data.props.size()
 	editor._choose_tool("place:house")
