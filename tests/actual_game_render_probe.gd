@@ -45,6 +45,9 @@ func _run() -> void:
 		" source_segments=",ground.data.chunks["12,15"].segments.size(),
 		" source_props=",ground.data.chunks["12,15"].props.size())
 	expect("spawn_world_render_nodes_ready", roads >= 3 and buildings >= 1)
+	expect("first_driving_frame_shows_entire_neighborhood",
+		is_equal_approx(cam.zoom.x,cam.STARTUP_NEIGHBORHOOD_ZOOM) and
+		bool(cam._neighborhood_view_active),cam.zoom)
 	await RenderingServer.frame_post_draw
 	var shot := root.get_texture().get_image()
 	print("GAME RENDER DIAG: driver=",DisplayServer.get_name(),
@@ -57,6 +60,22 @@ func _run() -> void:
 			for px in [shot.get_width()/4,shot.get_width()/2,shot.get_width()*3/4]:
 				corners.append(shot.get_pixel(int(px),int(py)).to_html(false))
 		print("GAME RENDER PIXELS 9: ",corners)
+		# Read back the ACTUAL displayed pixel colors at stable, named source
+		# positions. Simply checking that scripts and texture objects loaded is
+		# not sufficient to prove the player can see a street or a building.
+		for item in [
+			{"name":"garage_roof","metres":Vector2(2378.0,3035.0)},
+			{"name":"nearby_house","metres":Vector2(2466.0,3039.5)},
+			{"name":"driveway_asphalt","metres":Vector2(2428.5,3038.5)},
+			{"name":"background_grass","metres":Vector2(2448.0,3003.0)}
+		]:
+			var pixel: Vector2 = root.canvas_transform * (item.metres * 20.0)
+			var valid := pixel.x >= 0.0 and pixel.y >= 0.0 and
+				pixel.x < float(shot.get_width()) and pixel.y < float(shot.get_height())
+			print("GAME WORLD PIXEL ",item.name," at ",pixel," visible=",valid,
+				" color=",shot.get_pixel(int(pixel.x),int(pixel.y)).to_html(false)
+				if valid else "offscreen")
+			expect("game_camera_contains_"+str(item.name),valid)
 		var image_bytes := shot.save_jpg_to_buffer(0.7)
 		var encoded := Marshalls.raw_to_base64(image_bytes)
 		print("GAME_SCREENSHOT_BEGIN")
