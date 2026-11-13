@@ -875,7 +875,7 @@ func _build_ui() -> void:
 	row.add_child(title)
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
-	_btn("CENTER ON CAR",row,_recenter)
+	_btn("CENTER / SPAWN" if standalone_mode else "CENTER ON CAR",row,_recenter)
 	_btn("FIT MAP",row,_fit_map)
 	_btn("TEST DRIVE  F6",row,_test_drive)
 	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
@@ -1113,9 +1113,14 @@ func _update_view(force: bool = false) -> void:
 	gizmos.set_view(here,get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
 	var meters := here / PPM
-	status.text = "WORLD  X %.0fm  Y %.0fm   |   %d roads   %d intersections   %d traffic links" % [
-		meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
-		traffic_network.edges.size() if is_instance_valid(traffic_network) else 0]
+	if standalone_mode and is_instance_valid(render_tiles):
+		status.text = "WORLD  X %.0fm  Y %.0fm  |  %d roads  %d junctions  |  %d visible tiles  |  %s" % [
+			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
+			render_tiles.total_visible,"DETAIL" if render_tiles.detailed else "OVERVIEW"]
+	else:
+		status.text = "WORLD  X %.0fm  Y %.0fm   |   %d roads   %d intersections   %d traffic links" % [
+			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
+			traffic_network.edges.size() if is_instance_valid(traffic_network) else 0]
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
