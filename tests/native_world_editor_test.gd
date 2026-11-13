@@ -40,8 +40,8 @@ func _run() -> void:
 	var original_velocity := player.linear_velocity
 	var original_gear := player.transmission.gear
 	var original_camera_enabled := camera.enabled
-	var source_roads := world.data.roads.size()
-	var source_props := world.data.props.size()
+	var source_roads: int = world.data.roads.size()
+	var source_props: int = world.data.props.size()
 	var original_physics := player.is_physics_processing()
 	check("can_enter_from_unpaused_free_roam",editor.open_editor())
 	check("dev_editor_pauses_real_game_and_shows_original_renderer",
