@@ -10,6 +10,7 @@ const COMMANDS := ["reset","shift_up","shift_down","transmission"]
 var player_one: VehicleController2D
 var player_two: VehicleController2D
 var world: Node2D
+var inventory: RefCounted
 var main_camera: Camera2D
 var hidden_layers: Array[CanvasLayer] = []
 var disabled_systems: Array[Node] = []
@@ -139,13 +140,13 @@ func start_split(connected_override: Array[int] = []) -> bool:
 	player_two.z_index = 9
 	get_parent().add_child(player_two)
 	player_two.add_to_group("local_multiplayer_vehicle")
-	var car_id := ""
-	var ownership: Node = get_parent().get_node_or_null("VehicleOwnership")
-	if is_instance_valid(ownership):
-		car_id = str(ownership.get("active_id"))
+	var car_id := str(inventory.get("active_id")) if is_instance_valid(inventory) else ""
 	var entry: Dictionary = Catalog.find_by_id(car_id)
 	if not entry.is_empty():
 		Catalog.select(player_two,entry)
+	# Equal base performance without sharing mutable resources or career data.
+	player_two.config = player_one.config.duplicate(true)
+	player_two.transmission.reset(player_two.config)
 	# Player 2 is visually distinguishable but shares its real physical model.
 	var body := player_two.get_node_or_null("Art/Sprite") as Sprite2D
 	if is_instance_valid(body):
@@ -156,12 +157,9 @@ func start_split(connected_override: Array[int] = []) -> bool:
 	_build_views()
 	_set_single_player_visible(false)
 	_set_main_camera(false)
-	_stream_enabled = world.get("secondary_stream_vehicle") != null or \
-		"secondary_stream_vehicle" in world
-	if not world.has_method("stream_at"):
-		_stream_enabled = false
+	_stream_enabled = world.has_method("set_secondary_stream_vehicle")
 	if _stream_enabled:
-		world.set("secondary_stream_vehicle",player_two)
+		world.call("set_secondary_stream_vehicle",player_two)
 	active = true
 	screen_root.visible = true
 	set_process(true)
@@ -182,6 +180,8 @@ func _build_views() -> void:
 		var view_box := SubViewportContainer.new()
 		view_box.name = "Player%dView" % (i+1)
 		view_box.stretch = true
+		view_box.custom_minimum_size = Vector2(150,120)
+		view_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		view_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		view_box.size_flags_stretch_ratio = 1.0
 		view_box.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -357,7 +357,7 @@ func stop_split() -> void:
 	set_process_input(false)
 	_inputs()
 	if _stream_enabled and is_instance_valid(world):
-		world.set("secondary_stream_vehicle",null)
+		world.call("set_secondary_stream_vehicle",null)
 	_stream_enabled = false
 	for viewport in split_views:
 		if is_instance_valid(viewport):
