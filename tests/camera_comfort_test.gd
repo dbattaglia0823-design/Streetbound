@@ -63,6 +63,19 @@ func run() -> void:
 	check("far_zoom_hard_limited",
 		is_equal_approx(camera.player_zoom_multiplier, camera.PLAYER_ZOOM_MIN),
 		camera.player_zoom_multiplier)
+	check("wider_zoom_out_than_previous_limit",
+		camera.PLAYER_ZOOM_MIN < 0.72 and camera.ABSOLUTE_ZOOM_MIN < 0.62,
+		[camera.PLAYER_ZOOM_MIN, camera.ABSOLUTE_ZOOM_MIN])
+	check("closer_zoom_in_restricted",
+		camera.PLAYER_ZOOM_MAX < 1.45 and camera.ABSOLUTE_ZOOM_MAX < 1.76,
+		[camera.PLAYER_ZOOM_MAX, camera.ABSOLUTE_ZOOM_MAX])
+	check("default_zoom_is_still_neutral",
+		is_equal_approx(camera.target_zoom_for(0.0, 1.0, 1.20), 1.06 * 1.20),
+		camera.target_zoom_for(0.0, 1.0, 1.20))
+	check("follow_cap_reduced",
+		camera.MAX_FOLLOW_DISTANCE_PX < 1600.0 and
+		camera.MAX_FOLLOW_DISTANCE_PX >= 900.0 and camera.POSITION_RESPONSE > 5.0,
+		[camera.MAX_FOLLOW_DISTANCE_PX, camera.POSITION_RESPONSE])
 	check("zoom_is_proportional_not_fixed_world_units",
 		absf(camera.stepped_player_zoom(1.3, 1) - 1.3) >
 		absf(camera.stepped_player_zoom(0.75, 1) - 0.75),
@@ -109,6 +122,20 @@ func run() -> void:
 		absf(camera.zoom.x - camera.target_zoom_for(0.0,
 			camera.player_zoom_multiplier, camera.world_zoom_multiplier)) < 0.002,
 		camera.zoom.x)
+	# Simulate a large sudden displacement without waiting for the fallback
+	# snap. The soft-follow clamp should keep the player within view.
+	car.set_physics_process(false)
+	car.global_position = camera.global_position + Vector2.RIGHT * 2500.0
+	car.linear_velocity = Vector2.ZERO
+	car.longitudinal_speed = 0.0
+	camera._physics_process(1.0 / 60.0)
+	check("follow_never_lags_beyond_max_distance",
+		camera.global_position.distance_to(car.global_position) <=
+		camera.MAX_FOLLOW_DISTANCE_PX + 0.1,
+		camera.global_position.distance_to(car.global_position))
+	camera.global_position = car.global_position
+	camera.reset_physics_interpolation()
+
 	# Restore normal framing for the existing heading-control tests.
 	camera.player_zoom_multiplier = 1.0
 	camera._smoothed_player_zoom = 1.0
