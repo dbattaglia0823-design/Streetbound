@@ -488,7 +488,9 @@ function adoptRuntimeScenery(source){
 }
 
 function hitTest(p){
-  const radius=clamp(12/zoom,9,48);
+  // Keep handle picking close to the visibly drawn handle, otherwise at a
+  // zoomed-out map the oversized hit radius prevents dragging the road body.
+  const radius=clamp(8/zoom,6,26);
   // Match the visible stacking order: marker > visible scenery > road >
   // terrain. In particular, unadopted baked houses must be selectable
   // directly without first turning on a separate adoption mode.
