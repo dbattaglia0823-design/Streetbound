@@ -59,14 +59,9 @@ export function drawLiveAutomation(ctx,roadState,{
   if(showJunctions){
     for(const j of roadState.junctions){
       if(!inBounds(j,bounds,12*unit))continue;
-      // Outline only: a solid convex junction fill can falsely cover the
-      // game's detailed baked round curb/intersection geometry.
-      if(j.polygon?.length>=3&&safeZoom>.10){
-        ctx.beginPath();ctx.moveTo(j.polygon[0].x,j.polygon[0].y);
-        for(const p of j.polygon.slice(1))ctx.lineTo(p.x,p.y);
-        ctx.closePath();ctx.strokeStyle='#79e7dbb8';ctx.lineWidth=1.35*unit;
-        ctx.setLineDash([4*unit,3*unit]);ctx.stroke();ctx.setLineDash([]);
-      }
+      // A small locator is sufficient for editing. Do not outline the
+      // diagnostic convex hull: it looks like a fake asphalt intersection,
+      // while the underlying road renderer uses real paved road footprints.
       const radius=Math.max(2,4.2*unit);
       ctx.beginPath();ctx.arc(j.x,j.y,radius,0,Math.PI*2);
       ctx.fillStyle='#9ef2ddde';ctx.fill();
