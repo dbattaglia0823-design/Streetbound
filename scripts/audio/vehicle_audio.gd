@@ -50,7 +50,7 @@ var driveline := AudioStreamPlayer.new()
 ## Real CC0 recorded engine bed: subtle organic texture beneath each
 ## vehicle's model-specific, RPM-correct power/coast synthesis.
 var recorded_texture := AudioStreamPlayer.new()
-var generic_recorded_engine: Node
+var generic_recorded_engine
 var _engine_filter: AudioEffectLowPassFilter
 ## Motor / inverter and final-drive whine for new BEVs and quiet hybrid launch.
 var electric_drive := AudioStreamPlayer.new()
