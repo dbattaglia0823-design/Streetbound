@@ -86,6 +86,254 @@ func _reopen_baked_world(where: Vector2) -> void:
 		_update_view(true)
 		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
 
+func _build_authoring_ui() -> void:
+	var panel := _panel(Vector2(12,542),Vector2(1170,128))
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation",4)
+	panel.add_child(rows)
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation",5)
+	rows.add_child(heading)
+	mode_label = Label.new()
+	mode_label.name = "NativeEditMode"
+	mode_label.text = "EDIT SOURCE"
+	mode_label.custom_minimum_size.x = 120
+	mode_label.add_theme_color_override("font_color",ACCENT)
+	heading.add_child(mode_label)
+	_btn("INSPECT",heading,_choose_tool.bind("inspect"))
+	_btn("ROAD ANCHOR",heading,_choose_tool.bind("anchor"))
+	_btn("MOVE ASSET",heading,_choose_tool.bind("move_prop"))
+	_btn("HOUSE",heading,_choose_tool.bind("place:house"))
+	_btn("SHOP",heading,_choose_tool.bind("place:shop"))
+	_btn("TREE",heading,_choose_tool.bind("place:tree"))
+	_btn("ROCK",heading,_choose_tool.bind("place:rock"))
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation",5)
+	rows.add_child(actions)
+	_btn("UNDO [Ctrl+Z]",actions,_undo)
+	_btn("REDO [Ctrl+Y]",actions,_redo)
+	_btn("ROTATE -15",actions,_rotate_selected.bind(-15.0))
+	_btn("ROTATE +15",actions,_rotate_selected.bind(15.0))
+	_btn("DELETE",actions,_delete_selected)
+	_btn("DISCARD",actions,_discard_draft)
+	_btn("START BACKEND",actions,_start_backend)
+	apply_button = _btn("APPLY TO GAME",actions,_apply_draft)
+	reload_button = _btn("RELOAD WORLD",actions,_reload_world)
+	reload_button.disabled = true
+	authoring_notice = Label.new()
+	authoring_notice.name = "NativeEditStatus"
+	authoring_notice.clip_text = true
+	authoring_notice.add_theme_font_size_override("font_size",11)
+	authoring_notice.add_theme_color_override("font_color",Color(0.98,0.80,0.54))
+	authoring_notice.text = "Source drafts only. The Python backend validates and safely rebuilds the real game."
+	rows.add_child(authoring_notice)
+
+func _notice(message: String) -> void:
+	if is_instance_valid(authoring_notice):
+		authoring_notice.text = message
+
+func _choose_tool(mode: String) -> void:
+	if not source_ready and mode != "inspect":
+		_notice("Source unavailable. The map can still be inspected.")
+		return
+	tool_name = mode
+	pending_drag.clear()
+	source_id = ""
+	source_anchor = -1
+	mode_label.text = ("EDIT: "+mode.to_upper()).substr(0,25)
+	_notice("Drag a source anchor or asset; click the world to place selected artwork.")
+	_refresh_authoring()
+
+func _refresh_authoring() -> void:
+	if not is_instance_valid(gizmos):
+		return
+	if source_ready:
+		gizmos.set_draft(authoring.doc,authoring.initial,pending_drag,
+			source_id,source_anchor)
+		if is_instance_valid(apply_button):
+			apply_button.disabled = not authoring.dirty or bridge.phase != ""
+	else:
+		gizmos.set_draft({},{})
+
+func _undo() -> void:
+	if source_ready and authoring.undo():
+		pending_drag.clear()
+		_refresh_authoring()
+		_notice("Undid the previous source edit. Changes remain unbaked.")
+
+func _redo() -> void:
+	if source_ready and authoring.redo():
+		pending_drag.clear()
+		_refresh_authoring()
+		_notice("Redid the source edit. Intersections rebuild only after Apply.")
+
+func _discard_draft() -> void:
+	if source_ready:
+		authoring.discard_changes()
+		pending_drag.clear()
+		source_id = ""
+		source_anchor = -1
+		_refresh_authoring()
+		_notice("All unsaved edits discarded; original authoring source restored.")
+
+func _rotate_selected(degrees: float) -> void:
+	if not source_ready or source_id.is_empty():
+		return
+	if authoring.rotate_prop(source_id,degrees):
+		_refresh_authoring()
+		_notice("Asset rotated %.0f°. Apply to regenerate the actual art/collision." % degrees)
+
+func _delete_selected() -> void:
+	if not source_ready or source_id.is_empty():
+		return
+	if authoring.delete_prop(source_id):
+		source_id = ""
+		_refresh_authoring()
+		_notice("Authored prop deleted from draft. Undo is available.")
+	else:
+		_notice(authoring.last_error)
+
+func _start_backend() -> void:
+	if bridge.start_backend():
+		_notice("Local Python rebaker launched. APPLY TO GAME uses validated backup/rollback.")
+	else:
+		_notice(bridge.last_error)
+
+func _apply_draft() -> void:
+	if not source_ready or not authoring.dirty:
+		_notice("No authoring edits to apply.")
+		return
+	if not authoring._valid_source(authoring.doc):
+		_notice("Source validation failed; changes were not saved.")
+		return
+	if bridge.apply_source(authoring.doc,authoring.baseline_hash):
+		_notice("Verifying map revision and source, then rebuilding Morrow Coast...")
+		_refresh_authoring()
+	else:
+		_notice(bridge.last_error)
+
+func _on_apply_completed(ok: bool, message: String, new_sha: String) -> void:
+	if ok:
+		authoring.accepted_remote(authoring.doc)
+		source_revision = new_sha
+		reload_button.disabled = false
+		_refresh_authoring()
+		_notice(message)
+	else:
+		_refresh_authoring()
+		_notice("APPLY FAILED (no files modified): "+message)
+
+func _reload_world() -> void:
+	if not active or source_revision.is_empty() or authoring.dirty:
+		_notice("Apply or discard outstanding edits before reloading.")
+		return
+	if bridge.phase != "":
+		_notice("World is still rebuilding.")
+		return
+	resume_editor_position = editor_camera.global_position
+	resume_after_rebuild = true
+	# The actual scene/world and traffic must reload from the freshly baked
+	# archive. Never reuse the old runtime's road geometry after saving.
+	get_tree().paused = false
+	get_tree().call_deferred("reload_current_scene")
+
+func _pick_source_anchor(world_px: Vector2) -> Dictionary:
+	if not source_ready:
+		return {}
+	var best := 20.0 / maxf(0.26,editor_camera.zoom.x)
+	var result: Dictionary = {}
+	for road in authoring.doc.roads:
+		for i in road.points.size():
+			var point := Vector2(float(road.points[i].x),
+				float(road.points[i].y))*PPM
+			var distance := point.distance_to(world_px)
+			if distance < best:
+				best = distance
+				result = {"kind":"road","id":str(road.id),"index":i,
+					"from":point}
+	return result
+
+func _pick_source_prop(world_px: Vector2) -> Dictionary:
+	if not source_ready:
+		return {}
+	var at: Vector2 = world_px/PPM
+	var best := 8.0
+	var hit: Dictionary = {}
+	for prop in authoring.doc.props:
+		var art := str(prop.get("type",""))
+		var width := 8.0
+		if art in ["house","garage"]:
+			width=12.0
+		elif art in ["building","warehouse"]:
+			width=20.0
+		var center := Vector2(float(prop.x),float(prop.y))
+		var distance := maxf(0.0,center.distance_to(at)-
+			width*float(prop.get("scale",1.0))*0.5)
+		if distance < best:
+			best = distance
+			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
+	return hit
+
+func _source_click(world_px: Vector2) -> void:
+	if tool_name.begins_with("place:"):
+		var kind := tool_name.substr(6)
+		var id: String = authoring.add_prop(kind,world_px/PPM)
+		if id != "":
+			source_id = id
+			source_anchor = -1
+			_refresh_authoring()
+			_notice("Placed "+kind+" source preview. Undo or Apply to commit after rebuild.")
+		else:
+			_notice(authoring.last_error)
+		return
+	if tool_name not in ["anchor","move_prop"]:
+		select_at(world_px)
+		return
+	var hit: Dictionary = _pick_source_anchor(world_px) if tool_name=="anchor" else \
+		_pick_source_prop(world_px)
+	if hit.is_empty():
+		if tool_name=="move_prop":
+			var inspected := select_at(world_px)
+			if inspected.get("kind","")=="prop":
+				var item: Dictionary = world.data.props[int(inspected.index)]
+				_notice("Generated scenery is protected. Place a new authored asset instead."
+					if authoring.index_of_runtime_prop(item)=="" else
+					"Select the source asset footprint to drag it.")
+		else:
+			_notice("Click an existing editable source road anchor, not a baked junction.")
+		return
+	source_id = str(hit.id)
+	source_anchor = int(hit.get("index",-1))
+	pending_drag = hit.duplicate(true)
+	pending_drag["to"] = world_px
+	if hit.kind=="road":
+		var road := authoring.road_at_id(source_id)
+		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
+			str(road.get("name","")),source_anchor+1,road.points.size()]
+	else:
+		var prop := authoring.prop_at_id(source_id)
+		details.text = "AUTHORED ASSET\n%s\n\nDrag to move; Rotate and Delete are below.\nSource ID: %s" % [
+			str(prop.get("name","")),source_id]
+	_refresh_authoring()
+
+func _finish_source_drag(world_px: Vector2) -> void:
+	if pending_drag.is_empty() or not source_ready:
+		return
+	var drag := pending_drag.duplicate(true)
+	pending_drag.clear()
+	var ok := false
+	var destination_m: Vector2 = world_px/PPM
+	if str(drag.kind)=="road":
+		ok = authoring.move_road_point(str(drag.id),int(drag.index),
+			destination_m,snap_m)
+	elif str(drag.kind)=="prop":
+		ok = authoring.move_prop(str(drag.id),destination_m,snap_m)
+	_refresh_authoring()
+	if ok and authoring.dirty:
+		_notice("Source updated; amber/green geometry is a DRAFT, not actual rebuilt traffic.")
+	elif not ok:
+		_notice(authoring.last_error)
+
 func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.position = where
