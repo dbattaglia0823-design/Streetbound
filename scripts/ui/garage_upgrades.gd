@@ -259,5 +259,6 @@ func _apply_updated_configuration() -> void:
 		return
 	if Catalog.select(vehicle,entry):
 		economy.apply_car_upgrades(vehicle.config,str(economy.active_id))
+		vehicle.on_upgrade_config_changed(0.0)
 		if is_instance_valid(driving_hud):
 			driving_hud.on_vehicle_selected(entry)
