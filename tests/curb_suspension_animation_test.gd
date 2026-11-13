@@ -1,6 +1,6 @@
 extends SceneTree
-## Verify 4-corner visual suspension against actual urban sidewalk metadata.
-## No collision shape / physics transform is ever moved for curb animation.
+## Curb geometry remains available to driving physics, but top-down artwork
+## stays aligned: no separate per-wheel spring, body hover, or visual lift.
 var failures: Array[String] = []
 
 
@@ -9,161 +9,51 @@ func _initialize() -> void:
 
 
 func check(label: String, passed: bool, detail: Variant = "") -> void:
-	print("%s %s: %s" % ["PASS" if passed else "FAIL",label,detail])
+	print("%s %s: %s" % ["PASS" if passed else "FAIL", label, detail])
 	if not passed:
 		failures.append(label)
-
-
-func vec(raw: Array) -> Vector2:
-	return Vector2(float(raw[0]),float(raw[1]))
 
 
 func run() -> void:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
-	var world: MorrowCoast = main.ground
 	var car: VehicleController2D = main.vehicle
 	car.set_physics_process(false)
 	var art: Node2D = car.get_node("Art")
-	var body_sprite: Sprite2D = car.get_node("Art/Sprite")
-	var rig: Node2D = car.get_node("Art/Wheels")
-	var shadow: Node2D = car.get_node_or_null("GroundShadow")
+	var rig: Node2D = art.get_node("Wheels")
+	var sprite: Sprite2D = art.get_node("Sprite")
 	var collider: CollisionShape2D = car.get_node("CollisionShape2D")
-	var original_shape := collider.shape
-	check("road_anchored_contact_shadow_exists",
-		shadow != null and shadow.z_index < art.z_index)
-	check("all_four_contacts_have_baseline_anchors",
-		rig.get_child_count() == 4 and \
-		rig.wheel_anchor(0).x < rig.wheel_anchor(1).x and \
-		rig.wheel_anchor(0).y < rig.wheel_anchor(2).y)
-	check("road_roughness_gently_rocks_body_only",
-		is_zero_approx(float(art.bump_vibration(0.0, "DIRT", 0.1))) and
-		absf(float(art.bump_vibration(28.0, "DIRT", 0.1))) >
-		absf(float(art.bump_vibration(28.0, "ASPHALT", 0.1))) * 3.0,
-		[art.bump_vibration(28.0, "DIRT", 0.1),
-			art.bump_vibration(28.0, "ASPHALT", 0.1)])
-	var urban_found := false
-	var chosen_center := Vector2.ZERO
-	var chosen_normal := Vector2.ZERO
-	var chosen_tangent := Vector2.ZERO
-	var urban_width := 0.0
-	for segment in world.data.segments:
-		var road: Dictionary = world.data.roads[int(segment.road)]
-		if str(road.kind) not in ["local","arterial"]:
-			continue
-		var a := vec(segment.a)
-		var b := vec(segment.b)
-		if a.distance_to(b) < 3.0:
-			continue
-		var tangent := (b-a).normalized()
-		var normal := tangent.orthogonal()
-		var center := (a+b)*0.5
-		var half_width := float(road.width)*0.5
-		var road_sample := (center+normal*(half_width-1.0))*20.0
-		var curb_sample := (center+normal*(half_width+1.2))*20.0
-		var grass_sample := (center+normal*(half_width+5.5))*20.0
-		if world.curb_height_at(road_sample) > 0.001 or \
-			world.curb_height_at(curb_sample) < 0.7 or \
-			world.curb_height_at(grass_sample) > 0.001:
-			continue
-		urban_found = true
-		chosen_center = center
-		chosen_normal = normal
-		chosen_tangent = tangent
-		urban_width = half_width
-		break
-	check("road_to_sidewalk_to_terrain_has_a_real_curb_transition",
-		urban_found)
-	if urban_found:
-		var inside := (chosen_center+chosen_normal*(urban_width-1.0))*20.0
-		var sidewalk := (chosen_center+chosen_normal*(urban_width+1.2))*20.0
-		var exterior := (chosen_center+chosen_normal*(urban_width+5.5))*20.0
-		check("asphalt_lane_has_zero_curb_lift",world.curb_height_at(inside) < 0.01)
-		check("sidewalk_raises_wheel",world.curb_height_at(sidewalk) > 0.7)
-		check("off_sidewalk_returns_to_ground",world.curb_height_at(exterior) < 0.01)
-		# Face parallel to road: right tyres cross curb, left tyres remain on
-		# road; used actual wheel anchors and drivable map coordinates.
-		car.global_position = (chosen_center+chosen_normal*urban_width)*20.0
-		car.rotation = chosen_tangent.angle()+PI/2.0
-		car.linear_velocity = Vector2.ZERO
-		car.velocity = Vector2.ZERO
-		car.reset_physics_interpolation()
-		var targets: PackedFloat32Array = art._wheel_targets()
-		var left := (float(targets[0])+float(targets[2]))*0.5
-		var right := (float(targets[1])+float(targets[3]))*0.5
-		var matches_contacts := true
-		for wheel_index in 4:
-			var wheel_local: Vector2 = rig.wheel_anchor(wheel_index)
-			var wheel_contact: Vector2 = car.global_position + \
-				wheel_local.rotated(car.rotation)
-			matches_contacts = matches_contacts and \
-				absf(float(targets[wheel_index])-world.curb_height_at(wheel_contact)) < 0.001
-		check("each_wheel_probe_uses_its_actual_world_contact",
-			matches_contacts,targets)
-		check("correct_lateral_pair_detects_raised_side",
-			absf(right-left) > 0.35,[targets,left,right])
-		for i in 75:
-			art._process(1.0/60.0)
-		check("curb_roll_responds_to_individual_wheel_height",
-			absf(float(art.curb_roll)) > 0.25,[art.curb_roll,art.curb_heave])
-		var rest_position: Vector2 = art.get("_sprite_rest_position")
-		var rest_rotation: float = float(art.get("_sprite_rest_rotation"))
-		check("chassis_springs_up_over_raised_curb",
-			float(art.body_heave) > 0.15 and
-			body_sprite.position.y < rest_position.y - 2.0,
-			[body_sprite.position, rest_position, art.body_heave])
-		check("car_body_visibly_rolls_when_one_side_hits_curb",
-			absf(float(art.body_roll)) > 0.23 and
-			absf(body_sprite.rotation - rest_rotation) > 0.005,
-			[art.body_roll, body_sprite.rotation, rest_rotation])
-		check("wheel_rig_does_not_inherit_chassis_sprite_bounce",
-			rig.position.is_equal_approx(Vector2.ZERO) and
-			body_sprite.position.distance_to(rest_position) > 2.0,
-			[rig.position, body_sprite.position])
-		var raised_index := 2 if left > right else 3
-		var raised_wheel: Node2D = rig.get_node(
-			"RearLeft" if raised_index == 2 else "RearRight")
-		check("raised_tyre_visually_lifts_from_own_anchor",
-			raised_wheel.position.y < rig.wheel_anchor(raised_index).y - 1.0)
-		var before_transform := car.global_transform
-		var before_collision := collider.global_transform
-		for i in 20:
-			art._process(1.0/60.0)
-		check("suspension_cannot_move_actual_car_or_collision",
-			car.global_transform.is_equal_approx(before_transform) and \
-			collider.global_transform.is_equal_approx(before_collision) and \
-			collider.shape == original_shape)
-		# Drive away from sidewalk and allow the spring to settle.
-		car.global_position = (chosen_center+chosen_normal*(urban_width-3.5))*20.0
-		for i in 150:
-			art._process(1.0/60.0)
-		check("exiting_curb_restores_four_wheel_contact",
-			float(art.curb_heave) < 0.025 and \
-			absf(float(art.curb_roll)) < 0.035,art.curb_heave)
-		check("car_body_spring_settles_after_leaving_curb",
-			absf(float(art.body_heave)) < 0.025 and
-			absf(float(art.body_roll)) < 0.045 and
-			body_sprite.position.distance_to(rest_position) < 0.75 and
-			absf(body_sprite.rotation - rest_rotation) < 0.005,
-			[art.body_heave, art.body_roll, body_sprite.position])
-	# Deterministic component isolation: front-left tyre bumps before
-	# the others, causing positive front pitch and left roll.
-	art._step_suspension(1.0/60.0,PackedFloat32Array([1.0,0.0,0.0,0.0]),true)
-	check("single_front_left_contact_raises_correct_quarter",
-		float(art.curb_pitch) > 0.4 and float(art.curb_roll) > 0.4 and \
-		float(art.curb_heave) > 0.2)
-	check("other_wheels_do_not_lift_before_contact",
-		rig.get_node("FrontRight").position.is_equal_approx(rig.wheel_anchor(1))
-		and rig.get_node("RearLeft").position.is_equal_approx(rig.wheel_anchor(2)))
-	art._step_suspension(1.0/60.0,PackedFloat32Array([0.0,0.0,0.0,0.0]),true)
-	check("suspension_resets_to_level",
-		float(art.curb_heave) < 0.01 and \
-		is_zero_approx(float(art.curb_pitch)) and \
-		is_zero_approx(float(art.curb_roll)))
-	# Keep wheel contact anchors independent of visual lift for skid trails.
-	check("ground_contact_anchors_remain_constant_after_animation",
-		rig.wheel_anchor(0).is_equal_approx(rig.get_node("FrontLeft").position) and \
+	var rest_position := sprite.position
+	var rest_rotation := sprite.rotation
+	var shape := collider.shape
+	var car_transform := car.global_transform
+	var collider_transform := collider.global_transform
+	check("all_four_wheels_present", rig.get_child_count() == 4)
+	check("rear_track_narrower_than_front",
+		rig.rear_track_inset < 1.0 and rig.rear_track_inset >= 0.8,
+		rig.rear_track_inset)
+	# Even legacy callers that attempt to lift the individual tires must not
+	# move wheel art independently of its calibrated axle positions.
+	rig.set_curb_heights(PackedFloat32Array([1.0, 0.0, 0.7, 0.0]))
+	var stationary := true
+	for i in 4:
+		var wheel: Node2D = rig.get_child(i) as Node2D
+		stationary = stationary and wheel.position.is_equal_approx(
+			rig.wheel_anchor(i)) and wheel.scale.is_equal_approx(Vector2.ONE)
+	check("curb_effect_cannot_lift_any_wheel", stationary)
+	for i in 60:
+		art._process(1.0 / 60.0)
+	check("independent_body_suspension_removed",
+		sprite.position.is_equal_approx(rest_position) and
+		is_equal_approx(sprite.rotation, rest_rotation),
+		[sprite.position, sprite.rotation])
+	check("visual_feedback_does_not_move_physical_vehicle",
+		car.global_transform.is_equal_approx(car_transform) and
+		collider.global_transform.is_equal_approx(collider_transform) and
+		collider.shape == shape)
+	check("wheel_contact_anchors_remain_stable",
+		rig.wheel_anchor(0).is_equal_approx(rig.get_node("FrontLeft").position) and
 		rig.wheel_anchor(3).is_equal_approx(rig.get_node("RearRight").position))
-	print("CURB SUSPENSION ANIMATIONS: ","PASS" if failures.is_empty() else "FAIL")
+	print("STABLE TIRE VISUALS: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
