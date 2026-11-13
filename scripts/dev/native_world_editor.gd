@@ -11,6 +11,8 @@ const PPM := 20.0
 const PANEL_COLOR := Color(0.055,0.075,0.085,0.94)
 const ACCENT := Color("#ff9a32")
 var world
+var standalone_mode := false
+var render_tiles: Node2D
 var player: VehicleController2D
 var driving_camera: Camera2D
 var traffic_network
@@ -352,7 +354,10 @@ func _update_context_panels() -> void:
 func _redraw_visible_scenery() -> void:
 	if not is_instance_valid(world):
 		return
-	for chunk in world.chunks.values():
+	var loaded: Array = world.chunks.values()
+	if standalone_mode and is_instance_valid(render_tiles):
+		loaded = render_tiles.tiles.values()
+	for chunk in loaded:
 		if not is_instance_valid(chunk):
 			continue
 		for canvas in chunk.get_children():
@@ -413,6 +418,8 @@ func _sync_editor_preview() -> void:
 		preview_hidden = next_hidden
 		Scenery.editor_hidden = preview_hidden.duplicate()
 		_redraw_visible_scenery()
+		if standalone_mode and is_instance_valid(render_tiles):
+			render_tiles.redraw_scenery()
 	# Source previews have their own real CollisionShape2D, and stale
 	# baked shapes are disabled only for the editing session.
 	for chunk in world.chunks.values():
@@ -861,7 +868,7 @@ func _build_ui() -> void:
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
 	_btn("FIT MAP",row,_fit_map)
-	_btn("TEST DRIVE  F6",row,close_editor)
+	_btn("TEST DRIVE  F6",row,_test_drive)
 	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
 	inspector_panel = sidebar
 	sidebar.name = "SelectedObjectInspector"
@@ -912,6 +919,8 @@ func _build_ui() -> void:
 
 
 func _can_enter() -> bool:
+	if standalone_mode:
+		return not active and is_instance_valid(world) and bool(world.initialization_complete)
 	# A split-screen game has two cameras and a different input owner. Keep
 	# this development workspace exclusively in single-player free roam.
 	var split: Variant = get_parent().get("local_split_screen")
@@ -923,6 +932,8 @@ func _can_enter() -> bool:
 
 
 func _set_game_ui_visible(restore: bool) -> void:
+	if standalone_mode:
+		return
 	if restore:
 		for node in _hidden_game_ui:
 			if is_instance_valid(node):
@@ -947,33 +958,36 @@ func open_editor() -> bool:
 			_notice("Source not loaded: "+authoring.last_error)
 		else:
 			_notice("Native source loaded. Select a tool; draft changes stay in memory.")
-	_player_camera_enabled = driving_camera.enabled
-	_player_camera_physics = driving_camera.is_physics_processing()
-	_player_camera_input = driving_camera.is_processing_unhandled_input()
+	if is_instance_valid(driving_camera):
+		_player_camera_enabled = driving_camera.enabled
+		_player_camera_physics = driving_camera.is_physics_processing()
+		_player_camera_input = driving_camera.is_processing_unhandled_input()
 	editor_camera = Camera2D.new()
 	editor_camera.name = "WorldEditorCamera"
 	editor_camera.process_mode = Node.PROCESS_MODE_ALWAYS
-	editor_camera.position = driving_camera.global_position
+	editor_camera.position = driving_camera.global_position if is_instance_valid(driving_camera) else world.spawn_position()
 	editor_camera.rotation = 0.0
-	editor_camera.zoom = driving_camera.zoom
+	editor_camera.zoom = driving_camera.zoom if is_instance_valid(driving_camera) else Vector2(0.35,0.35)
 	editor_camera.zoom = editor_camera.zoom.clamp(
 		Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
 		Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 	get_parent().add_child(editor_camera)
-	driving_camera.enabled = false
-	driving_camera.set_physics_process(false)
-	driving_camera.set_process_unhandled_input(false)
+	if is_instance_valid(driving_camera):
+		driving_camera.enabled = false
+		driving_camera.set_physics_process(false)
+		driving_camera.set_process_unhandled_input(false)
 	editor_camera.make_current()
 	active = true
 	_build_overview()
 	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
-	gizmos.set_preview_collision_enabled(true)
+	gizmos.set_preview_collision_enabled(not standalone_mode)
 	_update_context_panels()
 	_right_drag = false
 	_last_cell = Vector2i(-999,-999)
-	get_tree().paused = true
+	if not standalone_mode:
+		get_tree().paused = true
 	set_process(true)
 	_update_selection({})
 	_refresh_authoring()
@@ -984,7 +998,7 @@ func close_editor() -> void:
 	if not active:
 		return
 	if is_instance_valid(bridge) and bridge.phase != "":
-		_notice("Apply is still rebuilding. Exit after the transaction completes.")
+		_notice("Map save is still rebuilding. Exit after the transaction completes.")
 		return
 	active = false
 	root_ui.visible = false
@@ -999,6 +1013,10 @@ func close_editor() -> void:
 		editor_camera.enabled = false
 		editor_camera.queue_free()
 	editor_camera = null
+	if standalone_mode:
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
+		return
 	driving_camera.enabled = _player_camera_enabled
 	driving_camera.set_physics_process(_player_camera_physics)
 	driving_camera.set_process_unhandled_input(_player_camera_input)
@@ -1011,9 +1029,22 @@ func close_editor() -> void:
 	_owns_pause = false
 
 func _recenter() -> void:
-	if active and is_instance_valid(player):
-		editor_camera.global_position = player.global_position
+	if active:
+		editor_camera.global_position = player.global_position if is_instance_valid(player) else world.spawn_position()
 		_update_view(true)
+
+func _test_drive() -> void:
+	if not active:
+		return
+	if standalone_mode:
+		if authoring.dirty or bridge.phase != "":
+			_notice("Save to Game first. Unsaved map edits cannot enter Test Drive.")
+			return
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
+	else:
+		close_editor()
+
 
 func _toggle_lanes() -> void:
 	gizmos.show_lanes = not gizmos.show_lanes
@@ -1053,13 +1084,19 @@ func _update_view(force: bool = false) -> void:
 	# update instead of creating a fake editor-only representation.
 	var here: Vector2 = editor_camera.global_position
 	var cell := Vector2i((here/PPM/float(world.chunk_m)).floor())
-	if cell != _last_cell or force:
-		world.stream_at(here)
-		_last_cell = cell
-	if not world.pending.is_empty():
-		world._build_chunk(world.pending.pop_front())
-	if is_instance_valid(overview_sprite):
-		overview_sprite.visible = editor_camera.zoom.x < 0.055
+	if standalone_mode and is_instance_valid(render_tiles):
+		var detailed: bool = render_tiles.configure(here,
+			get_viewport().get_visible_rect().size,editor_camera.zoom.x)
+		if is_instance_valid(overview_sprite):
+			overview_sprite.visible = not detailed
+	else:
+		if cell != _last_cell or force:
+			world.stream_at(here)
+			_last_cell = cell
+		if not world.pending.is_empty():
+			world._build_chunk(world.pending.pop_front())
+		if is_instance_valid(overview_sprite):
+			overview_sprite.visible = editor_camera.zoom.x < 0.055
 	_sync_editor_preview()
 	gizmos.set_view(here,get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
@@ -1074,7 +1111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.pressed and not key.echo:
 			if key.keycode == KEY_F6 or key.physical_keycode == KEY_F6:
 				if active:
-					close_editor()
+					_test_drive()
 				else:
 					open_editor()
 				get_viewport().set_input_as_handled()
