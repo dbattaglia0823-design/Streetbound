@@ -8,7 +8,7 @@ import {
   paintSceneryBrush,eraseSceneryBrush
 } from './world-edit-tools.js';
 import {distance,clamp,nearestOnPath,pointInPolygon,regionAt,sampleRoad} from './world-geometry.js';
-import {drawWorld,drawEditorOverlay} from './world-renderer.js';
+import {drawWorld,drawEditorOverlay,drawProp} from './world-renderer.js';
 import {pickEditableScenery} from './world-selection.js';
 import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
@@ -313,7 +313,7 @@ function setTool(next){
     marker:'Click to place a gameplay marker.',
     pan:'Drag to move around the open world.'
   }[next]);
-  requestRender();
+  refreshAssetDock();requestRender();
 }
 function setSelection(id,point=-1){
   if(id!==selection?.id)pointInsertMode=null;
@@ -557,6 +557,91 @@ function refreshEntities(){
     list.append(hint);
   }
 }
+const ASSET_GROUPS={
+  nature:new Set(['oak','pine','palm','bush','rock','boulder']),
+  buildings:new Set(['house','building','warehouse','garage','gas_station']),
+  roads:new Set(['streetlight','sign','barrier','dock','parking','parked_car']),
+  landscaping:new Set(['planter','garden','field','island','forecourt'])
+};
+let activeDockAsset=null;
+const dockCategory=type=>Object.entries(ASSET_GROUPS).find(([,types])=>types.has(type))?.[0]||'roads';
+function assetCandidates(){
+  const kinds=[...$('prop-type').options].filter(option=>option.value);
+  const assets=[];
+  for(const kind of kinds){
+    assets.push({type:kind.value,assetId:'',label:kind.textContent,group:dockCategory(kind.value)});
+    if(runtimePreview)for(const [assetId,name] of GAME_ART)
+      if((GAME_ART_KINDS[kind.value]||[]).includes(assetId.slice(5)))
+        assets.push({type:kind.value,assetId,label:name,group:dockCategory(kind.value),game:true});
+    for(const custom of doc.assets){
+      assets.push({type:kind.value,assetId:custom.id,label:custom.name,group:'imported',custom});
+    }
+  }
+  return assets;
+}
+function drawAssetThumbnail(canvas,item){
+  const ctx=canvas.getContext('2d');
+  if(!ctx)return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const [w,h]=item.assetId&&!item.game&&item.custom
+    ?[item.custom.width,item.custom.height]:(BASE_SIZE[item.type]||[30,30]);
+  const extent=Math.max(1,w,h);
+  const scale=Math.min(67/extent,8);
+  ctx.save();
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.scale(scale,scale);
+  // Render with the same renderer and asset selection as the placement preview.
+  drawProp(ctx,{id:'dock-'+item.type,x:0,y:0,rotation:0,scale:1,
+    type:item.type,assetId:item.assetId},
+    doc.assets,item.game||(!item.custom&&!!runtimePreview));
+  ctx.restore();
+}
+function refreshAssetDock(){
+  const container=$('asset-dock-scroller');
+  if(!container)return;
+  const category=$('asset-dock-category').value;
+  const query=$('asset-dock-search').value.trim().toLowerCase();
+  const all=assetCandidates();
+  const filtered=all.filter(item=>(category==='all'||category===item.group)&&
+    (!query||(item.label+' '+item.type+' '+item.group).toLowerCase().includes(query)));
+  const fragment=document.createDocumentFragment();
+  const selectedType=$('prop-type').value,selectedArtwork=$('prop-asset').value;
+  for(const item of filtered){
+    const card=document.createElement('button');
+    card.type='button';card.className='asset-dock-card';
+    const chosen=selectedType===item.type&&selectedArtwork===item.assetId;
+    if(chosen)card.classList.add('selected');
+    card.setAttribute('aria-pressed',String(chosen&&tool==='prop'));
+    card.title=item.label+' · '+item.type.replaceAll('_',' ');
+    const preview=document.createElement('canvas');
+    preview.width=112;preview.height=80;preview.setAttribute('aria-hidden','true');
+    card.append(preview);
+    const caption=document.createElement('span');caption.className='asset-dock-name';
+    caption.textContent=item.label;card.append(caption);
+    if(item.assetId){
+      const origin=document.createElement('small');
+      origin.textContent=item.custom?'Imported':'Game artwork';
+      card.append(origin);
+    }
+    card.addEventListener('click',()=>{
+      $('prop-type').value=item.type;
+      refreshSpriteLists();
+      $('prop-asset').value=item.assetId;
+      activeDockAsset=item.type+':'+item.assetId;
+      setTool('prop');refreshAssetDock();
+      status('Ready to place '+item.label+'. Click the map to add it.');
+    });
+    fragment.append(card);
+    drawAssetThumbnail(preview,item);
+  }
+  if(!filtered.length){
+    const empty=document.createElement('p');
+    empty.className='asset-dock-empty';empty.textContent='No matching assets. Choose another category or clear the search.';
+    fragment.append(empty);
+  }
+  container.replaceChildren(fragment);
+  $('asset-dock-count').textContent=filtered.length+' of '+all.length+' assets';
+}
 function refreshSpriteLists(){
   for(const id of ['prop-asset','inspect-asset']){
     const select=$(id),previous=select.value;
@@ -575,7 +660,7 @@ function refreshSpriteLists(){
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
-function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();requestRender();}
+function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();refreshAssetDock();requestRender();}
 function startWorld(world,message,{skipRecovery=false,preview=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
@@ -1266,8 +1351,17 @@ const auditUI=createMapAuditUI({
     status(issue.message);
   }
 });
-document.addEventListener('gdt-world-asset-ready',requestRender);
-$('prop-type').addEventListener('change',refreshSpriteLists);
+document.addEventListener('gdt-world-asset-ready',()=>{requestRender();refreshAssetDock();});
+$('asset-dock-category').addEventListener('change',refreshAssetDock);
+$('asset-dock-search').addEventListener('input',refreshAssetDock);
+$('asset-dock-collapse').addEventListener('click',()=>{
+  const dock=$('asset-dock'),button=$('asset-dock-collapse');
+  const closed=dock.classList.toggle('collapsed');
+  button.setAttribute('aria-expanded',String(!closed));
+  button.textContent=closed?'Show assets':'Hide assets';
+});
+$('prop-type').addEventListener('change',()=>{refreshSpriteLists();refreshAssetDock();});
+$('prop-asset').addEventListener('change',refreshAssetDock);
 $('import-sprite').addEventListener('change',async event=>{
   const file=event.target.files?.[0];
   if(!file)return;
@@ -1285,7 +1379,7 @@ $('import-sprite').addEventListener('change',async event=>{
     const previous=doc;
     change(d=>addSpriteAsset(d,{name:file.name,src,width:image.naturalWidth,height:image.naturalHeight}),
       'Imported custom artwork: '+file.name+'. Select it for scenery placement.');
-    if(doc!==previous){const id=doc.assets.at(-1).id;$('prop-asset').value=id;}
+    if(doc!==previous){const id=doc.assets.at(-1).id;$('prop-asset').value=id;refreshAssetDock();}
   }catch(e){errorMessage(e);}
   event.target.value='';
 });
