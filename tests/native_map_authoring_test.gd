@@ -150,6 +150,9 @@ func _run() -> void:
 		editor.traffic_network = game.ground.get_node("AmbientTraffic").get("network")
 		game.add_child(editor)
 		await process_frame
+	check("draft_sprite_seed_matches_python_world_baker",
+		editor.gizmos._source_seed("prop-native-1")==648520850 and
+		editor.gizmos._source_seed("prop-native-2")==1068430632)
 	check("actual_native_editor_opens_in_game",editor.open_editor())
 	check("asset_browser_is_contextual_not_always_on",
 		is_instance_valid(editor.asset_dock) and not editor.asset_dock.visible)
