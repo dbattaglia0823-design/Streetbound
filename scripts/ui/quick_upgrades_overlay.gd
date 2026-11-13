@@ -304,6 +304,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_dt: float) -> void:
+	# The shortcut belongs to free-roam gameplay, not above the existing
+	# garage, pause/settings, dealership or other modal menus.
+	if not overlay.visible and is_instance_valid(launch_button):
+		launch_button.visible = not get_tree().paused and is_instance_valid(economy)
 	if overlay.visible and is_instance_valid(economy) and \
 			last_car_id != str(economy.active_id):
 		refresh()
