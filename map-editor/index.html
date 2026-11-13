@@ -26,10 +26,9 @@
     <button id="audit-top" class="gdt-btn" type="button">Map health</button>
   </div>
 </header>
-<div class="world-workspace">
-  <aside class="panel left-panel">
-    <div class="panel-head"><h2>Create</h2><span class="micro-tag">WORLD TOOLS</span></div>
-    <div class="tool-buttons" role="toolbar" aria-label="World editing tools">
+<nav class="world-tool-dock" aria-label="Always available world editing tools">
+  <span class="tool-dock-heading">World tools</span>
+  <div class="tool-buttons" role="toolbar" aria-label="World editing tools">
       <button class="mode active" data-tool="select" aria-pressed="true"><span>↖</span><strong>Select / Edit</strong><kbd>V</kbd></button>
       <button class="mode" data-tool="road" aria-pressed="false"><span>〰</span><strong>Draw road</strong><kbd>R</kbd></button>
       <button class="mode" data-tool="terrain" aria-pressed="false"><span>⬡</span><strong>Terrain region</strong><kbd>T</kbd></button>
@@ -37,6 +36,9 @@
       <button class="mode" data-tool="marker" aria-pressed="false"><span>◇</span><strong>Game marker</strong><kbd>M</kbd></button>
       <button class="mode" data-tool="pan" aria-pressed="false"><span>✥</span><strong>Pan view</strong><kbd>H</kbd></button>
     </div>
+</nav>
+<div class="world-workspace">
+  <aside class="panel left-panel">
     <div class="settings-group">
       <h3>Road designer</h3>
       <div class="field"><label for="road-class">Road type</label><select id="road-class">
@@ -317,6 +319,24 @@
     <div class="project-note">Streetbound map authoring. Paved roads create automatic intersections; dirt/gravel stop cleanly at pavement without junction links. Export world JSON to keep changes in the repository.</div>
   </aside>
 </div>
+<section id="asset-dock" class="asset-dock" aria-label="Placeable asset browser">
+  <div class="asset-dock-header">
+    <div class="asset-dock-heading"><strong>Asset browser</strong><span id="asset-dock-count">Select an asset to place</span></div>
+    <label class="asset-dock-category-label" for="asset-dock-category">Category
+      <select id="asset-dock-category" aria-label="Asset category">
+        <option value="all">All assets</option>
+        <option value="nature">Nature</option>
+        <option value="buildings">Buildings</option>
+        <option value="roads">Roadside & infrastructure</option>
+        <option value="landscaping">Landscaping</option>
+        <option value="imported">Imported artwork</option>
+      </select>
+    </label>
+    <input id="asset-dock-search" type="search" placeholder="Search assets…" aria-label="Search placeable assets">
+    <button id="asset-dock-collapse" type="button" aria-expanded="true" aria-controls="asset-dock-scroller">Hide assets</button>
+  </div>
+  <div id="asset-dock-scroller" class="asset-dock-scroller" role="list" aria-label="Scroll through placeable assets"></div>
+</section>
 <dialog id="new-dialog" class="gdt-dialog" aria-labelledby="new-title">
   <h2 id="new-title">Create a world</h2>
   <p>Start blank or load a ready-made racing landscape. Loading a preset replaces the current canvas.</p>
