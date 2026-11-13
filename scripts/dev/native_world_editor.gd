@@ -109,6 +109,7 @@ func _build_authoring_ui() -> void:
 	_btn("SHOP",heading,_choose_tool.bind("place:shop"))
 	_btn("TREE",heading,_choose_tool.bind("place:tree"))
 	_btn("ROCK",heading,_choose_tool.bind("place:rock"))
+	_btn("ADOPT PROP",heading,_adopt_selected)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation",5)
 	rows.add_child(actions)
@@ -272,6 +273,36 @@ func _reload_world() -> void:
 	get_tree().paused = false
 	get_tree().call_deferred("reload_current_scene")
 
+func _adopt_selected() -> void:
+	if _editing_locked() or not source_ready:
+		return
+	if selected.get("kind","")!="prop":
+		_notice("Inspect a real game building, tree or rock before selecting ADOPT.")
+		return
+	var index := int(selected.get("index",-1))
+	if index<0 or index>=world.data.props.size():
+		return
+	var item: Dictionary = world.data.props[index]
+	# The primary garage and gameplay POI structures must never be
+	# adopted or replaced through a convenience button.
+	var garage_geometry := preload("res://scripts/world/garage_geometry.gd")
+	if garage_geometry.is_player_garage(item) or item.has("poi"):
+		_notice("Protected garage or gameplay landmark: cannot replace it.")
+		return
+	var id: String = authoring.adopt_runtime_prop(item)
+	if id.is_empty():
+		_notice(authoring.last_error)
+		return
+	source_id = id
+	source_anchor = -1
+	tool_name = "move_prop"
+	mode_label.text = "EDIT: MOVE PROP"
+	var source_item: Dictionary = authoring.prop_at_id(id)
+	details.text = "ADOPTED GAME ASSET\n%s\n\nOriginal identity preserved.\nMove, rotate or resize.\nApply to rebuild real game geometry." % [
+		str(source_item.get("name",""))]
+	_refresh_authoring()
+	_notice("Source-backed replacement created; old procedural prop stays until Apply + Reload.")
+
 func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	if not source_ready:
 		return {}
@@ -333,7 +364,7 @@ func _source_click(world_px: Vector2) -> void:
 			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
-				_notice("Generated scenery is protected. Place a new authored asset instead."
+				_notice("Select ADOPT PROP to convert this original into a source-backed replacement."
 					if authoring.index_of_runtime_prop(item)=="" else
 					"Select the source asset footprint to drag it.")
 		else:
