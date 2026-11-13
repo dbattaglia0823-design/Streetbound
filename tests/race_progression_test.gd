@@ -89,6 +89,20 @@ func run() -> void:
 	var level_hud: CanvasLayer = main.progression_hud
 	check("playable_ashford_race_and_progress_hud_exist",
 		race != null and race.available and level_hud != null)
+	var driving_hud: CanvasLayer = main.get_node_or_null("DrivingHUD") as CanvasLayer
+	if driving_hud == null:
+		for child in main.get_children():
+			if child is CanvasLayer and child.has_method("show_unified_progression"):
+				driving_hud = child
+				break
+	check("progression_integrated_into_top_left_hud",
+		driving_hud != null and is_instance_valid(level_hud.host) and
+		level_hud.host == driving_hud.progression_slot and
+		level_hud.player_bar.get_parent() == driving_hud.progression_slot and
+		level_hud.car_bar.get_parent() == driving_hud.progression_slot)
+	check("separate_progression_panel_not_created",
+		level_hud.get_node_or_null("ProgressionPanel") == null)
+
 	if race == null or not race.available:
 		quit(1)
 		return
