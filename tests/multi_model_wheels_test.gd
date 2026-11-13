@@ -79,7 +79,11 @@ func run() -> void:
 			compact.front_left_uv, rig.visual_track_scale)) < 0.01, fl.position)
 	check("normalized_rear_axle_exact",
 		rr.position.distance_to(inset_point(compact_bounds,
-			compact.rear_right_uv, rig.visual_track_scale)) < 0.01, rr.position)
+			compact.rear_right_uv, rig.visual_track_scale * rig.rear_track_inset)) < 0.01, rr.position)
+	check("rear_wheels_more_inset_than_front",
+		absf(rr.position.x - compact_bounds.get_center().x) <
+		absf(fr.position.x - compact_bounds.get_center().x),
+		[rr.position, fr.position])
 	check("four_wheels_reused_on_swap", rig.get_child_count() == 4)
 	check("small_car_tires_scale_with_silhouette",
 		compact_width > 5.0 and compact_width < 7.4, compact_width)
