@@ -41,7 +41,7 @@ var _hidden_game_ui: Dictionary = {}
 var authoring
 var bridge
 var source_ready := false
-var tool_name := "inspect"
+var tool_name := "move_prop"
 var source_id := ""
 var source_anchor := -1
 var pending_drag: Dictionary = {}
@@ -122,7 +122,7 @@ func _build_authoring_ui() -> void:
 	rows.add_child(heading)
 	mode_label = Label.new()
 	mode_label.name = "NativeEditMode"
-	mode_label.text = "EDIT MODE"
+	mode_label.text = "SELECT / EDIT"
 	mode_label.custom_minimum_size.x = 115
 	mode_label.add_theme_color_override("font_color",ACCENT)
 	heading.add_child(mode_label)
@@ -337,7 +337,7 @@ func _select_asset(entry: Dictionary) -> void:
 		active_project_asset.clear()
 		_choose_tool("place:"+str(entry.kind))
 	if tool_name.begins_with("place:"):
-		_notice("Selected "+str(entry.name)+". Click the map to place; Apply + Reload to commit.")
+		_notice("Selected "+str(entry.name)+". Click to place with live artwork and collision.")
 
 
 func _update_context_panels() -> void:
@@ -478,6 +478,7 @@ func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
 	_sync_editor_preview()
+	_update_context_panels()
 	if source_ready:
 		gizmos.set_draft(authoring.doc,authoring.initial,pending_drag,
 			source_id,source_anchor)
@@ -647,7 +648,7 @@ func _adopt_selected() -> void:
 	tool_name = "move_prop"
 	mode_label.text = "EDIT: MOVE PROP"
 	var source_item: Dictionary = authoring.prop_at_id(id)
-	details.text = "ADOPTED GAME ASSET\n%s\n\nOriginal identity preserved.\nMove, rotate or resize.\nApply to rebuild real game geometry." % [
+	details.text = "SELECTED GAME ASSET\n%s\n\nDrag, rotate, resize or delete.\nUnsaved changes are visible now." % [
 		str(source_item.get("name",""))]
 	_refresh_authoring()
 	_notice("Selected asset is editable; its art and collision now follow edits.")
@@ -884,11 +885,16 @@ func _build_ui() -> void:
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
 	var note := Label.new()
-	note.text = "AMBER / GREEN OUTLINES = DRAFT ONLY\nTraffic updates after Apply + Reload."
+	note.text = "Draft art and collision are live.\nSave to Game rebuilds roads and traffic."
 	note.add_theme_color_override("font_color",ACCENT)
 	note.add_theme_font_size_override("font_size",11)
 	col.add_child(note)
-	var footer := _panel(Vector2(14,390),Vector2(520,36))
+	var footer := _panel(Vector2.ZERO,Vector2(500,34))
+	footer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	footer.offset_left = 14
+	footer.offset_right = 514
+	footer.offset_top = -168
+	footer.offset_bottom = -132
 	status = Label.new()
 	status.text = "Press F6 during free roam to inspect the live map."
 	status.add_theme_font_size_override("font_size",12)
@@ -1024,7 +1030,7 @@ func _process(dt: float) -> void:
 		direction.y += 1.0
 	if direction != Vector2.ZERO:
 		editor_camera.global_position += direction.normalized() * dt * \
-			950.0 / maxf(0.26,editor_camera.zoom.x)
+			950.0 / maxf(0.008,editor_camera.zoom.x)
 	_refresh_elapsed += dt
 	if _refresh_elapsed >= 0.12:
 		_refresh_elapsed = 0.0
@@ -1085,6 +1091,23 @@ func _unhandled_input(event: InputEvent) -> void:
 						_notice(authoring.last_error)
 				get_viewport().set_input_as_handled()
 				return
+			# Mirror the browser map editor's V/R/T/P/M/H tool shortcuts.
+			# Never intercept typing in the searchable asset browser.
+			var focused := get_viewport().gui_get_focus_owner()
+			if active and not key.ctrl_pressed and not key.alt_pressed and \
+					not (focused is LineEdit or focused is TextEdit):
+				var shortcut := ""
+				match key.physical_keycode:
+					KEY_V: shortcut = "move_prop"
+					KEY_R: shortcut = "draw_road"
+					KEY_T: shortcut = "draw_terrain"
+					KEY_P: shortcut = "place:house"
+					KEY_M: shortcut = "place_marker"
+					KEY_H: shortcut = "pan"
+				if not shortcut.is_empty():
+					_choose_tool(shortcut)
+					get_viewport().set_input_as_handled()
+					return
 			if active and key.ctrl_pressed and (key.keycode in [KEY_Z,KEY_Y] or
 					key.physical_keycode in [KEY_Z,KEY_Y]):
 				if key.keycode==KEY_Y or key.physical_keycode==KEY_Y or key.shift_pressed:
