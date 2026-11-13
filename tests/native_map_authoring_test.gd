@@ -21,6 +21,21 @@ func _run() -> void:
 	check("authoring_doc_is_world_forge_v2",
 		session.doc.format=="gdt.racing-world" and
 		int(session.doc.version)==2 and session.doc.roads.size()>=120)
+	var remote: Variant = JSON.parse_string(FileAccess.get_file_as_string(
+		"res://map-editor/maps/morrow-coast.edits.world.json"))
+	check("native_client_source_revision_matches_loaded_authoring_source",
+		remote is Dictionary and session.matches_remote(remote))
+	var altered_remote: Dictionary = remote.duplicate(true)
+	altered_remote["revision_marker"] = "external-change"
+	check("external_source_edit_blocks_native_apply",not session.matches_remote(altered_remote))
+	var LocalBackend = load("res://scripts/dev/native_map_bridge.gd")
+	var backend: Node = LocalBackend.new()
+	root.add_child(backend)
+	check("stale_running_world_sha_blocks_native_apply_before_network",
+		not backend.apply_source(session.doc,session.baseline_hash,
+			"0000000000000000000000000000000000000000000000000000000000000000") and
+		backend.phase=="")
+	backend.queue_free()
 	var original_hash: String = session.baseline_hash
 	var origin_road: Dictionary = session.road_at_id("road-0")
 	check("stable_source_road_id",not origin_road.is_empty())
