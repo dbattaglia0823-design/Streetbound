@@ -113,8 +113,8 @@ func _physics_process(dt: float) -> void:
 	# The overview is an initial composition, not a persistent handling or
 	# zoom change. Driving away, steering into traffic, or manual wheel zoom
 	# restores the player's original 20%-magnified follow camera.
-	if _neighborhood_view_active and (speed >= 1.5 or
-			transform_now.origin.distance_to(_neighborhood_start_position) >= 32.0):
+	if _neighborhood_view_active and \
+			transform_now.origin.distance_to(_neighborhood_start_position) >= 35.0 * 20.0:
 		_neighborhood_view_active = false
 	var forward_speed := maxf(target.longitudinal_speed, 0.0)
 	var acceleration := (forward_speed - maxf(_previous_longitudinal, 0.0)) / maxf(dt, 0.001)
