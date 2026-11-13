@@ -4,7 +4,7 @@ extends RefCounted
 ## All parts have fixed rolled stats, not random unbounded modifiers.
 const PATH := "res://data/upgrade_parts.json"
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
-const SLOTS := ["engine","ecu","intake","exhaust","suspension","tires","brakes","transmission"]
+const SLOTS := ["engine","ecu","intake","exhaust","suspension","tires","brakes","transmission","turbo","nitrous"]
 const RARITIES := ["Common","Uncommon","Rare","Epic","Legendary"]
 const FIELD_LABELS := {
 	"engine_power_kw":"POWER","engine_torque_nm":"TORQUE",
@@ -15,7 +15,10 @@ const FIELD_LABELS := {
 	"tire_grip":"TIRE GRIP","handbrake_drive_grip":"SLIDE TRACTION",
 	"brake_force_n":"BRAKES","handbrake_force_n":"HANDBRAKE",
 	"shift_duration":"SHIFT TIME","auto_shift_duration":"AUTO SHIFT",
-	"final_drive":"FINAL DRIVE"
+	"final_drive":"FINAL DRIVE",
+	"boost_max_psi":"TURBO BOOST (PSI)","boost_spool_seconds":"SPOOL TIME",
+	"nitrous_torque_fraction":"NITROUS TORQUE","nitrous_capacity_seconds":"NITROUS (SEC)",
+	"nitrous_recharge_seconds":"REFILL (SEC)"
 }
 static var _templates: Dictionary = {}
 
@@ -70,7 +73,12 @@ static func summary(template: Dictionary) -> String:
 	for key in mods:
 		var fraction := float(mods[key])
 		var label: String = FIELD_LABELS.get(str(key),str(key).to_upper())
-		pieces.append("%s %+.1f%%" % [label,fraction*100.0])
+		if str(key) in ["boost_max_psi","nitrous_capacity_seconds"]:
+			pieces.append("%s +%.1f" % [label,fraction])
+		elif str(key) == "nitrous_recharge_seconds":
+			pieces.append("%s %.1f" % [label,fraction])
+		else:
+			pieces.append("%s %+.1f%%" % [label,fraction*100.0])
 	return "   /   ".join(pieces)
 
 
@@ -88,7 +96,18 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				continue
 			var fraction := clampf(float(mods[raw_key]),-0.55,0.75)
 			var value := float(base) * (1.0 + fraction)
+			# A naturally aspirated engine has zero boost; nitrous has zero
+			# capacity without a kit. These are explicit *absolute* stats,
+			# not percentages of zero. Legacy modifiers stay multiplicative.
 			match key:
+				"boost_max_psi": value = clampf(float(base)+float(mods[raw_key]),0.0,24.0)
+				"nitrous_torque_fraction": value = clampf(
+					float(base)+float(mods[raw_key]),0.0,0.45)
+				"nitrous_capacity_seconds": value = clampf(
+					float(base)+float(mods[raw_key]),0.0,12.0)
+				"nitrous_recharge_seconds": value = clampf(
+					float(mods[raw_key]),6.0,45.0)
+				"boost_spool_seconds": value = clampf(value,0.10,2.0)
 				"mass_kg": value = clampf(value,650.0,5000.0)
 				"engine_power_kw": value = clampf(value,40.0,1800.0)
 				"engine_torque_nm": value = clampf(value,60.0,3000.0)
@@ -116,6 +135,16 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				config.audio_aggression+upgrade_fraction*7.0,0.0,1.4)
 			config.audio_exhaust_roughness = clampf(
 				config.audio_exhaust_roughness+upgrade_fraction*5.0,0.0,1.0)
+		if str(part.get("slot","")) == "turbo" and config.boost_max_psi > 0.05:
+			# A turbo kit on an N/A car gets true spool and induction audio.
+			# Stock turbo and supercharged cars retain their authored profile.
+			var extra_psi := maxf(0.0,float(mods.get("boost_max_psi",0.0)))
+			config.audio_turbo_presence = clampf(
+				config.audio_turbo_presence+extra_psi/20.0,0.0,1.5)
+			config.audio_flutter = clampf(
+				config.audio_flutter+extra_psi/40.0,0.0,1.0)
+			if config.audio_induction == "naturally_aspirated":
+				config.audio_induction = "turbo"
 
 
 static func reward_template(race_id: String, car_level: int) -> Dictionary:
@@ -142,7 +171,8 @@ static func reward_template(race_id: String, car_level: int) -> Dictionary:
 	var rarity := str(RARITIES[rarity_index])
 	var eligible: Array[Dictionary] = []
 	for part in all().values():
-		if str(part.rarity) == rarity:
+		if str(part.rarity) == rarity and \
+				bool(part.get("race_drop_enabled",true)):
 			eligible.append(part)
 	if eligible.is_empty():
 		return {}

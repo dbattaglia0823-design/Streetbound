@@ -17,6 +17,15 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 		failures.append(name)
 
 
+# On Godot 4.4's headless fallback font, Label.get_rect() can report
+# three times the font height while the glyph ink remains around one em.
+# Compare conservative drawn single-line text regions, not font line metrics.
+func _text_ink_rect(item: Label) -> Rect2:
+	var approximate_line_height := float(item.get_theme_font_size("font_size")) * 1.42
+	return Rect2(item.position,Vector2(item.size.x,
+		minf(item.size.y,approximate_line_height)))
+
+
 func run() -> void:
 	var game: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
@@ -55,10 +64,18 @@ func run() -> void:
 	var collisions: Array[String] = []
 	for i in labels.size():
 		for j in range(i+1,labels.size()):
-			if labels[i].get_rect().intersects(labels[j].get_rect()):
+			if _text_ink_rect(labels[i]).intersects(_text_ink_rect(labels[j])):
 				collisions.append("%s %s / %s %s" % [labels[i].text,
-					labels[i].get_rect(),labels[j].text,labels[j].get_rect()])
+					_text_ink_rect(labels[i]),labels[j].text,
+					_text_ink_rect(labels[j])])
 	check("dashboard_label_rects_never_overlap",collisions.is_empty(),collisions)
+	var inflated_font_rows_top_aligned := true
+	for label in labels:
+		if label.size.y > float(label.get_theme_font_size("font_size")) * 2.0:
+			inflated_font_rows_top_aligned = inflated_font_rows_top_aligned and \
+				label.vertical_alignment == VERTICAL_ALIGNMENT_TOP
+	check("oversized_headless_font_controls_keep_text_in_its_row",
+		inflated_font_rows_top_aligned)
 	var meter_size: Vector2 = DashboardScript.METER_SIZE
 	var vertical := meter_size.y > meter_size.x * 3.0 and meter_size.y < 70.0
 	var tracks: Array[Rect2] = [
@@ -70,7 +87,7 @@ func run() -> void:
 	for track in tracks:
 		clear_tracks = clear_tracks and Rect2(Vector2.ZERO,dash.size).encloses(track)
 		for item in labels:
-			clear_tracks = clear_tracks and not item.get_rect().intersects(track)
+			clear_tracks = clear_tracks and not _text_ink_rect(item).intersects(track)
 	check("three_small_vertical_bars_avoid_all_text",
 		vertical and clear_tracks,[tracks,clear_tracks])
 	var smaller_windows_fit := true

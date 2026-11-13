@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "notes": "Modifiers are multiplicative fractions of stock VehicleConfig fields. Grip improves cornering consistency; Drift favors rotation, steering angle and slide control. Parts are earned only by completed races.",
+  "version": 2,
+  "notes": "Legacy parts retain their IDs and existing race drops. New variants, turbo and nitrous are catalog-only (race_drop_enabled=false); future race reward tables may unlock them explicitly. Stats are fixed per template and do not grant ownership.",
   "slots": [
     "engine",
     "ecu",
@@ -9,7 +9,9 @@
     "suspension",
     "tires",
     "brakes",
-    "transmission"
+    "transmission",
+    "turbo",
+    "nitrous"
   ],
   "rarities": [
     "Common",
@@ -608,6 +610,1311 @@
         "auto_shift_duration": -0.216,
         "final_drive": 0.048
       }
+    },
+    {
+      "id": "engine-torque-common",
+      "slot": "engine",
+      "rarity": "Common",
+      "specialty": "Torque",
+      "name": "Common Low-End Torque Engine",
+      "modifiers": {
+        "engine_torque_nm": 0.036,
+        "engine_power_kw": 0.013,
+        "redline_rpm": -0.003
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-high-rpm-common",
+      "slot": "engine",
+      "rarity": "Common",
+      "specialty": "High RPM",
+      "name": "Common High-RPM Engine",
+      "modifiers": {
+        "engine_power_kw": 0.029,
+        "redline_rpm": 0.025,
+        "engine_torque_nm": -0.006
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-response-common",
+      "slot": "ecu",
+      "rarity": "Common",
+      "specialty": "Response",
+      "name": "Common Responsive ECU",
+      "modifiers": {
+        "engine_torque_nm": 0.016,
+        "redline_rpm": 0.019,
+        "engine_power_kw": 0.012
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-peak-common",
+      "slot": "ecu",
+      "rarity": "Common",
+      "specialty": "Peak",
+      "name": "Common Peak Power ECU",
+      "modifiers": {
+        "engine_power_kw": 0.033,
+        "redline_rpm": 0.007,
+        "engine_torque_nm": 0.006
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-high-flow-common",
+      "slot": "intake",
+      "rarity": "Common",
+      "specialty": "Flow",
+      "name": "Common High-Flow Intake",
+      "modifiers": {
+        "engine_power_kw": 0.026,
+        "engine_torque_nm": 0.012
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-response-common",
+      "slot": "intake",
+      "rarity": "Common",
+      "specialty": "Response",
+      "name": "Common Throttle Response Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.028,
+        "engine_power_kw": 0.01,
+        "redline_rpm": 0.003
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-lightweight-common",
+      "slot": "exhaust",
+      "rarity": "Common",
+      "specialty": "Lightweight",
+      "name": "Common Lightweight Exhaust",
+      "modifiers": {
+        "mass_kg": -0.01,
+        "engine_power_kw": 0.012
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-race-common",
+      "slot": "exhaust",
+      "rarity": "Common",
+      "specialty": "Race",
+      "name": "Common Race Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.028,
+        "engine_torque_nm": 0.012,
+        "mass_kg": 0.002
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-balanced-common",
+      "slot": "suspension",
+      "rarity": "Common",
+      "specialty": "Balanced",
+      "name": "Common Balanced Street Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.028,
+        "rear_grip_balance": 0.012,
+        "yaw_damping": 0.012,
+        "steering_response": 0.012
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-allround-common",
+      "slot": "tires",
+      "rarity": "Common",
+      "specialty": "All-Round",
+      "name": "Common All-Round Tire Compound",
+      "modifiers": {
+        "tire_grip": 0.033,
+        "rear_grip_balance": 0.008,
+        "handbrake_drive_grip": 0.007
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-track-common",
+      "slot": "brakes",
+      "rarity": "Common",
+      "specialty": "Track",
+      "name": "Common Track Brake Kit",
+      "modifiers": {
+        "brake_force_n": 0.045,
+        "handbrake_force_n": 0.01,
+        "mass_kg": 0.002
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-drift-common",
+      "slot": "brakes",
+      "rarity": "Common",
+      "specialty": "Drift",
+      "name": "Common Drift Brake Kit",
+      "modifiers": {
+        "handbrake_force_n": 0.06,
+        "brake_force_n": 0.015
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-launch-common",
+      "slot": "transmission",
+      "rarity": "Common",
+      "specialty": "Launch",
+      "name": "Common Launch Gearset",
+      "modifiers": {
+        "final_drive": 0.021,
+        "shift_duration": -0.021,
+        "auto_shift_duration": -0.017
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-top-speed-common",
+      "slot": "transmission",
+      "rarity": "Common",
+      "specialty": "Top Speed",
+      "name": "Common Top-Speed Gearset",
+      "modifiers": {
+        "final_drive": -0.02,
+        "shift_duration": -0.018,
+        "auto_shift_duration": -0.015
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-quick-spool-common",
+      "slot": "turbo",
+      "rarity": "Common",
+      "specialty": "Spool",
+      "name": "Common Quick-Spool Turbo",
+      "modifiers": {
+        "boost_max_psi": 3.4,
+        "boost_spool_seconds": -0.1,
+        "engine_power_kw": 0.013,
+        "engine_torque_nm": 0.017
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-balanced-common",
+      "slot": "turbo",
+      "rarity": "Common",
+      "specialty": "Balanced",
+      "name": "Common Balanced Turbo",
+      "modifiers": {
+        "boost_max_psi": 4,
+        "boost_spool_seconds": -0.05,
+        "engine_power_kw": 0.024,
+        "engine_torque_nm": 0.021
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-peak-boost-common",
+      "slot": "turbo",
+      "rarity": "Common",
+      "specialty": "Peak",
+      "name": "Common Peak-Boost Turbo",
+      "modifiers": {
+        "boost_max_psi": 4.7,
+        "boost_spool_seconds": 0.055,
+        "engine_power_kw": 0.037,
+        "engine_torque_nm": 0.028
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-sprint-common",
+      "slot": "nitrous",
+      "rarity": "Common",
+      "specialty": "Sprint",
+      "name": "Common Sprint Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.075,
+        "nitrous_capacity_seconds": 1.63,
+        "nitrous_recharge_seconds": 19.2
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-balanced-common",
+      "slot": "nitrous",
+      "rarity": "Common",
+      "specialty": "Balanced",
+      "name": "Common Balanced Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.06,
+        "nitrous_capacity_seconds": 2.3,
+        "nitrous_recharge_seconds": 17
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-endurance-common",
+      "slot": "nitrous",
+      "rarity": "Common",
+      "specialty": "Endurance",
+      "name": "Common Endurance Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.042,
+        "nitrous_capacity_seconds": 3.7,
+        "nitrous_recharge_seconds": 13.8
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-torque-uncommon",
+      "slot": "engine",
+      "rarity": "Uncommon",
+      "specialty": "Torque",
+      "name": "Uncommon Low-End Torque Engine",
+      "modifiers": {
+        "engine_torque_nm": 0.0482,
+        "engine_power_kw": 0.0174,
+        "redline_rpm": -0.004
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-high-rpm-uncommon",
+      "slot": "engine",
+      "rarity": "Uncommon",
+      "specialty": "High RPM",
+      "name": "Uncommon High-RPM Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0389,
+        "redline_rpm": 0.0335,
+        "engine_torque_nm": -0.008
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-response-uncommon",
+      "slot": "ecu",
+      "rarity": "Uncommon",
+      "specialty": "Response",
+      "name": "Uncommon Responsive ECU",
+      "modifiers": {
+        "engine_torque_nm": 0.0214,
+        "redline_rpm": 0.0255,
+        "engine_power_kw": 0.0161
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-peak-uncommon",
+      "slot": "ecu",
+      "rarity": "Uncommon",
+      "specialty": "Peak",
+      "name": "Uncommon Peak Power ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0442,
+        "redline_rpm": 0.0094,
+        "engine_torque_nm": 0.008
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-high-flow-uncommon",
+      "slot": "intake",
+      "rarity": "Uncommon",
+      "specialty": "Flow",
+      "name": "Uncommon High-Flow Intake",
+      "modifiers": {
+        "engine_power_kw": 0.0348,
+        "engine_torque_nm": 0.0161
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-response-uncommon",
+      "slot": "intake",
+      "rarity": "Uncommon",
+      "specialty": "Response",
+      "name": "Uncommon Throttle Response Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0375,
+        "engine_power_kw": 0.0134,
+        "redline_rpm": 0.004
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-lightweight-uncommon",
+      "slot": "exhaust",
+      "rarity": "Uncommon",
+      "specialty": "Lightweight",
+      "name": "Uncommon Lightweight Exhaust",
+      "modifiers": {
+        "mass_kg": -0.0134,
+        "engine_power_kw": 0.0161
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-race-uncommon",
+      "slot": "exhaust",
+      "rarity": "Uncommon",
+      "specialty": "Race",
+      "name": "Uncommon Race Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0375,
+        "engine_torque_nm": 0.0161,
+        "mass_kg": 0.0027
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-balanced-uncommon",
+      "slot": "suspension",
+      "rarity": "Uncommon",
+      "specialty": "Balanced",
+      "name": "Uncommon Balanced Street Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0375,
+        "rear_grip_balance": 0.0161,
+        "yaw_damping": 0.0161,
+        "steering_response": 0.0161
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-allround-uncommon",
+      "slot": "tires",
+      "rarity": "Uncommon",
+      "specialty": "All-Round",
+      "name": "Uncommon All-Round Tire Compound",
+      "modifiers": {
+        "tire_grip": 0.0442,
+        "rear_grip_balance": 0.0107,
+        "handbrake_drive_grip": 0.0094
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-track-uncommon",
+      "slot": "brakes",
+      "rarity": "Uncommon",
+      "specialty": "Track",
+      "name": "Uncommon Track Brake Kit",
+      "modifiers": {
+        "brake_force_n": 0.0603,
+        "handbrake_force_n": 0.0134,
+        "mass_kg": 0.0027
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-drift-uncommon",
+      "slot": "brakes",
+      "rarity": "Uncommon",
+      "specialty": "Drift",
+      "name": "Uncommon Drift Brake Kit",
+      "modifiers": {
+        "handbrake_force_n": 0.0804,
+        "brake_force_n": 0.0201
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-launch-uncommon",
+      "slot": "transmission",
+      "rarity": "Uncommon",
+      "specialty": "Launch",
+      "name": "Uncommon Launch Gearset",
+      "modifiers": {
+        "final_drive": 0.0281,
+        "shift_duration": -0.0281,
+        "auto_shift_duration": -0.0228
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-top-speed-uncommon",
+      "slot": "transmission",
+      "rarity": "Uncommon",
+      "specialty": "Top Speed",
+      "name": "Uncommon Top-Speed Gearset",
+      "modifiers": {
+        "final_drive": -0.0268,
+        "shift_duration": -0.0241,
+        "auto_shift_duration": -0.0201
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-quick-spool-uncommon",
+      "slot": "turbo",
+      "rarity": "Uncommon",
+      "specialty": "Spool",
+      "name": "Uncommon Quick-Spool Turbo",
+      "modifiers": {
+        "boost_max_psi": 4.556,
+        "boost_spool_seconds": -0.134,
+        "engine_power_kw": 0.0174,
+        "engine_torque_nm": 0.0228
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-balanced-uncommon",
+      "slot": "turbo",
+      "rarity": "Uncommon",
+      "specialty": "Balanced",
+      "name": "Uncommon Balanced Turbo",
+      "modifiers": {
+        "boost_max_psi": 5.36,
+        "boost_spool_seconds": -0.067,
+        "engine_power_kw": 0.0322,
+        "engine_torque_nm": 0.0281
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-peak-boost-uncommon",
+      "slot": "turbo",
+      "rarity": "Uncommon",
+      "specialty": "Peak",
+      "name": "Uncommon Peak-Boost Turbo",
+      "modifiers": {
+        "boost_max_psi": 6.298,
+        "boost_spool_seconds": 0.0737,
+        "engine_power_kw": 0.0496,
+        "engine_torque_nm": 0.0375
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-sprint-uncommon",
+      "slot": "nitrous",
+      "rarity": "Uncommon",
+      "specialty": "Sprint",
+      "name": "Uncommon Sprint Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1005,
+        "nitrous_capacity_seconds": 1.7252,
+        "nitrous_recharge_seconds": 19.608
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-balanced-uncommon",
+      "slot": "nitrous",
+      "rarity": "Uncommon",
+      "specialty": "Balanced",
+      "name": "Uncommon Balanced Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0804,
+        "nitrous_capacity_seconds": 2.47,
+        "nitrous_recharge_seconds": 17.34
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-endurance-uncommon",
+      "slot": "nitrous",
+      "rarity": "Uncommon",
+      "specialty": "Endurance",
+      "name": "Uncommon Endurance Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0563,
+        "nitrous_capacity_seconds": 4.006,
+        "nitrous_recharge_seconds": 14.072
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-torque-rare",
+      "slot": "engine",
+      "rarity": "Rare",
+      "specialty": "Torque",
+      "name": "Rare Low-End Torque Engine",
+      "modifiers": {
+        "engine_torque_nm": 0.0637,
+        "engine_power_kw": 0.023,
+        "redline_rpm": -0.0053
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-high-rpm-rare",
+      "slot": "engine",
+      "rarity": "Rare",
+      "specialty": "High RPM",
+      "name": "Rare High-RPM Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0513,
+        "redline_rpm": 0.0443,
+        "engine_torque_nm": -0.0106
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-response-rare",
+      "slot": "ecu",
+      "rarity": "Rare",
+      "specialty": "Response",
+      "name": "Rare Responsive ECU",
+      "modifiers": {
+        "engine_torque_nm": 0.0283,
+        "redline_rpm": 0.0336,
+        "engine_power_kw": 0.0212
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-peak-rare",
+      "slot": "ecu",
+      "rarity": "Rare",
+      "specialty": "Peak",
+      "name": "Rare Peak Power ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0584,
+        "redline_rpm": 0.0124,
+        "engine_torque_nm": 0.0106
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-high-flow-rare",
+      "slot": "intake",
+      "rarity": "Rare",
+      "specialty": "Flow",
+      "name": "Rare High-Flow Intake",
+      "modifiers": {
+        "engine_power_kw": 0.046,
+        "engine_torque_nm": 0.0212
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-response-rare",
+      "slot": "intake",
+      "rarity": "Rare",
+      "specialty": "Response",
+      "name": "Rare Throttle Response Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0496,
+        "engine_power_kw": 0.0177,
+        "redline_rpm": 0.0053
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-lightweight-rare",
+      "slot": "exhaust",
+      "rarity": "Rare",
+      "specialty": "Lightweight",
+      "name": "Rare Lightweight Exhaust",
+      "modifiers": {
+        "mass_kg": -0.0177,
+        "engine_power_kw": 0.0212
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-race-rare",
+      "slot": "exhaust",
+      "rarity": "Rare",
+      "specialty": "Race",
+      "name": "Rare Race Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0496,
+        "engine_torque_nm": 0.0212,
+        "mass_kg": 0.0035
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-balanced-rare",
+      "slot": "suspension",
+      "rarity": "Rare",
+      "specialty": "Balanced",
+      "name": "Rare Balanced Street Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0496,
+        "rear_grip_balance": 0.0212,
+        "yaw_damping": 0.0212,
+        "steering_response": 0.0212
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-allround-rare",
+      "slot": "tires",
+      "rarity": "Rare",
+      "specialty": "All-Round",
+      "name": "Rare All-Round Tire Compound",
+      "modifiers": {
+        "tire_grip": 0.0584,
+        "rear_grip_balance": 0.0142,
+        "handbrake_drive_grip": 0.0124
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-track-rare",
+      "slot": "brakes",
+      "rarity": "Rare",
+      "specialty": "Track",
+      "name": "Rare Track Brake Kit",
+      "modifiers": {
+        "brake_force_n": 0.0797,
+        "handbrake_force_n": 0.0177,
+        "mass_kg": 0.0035
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-drift-rare",
+      "slot": "brakes",
+      "rarity": "Rare",
+      "specialty": "Drift",
+      "name": "Rare Drift Brake Kit",
+      "modifiers": {
+        "handbrake_force_n": 0.1062,
+        "brake_force_n": 0.0266
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-launch-rare",
+      "slot": "transmission",
+      "rarity": "Rare",
+      "specialty": "Launch",
+      "name": "Rare Launch Gearset",
+      "modifiers": {
+        "final_drive": 0.0372,
+        "shift_duration": -0.0372,
+        "auto_shift_duration": -0.0301
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-top-speed-rare",
+      "slot": "transmission",
+      "rarity": "Rare",
+      "specialty": "Top Speed",
+      "name": "Rare Top-Speed Gearset",
+      "modifiers": {
+        "final_drive": -0.0354,
+        "shift_duration": -0.0319,
+        "auto_shift_duration": -0.0265
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-quick-spool-rare",
+      "slot": "turbo",
+      "rarity": "Rare",
+      "specialty": "Spool",
+      "name": "Rare Quick-Spool Turbo",
+      "modifiers": {
+        "boost_max_psi": 6.018,
+        "boost_spool_seconds": -0.177,
+        "engine_power_kw": 0.023,
+        "engine_torque_nm": 0.0301
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-balanced-rare",
+      "slot": "turbo",
+      "rarity": "Rare",
+      "specialty": "Balanced",
+      "name": "Rare Balanced Turbo",
+      "modifiers": {
+        "boost_max_psi": 7.08,
+        "boost_spool_seconds": -0.0885,
+        "engine_power_kw": 0.0425,
+        "engine_torque_nm": 0.0372
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-peak-boost-rare",
+      "slot": "turbo",
+      "rarity": "Rare",
+      "specialty": "Peak",
+      "name": "Rare Peak-Boost Turbo",
+      "modifiers": {
+        "boost_max_psi": 8.319,
+        "boost_spool_seconds": 0.0974,
+        "engine_power_kw": 0.0655,
+        "engine_torque_nm": 0.0496
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-sprint-rare",
+      "slot": "nitrous",
+      "rarity": "Rare",
+      "specialty": "Sprint",
+      "name": "Rare Sprint Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1328,
+        "nitrous_capacity_seconds": 1.8456,
+        "nitrous_recharge_seconds": 20.124
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-balanced-rare",
+      "slot": "nitrous",
+      "rarity": "Rare",
+      "specialty": "Balanced",
+      "name": "Rare Balanced Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1062,
+        "nitrous_capacity_seconds": 2.685,
+        "nitrous_recharge_seconds": 17.77
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-endurance-rare",
+      "slot": "nitrous",
+      "rarity": "Rare",
+      "specialty": "Endurance",
+      "name": "Rare Endurance Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0743,
+        "nitrous_capacity_seconds": 4.393,
+        "nitrous_recharge_seconds": 14.416
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-torque-epic",
+      "slot": "engine",
+      "rarity": "Epic",
+      "specialty": "Torque",
+      "name": "Epic Low-End Torque Engine",
+      "modifiers": {
+        "engine_torque_nm": 0.0778,
+        "engine_power_kw": 0.0281,
+        "redline_rpm": -0.0065
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-high-rpm-epic",
+      "slot": "engine",
+      "rarity": "Epic",
+      "specialty": "High RPM",
+      "name": "Epic High-RPM Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0626,
+        "redline_rpm": 0.054,
+        "engine_torque_nm": -0.013
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-response-epic",
+      "slot": "ecu",
+      "rarity": "Epic",
+      "specialty": "Response",
+      "name": "Epic Responsive ECU",
+      "modifiers": {
+        "engine_torque_nm": 0.0346,
+        "redline_rpm": 0.041,
+        "engine_power_kw": 0.0259
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-peak-epic",
+      "slot": "ecu",
+      "rarity": "Epic",
+      "specialty": "Peak",
+      "name": "Epic Peak Power ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0713,
+        "redline_rpm": 0.0151,
+        "engine_torque_nm": 0.013
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-high-flow-epic",
+      "slot": "intake",
+      "rarity": "Epic",
+      "specialty": "Flow",
+      "name": "Epic High-Flow Intake",
+      "modifiers": {
+        "engine_power_kw": 0.0562,
+        "engine_torque_nm": 0.0259
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-response-epic",
+      "slot": "intake",
+      "rarity": "Epic",
+      "specialty": "Response",
+      "name": "Epic Throttle Response Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0605,
+        "engine_power_kw": 0.0216,
+        "redline_rpm": 0.0065
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-lightweight-epic",
+      "slot": "exhaust",
+      "rarity": "Epic",
+      "specialty": "Lightweight",
+      "name": "Epic Lightweight Exhaust",
+      "modifiers": {
+        "mass_kg": -0.0216,
+        "engine_power_kw": 0.0259
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-race-epic",
+      "slot": "exhaust",
+      "rarity": "Epic",
+      "specialty": "Race",
+      "name": "Epic Race Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0605,
+        "engine_torque_nm": 0.0259,
+        "mass_kg": 0.0043
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-balanced-epic",
+      "slot": "suspension",
+      "rarity": "Epic",
+      "specialty": "Balanced",
+      "name": "Epic Balanced Street Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0605,
+        "rear_grip_balance": 0.0259,
+        "yaw_damping": 0.0259,
+        "steering_response": 0.0259
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-allround-epic",
+      "slot": "tires",
+      "rarity": "Epic",
+      "specialty": "All-Round",
+      "name": "Epic All-Round Tire Compound",
+      "modifiers": {
+        "tire_grip": 0.0713,
+        "rear_grip_balance": 0.0173,
+        "handbrake_drive_grip": 0.0151
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-track-epic",
+      "slot": "brakes",
+      "rarity": "Epic",
+      "specialty": "Track",
+      "name": "Epic Track Brake Kit",
+      "modifiers": {
+        "brake_force_n": 0.0972,
+        "handbrake_force_n": 0.0216,
+        "mass_kg": 0.0043
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-drift-epic",
+      "slot": "brakes",
+      "rarity": "Epic",
+      "specialty": "Drift",
+      "name": "Epic Drift Brake Kit",
+      "modifiers": {
+        "handbrake_force_n": 0.1296,
+        "brake_force_n": 0.0324
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-launch-epic",
+      "slot": "transmission",
+      "rarity": "Epic",
+      "specialty": "Launch",
+      "name": "Epic Launch Gearset",
+      "modifiers": {
+        "final_drive": 0.0454,
+        "shift_duration": -0.0454,
+        "auto_shift_duration": -0.0367
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-top-speed-epic",
+      "slot": "transmission",
+      "rarity": "Epic",
+      "specialty": "Top Speed",
+      "name": "Epic Top-Speed Gearset",
+      "modifiers": {
+        "final_drive": -0.0432,
+        "shift_duration": -0.0389,
+        "auto_shift_duration": -0.0324
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-quick-spool-epic",
+      "slot": "turbo",
+      "rarity": "Epic",
+      "specialty": "Spool",
+      "name": "Epic Quick-Spool Turbo",
+      "modifiers": {
+        "boost_max_psi": 7.344,
+        "boost_spool_seconds": -0.216,
+        "engine_power_kw": 0.0281,
+        "engine_torque_nm": 0.0367
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-balanced-epic",
+      "slot": "turbo",
+      "rarity": "Epic",
+      "specialty": "Balanced",
+      "name": "Epic Balanced Turbo",
+      "modifiers": {
+        "boost_max_psi": 8.64,
+        "boost_spool_seconds": -0.108,
+        "engine_power_kw": 0.0518,
+        "engine_torque_nm": 0.0454
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-peak-boost-epic",
+      "slot": "turbo",
+      "rarity": "Epic",
+      "specialty": "Peak",
+      "name": "Epic Peak-Boost Turbo",
+      "modifiers": {
+        "boost_max_psi": 10.152,
+        "boost_spool_seconds": 0.1188,
+        "engine_power_kw": 0.0799,
+        "engine_torque_nm": 0.0605
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-sprint-epic",
+      "slot": "nitrous",
+      "rarity": "Epic",
+      "specialty": "Sprint",
+      "name": "Epic Sprint Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.162,
+        "nitrous_capacity_seconds": 1.9548,
+        "nitrous_recharge_seconds": 20.592
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-balanced-epic",
+      "slot": "nitrous",
+      "rarity": "Epic",
+      "specialty": "Balanced",
+      "name": "Epic Balanced Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1296,
+        "nitrous_capacity_seconds": 2.88,
+        "nitrous_recharge_seconds": 18.16
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-endurance-epic",
+      "slot": "nitrous",
+      "rarity": "Epic",
+      "specialty": "Endurance",
+      "name": "Epic Endurance Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0907,
+        "nitrous_capacity_seconds": 4.744,
+        "nitrous_recharge_seconds": 14.728
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-torque-legendary",
+      "slot": "engine",
+      "rarity": "Legendary",
+      "specialty": "Torque",
+      "name": "Legendary Low-End Torque Engine",
+      "modifiers": {
+        "engine_torque_nm": 0.0954,
+        "engine_power_kw": 0.0344,
+        "redline_rpm": -0.0079
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-high-rpm-legendary",
+      "slot": "engine",
+      "rarity": "Legendary",
+      "specialty": "High RPM",
+      "name": "Legendary High-RPM Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0769,
+        "redline_rpm": 0.0663,
+        "engine_torque_nm": -0.0159
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-response-legendary",
+      "slot": "ecu",
+      "rarity": "Legendary",
+      "specialty": "Response",
+      "name": "Legendary Responsive ECU",
+      "modifiers": {
+        "engine_torque_nm": 0.0424,
+        "redline_rpm": 0.0504,
+        "engine_power_kw": 0.0318
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "ecu-peak-legendary",
+      "slot": "ecu",
+      "rarity": "Legendary",
+      "specialty": "Peak",
+      "name": "Legendary Peak Power ECU",
+      "modifiers": {
+        "engine_power_kw": 0.0875,
+        "redline_rpm": 0.0186,
+        "engine_torque_nm": 0.0159
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-high-flow-legendary",
+      "slot": "intake",
+      "rarity": "Legendary",
+      "specialty": "Flow",
+      "name": "Legendary High-Flow Intake",
+      "modifiers": {
+        "engine_power_kw": 0.0689,
+        "engine_torque_nm": 0.0318
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "intake-response-legendary",
+      "slot": "intake",
+      "rarity": "Legendary",
+      "specialty": "Response",
+      "name": "Legendary Throttle Response Intake",
+      "modifiers": {
+        "engine_torque_nm": 0.0742,
+        "engine_power_kw": 0.0265,
+        "redline_rpm": 0.008
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-lightweight-legendary",
+      "slot": "exhaust",
+      "rarity": "Legendary",
+      "specialty": "Lightweight",
+      "name": "Legendary Lightweight Exhaust",
+      "modifiers": {
+        "mass_kg": -0.0265,
+        "engine_power_kw": 0.0318
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "exhaust-race-legendary",
+      "slot": "exhaust",
+      "rarity": "Legendary",
+      "specialty": "Race",
+      "name": "Legendary Race Exhaust",
+      "modifiers": {
+        "engine_power_kw": 0.0742,
+        "engine_torque_nm": 0.0318,
+        "mass_kg": 0.0053
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-balanced-legendary",
+      "slot": "suspension",
+      "rarity": "Legendary",
+      "specialty": "Balanced",
+      "name": "Legendary Balanced Street Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0742,
+        "rear_grip_balance": 0.0318,
+        "yaw_damping": 0.0318,
+        "steering_response": 0.0318
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-allround-legendary",
+      "slot": "tires",
+      "rarity": "Legendary",
+      "specialty": "All-Round",
+      "name": "Legendary All-Round Tire Compound",
+      "modifiers": {
+        "tire_grip": 0.0875,
+        "rear_grip_balance": 0.0212,
+        "handbrake_drive_grip": 0.0186
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-track-legendary",
+      "slot": "brakes",
+      "rarity": "Legendary",
+      "specialty": "Track",
+      "name": "Legendary Track Brake Kit",
+      "modifiers": {
+        "brake_force_n": 0.1193,
+        "handbrake_force_n": 0.0265,
+        "mass_kg": 0.0053
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "brakes-drift-legendary",
+      "slot": "brakes",
+      "rarity": "Legendary",
+      "specialty": "Drift",
+      "name": "Legendary Drift Brake Kit",
+      "modifiers": {
+        "handbrake_force_n": 0.159,
+        "brake_force_n": 0.0398
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-launch-legendary",
+      "slot": "transmission",
+      "rarity": "Legendary",
+      "specialty": "Launch",
+      "name": "Legendary Launch Gearset",
+      "modifiers": {
+        "final_drive": 0.0557,
+        "shift_duration": -0.0556,
+        "auto_shift_duration": -0.045
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-top-speed-legendary",
+      "slot": "transmission",
+      "rarity": "Legendary",
+      "specialty": "Top Speed",
+      "name": "Legendary Top-Speed Gearset",
+      "modifiers": {
+        "final_drive": -0.053,
+        "shift_duration": -0.0477,
+        "auto_shift_duration": -0.0397
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-quick-spool-legendary",
+      "slot": "turbo",
+      "rarity": "Legendary",
+      "specialty": "Spool",
+      "name": "Legendary Quick-Spool Turbo",
+      "modifiers": {
+        "boost_max_psi": 9.01,
+        "boost_spool_seconds": -0.265,
+        "engine_power_kw": 0.0344,
+        "engine_torque_nm": 0.0451
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-balanced-legendary",
+      "slot": "turbo",
+      "rarity": "Legendary",
+      "specialty": "Balanced",
+      "name": "Legendary Balanced Turbo",
+      "modifiers": {
+        "boost_max_psi": 10.6,
+        "boost_spool_seconds": -0.1325,
+        "engine_power_kw": 0.0636,
+        "engine_torque_nm": 0.0557
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-peak-boost-legendary",
+      "slot": "turbo",
+      "rarity": "Legendary",
+      "specialty": "Peak",
+      "name": "Legendary Peak-Boost Turbo",
+      "modifiers": {
+        "boost_max_psi": 12.455,
+        "boost_spool_seconds": 0.1458,
+        "engine_power_kw": 0.0981,
+        "engine_torque_nm": 0.0742
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-sprint-legendary",
+      "slot": "nitrous",
+      "rarity": "Legendary",
+      "specialty": "Sprint",
+      "name": "Legendary Sprint Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1987,
+        "nitrous_capacity_seconds": 2.092,
+        "nitrous_recharge_seconds": 21.18
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-balanced-legendary",
+      "slot": "nitrous",
+      "rarity": "Legendary",
+      "specialty": "Balanced",
+      "name": "Legendary Balanced Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.159,
+        "nitrous_capacity_seconds": 3.125,
+        "nitrous_recharge_seconds": 18.65
+      },
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-endurance-legendary",
+      "slot": "nitrous",
+      "rarity": "Legendary",
+      "specialty": "Endurance",
+      "name": "Legendary Endurance Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1113,
+        "nitrous_capacity_seconds": 5.185,
+        "nitrous_recharge_seconds": 15.12
+      },
+      "race_drop_enabled": false
     }
   ]
 }

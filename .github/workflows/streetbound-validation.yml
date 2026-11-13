@@ -146,6 +146,12 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-size.log
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-size.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-traffic-size.log
+      - name: Verify 150 upgrade variants and functional turbo/nitrous (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/expanded_upgrade_catalog_test.gd 2>&1 | tee /tmp/streetbound-expanded-upgrades-463.log
+          grep -q 'EXPANDED UPGRADE CATALOG: PASS' /tmp/streetbound-expanded-upgrades-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-expanded-upgrades-463.log
       - name: Verify six-slot upgrade overlay works in Godot 4.6.3
         run: |
           set -o pipefail
@@ -276,6 +282,12 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+      - name: Verify 150 upgrade variants and functional turbo/nitrous (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/expanded_upgrade_catalog_test.gd 2>&1 | tee /tmp/streetbound-expanded-upgrades-441.log
+          grep -q 'EXPANDED UPGRADE CATALOG: PASS' /tmp/streetbound-expanded-upgrades-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-expanded-upgrades-441.log
       - name: Verify race-earned upgrade inventory, car slots, grip/drift stats, garage UI and save migration
         run: timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/garage_upgrades_test.gd
       - name: Verify live six-slot upgrade overlay and movement-safe part swaps

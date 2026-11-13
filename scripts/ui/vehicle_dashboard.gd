@@ -70,10 +70,10 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 		font_size: int, color: Color, alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var node := Label.new()
 	node.position = at
-	# Apply the single-line font BEFORE sizing the Control. Godot preserves
-	# the larger initial label minimum when size is set prior to font overrides,
-	# leaving 48px high rectangles that overlap the 17px instrument captions.
-	node.add_theme_font_override("font", ThemeDB.fallback_font)
+	# Use Godot's normal UI theme font. The emergency fallback font in
+	# Godot 4.4 headless advertises a three-em minimum line height (34px
+	# digits become 102px-high controls), causing real dashboard overlap.
+	# Keep explicit per-label font size, but avoid forcing fallback metrics.
 	node.add_theme_font_size_override("font_size",font_size)
 	node.add_theme_color_override("font_color",color)
 	node.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -88,6 +88,12 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 	# rectangle; all dashboard regions rely on these tight layout bounds.
 	node.reset_size()
 	node.size = dimensions
+	# Headless Godot 4.4 reports a three-em Label minimum height even
+	# when the glyphs render at the requested font size. If the control
+	# inflates, keep the visible text anchored to the authored top edge
+	# rather than vertically centering it inside the oversized rectangle.
+	if node.size.y > dimensions.y * 1.5:
+		node.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	return node
 
 

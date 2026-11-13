@@ -27,10 +27,10 @@ func _run() -> void:
 		return
 	car.set_physics_process(false)
 	check("six_quick_slots_not_eight",quick.slot_buttons.size() == 6)
-	check("real_parts_not_fake_turbo_nitrous_slots",
-		quick.slot_buttons.has("engine") and quick.slot_buttons.has("intake") and
+	check("six_slots_include_functional_turbo_and_nitrous",
+		quick.slot_buttons.has("engine") and quick.slot_buttons.has("turbo") and
 		quick.slot_buttons.has("transmission") and quick.slot_buttons.has("tires") and
-		quick.slot_buttons.has("suspension") and quick.slot_buttons.has("brakes"))
+		quick.slot_buttons.has("suspension") and quick.slot_buttons.has("nitrous"))
 	check("in_game_car_preview_uses_current_vehicle_art",
 		quick.car_preview.texture != null)
 	check("world_visible_when_closed",
@@ -39,7 +39,9 @@ func _run() -> void:
 	test_economy.car_xp[Ownership.STARTER_ID] = Progress.car_threshold(30)
 	test_economy.upgrade_inventory = [
 		{"uid":"up-101","template":"engine-street-common"},
-		{"uid":"up-102","template":"engine-street-rare"}
+		{"uid":"up-102","template":"engine-street-rare"},
+		{"uid":"up-103","template":"turbo-balanced-common"},
+		{"uid":"up-104","template":"nitrous-sprint-common"}
 	]
 	quick.economy = test_economy
 	# Use a deterministic starter car; no real save is changed.
@@ -58,8 +60,18 @@ func _run() -> void:
 	check("quick_overlay_pauses_world_anywhere",
 		paused and quick.overlay.visible and not quick.launch_button.visible)
 	quick._open_slot("engine")
-	check("picker_renders_real_owned_parts",
-		quick.picker.visible and quick.picker_parts.get_child_count() == 2)
+	var owned_buttons := 0
+	var unowned_buttons := 0
+	var all_unowned_disabled := true
+	for button in quick.picker_parts.get_children():
+		if button.name.begins_with("Part_"):
+			owned_buttons += 1
+		elif button.name.begins_with("Unowned_"):
+			unowned_buttons += 1
+			all_unowned_disabled = all_unowned_disabled and button.disabled
+	check("picker_lists_all_15_variants_and_owned_parts",
+		quick.picker.visible and quick.picker_parts.get_child_count() == 15 and
+		owned_buttons == 2 and unowned_buttons == 13 and all_unowned_disabled)
 	quick._install_uid("up-101")
 	check("first_part_installs_from_overlay",
 		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "up-101" and
@@ -75,6 +87,41 @@ func _run() -> void:
 		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "" and
 		is_equal_approx(car.config.engine_power_kw,before_power),
 		[before_power,car.config.engine_power_kw])
+	# Turbo kits must work on stock naturally aspirated cars. Swapping the
+	# whole slot in-game must affect boost physics and restore the stock voice.
+	quick._open_slot("turbo")
+	var stock_boost := car.config.boost_max_psi
+	var stock_induction := car.config.audio_induction
+	quick._install_uid("up-103")
+	check("turbo_hot_swap_creates_real_manifold_boost",
+		car.config.boost_max_psi > stock_boost and
+		test_economy.equipped_uid(Ownership.STARTER_ID,"turbo") == "up-103")
+	if stock_induction == "naturally_aspirated":
+		check("turbo_hot_swap_activates_turbo_audio",car.config.audio_induction=="turbo")
+	quick._unequip_selected()
+	check("removing_turbo_restores_stock_boost_and_audio",
+		is_equal_approx(car.config.boost_max_psi,stock_boost) and
+		car.config.audio_induction == stock_induction)
+	# The new Nitrous slot is not just decorative. It changes live tank size
+	# and enables temporary torque without spawning a new car.
+	quick._open_slot("nitrous")
+	quick._install_uid("up-104")
+	check("nitrous_picker_shows_all_future_reward_variants",
+		quick.picker_parts.get_child_count()==15)
+	check("nitrous_slot_installs_real_tank",
+		car.config.nitrous_capacity_seconds > 1.0 and
+		car.config.nitrous_torque_fraction > 0.0 and
+		car.nitrous_fuel_seconds > 0.0)
+	var original_tank: float = car.nitrous_fuel_seconds
+	car.nitrous_fuel_seconds = original_tank * 0.45
+	quick._unequip_selected()
+	quick._install_uid("up-104")
+	check("nitrous_unequip_reinstall_does_not_refill_tank",
+		car.nitrous_fuel_seconds <= original_tank * 0.46)
+	quick._unequip_selected()
+	check("nitrous_removal_disables_burn",
+		is_equal_approx(car.config.nitrous_torque_fraction,0.0) and
+		is_equal_approx(car.config.nitrous_capacity_seconds,0.0))
 	check("swap_preserves_car_position_speed_and_transmission",
 		car.global_position.is_equal_approx(previous_position) and
 		car.rotation == previous_angle and

@@ -18,6 +18,11 @@ enum Drivetrain { FWD, RWD, AWD }
 ## Rated power/torque figures already include full boost.
 @export var boost_max_psi: float = 0.0
 @export var boost_spool_seconds: float = 0.65
+## Nitrous is a temporary, driver-triggered torque increase, not a permanent
+## horsepower boost. Zero capacity means the car has no installed nitrous kit.
+@export var nitrous_torque_fraction: float = 0.0
+@export var nitrous_capacity_seconds: float = 0.0
+@export var nitrous_recharge_seconds: float = 18.0
 @export_group("Sound character")
 ## Original sound-design profile; individual trims may differ from these
 ## modeled family defaults. All values only affect audio, never horsepower.

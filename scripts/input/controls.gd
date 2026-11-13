@@ -1,6 +1,6 @@
 extends Node
 ## All bindings are InputMap actions. Rebinding persists in user://controls.cfg.
-const KEYS := {"throttle": KEY_W, "brake": KEY_S, "left": KEY_A, "right": KEY_D, "handbrake": KEY_SPACE, "reset": KEY_R, "camera": KEY_C, "tuning": KEY_F1, "shift_up": KEY_E, "shift_down": KEY_Q, "transmission": KEY_M, "mute": KEY_V}
+const KEYS := {"throttle": KEY_W, "brake": KEY_S, "left": KEY_A, "right": KEY_D, "handbrake": KEY_SPACE, "reset": KEY_R, "camera": KEY_C, "tuning": KEY_F1, "shift_up": KEY_E, "shift_down": KEY_Q, "transmission": KEY_M, "mute": KEY_V, "nitrous": KEY_N}
 
 func _ready() -> void:
 	for action in KEYS:
@@ -10,7 +10,7 @@ func _ready() -> void:
 	axis("brake", JOY_AXIS_TRIGGER_LEFT, 1.0)
 	axis("left", JOY_AXIS_LEFT_X, -1.0)
 	axis("right", JOY_AXIS_LEFT_X, 1.0)
-	for pair in [["handbrake", JOY_BUTTON_A], ["reset", JOY_BUTTON_Y], ["camera", JOY_BUTTON_RIGHT_SHOULDER], ["shift_up", JOY_BUTTON_DPAD_UP], ["shift_down", JOY_BUTTON_DPAD_DOWN]]:
+	for pair in [["handbrake", JOY_BUTTON_A], ["nitrous", JOY_BUTTON_B], ["reset", JOY_BUTTON_Y], ["camera", JOY_BUTTON_RIGHT_SHOULDER], ["shift_up", JOY_BUTTON_DPAD_UP], ["shift_down", JOY_BUTTON_DPAD_DOWN]]:
 		var event := InputEventJoypadButton.new()
 		event.device = -1
 		event.button_index = pair[1]
