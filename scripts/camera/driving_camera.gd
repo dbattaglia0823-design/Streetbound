@@ -61,9 +61,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if wheel == null or not wheel.pressed:
 		return
 	var direction := 0
-	if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
+	if event.is_action_pressed("zoom_in"):
 		direction = 1
-	elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+	elif event.is_action_pressed("zoom_out"):
 		direction = -1
 	if direction == 0:
 		return
@@ -109,6 +109,15 @@ func _on_impact(strength: float) -> void:
 	_impact_time = 0.0
 
 func _physics_process(dt: float) -> void:
+	# Continuous input handles remapped keys, held mouse buttons, and the
+	# default right-stick Y axis. Wheel notches stay discrete above.
+	var zoom_request := Input.get_action_strength("zoom_in") - \
+		Input.get_action_strength("zoom_out")
+	if absf(zoom_request) > 0.20:
+		_neighborhood_view_active = false
+		player_zoom_multiplier = clampf(player_zoom_multiplier *
+			pow(WHEEL_ZOOM_FACTOR,zoom_request*dt*5.0),
+			PLAYER_ZOOM_MIN,PLAYER_ZOOM_MAX)
 	if Input.is_action_just_pressed("camera"):
 		follow_heading = not follow_heading
 	var transform_now: Transform2D = target.global_transform
