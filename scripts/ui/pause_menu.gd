@@ -3,6 +3,7 @@ extends CanvasLayer
 ## templates and Godot layout renderer. Lives outside the paused world, so
 ## buttons, mouse, gamepad focus and Escape continue working when paused.
 signal exit_requested
+signal split_screen_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
@@ -12,6 +13,7 @@ var vehicle_audio
 var driving_camera
 var allow_quit := true
 var menu_state := ""
+var split_screen_active := false
 var settings_store
 
 var overlay: Control
@@ -410,7 +412,28 @@ func _sync_settings() -> void:
 		"minimap_shape": "Circle" if str(settings_store.get_setting("minimap_shape")) == "circle" else "Square"
 	}})
 
+func set_split_screen_active(enabled: bool) -> void:
+	split_screen_active = enabled
+	var action: Button = pause_screen.controls.get("local_multiplayer")
+	if is_instance_valid(action):
+		action.text = "Exit Split-Screen" if enabled else "Local Split-Screen"
+	var title: Label = pause_screen.controls.get("pause_heading")
+	if is_instance_valid(title):
+		title.text = "PAUSED"
+
+
+func show_split_screen_error(message: String) -> void:
+	var title: Label = pause_screen.controls.get("pause_heading")
+	if is_instance_valid(title):
+		title.text = "CONNECT A GAMEPAD"
+	var action: Button = pause_screen.controls.get("local_multiplayer")
+	if is_instance_valid(action):
+		action.tooltip_text = message
+
+
 func _show_page(page: String) -> void:
+	if page=="paused":
+		set_split_screen_active(split_screen_active)
 	menu_state = page
 	overlay.visible = true
 	pause_screen.visible = page == "paused"
@@ -454,6 +477,8 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 	match action_id:
 		"game.resume":
 			resume_game()
+		"game.local_multiplayer":
+			split_screen_requested.emit()
 		"nav.settings":
 			open_settings()
 		"nav.back":
