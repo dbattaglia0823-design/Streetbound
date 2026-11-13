@@ -57,6 +57,11 @@ and use metadata-driven band RPM values. The current sample bank is fixed-slot;
 adopting the Toolkit's row-based `bank.json` manifest is preferable once
 actual multi-RPM families have been assembled.
 
-No audio binaries are committed in this documentation change. Actual clip
-audition, waveform editing, measured RPM tagging, licence snapshots,
-headless tests and in-game listening remain to be completed.
+Six CC0 real-recording-derived generic engine-loop WAVs are now bundled at
+`assets/audio/engines/generic_cc0/` with source-specific provenance in that
+folder's README. These are pitch variants of **one** engine recording and play
+quietly only when a combustion vehicle lacks a specific recorded engine texture.
+They are not independent RPM-verified samples and are not treated as exact
+OEM engine recordings. The remaining Freesound candidates are NOT bundled:
+they need original-file download, waveform editing, RPM tagging and audition.
+Headless tests and in-game listening remain to be completed.
