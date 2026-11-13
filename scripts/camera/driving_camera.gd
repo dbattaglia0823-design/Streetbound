@@ -13,13 +13,16 @@ var _neighborhood_view_active := false
 var _neighborhood_start_position := Vector2.ZERO
 # Player zoom is proportional (8% per notch) so the step feels natural at
 # every distance. Hard camera bounds prevent excessive close-ups / far views.
-const PLAYER_ZOOM_MIN := 0.72
-const PLAYER_ZOOM_MAX := 1.45
+const PLAYER_ZOOM_MIN := 0.55
+const PLAYER_ZOOM_MAX := 1.25
 const WHEEL_ZOOM_FACTOR := 1.08
-const ABSOLUTE_ZOOM_MIN := 0.62
-const ABSOLUTE_ZOOM_MAX := 1.76
+const ABSOLUTE_ZOOM_MIN := 0.47
+const ABSOLUTE_ZOOM_MAX := 1.55
 const WHEEL_RESPONSE := 9.0
 const CAMERA_RESPONSE := 3.8
+# Keep the follow camera close without locking it to the vehicle.
+const POSITION_RESPONSE := 5.6
+const MAX_FOLLOW_DISTANCE_PX := 1200.0
 var player_zoom_multiplier := 1.0
 var _smoothed_player_zoom := 1.0
 var follow_heading := false
@@ -122,7 +125,13 @@ func _physics_process(dt: float) -> void:
 	_surge = lerpf(_surge, clampf(acceleration / 14.0, 0.0, 1.0), 1.0 - exp(-3.8 * dt))
 	var lead := target.linear_velocity * 3.8
 	var desired := transform_now.origin + lead.limit_length(230.0)
-	global_position = global_position.lerp(desired, 1.0 - exp(-5.0 * dt))
+	global_position = global_position.lerp(desired, 1.0 - exp(-POSITION_RESPONSE * dt))
+	# A soft follow still needs a firm distance budget during fast movement.
+	# Bound against the CAR, not the forward lead point, so the player cannot
+	# disappear far off-screen even when the car reverses or spins.
+	var from_car := global_position - transform_now.origin
+	if from_car.length_squared() > MAX_FOLLOW_DISTANCE_PX * MAX_FOLLOW_DISTANCE_PX:
+		global_position = transform_now.origin + from_car.limit_length(MAX_FOLLOW_DISTANCE_PX)
 	_update_heading_rotation(dt, transform_now.get_rotation(), speed)
 	# Manual zoom eases independently from speed-based framing. The speed
 	# response is tempered by the player's chosen distance, and the total
@@ -139,7 +148,7 @@ func _physics_process(dt: float) -> void:
 	impact_strength = maxf(0.0, impact_strength - dt * 4.0)
 	var shake := impact_strength * 9.0
 	offset = Vector2(sin(_impact_time * 73.0), cos(_impact_time * 57.0)) * shake
-	if global_position.distance_to(transform_now.origin) > 1600.0:
+	if global_position.distance_to(transform_now.origin) > MAX_FOLLOW_DISTANCE_PX + 1.0:
 		global_position = transform_now.origin
 		offset = Vector2.ZERO
 		impact_strength = 0.0
