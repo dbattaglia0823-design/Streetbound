@@ -53,6 +53,9 @@ func _run() -> void:
 		editor.editor_camera.get_viewport().world_2d == world.get_viewport().world_2d)
 	check("driving_camera_inactive_during_inspection",
 		not camera.enabled and not camera.is_physics_processing())
+	check("native_editor_hides_player_overlay_without_touching_world_render",
+		not game.quick_upgrades.visible and not game.progression_hud.visible and
+		editor.gizmos.visible and editor.root_ui.visible)
 	check("visualize_baked_junctions_and_real_turn_lane_connectors",
 		editor.gizmos.show_junctions and editor.gizmos.show_lanes and
 		editor.gizmos.network.connector_count>0)
@@ -106,11 +109,17 @@ func _run() -> void:
 	check("test_drive_restores_camera_and_unpauses_game",
 		not editor.active and not paused and not editor.root_ui.visible and
 		not editor.gizmos.visible and camera.enabled==original_camera_enabled)
+	check("test_drive_restores_original_single_player_hud_visibility",
+		game.quick_upgrades.visible and game.progression_hud.visible)
 	check("test_drive_preserves_player_position_velocity_gear_and_simulation",
 		player.global_position.is_equal_approx(original_position) and
 		player.linear_velocity.is_equal_approx(original_velocity) and
 		player.transmission.gear==original_gear and
 		player.is_physics_processing()==original_physics)
+	game.local_split_screen.active = true
+	check("native_editor_refuses_to_interrupt_split_screen",
+		not editor.open_editor() and not editor.active)
+	game.local_split_screen.active = false
 	check("editor_reentry_still_works_without_duplicate_cameras",editor.open_editor())
 	editor.close_editor()
 	check("editor_exit_does_not_change_source_archive_geometry",
