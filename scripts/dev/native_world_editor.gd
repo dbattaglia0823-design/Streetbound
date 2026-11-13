@@ -480,6 +480,7 @@ func _choose_tool(mode: String) -> void:
 	tool_name = mode
 	draft_points.clear()
 	if is_instance_valid(gizmos):
+		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
 	source_id = ""
@@ -672,7 +673,7 @@ func _adopt_selected() -> void:
 func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	if not source_ready:
 		return {}
-	var best := 20.0 / maxf(0.26,editor_camera.zoom.x)
+	var best := 24.0 / maxf(0.05,editor_camera.zoom.x)
 	var result: Dictionary = {}
 	for road in authoring.doc.roads:
 		for i in road.points.size():
@@ -689,18 +690,26 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready:
 		return {}
 	var at: Vector2 = world_px/PPM
-	var best := 8.0
+	var best := 6.0
 	var hit: Dictionary = {}
 	for prop in authoring.doc.props:
-		var art := str(prop.get("type",""))
-		var width := 8.0
-		if art in ["house","garage"]:
-			width=12.0
-		elif art in ["building","warehouse"]:
-			width=20.0
+		if bool(prop.get("hidden",false)):
+			continue
 		var center := Vector2(float(prop.x),float(prop.y))
-		var distance := maxf(0.0,center.distance_to(at)-
-			width*float(prop.get("scale",1.0))*0.5)
+		var footprint := Vector2(8,8)
+		match str(prop.get("type","")):
+			"house":footprint=Vector2(12,17)
+			"building":footprint=Vector2(22,29)
+			"warehouse":footprint=Vector2(28,37)
+			"garage":footprint=Vector2(20,21)
+			"parking":footprint=Vector2(38,28)
+			"field":footprint=Vector2(90,70)
+		if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
+			footprint=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
+		var local := (at-center).rotated(-deg_to_rad(float(prop.get("rotation",0))))
+		var half := footprint*float(prop.get("scale",1))*0.5
+		var distance := Vector2(maxf(0,absf(local.x)-half.x),
+			maxf(0,absf(local.y)-half.y)).length()
 		if distance < best:
 			best = distance
 			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
