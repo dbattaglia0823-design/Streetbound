@@ -142,7 +142,7 @@ func run() -> void:
 	var garage: CanvasLayer = game.get_node("VehicleSelector")
 	garage.inventory = economy
 	# The garage intentionally no longer contains an upgrades menu.
-	# The separate quick-upgrades overlay owns the ten-slot equipment UI.
+	# The separate quick-upgrades overlay owns the six-slot equipment UI.
 	var quick: CanvasLayer = game.quick_upgrades
 	quick.economy = economy
 	quick.vehicle = car
@@ -169,7 +169,7 @@ func run() -> void:
 	# Swapping parts through the current quick-upgrades UI applies the
 	# same stock-relative deltas to actual in-game vehicle physics.
 	quick._install_uid("up-9001")
-	var current_part := Parts.get_part(str(economy.get_upgrade_item(awarded_uid).template))
+	var current_part := Parts.get_part(str(economy.get_upgrade_item("up-9001").get("template","")))
 	var stock: VehicleConfig = Catalog.make_configuration(entry)
 	var expected: VehicleConfig = Catalog.make_configuration(entry)
 	Parts.apply_to_config(expected,[current_part])
