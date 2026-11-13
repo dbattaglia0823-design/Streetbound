@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bavc08hk3n3tt"
-path="res://.godot/imported/ChatGPT Image Nov 9, 2026, 07_27_18 PM-2.png-9fa567ddfcb177bf42e0217ca84d6d8f.ctex"
+uid="uid://drs1dp3xof86f"
+path="res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Cadillac/ChatGPT Image Nov 9, 2026, 07_27_18 PM-2.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 9, 2026, 07_27_18 PM-2.png-9fa567ddfcb177bf42e0217ca84d6d8f.ctex"]
+source_file="res://assets/Vehicles/Audi/RS6 Avante.png"
+dest_files=["res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"]
 
 [params]
 

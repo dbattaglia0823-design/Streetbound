@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://divdmmhxpsgwo"
-path="res://.godot/imported/ChatGPT Image Nov 9, 2026, 07_57_23 PM-1.png-1289f7b435fa89773ed69e26020c7a2e.ctex"
+uid="uid://dkdwgjtnfaj0"
+path="res://.godot/imported/RSQ8.png-55e6f18d933398acfbdba8eb72ec8d84.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Ferrari/ChatGPT Image Nov 9, 2026, 07_57_23 PM-1.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 9, 2026, 07_57_23 PM-1.png-1289f7b435fa89773ed69e26020c7a2e.ctex"]
+source_file="res://assets/Vehicles/Audi/RSQ8.png"
+dest_files=["res://.godot/imported/RSQ8.png-55e6f18d933398acfbdba8eb72ec8d84.ctex"]
 
 [params]
 
