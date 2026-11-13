@@ -59,6 +59,11 @@ func _run() -> void:
 	check("world_shortcuts_registered_as_real_actions",
 		controls.ACTIONS.has("map") and controls.ACTIONS.has("garage") and
 		controls.ACTIONS.has("upgrades") and controls.ACTIONS.has("pause"))
+	check("zoom_has_mouse_wheel_and_controller_defaults",
+		controls.ACTIONS.has("zoom_in") and controls.ACTIONS.has("zoom_out") and
+		controls.binding_text("zoom_in","keyboard")=="Mouse Wheel Up" and
+		controls.binding_text("zoom_out","keyboard")=="Mouse Wheel Down" and
+		controls.binding("zoom_in","controller") is InputEventJoypadMotion)
 	menu.pause_game()
 	menu.open_settings()
 	check("settings_have_general_and_controls_tabs",
@@ -99,6 +104,17 @@ func _run() -> void:
 		(controls.binding("left","controller") as InputEventJoypadMotion).axis ==
 		JOY_AXIS_RIGHT_X and
 		(controls.binding("left","controller") as InputEventJoypadMotion).axis_value < 0.0)
+	menu.binding_rows["zoom_in"]["keyboard"].pressed.emit()
+	key_input(KEY_I)
+	await process_frame
+	var camera: Variant = get_first_node_in_group("player_camera")
+	var prior_zoom: float = camera.player_zoom_multiplier
+	Input.action_press("zoom_in")
+	camera._physics_process(0.15)
+	Input.action_release("zoom_in")
+	check("rebound_camera_zoom_in_changes_real_game_camera",
+		controls.binding_text("zoom_in","keyboard")=="I" and
+		camera.player_zoom_multiplier>prior_zoom)
 	menu.binding_rows["throttle"]["keyboard"].pressed.emit()
 	mouse_input(MOUSE_BUTTON_RIGHT)
 	await process_frame
