@@ -868,9 +868,22 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
               and not p.get("authoring_id") and p.get("kind")==target["kind"]
               and p.get("seed")==target["seed"]
               and distance(p.get("p",(0,0)),target["p"])<.025]
-    if len(matching)!=1 or matching[0].get("poi"):
-        raise ValueError("Adopted game scenery changed; reload current Morrow Coast before saving")
+    if len(matching)!=1:
+        raise ValueError("Edited game scenery changed; reload current Morrow Coast before saving")
     original=matching[0]
+    # Move the original production asset instead of replacing its identity,
+    # art family, roof variant, POI association or special geometry with a
+    # generic painted editor placeholder. Keep explicit authored transform.
+    destination = replacement["p"]
+    size = replacement["size"]
+    angle = replacement["angle"]
+    authored_id = replacement["authoring_id"]
+    is_hidden = bool(replacement.get("hidden",False))
+    original_fields = original.copy()
+    replacement.clear()
+    replacement.update(original_fields)
+    replacement.update(p=destination,size=size,angle=angle,
+                       authoring_id=authored_id)
     PROPS.remove(original)
     # Keep the native object's collision category. In particular, procedural
     # trees have a small solid trunk even though normally painted editor trees
@@ -878,7 +891,7 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     replacement["solid"]=bool(original.get("solid",replacement["solid"]))
     if original["kind"] in {"tree","pine","palm"}:
         replacement["radius"]=float(original.get("radius",.65))
-    if replacement.get("hidden",False):
+    if is_hidden:
         PROPS.remove(replacement)
         continue
     if replacement["solid"] and (
