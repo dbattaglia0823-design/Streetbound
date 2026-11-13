@@ -891,6 +891,9 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     replacement["solid"]=bool(original.get("solid",replacement["solid"]))
     if original["kind"] in {"tree","pine","palm"}:
         replacement["radius"]=float(original.get("radius",.65))
+    elif replacement["solid"]:
+        # Clearance indexing must follow resized structural collision geometry.
+        replacement["radius"]=math.hypot(*replacement["size"])*0.5
     if is_hidden:
         PROPS.remove(replacement)
         continue
