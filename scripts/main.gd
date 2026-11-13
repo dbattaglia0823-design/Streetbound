@@ -232,8 +232,10 @@ func _ready() -> void:
 	# Title actions are consumed after the game world, camera, editor and
 	# split-screen manager have all finished initializing. Direct scene tests
 	# intentionally continue to instantiate free roam without a title.
-	if not proving_ground and GameFlow.pending_mode != "":
-		call_deferred("_apply_title_launch",GameFlow.consume_launch_mode())
+	var flow: Node = get_node_or_null("/root/GameFlow")
+	if not proving_ground and is_instance_valid(flow) and \
+			str(flow.get("pending_mode")) != "":
+		call_deferred("_apply_title_launch",str(flow.call("consume_launch_mode")))
 
 
 func _apply_title_launch(mode: String) -> void:
@@ -279,7 +281,13 @@ func _return_to_main_menu() -> void:
 	# The title is a separate scene. No dormant copy of the live world,
 	# physics, traffic or player vehicle is kept behind the title.
 	get_tree().paused = false
-	GameFlow.return_to_title()
+	var flow: Node = get_node_or_null("/root/GameFlow")
+	if is_instance_valid(flow):
+		flow.call("return_to_title")
+	else:
+		# Standalone SceneTree test runners do not initialize autoloads.
+		# Navigation remains available without compile-time singleton names.
+		get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
 
 
 func _toggle_local_split_screen() -> void:
