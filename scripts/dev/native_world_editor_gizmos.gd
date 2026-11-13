@@ -122,6 +122,12 @@ func _prop_size(prop: Dictionary) -> Vector2:
 		"oak","pine":base=Vector2(7,7)
 		"palm":base=Vector2(6.5,6.5)
 		"rock":base=Vector2(3,2.5)
+		"drag_prep":base=Vector2(8.5,22)
+		"drag_tree":base=Vector2(3,10)
+		"drag_lane_mark":base=Vector2(.35,12)
+		"drag_scoreboard":base=Vector2(4,10)
+		"grandstand":base=Vector2(36,17)
+		"start_line","finish_line":base=Vector2(14,1.2)
 	if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
 		base=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
 	return base * PPM * float(prop.get("scale",1.0))
@@ -154,7 +160,9 @@ func _rebuild_preview_collisions() -> void:
 			continue
 		var kind := str(prop.get("type",""))
 		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
-			"sign","parking","dock","planter","garden","field","forecourt"]
+			"sign","parking","dock","planter","garden","field","forecourt",
+			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
+			"start_line","finish_line"]
 		var trunk_radius := 0.0
 		# A procedural tree has a small solid trunk. Ordinary placed editor
 		# foliage is non-solid; match the source builder rather than placing
