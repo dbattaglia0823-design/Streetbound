@@ -5,6 +5,79 @@ const PPM := 20.0
 var world
 var network
 var selected: Dictionary = {}
+var draft_doc: Dictionary = {}
+var draft_initial: Dictionary = {}
+var drag_preview: Dictionary = {}
+var selected_source_id := ""
+var selected_anchor_index := -1
+
+func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {},
+		source_id: String = "", point_index: int = -1) -> void:
+	draft_doc = source
+	draft_initial = baseline
+	drag_preview = preview
+	selected_source_id = source_id
+	selected_anchor_index = point_index
+	queue_redraw()
+
+func _draft_line(road: Dictionary) -> PackedVector2Array:
+	var line := PackedVector2Array()
+	for i in road.points.size():
+		var point: Dictionary = road.points[i]
+		var p := Vector2(float(point.x),float(point.y)) * PPM
+		if str(road.id)==str(drag_preview.get("id","")) and \
+				int(drag_preview.get("index",-1))==i:
+			p = drag_preview.get("to",p)
+		line.append(p)
+	return line
+
+func _draw_draft() -> void:
+	if draft_doc.is_empty():
+		return
+	for road in draft_doc.get("roads",[]):
+		var id := str(road.id)
+		var original: Dictionary = {}
+		for before in draft_initial.get("roads",[]):
+			if str(before.id)==id:
+				original = before
+				break
+		var changed: bool = original.is_empty() or \
+			JSON.stringify(road.points)!=JSON.stringify(original.get("points",[]))
+		var focused: bool = selected_source_id == id
+		if not changed and not focused:
+			continue
+		var line := _draft_line(road)
+		if line.size()<2 or not _visible_point(line[0]) and not \
+				_visible_point(line[line.size()-1]):
+			continue
+		draw_polyline(line,Color(1.0,0.86,0.27,0.96) if focused else \
+			Color(1.0,0.76,0.32,0.85),5.0,true)
+		if focused:
+			for i in line.size():
+				draw_circle(line[i],12.0 if i==selected_anchor_index else 7.0,
+					Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else
+					Color(1.0,0.67,0.24,1.0))
+	for prop in draft_doc.get("props",[]):
+		var id := str(prop.id)
+		var p := Vector2(float(prop.x),float(prop.y)) * PPM
+		if str(drag_preview.get("id",""))==id:
+			p = drag_preview.get("to",p)
+		if not _visible_point(p):
+			continue
+		var size := Vector2(8.0,8.0) * PPM * float(prop.get("scale",1.0))
+		var kind := str(prop.get("type",""))
+		match kind:
+			"house": size=Vector2(12,17)*PPM*float(prop.scale)
+			"building": size=Vector2(22,29)*PPM*float(prop.scale)
+			"garage": size=Vector2(20,21)*PPM*float(prop.scale)
+			"oak","pine","palm": size=Vector2(7,7)*PPM*float(prop.scale)
+			"rock": size=Vector2(3,2.5)*PPM*float(prop.scale)
+		var c := Color(0.38,1.0,0.65,0.90) if id==selected_source_id else \
+			Color(0.95,0.86,0.27,0.80)
+		var rect := Rect2(p-size*0.5,size)
+		draw_rect(rect,c,false,5.0,true)
+		draw_circle(p,5.0,c)
+	# These are SOURCE PREVIEWS, not new baked junctions or real collisions.
 var show_junctions := true
 var show_lanes := true
 var camera_center := Vector2.ZERO
@@ -81,6 +154,7 @@ func _draw() -> void:
 				path.append(Vector2(float(raw[0]),float(raw[1]))*PPM)
 			if path.size()>=2:
 				draw_polyline(path,Color(1.0,0.92,0.28,0.91),6.0,true)
+	_draw_draft()
 	if selected.get("kind","")=="prop":
 		var index := int(selected.get("index",-1))
 		if index>=0 and index<world.data.props.size():
