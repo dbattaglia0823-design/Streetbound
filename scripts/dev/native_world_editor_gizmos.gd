@@ -137,13 +137,52 @@ func _draw_draft() -> void:
 		if line.size()<2 or not _visible_point(line[0]) and not \
 				_visible_point(line[line.size()-1]):
 			continue
-		draw_polyline(line,Color(1.0,0.86,0.27,0.96) if focused else \
-			Color(1.0,0.76,0.32,0.85),5.0,true)
+		# Immediate road surface preview: only derived junction topology and
+		# traffic connections need the Save to Game rebake.
+		var road_width := float(road.get("width",10))*PPM
+		draw_polyline(line,Color("#ccc4ab"),road_width+85.0,true)
+		draw_polyline(line,Color("#424f55"),road_width,true)
+		draw_polyline(line,Color("#e5d6a0"),5.0,true)
+		draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
+			3.0,true)
 		if focused:
 			for i in line.size():
 				draw_circle(line[i],12.0 if i==selected_anchor_index else 7.0,
 					Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else
 					Color(1.0,0.67,0.24,1.0))
+	for region in draft_doc.get("regions",[]):
+		var original_region: Dictionary = {}
+		for earlier in draft_initial.get("regions",[]):
+			if str(earlier.get("id","")) == str(region.get("id","")):
+				original_region = earlier
+				break
+		if not original_region.is_empty() and \
+				JSON.stringify(region) == JSON.stringify(original_region):
+			continue
+		var vertices := PackedVector2Array()
+		for point in region.get("points",[]):
+			vertices.append(Vector2(float(point.x),float(point.y))*PPM)
+		if vertices.size() >= 3:
+			var color := Color("#84a878")
+			match str(region.get("biome","grass")):
+				"water","ocean","lake":color=Color("#75afb5")
+				"city":color=Color("#a7ada8")
+				"beach":color=Color("#d7c89b")
+				"forest":color=Color("#658768")
+				"mountain","rock":color=Color("#8b9992")
+			draw_colored_polygon(vertices,Color(color.r,color.g,color.b,0.68))
+			vertices.append(vertices[0])
+			draw_polyline(vertices,Color("#ffb653"),4,true)
+	for marker in draft_doc.get("markers",[]):
+		var unchanged := false
+		for original_marker in draft_initial.get("markers",[]):
+			if str(original_marker.get("id","")) == str(marker.get("id","")):
+				unchanged = JSON.stringify(marker) == JSON.stringify(original_marker)
+				break
+		if not unchanged:
+			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
+			draw_circle(at,11,Color("#ffb653"))
+			draw_circle(at,16,Color("#ffb653"),false,3.0,true)
 	for prop in draft_doc.get("props",[]):
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
