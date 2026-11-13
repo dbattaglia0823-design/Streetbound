@@ -60,8 +60,18 @@ func _run() -> void:
 	check("quick_overlay_pauses_world_anywhere",
 		paused and quick.overlay.visible and not quick.launch_button.visible)
 	quick._open_slot("engine")
-	check("picker_renders_real_owned_parts",
-		quick.picker.visible and quick.picker_parts.get_child_count() == 2)
+	var owned_buttons := 0
+	var unowned_buttons := 0
+	var all_unowned_disabled := true
+	for button in quick.picker_parts.get_children():
+		if button.name.begins_with("Part_"):
+			owned_buttons += 1
+		elif button.name.begins_with("Unowned_"):
+			unowned_buttons += 1
+			all_unowned_disabled = all_unowned_disabled and button.disabled
+	check("picker_lists_all_15_variants_and_owned_parts",
+		quick.picker.visible and quick.picker_parts.get_child_count() == 15 and
+		owned_buttons == 2 and unowned_buttons == 13 and all_unowned_disabled)
 	quick._install_uid("up-101")
 	check("first_part_installs_from_overlay",
 		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "up-101" and
@@ -96,6 +106,8 @@ func _run() -> void:
 	# and enables temporary torque without spawning a new car.
 	quick._open_slot("nitrous")
 	quick._install_uid("up-104")
+	check("nitrous_picker_shows_all_future_reward_variants",
+		quick.picker_parts.get_child_count()==15)
 	check("nitrous_slot_installs_real_tank",
 		car.config.nitrous_capacity_seconds > 1.0 and
 		car.config.nitrous_torque_fraction > 0.0 and
