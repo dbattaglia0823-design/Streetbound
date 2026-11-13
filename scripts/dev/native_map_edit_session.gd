@@ -230,6 +230,76 @@ func add_prop(art_kind: String, position_m: Vector2) -> String:
 	})
 	return identity if _commit(draft) else ""
 
+## Adopt a specifically selected, replaceable original scene prop using the same
+## (kind, seed, original-position) identity expected by the Python importer.
+## Never edit an anonymous procedural instance in-place or change landmarks.
+func adopt_runtime_prop(runtime: Dictionary) -> String:
+	var mapping := {
+		"tree":["oak","game-tree"],"pine":["pine","game-pine"],
+		"palm":["palm","game-palm"],"rock":["rock","game-rock"],
+		"house":["house","game-house"],
+		"coastal_house":["house","game-coastal_house"],
+		"shop":["building","game-shop"],"building":["building","game-shop"],
+		"warehouse":["warehouse","game-shop"],"showroom":["building","game-garage"],
+		"garage":["garage","game-garage"],"workshop":["garage","game-garage"],
+		"fuel":["gas_station","game-shop"]
+	}
+	var original_kind := str(runtime.get("kind",""))
+	var identity_seed: Variant = runtime.get("seed")
+	var place: Variant = runtime.get("p")
+	if not mapping.has(original_kind) or typeof(identity_seed)!=TYPE_INT or \
+			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
+			not place is Array or place.size()!=2 or \
+			runtime.has("poi") or runtime.has("authoring_id") or \
+			bool(runtime.get("protected",false)) or doc.props.size()>=200:
+		last_error = "This generated item has no safe replaceable source identity."
+		return ""
+	var origin := Vector2(float(place[0]),float(place[1]))
+	if not _in_bounds(origin):
+		last_error = "Original scenery is outside the editable world."
+		return ""
+	for item in doc.props:
+		if not item.has("replaces"):
+			continue
+		var replacement: Dictionary = item.replaces
+		if str(replacement.get("kind",""))==original_kind and \
+				int(replacement.get("seed",-1))==int(identity_seed) and \
+				Vector2(float(replacement.p[0]),float(replacement.p[1])).distance_to(origin)<0.05:
+			last_error = "This original game item has already been adopted."
+			return ""
+	var id := _new_prop_id()
+	if id.is_empty():
+		return ""
+	var style: Array = mapping[original_kind]
+	var native_size: Variant = runtime.get("size",[12.0,17.0])
+	var base_size := Vector2(12,17)
+	match str(style[0]):
+		"building":base_size=Vector2(22,29)
+		"warehouse":base_size=Vector2(28,37)
+		"garage":base_size=Vector2(20,21)
+		"gas_station":base_size=Vector2(18,17)
+		"oak","pine":base_size=Vector2(7,7)
+		"palm":base_size=Vector2(6.5,6.5)
+		"rock":base_size=Vector2(3,2.5)
+	var size_ratio := 1.0
+	if native_size is Array and native_size.size()==2:
+		size_ratio = clampf((float(native_size[0])/base_size.x+
+			float(native_size[1])/base_size.y)*0.5,0.25,5.0)
+	var draft: Dictionary = doc.duplicate(true)
+	draft.props.append({
+		"id":id,"name":original_kind.capitalize(),
+		"type":str(style[0]),"assetId":str(style[1]),
+		"x":origin.x,"y":origin.y,
+		"rotation":clampf(rad_to_deg(float(runtime.get("angle",0.0))),-360.0,360.0),
+		"scale":size_ratio,
+		"replaces":{"kind":original_kind,"seed":int(identity_seed),
+			"p":[origin.x,origin.y]},"hidden":false
+	})
+	if not _commit(draft):
+		return ""
+	return id
+
+
 func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> bool:
 	var item := prop_at_id(prop_id)
 	if item.is_empty() or not _in_bounds(destination_m):
