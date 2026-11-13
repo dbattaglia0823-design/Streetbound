@@ -245,7 +245,8 @@ function refreshHeader(){
     :'Open Game Map to load the playable scene and the asset atlas from the project folder.';
   $('world-dimensions').textContent=doc.world.width+' × '+doc.world.height+' world units';
   const gameAssets=runtimePreview?.propsCount||0;
-  const authoringAdds=runtimePreview?doc.props.filter(p=>!p.replaces).length:doc.props.length;
+  const authoringAdds=runtimePreview?doc.props.filter(p=>!p.replaces&&
+    !runtimePreview.authoredIds.has(p.id)).length:doc.props.length;
   $('object-count').textContent=doc.roads.length+' roads · '+
     buildRoadJunctions(doc.roads).length+' intersections · '+
     doc.regions.length+' regions · '+
@@ -471,7 +472,8 @@ function refreshEntities(){
   const showScenery=filter==='all'||filter==='props';
   const baseTypes=filter==='all'?['props','roads','regions','markers']:[filter];
   const baseEntries=baseTypes.flatMap(type=>doc[type].map(item=>({type,item})));
-  const added=runtimePreview?doc.props.filter(p=>!p.replaces).length:0;
+  const added=runtimePreview?doc.props.filter(p=>!p.replaces&&
+    !runtimePreview.authoredIds.has(p.id)).length:0;
   const count=showScenery&&runtimePreview
     ?runtimePreview.propsCount+added+
       (filter==='all'?doc.roads.length+doc.regions.length+doc.markers.length:0)
