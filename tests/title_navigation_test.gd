@@ -69,6 +69,19 @@ func _run() -> void:
 			standalone.ground.vehicle == null and
 			standalone.get_node_or_null("Vehicle") == null and
 			standalone.map_tiles.tiles.size() <= 64)
+		for frame in 12:
+			await process_frame
+		var collision_free := true
+		for tile in standalone.map_tiles.tiles.values():
+			if not bool(tile.map_render_only) or is_instance_valid(tile.collider_body):
+				collision_free = false
+		check("camera_tiles_render_real_art_without_gameplay_collision",
+			standalone.map_tiles.tiles.size() > 0 and collision_free)
+		editor._fit_map()
+		check("full_map_zoom_uses_whole_viewport_overview_without_detail_island",
+			not standalone.map_tiles.detailed and
+			standalone.map_tiles.tiles.is_empty() and
+			editor.overview_sprite.visible)
 		editor.close_editor()
 		for frame in 3:
 			await process_frame
