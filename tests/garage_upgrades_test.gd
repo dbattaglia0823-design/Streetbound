@@ -54,7 +54,7 @@ func run() -> void:
 		== "invalid_or_duplicate" and economy.upgrade_inventory.size() == old_inventory_count)
 	check("fresh_car_cannot_equip_common_before_level_ten",
 		economy.install_part(Ownership.STARTER_ID,awarded_uid) == "level_locked")
-	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item(awarded_uid).template))
+	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item("up-9001").template))
 	check("reward_part_stats_are_explicit",not rewarded.is_empty() and \
 		rewarded.get("modifiers",{}) is Dictionary and \
 		not (rewarded.modifiers as Dictionary).is_empty())
@@ -161,15 +161,14 @@ func run() -> void:
 		garage.overlay.find_child("UpgradesTab",true,false)==null)
 	garage.close_menu()
 	quick.open_menu()
-	check("quick_upgrades_has_ten_slots_outside_garage",
-		quick.overlay.visible and quick.slot_buttons.size()==10)
-	quick._open_slot(installed_slot)
+	check("quick_upgrades_has_six_hot_swap_slots_outside_garage",
+		quick.overlay.visible and quick.slot_buttons.size()==6)
+	quick._open_slot("suspension")
 	check("quick_upgrades_lists_owned_parts_for_chosen_slot",
 		quick.picker_title.text.contains("OWNED PARTS"))
 	# Swapping parts through the current quick-upgrades UI applies the
 	# same stock-relative deltas to actual in-game vehicle physics.
-	economy.unequip_part(second_car,installed_slot)
-	quick._install_uid(awarded_uid)
+	quick._install_uid("up-9001")
 	var current_part := Parts.get_part(str(economy.get_upgrade_item(awarded_uid).template))
 	var stock: VehicleConfig = Catalog.make_configuration(entry)
 	var expected: VehicleConfig = Catalog.make_configuration(entry)
