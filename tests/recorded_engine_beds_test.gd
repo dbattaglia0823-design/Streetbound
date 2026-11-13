@@ -97,6 +97,15 @@ func run() -> void:
 			audio.recorded_texture.playing and
 			audio.recorded_texture.stream ==
 			Bank.resolve(id,str(entry.audio_family),"recorded_texture"))
+	# The Audi RS3 and Chiron artwork were referenced in the catalog before
+	# their respective PNGs were actually committed. Missing art should no
+	# longer prevent applying the vehicle's true engine audio identity.
+	var rs3 := Catalog.find_by_id("audi-rs3")
+	check("missing_audi_art_does_not_block_rs3_selection", Catalog.select(car,rs3))
+	audio._process(0.1)
+	check("rs3_keeps_i5_audio_with_unverified_art",
+		audio._profile_family == "i5" and
+		(audio.recorded_texture.stream != null or audio.generic_recorded_engine.active))
 	check("different_engine_families_do_not_reuse_one_bed",
 		audio.recorded_texture.stream != original_stream)
 	audio.muted = true
