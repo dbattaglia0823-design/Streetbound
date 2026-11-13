@@ -27,6 +27,7 @@ var status: Label
 var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
+var _hidden_game_ui: Dictionary = {}
 
 func _ready() -> void:
 	name = "NativeWorldEditor"
@@ -124,10 +125,28 @@ func _build_ui() -> void:
 	footer.add_child(status)
 
 func _can_enter() -> bool:
+	# A split-screen game has two cameras and a different input owner. Keep
+	# this development workspace exclusively in single-player free roam.
+	var split: Variant = get_parent().get("local_split_screen")
 	return not active and not get_tree().paused and \
 		is_instance_valid(player) and is_instance_valid(world) and \
 		bool(world.initialization_complete) and \
-		is_instance_valid(driving_camera)
+		is_instance_valid(driving_camera) and \
+		(not is_instance_valid(split) or not bool(split.get("active")))
+
+
+func _set_game_ui_visible(restore: bool) -> void:
+	if restore:
+		for node in _hidden_game_ui:
+			if is_instance_valid(node):
+				node.visible = bool(_hidden_game_ui[node])
+		_hidden_game_ui.clear()
+		return
+	_hidden_game_ui.clear()
+	for node in get_parent().get_children():
+		if node is CanvasLayer and node != self:
+			_hidden_game_ui[node] = node.visible
+			node.visible = false
 
 func open_editor() -> bool:
 	if not _can_enter():
@@ -150,6 +169,7 @@ func open_editor() -> bool:
 	driving_camera.set_process_unhandled_input(false)
 	editor_camera.make_current()
 	active = true
+	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
 	_right_drag = false
@@ -166,6 +186,7 @@ func close_editor() -> void:
 	active = false
 	root_ui.visible = false
 	gizmos.visible = false
+	_set_game_ui_visible(true)
 	_right_drag = false
 	set_process(false)
 	if is_instance_valid(editor_camera):
