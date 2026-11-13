@@ -38,9 +38,12 @@ export function boundsOf(points) {
  */
 export function sampleRoad(points, smooth = true, spacing = 9) {
   if (!Array.isArray(points) || points.length < 2) return [];
+  // A repeated start/end point denotes a closed road. Wrap spline neighbours
+  // at that seam so a roundabout has continuous curvature.
+  const closed=points.length>=4&&distance(points[0],points.at(-1))<1e-5;
   const out = [{x:points[0].x,y:points[0].y}];
   for (let i = 0; i < points.length - 1; i++) {
-    const p0=points[Math.max(0,i-1)],p1=points[i],p2=points[i+1],p3=points[Math.min(points.length-1,i+2)];
+    const p0=points[i===0&&closed?points.length-2:Math.max(0,i-1)],p1=points[i],p2=points[i+1],p3=points[i===points.length-2&&closed?1:Math.min(points.length-1,i+2)];
     const length=distance(p1,p2);
     const steps=smooth && points.length > 2 ? clamp(Math.ceil(length / Math.max(spacing,2)),2,80) : 1;
     for(let j=1;j<=steps;j++){
