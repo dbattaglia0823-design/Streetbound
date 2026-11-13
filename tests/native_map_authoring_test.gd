@@ -203,10 +203,17 @@ func _run() -> void:
 	if adopt_idx>=0:
 		editor._update_selection({"kind":"prop","index":adopt_idx})
 		editor._adopt_selected()
-		check("draft_asset_has_rendered_sprite_and_physical_preview",
-			editor.gizmos._prop_texture(editor.authoring.prop_at_id(editor.source_id)) != null and
-			is_instance_valid(editor.gizmos.preview_body) and
-			editor.gizmos.preview_body.get_child_count()>0)
+		var preview_asset: Dictionary = editor.authoring.prop_at_id(editor.source_id)
+		var runtime_asset: Dictionary = game.ground.data.props[adopt_idx]
+		check("draft_asset_uses_real_game_artwork",
+			editor.gizmos._prop_texture(preview_asset) != null)
+		check("draft_asset_has_collision_preview_node",
+			is_instance_valid(editor.gizmos.preview_body))
+		var expected_solid := bool(runtime_asset.get("solid",false))
+		var preview_has_collision := is_instance_valid(editor.gizmos.preview_body) and \
+			editor.gizmos.preview_body.get_child_count()>0
+		check("draft_collision_matches_original_asset_solidity",
+			preview_has_collision == expected_solid)
 		check("real_baked_tree_adoption_keeps_identity_and_preview",
 			editor.authoring.dirty and editor.source_id.begins_with("prop-native-") and
 			editor.authoring.prop_at_id(editor.source_id).replaces.kind=="tree")
