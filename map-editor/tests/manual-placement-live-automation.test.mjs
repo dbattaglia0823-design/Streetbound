@@ -157,6 +157,6 @@ test('UI retains manual placement with live layers and explicit confirmation',as
   assert.match(renderer,/alignmentPreview/);
   assert.match(editor,/const travel=distance\(placed,found\.item\)/);
   assert.match(editor,/if\(travel>40&&\!window\.confirm\(/);
-  assert.match(html,/<input id="road-smart-snap" type="checkbox">/,
-    'automatic road-point snap should be visibly opt-in');
+  assert.match(html,/<input id="road-smart-snap" type="checkbox" checked>/,
+    'explicit endpoint snap and join control should be enabled by default');
 });
