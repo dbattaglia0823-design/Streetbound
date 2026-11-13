@@ -129,3 +129,10 @@ Playable streets gain coherent static street furniture, POI signs, parking
 entrances and improved vegetation shading.
 
 [Map editor and rebake documentation](docs/MORROW_EDITOR_AND_TRAFFIC.md)
+
+## Godot resource identifiers
+
+Keep `.gd.uid` and `.gdshader.uid` files with their scripts in source control.
+These identifiers are persistent project files; do not remove them during
+cleanup. Only the `.godot/` import cache is disposable. Run
+`python tests/resource_uid_test.py` before importing to detect missing or duplicate IDs.

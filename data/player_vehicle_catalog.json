@@ -2725,6 +2725,8 @@
       "display_name": "Ford Fiesta",
       "source_model_unverified": false,
       "texture": "res://assets/Vehicles/Ford/Ford_Fiesta.png",
+      "sprite_sideways": false,
+      "sprite_rotation_degrees": 180,
       "length_m": 4.04,
       "width_m": 1.74,
       "wheelbase_m": 2.49,

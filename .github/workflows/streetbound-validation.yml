@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+      - name: Verify persistent Godot resource IDs before import
+        run: python3 tests/resource_uid_test.py
       - name: Install Godot 4.6.3 matching the reported Windows logs
         run: |
           curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
