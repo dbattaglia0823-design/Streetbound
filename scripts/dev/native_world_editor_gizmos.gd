@@ -2,6 +2,10 @@ extends Node2D
 ## Dev-only drawing of the ACTUAL baked junction polygons and the existing
 ## Godot traffic graph. No shadow copy of browser road or lane math.
 const PPM := 20.0
+const Art = preload("res://scripts/world/coast_art.gd")
+var preview_body: StaticBody2D
+var preview_collisions_enabled := false
+
 var world
 var network
 var selected: Dictionary = {}
@@ -18,7 +22,82 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	drag_preview = preview
 	selected_source_id = source_id
 	selected_anchor_index = point_index
+	if preview.is_empty():
+		_rebuild_preview_collisions()
 	queue_redraw()
+
+func set_preview_collision_enabled(enabled: bool) -> void:
+	preview_collisions_enabled = enabled
+	if is_instance_valid(preview_body):
+		preview_body.collision_layer = 1 if enabled else 0
+
+
+func _prop_modified(prop: Dictionary) -> bool:
+	for previous in draft_initial.get("props",[]):
+		if str(previous.get("id","")) == str(prop.get("id","")):
+			return JSON.stringify(previous) != JSON.stringify(prop)
+	return true
+
+
+func _prop_size(prop: Dictionary) -> Vector2:
+	var base := Vector2(8,8)
+	match str(prop.get("type","")):
+		"house":base=Vector2(12,17)
+		"building":base=Vector2(22,29)
+		"warehouse":base=Vector2(28,37)
+		"garage":base=Vector2(20,21)
+		"gas_station":base=Vector2(18,17)
+		"oak","pine":base=Vector2(7,7)
+		"palm":base=Vector2(6.5,6.5)
+		"rock":base=Vector2(3,2.5)
+	if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
+		base=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
+	return base * PPM * float(prop.get("scale",1.0))
+
+
+func _prop_texture(prop: Dictionary) -> Texture2D:
+	if prop.has("assetPath"):
+		return Art.project_sprite(str(prop.assetPath))
+	var kind := str(prop.get("assetId","")).trim_prefix("game-")
+	if kind in ["","none"]:
+		kind=str(prop.get("type",""))
+	if kind=="oak":
+		kind="tree"
+	return Art.sprite(kind,0)
+
+
+func _rebuild_preview_collisions() -> void:
+	if not is_instance_valid(preview_body):
+		preview_body = StaticBody2D.new()
+		preview_body.name = "UnsavedAssetCollisionPreview"
+		preview_body.process_mode = Node.PROCESS_MODE_ALWAYS
+		preview_body.collision_mask = 2
+		add_child(preview_body)
+	preview_body.collision_layer = 1 if preview_collisions_enabled else 0
+	for child in preview_body.get_children():
+		preview_body.remove_child(child)
+		child.queue_free()
+	for prop in draft_doc.get("props",[]):
+		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
+			continue
+		var collider := CollisionShape2D.new()
+		var size := _prop_size(prop)
+		if str(prop.get("type","")) in ["oak","pine","palm"]:
+			var circle := CircleShape2D.new()
+			circle.radius = minf(size.x,size.y)*0.32
+			collider.shape = circle
+		elif str(prop.get("type",""))=="rock":
+			var rock := CircleShape2D.new()
+			rock.radius = minf(size.x,size.y)*0.45
+			collider.shape = rock
+		else:
+			var rect := RectangleShape2D.new()
+			rect.size = size
+			collider.shape = rect
+		collider.position = Vector2(float(prop.x),float(prop.y))*PPM
+		collider.rotation = deg_to_rad(float(prop.get("rotation",0.0)))
+		preview_body.add_child(collider)
+
 
 func _draft_line(road: Dictionary) -> PackedVector2Array:
 	var line := PackedVector2Array()
@@ -58,26 +137,27 @@ func _draw_draft() -> void:
 					Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else
 					Color(1.0,0.67,0.24,1.0))
 	for prop in draft_doc.get("props",[]):
+		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
+			continue
 		var id := str(prop.id)
 		var p := Vector2(float(prop.x),float(prop.y)) * PPM
 		if str(drag_preview.get("id",""))==id:
 			p = drag_preview.get("to",p)
 		if not _visible_point(p):
 			continue
-		var size := Vector2(8.0,8.0) * PPM * float(prop.get("scale",1.0))
-		var kind := str(prop.get("type",""))
-		match kind:
-			"house": size=Vector2(12,17)*PPM*float(prop.scale)
-			"building": size=Vector2(22,29)*PPM*float(prop.scale)
-			"garage": size=Vector2(20,21)*PPM*float(prop.scale)
-			"oak","pine","palm": size=Vector2(7,7)*PPM*float(prop.scale)
-			"rock": size=Vector2(3,2.5)*PPM*float(prop.scale)
-		var c := Color(0.38,1.0,0.65,0.90) if id==selected_source_id else \
-			Color(0.95,0.86,0.27,0.80)
-		var rect := Rect2(p-size*0.5,size)
-		draw_rect(rect,c,false,5.0,true)
-		draw_circle(p,5.0,c)
-	# These are SOURCE PREVIEWS, not new baked junctions or real collisions.
+		var size := _prop_size(prop)
+		var angle := deg_to_rad(float(prop.get("rotation",0.0)))
+		var texture := _prop_texture(prop)
+		draw_set_transform(p,angle)
+		if texture != null:
+			draw_texture_rect(texture,Rect2(-size*0.5,size),false)
+		else:
+			draw_rect(Rect2(-size*0.5,size),Color(0.35,0.65,0.52,0.6),true)
+		var c := Color("#8effbf") if id==selected_source_id else Color("#ffcf73")
+		draw_rect(Rect2(-size*0.5,size),c,false,3.0,true)
+		draw_set_transform(Vector2.ZERO)
+		draw_circle(p,4.0,c)
+	# Native draft sprites and collision footprints update before Save to Game.
 var show_junctions := true
 var show_lanes := true
 var camera_center := Vector2.ZERO
