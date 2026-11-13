@@ -140,10 +140,21 @@ Large maps use more storage, streaming chunks, and rendering resources.
 
 Morrow Coast has more baked objects than authorable control points. The
 editor keeps full production scenery in spatial preview buckets, rather
-than adding thousands of generated trees to the regular 200-prop editing
-budget. Click-to-edit converts only selected ordinary objects into a stable
-source replacement. Other procedural items remain driven by the normal world
+than duplicating thousands of generated trees in the editable source overlay.
+The **Map assets** panel counts the actual baked game objects even when
+there are zero manually placed objects. Under **Game scenery & edits**, the
+nearest existing buildings, foliage, rocks, parking and landmarks can be
+selected to focus the camera. Ordinary scenery is made editable by selecting
+it; gameplay landmarks can be located but not overwritten. Click-to-edit
+converts only selected ordinary objects into a stable source replacement. Other procedural items remain driven by the normal world
 generator, so future road and biome changes still generate coherent scenery.
+
+
+When opening Game Map, the editor initially centers on the player start at
+a readable zoom (0.65). Use **Fit** to see the entire coastline, or scroll to
+inspect individual roofs and trees. Map assets are not removed when the
+editable source list contains zero authored props; the runtime preview
+continues drawing the real baked scenery.
 
 Existing roads keep their source IDs, and unchanged high-detail coastline
 polygons keep their original geometry. Marker and new building edits take the

@@ -57,6 +57,25 @@ func _run() -> void:
 	check("map_interface_initialized", map_hud != null and map_hud.get("mini_view") != null)
 	check("controls_autoload_available", root.get_node_or_null("Controls") != null)
 	check("spawn_chunk_built", world is MorrowCoast and world.chunks.size() > 0)
+	# A loaded road graph with zero scenery can look like an empty map.
+	# Assert that real production assets survive the world bake and at least
+	# one active chunk has its actual scenery Node2D ready to draw.
+	var baked_assets := 0
+	var visible_assets := 0
+	var visible_art_nodes := 0
+	if world != null and not world.data.is_empty():
+		baked_assets = world.data.props.size()
+		for chunk in world.chunks.values():
+			if not chunk.visible:
+				continue
+			for art in chunk.get_children():
+				if art.get_script() == load("res://scripts/world/coast_scenery.gd") and art.visible:
+					visible_art_nodes += 1
+					var scenery: Array = art.get("prop_list")
+					visible_assets += scenery.size()
+	check("world_archive_contains_baked_map_assets", baked_assets > 1000)
+	check("player_neighborhood_has_visible_scenery_assets",
+		visible_assets > 0 and visible_art_nodes > 0)
 	check("spawn_coordinates_not_zero", car != null and car.global_position.length() > 1000)
 	print("REAL GAME STARTUP: ", "PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)

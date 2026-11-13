@@ -173,8 +173,45 @@ export function buildRuntimePreview(raw){
     if(!buckets.has(key))buckets.set(key,[]);
     buckets.get(key).push(item);
   }
+  // The playable map's scenery does not live in the editable authoring
+  // document until an object is deliberately adopted. Preserve a separate
+  // lightweight, nearby-first browser of the REAL baked assets so the UI
+  // never reports "0 objects" for a populated world.
+  const spawn=raw.spawn?.position||[sourceSize[0]*.5,sourceSize[1]*.5];
+  const assetBrowser=props.filter(item=>Array.isArray(item.p)&&item.p.length>=2&&
+    Array.isArray(item.size)&&item.size.length>=2)
+    .sort((a,b)=>{
+      const dist=item=>(Number(item.p[0])-Number(spawn[0]))**2+
+        (Number(item.p[1])-Number(spawn[1]))**2;
+      return dist(a)-dist(b);
+    });
+  const authoredIds=new Set(props.map(prop=>prop.authoring_id).filter(id=>typeof id==='string'));
   preloadGameArtwork();
-  return {cell,buckets,roads,junctions,sourceTerrain,propsCount:props.length,sourceSize,extensionTerrain};
+  return {cell,buckets,roads,junctions,sourceTerrain,propsCount:props.length,
+    assetBrowser,authoredIds,sourceSize,extensionTerrain};
+}
+
+/** Return a bounded list of the game's REAL scenery without copying the
+ * entire procedural world into the source editor. Include protected landmark
+ * objects as read-only rows; adopting one would invalidate gameplay sites.
+ * This is UI-only metadata and never changes the baked JSON or overlay.
+ */
+export function browseRuntimeAssets(preview,doc,limit=180){
+  if(!preview)return {total:0,rows:[]};
+  const ids=new Set((doc.props||[]).map(p=>p.id));
+  const replaced=new Set((doc.props||[]).filter(p=>p.replaces)
+    .map(p=>sourceKey(p.replaces)));
+  const rows=[];
+  for(const prop of preview.assetBrowser||[]){
+    if((prop.authoring_id&&ids.has(prop.authoring_id))||
+        replaced.has(sourceKey(prop)))continue;
+    const editable=Boolean(REPLACEABLE_KINDS[prop.kind]&&!prop.poi&&!prop.authoring_id);
+    rows.push({source:prop,editable,
+      name:String(prop.poi||('Game '+String(prop.kind||'scenery').replaceAll('_',' '))),
+      x:Number(prop.p[0]),y:Number(prop.p[1])});
+    if(rows.length>=limit)break;
+  }
+  return {total:preview.propsCount,rows};
 }
 function hashColor(prop){
   const n=stringSeed(String(prop.kind)+String(prop.seed));
