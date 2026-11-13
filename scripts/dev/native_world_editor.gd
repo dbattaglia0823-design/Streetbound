@@ -299,7 +299,7 @@ func _source_click(world_px: Vector2) -> void:
 		_pick_source_prop(world_px)
 	if hit.is_empty():
 		if tool_name=="move_prop":
-			var inspected := select_at(world_px)
+			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
 				_notice("Generated scenery is protected. Place a new authored asset instead."
@@ -313,11 +313,11 @@ func _source_click(world_px: Vector2) -> void:
 	pending_drag = hit.duplicate(true)
 	pending_drag["to"] = world_px
 	if hit.kind=="road":
-		var road := authoring.road_at_id(source_id)
+		var road: Dictionary = authoring.road_at_id(source_id)
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
 			str(road.get("name","")),source_anchor+1,road.points.size()]
 	else:
-		var prop := authoring.prop_at_id(source_id)
+		var prop: Dictionary = authoring.prop_at_id(source_id)
 		details.text = "AUTHORED ASSET\n%s\n\nDrag to move; Rotate and Delete are below.\nSource ID: %s" % [
 			str(prop.get("name","")),source_id]
 	_refresh_authoring()
@@ -596,7 +596,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_view(true)
 			get_viewport().set_input_as_handled()
 		elif mouse.button_index==MOUSE_BUTTON_LEFT:
-			var hit_position := world.get_global_mouse_position()
+			var hit_position: Vector2 = world.get_global_mouse_position()
 			if mouse.pressed:
 				_source_click(hit_position)
 			elif not pending_drag.is_empty():
