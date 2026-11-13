@@ -247,7 +247,13 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	var original_kind := str(runtime.get("kind",""))
 	var identity_seed: Variant = runtime.get("seed")
 	var place: Variant = runtime.get("p")
-	if not mapping.has(original_kind) or typeof(identity_seed)!=TYPE_INT or \
+	# Godot JSON.parse_string can materialize an integer-valued JSON seed
+	# as TYPE_FLOAT. Accept it only when finite and mathematically integral,
+	# then write a real JSON integer back for Python's identity validator.
+	var numeric_seed: bool = typeof(identity_seed) in [TYPE_INT,TYPE_FLOAT]
+	var integral_seed: bool = numeric_seed and is_finite(float(identity_seed)) and \
+		absf(float(identity_seed)-roundf(float(identity_seed)))<0.0001
+	if not mapping.has(original_kind) or not integral_seed or \
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
 			runtime.has("poi") or runtime.has("authoring_id") or \
