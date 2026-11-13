@@ -1,6 +1,6 @@
 extends Node2D
 ## Reusable four-wheel rig for different car silhouettes and display scales.
-## Wheels are drawn below the car body and inherit its suspension sway.
+## Wheels follow stable axle anchors below the body; no visual curb suspension.
 const WheelVisual = preload("res://scripts/visual/wheel_visual.gd")
 # Explicit class dependency prevents missing global class registration on
 # Godot 4.6.x cold starts (and preserves resource inspector type safety).
@@ -18,6 +18,8 @@ const AppearanceProfile = preload("res://scripts/vehicle/vehicle_appearance_prof
 @export_range(0.40, 1.0, 0.01) var visual_tire_width_scale := 0.60
 @export_range(0.50, 1.0, 0.01) var visual_tire_length_scale := 0.78
 @export_range(0.65, 1.0, 0.01) var visual_track_scale := 0.88
+# Extra rear-only inset to keep the back tires under the rear fenders.
+@export_range(0.80, 1.0, 0.01) var rear_track_inset := 0.94
 @export_range(0.5, 2.0, 0.05) var visual_steer_multiplier := 1.35
 @export_range(10.0, 45.0, 1.0) var max_visual_steer_degrees := 38.0
 @export_range(5.0, 40.0, 1.0) var steer_animation_speed := 20.0
@@ -161,7 +163,7 @@ func _sync_wheels() -> void:
 	var center_x := visible_bounds.get_center().x if visible_bounds.has_area() else _center.x
 	for i in 4:
 		var point: Vector2 = points[i]
-		point.x = center_x + (point.x - center_x) * visual_track_scale
+		point.x = center_x + (point.x - center_x) * visual_track_scale * (rear_track_inset if i >= 2 else 1.0)
 		points[i] = point
 	if not is_instance_valid(front_left):
 		front_left = _make_wheel("FrontLeft", -1)
@@ -186,15 +188,16 @@ func wheel_anchor(index: int) -> Vector2:
 	return _base_points[index]
 
 
-func set_curb_heights(heights: PackedFloat32Array) -> void:
-	if heights.size() != 4 or _base_points.size() != 4:
+func set_curb_heights(_heights: PackedFloat32Array) -> void:
+	# Kept as a compatibility hook. Independent tire lift looked disconnected
+	# from the top-down body art; wheel positions stay on their stable anchors.
+	if _base_points.size() != 4:
 		return
-	curb_heights = heights
+	curb_heights = PackedFloat32Array([0.0,0.0,0.0,0.0])
 	var wheels: Array[Node2D] = [front_left,front_right,rear_left,rear_right]
 	for i in 4:
-		var height := clampf(float(heights[i]),0.0,1.0)
-		wheels[i].position = _base_points[i] + Vector2(-2.0,-6.0)*height
-		wheels[i].scale = Vector2.ONE*(1.0+height*0.025)
+		wheels[i].position = _base_points[i]
+		wheels[i].scale = Vector2.ONE
 
 
 func _make_wheel(wheel_name: String, wheel_side: int) -> Node2D:

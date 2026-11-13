@@ -21,12 +21,12 @@ test('whole-road translation preserves every relative control point and original
   assert.equal(moved.roads[0].id,doc.roads[0].id);
 });
 test('whole-region translation clamps map edges without changing terrain shape',()=>{
-  let doc=createWorld({width:600,height:500});
+  let doc=createWorld({width:600,height:600});
   doc=createEntity(doc,'regions',{name:'Field',biome:'grass',elevation:0,
     points:[point(300,200),point(450,200),point(450,340),point(300,340)]});
   const moved=translateEntity(doc,doc.regions[0].id,300,400);
   assert.deepEqual(moved.regions[0].points,
-    [point(450,360),point(600,360),point(600,500),point(450,500)]);
+    [point(450,460),point(600,460),point(600,600),point(450,600)]);
 });
 test('clicking a road or region body starts full shape drag but handles still reshape',async()=>{
   const editor=await source('../world-editor.js');

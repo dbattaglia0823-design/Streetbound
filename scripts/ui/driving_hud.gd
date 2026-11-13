@@ -16,6 +16,7 @@ var race: Node2D
 var dashboard: Control
 var environment_title := "DRIVING LAB    /    PROTOTYPE 01"
 var active_vehicle_label: Label
+var progression_slot: VBoxContainer
 var camera: Camera2D
 var telemetry: Label
 var speed_label: Label
@@ -74,12 +75,15 @@ func _ready() -> void:
 	_save_timer.timeout.connect(_save_tuning_now)
 	add_child(_save_timer)
 	var header := VBoxContainer.new()
+	header.add_theme_constant_override("separation", 5)
 	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
-	label(header, "S T R E E T B O U N D", 24)
-	label(header, environment_title, 13, Color("a1c779"))
-	label(header, "F1 STATS  ·  ESC PAUSE  ·  C CAMERA  ·  WHEEL ZOOM", 11, Color("93afa7"))
-	active_vehicle_label = label(header, "SPORT COUPE  /  LAUREL MOTOR HOUSE GARAGE", 13, Color("c4d4d0"))
-	status = label(header, "ASPHALT   /   NORTH UP", 14)
+	label(header, environment_title, 12, Color("a1c779"))
+	active_vehicle_label = label(header, "CURRENT VEHICLE", 14, Color("e3eae0"))
+	progression_slot = VBoxContainer.new()
+	progression_slot.name = "ProgressionSlot"
+	progression_slot.add_theme_constant_override("separation", 4)
+	header.add_child(progression_slot)
+	status = label(header, "ASPHALT   /   NORTH UP", 11, Color("93afa7"))
 	# All primary driving instrumentation now shares a purpose-built,
 	# responsive cluster rather than the old text-filled prototype box.
 	dashboard = Control.new()
@@ -117,6 +121,12 @@ func _ready() -> void:
 	vehicle.impacted.connect(func(strength: float):
 		if strength > 5:
 			status.text = "IMPACT / R TO RESET")
+
+func show_unified_progression() -> void:
+	# The equipped car name is included in the car-level row below.
+	if is_instance_valid(active_vehicle_label):
+		active_vehicle_label.visible = false
+
 
 func on_vehicle_selected(entry: Dictionary, restore_saved_tuning: bool = false) -> void:
 	# Each selected model has its own stock baseline. Apply saved F1 edits

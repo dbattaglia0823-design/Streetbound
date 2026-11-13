@@ -143,7 +143,9 @@ func _ready() -> void:
 		progression_hud = CanvasLayer.new()
 		progression_hud.set_script(ProgressHudScript)
 		progression_hud.economy = vehicle_ownership
+		progression_hud.host = hud.progression_slot
 		add_child(progression_hud)
+		hud.show_unified_progression()
 	if not proving_ground:
 		var world_hud := CanvasLayer.new()
 		world_hud.layer = 3
