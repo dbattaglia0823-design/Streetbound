@@ -210,7 +210,7 @@ func _run() -> void:
 		check("draft_asset_has_collision_preview_node",
 			is_instance_valid(editor.gizmos.preview_body))
 		var expected_solid := bool(runtime_asset.get("solid",false))
-		var preview_has_collision := is_instance_valid(editor.gizmos.preview_body) and \
+		var preview_has_collision: bool = is_instance_valid(editor.gizmos.preview_body) and \
 			editor.gizmos.preview_body.get_child_count()>0
 		check("draft_collision_matches_original_asset_solidity",
 			preview_has_collision == expected_solid)
