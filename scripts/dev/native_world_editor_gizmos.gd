@@ -42,7 +42,7 @@ func _draw() -> void:
 					not _visible_point(points[points.size()-1]):
 				continue
 			var connector := bool(edge.connector)
-			var highlighted := selected.get("kind","") == "road" and \
+			var highlighted: bool = selected.get("kind","") == "road" and \
 				int(selected.get("index",-1)) == int(edge.road)
 			var color := Color(1.0,0.60,0.19,0.91) if connector else \
 				(Color(0.27,1.0,0.95,0.95) if highlighted else
@@ -61,7 +61,7 @@ func _draw() -> void:
 			var center := Vector2(float(j.p[0]),float(j.p[1]))*PPM
 			if not _visible_point(center):
 				continue
-			var chosen := selected.get("kind","")=="junction" and \
+			var chosen: bool = selected.get("kind","")=="junction" and \
 				int(selected.get("index",-1))==index
 			var color := Color(1.0,0.92,0.25,1.0) if chosen else \
 				Color(1.0,0.43,0.64,0.76)
