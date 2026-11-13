@@ -2,7 +2,7 @@ extends SceneTree
 ## End-to-end settings binding UI, input capture, persistent profiles and
 ## reserved Escape fallback. Test process has isolated user:// settings.
 const ControlBindings = preload("res://scripts/input/controls.gd")
-var controls: Node
+var controls: Variant
 var failures: Array[String] = []
 
 func _initialize() -> void:
