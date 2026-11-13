@@ -1011,12 +1011,23 @@ def clip_rect(poly,x0,y0,x1,y1):
     return poly
 
 
-for x in range(math.ceil(WIDTH/CHUNK)):
-    for y in range(math.ceil(HEIGHT/CHUNK)):
-        chunk=CHUNKS[f"{x},{y}"]
-        for t in TERRAIN:
-            clipped=clip_rect(t["points"],x*CHUNK,y*CHUNK,(x+1)*CHUNK,(y+1)*CHUNK)
-            if len(clipped)>=3: chunk["terrain"].append(dict(kind=t["kind"],color=t["color"],points=clipped))
+# Index each terrain polygon by its bounding chunks before clipping.
+# Previously every polygon was clipped against every chunk (O(chunks * terrain)).
+# Empty chunks never intersect the source polygon and need no clip operations.
+for t in TERRAIN:
+    points = t["points"]
+    if len(points)<3:
+        continue
+    x0 = max(0, int(min(p[0] for p in points)//CHUNK))
+    x1 = min(math.ceil(WIDTH/CHUNK)-1, int(max(p[0] for p in points)//CHUNK))
+    y0 = max(0, int(min(p[1] for p in points)//CHUNK))
+    y1 = min(math.ceil(HEIGHT/CHUNK)-1, int(max(p[1] for p in points)//CHUNK))
+    for x in range(x0,x1+1):
+        for y in range(y0,y1+1):
+            clipped=clip_rect(points,x*CHUNK,y*CHUNK,(x+1)*CHUNK,(y+1)*CHUNK)
+            if len(clipped)>=3:
+                CHUNKS[f"{x},{y}"]["terrain"].append(
+                    dict(kind=t["kind"],color=t["color"],points=clipped))
 
 # Validation is performed on actual baked centerlines, including facilities.
 adj=collections.defaultdict(set)

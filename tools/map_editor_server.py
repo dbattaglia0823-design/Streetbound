@@ -71,6 +71,16 @@ def transactional_rebuild(doc: object, expected_sha: str) -> dict:
         raise ValueError("Only the playable Morrow Coast map may be edited.")
     if digest(BAKED) != expected_sha:
         raise ValueError("The playable world changed since import. Reload it before applying.")
+    # A deliberate Save with no source changes is a no-op: do not launch
+    # Python generation, rewrite massive world JSON, or force game reloads.
+    # Keep the SHA check above so stale editors cannot bypass revision safety.
+    if EDIT.exists() and OVERVIEW.exists():
+        try:
+            if json.loads(EDIT.read_text(encoding="utf-8")) == doc:
+                return {"ok": True, "unchanged": True, "worldSha": expected_sha,
+                        "stats": {}, "message": "No map changes; playable world is already saved."}
+        except (OSError, ValueError, TypeError):
+            pass
     current = json.loads(BAKED.read_text(encoding="utf-8"))
     if current.get("format") != "streetbound.streamed-world" or current.get("version") != 1:
         raise ValueError("Unknown original playable world format.")

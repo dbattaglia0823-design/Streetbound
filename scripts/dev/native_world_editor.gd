@@ -136,7 +136,7 @@ func _build_authoring_ui() -> void:
 	_btn("GRID 1m",actions,_toggle_snap)
 	_btn("DISCARD",actions,_discard_draft)
 	_btn("START BACKEND",actions,_start_backend)
-	apply_button = _btn("APPLY TO GAME",actions,_apply_draft)
+	apply_button = _btn("SAVE TO GAME",actions,_apply_draft)
 	reload_button = _btn("RELOAD WORLD",actions,_reload_world)
 	reload_button.disabled = true
 	authoring_notice = Label.new()
@@ -144,7 +144,7 @@ func _build_authoring_ui() -> void:
 	authoring_notice.clip_text = true
 	authoring_notice.add_theme_font_size_override("font_size",12)
 	authoring_notice.add_theme_color_override("font_color",Color("#ffcd8b"))
-	authoring_notice.text = "Source drafts only. Apply rebuilds the live game using the validated backend."
+	authoring_notice.text = "Draft changes are in memory. Save to Game validates and rebuilds once."
 	rows.add_child(authoring_notice)
 	_update_active_tool_style()
 
@@ -607,7 +607,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		ok = authoring.move_prop(str(drag.id),destination_m,snap_m)
 	_refresh_authoring()
 	if ok and authoring.dirty:
-		_notice("Source updated; amber/green geometry is a DRAFT, not actual rebuilt traffic.")
+		_notice("Draft updated in memory. Save to Game when ready.")
 	elif not ok:
 		_notice(authoring.last_error)
 
