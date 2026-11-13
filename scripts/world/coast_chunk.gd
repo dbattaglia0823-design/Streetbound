@@ -19,6 +19,8 @@ var stream_active := true
 var map_render_only := false
 var collider_body: StaticBody2D
 var collision_shape_count := 0
+var setup_complete := false
+var setup_error := ""
 
 
 func point(raw: Array) -> Vector2:
@@ -29,6 +31,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	world = owner_world
 	cell = index
 	content = data
+	# Reject incomplete world initialization before constructing a terrain-only
+	# cell that would otherwise be cached as a successful populated chunk.
+	if world.segment_stations.size()!=world.data.get("segments",[]).size():
+		setup_error="Road stations not initialized"
+		return
+	for field in ["segments","props","junctions","walls"]:
+		for entry in content.get(field,[]):
+			if int(entry)<0 or int(entry)>=world.data.get(field,[]).size():
+				setup_error="Invalid %s assignment in %s"%[field,cell]
+				return
 	origin_m = Vector2(cell) * world.chunk_m
 	position = origin_m * PPM
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
@@ -163,6 +175,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	if not map_render_only:
 		_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
+	setup_complete=true
 
 ## Called once when a cached chunk enters/exits the active play ring,
 ## never per render frame. Dormant collisions keep their shapes for reuse.

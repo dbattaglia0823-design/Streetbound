@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d2e8r7hj2pjau"
-path="res://.godot/imported/05_modern_showroom_dealership.png-60c17f689a41fbacc60863b46e05af9a.ctex"
+path="res://.godot/imported/05_modern_showroom_dealership.png-4d9c333a404a980e0783828fd74e733f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Buildings/Dealerships/05_modern_showroom_dealership.png"
-dest_files=["res://.godot/imported/05_modern_showroom_dealership.png-60c17f689a41fbacc60863b46e05af9a.ctex"]
+source_file="res://assets/Buildings/Dealerships/05_modern_showroom_dealership.png"
+dest_files=["res://.godot/imported/05_modern_showroom_dealership.png-4d9c333a404a980e0783828fd74e733f.ctex"]
 
 [params]
 

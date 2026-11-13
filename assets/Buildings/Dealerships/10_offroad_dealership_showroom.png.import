@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dtu0d5fj2vvgj"
-path="res://.godot/imported/10_offroad_dealership_showroom.png-f5d19156cac5a66a6a77dc85f70595eb.ctex"
+path="res://.godot/imported/10_offroad_dealership_showroom.png-b65fd210e423b929390c32a650d3bdcf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Buildings/Dealerships/10_offroad_dealership_showroom.png"
-dest_files=["res://.godot/imported/10_offroad_dealership_showroom.png-f5d19156cac5a66a6a77dc85f70595eb.ctex"]
+source_file="res://assets/Buildings/Dealerships/10_offroad_dealership_showroom.png"
+dest_files=["res://.godot/imported/10_offroad_dealership_showroom.png-b65fd210e423b929390c32a650d3bdcf.ctex"]
 
 [params]
 

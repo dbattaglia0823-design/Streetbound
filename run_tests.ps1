@@ -55,3 +55,7 @@ Write-Output 'PASS: real-controller mountain climb through linked hairpins and g
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--script', 'res://tests/junction_test.gd', '--log-file', "`"$project\junction_test.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'junction_test.log') -SimpleMatch 'JUNCTION TESTS: PASS' -Quiet)) { throw 'Junction validation did not finish.' }
 Write-Output 'PASS: all crossings, priority, paint clipping, valid corner geometry and clear turning areas.'
+
+Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '1500', '--script', 'res://tests/world_render_contract_test.gd', '--log-file', "`"$project\world_render_contract.log`"")
+if (-not (Select-String -LiteralPath (Join-Path $project 'world_render_contract.log') -SimpleMatch 'WORLD RENDER CONTRACT: PASS' -Quiet)) { throw 'World renderer contract did not finish.' }
+Write-Output 'PASS: populated main-scene chunks, render layers, collision alignment, archive contract and F7 layout.'

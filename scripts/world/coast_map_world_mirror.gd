@@ -146,6 +146,10 @@ func _process(_delta: float) -> void:
 		chunk.set_script(Chunk)
 		chunk.map_render_only = true
 		chunk.setup(world, index, section)
+		if not chunk.setup_complete:
+			push_error("Map mirror chunk %s failed: %s"%[key,chunk.setup_error])
+			chunk.free()
+			continue
 		chunks[index] = chunk
 		add_child(chunk)
 		built_count += 1

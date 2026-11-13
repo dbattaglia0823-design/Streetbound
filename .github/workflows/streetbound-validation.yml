@@ -54,6 +54,12 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 75s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --path . --fixed-fps 60 --script res://tests/actual_game_render_probe.gd 2>&1 | tee /tmp/godot463-render-probe.log
           grep -q 'ACTUAL GAME RENDER DIAGNOSTIC: PASS' /tmp/godot463-render-probe.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-render-probe.log
+      - name: Verify real rendered roads and scenery across developed districts
+        run: |
+          set -o pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
+          grep -q 'WORLD RENDER CONTRACT: PASS' /tmp/godot463-world-render.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/godot463-world-render.log
       - name: Verify real 10000 HP and 10000 lb-ft acceleration, RPM, grip and wheelspin
         run: |
           set -o pipefail
@@ -276,6 +282,12 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_art_geometry_audit_test.gd
       - name: Verify fast automatic gear shifts and immediate safe reverse/Drive transition
         run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_shift_response_test.gd
+      - name: Verify populated main-scene render pipeline and nonoverlapping diagnostics
+        run: |
+          set -o pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/world-render-contract.log
+          grep -q 'WORLD RENDER CONTRACT: PASS' /tmp/world-render-contract.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/world-render-contract.log
       - name: Verify preserved Atlas Coast map and intersections
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/world_archive_smoke.gd
       - name: Verify toolkit pause, settings, Quit, Resume and Escape

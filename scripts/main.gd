@@ -37,6 +37,10 @@ var ground: Node2D
 func _ready() -> void:
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
 	add_child(ground)
+	if not proving_ground and not ground.initialization_complete:
+		# Do not start traffic/garages against incomplete spatial indices.
+		ground.set_performance_debug(true)
+		return
 	if not proving_ground:
 		vehicle_ownership = OwnershipScript.new()
 	vehicle = VehicleScene.instantiate()

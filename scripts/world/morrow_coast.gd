@@ -8,6 +8,8 @@ const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.gd")
+const RenderHealth = preload("res://scripts/world/world_render_health.gd")
+const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const PPM := 20.0
 var data: Dictionary
 var player_garage_prop: Dictionary = {}
@@ -41,6 +43,10 @@ var cached_chunk_reuses := 0
 var performance_debug_enabled := false
 var performance_hud: CanvasLayer
 var performance_label: Label
+var performance_panel: PanelContainer
+var archive_audit: Dictionary = {}
+var failed_chunks: Dictionary = {}
+var initialization_complete := false
 var _performance_clock := 0.0
 var debug_geometry_enabled := false
 var debug_hud: CanvasLayer
@@ -48,16 +54,18 @@ var debug_label: Label
 var _debug_clock := 0.0
 
 func _ready() -> void:
-	data = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	data=parsed if parsed is Dictionary else {}
+	archive_audit=RenderHealth.audit(data)
+	if not archive_audit.compatible:
+		push_error("Morrow Coast archive rejected: %s"%[str(archive_audit.errors)])
+		set_performance_debug(true)
+		return
 	# Road geometry, junction curvature, sidewalk placement and physical
 	# surfaces must agree before ANY chunks, traffic, parking or map are built.
 	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
 	# carries the marker and is not widened twice.
 	RoadWidthAdaptation.adapt(data)
-	# Decorate only existing commercial props in a single downtown city block.
-	# This is metadata for scenery only: road graph, terrain, prop coordinates,
-	# building collisions and authored world JSON are never modified.
-	DowntownPilot.apply(data.props)
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
 			player_garage_prop = prop
@@ -159,10 +167,13 @@ func _ready() -> void:
 				if not _junction_grid.has(key):
 					_junction_grid[key] = []
 				_junction_grid[key].append(i)
+	# Optional art metadata runs only after the core spatial indices are ready.
+	DowntownPilot.apply(data.props)
 	tire_marks = TireMarks.new()
 	# Above asphalt and lane paint, below roadside props and player cars.
 	tire_marks.z_index = 4
 	add_child(tire_marks)
+	initialization_complete=true
 	# Spawn collision is built synchronously; neighbor loading is incremental.
 	var spawn := spawn_position()
 	var first := Vector2i((spawn/PPM/chunk_m).floor())
@@ -235,17 +246,31 @@ func set_performance_debug(enabled: bool) -> void:
 		add_child(performance_hud)
 		performance_label = Label.new()
 		performance_label.name = "PerformanceStats"
-		performance_label.position = Vector2(16, 16)
-		performance_label.add_theme_font_size_override("font_size", 13)
+		performance_label.add_theme_font_size_override("font_size", 12)
 		performance_label.add_theme_color_override("font_color", Color("e9f1ed"))
 		performance_label.add_theme_color_override("font_shadow_color", Color(0,0,0,.9))
 		performance_label.add_theme_constant_override("shadow_offset_x", 2)
 		performance_label.add_theme_constant_override("shadow_offset_y", 2)
-		performance_hud.add_child(performance_label)
+		performance_panel=PanelContainer.new()
+		performance_panel.name="PerformancePanel"
+		performance_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color=Color(.035,.065,.08,.96)
+		style.border_color=Color("69877b")
+		style.set_border_width_all(1)
+		style.set_corner_radius_all(6)
+		style.content_margin_left=12
+		style.content_margin_right=12
+		style.content_margin_top=10
+		style.content_margin_bottom=10
+		performance_panel.add_theme_stylebox_override("panel",style)
+		performance_panel.add_child(performance_label)
+		performance_hud.add_child(performance_panel)
 	if is_instance_valid(performance_hud):
 		performance_hud.visible = enabled
 	if enabled:
 		_performance_clock = 10.0
+		_update_performance_display()
 
 
 func _update_performance_display() -> void:
@@ -257,35 +282,29 @@ func _update_performance_display() -> void:
 	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 	var texture_mb := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / (1024.0 * 1024.0)
 	var traffic_count := get_tree().get_nodes_in_group("traffic_vehicle").size()
-	# F7 diagnoses the actual game scene, not just the map-editor source:
-	# a nonzero archive with empty active render chunks points to streaming;
-	# both nonzero with a blank screen point to the renderer/local checkout.
-	var active_road_batches := 0
-	var active_props := 0
-	var active_road_draw_nodes := 0
-	var active_scenery_draw_nodes := 0
-	for chunk in chunks.values():
-		if not bool(chunk.stream_active) or not chunk.visible:
-			continue
-		active_road_batches += chunk.road_batches.size()
-		active_props += chunk.prop_list.size()
-		for child in chunk.get_children():
-			if child.get_script() == preload("res://scripts/world/coast_roads.gd"):
-				active_road_draw_nodes += 1
-			elif child.get_script() == preload("res://scripts/world/coast_scenery.gd"):
-				active_scenery_draw_nodes += 1
-	performance_label.text = "F7 / MORROW PERFORMANCE (toggle)\n" + \
-		"FPS %.0f | CPU frame %.2f ms | Physics %.2f ms\n" % [fps,frame_ms,physics_ms] + \
-		"Draw calls %d | Texture memory %.1f MB\n" % [draws,texture_mb] + \
-		"Archive roads %d | scenery %d\n" % [
-			data.roads.size(),data.props.size()] + \
-		"Visible road batches %d / layers %d | Props %d / layers %d\n" % [
-			active_road_batches,active_road_draw_nodes,
-			active_props,active_scenery_draw_nodes] + \
-		"Active/cached chunks %d/%d | Traffic %d\n" % [
-			active_chunk_count(),chunks.size(),traffic_count] + \
-		"Chunk builds %d | Cached reuses %d | Max build %.2f ms" % [
-			chunk_build_count,cached_chunk_reuses,float(max_chunk_build_usec)/1000.0]
+	var health: Dictionary = RenderHealth.snapshot(self)
+	var player_m := spawn_position()/PPM if data.has("spawn") else Vector2.ZERO
+	if is_instance_valid(vehicle): player_m=vehicle.global_position/PPM
+	var cell := Vector2i((player_m/chunk_m).floor())
+	performance_label.text = "F7 / WORLD PIPELINE | %s\n"%health.status + \
+		"Player %.1f, %.1f m | Chunk %d,%d | Archive chunks %d\n"%[player_m.x,player_m.y,cell.x,cell.y,data.get("chunks",{}).size()] + \
+		"Archive/runtime: %s\n"%archive_audit.get("status","NOT INITIALIZED") + \
+		"Archive roads %d | scenery %d\n"%[data.get("roads",[]).size(),data.get("props",[]).size()] + \
+		"Active assignments: %d road segments | %d scenery props\n"%[health.segments,health.props] + \
+		"Visible road batches %d / layers %d | Props %d / layers %d\n"%[health.visible_batches,health.visible_road_nodes,health.visible_props,health.visible_scenery_nodes] + \
+		"Instantiated render nodes (active): roads %d | scenery %d\n"%[health.road_nodes,health.scenery_nodes] + \
+		"Failed builds %d | Failed render chunks %d\n"%[health.failed,health.render_failures] + \
+		"Unexpected empty %d | Valid terrain-only %d\n"%[health.unexpected_empty,health.empty] + \
+		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
+		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
+		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	if not archive_audit.get("errors",[]).is_empty():
+		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
+	elif not failed_chunks.is_empty():
+		performance_label.text+="\n"+str(failed_chunks.values()[0]).left(78)
+	performance_panel.reset_size()
+	DiagnosticsDock.place(performance_panel,performance_hud,get_tree().root)
+
 
 
 func spawn_position() -> Vector2:
@@ -309,6 +328,9 @@ func active_chunk_count() -> int:
 
 
 func _build_chunk(index: Vector2i) -> void:
+	if not initialization_complete:
+		failed_chunks[index]="World initialization incomplete"
+		return
 	var key := "%d,%d" % [index.x,index.y]
 	if chunks.has(index) or not data.chunks.has(key):
 		return
@@ -317,6 +339,11 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.set_script(Chunk)
 	instance.z_index = -6
 	instance.setup(self,index,data.chunks[key])
+	if not instance.setup_complete:
+		failed_chunks[index]=instance.setup_error
+		push_error("Morrow Coast chunk %s failed: %s"%[key,instance.setup_error])
+		instance.free()
+		return
 	add_child(instance)
 	# An initial synchronous spawn chunk is active even before stream_at()
 	# establishes current_cell; later preloads obey the live 3x3 radius.
@@ -355,6 +382,9 @@ func stream_at(position_px: Vector2) -> void:
 			chunks[index].set_stream_active(cell_delta <= 1)
 
 func _process(dt: float) -> void:
+	if not initialization_complete:
+		if performance_debug_enabled: _update_performance_display()
+		return
 	if vehicle:
 		stream_at(vehicle.global_position)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
@@ -365,6 +395,7 @@ func _process(dt: float) -> void:
 		if _performance_clock >= 0.45:
 			_performance_clock = 0.0
 			_update_performance_display()
+		DiagnosticsDock.place(performance_panel,performance_hud,get_tree().root)
 	if debug_geometry_enabled and is_instance_valid(debug_label) and is_instance_valid(vehicle):
 		_debug_clock += dt
 		if _debug_clock >= 0.18:
@@ -470,7 +501,7 @@ func location_at(position_px: Vector2) -> Dictionary:
 	return result
 
 func _physics_process(dt: float) -> void:
-	if not vehicle:
+	if not initialization_complete or not vehicle:
 		return
 	if vehicle.linear_velocity.length() < 3.0:
 		tire_marks.reset_tracks()

@@ -8,11 +8,12 @@ const BLOCK_CELL_M := 144.0
 const MAX_BUILDINGS := 8
 const TYPES := ["building", "shop", "cafe", "showroom", "office", "hotel"]
 const SPRITES := [
-	preload("res://assets/Buildings/DowntownPilot/glass-office.svg"),
-	preload("res://assets/Buildings/DowntownPilot/brick-hotel.svg"),
-	preload("res://assets/Buildings/DowntownPilot/retail-studio.svg"),
-	preload("res://assets/Buildings/DowntownPilot/art-deco-tower.svg")
+	"res://assets/Buildings/DowntownPilot/glass-office.svg",
+	"res://assets/Buildings/DowntownPilot/brick-hotel.svg",
+	"res://assets/Buildings/DowntownPilot/retail-studio.svg",
+	"res://assets/Buildings/DowntownPilot/art-deco-tower.svg"
 ]
+static var _textures: Dictionary = {}
 
 
 static func _position(prop: Dictionary) -> Vector2:
@@ -27,7 +28,18 @@ static func _cell(p: Vector2) -> Vector2i:
 static func sprite(index: int) -> Texture2D:
 	if index < 0 or index >= SPRITES.size():
 		return null
-	return SPRITES[index] as Texture2D
+	if not _textures.has(index):
+		# Source SVGs can arrive in a Git pull before Godot's editor import runs.
+		# Decode the actual artwork directly and cache it; an optional art import
+		# must never prevent the entire world/scenery scripts from compiling.
+		var image := Image.new()
+		var error := image.load_svg_from_string(FileAccess.get_file_as_string(SPRITES[index]))
+		if error != OK:
+			push_error("Cannot decode downtown artwork: %s (%s)" % [SPRITES[index],error])
+			return null
+		image.generate_mipmaps()
+		_textures[index] = ImageTexture.create_from_image(image)
+	return _textures[index] as Texture2D
 
 
 ## Group by a stable 144m block cell so the city art cannot spread across
