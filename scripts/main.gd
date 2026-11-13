@@ -18,6 +18,7 @@ const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd")
+const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 var pause_menu
@@ -32,6 +33,7 @@ var circuit_race: Node2D
 var street_race: Node2D
 var progression_hud: CanvasLayer
 var quick_upgrades: CanvasLayer
+var local_split_screen
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -189,3 +191,37 @@ func _ready() -> void:
 		dealership_menu.player = vehicle
 		dealership_menu.economy = vehicle_ownership
 		add_child(dealership_menu)
+	# One world, two cars, two cameras. This manager never creates a second
+	# Morrow Coast instance or touches the single-player career save.
+	local_split_screen = CanvasLayer.new()
+	local_split_screen.set_script(LocalSplitScript)
+	local_split_screen.player_one = vehicle
+	local_split_screen.world = ground
+	local_split_screen.inventory = vehicle_ownership
+	local_split_screen.main_camera = camera
+	var hidden: Array[CanvasLayer] = []
+	for node in get_children():
+		if node is CanvasLayer and node != pause_menu:
+			hidden.append(node)
+	local_split_screen.hidden_layers = hidden
+	var disabled: Array[Node] = []
+	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race]:
+		if is_instance_valid(system):
+			disabled.append(system)
+	local_split_screen.disabled_systems = disabled
+	add_child(local_split_screen)
+	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
+
+
+func _toggle_local_split_screen() -> void:
+	if not is_instance_valid(local_split_screen):
+		return
+	if local_split_screen.active:
+		local_split_screen.stop_split()
+		pause_menu.set_split_screen_active(false)
+		pause_menu.resume_game()
+	elif local_split_screen.start_split():
+		pause_menu.set_split_screen_active(true)
+		pause_menu.resume_game()
+	else:
+		pause_menu.show_split_screen_error(local_split_screen.warning)
