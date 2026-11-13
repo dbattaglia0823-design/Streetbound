@@ -7,7 +7,8 @@ const SampleBank = preload("res://scripts/audio/vehicle_audio_sample_bank.gd")
 const RpmMix = preload("res://scripts/audio/toolkit_rpm_mix.gd")
 const GenericRecordedEngine = preload("res://scripts/audio/generic_recorded_engine.gd")
 const ENGINE_BUS := "Streetbound Engine"
-const AsphaltTires = preload("res://assets/audio/tire_asphalt.wav")
+const AsphaltTires = preload("res://assets/audio/tire_screech_recorded_cc0.wav")
+# An original synthetic tire bed remains in the repository for fallback/reference.
 const LooseTires = preload("res://assets/audio/tire_loose.wav")
 
 @export var engine_stream: AudioStream # Optional licensed power idle sample
