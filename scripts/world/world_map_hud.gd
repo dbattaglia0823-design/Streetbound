@@ -83,7 +83,7 @@ func _ready() -> void:
 	mini.add_child(column)
 	district_label=text(column,"MORROW COAST",16)
 	mini_view=map_view(column,Vector2(244,244),true)
-	mini_view.set_minimap_shape(minimap_shape)
+	mini_view.call("set_minimap_shape", minimap_shape)
 	mini_cursor=mini_view.cursor
 	road_label=text(column,"Laurel Motor House access",13)
 	road_label.custom_minimum_size.x=284
@@ -140,7 +140,7 @@ func _ready() -> void:
 func set_minimap_shape(shape: String) -> void:
 	minimap_shape = "circle" if shape == "circle" else "square"
 	if is_instance_valid(mini_view):
-		mini_view.set_minimap_shape(minimap_shape)
+		mini_view.call("set_minimap_shape", minimap_shape)
 
 
 func _update_scale() -> void:
