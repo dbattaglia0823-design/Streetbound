@@ -63,6 +63,7 @@ func _run() -> void:
 		# Read back the ACTUAL displayed pixel colors at stable, named source
 		# positions. Simply checking that scripts and texture objects loaded is
 		# not sufficient to prove the player can see a street or a building.
+		var samples: Dictionary = {}
 		for item in [
 			{"name":"garage_roof","metres":Vector2(2378.0,3035.0)},
 			{"name":"nearby_house","metres":Vector2(2466.0,3039.5)},
@@ -84,14 +85,47 @@ func _run() -> void:
 				" color=",shot.get_pixel(int(pixel.x),int(pixel.y)).to_html(false)
 				if valid else "offscreen")
 			expect("game_camera_contains_"+str(item.name),valid)
-		var image_bytes := shot.save_jpg_to_buffer(0.7)
-		var encoded := Marshalls.raw_to_base64(image_bytes)
-		print("GAME_SCREENSHOT_BEGIN")
-		for i in ceili(float(encoded.length())/900.0):
-			print("IMAGECHUNK:",encoded.substr(i*900,900))
-		print("GAME_SCREENSHOT_END")
+			if valid:
+				samples[str(item.name)] = shot.get_pixel(int(pixel.x),int(pixel.y))
+		if samples.has("garage_roof") and samples.has("nearby_house") and
+				samples.has("driveway_asphalt"):
+			var garage: Color = samples.garage_roof
+			var house: Color = samples.nearby_house
+			var road: Color = samples.driveway_asphalt
+			# Actual GPU pixels, not a node count: opaque grass cannot satisfy
+			# these roof and asphalt color signatures near Laurel spawn.
+			expect("real_game_draws_dark_garage_building",
+				garage.g < 0.55 and garage.b > garage.r + 0.035,
+				garage.to_html(false))
+			expect("real_game_draws_nearby_warm_house_roof",
+				house.r > 0.6 and house.r > house.g + 0.12 and
+					house.r > house.b + 0.2,house.to_html(false))
+			expect("real_game_draws_dark_access_road_asphalt",
+				road.r < 0.55 and road.b > road.r + 0.035,
+				road.to_html(false))
+		# No 120KB base64 payload in normal CI. Set env only for pixel
+		# debugging when an actual visual regression is suspected.
+		if OS.has_environment("STREETBOUND_RENDER_JPEG_DEBUG"):
+			var encoded := Marshalls.raw_to_base64(shot.save_jpg_to_buffer(0.7))
+			print("GAME_SCREENSHOT_BEGIN")
+			for i in ceili(float(encoded.length())/900.0):
+				print("IMAGECHUNK:",encoded.substr(i*900,900))
+			print("GAME_SCREENSHOT_END")
 	else:
 		expect("actual_image_available",false)
+	ground.set_performance_debug(true)
+	ground._update_performance_display()
+	var diagnostics: String = ground.performance_label.text
+	expect("F7_reports_live_roads_and_scenery_not_just_archive",
+		diagnostics.contains("Archive roads 120 | scenery 19116") and
+		diagnostics.contains("Visible road batches") and
+		diagnostics.contains("Props "),diagnostics)
+	ground.set_performance_debug(false)
+	# The intro camera must return to normal follow/zoom after driving.
+	car.linear_velocity = Vector2.UP * 2.0
+	cam._physics_process(1.0 / 60.0)
+	expect("driving_disengages_temporary_neighborhood_overview",
+		not bool(cam._neighborhood_view_active))
 	print("ACTUAL GAME RENDER DIAGNOSTIC: ",
 		"PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
