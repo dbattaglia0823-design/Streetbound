@@ -146,6 +146,13 @@ EDITOR_PROP_STYLES = {
     "garden": ("garden", (8.0, 2.4), False),
     "field": ("field", (90.0, 70.0), False),
     "island": ("island", (23.0, 23.0), True),
+    "drag_prep": ("drag_prep", (8.5, 22.0), False),
+    "drag_tree": ("drag_tree", (3.0, 10.0), False),
+    "drag_lane_mark": ("drag_lane_mark", (.35, 12.0), False),
+    "drag_scoreboard": ("drag_scoreboard", (4.0, 10.0), False),
+    "grandstand": ("grandstand", (36.0, 17.0), True),
+    "start_line": ("start_line", (14.0, 1.2), False),
+    "finish_line": ("finish_line", (14.0, 1.2), False),
     "forecourt": ("forecourt", (23.0, 16.0), False),
 }
 
@@ -246,6 +253,13 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 "parked_car": {"parked_car"}, "planter": {"planter"},
                 "garden": {"garden"}, "field": {"field"},
                 "island": {"island"},
+                "drag_prep": {"drag_prep"},
+                "drag_tree": {"drag_tree"},
+                "drag_lane_mark": {"drag_lane_mark"},
+                "drag_scoreboard": {"drag_scoreboard"},
+                "grandstand": {"grandstand"},
+                "start_line": {"start_line"},
+                "finish_line": {"finish_line"},
             }
             if not isinstance(source, dict) or type_name not in editable_types.get(source.get("kind"), set()):
                 raise ValueError("Replacement is not compatible with its source game scenery")
