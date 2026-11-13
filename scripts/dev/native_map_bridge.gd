@@ -45,7 +45,8 @@ func _request(method: HTTPClient.Method, route: String,
 		return false
 	return true
 
-func apply_source(draft: Dictionary, source_hash: String) -> bool:
+func apply_source(draft: Dictionary, source_hash: String,
+		loaded_world_sha: String = "") -> bool:
 	if phase != "":
 		last_error = "Map service is busy."
 		return false
@@ -56,9 +57,10 @@ func apply_source(draft: Dictionary, source_hash: String) -> bool:
 	if not FileAccess.file_exists("res://worlds/morrow-coast.world.json"):
 		last_error = "The checked-in Morrow Coast world is missing."
 		return false
-	local_baked_sha = FileAccess.get_sha256("res://worlds/morrow-coast.world.json")
-	if local_baked_sha.length()!=64:
-		last_error = "Could not verify the playable map revision."
+	var current_sha := FileAccess.get_sha256("res://worlds/morrow-coast.world.json")
+	local_baked_sha = loaded_world_sha if not loaded_world_sha.is_empty() else current_sha
+	if local_baked_sha.length()!=64 or current_sha != local_baked_sha:
+		last_error = "The game map changed on disk since the editor opened. Reload before applying."
 		return false
 	requested_doc = draft.duplicate(true)
 	expected_source_hash = source_hash
