@@ -23,6 +23,10 @@ var engine_wheel_force_n := 0.0 # Unclipped driven wheel force, telemetry
 var traction_limit_n := 0.0 # Road and tire delivery limit, telemetry
 var delivered_wheel_force_n := 0.0 # After driven-wheel slip and shift cuts
 var boost_psi := 0.0 # Modeled manifold charge pressure; zero for N/A engines
+var nitrous_requested := false # Player N/button input; AI does not auto-use nitrous
+var nitrous_active := false
+var nitrous_fuel_seconds := 0.0
+var _nitrous_kit_initialized := false
 var arcade_assist_fraction := 0.0
 var cornering_grip_fraction := 1.0 # Fraction of lateral grip remaining after braking
 var reversing := false
@@ -37,6 +41,8 @@ func _ready() -> void:
 	config = config.duplicate(true)
 	spawn_transform = transform
 	transmission.reset(config)
+	nitrous_fuel_seconds = maxf(0.0,config.nitrous_capacity_seconds)
+	_nitrous_kit_initialized = nitrous_fuel_seconds > 0.0
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 
 func reset_vehicle() -> void:
@@ -57,6 +63,10 @@ func reset_vehicle() -> void:
 	traction_limit_n = 0.0
 	delivered_wheel_force_n = 0.0
 	boost_psi = 0.0
+	nitrous_active = false
+	nitrous_requested = false
+	nitrous_fuel_seconds = maxf(0.0,config.nitrous_capacity_seconds)
+	_nitrous_kit_initialized = nitrous_fuel_seconds > 0.0
 	arcade_assist_fraction = 0.0
 	cornering_grip_fraction = 1.0
 	command = Vector4.ZERO
@@ -67,8 +77,22 @@ func reset_vehicle() -> void:
 	transmission.reset(config)
 	reset_physics_interpolation()
 
+func on_upgrade_config_changed(_previous_capacity: float = 0.0) -> void:
+	# Parts can be installed mid-drive. Do not reset the vehicle or top up
+	# nitrous on repeated unequip/re-equip attempts during one drive.
+	var capacity := maxf(0.0,config.nitrous_capacity_seconds)
+	if capacity > 0.0 and not _nitrous_kit_initialized:
+		nitrous_fuel_seconds = capacity
+		_nitrous_kit_initialized = true
+	elif capacity > 0.0:
+		nitrous_fuel_seconds = minf(nitrous_fuel_seconds,capacity)
+	nitrous_active = false
+	boost_psi = minf(boost_psi,maxf(0.0,config.boost_max_psi))
+
+
 func _physics_process(dt: float) -> void:
 	if not external_input:
+		nitrous_requested = Input.is_action_pressed("nitrous")
 		command = Vector4(Input.get_action_strength("throttle"), Input.get_action_strength("brake"), Input.get_axis("left", "right"), Input.get_action_strength("handbrake"))
 		if Input.is_action_just_pressed("reset"):
 			reset_vehicle()
@@ -126,6 +150,19 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	arcade_assist_fraction = arcade
 	var brake_turn := 1.0 + config.brake_turn_boost * stopping_input * arcade
 	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.18), drive_input, reversing, config)
+	# Nitrous is temporary additional wheel torque, limited by the same
+	# traction/wheelspin model as ordinary engine power. It has a finite tank
+	# and refills outside of use; no kit means no nitrous advantage.
+	var nitrous_capacity := maxf(0.0,config.nitrous_capacity_seconds)
+	nitrous_active = nitrous_capacity > 0.01 and nitrous_requested and \
+		drive_input > 0.2 and not reversing and transmission.shift_timer <= 0.0 and \
+		nitrous_fuel_seconds > 0.0
+	if nitrous_active:
+		nitrous_fuel_seconds = maxf(0.0,nitrous_fuel_seconds-dt)
+	else:
+		nitrous_fuel_seconds = minf(nitrous_capacity,
+			nitrous_fuel_seconds+dt*nitrous_capacity / \
+			maxf(1.0,config.nitrous_recharge_seconds))
 	# Pressure is simulated only for a configured turbo engine. Power and
 	# torque stats already represent boosted peak output; spool temporarily
 	# reduces available torque rather than applying a fictitious extra gain.
@@ -189,7 +226,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# usable; full throttle still requests the full real engine output.
 	var high_output := Powertrain.high_output_fraction(config)
 	var pedal := pow(drive_input, 1.0 + high_output * 1.9)
-	var requested_force := engine_force * pedal
+	var requested_force := engine_force * pedal * \
+		(1.0+config.nitrous_torque_fraction if nitrous_active else 1.0)
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
