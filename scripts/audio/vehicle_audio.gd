@@ -439,27 +439,28 @@ func _process(dt: float) -> void:
 				1.0-exp(-16.0*delta))
 			var mix := power_mix if side == 0 else (1.0-power_mix)
 			var gain := float(weight[i])*engine_load*mix*idle_pulse
-			var base_db := -38.0 if _induction == "electric" else -25.5
+			var base_db := -40.0 if _induction == "electric" else \
+			(-32.0 if recorded_texture.stream != null else -27.0)
 			var db := base_db+_profile_aggression*3.3+revs*2.8+ \
 				linear_to_db(maxf(gain,0.0001))
 			player.volume_db = lerpf(player.volume_db,
 				-80.0 if muted else maxf(-80.0,db),smoothing)
-	var intake_volume := -54.0+throttle*17.0+revs*10.0+ \
-		cfg.audio_intake_presence*5.0
-	intake.pitch_scale = 0.76+revs*1.15
+	var intake_volume := -59.0+throttle*11.0+revs*5.0+ \
+		cfg.audio_intake_presence*3.0
+	intake.pitch_scale = 0.72+revs*0.48
 	intake.volume_db = lerpf(intake.volume_db,
 		-80.0 if muted or _induction == "electric" else intake_volume,
 		1.0-exp(-9.0*delta))
 	var turbo_db := -80.0
 	if _induction == "turbo" and cfg.boost_max_psi > 0.05:
 		var pressure := clampf(boost/cfg.boost_max_psi,0.0,1.0)
-		turbo_db = -63.0+pressure*23.0+throttle*6.0+revs*6.0+ \
-			cfg.audio_turbo_presence*4.0
-		turbo.pitch_scale = 0.95+revs*1.7+pressure*1.2
+		turbo_db = -68.0+pressure*19.0+throttle*4.0+revs*3.0+ \
+			cfg.audio_turbo_presence*3.0
+		turbo.pitch_scale = 0.80+revs*0.48+pressure*0.32
 	elif _induction == "supercharger":
-		turbo_db = -54.0+revs*15.0+throttle*10.0+ \
-			cfg.audio_turbo_presence*2.5
-		turbo.pitch_scale = 0.92+revs*2.0
+		turbo_db = -61.0+revs*9.0+throttle*6.0+ \
+			cfg.audio_turbo_presence*2.0
+		turbo.pitch_scale = 0.85+revs*0.65
 	turbo.volume_db = lerpf(turbo.volume_db,
 		-80.0 if muted else turbo_db,1.0-exp(-13.0*delta))
 	var speed := vehicle.linear_velocity.length()
@@ -476,16 +477,16 @@ func _process(dt: float) -> void:
 		throttle*0.18,0.66,2.5)
 	electric_drive.volume_db = lerpf(electric_drive.volume_db,
 		-80.0 if muted else motor_db,1.0-exp(-9.0*delta))
-	gear_whine.pitch_scale = clampf(0.65+speed/34.0,0.65,2.4)
+	gear_whine.pitch_scale = clampf(0.72+speed/95.0,0.72,1.5)
 	gear_whine.volume_db = lerpf(gear_whine.volume_db,
 		-80.0 if muted or speed < 4.0 else \
-			-59.0+smoothstep(4.0,45.0,speed)*13.0+ \
-			cfg.audio_driveline_presence*7.0,1.0-exp(-9.0*delta))
-	driveline.pitch_scale = clampf(0.7+speed/37.0,0.7,2.4)
+			-65.0+smoothstep(4.0,45.0,speed)*10.0+ \
+			cfg.audio_driveline_presence*4.0,1.0-exp(-9.0*delta))
+	driveline.pitch_scale = clampf(0.74+speed/95.0,0.74,1.5)
 	driveline.volume_db = lerpf(driveline.volume_db,
 		-80.0 if muted or speed < 5.0 else \
-			-59.0+smoothstep(5.0,60.0,speed)*14.0+ \
-			cfg.audio_driveline_presence*4.0,1.0-exp(-7.0*delta))
+			-64.0+smoothstep(5.0,60.0,speed)*11.0+ \
+			cfg.audio_driveline_presence*3.0,1.0-exp(-7.0*delta))
 	# Full-vehicle airflow and road-contact beds keep coasting audible
 	# independently of engine load, especially during long highway drives.
 	wind.pitch_scale = clampf(0.73+speed/62.0,0.73,2.2)
@@ -505,11 +506,11 @@ func _process(dt: float) -> void:
 	# Pitch follows its real RPM, but a single recording is NOT treated as a
 	# multi-RPM OEM pack. Its restrained level preserves tonal identity.
 	if recorded_texture.stream != null:
-		var texture_pitch := clampf(0.71+revs*0.92,0.7,1.7)
+		var texture_pitch := clampf(0.80+revs*0.60,0.80,1.40)
 		recorded_texture.pitch_scale = lerpf(recorded_texture.pitch_scale,
 			texture_pitch,1.0-exp(-8.0*delta))
-		var recorded_db := -40.0+throttle*8.0+revs*2.5+ \
-			cfg.audio_aggression*1.5+ \
+		var recorded_db := -30.0+throttle*6.0+revs*1.5+ \
+			cfg.audio_aggression*1.0+ \
 			linear_to_db(maxf(combustion_gain,0.001))
 		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
 			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
