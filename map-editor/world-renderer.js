@@ -170,6 +170,36 @@ function drawRoads(ctx,roads,bounds,options){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
+  // Render live derived junction pavement, not only the untouched runtime
+  // preview. This fills out intersecting road footprints and hides lane markings
+  // across the shared asphalt. Junctions are recalculated after every road edit.
+  if(options?.junctions!==false){
+    for(const junction of buildRoadJunctions(roads)){
+      if(junction.kind==='endpoint'||junction.polygon.length<3 ||
+        !visible({minX:junction.x-junction.radius,minY:junction.y-junction.radius,
+          maxX:junction.x+junction.radius,maxY:junction.y+junction.radius},bounds))continue;
+      stroke(ctx,junction.polygon,true);
+      ctx.fillStyle=ROAD_COLORS[junction.surface]||ROAD_COLORS.asphalt;
+      ctx.fill();
+      if(options.quality===0||junction.approaches.some(a=>
+        a.roadClass==='highway'||a.roadClass==='track'||
+        a.surface==='dirt'||a.surface==='gravel'))continue;
+      // Actual stop bars are painted outside the repaved area, not on a ghost preview.
+      for(const approach of junction.approaches){
+        if(!approach.markings||!['city','service'].includes(approach.roadClass))continue;
+        const v=approach.tangent,n=approach.normal;
+        for(const sign of [-1,1]){
+          const reach=Math.max(5,...junction.polygon.map(p=>
+            (p.x-junction.x)*v.x*sign+(p.y-junction.y)*v.y*sign));
+          const cx=junction.x+v.x*sign*(reach+9),cy=junction.y+v.y*sign*(reach+9);
+          const half=Math.max(5,approach.width/2-5);
+          ctx.beginPath();ctx.moveTo(cx-n.x*half,cy-n.y*half);
+          ctx.lineTo(cx+n.x*half,cy+n.y*half);
+          ctx.lineWidth=2.4;ctx.strokeStyle='#f2ebd4c9';ctx.stroke();
+        }
+      }
+    }
+  }
   // Painted road strokes already make round intersection junctions.
   // Filling generic convex apron polygons creates square black patches
   // that do not exist in the game. Keep only the baked exterior curbs
