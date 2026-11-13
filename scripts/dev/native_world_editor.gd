@@ -6,6 +6,7 @@ const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
+const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const PPM := 20.0
 const PANEL_COLOR := Color(0.055,0.075,0.085,0.94)
 const ACCENT := Color("#ff9a32")
@@ -24,6 +25,12 @@ var _player_camera_input := true
 var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
 var root_ui: Control
+var inspector_panel: PanelContainer
+var asset_dock: PanelContainer
+var edit_actions: Control
+var draft_points: Array[Vector2] = []
+var preview_hidden: Dictionary = {}
+var overview_sprite: Sprite2D
 var details: Label
 var selected_preview: TextureRect
 var status: Label
@@ -40,6 +47,8 @@ var source_anchor := -1
 var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
+const MIN_EDITOR_ZOOM := 0.003
+const MAX_EDITOR_ZOOM := 5.0
 var authoring_notice: Label
 var mode_label: Label
 var mode_buttons: Dictionary = {}
@@ -98,17 +107,17 @@ func _reopen_baked_world(where: Vector2) -> void:
 		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
 
 func _build_authoring_ui() -> void:
-	var panel := _panel(Vector2.ZERO,Vector2(940,174))
+	var panel := _panel(Vector2.ZERO,Vector2(950,112))
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	panel.offset_left = 20
-	panel.offset_right = -20
-	panel.offset_top = -192
-	panel.offset_bottom = -18
+	panel.offset_left = 14
+	panel.offset_right = -14
+	panel.offset_top = -126
+	panel.offset_bottom = -14
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation",8)
+	rows.add_theme_constant_override("separation",4)
 	panel.add_child(rows)
 	var heading := HFlowContainer.new()
-	heading.add_theme_constant_override("h_separation",7)
+	heading.add_theme_constant_override("h_separation",5)
 	heading.add_theme_constant_override("v_separation",5)
 	rows.add_child(heading)
 	mode_label = Label.new()
@@ -118,20 +127,23 @@ func _build_authoring_ui() -> void:
 	mode_label.add_theme_color_override("font_color",ACCENT)
 	heading.add_child(mode_label)
 	for item in [
-		["INSPECT","inspect"],["ROAD ANCHOR","anchor"],["MOVE ASSET","move_prop"],
-		["HOUSE","place:house"],["SHOP","place:shop"],["TREE","place:tree"],
-		["ROCK","place:rock"]]:
+		["SELECT / EDIT","move_prop"],["DRAW ROAD","draw_road"],
+		["TERRAIN REGION","draw_terrain"],["SCENERY","place:house"],
+		["GAME MARKER","place_marker"],["PAN VIEW","pan"]]:
 		var button := _btn(str(item[0]),heading,_choose_tool.bind(str(item[1])))
 		mode_buttons[str(item[1])] = button
-	_btn("ADOPT PROP",heading,_adopt_selected)
+	_btn("ROAD POINT",heading,_choose_tool.bind("anchor"))
 	var actions := HFlowContainer.new()
 	actions.add_theme_constant_override("h_separation",7)
 	actions.add_theme_constant_override("v_separation",5)
 	rows.add_child(actions)
+	edit_actions = actions
 	_btn("UNDO  Ctrl+Z",actions,_undo)
 	_btn("REDO  Ctrl+Y",actions,_redo)
 	_btn("ROTATE -15",actions,_rotate_selected.bind(-15.0))
 	_btn("ROTATE +15",actions,_rotate_selected.bind(15.0))
+	_btn("SIZE -",actions,_resize_selected.bind(0.9))
+	_btn("SIZE +",actions,_resize_selected.bind(1.1))
 	_btn("DELETE",actions,_delete_selected)
 	_btn("GRID 1m",actions,_toggle_snap)
 	_btn("DISCARD",actions,_discard_draft)
@@ -147,6 +159,7 @@ func _build_authoring_ui() -> void:
 	authoring_notice.text = "Draft changes are in memory. Save to Game validates and rebuilds once."
 	rows.add_child(authoring_notice)
 	_update_active_tool_style()
+	_update_context_panels()
 
 
 func _update_active_tool_style() -> void:
@@ -158,15 +171,16 @@ func _update_active_tool_style() -> void:
 
 
 func _build_asset_browser() -> void:
-	var dock := _panel(Vector2.ZERO,Vector2(285,290))
+	var dock := _panel(Vector2.ZERO,Vector2(248,210))
+	asset_dock = dock
 	dock.name = "NativeAssetBrowser"
 	dock.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
 	dock.anchor_top = 0.0
 	dock.anchor_bottom = 1.0
-	dock.offset_left = -309
-	dock.offset_right = -20
-	dock.offset_top = 92
-	dock.offset_bottom = -214
+	dock.offset_left = -260
+	dock.offset_right = -14
+	dock.offset_top = 75
+	dock.offset_bottom = -138
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",8)
 	dock.add_child(column)
@@ -202,6 +216,7 @@ func _build_asset_browser() -> void:
 	var refresh := _btn("REFRESH ASSETS",column,_scan_asset_library)
 	refresh.custom_minimum_size.y = 30
 	_scan_asset_library()
+	_update_context_panels()
 
 
 func _scan_asset_library() -> void:
@@ -281,7 +296,7 @@ func _filter_assets() -> void:
 			continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
-		button.custom_minimum_size = Vector2(122,118)
+		button.custom_minimum_size = Vector2(104,106)
 		button.tooltip_text = str(entry.name)
 		button.pressed.connect(_select_asset.bind(entry))
 		var tile := VBoxContainer.new()
@@ -294,7 +309,7 @@ func _filter_assets() -> void:
 		tile.offset_bottom = -5
 		var photo := TextureRect.new()
 		photo.texture = entry.texture
-		photo.custom_minimum_size = Vector2(110,76)
+		photo.custom_minimum_size = Vector2(94,68)
 		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -335,17 +350,20 @@ func _choose_tool(mode: String) -> void:
 		_notice("Source unavailable. The map can still be inspected.")
 		return
 	tool_name = mode
+	draft_points.clear()
 	pending_drag.clear()
 	source_id = ""
 	source_anchor = -1
 	mode_label.text = ("EDIT: "+mode.to_upper()).substr(0,25)
 	_update_active_tool_style()
+	_update_context_panels()
 	_notice("Drag a source anchor or asset; click the world to place selected artwork.")
 	_refresh_authoring()
 
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	_sync_editor_preview()
 	if source_ready:
 		gizmos.set_draft(authoring.doc,authoring.initial,pending_drag,
 			source_id,source_anchor)
@@ -390,6 +408,14 @@ func _discard_draft() -> void:
 		_refresh_authoring()
 		_notice("All unsaved edits discarded; original authoring source restored.")
 
+func _resize_selected(factor: float) -> void:
+	if _editing_locked() or not source_ready or source_id.is_empty():
+		return
+	if authoring.resize_prop(source_id,factor):
+		_refresh_authoring()
+		_notice("Asset size and draft collision updated. Save to Game when ready.")
+
+
 func _rotate_selected(degrees: float) -> void:
 	if _editing_locked():
 		return
@@ -397,7 +423,7 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
-		_notice("Asset rotated %.0f°. Apply to regenerate the actual art/collision." % degrees)
+		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
 
 func _toggle_snap() -> void:
 	snap_m = 0.0 if snap_m > 0.0 else 1.0
@@ -418,7 +444,7 @@ func _delete_selected() -> void:
 
 func _start_backend() -> void:
 	if bridge.start_backend():
-		_notice("Local Python rebaker launched. APPLY TO GAME uses validated backup/rollback.")
+		_notice("Local Python rebaker ready. Save to Game uses validation and rollback.")
 	else:
 		_notice(bridge.last_error)
 
@@ -650,18 +676,18 @@ func _btn(text_value: String, parent: Node, callback: Callable) -> Button:
 	return b
 
 func _build_ui() -> void:
-	var header := _panel(Vector2.ZERO,Vector2(940,60))
+	var header := _panel(Vector2.ZERO,Vector2(940,48))
 	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	header.offset_left = 20
-	header.offset_right = -20
-	header.offset_top = 15
-	header.offset_bottom = 75
+	header.offset_left = 14
+	header.offset_right = -14
+	header.offset_top = 9
+	header.offset_bottom = 58
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation",9)
 	header.add_child(row)
 	var title := Label.new()
 	title.text = "STREETBOUND  /  WORLD EDITOR"
-	title.add_theme_font_size_override("font_size",19)
+	title.add_theme_font_size_override("font_size",16)
 	title.add_theme_color_override("font_color",ACCENT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
@@ -669,7 +695,8 @@ func _build_ui() -> void:
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
 	_btn("TEST DRIVE  F6",row,close_editor)
-	var sidebar := _panel(Vector2(20,92),Vector2(340,390))
+	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
+	inspector_panel = sidebar
 	sidebar.name = "SelectedObjectInspector"
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation",10)
@@ -687,7 +714,7 @@ func _build_ui() -> void:
 	col.add_child(HSeparator.new())
 	selected_preview = TextureRect.new()
 	selected_preview.name = "SelectedAssetPreview"
-	selected_preview.custom_minimum_size = Vector2(304,82)
+	selected_preview.custom_minimum_size = Vector2(244,72)
 	selected_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	selected_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	selected_preview.visible = false
@@ -695,7 +722,7 @@ func _build_ui() -> void:
 	details = Label.new()
 	details.name = "SelectedWorldObject"
 	details.text = "Select a road, junction or building to inspect its live game data."
-	details.custom_minimum_size = Vector2(300,160)
+	details.custom_minimum_size = Vector2(244,145)
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
@@ -704,11 +731,12 @@ func _build_ui() -> void:
 	note.add_theme_color_override("font_color",ACCENT)
 	note.add_theme_font_size_override("font_size",11)
 	col.add_child(note)
-	var footer := _panel(Vector2(20,495),Vector2(690,45))
+	var footer := _panel(Vector2(14,390),Vector2(520,36))
 	status = Label.new()
 	status.text = "Press F6 during free roam to inspect the live map."
 	status.add_theme_font_size_override("font_size",12)
 	footer.add_child(status)
+	_update_context_panels()
 
 
 func _can_enter() -> bool:
@@ -757,7 +785,8 @@ func open_editor() -> bool:
 	editor_camera.rotation = 0.0
 	editor_camera.zoom = driving_camera.zoom
 	editor_camera.zoom = editor_camera.zoom.clamp(
-		Vector2(0.26,0.26),Vector2(3.0,3.0))
+		Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
+		Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 	get_parent().add_child(editor_camera)
 	driving_camera.enabled = false
 	driving_camera.set_physics_process(false)
@@ -767,6 +796,8 @@ func open_editor() -> bool:
 	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
+	gizmos.set_preview_collision_enabled(true)
+	_update_context_panels()
 	_right_drag = false
 	_last_cell = Vector2i(-999,-999)
 	get_tree().paused = true
@@ -785,6 +816,8 @@ func close_editor() -> void:
 	active = false
 	root_ui.visible = false
 	gizmos.visible = false
+	gizmos.set_preview_collision_enabled(false)
+	_clear_editor_preview()
 	pending_drag.clear()
 	_set_game_ui_visible(true)
 	_right_drag = false
@@ -893,7 +926,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 			var factor := 1.13 if mouse.button_index==MOUSE_BUTTON_WHEEL_UP else 1.0/1.13
 			editor_camera.zoom = (editor_camera.zoom*factor).clamp(
-				Vector2(0.26,0.26),Vector2(3.0,3.0))
+				Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
+				Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 			_update_view(true)
 			get_viewport().set_input_as_handled()
 		elif mouse.button_index==MOUSE_BUTTON_LEFT:
@@ -959,6 +993,7 @@ func select_at(position_px: Vector2) -> Dictionary:
 
 func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	selected = what.duplicate()
+	_update_context_panels()
 	gizmos.set_selection(selected)
 	selected_preview.visible = false
 	selected_preview.texture = null
