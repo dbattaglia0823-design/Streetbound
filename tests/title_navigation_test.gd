@@ -13,7 +13,7 @@ func check(label: String, passed: bool) -> void:
 
 func _run() -> void:
 	var launch_scene: PackedScene = load("res://scenes/title_menu.tscn")
-	var title: Control = launch_scene.instantiate()
+	var title: Variant = launch_scene.instantiate()
 	root.add_child(title)
 	current_scene = title
 	await process_frame
@@ -57,7 +57,7 @@ func _run() -> void:
 		await process_frame
 		await process_frame
 		await process_frame
-		var game: Node = current_scene
+		var game: Variant = current_scene
 		check("map_editor_title_launches_real_game_scene",
 			game != null and game != title and game.has_method("_begin_native_map_editor") and
 			game.ground.initialization_complete)
