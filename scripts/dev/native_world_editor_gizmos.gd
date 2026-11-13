@@ -14,6 +14,8 @@ var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
 var selected_anchor_index := -1
+var pending_shape: Array[Vector2] = []
+var pending_tool := ""
 
 func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {},
 		source_id: String = "", point_index: int = -1) -> void:
@@ -25,6 +27,12 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	if preview.is_empty():
 		_rebuild_preview_collisions()
 	queue_redraw()
+
+func set_pending_shape(points: Array[Vector2], tool: String) -> void:
+	pending_shape = points.duplicate()
+	pending_tool = tool
+	queue_redraw()
+
 
 func set_preview_collision_enabled(enabled: bool) -> void:
 	preview_collisions_enabled = enabled
@@ -171,7 +179,7 @@ func _ready() -> void:
 
 func set_view(center: Vector2, screen_size: Vector2, zoom_level: float) -> void:
 	camera_center = center
-	viewport_extents = screen_size * 0.5 / maxf(0.1,zoom_level)
+	viewport_extents = screen_size * 0.5 / maxf(0.003,zoom_level)
 	queue_redraw()
 
 func set_selection(info: Dictionary) -> void:
@@ -235,6 +243,15 @@ func _draw() -> void:
 			if path.size()>=2:
 				draw_polyline(path,Color(1.0,0.92,0.28,0.91),6.0,true)
 	_draw_draft()
+	if not pending_shape.is_empty():
+		var path := PackedVector2Array()
+		for item in pending_shape:
+			path.append(item*PPM)
+			draw_circle(item*PPM,7,Color("#ffb653"))
+		if path.size() >= 2:
+			draw_polyline(path,Color("#ffb653"),4,true)
+		if pending_tool == "draw_terrain" and path.size() >= 3:
+			draw_line(path[path.size()-1],path[0],Color("#ffb653"),2,true)
 	if selected.get("kind","")=="prop":
 		var index := int(selected.get("index",-1))
 		if index>=0 and index<world.data.props.size():
