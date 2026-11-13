@@ -32,6 +32,7 @@ var asset_dock: PanelContainer
 var edit_actions: Control
 var draft_points: Array[Vector2] = []
 var preview_hidden: Dictionary = {}
+var synced_preview_revision := -1
 var overview_sprite: Sprite2D
 var details: Label
 var selected_preview: TextureRect
@@ -379,6 +380,7 @@ func _restore_colliders() -> void:
 
 
 func _clear_editor_preview() -> void:
+	synced_preview_revision = -1
 	if not preview_hidden.is_empty():
 		preview_hidden.clear()
 		Scenery.editor_hidden = {}
@@ -391,6 +393,9 @@ func _clear_editor_preview() -> void:
 func _sync_editor_preview() -> void:
 	if not active or not source_ready or not is_instance_valid(world):
 		return
+	if synced_preview_revision == authoring.edit_revision:
+		return
+	synced_preview_revision = authoring.edit_revision
 	var next_hidden: Dictionary = {}
 	for prop in authoring.doc.get("props",[]):
 		var initial_prop: Dictionary = {}
