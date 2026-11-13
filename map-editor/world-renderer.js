@@ -115,11 +115,14 @@ function traceOffset(points,offset){
   }
   return output;
 }
-function drawRoadBase(ctx,road,points){
+function drawRoadBase(ctx,road,points,gameSurface=false){
   const w=road.width,s=road.shoulder,cap=isLoose(road)?'butt':'round';
   drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760',[],cap);
   drawRoadStroke(ctx,points,w+3,isLoose(road)?'#796d56bb':'#242a2e99',[],cap);
-  drawRoadStroke(ctx,points,w,ROAD_COLORS[road.surface],[],cap);
+  // The playable coast draws asphalt in #58656c. Keep its paved mouths
+  // and centerlines the same color to avoid visible overlay patches.
+  const pavement=gameSurface&&road.surface==='asphalt'?'#58656c':ROAD_COLORS[road.surface];
+  drawRoadStroke(ctx,points,w,pavement,[],cap);
   if(road.surface==='track')drawRoadStroke(ctx,points,w+5,'#c94e42', [18,18]);
   if(road.roadClass==='mountain'&&w>22){
     drawRoadStroke(ctx,traceOffset(points,w/2+s+5),2.6,'#c3b19a');
@@ -164,7 +167,7 @@ function drawRoads(ctx,roads,bounds,options){
   };
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of displayPaths(road))drawRoadBase(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
   }
   // Erase continuous center/edge markings at crossing mouths, as in the
   // game's clipped road-paint pass. A clip mask is NOT drawn as a junction
