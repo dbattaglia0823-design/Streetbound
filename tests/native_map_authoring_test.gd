@@ -72,6 +72,26 @@ func _run() -> void:
 		session.road_at_id("road-0").points==origin_road.points)
 	check("runtime_procedural_assets_are_never_editable_by_position",
 		session.index_of_runtime_prop({"kind":"tree","p":[2300,3200]})=="")
+	var adopted: String = session.adopt_runtime_prop({
+		"kind":"house","seed":1892,"p":[2240.0,3120.0],
+		"size":[12.0,17.0],"angle":0.0
+	})
+	check("replaceable_original_can_be_adopted_by_stable_identity",
+		adopted.begins_with("prop-native-") and
+		session.prop_at_id(adopted).replaces.kind=="house" and
+		int(session.prop_at_id(adopted).replaces.seed)==1892)
+	check("duplicate_original_adoption_rejected",
+		session.adopt_runtime_prop({
+			"kind":"house","seed":1892,"p":[2240.0,3120.0],
+			"size":[12.0,17.0]})=="")
+	check("adopted_original_cannot_be_deleted_as_a_new_prop",
+		not session.delete_prop(adopted))
+	check("protected_and_unstable_runtime_props_cannot_be_adopted",
+		session.adopt_runtime_prop({"kind":"house","seed":1,
+			"p":[2240,3120],"poi":"Laurel Motor House"})=="" and
+		session.adopt_runtime_prop({"kind":"house",
+			"p":[2240,3120]})=="")
+	session.discard_changes()
 	var game: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -97,6 +117,29 @@ func _run() -> void:
 		game.ground.data.roads.size()==runtime_road_count and
 		game.ground.data.props.size()==runtime_prop_count and
 		editor.traffic_network.connector_count>0)
+	# A real generated tree can be selected and converted safely, but only
+	# through its baked (kind, seed, position) identity, never by location.
+	editor._discard_draft()
+	var adopt_idx := -1
+	for i in game.ground.data.props.size():
+		var item: Dictionary = game.ground.data.props[i]
+		if str(item.get("kind",""))=="tree" and typeof(item.get("seed"))==TYPE_INT and
+				not item.has("poi") and not item.has("authoring_id"):
+			adopt_idx = i
+			break
+	check("real_world_has_safe_generated_scenery_to_adopt",adopt_idx>=0)
+	if adopt_idx>=0:
+		editor._update_selection({"kind":"prop","index":adopt_idx})
+		editor._adopt_selected()
+		check("real_baked_tree_adoption_keeps_identity_and_preview",
+			editor.authoring.dirty and editor.source_id.begins_with("prop-native-") and
+			editor.authoring.prop_at_id(editor.source_id).replaces.kind=="tree")
+		check("adoption_does_not_modify_live_tree_traffic_or_physics",
+			game.ground.data.props.size()==runtime_prop_count and
+			editor.traffic_network.connector_count>0)
+		editor._discard_draft()
+	editor._choose_tool("place:house")
+	editor._source_click(Vector2(2300,3200)*20.0)
 	editor._undo()
 	check("native_undo_returns_to_original_authoring_source",
 		not editor.authoring.dirty and
