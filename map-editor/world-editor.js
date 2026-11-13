@@ -395,7 +395,7 @@ function setTool(next){
     const on=button.dataset.tool===next;button.classList.toggle('active',on);button.setAttribute('aria-pressed',String(on));
   });
   status({
-    select:'Select a road to insert points, drag its control handles, or Alt-drag the entire shape.',
+    select:'Drag a road or terrain area to move it. Drag its control handles to reshape it. Alt-drag also moves the entire shape.',
     road:'Click to add road points. Click the first point again to close a loop, or press Enter to finish an open road. Nearby compatible endpoints snap together.',
     terrain:'Click around a terrain area. Double-click or Enter to close the polygon.',
     prop:'Click for a single prop, or enable hold-and-drag to paint or erase scenery.',
@@ -488,7 +488,9 @@ function adoptRuntimeScenery(source){
 }
 
 function hitTest(p){
-  const radius=clamp(12/zoom,9,48);
+  // Keep handle picking close to the visibly drawn handle, otherwise at a
+  // zoomed-out map the oversized hit radius prevents dragging the road body.
+  const radius=clamp(8/zoom,6,26);
   // Match the visible stacking order: marker > visible scenery > road >
   // terrain. In particular, unadopted baked houses must be selectable
   // directly without first turning on a separate adoption mode.
@@ -971,6 +973,12 @@ canvas.addEventListener('pointerdown',event=>{
     const found=getEntity(doc,hit.id);
     if(hit.kind==='handle'){
       gesture={mode:'control',before:doc,id:hit.id,index:hit.point};
+      canvas.setPointerCapture(event.pointerId);
+    }else if(found&&['roads','regions'].includes(found.type)&&hit.kind==='entity'){
+      // Whole-shape dragging is the default when pressing the road body or
+      // the interior of a region. Handles above still edit individual points.
+      // The original map is used on every pointermove (no accumulating drift).
+      gesture={mode:'shape',before:doc,id:hit.id,start:p};
       canvas.setPointerCapture(event.pointerId);
     }else if(found&&['props','markers'].includes(found.type)){
       gesture={mode:'entity',before:doc,id:hit.id,start:p,x:found.item.x,y:found.item.y};

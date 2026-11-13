@@ -115,11 +115,14 @@ function traceOffset(points,offset){
   }
   return output;
 }
-function drawRoadBase(ctx,road,points){
+function drawRoadBase(ctx,road,points,gameSurface=false){
   const w=road.width,s=road.shoulder,cap=isLoose(road)?'butt':'round';
   drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760',[],cap);
   drawRoadStroke(ctx,points,w+3,isLoose(road)?'#796d56bb':'#242a2e99',[],cap);
-  drawRoadStroke(ctx,points,w,ROAD_COLORS[road.surface],[],cap);
+  // The playable coast draws asphalt in #58656c. Keep its paved mouths
+  // and centerlines the same color to avoid visible overlay patches.
+  const pavement=gameSurface&&road.surface==='asphalt'?'#58656c':ROAD_COLORS[road.surface];
+  drawRoadStroke(ctx,points,w,pavement,[],cap);
   if(road.surface==='track')drawRoadStroke(ctx,points,w+5,'#c94e42', [18,18]);
   if(road.roadClass==='mountain'&&w>22){
     drawRoadStroke(ctx,traceOffset(points,w/2+s+5),2.6,'#c3b19a');
@@ -164,46 +167,41 @@ function drawRoads(ctx,roads,bounds,options){
   };
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of displayPaths(road))drawRoadBase(ctx,road,path);
+    for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
+  }
+  // Erase continuous center/edge markings at crossing mouths, as in the
+  // game's clipped road-paint pass. A clip mask is NOT drawn as a junction
+  // shape: asphalt is the real overlap of road strokes rendered above.
+  const junctions=options?.junctions===false?[]:buildRoadJunctions(roads)
+    .filter(j=>j.kind!=='endpoint'&&j.roads.length>=2);
+  ctx.save();
+  if(junctions.length){
+    ctx.beginPath();
+    // Even-odd exclusion: the outer rectangle remains visible, and the
+    // circular holes remove lines without painting artificial pavement.
+    const b=bounds||{minX:-10000,minY:-10000,maxX:30000,maxY:30000};
+    ctx.rect(b.minX-300,b.minY-300,b.maxX-b.minX+600,b.maxY-b.minY+600);
+    for(const j of junctions){
+      if(!visible({minX:j.x-j.radius,minY:j.y-j.radius,
+        maxX:j.x+j.radius,maxY:j.y+j.radius},bounds))continue;
+      const width=Math.min(roads.filter(r=>j.roads.includes(r.id))
+        .reduce((max,r)=>Math.max(max,r.width),0),160);
+      ctx.moveTo(j.x+Math.min(64,width*.65+4),j.y);
+      ctx.arc(j.x,j.y,Math.min(64,width*.65+4),0,Math.PI*2);
+    }
+    ctx.clip('evenodd');
   }
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
-  // Render live derived junction pavement, not only the untouched runtime
-  // preview. This fills out intersecting road footprints and hides lane markings
-  // across the shared asphalt. Junctions are recalculated after every road edit.
-  if(options?.junctions!==false){
-    for(const junction of buildRoadJunctions(roads)){
-      if(junction.kind==='endpoint'||junction.polygon.length<3 ||
-        !visible({minX:junction.x-junction.radius,minY:junction.y-junction.radius,
-          maxX:junction.x+junction.radius,maxY:junction.y+junction.radius},bounds))continue;
-      stroke(ctx,junction.polygon,true);
-      ctx.fillStyle=ROAD_COLORS[junction.surface]||ROAD_COLORS.asphalt;
-      ctx.fill();
-      if(options.quality===0||junction.approaches.some(a=>
-        a.roadClass==='highway'||a.roadClass==='track'||
-        a.surface==='dirt'||a.surface==='gravel'))continue;
-      // Actual stop bars are painted outside the repaved area, not on a ghost preview.
-      for(const approach of junction.approaches){
-        if(!approach.markings||!['city','service'].includes(approach.roadClass))continue;
-        const v=approach.tangent,n=approach.normal;
-        for(const sign of [-1,1]){
-          const reach=Math.max(5,...junction.polygon.map(p=>
-            (p.x-junction.x)*v.x*sign+(p.y-junction.y)*v.y*sign));
-          const cx=junction.x+v.x*sign*(reach+9),cy=junction.y+v.y*sign*(reach+9);
-          const half=Math.max(5,approach.width/2-5);
-          ctx.beginPath();ctx.moveTo(cx-n.x*half,cy-n.y*half);
-          ctx.lineTo(cx+n.x*half,cy+n.y*half);
-          ctx.lineWidth=2.4;ctx.strokeStyle='#f2ebd4c9';ctx.stroke();
-        }
-      }
-    }
-  }
-  // Painted road strokes already make round intersection junctions.
-  // Filling generic convex apron polygons creates square black patches
-  // that do not exist in the game. Keep only the baked exterior curbs
-  // and legally required stop/yield bars for untouched game roads.
+  ctx.restore();
+  // Game-style pavement: road surfaces overlap naturally, without convex
+  // hulls or artificial asphalt blobs. Clear road markings only inside the
+  // actual junction mouths. The exact Godot-baked apron is drawn below when
+  // all participating roads are still identical to the saved game geometry.
+  // Reuse the real baked game junctions only for unchanged roads. The
+  // live-edit fallback above deliberately avoids convex polygon aprons.
   if(options?.junctions!==false && options?.runtimePreview?.junctions){
     const preview=options.runtimePreview;
     const unchanged=id=>{
@@ -220,6 +218,14 @@ function drawRoads(ctx,roads,bounds,options){
         !visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
           maxX:j.at.x+j.radius,maxY:j.at.y+j.radius},bounds))continue;
       ctx.save();
+      // Exact saved junction pavement, matching the game's coast_roads.gd
+      // fill before curb fillets and stop/yield markings. Do not reuse baked
+      // polygons after a participating road has been moved or reshaped.
+      if(j.polygon?.length>=3){
+        stroke(ctx,j.polygon.map(([x,y])=>({x,y})),true);
+        ctx.fillStyle='#58656c';
+        ctx.fill();
+      }
       ctx.strokeStyle='#eee7d5';
       ctx.lineWidth=.3;
       for(const curb of j.curbs){
