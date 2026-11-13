@@ -1006,6 +1006,9 @@ func open_editor() -> bool:
 func close_editor() -> void:
 	if not active:
 		return
+	if standalone_mode and source_ready and authoring.dirty:
+		_notice("Unsaved changes. Save to Game or DISCARD before leaving.")
+		return
 	if is_instance_valid(bridge) and bridge.phase != "":
 		_notice("Map save is still rebuilding. Exit after the transaction completes.")
 		return
@@ -1047,7 +1050,7 @@ func _test_drive() -> void:
 		return
 	if standalone_mode:
 		if authoring.dirty or bridge.phase != "":
-			_notice("Save to Game first. Unsaved map edits cannot enter Test Drive.")
+			_notice("Save to Game or DISCARD before Test Drive.")
 			return
 		get_tree().paused = false
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
