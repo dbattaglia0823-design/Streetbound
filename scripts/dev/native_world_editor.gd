@@ -396,11 +396,19 @@ func _sync_editor_preview() -> void:
 		if not initial_prop.is_empty() and JSON.stringify(initial_prop) != JSON.stringify(prop):
 			next_hidden["authored:"+str(prop.id)] = true
 		if prop.has("replaces"):
-			var original: Dictionary = prop.replaces
-			var pos: Array = original.get("p",[])
+			var source: Dictionary = prop.replaces
+			var pos: Array = source.get("p",[])
 			if pos.size()==2:
-				next_hidden["generated:%s:%s:%s" % [
-					str(original.get("seed","")),str(pos[0]),str(pos[1])]] = true
+				var source_pos := Vector2(float(pos[0]),float(pos[1]))
+				for original in world.data.get("props",[]):
+					var original_pos: Array = original.get("p",[])
+					if original_pos.size()==2 and \
+							str(original.get("kind","")) == str(source.get("kind","")) and \
+							int(original.get("seed",-1)) == int(source.get("seed",-2)) and \
+							Vector2(float(original_pos[0]),float(original_pos[1])).distance_to(
+								source_pos) < 0.025:
+						next_hidden[Scenery.editor_key(original)] = true
+						break
 	if next_hidden != preview_hidden:
 		preview_hidden = next_hidden
 		Scenery.editor_hidden = preview_hidden.duplicate()
