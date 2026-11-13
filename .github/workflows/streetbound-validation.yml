@@ -131,11 +131,11 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd 2>&1 | tee /tmp/godot463-multi-wheel.log
           grep -q 'MULTI-MODEL WHEEL TESTS: PASS' /tmp/godot463-multi-wheel.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-multi-wheel.log
-      - name: Verify tire contact positions and curb animation (Godot 4.6.3)
+      - name: Verify stable tire and body alignment without curb suspension (Godot 4.6.3)
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/curb_suspension_animation_test.gd 2>&1 | tee /tmp/godot463-curb.log
-          grep -q 'CURB SUSPENSION ANIMATIONS: PASS' /tmp/godot463-curb.log
+          grep -q 'STABLE TIRE VISUALS: PASS' /tmp/godot463-curb.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-curb.log
       - name: Verify 10 percent larger traffic and 20 percent world camera zoom (Godot 4.6.3)
         run: |
@@ -252,7 +252,7 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/multi_model_wheels_test.gd
       - name: Verify both urban sidewalks, curved junction corners and coast boardwalk
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/urban_walkways_boardwalk_test.gd
-      - name: Verify real curb-entry suspension, individual wheel lift, shadow and collision independence
+      - name: Verify stable wheel anchors, grounded shadow and unchanged collision without visual curb lift
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/curb_suspension_animation_test.gd
       - name: Verify joined tire marks on asphalt and grass
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/continuous_tire_marks_test.gd
