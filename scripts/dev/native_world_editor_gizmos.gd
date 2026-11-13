@@ -30,8 +30,14 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	_refresh_preview_scenery()
 	selected_source_id = source_id
 	selected_anchor_index = point_index
-	if preview.is_empty():
+	if preview.is_empty() or not is_instance_valid(preview_body) or \
+			preview_body.get_child_count()==0:
 		_rebuild_preview_collisions()
+	elif str(preview.get("kind",""))=="prop":
+		for shape in preview_body.get_children():
+			if shape is CollisionShape2D and \
+					str(shape.get_meta("draft_prop_id",""))==str(preview.get("id","")):
+				shape.position = preview.get("to",shape.position)
 	queue_redraw()
 
 func set_pending_shape(points: Array[Vector2], tool: String) -> void:
@@ -164,6 +170,7 @@ func _rebuild_preview_collisions() -> void:
 			collider.shape = rect
 		collider.position = Vector2(float(prop.x),float(prop.y))*PPM
 		collider.rotation = deg_to_rad(float(prop.get("rotation",0.0)))
+		collider.set_meta("draft_prop_id",str(prop.id))
 		preview_body.add_child(collider)
 
 
