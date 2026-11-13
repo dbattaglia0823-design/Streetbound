@@ -212,6 +212,12 @@ func _run() -> void:
 		var expected_solid := bool(runtime_asset.get("solid",false))
 		var preview_has_collision: bool = is_instance_valid(editor.gizmos.preview_body) and \
 			editor.gizmos.preview_body.get_child_count()>0
+		print("DRAFT COLLISION DIAGNOSTIC expected_solid=",expected_solid,
+			" preview_has_collision=",preview_has_collision,
+			" count=",editor.gizmos.preview_body.get_child_count(),
+			" source=",preview_asset.get("replaces",{}),
+			" kind=",runtime_asset.get("kind",""),
+			" original_size=",runtime_asset.get("size",[]))
 		check("draft_collision_matches_original_asset_solidity",
 			preview_has_collision == expected_solid)
 		check("real_baked_tree_adoption_keeps_identity_and_preview",
