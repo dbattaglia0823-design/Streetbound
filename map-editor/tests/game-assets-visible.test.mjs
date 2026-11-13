@@ -92,7 +92,7 @@ test('committed game world actually contains thousands of renderable scenery ass
 test('editor initializes preview and visible count before drawing the large game world',async()=>{
   const editor=await readFile(new URL('../world-editor.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-  assert.match(editor,/browseRuntimeAssets\(runtimePreview,doc,maxRows\)/);
+  assert.match(editor,/browseRuntimeAssets\(runtimePreview,doc,(?:nativeRows|maxRows)\)/);
   assert.match(editor,/startWorld\(world,[\s\S]*?\{preview\}\)/);
   assert.match(editor,/setZoom\(Math\.max\(zoom,0\.65\)\)/);
   assert.match(editor,/if\(!Array\.isArray\(raw\.props\)\|\|!raw\.props\.length\)/);
