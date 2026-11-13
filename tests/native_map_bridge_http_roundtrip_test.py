@@ -64,6 +64,16 @@ def run(godot_binary: str) -> None:
         )
         backend.EDIT, backend.BAKED = source,baked
         backend.OVERVIEW,backend.BUILDER = overview,builder
+        # Emit the backend's actual validation failure when debugging an
+        # HTTP client/server roundtrip, never mask it as a network timeout.
+        original_rebuild = backend.transactional_rebuild
+        def traced_rebuild(doc, expected_sha):
+            try:
+                return original_rebuild(doc, expected_sha)
+            except Exception as exc:
+                print("NATIVE HTTP SERVER REBUILD:", repr(exc), flush=True)
+                raise
+        backend.transactional_rebuild = traced_rebuild
         server = ThreadingHTTPServer(
             ("127.0.0.1",8765),backend.make_handler("test-token-local-http")
         )
@@ -101,6 +111,7 @@ def run(godot_binary: str) -> None:
             server.server_close()
             thread.join(timeout=6)
             backend.EDIT, backend.BAKED, backend.OVERVIEW, backend.BUILDER = previous
+            backend.transactional_rebuild = original_rebuild
 
 
 if __name__ == "__main__":
