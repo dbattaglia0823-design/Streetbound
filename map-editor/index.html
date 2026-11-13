@@ -211,7 +211,7 @@
         <div id="context-body" class="context-body"></div>
       </section>
       <canvas id="world-canvas" tabindex="0" aria-label="Freeform world canvas. Click to draw roads, regions and place scenery."></canvas>
-      <span class="canvas-help">Wheel zoom · Space/middle-drag pan · Shift-click road to add point · Alt-drag shape to move</span>
+      <span class="canvas-help">Drag roads/regions to move · Drag handles to reshape · Shift-click to insert a point · Wheel zoom</span>
       <div class="view-tools">
         <button id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="Zoom in">+</button>
         <button id="fit" aria-label="Fit world to viewport" title="Fit entire world">Fit</button>
@@ -225,7 +225,7 @@
     <div class="visibility-list">
       <label class="check"><input type="checkbox" id="show-terrain" checked> Terrain regions</label>
       <label class="check"><input type="checkbox" id="show-roads" checked> Roads and curves</label>
-      <label class="check"><input type="checkbox" id="show-junctions" checked> Live generated intersections</label>
+      <label class="check"><input type="checkbox" id="show-junctions" checked> Game-style live intersections</label>
       <label class="check"><input type="checkbox" id="show-road-priority" checked> Dirt/gravel cutoffs at pavement</label>
       <label class="check"><input type="checkbox" id="show-road-gaps" checked> Suggested road-end connections</label>
       <label class="check"><input type="checkbox" id="show-road-clearances" checked> Road/scenery overlap warnings (may block game bake)</label>
@@ -306,7 +306,7 @@
         <div class="field"><label for="inspect-point-x">Point X</label><input id="inspect-point-x" type="number" step="0.1"></div>
         <div class="field"><label for="inspect-point-y">Point Y</label><input id="inspect-point-y" type="number" step="0.1"></div>
       </div>
-      <p id="point-help" class="muted-copy" hidden>Click a handle to edit its coordinates. Double-click or Shift-click near a line to add a point. Alt-drag the shape to reposition it.</p>
+      <p id="point-help" class="muted-copy" hidden>Drag the road or region body to move the whole shape. Drag its handles to reshape it; Shift-click or double-click to insert a point.</p>
       <div class="inspector-actions">
         <button id="remove-point" class="gdt-btn" hidden>Remove point</button>
         <button id="duplicate-entity" class="gdt-btn" type="button">Duplicate</button>
