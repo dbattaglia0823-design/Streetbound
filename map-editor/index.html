@@ -59,7 +59,7 @@
       <div class="field"><label for="road-shoulder">Shoulder width</label><input id="road-shoulder" type="range" min="0" max="16" value="5"><output id="shoulder-label">5 m</output></div>
       <label class="check"><input id="road-smooth" type="checkbox" checked> Smooth Bézier-style curves</label>
       <label class="check"><input id="road-markings" type="checkbox" checked> Lane lines / road edges</label>
-      <label class="check"><input id="road-smart-snap" type="checkbox" checked> Snap road endpoints to compatible roads (click the starting point to close a loop)</label>
+      <label class="check"><input id="road-smart-snap" type="checkbox" checked> Snap and join compatible road ends (click the starting point to close a loop)</label>
       <p class="sidebar-tip compact-tip">Select an existing road to add or extend its control points from the Inspector. Shift-click the selected road to insert a point immediately.</p>
     </div>
     <div class="settings-group">
@@ -273,6 +273,8 @@
             <button id="insert-road-point" class="gdt-btn" type="button">+ Insert on curve</button>
             <button id="extend-road-start" class="gdt-btn" type="button">Extend start</button>
             <button id="extend-road-end" class="gdt-btn" type="button">Extend end</button>
+            <button id="split-selected-road" class="gdt-btn" type="button" title="Click anywhere on this road to separate it into two editable roads">Split road at point</button>
+            <button id="join-selected-road" class="gdt-btn" type="button" title="Combine this road with a compatible road whose endpoint touches its endpoint">Join touching roads</button>
           </div>
           <p class="muted-copy" id="insert-hint">Select Insert, then click the existing curve. Shift-click also inserts a point.</p>
         </div>
