@@ -76,11 +76,13 @@ func run() -> void:
 		camera.MAX_FOLLOW_DISTANCE_PX < 1600.0 and
 		camera.MAX_FOLLOW_DISTANCE_PX >= 900.0 and camera.POSITION_RESPONSE > 5.0,
 		[camera.MAX_FOLLOW_DISTANCE_PX, camera.POSITION_RESPONSE])
+	# The reduced zoom-in cap now clamps values above 1.25. Compare two
+	# unsaturated multipliers so the proportional-step contract still holds.
+	var upper_step := camera.stepped_player_zoom(1.10, 1)
+	var lower_step := camera.stepped_player_zoom(0.80, 1)
 	check("zoom_is_proportional_not_fixed_world_units",
-		absf(camera.stepped_player_zoom(1.3, 1) - 1.3) >
-		absf(camera.stepped_player_zoom(0.75, 1) - 0.75),
-		[camera.stepped_player_zoom(1.3, 1),
-			camera.stepped_player_zoom(0.75, 1)])
+		is_equal_approx(upper_step / 1.10, lower_step / 0.80),
+		[upper_step, lower_step])
 	var before_paused: float = camera.player_zoom_multiplier
 	paused = true
 	camera._unhandled_input(wheel_up)
