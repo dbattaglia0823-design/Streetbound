@@ -121,12 +121,18 @@ func _run() -> void:
 		saved.has_section_key("bindings","brake") and
 		saved.has_section_key("bindings","nitrous") and
 		(saved.get_value("bindings","nitrous") as Array).size()>=2)
+	menu.binding_rows["mute"]["controller"].pressed.emit()
+	key_input(KEY_BACKSPACE)
+	await process_frame
+	check("backspace_can_clear_controller_without_erasing_keyboard",
+		controls.binding("mute","controller")==null and
+		controls.binding_text("mute","keyboard")=="V")
 	menu.binding_rows["mute"]["keyboard"].pressed.emit()
 	key_input(KEY_BACKSPACE)
 	await process_frame
 	check("backspace_clears_only_selected_binding",
 		controls.binding("mute","keyboard")==null and
-		controls.binding("mute","controller")!=null)
+		controls.binding("mute","controller")==null)
 	menu.binding_rows["map"]["keyboard"].pressed.emit()
 	key_input(KEY_ESCAPE)
 	await process_frame
