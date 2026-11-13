@@ -7,8 +7,8 @@ const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
 const PPM := 20.0
-const PANEL_COLOR := Color(0.035,0.065,0.080,0.94)
-const ACCENT := Color(0.98,0.67,0.35)
+const PANEL_COLOR := Color(0.055,0.075,0.085,0.94)
+const ACCENT := Color("#ff9a32")
 var world
 var player: VehicleController2D
 var driving_camera: Camera2D
@@ -25,6 +25,7 @@ var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
 var root_ui: Control
 var details: Label
+var selected_preview: TextureRect
 var status: Label
 var lane_button: Button
 var junction_button: Button
@@ -41,6 +42,13 @@ var drag_position := Vector2.ZERO
 var snap_m := 1.0
 var authoring_notice: Label
 var mode_label: Label
+var mode_buttons: Dictionary = {}
+var asset_grid: GridContainer
+var asset_search: LineEdit
+var asset_category: OptionButton
+var asset_count: Label
+var asset_entries: Array[Dictionary] = []
+var active_project_asset: Dictionary = {}
 var reload_button: Button
 var apply_button: Button
 var source_revision := ""
@@ -63,6 +71,7 @@ func _ready() -> void:
 	add_child(root_ui)
 	_build_ui()
 	_build_authoring_ui()
+	_build_asset_browser()
 	authoring = EditSession.new()
 	bridge = Node.new()
 	bridge.set_script(LocalBridge)
@@ -89,32 +98,38 @@ func _reopen_baked_world(where: Vector2) -> void:
 		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
 
 func _build_authoring_ui() -> void:
-	var panel := _panel(Vector2(12,542),Vector2(1170,128))
+	var panel := _panel(Vector2.ZERO,Vector2(940,174))
+	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	panel.offset_left = 20
+	panel.offset_right = -20
+	panel.offset_top = -192
+	panel.offset_bottom = -18
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation",4)
+	rows.add_theme_constant_override("separation",8)
 	panel.add_child(rows)
-	var heading := HBoxContainer.new()
-	heading.add_theme_constant_override("separation",5)
+	var heading := HFlowContainer.new()
+	heading.add_theme_constant_override("h_separation",7)
+	heading.add_theme_constant_override("v_separation",5)
 	rows.add_child(heading)
 	mode_label = Label.new()
 	mode_label.name = "NativeEditMode"
-	mode_label.text = "EDIT SOURCE"
-	mode_label.custom_minimum_size.x = 120
+	mode_label.text = "EDIT MODE"
+	mode_label.custom_minimum_size.x = 115
 	mode_label.add_theme_color_override("font_color",ACCENT)
 	heading.add_child(mode_label)
-	_btn("INSPECT",heading,_choose_tool.bind("inspect"))
-	_btn("ROAD ANCHOR",heading,_choose_tool.bind("anchor"))
-	_btn("MOVE ASSET",heading,_choose_tool.bind("move_prop"))
-	_btn("HOUSE",heading,_choose_tool.bind("place:house"))
-	_btn("SHOP",heading,_choose_tool.bind("place:shop"))
-	_btn("TREE",heading,_choose_tool.bind("place:tree"))
-	_btn("ROCK",heading,_choose_tool.bind("place:rock"))
+	for item in [
+		["INSPECT","inspect"],["ROAD ANCHOR","anchor"],["MOVE ASSET","move_prop"],
+		["HOUSE","place:house"],["SHOP","place:shop"],["TREE","place:tree"],
+		["ROCK","place:rock"]]:
+		var button := _btn(str(item[0]),heading,_choose_tool.bind(str(item[1])))
+		mode_buttons[str(item[1])] = button
 	_btn("ADOPT PROP",heading,_adopt_selected)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation",5)
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation",7)
+	actions.add_theme_constant_override("v_separation",5)
 	rows.add_child(actions)
-	_btn("UNDO [Ctrl+Z]",actions,_undo)
-	_btn("REDO [Ctrl+Y]",actions,_redo)
+	_btn("UNDO  Ctrl+Z",actions,_undo)
+	_btn("REDO  Ctrl+Y",actions,_redo)
 	_btn("ROTATE -15",actions,_rotate_selected.bind(-15.0))
 	_btn("ROTATE +15",actions,_rotate_selected.bind(15.0))
 	_btn("DELETE",actions,_delete_selected)
@@ -127,10 +142,187 @@ func _build_authoring_ui() -> void:
 	authoring_notice = Label.new()
 	authoring_notice.name = "NativeEditStatus"
 	authoring_notice.clip_text = true
-	authoring_notice.add_theme_font_size_override("font_size",11)
-	authoring_notice.add_theme_color_override("font_color",Color(0.98,0.80,0.54))
-	authoring_notice.text = "Source drafts only. The Python backend validates and safely rebuilds the real game."
+	authoring_notice.add_theme_font_size_override("font_size",12)
+	authoring_notice.add_theme_color_override("font_color",Color("#ffcd8b"))
+	authoring_notice.text = "Source drafts only. Apply rebuilds the live game using the validated backend."
 	rows.add_child(authoring_notice)
+	_update_active_tool_style()
+
+
+func _update_active_tool_style() -> void:
+	for key in mode_buttons:
+		var button: Button = mode_buttons[key]
+		button.add_theme_color_override("font_color",
+			ACCENT if key == tool_name else Color("#eef0ef"))
+		button.add_theme_color_override("font_hover_color",ACCENT)
+
+
+func _build_asset_browser() -> void:
+	var dock := _panel(Vector2.ZERO,Vector2(285,290))
+	dock.name = "NativeAssetBrowser"
+	dock.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	dock.anchor_top = 0.0
+	dock.anchor_bottom = 1.0
+	dock.offset_left = -309
+	dock.offset_right = -20
+	dock.offset_top = 92
+	dock.offset_bottom = -214
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation",8)
+	dock.add_child(column)
+	var title := Label.new()
+	title.text = "ASSET BROWSER"
+	title.add_theme_color_override("font_color",ACCENT)
+	title.add_theme_font_size_override("font_size",15)
+	column.add_child(title)
+	asset_search = LineEdit.new()
+	asset_search.name = "AssetSearch"
+	asset_search.placeholder_text = "Search game assets..."
+	asset_search.text_changed.connect(func(_value: String) -> void: _filter_assets())
+	column.add_child(asset_search)
+	asset_category = OptionButton.new()
+	asset_category.name = "AssetCategory"
+	for name in ["All assets","Houses","Buildings","Garages","Nature"]:
+		asset_category.add_item(name)
+	asset_category.item_selected.connect(func(_index: int) -> void: _filter_assets())
+	column.add_child(asset_category)
+	asset_count = Label.new()
+	asset_count.add_theme_font_size_override("font_size",11)
+	column.add_child(asset_count)
+	var scroll := ScrollContainer.new()
+	scroll.name = "AssetThumbnails"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	asset_grid = GridContainer.new()
+	asset_grid.columns = 2
+	asset_grid.add_theme_constant_override("h_separation",7)
+	asset_grid.add_theme_constant_override("v_separation",7)
+	scroll.add_child(asset_grid)
+	var refresh := _btn("REFRESH ASSETS",column,_scan_asset_library)
+	refresh.custom_minimum_size.y = 30
+	_scan_asset_library()
+
+
+func _scan_asset_library() -> void:
+	asset_entries.clear()
+	# Same folder hierarchy and project-id hashing used by the browser
+	# asset catalog and Python source importer.
+	_walk_building_assets("res://assets/Buildings")
+	var atlas: Texture2D = load("res://assets/scenery/morrow-atlas-v1.png")
+	var names := [
+		["House roof","house",Rect2(103,28,261,391),"house"],
+		["Coastal house","coastal_house",Rect2(532,14,273,409),"house"],
+		["Shop / cafe","shop",Rect2(968,26,278,396),"building"],
+		["Garage / showroom","garage",Rect2(1411,21,281,396),"garage"],
+		["Tree","tree",Rect2(26,477,397,380),"nature"],
+		["Pine","pine",Rect2(472,467,388,389),"nature"],
+		["Palm","palm",Rect2(910,467,406,387),"nature"],
+		["Rock","rock",Rect2(1366,500,361,323),"nature"]]
+	if atlas != null:
+		for item in names:
+			var crop := AtlasTexture.new()
+			crop.atlas = atlas
+			crop.region = item[2]
+			asset_entries.append({"name":item[0],"kind":item[1],
+				"category":item[3],"texture":crop,"project":false})
+	asset_entries.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		return str(a.name).naturalnocasecmp_to(str(b.name)) < 0)
+	_filter_assets()
+
+
+func _walk_building_assets(folder: String) -> void:
+	var directory := DirAccess.open(folder)
+	if directory == null:
+		return
+	directory.list_dir_begin()
+	var entry := directory.get_next()
+	while not entry.is_empty():
+		if not entry.begins_with("."):
+			var child := folder.path_join(entry)
+			if directory.current_is_dir():
+				_walk_building_assets(child)
+			elif entry.get_extension().to_lower() in ["png","webp","svg"]:
+				var texture: Texture2D = load(child) as Texture2D
+				if texture != null:
+					var relative := child.trim_prefix("res://assets/")
+					var name := entry.get_basename().replace("_"," ").replace("-"," ")
+					var lower := name.to_lower()
+					var kind := "house" if "house" in lower and not "warehouse" in lower else \
+						"warehouse" if "warehouse" in lower else \
+						"garage" if "garage" in lower else "building"
+					var category := "house" if kind == "house" else \
+						"garage" if kind == "garage" else "building"
+					asset_entries.append({"name":name,"kind":kind,"category":category,
+						"texture":texture,"path":relative,"project":true})
+		entry = directory.get_next()
+	directory.list_dir_end()
+
+
+func _filter_assets() -> void:
+	if not is_instance_valid(asset_grid):
+		return
+	for node in asset_grid.get_children():
+		asset_grid.remove_child(node)
+		node.queue_free()
+	var keyword := asset_search.text.strip_edges().to_lower()
+	var category := asset_category.selected
+	var count := 0
+	for entry in asset_entries:
+		if not keyword.is_empty() and keyword not in str(entry.name).to_lower():
+			continue
+		if category == 1 and entry.category != "house":
+			continue
+		if category == 2 and entry.category != "building":
+			continue
+		if category == 3 and entry.category != "garage":
+			continue
+		if category == 4 and entry.category != "nature":
+			continue
+		var button := Button.new()
+		button.name = "Asset_"+str(count)
+		button.custom_minimum_size = Vector2(122,118)
+		button.tooltip_text = str(entry.name)
+		button.pressed.connect(_select_asset.bind(entry))
+		var tile := VBoxContainer.new()
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(tile)
+		tile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tile.offset_left = 5
+		tile.offset_top = 5
+		tile.offset_right = -5
+		tile.offset_bottom = -5
+		var photo := TextureRect.new()
+		photo.texture = entry.texture
+		photo.custom_minimum_size = Vector2(110,76)
+		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(photo)
+		var label := Label.new()
+		label.text = str(entry.name)
+		label.clip_text = true
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size",11)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(label)
+		asset_grid.add_child(button)
+		count += 1
+	asset_count.text = "%d assets  /  click to place" % count
+
+
+func _select_asset(entry: Dictionary) -> void:
+	if _editing_locked():
+		return
+	if bool(entry.get("project",false)):
+		active_project_asset = entry.duplicate()
+		_choose_tool("place:project")
+	else:
+		active_project_asset.clear()
+		_choose_tool("place:"+str(entry.kind))
+	if tool_name.begins_with("place:"):
+		_notice("Selected "+str(entry.name)+". Click the map to place; Apply + Reload to commit.")
+
 
 func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
@@ -147,6 +339,7 @@ func _choose_tool(mode: String) -> void:
 	source_id = ""
 	source_anchor = -1
 	mode_label.text = ("EDIT: "+mode.to_upper()).substr(0,25)
+	_update_active_tool_style()
 	_notice("Drag a source anchor or asset; click the world to place selected artwork.")
 	_refresh_authoring()
 
@@ -345,7 +538,21 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	if tool_name.begins_with("place:"):
 		var kind := tool_name.substr(6)
-		var id: String = authoring.add_prop(kind,world_px/PPM)
+		var id := ""
+		if kind == "project" and not active_project_asset.is_empty():
+			var texture: Texture2D = active_project_asset.texture
+			var base := Vector2(12,17)
+			match str(active_project_asset.kind):
+				"building": base = Vector2(22,29)
+				"warehouse": base = Vector2(28,37)
+				"garage": base = Vector2(20,21)
+			var scale_factor: float = minf(base.x / maxf(1.0,texture.get_width()),
+				base.y / maxf(1.0,texture.get_height()))
+			var footprint := Vector2(texture.get_width(),texture.get_height()) * scale_factor
+			id = authoring.add_project_prop(str(active_project_asset.path),
+				str(active_project_asset.kind),world_px/PPM,footprint)
+		else:
+			id = authoring.add_prop(kind,world_px/PPM)
 		if id != "":
 			source_id = id
 			source_anchor = -1
@@ -411,13 +618,13 @@ func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 	p.size = dimensions
 	var skin := StyleBoxFlat.new()
 	skin.bg_color = PANEL_COLOR
-	skin.border_color = Color(0.40,0.52,0.55,0.80)
+	skin.border_color = Color("#566067")
 	skin.set_border_width_all(1)
-	skin.set_corner_radius_all(10)
-	skin.content_margin_left = 12
-	skin.content_margin_right = 12
-	skin.content_margin_top = 8
-	skin.content_margin_bottom = 8
+	skin.set_corner_radius_all(15)
+	skin.content_margin_left = 15
+	skin.content_margin_right = 15
+	skin.content_margin_top = 11
+	skin.content_margin_bottom = 11
 	p.add_theme_stylebox_override("panel",skin)
 	root_ui.add_child(p)
 	return p
@@ -425,59 +632,84 @@ func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 func _btn(text_value: String, parent: Node, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text_value
-	b.custom_minimum_size = Vector2(110,32)
+	b.custom_minimum_size = Vector2(104,33)
 	b.add_theme_font_size_override("font_size",12)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color("#292f32")
+	normal.border_color = Color("#465056")
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(8)
+	normal.set_content_margin_all(6)
+	b.add_theme_stylebox_override("normal",normal)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color("#44382b")
+	hover.border_color = ACCENT
+	b.add_theme_stylebox_override("hover",hover)
 	b.pressed.connect(callback)
 	parent.add_child(b)
 	return b
 
 func _build_ui() -> void:
-	var header := _panel(Vector2(12,12),Vector2(980,58))
+	var header := _panel(Vector2.ZERO,Vector2(940,60))
+	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	header.offset_left = 20
+	header.offset_right = -20
+	header.offset_top = 15
+	header.offset_bottom = 75
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation",10)
+	row.add_theme_constant_override("separation",9)
 	header.add_child(row)
 	var title := Label.new()
 	title.text = "STREETBOUND  /  WORLD EDITOR"
-	title.add_theme_font_size_override("font_size",18)
+	title.add_theme_font_size_override("font_size",19)
 	title.add_theme_color_override("font_color",ACCENT)
-	title.custom_minimum_size.x = 306
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
-	_btn("TEST DRIVE  [F6]",row,close_editor)
-	var sidebar := _panel(Vector2(12,82),Vector2(330,395))
+	_btn("TEST DRIVE  F6",row,close_editor)
+	var sidebar := _panel(Vector2(20,92),Vector2(340,390))
+	sidebar.name = "SelectedObjectInspector"
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation",9)
+	col.add_theme_constant_override("separation",10)
 	sidebar.add_child(col)
 	var heading := Label.new()
-	heading.text = "ACTUAL GAME GEOMETRY"
+	heading.text = "SELECTED OBJECT"
 	heading.add_theme_color_override("font_color",ACCENT)
-	heading.add_theme_font_size_override("font_size",14)
+	heading.add_theme_font_size_override("font_size",16)
 	col.add_child(heading)
 	var help := Label.new()
-	help.text = "Click / drag: selected edit tool\nRight drag: pan   Wheel: zoom   F6: test drive"
-	help.add_theme_font_size_override("font_size",12)
+	help.text = "Left click: edit / inspect     Right drag: pan\nWheel: zoom                   F6: test drive"
+	help.add_theme_font_size_override("font_size",11)
+	help.add_theme_color_override("font_color",Color("#aeb9bb"))
 	col.add_child(help)
-	var divider := HSeparator.new()
-	col.add_child(divider)
+	col.add_child(HSeparator.new())
+	selected_preview = TextureRect.new()
+	selected_preview.name = "SelectedAssetPreview"
+	selected_preview.custom_minimum_size = Vector2(304,82)
+	selected_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	selected_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	selected_preview.visible = false
+	col.add_child(selected_preview)
 	details = Label.new()
 	details.name = "SelectedWorldObject"
-	details.text = "Click a road, intersection, or building to inspect the real game data."
-	details.custom_minimum_size = Vector2(300,235)
+	details.text = "Select a road, junction or building to inspect its live game data."
+	details.custom_minimum_size = Vector2(300,160)
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
 	var note := Label.new()
-	note.text = "Amber road / green asset outlines = DRAFT ONLY.\nActual junctions/traffic update after Apply + Reload."
-	note.add_theme_color_override("font_color",Color(0.99,0.71,0.42))
+	note.text = "AMBER / GREEN OUTLINES = DRAFT ONLY\nTraffic updates after Apply + Reload."
+	note.add_theme_color_override("font_color",ACCENT)
 	note.add_theme_font_size_override("font_size",11)
 	col.add_child(note)
-	var footer := _panel(Vector2(12,489),Vector2(550,44))
+	var footer := _panel(Vector2(20,495),Vector2(690,45))
 	status = Label.new()
 	status.text = "Press F6 during free roam to inspect the live map."
 	status.add_theme_font_size_override("font_size",12)
 	footer.add_child(status)
+
 
 func _can_enter() -> bool:
 	# A split-screen game has two cameras and a different input owner. Keep
@@ -728,6 +960,8 @@ func select_at(position_px: Vector2) -> Dictionary:
 func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	selected = what.duplicate()
 	gizmos.set_selection(selected)
+	selected_preview.visible = false
+	selected_preview.texture = null
 	var kind := str(what.get("kind",""))
 	var index := int(what.get("index",-1))
 	if kind == "road" and index>=0:
@@ -759,6 +993,19 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	elif kind=="prop" and index>=0:
 		var prop: Dictionary = world.data.props[index]
 		var asset := str(prop.get("asset_path",prop.get("asset_id","builtin")))
+		if prop.has("asset_path"):
+			var texture_path := "res://assets/"+str(prop.asset_path)
+			if ResourceLoader.exists(texture_path):
+				selected_preview.texture = load(texture_path) as Texture2D
+				selected_preview.visible = selected_preview.texture != null
+		elif prop.has("asset_id"):
+			for item in asset_entries:
+				if not bool(item.get("project",false)) and \
+						str(item.kind) == str(prop.get("asset_kind",str(prop.get(
+							"asset_id","")).trim_prefix("game-"))):
+					selected_preview.texture = item.texture
+					selected_preview.visible = true
+					break
 		details.text = "WORLD OBJECT #%d\n\nType: %s\nArtwork: %s\nPosition: %.1f, %.1f metres\nSize: %.1f × %.1f metres\nSolid collision: %s\n\nUses the live game asset,\nnot a browser preview." % [
 			index,str(prop.kind),asset,float(prop.p[0]),float(prop.p[1]),
 			float(prop.size[0]),float(prop.size[1]),
