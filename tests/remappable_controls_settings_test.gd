@@ -52,7 +52,7 @@ func _run() -> void:
 	root.add_child(main)
 	await process_frame
 	await process_frame
-	var menu: CanvasLayer = main.pause_menu
+	var menu: Variant = main.pause_menu
 	check("original_driving_bindings_initialized",
 		controls.binding_text("throttle","keyboard")=="W" and
 		controls.binding("throttle","controller") is InputEventJoypadMotion)
