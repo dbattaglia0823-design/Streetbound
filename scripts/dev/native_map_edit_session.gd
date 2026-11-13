@@ -24,6 +24,8 @@ var history: Array[Dictionary] = []
 var future: Array[Dictionary] = []
 var last_error := ""
 var dirty := false
+## Monotonic editor revision: avoids rescanning 20k runtime props every frame.
+var edit_revision := 0
 
 func load_source(path: String = SOURCE) -> bool:
 	var content := FileAccess.get_file_as_string(path)
@@ -41,6 +43,7 @@ func load_source(path: String = SOURCE) -> bool:
 	future.clear()
 	dirty = false
 	last_error = ""
+	edit_revision += 1
 	return true
 
 func _fingerprint(value: Dictionary) -> String:
@@ -107,6 +110,7 @@ func _commit(next: Dictionary) -> bool:
 	if history.size() > MAX_HISTORY:
 		history.pop_front()
 	doc = next
+	edit_revision += 1
 	future.clear()
 	dirty = _fingerprint(doc) != baseline_hash
 	last_error = ""
@@ -117,6 +121,7 @@ func undo() -> bool:
 		return false
 	future.append(doc.duplicate(true))
 	doc = history.pop_back()
+	edit_revision += 1
 	dirty = _fingerprint(doc) != baseline_hash
 	return true
 
@@ -125,11 +130,13 @@ func redo() -> bool:
 		return false
 	history.append(doc.duplicate(true))
 	doc = future.pop_back()
+	edit_revision += 1
 	dirty = _fingerprint(doc) != baseline_hash
 	return true
 
 func discard_changes() -> void:
 	doc = initial.duplicate(true)
+	edit_revision += 1
 	history.clear()
 	future.clear()
 	dirty = false
@@ -138,6 +145,7 @@ func accepted_remote(remote: Dictionary) -> bool:
 	if not _valid_source(remote):
 		return false
 	doc = remote.duplicate(true)
+	edit_revision += 1
 	initial = doc.duplicate(true)
 	baseline_hash = _fingerprint(doc)
 	dirty = false
