@@ -2,7 +2,7 @@ config_version=5
 
 [application]
 config/name="Streetbound | Driving Lab"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/title_menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/description="Explore Morrow Coast, a streamed coastal driving world with a preserved driving lab."
 
