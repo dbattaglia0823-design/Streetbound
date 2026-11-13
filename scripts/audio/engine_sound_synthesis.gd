@@ -88,7 +88,7 @@ static func engine_loop(family: String, stage: int,
 		var phase := TAU*float(fire_cycles)*x
 		var base := sin(phase)*(0.63-bright*0.25)+ \
 			sin(phase*2.0+0.14)*(0.12+bright*0.16)+ \
-			sin(phase*3.0+0.35)*(0.045+bright*0.115)+ \
+			sin(phase*3.0+0.35)*(0.035+bright*0.075)+ \
 			sin(phase*4.0+0.61)*(0.012+bright*0.035)
 		var uneven := 0.0
 		match family:
