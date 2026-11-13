@@ -291,7 +291,12 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		"dock":["dock",""],"lot":["parking",""],
 		"forecourt":["forecourt",""],
 		"parked_car":["parked_car",""],"planter":["planter",""],
-		"garden":["garden",""],"field":["field",""]
+		"garden":["garden",""],"field":["field",""],
+		"drag_prep":["drag_prep",""],"drag_tree":["drag_tree",""],
+		"drag_lane_mark":["drag_lane_mark",""],
+		"drag_scoreboard":["drag_scoreboard",""],
+		"grandstand":["grandstand",""],
+		"start_line":["start_line",""],"finish_line":["finish_line",""]
 	}
 	var original_kind := str(runtime.get("kind",""))
 	var identity_seed: Variant = runtime.get("seed")
@@ -348,6 +353,12 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		"field":base_size=Vector2(90,70)
 		"island":base_size=Vector2(23,23)
 		"forecourt":base_size=Vector2(23,16)
+		"drag_prep":base_size=Vector2(8.5,22)
+		"drag_tree":base_size=Vector2(3,10)
+		"drag_lane_mark":base_size=Vector2(.35,12)
+		"drag_scoreboard":base_size=Vector2(4,10)
+		"grandstand":base_size=Vector2(36,17)
+		"start_line","finish_line":base_size=Vector2(14,1.2)
 	var size_ratio := 1.0
 	if native_size is Array and native_size.size()==2:
 		size_ratio = clampf((float(native_size[0])/base_size.x+
