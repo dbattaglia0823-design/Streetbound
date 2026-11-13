@@ -2,6 +2,7 @@ extends SceneTree
 ## Verify the actual ProjectSettings title entry and menu-to-game navigation.
 ## All existing direct scene tests still load main.tscn explicitly.
 var failures: Array[String] = []
+var flow: Node
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -23,6 +24,13 @@ func enter_title() -> Node:
 	return title
 
 func _run() -> void:
+	# SceneTree --script tests load before project autoloads are constructed;
+	# install the same singleton when the test runner has not done so.
+	flow = root.get_node_or_null("GameFlow")
+	if flow == null:
+		flow = load("res://scripts/ui/game_flow.gd").new()
+		flow.name = "GameFlow"
+		root.add_child(flow)
 	check("project_boots_into_lightweight_title_scene",
 		str(ProjectSettings.get_setting("application/run/main_scene")) ==
 		"res://scenes/title_menu.tscn")
@@ -31,7 +39,7 @@ func _run() -> void:
 		title.play_button!=null and title.editor_button!=null and
 		title.multiplayer_button!=null and title.get_node("StartMenuPanel")!=null)
 	check("editor_access_follows_development_build_policy",
-		title.editor_button.disabled != GameFlow.supports_native_editor())
+		title.editor_button.disabled != flow.supports_native_editor())
 	check("title_initially_does_not_load_real_world_or_pause",
 		not paused and get_nodes_in_group("player_vehicle").is_empty())
 	if Input.get_connected_joypads().is_empty():
@@ -61,7 +69,7 @@ func _run() -> void:
 	check("return_to_title_unloads_world_without_leaving_game_paused",
 		title!=null and title.name=="StreetboundMainMenu" and not paused and
 		get_nodes_in_group("player_vehicle").is_empty())
-	if GameFlow.supports_native_editor():
+	if flow.supports_native_editor():
 		title.editor_button.pressed.emit()
 		for i in 8:
 			await process_frame
@@ -116,7 +124,7 @@ func _run() -> void:
 			not paused and get_nodes_in_group("local_multiplayer_vehicle").is_empty())
 	# The startup flow also handles a gamepad disappearing between title
 	# selection and the moment the actual world finishes constructing.
-	GameFlow.pending_mode = "multiplayer"
+	flow.pending_mode = "multiplayer"
 	var launch_game: Node = load("res://scenes/main.tscn").instantiate()
 	current_scene.queue_free()
 	root.add_child(launch_game)
@@ -135,7 +143,7 @@ func _run() -> void:
 	launch_game.queue_free()
 	current_scene = null
 	paused = false
-	GameFlow.pending_mode = ""
+	flow.pending_mode = ""
 	print("TITLE AND PAUSE NAVIGATION: ",
 		"PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
