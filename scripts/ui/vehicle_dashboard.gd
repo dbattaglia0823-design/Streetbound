@@ -92,7 +92,7 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 	# when the glyphs render at the requested font size. If the control
 	# inflates, keep the visible text anchored to the authored top edge
 	# rather than vertically centering it inside the oversized rectangle.
-	if node.size.y > dimensions.y * 1.5:
+	if node.size.y > float(font_size) * 2.0:
 		node.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	return node
 
