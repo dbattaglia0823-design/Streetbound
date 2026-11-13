@@ -16,13 +16,27 @@ var local_baked_sha := ""
 var started_pid := -1
 var retry_count := 0
 var last_error := ""
+var request_started_ms := 0
+var request_deadline_ms := 0
+
+func _process(_delta: float) -> void:
+	# Wall-clock watchdog: --headless --fixed-fps runs simulation much faster
+	# than real time. Godot HTTPRequest.timeout is driven by simulation time
+	# and can terminate a successful localhost rebuild in under a second.
+	if phase != "" and request_deadline_ms > 0 and \
+			Time.get_ticks_msec() >= request_deadline_ms:
+		http.cancel_request()
+		_fail("Local map backend did not respond within its wall-clock deadline.")
+
 
 func _ready() -> void:
 	name = "NativeMapBridge"
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	http = HTTPRequest.new()
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
-	http.timeout = 255.0
+	# Avoid simulation-time timeouts while the editor is paused or Godot
+	# runs headless. Our monotonic wall-clock watchdog below bounds hangs.
+	http.timeout = 0.0
 	add_child(http)
 	http.request_completed.connect(_received)
 
@@ -33,12 +47,16 @@ func _exit_tree() -> void:
 
 func _fail(message: String) -> void:
 	last_error = message
+	request_deadline_ms = 0
 	phase = ""
 	requested_doc.clear()
 	completed.emit(false,message,"")
 
 func _request(method: HTTPClient.Method, route: String,
 		headers: PackedStringArray = PackedStringArray(), payload: String = "") -> bool:
+	request_started_ms = Time.get_ticks_msec()
+	request_deadline_ms = request_started_ms + \
+		(300000 if method == HTTPClient.METHOD_POST else 30000)
 	var error := http.request(BASE+route,headers,method,payload)
 	if error != OK:
 		_fail("Local map service request failed: %s" % error_string(error))
@@ -180,6 +198,7 @@ func _received(result: int, response_code: int, _headers: PackedStringArray,
 				_fail("Rebuild returned no valid playable world.")
 				return
 			phase = ""
+			request_deadline_ms = 0
 			var new_sha := str(parsed.worldSha)
 			requested_doc.clear()
 			completed.emit(true,
