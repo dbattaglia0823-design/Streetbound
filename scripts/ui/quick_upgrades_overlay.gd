@@ -288,13 +288,11 @@ func close_menu() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey:
-		return
-	var key := event as InputEventKey
-	if not key.pressed or key.echo:
-		return
-	var close := key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE
-	var toggle := key.keycode == KEY_U or key.physical_keycode == KEY_U
+	var close := event.is_action_pressed("pause") or (
+		event is InputEventKey and (event as InputEventKey).pressed and
+		((event as InputEventKey).keycode == KEY_ESCAPE or
+		(event as InputEventKey).physical_keycode == KEY_ESCAPE))
+	var toggle := event.is_action_pressed("upgrades")
 	if overlay.visible and (close or toggle):
 		close_menu()
 		get_viewport().set_input_as_handled()
