@@ -443,12 +443,15 @@ function insertSelectedPoint(p,mode='between'){
     const result=insertShapePoint(doc,found.item.id,worldPoint(p.x,p.y),{mode,maxDistance:threshold});
     const before=doc;
     let next=result.doc;
-    if(found.type==='roads'){
-      // Moving/inserting a control point must never move other scenery.
-      // The live overlap overlay and Map health report any new conflicts.
+    let joined=false;
+    if(found.type==='roads'&&(mode==='start'||mode==='end')&&$('road-smart-snap').checked){
+      const outcome=joinRoadEndpoints(next,found.item.id,{radius:clamp(15/zoom,8,28)});
+      next=outcome.doc;joined=outcome.joined;
     }
-    doc=next;pointInsertMode=null;makeSnapshot(before,'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
-    setSelection(found.item.id,result.index);
+    doc=next;pointInsertMode=null;
+    makeSnapshot(before,joined?'Extended and joined the road to a compatible endpoint.':
+      'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
+    setSelection(found.item.id,joined?-1:result.index);
     return true;
   }catch(e){errorMessage(e);return false;}
 }
@@ -1097,8 +1100,14 @@ for(const [id,axis] of [['inspect-point-x','x'],['inspect-point-y','y']]){
       errorMessage(new RangeError('Point coordinate is outside the world'));refreshInspector();return;
     }
     const original=found.item.points[selection.point];
-    if(!change(d=>moveControlPoint(d,found.item.id,selection.point,{...original,[axis]:numeric}),
-      'Changed point '+(selection.point+1)+' '+axis.toUpperCase()+'.'))refreshInspector();
+    const pointIndex=selection.point;
+    const endpoint=found.type==='roads'&&(pointIndex===0||pointIndex===found.item.points.length-1);
+    if(!change(d=>{
+      const changed=moveControlPoint(d,found.item.id,pointIndex,{...original,[axis]:numeric});
+      if(!endpoint||!$('road-smart-snap').checked)return changed;
+      return joinRoadEndpoints(changed,found.item.id,{radius:1}).doc;
+    },'Updated road control point. Compatible endpoints join automatically.'))refreshInspector();
+    else if(endpoint)setSelection(found.item.id,-1);
   });
 }
 function duplicateSelected(){
