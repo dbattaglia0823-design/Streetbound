@@ -5,11 +5,13 @@ const Coast = preload("res://scripts/world/morrow_coast.gd")
 const Editor = preload("res://scripts/dev/native_world_editor.gd")
 const Tiles = preload("res://scripts/dev/editor_render_tiles.gd")
 const Dealers = preload("res://scripts/world/dealership_world.gd")
+const Network = preload("res://scripts/world/traffic_network.gd")
 var ground: MorrowCoast
 var native_world_editor: CanvasLayer
 var map_tiles: Node2D
 var editor_origin_camera: Camera2D
 var editor_dealerships: Node2D
+var lane_geometry: RefCounted
 
 
 func _ready() -> void:
@@ -49,6 +51,10 @@ func _ready() -> void:
 	native_world_editor.set_script(Editor)
 	native_world_editor.world = ground
 	native_world_editor.driving_camera = editor_origin_camera
+	# Static lane and junction geometry only; no AI or traffic vehicles.
+	lane_geometry = Network.new()
+	lane_geometry.build(ground.data)
+	native_world_editor.traffic_network = lane_geometry
 	native_world_editor.standalone_mode = true
 	native_world_editor.render_tiles = map_tiles
 	add_child(native_world_editor)
