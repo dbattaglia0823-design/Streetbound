@@ -225,6 +225,92 @@ function setZoom(value,sx=viewport.clientWidth/2,sy=viewport.clientHeight/2){
 function focusPoint(p){
   offsetX=viewport.clientWidth/2-p.x*zoom;offsetY=viewport.clientHeight/2-p.y*zoom;requestRender();
 }
+// Keep existing inspector/creation controls and their event listeners intact.
+// Move only relevant controls into a small, floating context panel. Every move
+// leaves a placeholder so nodes can be returned to their original location.
+let contextView='auto',contextKey='',contextCollapsed=false;
+const contextOrigins=new Map();
+function relocateContext(node,host){
+  if(!node||!host)return;
+  if(!contextOrigins.has(node)){
+    const marker=document.createComment('context-control');
+    node.before(marker);
+    contextOrigins.set(node,marker);
+  }
+  host.append(node);
+}
+function restoreContext(){
+  for(const [node,marker] of [...contextOrigins].reverse()){
+    if(marker.parentNode)marker.replaceWith(node);
+    else node.remove();
+  }
+  contextOrigins.clear();
+  $('context-body').replaceChildren();
+}
+function contextGroup(title,nodes,expanded=false){
+  const section=document.createElement('details');
+  section.className='context-extra';section.open=expanded;
+  const label=document.createElement('summary');label.textContent=title;section.append(label);
+  for(const node of nodes)relocateContext(node,section);
+  $('context-body').append(section);
+}
+function renderContextPanel(){
+  const found=selection?getEntity(doc,selection.id):null;
+  const view=contextView==='auto'?(tool==='select'&&found?'selected':tool):contextView;
+  const id=found?.item.id||'';
+  const key=view==='selected'?view+':'+found.type:view;
+  const titles={selected:found?.item.name||'Selected item',select:'Select / Edit',
+    road:'Draw road',terrain:'Terrain region',prop:'Place scenery',marker:'Place marker',
+    pan:'Pan view',layers:'World layers',objects:'Map objects',health:'Map health',world:'World settings'};
+  $('context-title').textContent=titles[view]||'Properties';
+  document.querySelectorAll('[data-context-view]').forEach(b=>{
+    b.setAttribute('aria-pressed',String(b.dataset.contextView===contextView));
+  });
+  // Do not move focused inputs during ordinary inspector updates.
+  if(key===contextKey)return;
+  contextKey=key;restoreContext();
+  const body=$('context-body');
+  const put=node=>relocateContext(node,body);
+  const field=id=>$(id)?.closest('.field');
+  const explain=message=>{
+    const p=document.createElement('p');p.className='context-hint';p.textContent=message;body.append(p);
+  };
+  const left=document.querySelector('.left-panel');
+  if(view==='road'){
+    put(left.querySelectorAll(':scope > .settings-group')[0]);
+  }else if(view==='terrain'){
+    put(left.querySelectorAll(':scope > .settings-group')[1]);
+  }else if(view==='prop'){
+    put(field('prop-type'));put(field('prop-asset'));
+    put(left.querySelector('.upload-asset'));
+    contextGroup('Paint / erase scenery',[left.querySelector('.scenery-brush-controls:not([aria-labelledby="preset-title"])')]);
+    contextGroup('Environment presets',[left.querySelector('[aria-labelledby="preset-title"]')]);
+    contextGroup('Road alignment',[left.querySelector('.roadside-controls')]);
+  }else if(view==='marker'){
+    put(field('marker-type'));
+  }else if(view==='selected'){
+    put($('selected-type').closest('.panel-head'));
+    put($('inspector-empty'));
+    put($('inspector'));
+    if(found?.type==='props')contextGroup('Road alignment',[left.querySelector('.roadside-controls')]);
+  }else if(view==='layers'){
+    put(document.querySelector('.right-panel .visibility-list'));
+  }else if(view==='health'){
+    put($('audit-heading'));put(document.querySelector('.right-panel .map-audit-panel'));
+  }else if(view==='objects'){
+    put($('entities-count').closest('.panel-head'));
+    put(field('entities-filter')||$('entities-filter').closest('.filter-row'));
+    put($('entity-list'));
+  }else if(view==='world'){
+    put($('morrow-expand-panel'));
+    if(!isMorrowEdit(doc))explain('Open Game Map to edit and expand the playable world.');
+  }else if(view==='select'){
+    explain('Click a road, building, region or marker to edit it.');
+  }else if(view==='pan'){
+    explain('Drag the map to navigate. Use the mouse wheel to zoom.');
+  }
+}
+
 function refreshHeader(){
   $('world-title').value=doc.name;
   $('save-morrow').hidden=!isMorrowEdit(doc);
@@ -313,12 +399,15 @@ function setTool(next){
     marker:'Click to place a gameplay marker.',
     pan:'Drag to move around the open world.'
   }[next]);
+  contextView='auto';renderContextPanel();
   refreshAssetDock();requestRender();
 }
 function setSelection(id,point=-1){
   if(id!==selection?.id)pointInsertMode=null;
   selection=id?{id,point}:null;
-  refreshHeader();refreshInspector();refreshEntities();requestRender();
+  refreshHeader();refreshInspector();refreshEntities();
+  if(tool==='select')contextView='auto';
+  renderContextPanel();requestRender();
 }
 function selectedShape(){
   const found=selection?getEntity(doc,selection.id):null;
@@ -663,7 +752,7 @@ function refreshSpriteLists(){
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
-function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();refreshAssetDock();requestRender();}
+function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();renderContextPanel();refreshAssetDock();requestRender();}
 function startWorld(world,message,{skipRecovery=false,preview=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
@@ -1354,6 +1443,26 @@ const auditUI=createMapAuditUI({
     status(issue.message);
   }
 });
+document.querySelectorAll('[data-context-view]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    contextView=button.dataset.contextView;
+    renderContextPanel();
+  });
+});
+$('context-toggle').addEventListener('click',()=>{
+  contextCollapsed=!contextCollapsed;
+  $('context-panel').classList.toggle('collapsed',contextCollapsed);
+  $('context-toggle').textContent=contextCollapsed?'+':'−';
+  $('context-toggle').setAttribute('aria-expanded',String(!contextCollapsed));
+  $('context-toggle').setAttribute('aria-label',contextCollapsed?'Expand properties':'Collapse properties');
+});
+// Capture before the existing map-health handler scrolls to its heading.
+$('audit-top').addEventListener('click',()=>{
+  contextView='health';renderContextPanel();
+  $('context-panel').classList.remove('collapsed');contextCollapsed=false;
+  $('context-toggle').textContent='−';
+  $('context-toggle').setAttribute('aria-expanded','true');
+},true);
 document.addEventListener('gdt-world-asset-ready',()=>{requestRender();refreshAssetDock();});
 $('asset-dock-category').addEventListener('change',refreshAssetDock);
 $('asset-dock-search').addEventListener('input',refreshAssetDock);
