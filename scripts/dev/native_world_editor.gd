@@ -44,6 +44,7 @@ var mode_label: Label
 var reload_button: Button
 var apply_button: Button
 var source_revision := ""
+var loaded_world_sha := ""
 var submitted_source: Dictionary = {}
 static var resume_after_rebuild := false
 static var resume_editor_position := Vector2.ZERO
@@ -163,6 +164,9 @@ func _editing_locked() -> bool:
 	if is_instance_valid(bridge) and bridge.phase != "":
 		_notice("Map rebuild is running. Source edits are locked until it finishes.")
 		return true
+	if not source_revision.is_empty():
+		_notice("World rebuilt. Select RELOAD WORLD before creating more edits.")
+		return true
 	return false
 
 func _undo() -> void:
@@ -225,13 +229,15 @@ func _start_backend() -> void:
 		_notice(bridge.last_error)
 
 func _apply_draft() -> void:
+	if _editing_locked():
+		return
 	if not source_ready or not authoring.dirty:
 		_notice("No authoring edits to apply.")
 		return
 	if not authoring._valid_source(authoring.doc):
 		_notice("Source validation failed; changes were not saved.")
 		return
-	if bridge.apply_source(authoring.doc,authoring.baseline_hash):
+	if bridge.apply_source(authoring.doc,authoring.baseline_hash,loaded_world_sha):
 		submitted_source = authoring.doc.duplicate(true)
 		_notice("Verifying map revision and source, then rebuilding Morrow Coast...")
 		_refresh_authoring()
@@ -469,6 +475,8 @@ func _set_game_ui_visible(restore: bool) -> void:
 func open_editor() -> bool:
 	if not _can_enter():
 		return false
+	if loaded_world_sha.is_empty():
+		loaded_world_sha = FileAccess.get_sha256("res://worlds/morrow-coast.world.json")
 	_owns_pause = not get_tree().paused
 	if not source_ready:
 		source_ready = authoring.load_source()
@@ -508,7 +516,8 @@ func open_editor() -> bool:
 func close_editor() -> void:
 	if not active:
 		return
-	if _editing_locked():
+	if is_instance_valid(bridge) and bridge.phase != "":
+		_notice("Apply is still rebuilding. Exit after the transaction completes.")
 		return
 	active = false
 	root_ui.visible = false
