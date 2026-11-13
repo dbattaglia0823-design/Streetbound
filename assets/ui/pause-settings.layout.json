@@ -91,7 +91,7 @@
       "bindingKey": ""
     },
     {
-      "type": "button",
+      "type": "slot",
       "id": "minimap_shape_button",
       "x": 418,
       "y": 314,
