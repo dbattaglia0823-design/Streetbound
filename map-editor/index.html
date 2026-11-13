@@ -196,6 +196,20 @@
       </div>
     </div>
     <div id="viewport" class="viewport">
+      <section id="context-panel" class="context-panel" aria-label="Tool and selection properties">
+        <div class="context-panel-bar">
+          <strong id="context-title">Select / Edit</strong>
+          <button id="context-toggle" type="button" aria-label="Collapse properties" aria-expanded="true">−</button>
+        </div>
+        <div id="context-actions" class="context-actions" role="group" aria-label="Additional editor controls">
+          <button type="button" data-context-view="auto">Properties</button>
+          <button type="button" data-context-view="layers">Layers</button>
+          <button type="button" data-context-view="objects">Objects</button>
+          <button type="button" data-context-view="health">Health</button>
+          <button type="button" data-context-view="world">World</button>
+        </div>
+        <div id="context-body" class="context-body"></div>
+      </section>
       <canvas id="world-canvas" tabindex="0" aria-label="Freeform world canvas. Click to draw roads, regions and place scenery."></canvas>
       <span class="canvas-help">Wheel zoom · Space/middle-drag pan · Shift-click road to add point · Alt-drag shape to move</span>
       <div class="view-tools">
