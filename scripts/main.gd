@@ -213,6 +213,8 @@ func _ready() -> void:
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
+	pause_menu.map_editor_requested.connect(_open_native_map_editor)
+	pause_menu.title_requested.connect(_return_to_main_menu)
 	# This is a developer-only transition workspace. It renders the EXISTING
 	# Morrow Coast scene and visualizes the traffic network already built by
 	# the game. Release players cannot open it, and it never writes map files.
@@ -226,6 +228,58 @@ func _ready() -> void:
 		if is_instance_valid(ambient_traffic):
 			native_world_editor.traffic_network = ambient_traffic.get("network")
 		add_child(native_world_editor)
+	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor))
+	# Title actions are consumed after the game world, camera, editor and
+	# split-screen manager have all finished initializing. Direct scene tests
+	# intentionally continue to instantiate free roam without a title.
+	if not proving_ground and GameFlow.pending_mode != "":
+		call_deferred("_apply_title_launch",GameFlow.consume_launch_mode())
+
+
+func _apply_title_launch(mode: String) -> void:
+	if not is_inside_tree():
+		return
+	match mode:
+		"map_editor":
+			if not _open_native_map_editor():
+				pause_menu.pause_game()
+				pause_menu.show_map_editor_error(
+					"Development editor is unavailable in this build.")
+		"multiplayer":
+			if local_split_screen.start_split():
+				pause_menu.set_split_screen_active(true)
+			else:
+				pause_menu.pause_game()
+				pause_menu.show_split_screen_error(local_split_screen.warning)
+
+
+func _open_native_map_editor() -> bool:
+	# Switching from multiplayer to map editing restores the original single
+	# player first; never let two cameras compete for the editor viewport.
+	if not is_instance_valid(native_world_editor):
+		if is_instance_valid(pause_menu):
+			pause_menu.show_map_editor_error("Use a Godot development build.")
+		return false
+	if is_instance_valid(local_split_screen) and local_split_screen.active:
+		local_split_screen.stop_split()
+		pause_menu.set_split_screen_active(false)
+	if pause_menu.menu_state != "":
+		pause_menu.resume_game()
+	if native_world_editor.open_editor():
+		return true
+	pause_menu.pause_game()
+	pause_menu.show_map_editor_error("World is not ready for editing.")
+	return false
+
+
+func _return_to_main_menu() -> void:
+	if is_instance_valid(local_split_screen) and local_split_screen.active:
+		local_split_screen.stop_split()
+		pause_menu.set_split_screen_active(false)
+	# The title is a separate scene. No dormant copy of the live world,
+	# physics, traffic or player vehicle is kept behind the title.
+	get_tree().paused = false
+	GameFlow.return_to_title()
 
 
 func _toggle_local_split_screen() -> void:
