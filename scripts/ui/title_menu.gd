@@ -100,7 +100,9 @@ func _build_menu() -> void:
 	play_button = _action("PLAY   /   FREE ROAM","play",true)
 	content.add_child(play_button)
 	editor_button = _action("MAP EDITOR","map_editor")
-	editor_button.disabled = not GameFlow.supports_native_editor()
+	var flow: Node = get_node_or_null("/root/GameFlow")
+	editor_button.disabled = not is_instance_valid(flow) or \
+		not bool(flow.call("supports_native_editor"))
 	editor_button.tooltip_text = "Available only in Godot development builds." if \
 		editor_button.disabled else "Edit real roads and scenery in Godot."
 	content.add_child(editor_button)
@@ -123,8 +125,11 @@ func _activate(mode: String) -> void:
 	if mode=="quit":
 		get_tree().quit()
 		return
-	if not GameFlow.start_game(mode):
-		feedback.text = GameFlow.last_error
+	var flow: Node = get_node_or_null("/root/GameFlow")
+	if not is_instance_valid(flow):
+		feedback.text = "Launch Streetbound from its Godot project to enable modes."
+	elif not bool(flow.call("start_game",mode)):
+		feedback.text = str(flow.get("last_error"))
 	else:
 		feedback.text = ""
 
