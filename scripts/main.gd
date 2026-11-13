@@ -105,6 +105,10 @@ func _ready() -> void:
 	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	camera.set_script(CameraScript)
 	camera.target = vehicle
+	# On Morrow Coast, the spawn is a parking lot roughly 42m from its
+	# garage building and 46m from the nearest houses. Show that neighborhood
+	# before accelerating, then return to normal driver-controlled zoom.
+	camera.startup_neighborhood_view = not proving_ground
 	add_child(camera)
 	camera.add_to_group("player_camera")
 	var speed_layer := CanvasLayer.new()
