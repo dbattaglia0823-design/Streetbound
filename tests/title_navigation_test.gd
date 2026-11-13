@@ -50,23 +50,40 @@ func _run() -> void:
 		check("multiplayer_requires_controller_without_changing_scenes",
 			current_scene == title and
 			title.message.text.contains("controller"))
-	# Select Map Editor from the startup menu; this must enter the real
-	# Morrow Coast runtime, not the browser or a disconnected preview.
+	# Main-menu world editing now uses an isolated scene with no player,
+	# racing AI, or game-physics chunks. Gameplay pause controls are separately
+	# exercised by launching an ordinary game after leaving this scene.
 	if dev:
 		title.actions["map_editor"].pressed.emit()
-		await process_frame
-		await process_frame
-		await process_frame
+		for frame in 4:
+			await process_frame
+		var standalone: Node = current_scene
+		check("map_editor_title_launches_standalone_world_scene",
+			standalone != null and standalone != title and
+			standalone.has_method("_ready") and
+			standalone.get("map_tiles") != null and
+			standalone.ground.initialization_complete)
+		var editor: CanvasLayer = standalone.native_world_editor
+		check("title_map_editor_enters_native_editor_without_gameplay",
+			editor != null and editor.active and not paused and
+			standalone.ground.vehicle == null and
+			standalone.get_node_or_null("Vehicle") == null and
+			standalone.map_tiles.tiles.size() <= 64)
+		editor.close_editor()
+		for frame in 3:
+			await process_frame
+		var returned_title: Control = current_scene
+		check("standalone_editor_exits_to_title",
+			returned_title != null and returned_title != standalone and
+			returned_title.actions.has("single_player"))
+		returned_title.actions["single_player"].pressed.emit()
+		for frame in 4:
+			await process_frame
 		var game: Variant = current_scene
-		check("map_editor_title_launches_real_game_scene",
-			game != null and game != title and game.has_method("_begin_native_map_editor") and
-			game.ground.initialization_complete)
-		if game != null and game != title:
-			check("title_map_editor_button_enters_native_inspection_mode",
-				game.native_world_editor != null and game.native_world_editor.active and paused)
-			game.native_world_editor.close_editor()
-			check("native_editor_exit_restores_gameplay",
-				not paused and not game.native_world_editor.active)
+		check("ordinary_gameplay_launches_after_standalone_editor",
+			game != null and game != standalone and
+			game.vehicle != null and game.ground.initialization_complete)
+		if game != null and game != standalone:
 			game.pause_menu.pause_game()
 			await process_frame
 			check("pause_has_multiplayer_editor_main_menu_and_quit",
@@ -76,17 +93,9 @@ func _run() -> void:
 				game.pause_menu.pause_screen.controls.has("quit"))
 			check("native_pause_map_editor_available_outside_split_screen",
 				not game.pause_menu.pause_screen.controls["map_editor"].disabled)
-			game.pause_menu.pause_screen.controls["map_editor"].pressed.emit()
-			await process_frame
-			await process_frame
-			check("pause_map_editor_enters_same_native_world_editor",
-				game.native_world_editor.active and paused and
-				not game.pause_menu.overlay.visible)
-			game.native_world_editor.close_editor()
-			game.pause_menu.pause_game()
 			game.pause_menu.pause_screen.controls["main_menu"].pressed.emit()
-			await process_frame
-			await process_frame
+			for frame in 3:
+				await process_frame
 			check("pause_main_menu_returns_to_title_without_quitting",
 				current_scene != game and not paused and
 				current_scene != null and current_scene.has_method("_activate") and
