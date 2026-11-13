@@ -273,7 +273,7 @@ func _refresh_binding_buttons() -> void:
 	for action in Controls.ACTIONS:
 		for kind in ["keyboard","controller"]:
 			var button: Button = binding_rows[action][kind]
-			var listening := capture_action == action and capture_device == kind
+			var listening: bool = capture_action == str(action) and capture_device == kind
 			button.text = ("PRESS KEY / MOUSE" if kind=="keyboard" else
 				"PRESS CONTROLLER") if listening else Controls.binding_text(action,kind)
 			button.tooltip_text = "Press to change the %s binding for %s" % [
