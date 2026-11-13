@@ -33,9 +33,9 @@ func _ready() -> void:
 		col.add_theme_constant_override("separation",4)
 		shell.add_child(col)
 	player_label = _label(col,"DRIVER LV 1  /  0 XP TO NEXT",12)
-	player_bar = _bar(col)
+	player_bar = _bar(col, Color("86c5a1"))
 	car_label = _label(col,"CAR LV 1  /  0 XP TO NEXT",12)
-	car_bar = _bar(col)
+	car_bar = _bar(col, Color("dda66b"))
 	rarity_label = _label(col,"NEXT UPGRADE RARITY  /  COMMON LV 10",10)
 	rarity_label.add_theme_color_override("font_color",Color("c2d0c0"))
 	if is_instance_valid(economy):
@@ -47,15 +47,25 @@ func _label(parent: VBoxContainer, value: String, size: int) -> Label:
 	var node := Label.new()
 	node.text = value
 	node.add_theme_font_size_override("font_size",size)
+	node.clip_text = true
+	node.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	parent.add_child(node)
 	return node
 
 
-func _bar(parent: VBoxContainer) -> ProgressBar:
+func _bar(parent: VBoxContainer, tint: Color) -> ProgressBar:
 	var node := ProgressBar.new()
 	node.max_value = 100.0
 	node.show_percentage = false
 	node.custom_minimum_size.y = 6.0
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color("1c3137")
+	background.set_corner_radius_all(3)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = tint
+	fill.set_corner_radius_all(3)
+	node.add_theme_stylebox_override("background", background)
+	node.add_theme_stylebox_override("fill", fill)
 	parent.add_child(node)
 	return node
 
@@ -87,6 +97,5 @@ func refresh() -> void:
 				next_tier = rarity
 				next_level = int(Progress.RARITY_THRESHOLDS[rarity])
 				break
-		rarity_label.text = "UPGRADE %s  /  %s AT LV %d  /  %d XP NEXT" % [
-			tier.to_upper(),next_tier.to_upper(),next_level,
-			Progress.car_xp_remaining(int(economy.car_xp.get(car_id,0)))]
+		rarity_label.text = "UPGRADES: %s  /  NEXT %s LV %d" % [
+			tier.to_upper(),next_tier.to_upper(),next_level]
