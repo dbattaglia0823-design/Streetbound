@@ -320,18 +320,16 @@ func restore_selection() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey:
-		return
-	var key := event as InputEventKey
-	if not key.pressed or key.echo:
-		return
-	if key.keycode == KEY_G or key.physical_keycode == KEY_G:
+	if event.is_action_pressed("garage"):
 		if overlay.visible:
 			close_menu()
 		else:
 			open_menu()
 		get_viewport().set_input_as_handled()
-	elif overlay.visible and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
+	elif overlay.visible and (event.is_action_pressed("pause") or
+			(event is InputEventKey and (event as InputEventKey).pressed and
+			((event as InputEventKey).keycode == KEY_ESCAPE or
+			(event as InputEventKey).physical_keycode == KEY_ESCAPE))):
 		close_menu()
 		get_viewport().set_input_as_handled()
 
