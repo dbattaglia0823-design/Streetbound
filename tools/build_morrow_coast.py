@@ -879,11 +879,24 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     angle = replacement["angle"]
     authored_id = replacement["authoring_id"]
     is_hidden = bool(replacement.get("hidden",False))
+    # Preserve deliberate artist overrides while defaulting to the original
+    # runtime art. A 'game-*' request is an explicit artwork selection.
+    selected_asset_kind = replacement.get("asset_kind")
+    selected_asset_id = replacement.get("asset_id")
+    selected_asset_path = replacement.get("asset_path")
+    selected_asset_size = replacement.get("asset_size")
     original_fields = original.copy()
     replacement.clear()
     replacement.update(original_fields)
     replacement.update(p=destination,size=size,angle=angle,
                        authoring_id=authored_id)
+    if selected_asset_kind:
+        replacement["asset_kind"] = selected_asset_kind
+        replacement["asset_id"] = selected_asset_id
+    if selected_asset_path:
+        replacement["asset_path"] = selected_asset_path
+        replacement["asset_size"] = selected_asset_size
+        replacement["asset_id"] = selected_asset_id
     PROPS.remove(original)
     # Keep the native object's collision category. In particular, procedural
     # trees have a small solid trunk even though normally painted editor trees
