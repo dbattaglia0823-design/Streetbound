@@ -149,7 +149,7 @@ func _update_scale() -> void:
 
 func _input(event: InputEvent) -> void:
 	if not driving_hud.waiting_action.is_empty(): return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_TAB:
+	if event.is_action_pressed("map") and not get_tree().paused:
 		large=not large
 		get_viewport().set_input_as_handled()
 
