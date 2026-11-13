@@ -1,36 +1,103 @@
-# Streetbound native map editor — transition plan
+# Streetbound Native Map Editor — migration status
 
-## Phase 1 (this PR): inspect actual Godot world
+## Native editing in Godot (developer builds)
 
-In a **Godot development/debug build**, drive in Morrow Coast and press **F6**.
+Launch Streetbound from its local Godot project in debug/development mode, drive
+in Morrow Coast, and press **F6**. The game pauses while you edit. **F6 / Test
+Drive** restores your original vehicle and camera. The native editor is not
+installed in release builds, cannot be opened while split-screen is active,
+and does not create a second game world.
 
-- The actual running world remains rendered, with the existing shaders, scenery, buildings, roads and baked collisions; no browser screenshot or duplicate world is used.
-- Left-click a road, paved intersection, or placed prop to inspect the **real baked** metadata. The interface reads `MorrowCoast.data`, the exact surface/geometry queries, and the existing `TrafficNetwork.edges` generated for moving AI traffic.
-- Toggle **LANES** to show the real directional lane paths, arrows, and cubic legal turn connectors. Toggle **JUNCTIONS** to show the game's baked intersection pavement polygons. Cyan marks road lanes, orange marks connector turns, pink marks junctions, and yellow highlights the selection.
-- Use right/middle mouse drag or WASD/arrows to pan; mouse wheel zooms; **CENTER ON CAR** returns to the player.
-- **TEST DRIVE** or **F6** returns to normal player control. The car is not respawned and its original camera is restored. World streaming follows the editor camera while inspecting, then the player after exit.
+The center of the editor is **the real Godot map**, including animated art and
+the actual pavement, collision surfaces and traffic simulation. The highlighted
+pink intersection polygons come from the playable archive; cyan lane directions
+and orange intersection turn connectors come from the same
+`traffic_network.gd` built for the running traffic AI.
 
-The mode pauses physics while browsing and builds actual Morrow Coast chunks when the editor camera pans beyond already loaded areas. It exists only in Godot development/debug runs. **It is read-only and cannot save any map changes**.
+- **Inspect:** Click any real road, junction or placed scenery object. Baked
+  procedural objects can be inspected, but **not arbitrarily rewritten**.
+- **Road Anchor:** Click an authored road control point and drag it. A connected
+  endpoint on another compatible road moves with it, in the same undo step.
+  Existing source road IDs are preserved. Grid snapping is 1 metre by default;
+  use **GRID 1m** to toggle it. Dangerous 350m moves, out-of-bounds coordinates
+  and zero-length resulting road segments are rejected.
+- **Move Asset:** Move an *authored* scenery object. Generated trees, protected
+  game structures and procedural city buildings remain read-only until a
+  stable replacement/adoption workflow is supported.
+- **HOUSE / SHOP / TREE / ROCK:** Place a new source-authored object using a
+  supported existing game atlas type. Its size and collision are rebuilt by the
+  production generator, not guessed by an editor-only physics system.
+- **Rotate / Delete / Undo / Redo / Discard:** Operate on source drafts. Only
+  ordinary authored props may be deleted (not adopted or protected gameplay
+  structures). Ctrl+Z and Ctrl+Y also navigate history.
+- **Right/middle drag or WASD/arrows:** Pan. **Mouse wheel:** zoom.
+  **CENTER ON CAR:** return focus to the original vehicle.
 
-### Why editing/saving is intentionally excluded from phase 1
+**Draft preview versus playable geometry:** Bright yellow control points/lines
+and green asset footprints are **unbaked edits**. Live road, collision,
+intersection and traffic data are still the previous baked state until you
+click Apply to Game and Reload World. The native editor does not invent a
+separate intersection or traffic solver.
 
-Streetbound already has two distinct map representations:
+## Safe Apply to Game
 
-1. **Source**: `map-editor/maps/morrow-coast.edits.world.json` plus the authored roads/regions and protected base generator in `tools/build_morrow_coast.py`.
-2. **Play runtime**: `worlds/morrow-coast.world.json`, with baked world chunks, intersections, physical surface indices, and traffic graph inputs.
+The native editor uses the **same authoritative local backend** as the browser
+Map Builder: `tools/map_editor_server.py`. It writes only the World Forge v2
+authoring source, invokes `tools/build_morrow_coast.py`, and verifies the
+rebuilt, versioned `streetbound.streamed-world` output.
 
-The browser Map Builder currently validates edits, saves the source, calls the authoritative Python generator, verifies the new archive, and rolls back failures. A native editor must not silently rewrite the generated archive or allow source/runtime drift.
+1. Have **Python 3** installed on the development PC. Select **START BACKEND**
+   in F6 to launch the local-only service *without opening a browser*. If
+   Python is not on PATH, use `map-editor/Start Native Map Backend.cmd` in the
+   repository checkout and leave its terminal open.
+2. Edit the map and select **APPLY TO GAME**. The native client checks the
+   locally loaded baked world SHA, the local server's world SHA and the exact
+   authored source snapshot before sending the edit using the local token.
+3. The backend validates the revision and source, rebuilds road geometry,
+   intersections, traffic inputs, collisions and spatial indices, and either
+   commits all three files or **restores the source, world and overview** on
+   failure. Changes by another editor/rebuilder cause a conflict rather than
+   an overwrite.
+4. On success select **RELOAD WORLD**. This reloads the real Godot game scene
+   and reopens the editor at the same camera location, with freshly rebuilt
+   junctions, pavement, traffic and assets. The car is re-created for this
+   explicit reload; Test Drive without reloading preserves the original car.
 
-## Phase 2: native authoring operations
+The affected versioned files are
+`map-editor/maps/morrow-coast.edits.world.json`,
+`worlds/morrow-coast.world.json`, and
+`worlds/morrow-coast-overview.svg`. Commit those generated changes to Git
+after verifying them. **Never paste the authoring file over the baked world.**
 
-Add source-aware selection, drag handles, snapping, undo/redo and **non-destructive previews** for road control points and placed assets. Track stable authored IDs; do not treat bake-only props as independently editable. Reuse or replicate source validation, but do not invent a competing junction generator.
+Source edits during Apply are locked. If the backend is unavailable or the
+loaded source and backend source disagree, no files are modified. Restart
+Godot to import the latest source before trying again.
 
-## Phase 3: safe apply / instant inspection
+The browser Map Builder remains functional and may still be used, but don't
+edit the same document in both clients simultaneously.
 
-Add a restricted local development bridge for **Apply to Game**. Use the existing validated `build_morrow_coast.py` workflow with revision checks and rollback, then reload the updated archive, scene, pavement geometry, and traffic graph. Keep the map open at the same world coordinates. Provide a deterministic no-edit round-trip and geometry parity suite before allowing writes.
+## Current limitations and remaining transition
 
-## Phase 4: migrate UI and retire the browser editor
+This is a genuine editing-and-rebuild milestone, **not yet feature parity with
+the entire browser editor**. Source road anchor movement and source-authored
+scenery are supported. Protected/procedural scenery conversion, adding new road
+branches and junction design, region painting, full asset browsing and complex
+multi-object operations still require the browser editor. These should be
+migrated after validation of the source-identity and rollback workflow. The
+Python builder stays authoritative; only the UI is being replaced.
 
-Move asset palette, terrain tools, road topology operations and multi-select to native UI. Maintain the browser editor until the native editor passes the same source preservation, geometry, collision, traffic, undo, and startup tests.
+## Verification
 
-**Do not delete the browser editor or generated assets during this transition.**
+- `node --test map-editor/tests/*.test.mjs` — browser geometry and source
+  editor regressions.
+- `python tests/native_map_bridge_contract_test.py` — native-to-local backend
+  status/token/revision authorization; stale apply; failed rebuild rollback of
+  source, playable map and overview; successful apply.
+- Godot `tests/native_world_editor_test.gd` — real map/traffic inspection,
+  editor cameras, streaming and Test Drive restoration.
+- Godot `tests/native_map_authoring_test.gd` — real source anchors,
+  connected endpoints, authored scenery, undo/redo and draft isolation.
+- GitHub Actions runs these on Godot 4.4.1 and 4.6.3.
+
+The current local backend stays bound to `127.0.0.1` and requires a matching
+origin plus session token for writes. It does not expose a public network API.
