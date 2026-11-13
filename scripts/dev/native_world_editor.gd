@@ -1,7 +1,7 @@
 extends CanvasLayer
 ## First native Streetbound world editor milestone: directly inspect the real
 ## rendered Morrow Coast, paved junctions, source props, and traffic network.
-## READ ONLY until a source/bake/reload transaction can be verified.
+## Source edits are undoable drafts; writes use the existing validated Python rebaker.
 const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
@@ -115,6 +115,7 @@ func _build_authoring_ui() -> void:
 	_btn("ROTATE -15",actions,_rotate_selected.bind(-15.0))
 	_btn("ROTATE +15",actions,_rotate_selected.bind(15.0))
 	_btn("DELETE",actions,_delete_selected)
+	_btn("GRID 1m",actions,_toggle_snap)
 	_btn("DISCARD",actions,_discard_draft)
 	_btn("START BACKEND",actions,_start_backend)
 	apply_button = _btn("APPLY TO GAME",actions,_apply_draft)
@@ -182,6 +183,11 @@ func _rotate_selected(degrees: float) -> void:
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
 		_notice("Asset rotated %.0f°. Apply to regenerate the actual art/collision." % degrees)
+
+func _toggle_snap() -> void:
+	snap_m = 0.0 if snap_m > 0.0 else 1.0
+	_notice("Grid snapping %s; linked endpoints stay connected." % [
+		"disabled" if snap_m == 0.0 else "set to 1 metre"])
 
 func _delete_selected() -> void:
 	if not source_ready or source_id.is_empty():
@@ -386,7 +392,7 @@ func _build_ui() -> void:
 	heading.add_theme_font_size_override("font_size",14)
 	col.add_child(heading)
 	var help := Label.new()
-	help.text = "Left click: inspect     Right drag: pan\nMouse wheel: zoom     F6: test drive"
+	help.text = "Click / drag: selected edit tool\nRight drag: pan   Wheel: zoom   F6: test drive"
 	help.add_theme_font_size_override("font_size",12)
 	col.add_child(help)
 	var divider := HSeparator.new()
@@ -399,7 +405,7 @@ func _build_ui() -> void:
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
 	var note := Label.new()
-	note.text = "READ-ONLY FOUNDATION\nBrowser editing and safe Python rebake are unchanged."
+	note.text = "Amber road / green asset outlines = DRAFT ONLY.\nActual junctions/traffic update after Apply + Reload."
 	note.add_theme_color_override("font_color",Color(0.99,0.71,0.42))
 	note.add_theme_font_size_override("font_size",11)
 	col.add_child(note)
@@ -567,6 +573,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				close_editor()
 				get_viewport().set_input_as_handled()
 				return
+			if active and key.ctrl_pressed and (key.keycode in [KEY_Z,KEY_Y] or
+					key.physical_keycode in [KEY_Z,KEY_Y]):
+				if key.keycode==KEY_Y or key.physical_keycode==KEY_Y or key.shift_pressed:
+					_redo()
+				else:
+					_undo()
+				get_viewport().set_input_as_handled()
+				return
 	if not active:
 		return
 	if event is InputEventMouseButton:
@@ -581,13 +595,22 @@ func _unhandled_input(event: InputEvent) -> void:
 				Vector2(0.26,0.26),Vector2(3.0,3.0))
 			_update_view(true)
 			get_viewport().set_input_as_handled()
-		elif mouse.pressed and mouse.button_index==MOUSE_BUTTON_LEFT:
-			select_at(world.get_global_mouse_position())
+		elif mouse.button_index==MOUSE_BUTTON_LEFT:
+			var hit_position := world.get_global_mouse_position()
+			if mouse.pressed:
+				_source_click(hit_position)
+			elif not pending_drag.is_empty():
+				_finish_source_drag(hit_position)
 			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseMotion and _right_drag:
+	elif event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
-		editor_camera.global_position -= motion.relative/editor_camera.zoom
-		get_viewport().set_input_as_handled()
+		if _right_drag:
+			editor_camera.global_position -= motion.relative/editor_camera.zoom
+			get_viewport().set_input_as_handled()
+		elif not pending_drag.is_empty():
+			pending_drag["to"] = world.get_global_mouse_position()
+			_refresh_authoring()
+			get_viewport().set_input_as_handled()
 
 func _nearest_prop(p: Vector2) -> Dictionary:
 	# The actual baked per-chunk prop indices, not a separate browser index.
