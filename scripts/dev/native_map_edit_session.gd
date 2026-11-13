@@ -270,19 +270,20 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	var mapping := {
 		"tree":["oak","game-tree"],"pine":["pine","game-pine"],
 		"palm":["palm","game-palm"],"rock":["rock","game-rock"],
-		"house":["house","game-house"],
+		"house":["house","game-house"],"lodge":["house",""],
 		"coastal_house":["house","game-coastal_house"],
 		"shop":["building","game-shop"],"building":["building","game-shop"],
 		"warehouse":["warehouse","game-shop"],"showroom":["building","game-garage"],
 		"garage":["garage","game-garage"],"workshop":["garage","game-garage"],
 		"fuel":["gas_station","game-shop"],
+		"cafe":["building",""],"office":["building",""],
+		"hotel":["building",""],"island":["island",""],
 		"bush":["bush",""],"lamp":["streetlight",""],
 		"sign":["sign",""],"barrier":["barrier",""],
 		"dock":["dock",""],"lot":["parking",""],
 		"forecourt":["forecourt",""],
 		"parked_car":["parked_car",""],"planter":["planter",""],
-		"garden":["garden",""],"field":["field",""],
-		"island":["island",""]
+		"garden":["garden",""],"field":["field",""]
 	}
 	var original_kind := str(runtime.get("kind",""))
 	var identity_seed: Variant = runtime.get("seed")
@@ -296,7 +297,7 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	if not mapping.has(original_kind) or not integral_seed or \
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
-			runtime.has("poi") or runtime.has("authoring_id") or \
+			runtime.has("authoring_id") or \
 			bool(runtime.get("protected",false)) or doc.props.size()>=MAX_PROPS:
 		last_error = "This generated item has no safe replaceable source identity."
 		return ""
