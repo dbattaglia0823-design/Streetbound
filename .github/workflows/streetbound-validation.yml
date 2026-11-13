@@ -44,6 +44,16 @@ jobs:
             echo "Normal game startup logged a script failure" >&2
             exit 1
           fi
+      - name: Capture real visible startup scene using GPU-compatible display
+        run: |
+          set -o pipefail
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 75s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --path . --fixed-fps 60 --script res://tests/actual_game_render_probe.gd 2>&1 | tee /tmp/godot463-render-probe.log
+          grep -q 'ACTUAL GAME RENDER DIAGNOSTIC: PASS' /tmp/godot463-render-probe.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-render-probe.log
       - name: Verify real 10000 HP and 10000 lb-ft acceleration, RPM, grip and wheelspin
         run: |
           set -o pipefail
