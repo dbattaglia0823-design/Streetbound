@@ -76,6 +76,27 @@ class LocalMapEditorTests(unittest.TestCase):
             self.assertEqual(world.read_bytes(),world_bytes)
             self.assertEqual(svg.read_bytes(),b'old overview')
 
+    def test_identical_explicit_save_skips_full_rebuild(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp)
+            edit,world,svg=(base/"edit.json",base/"world.json",base/"map.svg")
+            doc={"format":"gdt.racing-world","version":2,"name":"Morrow Coast",
+                 "world":{"width":6400,"height":4800},"roads":[],"props":[]}
+            edit.write_text(json.dumps(doc),encoding="utf-8")
+            world.write_bytes(b'previous baked world')
+            svg.write_bytes(b'<svg/>')
+            old_edit=edit.stat().st_mtime_ns
+            old_world=world.stat().st_mtime_ns
+            with patch.object(server,"EDIT",edit),patch.object(server,"BAKED",world),\\
+                 patch.object(server,"OVERVIEW",svg),\\
+                 patch.object(server.subprocess,"run") as run:
+                result=server.transactional_rebuild(doc,server.digest(world))
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["unchanged"])
+            self.assertEqual(edit.stat().st_mtime_ns,old_edit)
+            self.assertEqual(world.stat().st_mtime_ns,old_world)
+            run.assert_not_called()
+
     def test_stale_revision_is_rejected_before_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             world=Path(tmp)/"world.json"
