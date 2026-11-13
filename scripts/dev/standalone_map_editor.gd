@@ -4,10 +4,12 @@ extends Node2D
 const Coast = preload("res://scripts/world/morrow_coast.gd")
 const Editor = preload("res://scripts/dev/native_world_editor.gd")
 const Tiles = preload("res://scripts/dev/editor_render_tiles.gd")
+const Dealers = preload("res://scripts/world/dealership_world.gd")
 var ground: MorrowCoast
 var native_world_editor: CanvasLayer
 var map_tiles: Node2D
 var editor_origin_camera: Camera2D
+var editor_dealerships: Node2D
 
 
 func _ready() -> void:
@@ -21,6 +23,12 @@ func _ready() -> void:
 	if not ground.initialization_complete:
 		push_error("Standalone map failed to load baked world data.")
 		return
+	editor_dealerships = Node2D.new()
+	editor_dealerships.set_script(Dealers)
+	editor_dealerships.world = ground
+	editor_dealerships.editor_render_only = true
+	ground.dealerships = editor_dealerships
+	add_child(editor_dealerships)
 	map_tiles = Node2D.new()
 	map_tiles.name = "CameraBoundEditorTiles"
 	map_tiles.set_script(Tiles)
