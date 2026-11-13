@@ -70,8 +70,8 @@ func _run() -> void:
 			{"name":"background_grass","metres":Vector2(2448.0,3003.0)}
 		]:
 			var pixel: Vector2 = root.canvas_transform * (item.metres * 20.0)
-			var valid := pixel.x >= 0.0 and pixel.y >= 0.0 and
-				pixel.x < float(shot.get_width()) and pixel.y < float(shot.get_height())
+			var valid := (pixel.x >= 0.0 and pixel.y >= 0.0 and
+				pixel.x < float(shot.get_width()) and pixel.y < float(shot.get_height()))
 			print("GAME WORLD PIXEL ",item.name," at ",pixel," visible=",valid,
 				" color=",shot.get_pixel(int(pixel.x),int(pixel.y)).to_html(false)
 				if valid else "offscreen")
