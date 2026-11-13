@@ -21,7 +21,7 @@
     <button id="load-world" class="gdt-btn">Load</button>
     <label class="gdt-btn upload">Import JSON <input id="import-world" type="file" accept=".json,application/json" hidden></label>
     <button id="export-world" class="gdt-btn">Export JSON</button>
-    <button id="save-morrow" class="gdt-btn gdt-btn--primary" type="button" hidden title="Apply map edits directly to the project and rebuild the playable world">Apply to Game</button>
+    <button id="save-morrow" class="gdt-btn gdt-btn--primary" type="button" hidden title="Save edits to the playable world and rebuild only when clicked">Save to Game</button>
     <button id="export-godot" class="gdt-btn gdt-btn--primary">Godot 4 ZIP</button>
     <button id="audit-top" class="gdt-btn" type="button">Map health</button>
   </div>
@@ -182,7 +182,7 @@
         <option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic spawn</option><option value="custom">Custom marker</option>
       </select></div>
     </div>
-    <p class="sidebar-tip">Open Game Map loads the actual baked roads, biomes, destinations and procedural scenery. Edit road handles or place scenery, then Apply to Game to rebuild the playable world. Restart a running game to see the updates.</p>
+    <p class="sidebar-tip">Open Game Map loads the actual baked roads, biomes, destinations and procedural scenery. Edit road handles or place scenery, then Save to Game to rebuild the playable world. Restart a running game to see the updates.</p>
   </aside>
   <main class="viewport-panel">
     <div class="canvasbar">
