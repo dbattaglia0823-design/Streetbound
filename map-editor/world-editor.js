@@ -1419,6 +1419,7 @@ async function openGameMap({skipConfirm=false,fromApply=false}={}){
     if(!Array.isArray(raw.props)||!raw.props.length)
       throw new Error('Playable Morrow Coast contains no baked scenery assets. Rebuild Morrow Coast from the source map before editing.');
     const preview=buildRuntimePreview(raw);
+    liveSession=session;
     startWorld(world,'Loaded current playable Morrow Coast: '+stats.roads+' roads, '+
       stats.regions+' regions, '+stats.landmarkMarkers+' landmarks and '+
       stats.proceduralProps.toLocaleString()+' existing baked scenery objects.',
@@ -1462,6 +1463,7 @@ $('save-morrow').addEventListener('click',async()=>{
   const button=$('save-morrow');
   if(!readyToSave())return;
   if(!isMorrowEdit(doc))return status('Open Game Map first.');
+  if(liveSession&&!dirty)return status('No unsaved map changes.');
   button.disabled=true;
   setBusy(true);
   try{
@@ -1484,6 +1486,10 @@ $('save-morrow').addEventListener('click',async()=>{
       // revision is refreshed to avoid a second-save conflict.
       loadedWorldSha=result.worldSha;
       dirty=false;
+      if(result.unchanged){
+        status('No map changes; rebuild skipped.');
+        return;
+      }
       if(!await openGameMap({skipConfirm:true,fromApply:true}))
         throw new Error('Map applied, but preview reload failed. Your saved edits are retained; use Open Game Map to retry.');
       status('Saved to worlds/morrow-coast.world.json. '+
