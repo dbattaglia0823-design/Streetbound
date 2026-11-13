@@ -5,6 +5,12 @@ extends Camera2D
 # Preserve the original speed-follow camera at the default player setting.
 # Mouse-wheel zoom is multiplied around it, rather than replacing it.
 @export_range(0.8, 1.6, 0.01) var world_zoom_multiplier := 1.20
+## Main-world only: show the actual garage and first row of houses before
+## moving. The default driving camera and user-selected zoom are unchanged.
+var startup_neighborhood_view := false
+const STARTUP_NEIGHBORHOOD_ZOOM := 0.62
+var _neighborhood_view_active := false
+var _neighborhood_start_position := Vector2.ZERO
 # Player zoom is proportional (8% per notch) so the step feels natural at
 # every distance. Hard camera bounds prevent excessive close-ups / far views.
 const PLAYER_ZOOM_MIN := 0.72
@@ -32,8 +38,13 @@ func _ready() -> void:
 	position_smoothing_enabled = false
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	global_position = target.global_position
-	# Start at the intended framing rather than briefly flashing a smaller scene.
-	zoom = Vector2.ONE * (1.06 * world_zoom_multiplier)
+	_neighborhood_start_position = global_position
+	_neighborhood_view_active = startup_neighborhood_view
+	# The Laurel spawn sits in a large parking lot. The former 1.272x
+	# opening hid both the garage (42m west) and houses (46m east), creating
+	# the impression of a roadless, empty world. Show both at first launch.
+	zoom = Vector2.ONE * (STARTUP_NEIGHBORHOOD_ZOOM if
+		_neighborhood_view_active else 1.06 * world_zoom_multiplier)
 	_previous_longitudinal = target.longitudinal_speed
 	target.impacted.connect(_on_impact)
 
@@ -53,6 +64,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		direction = -1
 	if direction == 0:
 		return
+	_neighborhood_view_active = false
 	player_zoom_multiplier = stepped_player_zoom(player_zoom_multiplier, direction)
 	get_viewport().set_input_as_handled()
 
@@ -98,6 +110,12 @@ func _physics_process(dt: float) -> void:
 		follow_heading = not follow_heading
 	var transform_now: Transform2D = target.global_transform
 	var speed := target.linear_velocity.length()
+	# The overview is an initial composition, not a persistent handling or
+	# zoom change. Driving away, steering into traffic, or manual wheel zoom
+	# restores the player's original 20%-magnified follow camera.
+	if _neighborhood_view_active and \
+			transform_now.origin.distance_to(_neighborhood_start_position) >= 35.0 * 20.0:
+		_neighborhood_view_active = false
 	var forward_speed := maxf(target.longitudinal_speed, 0.0)
 	var acceleration := (forward_speed - maxf(_previous_longitudinal, 0.0)) / maxf(dt, 0.001)
 	_previous_longitudinal = target.longitudinal_speed
@@ -113,6 +131,8 @@ func _physics_process(dt: float) -> void:
 		player_zoom_multiplier, 1.0 - exp(-WHEEL_RESPONSE * dt))
 	var target_zoom := target_zoom_for(speed, _smoothed_player_zoom,
 		world_zoom_multiplier, _surge, impact_strength)
+	if _neighborhood_view_active:
+		target_zoom = minf(target_zoom, STARTUP_NEIGHBORHOOD_ZOOM)
 	zoom = zoom.lerp(Vector2.ONE * target_zoom,
 		1.0 - exp(-CAMERA_RESPONSE * dt))
 	_impact_time += dt
