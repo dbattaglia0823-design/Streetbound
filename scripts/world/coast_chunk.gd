@@ -23,6 +23,7 @@ static func terrain_uvs(count: int, kind: String) -> PackedVector2Array:
 	result.fill(Vector2(float(TERRAIN_TAGS.get(kind,2)),0.0))
 	return result
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
+const Scenery = preload("res://scripts/world/coast_scenery.gd")
 var world: Node2D
 var cell := Vector2i.ZERO
 var content: Dictionary
@@ -262,6 +263,7 @@ func _build_collisions() -> void:
 			collider.shape = box
 		collider.position = point(prop.p)
 		collider.rotation = float(prop.angle)
+		collider.set_meta("editor_prop_key",Scenery.editor_key(prop))
 		body.add_child(collider)
 	for wall_index in content.get("walls", []):
 		var wall: Array = world.data.walls[int(wall_index)]

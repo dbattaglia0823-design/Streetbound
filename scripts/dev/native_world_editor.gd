@@ -6,6 +6,7 @@ const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
+const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const PPM := 20.0
 const PANEL_COLOR := Color(0.055,0.075,0.085,0.94)
 const ACCENT := Color("#ff9a32")
@@ -24,6 +25,12 @@ var _player_camera_input := true
 var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
 var root_ui: Control
+var inspector_panel: PanelContainer
+var asset_dock: PanelContainer
+var edit_actions: Control
+var draft_points: Array[Vector2] = []
+var preview_hidden: Dictionary = {}
+var overview_sprite: Sprite2D
 var details: Label
 var selected_preview: TextureRect
 var status: Label
@@ -34,12 +41,14 @@ var _hidden_game_ui: Dictionary = {}
 var authoring
 var bridge
 var source_ready := false
-var tool_name := "inspect"
+var tool_name := "move_prop"
 var source_id := ""
 var source_anchor := -1
 var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
+const MIN_EDITOR_ZOOM := 0.003
+const MAX_EDITOR_ZOOM := 5.0
 var authoring_notice: Label
 var mode_label: Label
 var mode_buttons: Dictionary = {}
@@ -98,40 +107,43 @@ func _reopen_baked_world(where: Vector2) -> void:
 		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
 
 func _build_authoring_ui() -> void:
-	var panel := _panel(Vector2.ZERO,Vector2(940,174))
+	var panel := _panel(Vector2.ZERO,Vector2(950,112))
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	panel.offset_left = 20
-	panel.offset_right = -20
-	panel.offset_top = -192
-	panel.offset_bottom = -18
+	panel.offset_left = 14
+	panel.offset_right = -14
+	panel.offset_top = -126
+	panel.offset_bottom = -14
 	var rows := VBoxContainer.new()
-	rows.add_theme_constant_override("separation",8)
+	rows.add_theme_constant_override("separation",4)
 	panel.add_child(rows)
 	var heading := HFlowContainer.new()
-	heading.add_theme_constant_override("h_separation",7)
+	heading.add_theme_constant_override("h_separation",5)
 	heading.add_theme_constant_override("v_separation",5)
 	rows.add_child(heading)
 	mode_label = Label.new()
 	mode_label.name = "NativeEditMode"
-	mode_label.text = "EDIT MODE"
+	mode_label.text = "SELECT / EDIT"
 	mode_label.custom_minimum_size.x = 115
 	mode_label.add_theme_color_override("font_color",ACCENT)
 	heading.add_child(mode_label)
 	for item in [
-		["INSPECT","inspect"],["ROAD ANCHOR","anchor"],["MOVE ASSET","move_prop"],
-		["HOUSE","place:house"],["SHOP","place:shop"],["TREE","place:tree"],
-		["ROCK","place:rock"]]:
+		["SELECT / EDIT","move_prop"],["DRAW ROAD","draw_road"],
+		["TERRAIN REGION","draw_terrain"],["SCENERY","place:house"],
+		["GAME MARKER","place_marker"],["PAN VIEW","pan"]]:
 		var button := _btn(str(item[0]),heading,_choose_tool.bind(str(item[1])))
 		mode_buttons[str(item[1])] = button
-	_btn("ADOPT PROP",heading,_adopt_selected)
+	_btn("ROAD POINT",heading,_choose_tool.bind("anchor"))
 	var actions := HFlowContainer.new()
 	actions.add_theme_constant_override("h_separation",7)
 	actions.add_theme_constant_override("v_separation",5)
 	rows.add_child(actions)
+	edit_actions = actions
 	_btn("UNDO  Ctrl+Z",actions,_undo)
 	_btn("REDO  Ctrl+Y",actions,_redo)
 	_btn("ROTATE -15",actions,_rotate_selected.bind(-15.0))
 	_btn("ROTATE +15",actions,_rotate_selected.bind(15.0))
+	_btn("SIZE -",actions,_resize_selected.bind(0.9))
+	_btn("SIZE +",actions,_resize_selected.bind(1.1))
 	_btn("DELETE",actions,_delete_selected)
 	_btn("GRID 1m",actions,_toggle_snap)
 	_btn("DISCARD",actions,_discard_draft)
@@ -147,26 +159,29 @@ func _build_authoring_ui() -> void:
 	authoring_notice.text = "Draft changes are in memory. Save to Game validates and rebuilds once."
 	rows.add_child(authoring_notice)
 	_update_active_tool_style()
+	_update_context_panels()
 
 
 func _update_active_tool_style() -> void:
 	for key in mode_buttons:
 		var button: Button = mode_buttons[key]
 		button.add_theme_color_override("font_color",
-			ACCENT if key == tool_name else Color("#eef0ef"))
+			ACCENT if key == tool_name or (key == "place:house" and
+			tool_name.begins_with("place:")) else Color("#eef0ef"))
 		button.add_theme_color_override("font_hover_color",ACCENT)
 
 
 func _build_asset_browser() -> void:
-	var dock := _panel(Vector2.ZERO,Vector2(285,290))
+	var dock := _panel(Vector2.ZERO,Vector2(248,210))
+	asset_dock = dock
 	dock.name = "NativeAssetBrowser"
 	dock.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
 	dock.anchor_top = 0.0
 	dock.anchor_bottom = 1.0
-	dock.offset_left = -309
-	dock.offset_right = -20
-	dock.offset_top = 92
-	dock.offset_bottom = -214
+	dock.offset_left = -260
+	dock.offset_right = -14
+	dock.offset_top = 75
+	dock.offset_bottom = -138
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",8)
 	dock.add_child(column)
@@ -202,6 +217,7 @@ func _build_asset_browser() -> void:
 	var refresh := _btn("REFRESH ASSETS",column,_scan_asset_library)
 	refresh.custom_minimum_size.y = 30
 	_scan_asset_library()
+	_update_context_panels()
 
 
 func _scan_asset_library() -> void:
@@ -281,7 +297,7 @@ func _filter_assets() -> void:
 			continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
-		button.custom_minimum_size = Vector2(122,118)
+		button.custom_minimum_size = Vector2(104,106)
 		button.tooltip_text = str(entry.name)
 		button.pressed.connect(_select_asset.bind(entry))
 		var tile := VBoxContainer.new()
@@ -294,7 +310,7 @@ func _filter_assets() -> void:
 		tile.offset_bottom = -5
 		var photo := TextureRect.new()
 		photo.texture = entry.texture
-		photo.custom_minimum_size = Vector2(110,76)
+		photo.custom_minimum_size = Vector2(94,68)
 		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -321,7 +337,127 @@ func _select_asset(entry: Dictionary) -> void:
 		active_project_asset.clear()
 		_choose_tool("place:"+str(entry.kind))
 	if tool_name.begins_with("place:"):
-		_notice("Selected "+str(entry.name)+". Click the map to place; Apply + Reload to commit.")
+		_notice("Selected "+str(entry.name)+". Click to place with live artwork and collision.")
+
+
+func _update_context_panels() -> void:
+	if is_instance_valid(asset_dock):
+		asset_dock.visible = tool_name.begins_with("place:")
+	if is_instance_valid(inspector_panel):
+		inspector_panel.visible = not selected.is_empty() or not source_id.is_empty()
+	if is_instance_valid(edit_actions):
+		edit_actions.visible = tool_name != "pan"
+
+
+func _redraw_visible_scenery() -> void:
+	if not is_instance_valid(world):
+		return
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk):
+			continue
+		for canvas in chunk.get_children():
+			if canvas is Node2D and (canvas.get_script() == \
+					preload("res://scripts/world/coast_scenery.gd") or \
+					canvas.get_script() == preload("res://scripts/world/coast_shadows.gd")):
+				canvas.queue_redraw()
+
+
+func _restore_colliders() -> void:
+	if not is_instance_valid(world):
+		return
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk) or not is_instance_valid(chunk.collider_body):
+			continue
+		for collider in chunk.collider_body.get_children():
+			if collider is CollisionShape2D and collider.has_meta("editor_prop_key"):
+				collider.disabled = false
+
+
+func _clear_editor_preview() -> void:
+	if not preview_hidden.is_empty():
+		preview_hidden.clear()
+		Scenery.editor_hidden = {}
+		_redraw_visible_scenery()
+	_restore_colliders()
+	if is_instance_valid(overview_sprite):
+		overview_sprite.visible = false
+
+
+func _sync_editor_preview() -> void:
+	if not active or not source_ready or not is_instance_valid(world):
+		return
+	var next_hidden: Dictionary = {}
+	for prop in authoring.doc.get("props",[]):
+		var initial_prop: Dictionary = {}
+		for old in authoring.initial.get("props",[]):
+			if str(old.get("id","")) == str(prop.get("id","")):
+				initial_prop = old
+				break
+		if not initial_prop.is_empty() and JSON.stringify(initial_prop) != JSON.stringify(prop):
+			next_hidden["authored:"+str(prop.id)] = true
+		if prop.has("replaces"):
+			var source: Dictionary = prop.replaces
+			var pos: Array = source.get("p",[])
+			if pos.size()==2:
+				var source_pos := Vector2(float(pos[0]),float(pos[1]))
+				for original in world.data.get("props",[]):
+					var original_pos: Array = original.get("p",[])
+					if original_pos.size()==2 and \
+							str(original.get("kind","")) == str(source.get("kind","")) and \
+							int(original.get("seed",-1)) == int(source.get("seed",-2)) and \
+							Vector2(float(original_pos[0]),float(original_pos[1])).distance_to(
+								source_pos) < 0.025:
+						next_hidden[Scenery.editor_key(original)] = true
+						break
+	if next_hidden != preview_hidden:
+		preview_hidden = next_hidden
+		Scenery.editor_hidden = preview_hidden.duplicate()
+		_redraw_visible_scenery()
+	# Source previews have their own real CollisionShape2D, and stale
+	# baked shapes are disabled only for the editing session.
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk) or not is_instance_valid(chunk.collider_body):
+			continue
+		for collider in chunk.collider_body.get_children():
+			if collider is CollisionShape2D and collider.has_meta("editor_prop_key"):
+				collider.disabled = preview_hidden.has(
+					str(collider.get_meta("editor_prop_key")))
+
+
+func _fit_map() -> void:
+	if not active or not is_instance_valid(world):
+		return
+	var size_m: Array = world.data.get("size",[6400,4800])
+	var world_px := Vector2(float(size_m[0]),float(size_m[1]))*PPM
+	var screen := get_viewport().get_visible_rect().size
+	var zoom := clampf(minf((screen.x-120.0)/world_px.x,
+		(screen.y-180.0)/world_px.y),MIN_EDITOR_ZOOM,MAX_EDITOR_ZOOM)
+	editor_camera.zoom = Vector2.ONE*zoom
+	editor_camera.global_position = world_px*0.5
+	_update_view(true)
+
+
+func _build_overview() -> void:
+	if is_instance_valid(overview_sprite):
+		return
+	var file := "res://worlds/morrow-coast-overview.svg"
+	if not FileAccess.file_exists(file):
+		return
+	var image := Image.new()
+	if image.load_svg_from_string(FileAccess.get_file_as_string(file)) != OK:
+		return
+	var texture := ImageTexture.create_from_image(image)
+	overview_sprite = Sprite2D.new()
+	overview_sprite.name = "FarZoomBakedWorldOverview"
+	overview_sprite.texture = texture
+	overview_sprite.centered = false
+	overview_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	overview_sprite.z_index = -7
+	var bounds: Array = world.data.get("size",[6400,4800])
+	overview_sprite.scale = Vector2(float(bounds[0])*PPM/texture.get_width(),
+		float(bounds[1])*PPM/texture.get_height())
+	get_parent().add_child(overview_sprite)
+	overview_sprite.visible = false
 
 
 func _notice(message: String) -> void:
@@ -335,20 +471,27 @@ func _choose_tool(mode: String) -> void:
 		_notice("Source unavailable. The map can still be inspected.")
 		return
 	tool_name = mode
+	draft_points.clear()
+	if is_instance_valid(gizmos):
+		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
 	source_id = ""
 	source_anchor = -1
 	mode_label.text = ("EDIT: "+mode.to_upper()).substr(0,25)
 	_update_active_tool_style()
+	_update_context_panels()
 	_notice("Drag a source anchor or asset; click the world to place selected artwork.")
 	_refresh_authoring()
 
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	_sync_editor_preview()
+	_update_context_panels()
 	if source_ready:
 		gizmos.set_draft(authoring.doc,authoring.initial,pending_drag,
 			source_id,source_anchor)
+		gizmos.set_pending_shape(draft_points,tool_name)
 		if is_instance_valid(apply_button):
 			apply_button.disabled = not authoring.dirty or bridge.phase != ""
 	else:
@@ -390,6 +533,14 @@ func _discard_draft() -> void:
 		_refresh_authoring()
 		_notice("All unsaved edits discarded; original authoring source restored.")
 
+func _resize_selected(factor: float) -> void:
+	if _editing_locked() or not source_ready or source_id.is_empty():
+		return
+	if authoring.resize_prop(source_id,factor):
+		_refresh_authoring()
+		_notice("Asset size and draft collision updated. Save to Game when ready.")
+
+
 func _rotate_selected(degrees: float) -> void:
 	if _editing_locked():
 		return
@@ -397,7 +548,7 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
-		_notice("Asset rotated %.0f°. Apply to regenerate the actual art/collision." % degrees)
+		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
 
 func _toggle_snap() -> void:
 	snap_m = 0.0 if snap_m > 0.0 else 1.0
@@ -418,7 +569,7 @@ func _delete_selected() -> void:
 
 func _start_backend() -> void:
 	if bridge.start_backend():
-		_notice("Local Python rebaker launched. APPLY TO GAME uses validated backup/rollback.")
+		_notice("Local Python rebaker ready. Save to Game uses validation and rollback.")
 	else:
 		_notice(bridge.last_error)
 
@@ -466,6 +617,21 @@ func _reload_world() -> void:
 	get_tree().paused = false
 	get_tree().call_deferred("reload_current_scene")
 
+func _ensure_editable_runtime_prop(item: Dictionary) -> String:
+	var known: String = authoring.index_of_runtime_prop(item)
+	if not known.is_empty():
+		return known
+	for prop in authoring.doc.get("props",[]):
+		var prior: Dictionary = prop.get("replaces",{})
+		if not prior.is_empty() and str(prior.get("kind","")) == str(item.get("kind","")) and \
+				int(prior.get("seed",-1)) == int(item.get("seed",-2)) and \
+				prior.get("p",[]) == item.get("p",[]):
+			return str(prop.id)
+	# Converts a regular generated prop into an editable replacement
+	# automatically. Protected landmarks remain protected.
+	return authoring.adopt_runtime_prop(item)
+
+
 func _adopt_selected() -> void:
 	if _editing_locked() or not source_ready:
 		return
@@ -482,7 +648,7 @@ func _adopt_selected() -> void:
 	if garage_geometry.is_player_garage(item) or item.has("poi"):
 		_notice("Protected garage or gameplay landmark: cannot replace it.")
 		return
-	var id: String = authoring.adopt_runtime_prop(item)
+	var id: String = _ensure_editable_runtime_prop(item)
 	if id.is_empty():
 		_notice(authoring.last_error)
 		return
@@ -491,10 +657,10 @@ func _adopt_selected() -> void:
 	tool_name = "move_prop"
 	mode_label.text = "EDIT: MOVE PROP"
 	var source_item: Dictionary = authoring.prop_at_id(id)
-	details.text = "ADOPTED GAME ASSET\n%s\n\nOriginal identity preserved.\nMove, rotate or resize.\nApply to rebuild real game geometry." % [
+	details.text = "SELECTED GAME ASSET\n%s\n\nDrag, rotate, resize or delete.\nUnsaved changes are visible now." % [
 		str(source_item.get("name",""))]
 	_refresh_authoring()
-	_notice("Source-backed replacement created; old procedural prop stays until Apply + Reload.")
+	_notice("Selected asset is editable; its art and collision now follow edits.")
 
 func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	if not source_ready:
@@ -536,6 +702,27 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 func _source_click(world_px: Vector2) -> void:
 	if _editing_locked():
 		return
+	if tool_name == "draw_road":
+		draft_points.append(world_px/PPM)
+		if draft_points.size() == 2:
+			source_id = authoring.add_road(draft_points[0],draft_points[1])
+			draft_points.clear()
+			_refresh_authoring()
+			_notice("Road added to draft. Save to Game to rebuild traffic.")
+		else:
+			_notice("Select the second road endpoint.")
+		gizmos.set_pending_shape(draft_points,tool_name)
+		return
+	if tool_name == "draw_terrain":
+		draft_points.append(world_px/PPM)
+		gizmos.set_pending_shape(draft_points,tool_name)
+		_notice("Terrain: click vertices, then press Enter to finish.")
+		return
+	if tool_name == "place_marker":
+		source_id = authoring.add_marker(world_px/PPM)
+		_refresh_authoring()
+		_notice("Game marker added to unsaved draft.")
+		return
 	if tool_name.begins_with("place:"):
 		var kind := tool_name.substr(6)
 		var id := ""
@@ -557,7 +744,7 @@ func _source_click(world_px: Vector2) -> void:
 			source_id = id
 			source_anchor = -1
 			_refresh_authoring()
-			_notice("Placed "+kind+" source preview. Undo or Apply to commit after rebuild.")
+			_notice("Placed "+kind+" with live artwork and collision preview. Save to Game when ready.")
 		else:
 			_notice(authoring.last_error)
 		return
@@ -571,12 +758,17 @@ func _source_click(world_px: Vector2) -> void:
 			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
-				_notice("Select ADOPT PROP to convert this original into a source-backed replacement."
-					if authoring.index_of_runtime_prop(item)=="" else
-					"Select the source asset footprint to drag it.")
+				var editable_id := _ensure_editable_runtime_prop(item)
+				if not editable_id.is_empty():
+					var editable: Dictionary = authoring.prop_at_id(editable_id)
+					hit = {"kind":"prop","id":editable_id,
+						"from":Vector2(float(editable.x),float(editable.y))*PPM}
+				else:
+					_notice(authoring.last_error)
 		else:
-			_notice("Click an existing editable source road anchor, not a baked junction.")
-		return
+			_notice("Click an editable road control point.")
+		if hit.is_empty():
+			return
 	source_id = str(hit.id)
 	source_anchor = int(hit.get("index",-1))
 	pending_drag = hit.duplicate(true)
@@ -650,26 +842,28 @@ func _btn(text_value: String, parent: Node, callback: Callable) -> Button:
 	return b
 
 func _build_ui() -> void:
-	var header := _panel(Vector2.ZERO,Vector2(940,60))
+	var header := _panel(Vector2.ZERO,Vector2(940,48))
 	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	header.offset_left = 20
-	header.offset_right = -20
-	header.offset_top = 15
-	header.offset_bottom = 75
+	header.offset_left = 14
+	header.offset_right = -14
+	header.offset_top = 9
+	header.offset_bottom = 58
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation",9)
 	header.add_child(row)
 	var title := Label.new()
 	title.text = "STREETBOUND  /  WORLD EDITOR"
-	title.add_theme_font_size_override("font_size",19)
+	title.add_theme_font_size_override("font_size",16)
 	title.add_theme_color_override("font_color",ACCENT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
+	_btn("FIT MAP",row,_fit_map)
 	_btn("TEST DRIVE  F6",row,close_editor)
-	var sidebar := _panel(Vector2(20,92),Vector2(340,390))
+	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
+	inspector_panel = sidebar
 	sidebar.name = "SelectedObjectInspector"
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation",10)
@@ -687,7 +881,7 @@ func _build_ui() -> void:
 	col.add_child(HSeparator.new())
 	selected_preview = TextureRect.new()
 	selected_preview.name = "SelectedAssetPreview"
-	selected_preview.custom_minimum_size = Vector2(304,82)
+	selected_preview.custom_minimum_size = Vector2(244,72)
 	selected_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	selected_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	selected_preview.visible = false
@@ -695,20 +889,26 @@ func _build_ui() -> void:
 	details = Label.new()
 	details.name = "SelectedWorldObject"
 	details.text = "Select a road, junction or building to inspect its live game data."
-	details.custom_minimum_size = Vector2(300,160)
+	details.custom_minimum_size = Vector2(244,145)
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
 	var note := Label.new()
-	note.text = "AMBER / GREEN OUTLINES = DRAFT ONLY\nTraffic updates after Apply + Reload."
+	note.text = "Draft art and collision are live.\nSave to Game rebuilds roads and traffic."
 	note.add_theme_color_override("font_color",ACCENT)
 	note.add_theme_font_size_override("font_size",11)
 	col.add_child(note)
-	var footer := _panel(Vector2(20,495),Vector2(690,45))
+	var footer := _panel(Vector2.ZERO,Vector2(500,34))
+	footer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	footer.offset_left = 14
+	footer.offset_right = 514
+	footer.offset_top = -168
+	footer.offset_bottom = -132
 	status = Label.new()
 	status.text = "Press F6 during free roam to inspect the live map."
 	status.add_theme_font_size_override("font_size",12)
 	footer.add_child(status)
+	_update_context_panels()
 
 
 func _can_enter() -> bool:
@@ -757,16 +957,20 @@ func open_editor() -> bool:
 	editor_camera.rotation = 0.0
 	editor_camera.zoom = driving_camera.zoom
 	editor_camera.zoom = editor_camera.zoom.clamp(
-		Vector2(0.26,0.26),Vector2(3.0,3.0))
+		Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
+		Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 	get_parent().add_child(editor_camera)
 	driving_camera.enabled = false
 	driving_camera.set_physics_process(false)
 	driving_camera.set_process_unhandled_input(false)
 	editor_camera.make_current()
 	active = true
+	_build_overview()
 	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
+	gizmos.set_preview_collision_enabled(true)
+	_update_context_panels()
 	_right_drag = false
 	_last_cell = Vector2i(-999,-999)
 	get_tree().paused = true
@@ -785,6 +989,8 @@ func close_editor() -> void:
 	active = false
 	root_ui.visible = false
 	gizmos.visible = false
+	gizmos.set_preview_collision_enabled(false)
+	_clear_editor_preview()
 	pending_drag.clear()
 	_set_game_ui_visible(true)
 	_right_drag = false
@@ -833,7 +1039,7 @@ func _process(dt: float) -> void:
 		direction.y += 1.0
 	if direction != Vector2.ZERO:
 		editor_camera.global_position += direction.normalized() * dt * \
-			950.0 / maxf(0.26,editor_camera.zoom.x)
+			950.0 / maxf(0.008,editor_camera.zoom.x)
 	_refresh_elapsed += dt
 	if _refresh_elapsed >= 0.12:
 		_refresh_elapsed = 0.0
@@ -852,6 +1058,9 @@ func _update_view(force: bool = false) -> void:
 		_last_cell = cell
 	if not world.pending.is_empty():
 		world._build_chunk(world.pending.pop_front())
+	if is_instance_valid(overview_sprite):
+		overview_sprite.visible = editor_camera.zoom.x < 0.055
+	_sync_editor_preview()
 	gizmos.set_view(here,get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
 	var meters := here / PPM
@@ -871,9 +1080,43 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				close_editor()
+				if not draft_points.is_empty():
+					draft_points.clear()
+					gizmos.set_pending_shape(draft_points,tool_name)
+					_notice("Unfinished shape canceled.")
+				else:
+					close_editor()
 				get_viewport().set_input_as_handled()
 				return
+			if active and tool_name == "draw_terrain" and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+				if draft_points.size() >= 3:
+					var region_id: String = authoring.add_region(draft_points)
+					if not region_id.is_empty():
+						draft_points.clear()
+						gizmos.set_pending_shape(draft_points,tool_name)
+						_refresh_authoring()
+						_notice("Terrain region added. Save to Game when ready.")
+					else:
+						_notice(authoring.last_error)
+				get_viewport().set_input_as_handled()
+				return
+			# Mirror the browser map editor's V/R/T/P/M/H tool shortcuts.
+			# Never intercept typing in the searchable asset browser.
+			var focused := get_viewport().gui_get_focus_owner()
+			if active and not key.ctrl_pressed and not key.alt_pressed and \
+					not (focused is LineEdit or focused is TextEdit):
+				var shortcut := ""
+				match key.physical_keycode:
+					KEY_V: shortcut = "move_prop"
+					KEY_R: shortcut = "draw_road"
+					KEY_T: shortcut = "draw_terrain"
+					KEY_P: shortcut = "place:house"
+					KEY_M: shortcut = "place_marker"
+					KEY_H: shortcut = "pan"
+				if not shortcut.is_empty():
+					_choose_tool(shortcut)
+					get_viewport().set_input_as_handled()
+					return
 			if active and key.ctrl_pressed and (key.keycode in [KEY_Z,KEY_Y] or
 					key.physical_keycode in [KEY_Z,KEY_Y]):
 				if key.keycode==KEY_Y or key.physical_keycode==KEY_Y or key.shift_pressed:
@@ -893,10 +1136,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 			var factor := 1.13 if mouse.button_index==MOUSE_BUTTON_WHEEL_UP else 1.0/1.13
 			editor_camera.zoom = (editor_camera.zoom*factor).clamp(
-				Vector2(0.26,0.26),Vector2(3.0,3.0))
+				Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
+				Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 			_update_view(true)
 			get_viewport().set_input_as_handled()
 		elif mouse.button_index==MOUSE_BUTTON_LEFT:
+			if tool_name == "pan":
+				_right_drag = mouse.pressed
+				get_viewport().set_input_as_handled()
+				return
 			var hit_position: Vector2 = world.get_global_mouse_position()
 			if mouse.pressed:
 				_source_click(hit_position)
@@ -959,6 +1207,7 @@ func select_at(position_px: Vector2) -> Dictionary:
 
 func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	selected = what.duplicate()
+	_update_context_panels()
 	gizmos.set_selection(selected)
 	selected_preview.visible = false
 	selected_preview.texture = null

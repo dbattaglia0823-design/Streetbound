@@ -111,14 +111,32 @@ func _run() -> void:
 		session.adopt_runtime_prop({
 			"kind":"house","seed":1892,"p":[2240.0,3120.0],
 			"size":[12.0,17.0]})=="")
-	check("adopted_original_cannot_be_deleted_as_a_new_prop",
-		not session.delete_prop(adopted))
+	check("direct_delete_hides_adopted_original_without_losing_identity",
+		session.delete_prop(adopted) and
+		bool(session.prop_at_id(adopted).get("hidden",false)) and
+		session.undo() and not bool(session.prop_at_id(adopted).get("hidden",false)))
 	check("protected_and_unstable_runtime_props_cannot_be_adopted",
 		session.adopt_runtime_prop({"kind":"house","seed":1,
 			"p":[2240,3120],"poi":"Laurel Motor House"})=="" and
 		session.adopt_runtime_prop({"kind":"house",
 			"p":[2240,3120]})=="")
 	session.discard_changes()
+	var road_count: int = session.doc.roads.size()
+	var native_road := session.add_road(Vector2(1800,2700),Vector2(1840,2710))
+	check("draw_road_uses_unsaved_undoable_browser_source",
+		native_road=="road-%d" % road_count and
+		session.doc.roads.size()==road_count+1 and session.undo())
+	var region_count: int = session.doc.regions.size()
+	var corners: Array[Vector2] = [Vector2(310,320),Vector2(390,320),Vector2(390,370)]
+	var native_region := session.add_region(corners)
+	check("terrain_region_is_previewed_without_world_rebake",
+		native_region=="region-%d" % region_count and
+		session.doc.regions.size()==region_count+1 and session.undo())
+	var marker_count: int = session.doc.markers.size()
+	var native_marker := session.add_marker(Vector2(2350,3100))
+	check("native_marker_uses_browser_source_contract",
+		native_marker=="marker-%d" % marker_count and
+		session.doc.markers.size()==marker_count+1 and session.undo())
 	var game: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -132,7 +150,23 @@ func _run() -> void:
 		editor.traffic_network = game.ground.get_node("AmbientTraffic").get("network")
 		game.add_child(editor)
 		await process_frame
+	check("draft_sprite_seed_matches_python_world_baker",
+		editor.gizmos._source_seed("prop-native-1")==648520850 and
+		editor.gizmos._source_seed("prop-native-2")==1068430632)
 	check("actual_native_editor_opens_in_game",editor.open_editor())
+	check("asset_browser_is_contextual_not_always_on",
+		is_instance_valid(editor.asset_dock) and not editor.asset_dock.visible)
+	editor._choose_tool("place:house")
+	check("asset_browser_appears_only_in_scenery_mode",
+		editor.asset_dock.visible)
+	editor._choose_tool("move_prop")
+	check("asset_browser_hides_for_selection",
+		not editor.asset_dock.visible)
+	editor._fit_map()
+	check("fit_map_can_zoom_far_enough_to_show_the_entire_world",
+		editor.editor_camera.zoom.x<0.03)
+	editor._recenter()
+
 	check("native_editor_has_searchable_asset_thumbnail_dock",
 		is_instance_valid(editor.asset_grid) and
 		is_instance_valid(editor.asset_search) and
@@ -169,6 +203,23 @@ func _run() -> void:
 	if adopt_idx>=0:
 		editor._update_selection({"kind":"prop","index":adopt_idx})
 		editor._adopt_selected()
+		var preview_asset: Dictionary = editor.authoring.prop_at_id(editor.source_id)
+		var runtime_asset: Dictionary = game.ground.data.props[adopt_idx]
+		check("draft_asset_uses_real_game_artwork",
+			editor.gizmos._prop_texture(preview_asset) != null)
+		check("draft_asset_has_collision_preview_node",
+			is_instance_valid(editor.gizmos.preview_body))
+		var expected_solid := bool(runtime_asset.get("solid",false))
+		var preview_has_collision: bool = is_instance_valid(editor.gizmos.preview_body) and \
+			editor.gizmos.preview_body.get_child_count()>0
+		print("DRAFT COLLISION DIAGNOSTIC expected_solid=",expected_solid,
+			" preview_has_collision=",preview_has_collision,
+			" count=",editor.gizmos.preview_body.get_child_count(),
+			" source=",preview_asset.get("replaces",{}),
+			" kind=",runtime_asset.get("kind",""),
+			" original_size=",runtime_asset.get("size",[]))
+		check("draft_collision_matches_original_asset_solidity",
+			preview_has_collision == expected_solid)
 		check("real_baked_tree_adoption_keeps_identity_and_preview",
 			editor.authoring.dirty and editor.source_id.begins_with("prop-native-") and
 			editor.authoring.prop_at_id(editor.source_id).replaces.kind=="tree")

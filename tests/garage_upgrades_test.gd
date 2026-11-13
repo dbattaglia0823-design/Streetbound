@@ -54,7 +54,7 @@ func run() -> void:
 		== "invalid_or_duplicate" and economy.upgrade_inventory.size() == old_inventory_count)
 	check("fresh_car_cannot_equip_common_before_level_ten",
 		economy.install_part(Ownership.STARTER_ID,awarded_uid) == "level_locked")
-	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item(awarded_uid).template))
+	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item("up-9001").template))
 	check("reward_part_stats_are_explicit",not rewarded.is_empty() and \
 		rewarded.get("modifiers",{}) is Dictionary and \
 		not (rewarded.modifiers as Dictionary).is_empty())
@@ -141,9 +141,12 @@ func run() -> void:
 	car.set_physics_process(false)
 	var garage: CanvasLayer = game.get_node("VehicleSelector")
 	garage.inventory = economy
-	var screen: Control = garage.upgrade_screen
-	screen.set("economy",economy)
-	economy.changed.connect(screen.refresh)
+	# The garage intentionally no longer contains an upgrades menu.
+	# The separate quick-upgrades overlay owns the six-slot equipment UI.
+	var quick: CanvasLayer = game.quick_upgrades
+	quick.economy = economy
+	quick.vehicle = car
+	economy.changed.connect(quick.refresh)
 	var garage_prop: Dictionary = game.ground.player_garage_prop
 	var parking: Rect2 = GarageGeometry.parking_rect(
 		Vector2(float(garage_prop.size[0]),float(garage_prop.size[1])))
@@ -153,29 +156,31 @@ func run() -> void:
 	car.linear_velocity = Vector2.ZERO
 	car.velocity = Vector2.ZERO
 	garage.open_menu()
-	garage._show_tab("upgrades")
-	check("garage_has_real_upgrades_tab_and_ten_slot_buttons",
-		garage.overlay.visible and garage.active_tab == "upgrades" and \
-		screen.visible and screen.slots_box.get_child_count() == 10)
-	check("garage_lists_owned_parts_for_chosen_slot",
-		screen.inventory_label.text.contains("OWNED PART"))
-	# UI installation changes actual controller parameters as well as the
-	# saved loadout. Does not merely redraw the stat preview.
-	economy.unequip_part(second_car,installed_slot)
-	screen.call("_select_slot",installed_slot)
-	screen.call("_equip",awarded_uid)
-	var current_part := Parts.get_part(str(economy.get_upgrade_item(awarded_uid).template))
+	check("garage_is_cars_only_without_removed_upgrade_tab",
+		garage.overlay.visible and
+		garage.overlay.find_child("UpgradesTab",true,false)==null)
+	garage.close_menu()
+	quick.open_menu()
+	check("quick_upgrades_has_six_hot_swap_slots_outside_garage",
+		quick.overlay.visible and quick.slot_buttons.size()==6)
+	quick._open_slot("suspension")
+	check("quick_upgrades_lists_owned_parts_for_chosen_slot",
+		quick.picker_title.text.contains("OWNED PARTS"))
+	# Swapping parts through the current quick-upgrades UI applies the
+	# same stock-relative deltas to actual in-game vehicle physics.
+	quick._install_uid("up-9001")
+	var current_part := Parts.get_part(str(economy.get_upgrade_item("up-9001").get("template","")))
 	var stock: VehicleConfig = Catalog.make_configuration(entry)
 	var expected: VehicleConfig = Catalog.make_configuration(entry)
 	Parts.apply_to_config(expected,[current_part])
 	var key := str(current_part.modifiers.keys()[0])
-	check("garage_part_install_applies_to_live_driving_physics",
+	check("quick_upgrade_install_applies_to_live_driving_physics",
 		is_equal_approx(float(car.config.get(key)),float(expected.get(key))) and \
 		not is_equal_approx(float(stock.get(key)),float(car.config.get(key))))
-	screen.call("_unequip_current_slot")
-	check("garage_unequip_restores_stock_driving_stat",
+	quick._unequip_selected()
+	check("quick_upgrade_unequip_restores_stock_driving_stat",
 		is_equal_approx(float(car.config.get(key)),float(stock.get(key))))
-	garage.close_menu()
+	quick.close_menu()
 	# Real persistence across a process restart, with restoration of any
 	# prior user save after the test completes.
 	var path := Ownership.SAVE_PATH

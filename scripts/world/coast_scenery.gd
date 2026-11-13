@@ -5,6 +5,15 @@ const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const PPM := 20.0
+## Dev-only editor visibility mask; the source and baked files stay unchanged.
+static var editor_hidden: Dictionary = {}
+
+static func editor_key(prop: Dictionary) -> String:
+	if prop.has("authoring_id"):
+		return "authored:"+str(prop.authoring_id)
+	return "generated:%s:%s:%s" % [str(prop.get("seed","")),
+		str(prop.get("p",[0,0])[0]),str(prop.get("p",[0,0])[1])]
+
 var prop_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
 func _ready() -> void:
@@ -318,6 +327,8 @@ func _draw_player_garage(size: Vector2) -> void:
 
 
 func _draw_prop(prop: Dictionary) -> void:
+	if editor_hidden.has(editor_key(prop)):
+		return
 	var center := point(prop.p)
 	var size := Vector2(float(prop.size[0]),float(prop.size[1]))*PPM
 	var color := Color(prop.color)

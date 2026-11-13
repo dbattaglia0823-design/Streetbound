@@ -2,6 +2,7 @@ extends Node2D
 ## One cached shadow canvas per streamed chunk, consistent northwest light.
 ## Procedural buildings, trees and gardens cast depth as well as atlas sprites.
 const Art = preload("res://scripts/world/coast_art.gd")
+const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 var prop_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
@@ -11,6 +12,8 @@ func _ready() -> void:
 
 func _draw() -> void:
 	for prop in prop_list:
+		if Scenery.editor_hidden.has(Scenery.editor_key(prop)):
+			continue
 		var kind: String = str(prop.kind)
 		if kind in ["lot","forecourt","field","start_line","finish_line"]:
 			continue
