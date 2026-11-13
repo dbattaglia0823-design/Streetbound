@@ -29,6 +29,12 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify native map authoring roads, props, undo and safe previews (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
+          grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
       - name: Verify native F6 world editor uses real junctions, traffic and restores test drive (4.6.3)
         run: |
           set -o pipefail
@@ -224,6 +230,12 @@ jobs:
         run: python3 tests/morrow_expansion_stability_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Verify native map authoring roads, props, undo and safe previews (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-441.log
+          grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-441.log
       - name: Verify native F6 world editor uses real junctions, traffic and restores test drive (4.4.1)
         run: |
           set -o pipefail
