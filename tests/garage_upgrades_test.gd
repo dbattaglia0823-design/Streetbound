@@ -21,8 +21,8 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 
 
 func run() -> void:
-	check("eight_distinct_upgrade_slots",Parts.SLOTS.size() == 8)
-	check("fifty_part_variants_loaded",Parts.all().size() == 50)
+	check("ten_distinct_upgrade_types",Parts.SLOTS.size() == 10)
+	check("one_hundred_fifty_part_variants_loaded",Parts.all().size() == 150)
 	var complete := true
 	for slot in Parts.SLOTS:
 		for rarity in Parts.RARITIES:
@@ -30,8 +30,8 @@ func run() -> void:
 			for part in Parts.in_slot(slot):
 				if str(part.rarity) == rarity:
 					variants += 1
-			complete = complete and variants == (2 if slot in ["suspension","tires"] else 1)
-	check("every_slot_has_all_five_rarities_and_both_handling_specs",complete)
+			complete = complete and variants == 3
+	check("every_part_type_has_three_variants_per_rarity",complete)
 	var economy := Ownership.new(false)
 	check("fresh_ownership_has_no_upgrade_loot",
 		economy.upgrade_inventory.is_empty() and economy.upgrade_loadouts.is_empty())
@@ -154,9 +154,9 @@ func run() -> void:
 	car.velocity = Vector2.ZERO
 	garage.open_menu()
 	garage._show_tab("upgrades")
-	check("garage_has_real_upgrades_tab_and_eight_slot_buttons",
+	check("garage_has_real_upgrades_tab_and_ten_slot_buttons",
 		garage.overlay.visible and garage.active_tab == "upgrades" and \
-		screen.visible and screen.slots_box.get_child_count() == 8)
+		screen.visible and screen.slots_box.get_child_count() == 10)
 	check("garage_lists_owned_parts_for_chosen_slot",
 		screen.inventory_label.text.contains("OWNED PART"))
 	# UI installation changes actual controller parameters as well as the
