@@ -32,3 +32,17 @@ test('traffic direction visualization uses travel arrows instead of authoring-or
   assert.match(source,/ctx\.strokeStyle='#78e7fa99'/);
   assert.match(source,/ctx\.fillStyle='#b4f0fa'/);
 });
+
+test('editor previews keep right in every compass direction on two, four and six lane roads',()=>{
+  for(const [start,end,right] of [
+    [x(100),x(500),{x:0,y:1}], [x(500),x(100),{x:0,y:-1}],
+    [x(300,100),x(300,500),{x:-1,y:0}], [x(300,500),x(300,100),{x:1,y:0}]
+  ])for(const count of [2,4,6]){
+    const lanes=lanePatterns([{...road('test',[start,end]),width:18,lanes:count}]);
+    assert.equal(lanes.length,count);
+    for(const lane of lanes)for(const point of lane.points){
+      const side=((point.x-start.x)*right.x+(point.y-start.y)*right.y)*lane.direction;
+      assert.ok(Math.abs(side-18/count*(lane.lane+.5))<1e-6);
+    }
+  }
+});

@@ -31,6 +31,8 @@ func find_lane(network: RefCounted, road_id: int, direction: int) -> Dictionary:
 
 
 func _run() -> void:
+	_check_cardinal_lanes()
+	_check_intersection_lanes()
 	var network := Network.new()
 	network.build({"roads": [
 		road("Eastbound drawn east", "west", "join", 100.0, 300.0),
@@ -77,3 +79,74 @@ func _run() -> void:
 	print("RIGHT HAND MERGE LANES: ", "PASS" if failures.is_empty() else
 		"FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
+
+
+func _check_cardinal_lanes() -> void:
+	# Absolute compass expectations, independent of Godot's orthogonal().
+	for fixture in [
+		[Vector2(100,300),Vector2(500,300),Vector2.DOWN,"east"],
+		[Vector2(500,300),Vector2(100,300),Vector2.UP,"west"],
+		[Vector2(300,100),Vector2(300,500),Vector2.LEFT,"south"],
+		[Vector2(300,500),Vector2(300,100),Vector2.RIGHT,"north"]]:
+		for count in [2,4,6]:
+			var start: Vector2 = fixture[0]
+			var finish: Vector2 = fixture[1]
+			var right: Vector2 = fixture[2]
+			var network := Network.new()
+			network.build({"roads":[{"name":"Compass","start":"a","end":"b",
+				"kind":"highway","surface":"ASPHALT","width":18.0,"lanes":count,
+				"points":[[start.x,start.y],[finish.x,finish.y]]}],"junctions":[]})
+			var correct: bool = network.edges.size()==count
+			for edge in network.edges:
+				var side := right*int(edge.direction)
+				var expected := 18.0/float(count)*(float(edge.lane)+0.5)*PPM
+				for point in edge.points:
+					correct = correct and absf((point-start*PPM).dot(side)-expected)<0.01
+				var sample: Dictionary = network.point_on_edge(int(edge.id),float(edge.length_px)*0.5)
+				correct = correct and Vector2.UP.rotated(float(sample.angle)).dot(sample.tangent)>0.999
+			check("right_hand_%s_%d_lanes" % [fixture[3],count],correct)
+
+
+func _check_intersection_lanes() -> void:
+	var arms := []
+	for id in 2:
+		for side in [-1,1]:
+			arms.append({"road":id,"side":side,"station":180.0 if side<0 else 220.0,
+				"control":"stop"})
+	var network := Network.new()
+	network.build({"roads":[
+		{"name":"Across","start":"w","end":"e","kind":"arterial","surface":"ASPHALT",
+			"width":16.0,"lanes":4,"points":[[100,300],[500,300]]},
+		{"name":"Down","start":"n","end":"s","kind":"arterial","surface":"ASPHALT",
+			"width":16.0,"lanes":4,"points":[[300,100],[300,500]]}],
+		"junctions":[{"control":"all_way_stop","approaches":arms}]})
+	var legal := true
+	var right_count := 0
+	var left_count := 0
+	var straight_count := 0
+	for source in network.edges:
+		if bool(source.connector):continue
+		for id in source.next:
+			var turn: Dictionary = network.edges[int(id)]
+			var target: Dictionary = network.edges[int(turn.next[0])]
+			legal = legal and turn.points[0].distance_to(source.points[-1])<0.01
+			legal = legal and turn.points[-1].distance_to(target.points[0])<0.01
+			match str(turn.turn):
+				"left":
+					left_count+=1
+					legal = legal and int(source.lane)==0 and int(target.lane)==0
+				"straight":
+					straight_count+=1
+					legal = legal and int(source.lane)==int(target.lane)
+				"right":
+					right_count+=1
+					legal = legal and int(source.lane)==1 and int(target.lane)==1
+					var approach: Vector2 = (source.points[-1]-source.points[-2]).normalized()
+					var exit: Vector2 = (target.points[1]-target.points[0]).normalized()
+					for point in turn.points:
+						var relative: Vector2 = point-Vector2(300,300)*PPM
+						legal = legal and relative.dot(Vector2(-approach.y,approach.x))>0
+						legal = legal and relative.dot(Vector2(-exit.y,exit.x))>0
+	check("four_way_turns_use_correct_lanes_and_join_continuously",legal)
+	check("all_four_approaches_have_left_right_and_straight",right_count==4 and left_count==4 and straight_count==8,
+		[right_count,left_count,straight_count])

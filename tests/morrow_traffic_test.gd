@@ -83,8 +83,35 @@ func run() -> void:
 			traffic.network.edges.size())
 		check("live_morrow_intersections_linked",traffic.network.connector_count>10,
 			traffic.network.connector_count)
+		check_live_lane_sides(traffic)
 		check("traffic_bounded",traffic.maximum_vehicles<=20 and traffic.agents.size()<=20)
 		check("cosmetic_traffic_not_mixed_into_player_physics",
 			not traffic.get_node_or_null("TrafficBody"))
 	print("MORROW COAST TRAFFIC: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
+
+
+func check_live_lane_sides(traffic: Node2D) -> void:
+	var wrong_side: Array[int] = []
+	var checked := 0
+	for edge in traffic.network.edges:
+		if bool(edge.connector):continue
+		checked+=1
+		var sample: Dictionary = traffic.network.point_on_edge(int(edge.id),float(edge.length_px)*0.5)
+		var position_px: Vector2 = sample.position
+		var raw: Array = traffic.world.data.roads[int(edge.road)].points
+		var nearest_distance := INF
+		var signed_side := 0.0
+		for i in range(1,raw.size()):
+			var a := Vector2(float(raw[i-1][0]),float(raw[i-1][1]))*20.0
+			var b := Vector2(float(raw[i][0]),float(raw[i][1]))*20.0
+			if a.distance_squared_to(b)<0.01:continue
+			var closest := Geometry2D.get_closest_point_to_segment(position_px,a,b)
+			var distance_px := closest.distance_squared_to(position_px)
+			if distance_px<nearest_distance:
+				nearest_distance=distance_px
+				# Positive cross product means screen-right, in both travel directions.
+				signed_side=((b-a).normalized()*int(edge.direction)).cross(position_px-closest)
+		if signed_side<=0.1:wrong_side.append(int(edge.id))
+	check("every_live_road_lane_keeps_right_including_curves",checked>0 and wrong_side.is_empty(),
+		{"checked":checked,"wrong_side":wrong_side})
