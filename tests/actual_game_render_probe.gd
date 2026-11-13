@@ -123,6 +123,7 @@ func _run() -> void:
 	ground.set_performance_debug(false)
 	# The intro camera must return to normal follow/zoom after driving.
 	car.linear_velocity = Vector2.UP * 2.0
+	car.global_position += Vector2(35.5 * 20.0, 0.0)
 	cam._physics_process(1.0 / 60.0)
 	expect("driving_disengages_temporary_neighborhood_overview",
 		not bool(cam._neighborhood_view_active))
