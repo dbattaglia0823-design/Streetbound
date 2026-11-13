@@ -403,13 +403,16 @@ func stream_at(position_px: Vector2) -> void:
 					pending.append(index)
 				else:
 					cached_chunk_reuses += 1
-	pending.sort_custom(func(a: Vector2i,b: Vector2i):
-		return mini(a.distance_squared_to(center),
-			a.distance_squared_to(second) if second.x!=-999 else
-				a.distance_squared_to(center)) <
-			mini(b.distance_squared_to(center),
-				b.distance_squared_to(second) if second.x!=-999 else
-				b.distance_squared_to(center)))
+	# Avoid a nested inline conditional inside the sorter: this parses
+	# inconsistently across the project's pinned Godot versions.
+	pending.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
+		var a_distance := a.distance_squared_to(center)
+		var b_distance := b.distance_squared_to(center)
+		if second.x != -999:
+			a_distance = mini(a_distance,a.distance_squared_to(second))
+			b_distance = mini(b_distance,b.distance_squared_to(second))
+		return a_distance < b_distance
+	)
 	for index in chunks.keys():
 		var cell_delta := _stream_cell_distance(index,center,second)
 		if cell_delta > 2:
