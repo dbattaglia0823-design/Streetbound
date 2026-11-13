@@ -583,8 +583,11 @@ function drawAssetThumbnail(canvas,item){
   const ctx=canvas.getContext('2d');
   if(!ctx)return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const [w,h]=item.assetId&&!item.game&&item.custom
-    ?[item.custom.width,item.custom.height]:(BASE_SIZE[item.type]||[30,30]);
+  const usingNativeArt=item.game||(!item.custom&&!!runtimePreview);
+  // The standalone illustrated props are intentionally larger than the
+  // metre-scale game atlas. Fit them independently to avoid clipped thumbnails.
+  const [w,h]=item.custom?[item.custom.width,item.custom.height]:
+    usingNativeArt?(BASE_SIZE[item.type]||[30,30]):[116,104];
   const extent=Math.max(1,w,h);
   const scale=Math.min(67/extent,8);
   ctx.save();
@@ -593,7 +596,7 @@ function drawAssetThumbnail(canvas,item){
   // Render with the same renderer and asset selection as the placement preview.
   drawProp(ctx,{id:'dock-'+item.type,x:0,y:0,rotation:0,scale:1,
     type:item.type,assetId:item.assetId},
-    doc.assets,item.game||(!item.custom&&!!runtimePreview));
+    doc.assets,usingNativeArt);
   ctx.restore();
 }
 function refreshAssetDock(){
