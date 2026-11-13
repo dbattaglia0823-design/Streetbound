@@ -138,8 +138,12 @@ func _run() -> void:
 	var adopt_idx := -1
 	for i in game.ground.data.props.size():
 		var item: Dictionary = game.ground.data.props[i]
+		var seed_value: Variant = item.get("seed")
+		var is_integral_seed: bool = (typeof(seed_value) in [TYPE_INT,TYPE_FLOAT] and
+			is_finite(float(seed_value)) and
+			absf(float(seed_value)-roundf(float(seed_value)))<0.0001)
 		if (str(item.get("kind",""))=="tree" and
-				typeof(item.get("seed"))==TYPE_INT and
+				is_integral_seed and
 				not item.has("poi") and not item.has("authoring_id")):
 			adopt_idx = i
 			break
