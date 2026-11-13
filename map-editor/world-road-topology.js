@@ -17,11 +17,10 @@ const endpoints=(road)=>[
   {road,index:0,point:road.points[0]},
   {road,index:road.points.length-1,point:road.points.at(-1)}
 ];
-const chooseId=(doc,desired)=>doc.roads.some(r=>r.id===desired)?desired:doc.roads.at(-1)?.id;
 
-/** Join a selected road with ONE matching road when exactly two compatible
- * endpoints meet. Snap the shared endpoint, keep the selected road's ID and
- * all other entities untouched. Never merge branches or closed road loops.
+/** Join a selected road with a compatible road when exactly two endpoints
+ * participate at the join. Keep the selected road's ID and all other entities.
+ * Never merge branches or already-closed road loops.
  */
 export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
   const target=doc.roads.find(r=>r.id===roadId);
@@ -44,10 +43,20 @@ export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
       }
     }
   }
-  // Two distinct joins on the same selected road are ambiguous (possible ring
-  // or parallel streets). Require the operator to split/rearrange them first.
-  if(possibilities.length!==1)return {doc,joined:false,roadId};
-  const {a,b}=possibilities[0];
+  // A new connector can touch separate roads at BOTH ends, or bridge two
+  // ends of the same road into a closed circuit. Join one end at a time; the
+  // editor may call this again to combine its remaining endpoint. A genuine
+  // 3-way junction is rejected by the participant check above.
+  const distinct=new Map();
+  for(const match of possibilities){
+    const key=match.a.index+':'+match.b.road.id+':'+match.b.index;
+    if(!distinct.has(key))distinct.set(key,match);
+  }
+  const matches=[...distinct.values()].sort((x,y)=>x.a.index-y.a.index||x.gap-y.gap);
+  if(!matches.length)return {doc,joined:false,roadId};
+  if(matches.filter(m=>m.a.index===matches[0].a.index).length!==1)
+    return {doc,joined:false,roadId};
+  const {a,b}=matches[0];
   const left=a.index===0?[...target.points].reverse():target.points.slice();
   const right=b.index===0?b.road.points.slice():[...b.road.points].reverse();
   const shared=left.at(-1);
