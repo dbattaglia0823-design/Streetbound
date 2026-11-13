@@ -8,14 +8,14 @@ const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
 const DESIGN := Vector2(1180.0, 660.0)
-const QUICK_SLOTS := ["engine","intake","transmission","tires","suspension","brakes"]
+const QUICK_SLOTS := ["engine","turbo","transmission","tires","suspension","nitrous"]
 const SLOT_NAMES := {
-	"engine":"ENGINE", "intake":"INTAKE", "transmission":"TRANSMISSION",
-	"tires":"TIRES", "suspension":"SUSPENSION", "brakes":"BRAKES"
+	"engine":"ENGINE", "turbo":"TURBO", "transmission":"TRANSMISSION",
+	"tires":"TIRES", "suspension":"SUSPENSION", "nitrous":"NITROUS"
 }
 const SLOT_ICONS := {
-	"engine":"⚙", "intake":"◉", "transmission":"⇄",
-	"tires":"◎", "suspension":"↕", "brakes":"◈"
+	"engine":"⚙", "turbo":"◉", "transmission":"⇄",
+	"tires":"◎", "suspension":"↕", "nitrous":"✦"
 }
 const INK := Color("#e8eee9")
 const SUBTLE := Color("#a5b8b2")
@@ -429,7 +429,7 @@ func _refresh_picker() -> void:
 		picker_parts.add_child(option)
 	if owned == 0:
 		var empty := Label.new()
-		empty.text = "NO OWNED PARTS FOR THIS SLOT.\nFINISH RACES TO EARN UPGRADES."
+		empty.text = "NO OWNED PARTS FOR THIS SLOT.\nNEW VARIANTS WILL BE LINKED TO RACES LATER."
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.add_theme_color_override("font_color",SUBTLE)
 		empty.add_theme_font_size_override("font_size",13)
@@ -469,6 +469,8 @@ func _change_equipment(uid: String,remove: bool) -> void:
 		affected.append(str(raw_key))
 	affected.append("audio_aggression")
 	affected.append("audio_exhaust_roughness")
+	affected.append("audio_turbo_presence")
+	affected.append("audio_flutter")
 	for property in affected:
 		var prior: Variant = before.get(property)
 		var latest: Variant = after.get(property)
@@ -478,6 +480,14 @@ func _change_equipment(uid: String,remove: bool) -> void:
 		var delta := float(latest)-float(prior)
 		if absf(delta)>0.000001:
 			vehicle.config.set(property,float(vehicle.config.get(property))+delta)
+	# Audio induction is a string, not a numeric modifier. Switch to turbo
+	# sound on a newly boosted N/A car and back to its authored stock voice
+	# when removing the turbo. Other engine-specific profiles remain intact.
+	if before.audio_induction != after.audio_induction and \
+			vehicle.config.audio_induction == before.audio_induction:
+		vehicle.config.audio_induction = after.audio_induction
+	if vehicle.has_method("on_upgrade_config_changed"):
+		vehicle.on_upgrade_config_changed(before.nitrous_capacity_seconds)
 	last_result = "PART REMOVED  /  VEHICLE UPDATED" if remove else \
 		"UPGRADE INSTALLED  /  VEHICLE UPDATED"
 	refresh()
