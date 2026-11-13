@@ -44,8 +44,9 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 				requested[cell] = true
 				ordered.append(cell)
 	ordered.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
-		return Vector2(a).distance_squared_to(center_m/world.chunk_m) <
-			Vector2(b).distance_squared_to(center_m/world.chunk_m))
+		var da: float = Vector2(a).distance_squared_to(center_m/world.chunk_m)
+		var db: float = Vector2(b).distance_squared_to(center_m/world.chunk_m)
+		return da < db)
 	wanted = requested
 	for cell in tiles.keys():
 		if not wanted.has(cell):
