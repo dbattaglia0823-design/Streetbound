@@ -48,7 +48,8 @@ function setBusy(active){
   panSpace=false;
 }
 function flushAutosave(){
-  if(!sessionReady)return; // Do not overwrite a draft while startup is still fetching its preview.
+  // Live-map edits stay in memory until explicit Save to Game.
+  if(!sessionReady||isMorrowEdit(doc)&&liveSession)return; // Do not overwrite a draft while startup is still fetching its preview.
   clearTimeout(autosaveTimer);
   try{localStorage.setItem(AUTO,encodeSession(doc,{dirty,worldSha:loadedWorldSha,
     view:{zoom,x:(viewport.clientWidth/2-offsetX)/zoom,y:(viewport.clientHeight/2-offsetY)/zoom}}));}
@@ -61,6 +62,18 @@ function readyToSave(){
 }
 let presetCache=null;
 const laneCache=new WeakMap();
+const roadAutomationCache=new WeakMap();
+const clearanceCache=new WeakMap();
+const automationFor=()=>{
+  let result=roadAutomationCache.get(doc.roads);
+  if(!result){result=liveRoadAutomation(doc.roads);roadAutomationCache.set(doc.roads,result);}
+  return result;
+};
+const clearancesFor=()=>{
+  let result=clearanceCache.get(doc);
+  if(!result){result=liveRoadClearances(doc);clearanceCache.set(doc,result);}
+  return result;
+};
 const trafficFor=()=>{let lanes=laneCache.get(doc.roads);if(!lanes){lanes=lanePatterns(doc.roads);laneCache.set(doc.roads,lanes);}return lanes;};
 const minZoom=.007,maxZoom=5; // Entire 22k+ worlds still fit on narrow mobile viewports.
 const status=message=>{$('status').textContent=message;$('busy-message').textContent=message;};
@@ -158,13 +171,13 @@ function render(){
     runtimePreview,zoom});
   // The live preview is derived from the CURRENT source, including the road
   // being dragged; no auto geometry modifies the saved map.
-  const auto=liveRoadAutomation(doc.roads);
+  const auto=automationFor();
   const showClearances=$('show-road-clearances').checked;
   drawLiveAutomation(ctx,auto,{zoom,bounds,
     showJunctions:$('show-junctions').checked,
     showLoosePriority:$('show-road-priority').checked,
     showGaps:$('show-road-gaps').checked,
-    showClearances,clearances:showClearances?liveRoadClearances(doc):[]});
+    showClearances,clearances:showClearances?clearancesFor():[]});
   const generated=previewPreset();
   if(generated)drawPresetGhost(ctx,generated,doc,zoom,bounds);
   let roadsidePreview=null;
@@ -206,7 +219,7 @@ function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.strokeStyle='#f5c29699';ctx.lineWidth=1;ctx.strokeRect(offsetX+.5,offsetY+.5,doc.world.width*zoom,doc.world.height*zoom);
   $('zoom-value').textContent=Math.round(zoom*100)+'%';
-  const conflicts=$('show-road-clearances').checked?liveRoadClearances(doc).length:null;
+  const conflicts=$('show-road-clearances').checked?clearancesFor().length:null;
   $('live-automation-status').textContent=
     auto.junctions.length+' live intersections · '+
     auto.looseEnds.length+' loose-road cut ends · '+
@@ -379,7 +392,8 @@ function makeSnapshot(before,label){
   redoStack=[];dirty=true;
   auditUI.invalidate();
   clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(flushAutosave,650);
+  if(!isMorrowEdit(doc)||!liveSession)
+    autosaveTimer=setTimeout(flushAutosave,650);
   refreshUI();if(label)status(label);
 }
 function change(edit,label){
@@ -403,7 +417,8 @@ function redo(){
 function afterHistory(message){
   if(selection&&!getEntity(doc,selection.id))selection=null;
   dirty=true;auditUI.invalidate();clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(flushAutosave,650);
+  if(!isMorrowEdit(doc)||!liveSession)
+    autosaveTimer=setTimeout(flushAutosave,650);
   refreshUI();status(message);
 }
 function setTool(next){
@@ -816,7 +831,7 @@ function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();ref
 function startWorld(world,message,{skipRecovery=false,preview=null,restoredDirty=false,worldSha='',view=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
-  if(dirty&&!skipRecovery)auditUI.stash(doc);
+  if(dirty&&!skipRecovery&&!isMorrowEdit(doc))auditUI.stash(doc);
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
   sessionReady=true;
   runtimePreview=preview;loadedWorldSha=worldSha;adoptGameProp=false;
@@ -1410,7 +1425,6 @@ async function openGameMap({skipConfirm=false,fromApply=false}={}){
       {preview});
     liveSession=session;
     loadedWorldSha=session?.worldSha||'';
-    flushAutosave();
     $('show-traffic').checked=true;
     $('show-scenery').checked=true;
     // Start at the actual driving neighborhood where houses and foliage are
@@ -1449,7 +1463,7 @@ $('save-morrow').addEventListener('click',async()=>{
   if(!readyToSave())return;
   if(!isMorrowEdit(doc))return status('Open Game Map first.');
   button.disabled=true;
-  flushAutosave();setBusy(true);
+  setBusy(true);
   try{
     const content=morrowEditText(doc);
     if(liveSession&&loadedWorldSha){
@@ -1457,7 +1471,7 @@ $('save-morrow').addEventListener('click',async()=>{
       // It backs up the current world, validates inputs, invokes the real
       // Python baker and rolls back on failure. Nothing is silently written
       // while editing; this click is the user's apply action.
-      status('Validating and rebuilding playable Morrow Coast...');
+      status('Saving changes to game and rebuilding the playable map...');
       const response=await fetch('/api/apply-morrow',{
         method:'POST',headers:{'Content-Type':'application/json',
           'X-Streetbound-Editor-Token':liveSession.token},
@@ -1469,10 +1483,10 @@ $('save-morrow').addEventListener('click',async()=>{
       // The rebuild is complete before the world is reloaded, and the
       // revision is refreshed to avoid a second-save conflict.
       loadedWorldSha=result.worldSha;
-      dirty=false;flushAutosave();
+      dirty=false;
       if(!await openGameMap({skipConfirm:true,fromApply:true}))
         throw new Error('Map applied, but preview reload failed. Your saved edits are retained; use Open Game Map to retry.');
-      status('Applied directly to worlds/morrow-coast.world.json. '+
+      status('Saved to worlds/morrow-coast.world.json. '+
         'Rebuilt '+(result.stats?.roads||0)+' roads and '+
         (result.stats?.props||0).toLocaleString()+' scenery items. Restart the game to load changes.');
     }else if(typeof window.showSaveFilePicker==='function'){
@@ -1648,7 +1662,8 @@ requestAnimationFrame(async()=>{
   fit();
   const session=await detectProjectMode();
   if(session)try{await refreshProjectAssets();}catch(e){errorMessage(e);}
-  if(shouldRestoreSession(recoveredSession,Boolean(session))){
+  if(shouldRestoreSession(recoveredSession,Boolean(session)) &&
+      !(session&&isMorrowEdit(recoveredSession.doc))){
     liveSession=session;
     let preview=null;
     if(session&&isMorrowEdit(recoveredSession.doc)){
