@@ -398,43 +398,61 @@ func _refresh_picker() -> void:
 	for child in picker_parts.get_children():
 		picker_parts.remove_child(child)
 		child.queue_free()
-	var owned := 0
-	for item in economy.upgrade_inventory:
-		var template := Parts.get_part(str(item.get("template","")))
-		if template.is_empty() or str(template.get("slot",""))!=selected_slot:
+	# Browse the entire catalog even without inventory. New templates are
+	# visible but non-interactive until future race rewards grant physical
+	# upgrade items; installation continues to require an owned UID.
+	var variants: Array[Dictionary] = Parts.in_slot(selected_slot)
+	variants.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		var order_a := Parts.RARITIES.find(str(a.rarity))
+		var order_b := Parts.RARITIES.find(str(b.rarity))
+		return order_a < order_b if order_a != order_b else \
+			str(a.specialty) < str(b.specialty))
+	for template in variants:
+		var owned_items: Array[Dictionary] = []
+		for item in economy.upgrade_inventory:
+			if str(item.get("template","")) == str(template.id):
+				owned_items.append(item)
+		if owned_items.is_empty():
+			var preview := Button.new()
+			preview.name = "Unowned_"+str(template.id).replace("-","_")
+			preview.custom_minimum_size.y = 69
+			preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			preview.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			preview.add_theme_font_size_override("font_size",12)
+			var source := "FUTURE RACE REWARD" if not \
+				bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
+			preview.text = "%s  /  %s\n%s  ·  %s" % [
+				str(template.name),str(template.rarity),Parts.summary(template),
+				source]
+			preview.tooltip_text = "Part not owned. %s" % source
+			preview.disabled = true
+			_style_button(preview,false)
+			picker_parts.add_child(preview)
 			continue
-		owned += 1
-		var uid := str(item.get("uid",""))
-		var status := economy.can_install_part(car_id,uid)
-		var currently := economy.equipped_uid(car_id,selected_slot)==uid
-		var label := "%s  /  %s\n%s" % [
-			str(template.get("name","PART")),str(template.get("rarity","")),
-			Parts.summary(template)]
-		if currently:
-			label += "   ·  INSTALLED"
-		elif status == "level_locked":
-			label += "   ·  CAR LEVEL LOCKED"
-		elif status == "equipped_elsewhere":
-			label += "   ·  EQUIPPED ON ANOTHER CAR"
-		var option := Button.new()
-		option.name = "Part_"+uid.replace("-","_")
-		option.text = label
-		option.custom_minimum_size.y = 67
-		option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		option.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		option.add_theme_font_size_override("font_size",13)
-		option.disabled = currently or status!="ready"
-		option.pressed.connect(_install_uid.bind(uid))
-		_style_button(option,false)
-		picker_parts.add_child(option)
-	if owned == 0:
-		var empty := Label.new()
-		empty.text = "NO OWNED PARTS FOR THIS SLOT.\nNEW VARIANTS WILL BE LINKED TO RACES LATER."
-		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty.add_theme_color_override("font_color",SUBTLE)
-		empty.add_theme_font_size_override("font_size",13)
-		picker_parts.add_child(empty)
-
+		for item in owned_items:
+			var uid := str(item.get("uid",""))
+			var status := economy.can_install_part(car_id,uid)
+			var currently := economy.equipped_uid(car_id,selected_slot)==uid
+			var label := "%s  /  %s\n%s" % [
+				str(template.get("name","PART")),str(template.get("rarity","")),
+				Parts.summary(template)]
+			if currently:
+				label += "   ·  INSTALLED"
+			elif status == "level_locked":
+				label += "   ·  CAR LEVEL LOCKED"
+			elif status == "equipped_elsewhere":
+				label += "   ·  EQUIPPED ON ANOTHER CAR"
+			var option := Button.new()
+			option.name = "Part_"+uid.replace("-","_")
+			option.text = label
+			option.custom_minimum_size.y = 69
+			option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			option.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			option.add_theme_font_size_override("font_size",12)
+			option.disabled = currently or status!="ready"
+			option.pressed.connect(_install_uid.bind(uid))
+			_style_button(option,false)
+			picker_parts.add_child(option)
 
 func _install_uid(uid: String) -> void:
 	_change_equipment(uid,false)
