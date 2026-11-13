@@ -4,6 +4,8 @@ extends CanvasLayer
 ## buttons, mouse, gamepad focus and Escape continue working when paused.
 signal exit_requested
 signal split_screen_requested
+signal map_editor_requested
+signal main_menu_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
@@ -14,6 +16,8 @@ var driving_camera
 var allow_quit := true
 var menu_state := ""
 var split_screen_active := false
+var map_editor_available := false
+var settings_back_to_title := false
 var settings_store
 
 var overlay: Control
@@ -63,6 +67,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
 	_apply_saved_settings()
+	_update_map_editor_button()
 
 func _load_screen(path: String, screen_name: String) -> Variant:
 	var screen: Variant = ToolkitLayout.new()
@@ -414,12 +419,31 @@ func _sync_settings() -> void:
 
 func set_split_screen_active(enabled: bool) -> void:
 	split_screen_active = enabled
+	_update_map_editor_button()
 	var action: Button = pause_screen.controls.get("local_multiplayer")
 	if is_instance_valid(action):
 		action.text = "Exit Split-Screen" if enabled else "Local Split-Screen"
 	var title: Label = pause_screen.controls.get("pause_heading")
 	if is_instance_valid(title):
 		title.text = "PAUSED"
+
+
+func set_map_editor_available(enabled: bool) -> void:
+	map_editor_available = enabled
+	_update_map_editor_button()
+
+
+func _update_map_editor_button() -> void:
+	if not is_instance_valid(pause_screen):
+		return
+	var action: Button = pause_screen.controls.get("map_editor")
+	if not is_instance_valid(action):
+		return
+	action.disabled = not map_editor_available or split_screen_active
+	action.tooltip_text = ("Map Editor is available in development builds only."
+		if not map_editor_available else
+		"Exit split-screen to edit the world." if split_screen_active else
+		"Inspect and edit the real Godot world; changes are validated before rebuilding.")
 
 
 func show_split_screen_error(message: String) -> void:
@@ -466,6 +490,10 @@ func open_settings() -> void:
 	_show_page("settings")
 
 func back_to_pause() -> void:
+	if settings_back_to_title:
+		settings_back_to_title = false
+		resume_game()
+		return
 	_show_page("paused")
 
 func _request_quit() -> void:
@@ -479,6 +507,11 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 			resume_game()
 		"game.local_multiplayer":
 			split_screen_requested.emit()
+		"game.map_editor":
+			if map_editor_available and not split_screen_active:
+				map_editor_requested.emit()
+		"nav.main_menu":
+			main_menu_requested.emit()
 		"nav.settings":
 			open_settings()
 		"nav.back":
