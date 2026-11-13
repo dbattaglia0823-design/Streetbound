@@ -19,7 +19,8 @@ func run() -> void:
 	var code: String = ground_material.shader.code
 	check("detail_uses_world_meters", code.contains("MODEL_MATRIX") and code.contains("world_m"))
 	check("multiple_terrain_scales", code.contains("0.027") and code.contains("0.16"))
-	check("water_and_beach_materials", code.contains("float water") and code.contains("float sand") and code.contains("float foam"))
+	check("water_and_beach_materials", code.contains("bool water = kind==7 || kind==8") and
+		code.contains("bool foam = kind==9") and code.contains("kind==6 || kind==12"))
 	check("mountain_relief_preserved", code.contains("texture(relief") and code.contains("relief_mask"))
 	check("blade_shading_present", code.contains("grass_tuft"))
 	var types: Dictionary = {}
