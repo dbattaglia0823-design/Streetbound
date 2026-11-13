@@ -481,8 +481,11 @@ function refreshEntities(){
   $('entities-count').textContent=count.toLocaleString()+
     (showScenery&&runtimePreview?' ASSETS':' TOTAL');
   const maxRows=180;
+  // All objects must retain room for roads, terrain and markers; dedicate
+  // the full browser only when the user explicitly selects Game scenery.
+  const nativeRows=filter==='all'?72:maxRows;
   const native=showScenery&&runtimePreview?
-    browseRuntimeAssets(runtimePreview,doc,maxRows):{total:0,rows:[]};
+    browseRuntimeAssets(runtimePreview,doc,nativeRows):{total:0,rows:[]};
   const entries=[
     ...baseEntries.filter(e=>e.type==='props'),
     ...native.rows.map(item=>({type:'native',item})),
