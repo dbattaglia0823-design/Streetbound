@@ -185,9 +185,10 @@ export function buildRuntimePreview(raw){
         (Number(item.p[1])-Number(spawn[1]))**2;
       return dist(a)-dist(b);
     });
+  const authoredIds=new Set(props.map(prop=>prop.authoring_id).filter(id=>typeof id==='string'));
   preloadGameArtwork();
   return {cell,buckets,roads,junctions,sourceTerrain,propsCount:props.length,
-    assetBrowser,sourceSize,extensionTerrain};
+    assetBrowser,authoredIds,sourceSize,extensionTerrain};
 }
 
 /** Return a bounded list of the game's REAL scenery without copying the
