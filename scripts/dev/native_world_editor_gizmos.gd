@@ -160,9 +160,13 @@ func _rebuild_preview_collisions() -> void:
 		if prop.has("replaces") and is_instance_valid(world):
 			var prior: Dictionary = prop.replaces
 			for original in world.data.get("props",[]):
-				if str(original.get("kind","")) == str(prior.get("kind","")) and \
+				var original_pos: Array = original.get("p",[])
+				var source_pos: Array = prior.get("p",[])
+				if original_pos.size()==2 and source_pos.size()==2 and \
+						str(original.get("kind","")) == str(prior.get("kind","")) and \
 						int(original.get("seed",-1)) == int(prior.get("seed",-2)) and \
-						original.get("p",[]) == prior.get("p",[]):
+						Vector2(float(original_pos[0]),float(original_pos[1])).distance_to(
+							Vector2(float(source_pos[0]),float(source_pos[1]))) < 0.025:
 					is_decoration = not bool(original.get("solid",false))
 					if kind in ["oak","pine","palm"]:
 						trunk_radius = float(original.get("radius",0.65))*PPM
