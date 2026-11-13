@@ -1032,6 +1032,10 @@ func close_editor() -> void:
 	editor_camera = null
 	if standalone_mode:
 		get_tree().paused = false
+		if get_tree().has_meta("streetbound_editor_return_position"):
+			get_tree().remove_meta("streetbound_editor_return_position")
+		if get_tree().has_meta("streetbound_editor_test_drive"):
+			get_tree().remove_meta("streetbound_editor_test_drive")
 		get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
 		return
 	driving_camera.enabled = _player_camera_enabled
@@ -1057,6 +1061,9 @@ func _test_drive() -> void:
 		if authoring.dirty or bridge.phase != "":
 			_notice("Save to Game or DISCARD before Test Drive.")
 			return
+		get_tree().set_meta("streetbound_editor_test_drive",true)
+		get_tree().set_meta("streetbound_editor_return_position",
+			editor_camera.global_position)
 		get_tree().paused = false
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
 	else:
@@ -1134,6 +1141,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if key.keycode == KEY_F6 or key.physical_keycode == KEY_F6:
 				if active:
 					_test_drive()
+				elif bool(get_tree().get_meta("streetbound_editor_test_drive",false)):
+					get_tree().remove_meta("streetbound_editor_test_drive")
+					get_tree().paused = false
+					get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
 				else:
 					open_editor()
 				get_viewport().set_input_as_handled()
