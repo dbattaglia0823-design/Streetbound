@@ -445,8 +445,9 @@ func _build_overview() -> void:
 	overview_sprite.centered = false
 	overview_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	overview_sprite.z_index = -7
-	overview_sprite.scale = Vector2(float(world.data.size[0])*PPM/texture.get_width(),
-		float(world.data.size[1])*PPM/texture.get_height())
+	var bounds: Array = world.data.get("size",[6400,4800])
+	overview_sprite.scale = Vector2(float(bounds[0])*PPM/texture.get_width(),
+		float(bounds[1])*PPM/texture.get_height())
 	get_parent().add_child(overview_sprite)
 	overview_sprite.visible = false
 
