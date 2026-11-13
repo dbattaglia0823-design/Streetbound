@@ -4,6 +4,8 @@ extends CanvasLayer
 ## READ ONLY until a source/bake/reload transaction can be verified.
 const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
+const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
+const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
 const PPM := 20.0
 const PANEL_COLOR := Color(0.035,0.065,0.080,0.94)
 const ACCENT := Color(0.98,0.67,0.35)
@@ -28,6 +30,23 @@ var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
 var _hidden_game_ui: Dictionary = {}
+var authoring
+var bridge
+var source_ready := false
+var tool_name := "inspect"
+var source_id := ""
+var source_anchor := -1
+var pending_drag: Dictionary = {}
+var drag_position := Vector2.ZERO
+var snap_m := 1.0
+var authoring_notice: Label
+var mode_label: Label
+var reload_button: Button
+var apply_button: Button
+var source_revision := ""
+static var resume_after_rebuild := false
+static var resume_editor_position := Vector2.ZERO
+
 
 func _ready() -> void:
 	name = "NativeWorldEditor"
@@ -41,6 +60,12 @@ func _ready() -> void:
 	root_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root_ui)
 	_build_ui()
+	_build_authoring_ui()
+	authoring = EditSession.new()
+	bridge = Node.new()
+	bridge.set_script(LocalBridge)
+	bridge.completed.connect(_on_apply_completed)
+	add_child(bridge)
 	root_ui.visible = false
 	gizmos = Node2D.new()
 	gizmos.set_script(Gizmos)
@@ -48,6 +73,18 @@ func _ready() -> void:
 	gizmos.network = traffic_network
 	get_parent().add_child.call_deferred(gizmos)
 	set_process(false)
+	if resume_after_rebuild:
+		var saved_position := resume_editor_position
+		resume_after_rebuild = false
+		call_deferred("_reopen_baked_world",saved_position)
+
+func _reopen_baked_world(where: Vector2) -> void:
+	if not is_inside_tree() or not is_instance_valid(world):
+		return
+	if open_editor():
+		editor_camera.global_position = where
+		_update_view(true)
+		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
 
 func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 	var p := PanelContainer.new()
@@ -152,6 +189,12 @@ func open_editor() -> bool:
 	if not _can_enter():
 		return false
 	_owns_pause = not get_tree().paused
+	if not source_ready:
+		source_ready = authoring.load_source()
+		if not source_ready:
+			_notice("Source not loaded: "+authoring.last_error)
+		else:
+			_notice("Native source loaded. Select a tool; draft changes stay in memory.")
 	_player_camera_enabled = driving_camera.enabled
 	_player_camera_physics = driving_camera.is_physics_processing()
 	_player_camera_input = driving_camera.is_processing_unhandled_input()
@@ -177,6 +220,7 @@ func open_editor() -> bool:
 	get_tree().paused = true
 	set_process(true)
 	_update_selection({})
+	_refresh_authoring()
 	_update_view(true)
 	return true
 
@@ -186,6 +230,7 @@ func close_editor() -> void:
 	active = false
 	root_ui.visible = false
 	gizmos.visible = false
+	pending_drag.clear()
 	_set_game_ui_visible(true)
 	_right_drag = false
 	set_process(false)
