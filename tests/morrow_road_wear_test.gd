@@ -27,7 +27,7 @@ func run() -> void:
 	check("road_wear_is_cached_in_asphalt_stage",
 		file.contains("_road_wear(path, r, width, float(batch.phase))"))
 	check("gravel_and_race_surfaces_remain_unchanged",
-		file.contains('str(road.surface) == "GRAVEL"') and
+		file.contains('str(road.surface) in ["GRAVEL","DIRT"]') and
 		file.contains('str(road.kind) == "track"'))
 	check("faded_markings_remain_stationed",file.contains("dash_index"))
 	print("MORROW ROAD WEAR: ", "PASS" if failures.is_empty() else "FAIL")

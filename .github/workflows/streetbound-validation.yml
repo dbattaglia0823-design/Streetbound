@@ -59,7 +59,7 @@ jobs:
       - name: Verify real rendered roads and scenery across developed districts
         run: |
           set -o pipefail
-          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
+          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --audio-driver Dummy --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
           grep -q 'WORLD RENDER CONTRACT: PASS' /tmp/godot463-world-render.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/godot463-world-render.log
       - name: Verify real 10000 HP and 10000 lb-ft acceleration, RPM, grip and wheelspin
@@ -146,6 +146,12 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-size.log
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-size.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-traffic-size.log
+      - name: Verify six-slot upgrade overlay works in Godot 4.6.3
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/quick_upgrades_overlay_test.gd 2>&1 | tee /tmp/godot463-quick-upgrades.log
+          grep -q 'QUICK UPGRADES OVERLAY: PASS' /tmp/godot463-quick-upgrades.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-quick-upgrades.log
       - name: Validate compact dashboard, vertical meters, zero text overlap and telemetry on Godot 4.6.3
         run: |
           set -o pipefail
@@ -272,6 +278,12 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
       - name: Verify race-earned upgrade inventory, car slots, grip/drift stats, garage UI and save migration
         run: timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/garage_upgrades_test.gd
+      - name: Verify live six-slot upgrade overlay and movement-safe part swaps
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/quick_upgrades_overlay_test.gd 2>&1 | tee /tmp/streetbound-quick-upgrades.log
+          grep -q 'QUICK UPGRADES OVERLAY: PASS' /tmp/streetbound-quick-upgrades.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-quick-upgrades.log
       - name: Verify Ashford quarter-mile racing XP, player and car level caps, rarity gates and purchase locks
         run: timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_progression_test.gd
       - name: Verify dealership locations, building art, stock, purchases and owned garage collection

@@ -175,20 +175,16 @@ func run() -> void:
 	mixer._process(0.07)
 	check("f40_turbo_sound_not_faked_for_mustang",
 		mixer._induction == "turbo" and mixer._profile_tone > 0.4)
-	# A dynamic curb ride height should trigger once when crossing, then
-	# respect its cooldown, while the ground collision stays independent.
+	# The independent visual curb suspension no longer exists. Audio must
+	# not attempt to write the retired chassis-heave field or fake curb hits.
 	var art: Node2D = car.get_node("Art")
-	art.curb_heave = 0.0
-	mixer._last_curb_height = 0.0
-	car.linear_velocity = Vector2.UP * 14.0
-	mixer._process(0.08)
-	art.curb_heave = 0.4
-	mixer._process(0.08)
-	check("asymmetric_curb_lift_plays_subtle_suspension_contact",
-		mixer.curb_hits_played >= 1)
+	check("retired_visual_curb_height_is_not_required_for_audio",
+		art.get("curb_heave") == null)
 	var curb_count := int(mixer.curb_hits_played)
+	mixer._last_curb_height = 0.0
+	mixer._curb_cooldown = 0.0
 	mixer._process(0.08)
-	check("suspension_impact_does_not_repeat_for_same_curb",
+	check("no_false_visual_suspension_curb_one_shot",
 		mixer.curb_hits_played == curb_count)
 	# Mute must gate new events, low/coast engine, road, wind and induction.
 	mixer.muted = true
@@ -201,11 +197,10 @@ func run() -> void:
 		mixer.road.volume_db < -79.0 and
 		mixer.driveline.volume_db < -79.0)
 	var no_curb := int(mixer.curb_hits_played)
-	mixer._last_curb_height = 0.0
-	art.curb_heave = 0.5
 	mixer._curb_cooldown = 0.0
 	mixer._process(0.08)
-	check("mute_prevents_new_suspension_one_shot",mixer.curb_hits_played == no_curb)
+	check("mute_prevents_new_suspension_one_shot",
+		mixer.curb_hits_played == no_curb)
 
 	print("FULL FLEET AUDIO MASTERING: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

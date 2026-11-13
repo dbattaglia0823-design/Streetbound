@@ -59,7 +59,7 @@ func _run() -> void:
 	check("camera_toggle_applied", bool(pause.settings_store.get_setting("camera_follow")))
 	# The one shape button shows the active value, applies immediately and
 	# persists in the same settings store as volume and camera follow.
-	var map_hud: Variant = get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	var map_hud: Variant = get_first_node_in_group("streetbound_world_map_hud")
 	var shape_button: Button = pause.settings_screen.controls["minimap_shape_button"]
 	check("minimap_shape_setting_starts_square",
 		shape_button.text == "Square" and
