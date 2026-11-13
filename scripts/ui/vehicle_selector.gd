@@ -290,6 +290,7 @@ func _choose(entry: Dictionary) -> void:
 		return
 	if is_instance_valid(inventory):
 		inventory.apply_car_upgrades(player.config,str(entry.id))
+		player.on_upgrade_config_changed(0.0)
 	var saved := ConfigFile.new()
 	saved.set_value("vehicle", "selected_id", str(entry.id))
 	saved.save("user://streetbound_selected_vehicle.cfg")
@@ -313,6 +314,7 @@ func restore_selection() -> void:
 	if not entry.is_empty() and Catalog.select(player, entry):
 		if is_instance_valid(inventory):
 			inventory.apply_car_upgrades(player.config,selected_id)
+			player.on_upgrade_config_changed(0.0)
 		if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
 			driving_hud.on_vehicle_selected(entry, true)
 
