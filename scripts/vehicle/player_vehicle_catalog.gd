@@ -158,8 +158,11 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	var length_scale := float(entry.length_m) * PPM / src_length
 	var sprite_scale := Vector2(length_scale, width_scale) if sideways else \
 		Vector2(width_scale, length_scale)
+	# Source vehicle sprites face toward +Y (down). The driving chassis faces
+	# -Y (up), so turn the body 180 degrees by default. Preserve explicitly
+	# calibrated angles (and the horizontal-art fallback) for exceptions.
 	var angle: float = deg_to_rad(float(entry.get("sprite_rotation_degrees",
-		-90.0 if sideways else 0.0)))
+		90.0 if sideways else 180.0)))
 	var source_mid := Vector2(rect.get_center()) - Vector2(image.get_size()) * 0.5
 	var appearance: AppearanceProfileScript = AppearanceProfileScript.new()
 	appearance.body_texture = texture
