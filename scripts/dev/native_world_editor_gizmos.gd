@@ -4,6 +4,8 @@ extends Node2D
 const PPM := 20.0
 const Art = preload("res://scripts/world/coast_art.gd")
 var preview_body: StaticBody2D
+var preview_scenery: Node2D
+var original_by_id: Dictionary = {}
 var preview_collisions_enabled := false
 
 var world
@@ -21,7 +23,11 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 		source_id: String = "", point_index: int = -1) -> void:
 	draft_doc = source
 	draft_initial = baseline
+	original_by_id.clear()
+	for original in baseline.get("props",[]):
+		original_by_id[str(original.get("id",""))] = original
 	drag_preview = preview
+	_refresh_preview_scenery()
 	selected_source_id = source_id
 	selected_anchor_index = point_index
 	if preview.is_empty():
@@ -41,10 +47,49 @@ func set_preview_collision_enabled(enabled: bool) -> void:
 
 
 func _prop_modified(prop: Dictionary) -> bool:
-	for previous in draft_initial.get("props",[]):
-		if str(previous.get("id","")) == str(prop.get("id","")):
-			return JSON.stringify(previous) != JSON.stringify(prop)
-	return true
+	var previous: Dictionary = original_by_id.get(str(prop.get("id","")),{})
+	return previous.is_empty() or JSON.stringify(previous) != JSON.stringify(prop)
+
+
+func _refresh_preview_scenery() -> void:
+	if not is_instance_valid(preview_scenery):
+		preview_scenery = Node2D.new()
+		preview_scenery.name = "LiveDraftSceneryArtwork"
+		preview_scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
+		preview_scenery.origin_m = Vector2.ZERO
+		preview_scenery.z_index = -1
+		preview_scenery.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(preview_scenery)
+	var rendered: Array[Dictionary] = []
+	for prop in draft_doc.get("props",[]):
+		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
+			continue
+		var size: Vector2 = _prop_size(prop)/PPM
+		var pos := Vector2(float(prop.x),float(prop.y))
+		if str(drag_preview.get("id",""))==str(prop.id):
+			pos = drag_preview.get("to",pos*PPM)/PPM
+		var kind := str(prop.get("type",""))
+		match kind:
+			"oak":kind="tree"
+			"gas_station":kind="fuel"
+			"streetlight":kind="lamp"
+			"parking":kind="lot"
+		var instance: Dictionary = {
+			"kind":kind,"p":[pos.x,pos.y],
+			"size":[size.x,size.y],
+			"angle":deg_to_rad(float(prop.get("rotation",0.0))),
+			"seed":absi(str(prop.id).hash()),
+			"color":"9dac94","radius":maxf(size.x,size.y)*0.35,
+			"solid":kind not in ["tree","pine","palm","bush","field",
+				"garden","planter","lamp","sign","dock","lot","forecourt"]
+		}
+		if prop.has("assetPath"):
+			instance["asset_path"]=str(prop.assetPath)
+		elif str(prop.get("assetId","")).begins_with("game-"):
+			instance["asset_kind"]=str(prop.assetId).trim_prefix("game-")
+		rendered.append(instance)
+	preview_scenery.prop_list = rendered
+	preview_scenery.queue_redraw()
 
 
 func _prop_size(prop: Dictionary) -> Vector2:
@@ -196,10 +241,12 @@ func _draw_draft() -> void:
 		var angle := deg_to_rad(float(prop.get("rotation",0.0)))
 		var texture := _prop_texture(prop)
 		draw_set_transform(p,angle)
-		if texture != null:
-			draw_texture_rect(texture,Rect2(-size*0.5,size),false)
-		else:
-			draw_rect(Rect2(-size*0.5,size),Color(0.35,0.65,0.52,0.6),true)
+		# The real coast_scenery renderer draws the game artwork.
+		if not is_instance_valid(preview_scenery):
+			if texture != null:
+				draw_texture_rect(texture,Rect2(-size*0.5,size),false)
+			else:
+				draw_rect(Rect2(-size*0.5,size),Color(0.35,0.65,0.52,0.6),true)
 		var c := Color("#8effbf") if id==selected_source_id else Color("#ffcf73")
 		draw_rect(Rect2(-size*0.5,size),c,false,3.0,true)
 		draw_set_transform(Vector2.ZERO)
