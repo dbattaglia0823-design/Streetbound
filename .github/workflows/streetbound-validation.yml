@@ -232,6 +232,8 @@ jobs:
         run: python3 tests/morrow_expansion_stability_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Verify Godot native HTTP apply while paused against isolated Python map backend
+        run: python tests/native_map_bridge_http_roundtrip_test.py ./Godot_v4.4.1-stable_linux.x86_64
       - name: Verify native map authoring roads, props, undo and safe previews (4.4.1)
         run: |
           set -o pipefail
