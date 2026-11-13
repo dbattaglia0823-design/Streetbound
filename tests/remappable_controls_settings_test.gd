@@ -1,6 +1,8 @@
 extends SceneTree
 ## End-to-end settings binding UI, input capture, persistent profiles and
 ## reserved Escape fallback. Test process has isolated user:// settings.
+const ControlBindings = preload("res://scripts/input/controls.gd")
+var controls: Node
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -40,18 +42,23 @@ func controller_axis(index: int, value: float) -> void:
 	root.push_input(event)
 
 func _run() -> void:
-	Controls.restore_defaults()
+	controls = root.get_node_or_null("Controls")
+	if controls == null:
+		controls = ControlBindings.new()
+		controls.name = "Controls"
+		root.add_child(controls)
+	controls.restore_defaults()
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
 	await process_frame
 	var menu: CanvasLayer = main.pause_menu
 	check("original_driving_bindings_initialized",
-		Controls.binding_text("throttle","keyboard")=="W" and
-		Controls.binding("throttle","controller") is InputEventJoypadMotion)
+		controls.binding_text("throttle","keyboard")=="W" and
+		controls.binding("throttle","controller") is InputEventJoypadMotion)
 	check("world_shortcuts_registered_as_real_actions",
-		Controls.ACTIONS.has("map") and Controls.ACTIONS.has("garage") and
-		Controls.ACTIONS.has("upgrades") and Controls.ACTIONS.has("pause"))
+		controls.ACTIONS.has("map") and controls.ACTIONS.has("garage") and
+		controls.ACTIONS.has("upgrades") and controls.ACTIONS.has("pause"))
 	menu.pause_game()
 	menu.open_settings()
 	check("settings_have_general_and_controls_tabs",
@@ -62,41 +69,41 @@ func _run() -> void:
 	check("controls_tab_replaces_general_settings",
 		menu.settings_tab=="controls" and menu.controls_page.visible and
 		not menu.settings_screen.controls["volume_slider"].visible and
-		menu.binding_rows.size()==Controls.ACTIONS.size())
+		menu.binding_rows.size()==controls.ACTIONS.size())
 	var brake_kb: Button = menu.binding_rows["brake"]["keyboard"]
-	var brake_pad: InputEvent = Controls.binding("brake","controller")
+	var brake_pad: InputEvent = controls.binding("brake","controller")
 	brake_kb.pressed.emit()
 	check("capture_prompt_appears",menu.capture_action=="brake" and
 		menu.capture_device=="keyboard" and brake_kb.text.contains("PRESS KEY"))
 	key_input(KEY_K)
 	await process_frame
 	check("keyboard_binding_captured_from_real_input",
-		menu.capture_action=="" and Controls.binding_text("brake","keyboard")=="K")
+		menu.capture_action=="" and controls.binding_text("brake","keyboard")=="K")
 	check("changing_keyboard_preserves_brake_controller_axis",
-		Controls.binding("brake","controller") is InputEventJoypadMotion and
-		(Controls.binding("brake","controller") as InputEventJoypadMotion).axis ==
+		controls.binding("brake","controller") is InputEventJoypadMotion and
+		(controls.binding("brake","controller") as InputEventJoypadMotion).axis ==
 		(brake_pad as InputEventJoypadMotion).axis)
 	var nitrous_pad: Button = menu.binding_rows["nitrous"]["controller"]
 	nitrous_pad.pressed.emit()
 	controller_button(JOY_BUTTON_RIGHT_STICK)
 	await process_frame
 	check("controller_button_can_be_remapped_independently",
-		Controls.binding("nitrous","controller") is InputEventJoypadButton and
-		(Controls.binding("nitrous","controller") as InputEventJoypadButton).button_index ==
-		JOY_BUTTON_RIGHT_STICK and Controls.binding_text("nitrous","keyboard")=="N")
+		controls.binding("nitrous","controller") is InputEventJoypadButton and
+		(controls.binding("nitrous","controller") as InputEventJoypadButton).button_index ==
+		JOY_BUTTON_RIGHT_STICK and controls.binding_text("nitrous","keyboard")=="N")
 	menu.binding_rows["left"]["controller"].pressed.emit()
 	controller_axis(JOY_AXIS_RIGHT_X,-1.0)
 	await process_frame
 	check("controller_axis_and_direction_captured",
-		Controls.binding("left","controller") is InputEventJoypadMotion and
-		(Controls.binding("left","controller") as InputEventJoypadMotion).axis ==
+		controls.binding("left","controller") is InputEventJoypadMotion and
+		(controls.binding("left","controller") as InputEventJoypadMotion).axis ==
 		JOY_AXIS_RIGHT_X and
-		(Controls.binding("left","controller") as InputEventJoypadMotion).axis_value < 0.0)
+		(controls.binding("left","controller") as InputEventJoypadMotion).axis_value < 0.0)
 	menu.binding_rows["throttle"]["keyboard"].pressed.emit()
 	mouse_input(MOUSE_BUTTON_RIGHT)
 	await process_frame
 	check("mouse_button_can_replace_keyboard_input",
-		Controls.binding_text("throttle","keyboard")=="Mouse Right")
+		controls.binding_text("throttle","keyboard")=="Mouse Right")
 	# Restore W on throttle, then reassign Brake to W; this swaps Brake's
 	# old K binding to Throttle instead of creating duplicate actions.
 	menu.binding_rows["throttle"]["keyboard"].pressed.emit()
@@ -106,8 +113,8 @@ func _run() -> void:
 	key_input(KEY_W)
 	await process_frame
 	check("key_conflicts_swap_bindings_without_duplicate",
-		Controls.binding_text("brake","keyboard")=="W" and
-		Controls.binding_text("throttle","keyboard")=="K")
+		controls.binding_text("brake","keyboard")=="W" and
+		controls.binding_text("throttle","keyboard")=="K")
 	var saved := ConfigFile.new()
 	check("all_binding_categories_persisted_to_controls_config",
 		saved.load("user://controls.cfg")==OK and
@@ -118,8 +125,8 @@ func _run() -> void:
 	key_input(KEY_BACKSPACE)
 	await process_frame
 	check("backspace_clears_only_selected_binding",
-		Controls.binding("mute","keyboard")==null and
-		Controls.binding("mute","controller")!=null)
+		controls.binding("mute","keyboard")==null and
+		controls.binding("mute","controller")!=null)
 	menu.binding_rows["map"]["keyboard"].pressed.emit()
 	key_input(KEY_ESCAPE)
 	await process_frame
@@ -129,10 +136,10 @@ func _run() -> void:
 	menu.reset_bindings_button.pressed.emit()
 	await process_frame
 	check("restore_defaults_recovers_both_device_columns",
-		Controls.binding_text("throttle","keyboard")=="W" and
-		Controls.binding_text("brake","keyboard")=="S" and
-		Controls.binding("nitrous","controller") is InputEventJoypadButton and
-		(Controls.binding("nitrous","controller") as InputEventJoypadButton).button_index ==
+		controls.binding_text("throttle","keyboard")=="W" and
+		controls.binding_text("brake","keyboard")=="S" and
+		controls.binding("nitrous","controller") is InputEventJoypadButton and
+		(controls.binding("nitrous","controller") as InputEventJoypadButton).button_index ==
 		JOY_BUTTON_B)
 	key_input(KEY_ESCAPE)
 	await process_frame
@@ -146,7 +153,7 @@ func _run() -> void:
 	check("pause_menu_resumes_and_does_not_leave_capture",
 		not paused and menu.capture_action=="")
 	main.queue_free()
-	Controls.restore_defaults()
+	controls.restore_defaults()
 	paused = false
 	print("REMAP SETTINGS CONTROLS: ",
 		"PASS" if failures.is_empty() else "FAIL "+str(failures))
