@@ -50,7 +50,7 @@ export function drawLanePreview(ctx,patterns,zoom,bounds){
     if(bounds&&(maxX<bounds.minX||minX>bounds.maxX||maxY<bounds.minY||minY>bounds.maxY))continue;
     ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
     for(const p of points.slice(1))ctx.lineTo(p.x,p.y);
-    ctx.lineWidth=width;ctx.strokeStyle=lane.direction>0?'#78e7fa99':'#ffbc6699';ctx.stroke();
+    ctx.lineWidth=width;ctx.strokeStyle='#78e7fa99';ctx.stroke();
     let travelled=0;
     for(let i=1;i<points.length;i++){
       const a=points[i-1],b=points[i],segment=distance(a,b);
@@ -63,7 +63,7 @@ export function drawLanePreview(ctx,patterns,zoom,bounds){
       ctx.lineTo(x+dy*size*.7-dx*size*.3,y-dx*size*.7-dy*size*.3);
       ctx.lineTo(x-dy*size*.7-dx*size*.3,y+dx*size*.7-dy*size*.3);
       ctx.closePath();
-      ctx.fillStyle=lane.direction>0?'#b4f0fa':'#f7cc8c';ctx.fill();
+      ctx.fillStyle='#b4f0fa';ctx.fill();
     }
   }
   ctx.restore();
