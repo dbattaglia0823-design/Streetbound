@@ -70,7 +70,7 @@ func refresh() -> void:
 	player_label.text = "DRIVER LV %d/100  /  %s" % [
 		player_level, "MAX LEVEL" if player_level >= 100 else \
 		"%d XP TO NEXT" % Progress.player_xp_remaining(economy.player_xp)]
-	car_label.text = "%s  ·  LV %d/50  ·  %s" % [
+	car_label.text = "%s  /  CAR LV %d/50  /  %s" % [
 		str(entry.get("display_name","CAR")).to_upper(),car_level,
 		"MAX XP" if car_level >= 50 else
 		"%d XP TO NEXT" % Progress.car_xp_remaining(int(economy.car_xp.get(car_id,0)))]
