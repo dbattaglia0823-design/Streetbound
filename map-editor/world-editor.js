@@ -152,7 +152,10 @@ function render(){
     }catch{/* Invalid placements do not render a misleading ghost. */}
   }
   if($('show-traffic').checked)drawLanePreview(ctx,trafficFor(),zoom,bounds);
-  const roadSnapPreview=tool==='road'&&hover&&$('road-smart-snap').checked?
+  const closing=draft?.type==='road'&&draft.points.length>=3&&hover&&
+    distance(hover,draft.points[0])<=clamp(15/zoom,8,28);
+  const roadSnapPreview=closing?{point:draft.points[0],snapped:null}:
+    tool==='road'&&hover&&$('road-smart-snap').checked?
     snapEnd(hover,$('road-surface').value):null;
   const selected=selection?getEntity(doc,selection.id):null;
   let alignmentPreview=null;
@@ -304,7 +307,7 @@ function setTool(next){
   });
   status({
     select:'Select a road to insert points, drag its control handles, or Alt-drag the entire shape.',
-    road:'Click to add road control points. Double-click or Enter to finish; road endpoints snap near existing roads.',
+    road:'Click to add road points. Click the first point again to close a loop, or press Enter to finish an open road. Nearby compatible endpoints snap together.',
     terrain:'Click around a terrain area. Double-click or Enter to close the polygon.',
     prop:'Click for a single prop, or enable hold-and-drag to paint or erase scenery.',
     marker:'Click to place a gameplay marker.',
@@ -611,10 +614,16 @@ function addDraftPoint(p,detail){
   const point=worldPoint(p.x,p.y);
   if(detail>=2&&draft){finishDraft();return;}
   const snap=tool==='road'?snapEnd(point,$('road-surface').value):null;
-  const where=snap?snap.point:point;
+  // Closing a road is always available, even when snapping to other roads is disabled.
+  // Keep the original first point as the shared endpoint so the geometry is exact.
+  const first=draft?.type==='road'&&draft.points.length>=3?draft.points[0]:null;
+  const closeRadius=clamp(15/zoom,8,28);
+  const closesLoop=tool==='road'&&first&&distance(point,first)<=closeRadius;
+  const where=closesLoop?{...first}:(snap?snap.point:point);
   if(!draft)draft={type:tool,width:Number($('road-width').value),points:[]};
   if(draft.points.length && distance(draft.points.at(-1),where)<1) return;
   draft.points.push(where);
+  if(closesLoop){finishDraft();return;}
   hover=null;
   refreshHeader();requestRender();
   status((snap?.snapped?'Connected to '+snap.snapped.roadName+' ('+snap.snapped.kind+'). ':'')+
