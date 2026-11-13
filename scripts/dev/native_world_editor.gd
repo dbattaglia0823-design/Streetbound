@@ -166,7 +166,8 @@ func _update_active_tool_style() -> void:
 	for key in mode_buttons:
 		var button: Button = mode_buttons[key]
 		button.add_theme_color_override("font_color",
-			ACCENT if key == tool_name else Color("#eef0ef"))
+			ACCENT if key == tool_name or (key == "place:house" and
+			tool_name.begins_with("place:")) else Color("#eef0ef"))
 		button.add_theme_color_override("font_hover_color",ACCENT)
 
 
@@ -462,6 +463,8 @@ func _choose_tool(mode: String) -> void:
 		return
 	tool_name = mode
 	draft_points.clear()
+	if is_instance_valid(gizmos):
+		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
 	source_id = ""
 	source_anchor = -1
@@ -478,6 +481,7 @@ func _refresh_authoring() -> void:
 	if source_ready:
 		gizmos.set_draft(authoring.doc,authoring.initial,pending_drag,
 			source_id,source_anchor)
+		gizmos.set_pending_shape(draft_points,tool_name)
 		if is_instance_valid(apply_button):
 			apply_button.disabled = not authoring.dirty or bridge.phase != ""
 	else:
@@ -603,6 +607,21 @@ func _reload_world() -> void:
 	get_tree().paused = false
 	get_tree().call_deferred("reload_current_scene")
 
+func _ensure_editable_runtime_prop(item: Dictionary) -> String:
+	var known: String = authoring.index_of_runtime_prop(item)
+	if not known.is_empty():
+		return known
+	for prop in authoring.doc.get("props",[]):
+		var prior: Dictionary = prop.get("replaces",{})
+		if not prior.is_empty() and str(prior.get("kind","")) == str(item.get("kind","")) and \
+				int(prior.get("seed",-1)) == int(item.get("seed",-2)) and \
+				prior.get("p",[]) == item.get("p",[]):
+			return str(prop.id)
+	# Converts a regular generated prop into an editable replacement
+	# automatically. Protected landmarks remain protected.
+	return authoring.adopt_runtime_prop(item)
+
+
 func _adopt_selected() -> void:
 	if _editing_locked() or not source_ready:
 		return
@@ -619,7 +638,7 @@ func _adopt_selected() -> void:
 	if garage_geometry.is_player_garage(item) or item.has("poi"):
 		_notice("Protected garage or gameplay landmark: cannot replace it.")
 		return
-	var id: String = authoring.adopt_runtime_prop(item)
+	var id: String = _ensure_editable_runtime_prop(item)
 	if id.is_empty():
 		_notice(authoring.last_error)
 		return
@@ -631,7 +650,7 @@ func _adopt_selected() -> void:
 	details.text = "ADOPTED GAME ASSET\n%s\n\nOriginal identity preserved.\nMove, rotate or resize.\nApply to rebuild real game geometry." % [
 		str(source_item.get("name",""))]
 	_refresh_authoring()
-	_notice("Source-backed replacement created; old procedural prop stays until Apply + Reload.")
+	_notice("Selected asset is editable; its art and collision now follow edits.")
 
 func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	if not source_ready:
@@ -673,6 +692,27 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 func _source_click(world_px: Vector2) -> void:
 	if _editing_locked():
 		return
+	if tool_name == "draw_road":
+		draft_points.append(world_px/PPM)
+		if draft_points.size() == 2:
+			source_id = authoring.add_road(draft_points[0],draft_points[1])
+			draft_points.clear()
+			_refresh_authoring()
+			_notice("Road added to draft. Save to Game to rebuild traffic.")
+		else:
+			_notice("Select the second road endpoint.")
+		gizmos.set_pending_shape(draft_points,tool_name)
+		return
+	if tool_name == "draw_terrain":
+		draft_points.append(world_px/PPM)
+		gizmos.set_pending_shape(draft_points,tool_name)
+		_notice("Terrain: click vertices, then press Enter to finish.")
+		return
+	if tool_name == "place_marker":
+		source_id = authoring.add_marker(world_px/PPM)
+		_refresh_authoring()
+		_notice("Game marker added to unsaved draft.")
+		return
 	if tool_name.begins_with("place:"):
 		var kind := tool_name.substr(6)
 		var id := ""
@@ -694,7 +734,7 @@ func _source_click(world_px: Vector2) -> void:
 			source_id = id
 			source_anchor = -1
 			_refresh_authoring()
-			_notice("Placed "+kind+" source preview. Undo or Apply to commit after rebuild.")
+			_notice("Placed "+kind+" with live artwork and collision preview. Save to Game when ready.")
 		else:
 			_notice(authoring.last_error)
 		return
@@ -708,12 +748,17 @@ func _source_click(world_px: Vector2) -> void:
 			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
-				_notice("Select ADOPT PROP to convert this original into a source-backed replacement."
-					if authoring.index_of_runtime_prop(item)=="" else
-					"Select the source asset footprint to drag it.")
+				var editable_id := _ensure_editable_runtime_prop(item)
+				if not editable_id.is_empty():
+					var editable: Dictionary = authoring.prop_at_id(editable_id)
+					hit = {"kind":"prop","id":editable_id,
+						"from":Vector2(float(editable.x),float(editable.y))*PPM}
+				else:
+					_notice(authoring.last_error)
 		else:
-			_notice("Click an existing editable source road anchor, not a baked junction.")
-		return
+			_notice("Click an editable road control point.")
+		if hit.is_empty():
+			return
 	source_id = str(hit.id)
 	source_anchor = int(hit.get("index",-1))
 	pending_drag = hit.duplicate(true)
@@ -1020,7 +1065,24 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				close_editor()
+				if not draft_points.is_empty():
+					draft_points.clear()
+					gizmos.set_pending_shape(draft_points,tool_name)
+					_notice("Unfinished shape canceled.")
+				else:
+					close_editor()
+				get_viewport().set_input_as_handled()
+				return
+			if active and tool_name == "draw_terrain" and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+				if draft_points.size() >= 3:
+					var region_id: String = authoring.add_region(draft_points)
+					if not region_id.is_empty():
+						draft_points.clear()
+						gizmos.set_pending_shape(draft_points,tool_name)
+						_refresh_authoring()
+						_notice("Terrain region added. Save to Game when ready.")
+					else:
+						_notice(authoring.last_error)
 				get_viewport().set_input_as_handled()
 				return
 			if active and key.ctrl_pressed and (key.keycode in [KEY_Z,KEY_Y] or
@@ -1047,6 +1109,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_view(true)
 			get_viewport().set_input_as_handled()
 		elif mouse.button_index==MOUSE_BUTTON_LEFT:
+			if tool_name == "pan":
+				_right_drag = mouse.pressed
+				get_viewport().set_input_as_handled()
+				return
 			var hit_position: Vector2 = world.get_global_mouse_position()
 			if mouse.pressed:
 				_source_click(hit_position)
