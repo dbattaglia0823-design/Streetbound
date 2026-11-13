@@ -339,6 +339,117 @@ func _select_asset(entry: Dictionary) -> void:
 		_notice("Selected "+str(entry.name)+". Click the map to place; Apply + Reload to commit.")
 
 
+func _update_context_panels() -> void:
+	if is_instance_valid(asset_dock):
+		asset_dock.visible = tool_name.begins_with("place:")
+	if is_instance_valid(inspector_panel):
+		inspector_panel.visible = not selected.is_empty() or not source_id.is_empty()
+	if is_instance_valid(edit_actions):
+		edit_actions.visible = tool_name != "pan"
+
+
+func _redraw_visible_scenery() -> void:
+	if not is_instance_valid(world):
+		return
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk):
+			continue
+		for canvas in chunk.get_children():
+			if canvas is Node2D and (canvas.get_script() == \
+					preload("res://scripts/world/coast_scenery.gd") or \
+					canvas.get_script() == preload("res://scripts/world/coast_shadows.gd")):
+				canvas.queue_redraw()
+
+
+func _restore_colliders() -> void:
+	if not is_instance_valid(world):
+		return
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk) or not is_instance_valid(chunk.collider_body):
+			continue
+		for collider in chunk.collider_body.get_children():
+			if collider is CollisionShape2D and collider.has_meta("editor_prop_key"):
+				collider.disabled = false
+
+
+func _clear_editor_preview() -> void:
+	if not preview_hidden.is_empty():
+		preview_hidden.clear()
+		Scenery.editor_hidden = {}
+		_redraw_visible_scenery()
+	_restore_colliders()
+	if is_instance_valid(overview_sprite):
+		overview_sprite.visible = false
+
+
+func _sync_editor_preview() -> void:
+	if not active or not source_ready or not is_instance_valid(world):
+		return
+	var next_hidden: Dictionary = {}
+	for prop in authoring.doc.get("props",[]):
+		var initial_prop: Dictionary = {}
+		for old in authoring.initial.get("props",[]):
+			if str(old.get("id","")) == str(prop.get("id","")):
+				initial_prop = old
+				break
+		if not initial_prop.is_empty() and JSON.stringify(initial_prop) != JSON.stringify(prop):
+			next_hidden["authored:"+str(prop.id)] = true
+		if prop.has("replaces"):
+			var original: Dictionary = prop.replaces
+			var pos: Array = original.get("p",[])
+			if pos.size()==2:
+				next_hidden["generated:%s:%s:%s" % [
+					str(original.get("seed","")),str(pos[0]),str(pos[1])]] = true
+	if next_hidden != preview_hidden:
+		preview_hidden = next_hidden
+		Scenery.editor_hidden = preview_hidden.duplicate()
+		_redraw_visible_scenery()
+	# Source previews have their own real CollisionShape2D, and stale
+	# baked shapes are disabled only for the editing session.
+	for chunk in world.chunks.values():
+		if not is_instance_valid(chunk) or not is_instance_valid(chunk.collider_body):
+			continue
+		for collider in chunk.collider_body.get_children():
+			if collider is CollisionShape2D and collider.has_meta("editor_prop_key"):
+				collider.disabled = preview_hidden.has(
+					str(collider.get_meta("editor_prop_key")))
+
+
+func _fit_map() -> void:
+	if not active or not is_instance_valid(world):
+		return
+	var size_m: Array = world.data.get("size",[6400,4800])
+	var world_px := Vector2(float(size_m[0]),float(size_m[1]))*PPM
+	var screen := get_viewport().get_visible_rect().size
+	var zoom := clampf(minf((screen.x-120.0)/world_px.x,
+		(screen.y-180.0)/world_px.y),MIN_EDITOR_ZOOM,MAX_EDITOR_ZOOM)
+	editor_camera.zoom = Vector2.ONE*zoom
+	editor_camera.global_position = world_px*0.5
+	_update_view(true)
+
+
+func _build_overview() -> void:
+	if is_instance_valid(overview_sprite):
+		return
+	var file := "res://worlds/morrow-coast-overview.svg"
+	if not FileAccess.file_exists(file):
+		return
+	var image := Image.new()
+	if image.load_svg_from_string(FileAccess.get_file_as_string(file)) != OK:
+		return
+	var texture := ImageTexture.create_from_image(image)
+	overview_sprite = Sprite2D.new()
+	overview_sprite.name = "FarZoomBakedWorldOverview"
+	overview_sprite.texture = texture
+	overview_sprite.centered = false
+	overview_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	overview_sprite.z_index = -7
+	overview_sprite.scale = Vector2(float(world.data.size[0])*PPM/texture.get_width(),
+		float(world.data.size[1])*PPM/texture.get_height())
+	get_parent().add_child(overview_sprite)
+	overview_sprite.visible = false
+
+
 func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
@@ -694,6 +805,7 @@ func _build_ui() -> void:
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
+	_btn("FIT MAP",row,_fit_map)
 	_btn("TEST DRIVE  F6",row,close_editor)
 	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
 	inspector_panel = sidebar
@@ -793,6 +905,7 @@ func open_editor() -> bool:
 	driving_camera.set_process_unhandled_input(false)
 	editor_camera.make_current()
 	active = true
+	_build_overview()
 	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
@@ -885,6 +998,9 @@ func _update_view(force: bool = false) -> void:
 		_last_cell = cell
 	if not world.pending.is_empty():
 		world._build_chunk(world.pending.pop_front())
+	if is_instance_valid(overview_sprite):
+		overview_sprite.visible = editor_camera.zoom.x < 0.055
+	_sync_editor_preview()
 	gizmos.set_view(here,get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
 	var meters := here / PPM
