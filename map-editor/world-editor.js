@@ -323,7 +323,9 @@ function refreshHeader(){
     $('expand-morrow').disabled=
       doc.world.width===MORROW_MAX_WIDTH&&doc.world.height===MORROW_MAX_HEIGHT;
   }
-  $('save-morrow').textContent=liveSession?'Save to Game':'Export Morrow edits';
+  // Avoid showing two identical "Save to Game" actions in project mode.
+  // The normal Save action already delegates to save-morrow when connected.
+  $('save-morrow').hidden=true;
   $('save-world').textContent=isMorrowEdit(doc)&&liveSession?'Save to Game':'Save';
   $('adopt-game-prop').hidden=!runtimePreview;
   $('adopt-game-hint').hidden=!runtimePreview;
