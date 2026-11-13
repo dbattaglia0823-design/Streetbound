@@ -29,6 +29,12 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify actual startup title and pause-menu mode navigation (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/title_menu_navigation_test.gd 2>&1 | tee /tmp/title-navigation-463.log
+          grep -q 'TITLE AND PAUSE NAVIGATION: PASS' /tmp/title-navigation-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/title-navigation-463.log
       - name: Verify native map reload recreates playable geometry and restores editor focus (4.6.3)
         run: |
           set -o pipefail
@@ -240,6 +246,12 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Verify Godot native HTTP apply while paused against isolated Python map backend
         run: python tests/native_map_bridge_http_roundtrip_test.py ./Godot_v4.4.1-stable_linux.x86_64
+      - name: Verify actual startup title and pause-menu mode navigation (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/title_menu_navigation_test.gd 2>&1 | tee /tmp/title-navigation-441.log
+          grep -q 'TITLE AND PAUSE NAVIGATION: PASS' /tmp/title-navigation-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/title-navigation-441.log
       - name: Verify native map reload recreates playable geometry and restores editor focus (4.4.1)
         run: |
           set -o pipefail

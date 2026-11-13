@@ -445,7 +445,7 @@ func _build_ui() -> void:
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
 	_btn("CENTER ON CAR",row,_recenter)
-	_btn("TEST DRIVE  [F6]",row,close_editor)
+	_btn("TEST DRIVE",row,close_editor)
 	var sidebar := _panel(Vector2(12,82),Vector2(330,395))
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation",9)
@@ -456,7 +456,7 @@ func _build_ui() -> void:
 	heading.add_theme_font_size_override("font_size",14)
 	col.add_child(heading)
 	var help := Label.new()
-	help.text = "Click / drag: selected edit tool\nRight drag: pan   Wheel: zoom   F6: test drive"
+	help.text = "Click / drag: selected edit tool\nRight drag: pan   Wheel: zoom   Test Drive: exit"
 	help.add_theme_font_size_override("font_size",12)
 	col.add_child(help)
 	var divider := HSeparator.new()
@@ -475,7 +475,7 @@ func _build_ui() -> void:
 	col.add_child(note)
 	var footer := _panel(Vector2(12,489),Vector2(550,44))
 	status = Label.new()
-	status.text = "Press F6 during free roam to inspect the live map."
+	status.text = "Open Map Editor from the main or pause menu."
 	status.add_theme_font_size_override("font_size",12)
 	footer.add_child(status)
 
@@ -631,13 +631,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo:
-			if key.keycode == KEY_F6 or key.physical_keycode == KEY_F6:
-				if active:
-					close_editor()
-				else:
-					open_editor()
-				get_viewport().set_input_as_handled()
-				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
 				close_editor()
 				get_viewport().set_input_as_handled()

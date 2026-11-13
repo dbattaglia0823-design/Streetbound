@@ -4,6 +4,8 @@ extends CanvasLayer
 ## buttons, mouse, gamepad focus and Escape continue working when paused.
 signal exit_requested
 signal split_screen_requested
+signal map_editor_requested
+signal title_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
@@ -14,6 +16,7 @@ var driving_camera
 var allow_quit := true
 var menu_state := ""
 var split_screen_active := false
+var map_editor_available := false
 var settings_store
 
 var overlay: Control
@@ -63,6 +66,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
 	_apply_saved_settings()
+	set_map_editor_available(false)
 
 func _load_screen(path: String, screen_name: String) -> Variant:
 	var screen: Variant = ToolkitLayout.new()
@@ -412,6 +416,24 @@ func _sync_settings() -> void:
 		"minimap_shape": "Circle" if str(settings_store.get_setting("minimap_shape")) == "circle" else "Square"
 	}})
 
+func set_map_editor_available(available: bool) -> void:
+	map_editor_available = available
+	if pause_screen == null:
+		return
+	var button: Button = pause_screen.controls.get("map_editor")
+	if is_instance_valid(button):
+		button.disabled = not available
+		button.tooltip_text = "" if available else \
+			"Map Editor is available only in a local Godot development build."
+
+func show_map_editor_error(message: String) -> void:
+	var header: Label = pause_screen.controls.get("pause_heading")
+	if is_instance_valid(header):
+		header.text = "EDITOR UNAVAILABLE"
+	var action: Button = pause_screen.controls.get("map_editor")
+	if is_instance_valid(action):
+		action.tooltip_text = message
+
 func set_split_screen_active(enabled: bool) -> void:
 	split_screen_active = enabled
 	var action: Button = pause_screen.controls.get("local_multiplayer")
@@ -479,6 +501,13 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 			resume_game()
 		"game.local_multiplayer":
 			split_screen_requested.emit()
+		"game.map_editor":
+			if map_editor_available:
+				map_editor_requested.emit()
+			else:
+				show_map_editor_error("Map Editor requires a development build.")
+		"game.main_menu":
+			title_requested.emit()
 		"nav.settings":
 			open_settings()
 		"nav.back":
