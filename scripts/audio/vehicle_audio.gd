@@ -5,6 +5,7 @@ extends Node
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
 const SampleBank = preload("res://scripts/audio/vehicle_audio_sample_bank.gd")
 const RpmMix = preload("res://scripts/audio/toolkit_rpm_mix.gd")
+const GenericRecordedEngine = preload("res://scripts/audio/generic_recorded_engine.gd")
 const ENGINE_BUS := "Streetbound Engine"
 const AsphaltTires = preload("res://assets/audio/tire_asphalt.wav")
 const LooseTires = preload("res://assets/audio/tire_loose.wav")
@@ -49,6 +50,7 @@ var driveline := AudioStreamPlayer.new()
 ## Real CC0 recorded engine bed: subtle organic texture beneath each
 ## vehicle's model-specific, RPM-correct power/coast synthesis.
 var recorded_texture := AudioStreamPlayer.new()
+var generic_recorded_engine: Node
 var _engine_filter: AudioEffectLowPassFilter
 ## Motor / inverter and final-drive whine for new BEVs and quiet hybrid launch.
 var electric_drive := AudioStreamPlayer.new()
@@ -116,6 +118,9 @@ func _ready() -> void:
 		"ExhaustPop","Impact","Ignition","Shutdown","DownshiftBlip",
 		"RevLimiter","CurbContact"]
 	_ensure_engine_bus()
+	generic_recorded_engine = GenericRecordedEngine.new()
+	generic_recorded_engine.name = "CC0RecordedEngineBed"
+	add_child(generic_recorded_engine)
 	for i in _all_players.size():
 		var player: AudioStreamPlayer = _all_players[i]
 		if i < 8 or player == recorded_texture:
@@ -249,6 +254,9 @@ func _configure_engine(force := false) -> void:
 	# make/model identity. A future per-car recording overrides that family.
 	var recording: AudioStream = SampleBank.resolve(
 		cfg.audio_sample_id,family,"recorded_texture")
+	if is_instance_valid(generic_recorded_engine):
+		generic_recorded_engine.active = (recording == null and family != "electric"
+			and induction != "electric")
 	if recorded_texture.stream != recording:
 		recorded_texture.stop()
 		recorded_texture.stream = recording
@@ -549,6 +557,10 @@ func _process(dt: float) -> void:
 			linear_to_db(maxf(combustion_gain,0.001))
 		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
 			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
+	# Recorded six-band generic CC0 bed for combustion engines lacking their
+	# own recordings. Family-specific samples remain the preferred source.
+	if is_instance_valid(generic_recorded_engine):
+		generic_recorded_engine.update_mix(rpm,throttle,normalized_boost,muted,delta)
 	# Surface-reactive tyres remain quiet unless actual loss of grip occurs.
 	var speed_gate := smoothstep(2.0,12.0,speed)
 	var slip_sound := smoothstep(deg_to_rad(5.0),
