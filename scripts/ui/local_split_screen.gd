@@ -115,11 +115,16 @@ func _set_main_camera(enabled_now: bool) -> void:
 		previous_camera_state.clear()
 		main_camera.make_current()
 
-func start_split(connected_override: Array[int] = []) -> bool:
+func start_split(connected_override: Array = []) -> bool:
 	if active or not is_instance_valid(player_one) or not is_instance_valid(world):
 		return false
-	var pads: Array[int] = connected_override.duplicate() if not connected_override.is_empty() else \
+	# Godot distinguishes literal Array and Array[int] at runtime. Accept a
+	# generic override only for deterministic tests; real UI reads hardware.
+	var pads: Array[int] = []
+	var devices: Array = connected_override if not connected_override.is_empty() else \
 		Input.get_connected_joypads()
+	for raw in devices:
+		pads.append(int(raw))
 	pads.sort()
 	if pads.is_empty():
 		warning = "Connect a controller to start 2-player split-screen."
