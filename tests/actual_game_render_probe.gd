@@ -73,8 +73,11 @@ func _run() -> void:
 			# viewport. The GL capture may be a 1280x800 override window, so
 			# convert logical screen coordinates to real framebuffer pixels.
 			var pixel: Vector2 = root.canvas_transform * (item.metres * 20.0)
-			pixel *= Vector2(float(shot.get_width())/float(root.size.x),
-				float(shot.get_height())/float(root.size.y))
+			var logical_size := Vector2(float(ProjectSettings.get_setting(
+				"display/window/size/viewport_width", 1440)), float(ProjectSettings.get_setting(
+				"display/window/size/viewport_height", 900)))
+			pixel *= Vector2(float(shot.get_width()) / logical_size.x,
+				float(shot.get_height()) / logical_size.y)
 			var valid := (pixel.x >= 0.0 and pixel.y >= 0.0 and
 				pixel.x < float(shot.get_width()) and pixel.y < float(shot.get_height()))
 			print("GAME WORLD PIXEL ",item.name," at ",pixel," visible=",valid,
