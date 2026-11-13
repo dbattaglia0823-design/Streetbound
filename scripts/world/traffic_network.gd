@@ -60,7 +60,11 @@ func _lane_path(points: PackedVector2Array, stations: PackedFloat64Array,
 		var forward := (base[mini(i+1,base.size()-1)]-base[maxi(i-1,0)]).normalized()
 		if forward.length_squared()<0.5:
 			forward=Vector2.UP
-		result.append((base[i]-forward.orthogonal()*offset_m)*PPM)
+		# Godot's +orthogonal is screen-right for a travel tangent
+		# (east -> south). Match the map editor and right-hand traffic.
+		# The former negative offset placed BOTH travel directions on the
+		# left, so connectors could cross oncoming lanes at reversed joins.
+		result.append((base[i]+forward.orthogonal()*offset_m)*PPM)
 	return result
 
 
