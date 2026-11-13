@@ -44,6 +44,7 @@ var mode_label: Label
 var reload_button: Button
 var apply_button: Button
 var source_revision := ""
+var submitted_source: Dictionary = {}
 static var resume_after_rebuild := false
 static var resume_editor_position := Vector2.ZERO
 
@@ -134,6 +135,8 @@ func _notice(message: String) -> void:
 		authoring_notice.text = message
 
 func _choose_tool(mode: String) -> void:
+	if _editing_locked():
+		return
 	if not source_ready and mode != "inspect":
 		_notice("Source unavailable. The map can still be inspected.")
 		return
@@ -156,19 +159,31 @@ func _refresh_authoring() -> void:
 	else:
 		gizmos.set_draft({},{})
 
+func _editing_locked() -> bool:
+	if is_instance_valid(bridge) and bridge.phase != "":
+		_notice("Map rebuild is running. Source edits are locked until it finishes.")
+		return true
+	return false
+
 func _undo() -> void:
+	if _editing_locked():
+		return
 	if source_ready and authoring.undo():
 		pending_drag.clear()
 		_refresh_authoring()
 		_notice("Undid the previous source edit. Changes remain unbaked.")
 
 func _redo() -> void:
+	if _editing_locked():
+		return
 	if source_ready and authoring.redo():
 		pending_drag.clear()
 		_refresh_authoring()
 		_notice("Redid the source edit. Intersections rebuild only after Apply.")
 
 func _discard_draft() -> void:
+	if _editing_locked():
+		return
 	if source_ready:
 		authoring.discard_changes()
 		pending_drag.clear()
@@ -178,6 +193,8 @@ func _discard_draft() -> void:
 		_notice("All unsaved edits discarded; original authoring source restored.")
 
 func _rotate_selected(degrees: float) -> void:
+	if _editing_locked():
+		return
 	if not source_ready or source_id.is_empty():
 		return
 	if authoring.rotate_prop(source_id,degrees):
@@ -190,6 +207,8 @@ func _toggle_snap() -> void:
 		"disabled" if snap_m == 0.0 else "set to 1 metre"])
 
 func _delete_selected() -> void:
+	if _editing_locked():
+		return
 	if not source_ready or source_id.is_empty():
 		return
 	if authoring.delete_prop(source_id):
@@ -213,6 +232,7 @@ func _apply_draft() -> void:
 		_notice("Source validation failed; changes were not saved.")
 		return
 	if bridge.apply_source(authoring.doc,authoring.baseline_hash):
+		submitted_source = authoring.doc.duplicate(true)
 		_notice("Verifying map revision and source, then rebuilding Morrow Coast...")
 		_refresh_authoring()
 	else:
@@ -220,14 +240,17 @@ func _apply_draft() -> void:
 
 func _on_apply_completed(ok: bool, message: String, new_sha: String) -> void:
 	if ok:
-		authoring.accepted_remote(authoring.doc)
+		# The submitted snapshot, never an unverified later draft, is what
+		# the transactional backend actually wrote to the source directory.
+		authoring.accepted_remote(submitted_source)
 		source_revision = new_sha
 		reload_button.disabled = false
 		_refresh_authoring()
 		_notice(message)
 	else:
 		_refresh_authoring()
-		_notice("APPLY FAILED (no files modified): "+message)
+		_notice("APPLY FAILED (original files restored): "+message)
+	submitted_source.clear()
 
 func _reload_world() -> void:
 	if not active or source_revision.is_empty() or authoring.dirty:
@@ -281,6 +304,8 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	return hit
 
 func _source_click(world_px: Vector2) -> void:
+	if _editing_locked():
+		return
 	if tool_name.begins_with("place:"):
 		var kind := tool_name.substr(6)
 		var id: String = authoring.add_prop(kind,world_px/PPM)
@@ -323,6 +348,8 @@ func _source_click(world_px: Vector2) -> void:
 	_refresh_authoring()
 
 func _finish_source_drag(world_px: Vector2) -> void:
+	if _editing_locked():
+		return
 	if pending_drag.is_empty() or not source_ready:
 		return
 	var drag := pending_drag.duplicate(true)
@@ -480,6 +507,8 @@ func open_editor() -> bool:
 
 func close_editor() -> void:
 	if not active:
+		return
+	if _editing_locked():
 		return
 	active = false
 	root_ui.visible = false
