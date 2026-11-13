@@ -21,9 +21,14 @@ and orange intersection turn connectors come from the same
   Existing source road IDs are preserved. Grid snapping is 1 metre by default;
   use **GRID 1m** to toggle it. Dangerous 350m moves, out-of-bounds coordinates
   and zero-length resulting road segments are rejected.
-- **Move Asset:** Move an *authored* scenery object. Generated trees, protected
-  game structures and procedural city buildings remain read-only until a
-  stable replacement/adoption workflow is supported.
+- **Move Asset:** Move a source-authored scenery object.
+- **Adopt Prop:** First use Inspect to select a real existing building, tree,
+  palm, pine, shop or rock. Choose **ADOPT PROP** to create a source-backed
+  replacement using the original item's kind, seed and position. Then Move
+  Asset / Rotate can edit the replacement. The untouched original remains
+  on screen until you Apply and Reload. Protected garages, gameplay POIs,
+  already adopted objects and unsupported procedural types cannot be adopted.
+  The transaction is reversible through Undo and server rollback.
 - **HOUSE / SHOP / TREE / ROCK:** Place a new source-authored object using a
   supported existing game atlas type. Its size and collision are rebuilt by the
   production generator, not guessed by an editor-only physics system.
@@ -79,10 +84,11 @@ edit the same document in both clients simultaneously.
 ## Current limitations and remaining transition
 
 This is a genuine editing-and-rebuild milestone, **not yet feature parity with
-the entire browser editor**. Source road anchor movement and source-authored
-scenery are supported. Protected/procedural scenery conversion, adding new road
-branches and junction design, region painting, full asset browsing and complex
-multi-object operations still require the browser editor. These should be
+the entire browser editor**. Source road anchor movement, source-authored
+scenery, and identity-safe adoption of ordinary existing game scenery are
+supported. Adding new road branches and junction design, region painting,
+full asset browsing and complex multi-object operations still require the
+browser editor. These should be
 migrated after validation of the source-identity and rollback workflow. The
 Python builder stays authoritative; only the UI is being replaced.
 
