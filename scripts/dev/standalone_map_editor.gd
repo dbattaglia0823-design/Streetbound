@@ -37,6 +37,11 @@ func _ready() -> void:
 	editor_origin_camera = Camera2D.new()
 	editor_origin_camera.name = "EditorOriginCamera"
 	editor_origin_camera.position = ground.spawn_position()
+	if get_tree().has_meta("streetbound_editor_return_position"):
+		var saved: Variant = get_tree().get_meta("streetbound_editor_return_position")
+		if saved is Vector2:
+			editor_origin_camera.position = saved
+		get_tree().remove_meta("streetbound_editor_return_position")
 	editor_origin_camera.zoom = Vector2(0.35,0.35)
 	add_child(editor_origin_camera)
 	editor_origin_camera.make_current()
