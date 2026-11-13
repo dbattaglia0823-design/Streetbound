@@ -133,16 +133,31 @@ func _rebuild_preview_collisions() -> void:
 	for prop in draft_doc.get("props",[]):
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
+		var kind := str(prop.get("type",""))
+		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
+			"sign","parking","dock","planter","garden","field","forecourt"]
+		var trunk_radius := 0.0
+		# A procedural tree has a small solid trunk. Ordinary placed editor
+		# foliage is non-solid; match the source builder rather than placing
+		# a canopy-sized collider on every tree.
+		if prop.has("replaces") and is_instance_valid(world):
+			var prior: Dictionary = prop.replaces
+			for original in world.data.get("props",[]):
+				if str(original.get("kind","")) == str(prior.get("kind","")) and \
+						int(original.get("seed",-1)) == int(prior.get("seed",-2)) and \
+						original.get("p",[]) == prior.get("p",[]):
+					is_decoration = not bool(original.get("solid",false))
+					if kind in ["oak","pine","palm"]:
+						trunk_radius = float(original.get("radius",0.65))*PPM
+					break
+		if is_decoration:
+			continue
 		var collider := CollisionShape2D.new()
 		var size := _prop_size(prop)
-		if str(prop.get("type","")) in ["oak","pine","palm"]:
+		if trunk_radius > 0:
 			var circle := CircleShape2D.new()
-			circle.radius = minf(size.x,size.y)*0.32
+			circle.radius = trunk_radius
 			collider.shape = circle
-		elif str(prop.get("type",""))=="rock":
-			var rock := CircleShape2D.new()
-			rock.radius = minf(size.x,size.y)*0.45
-			collider.shape = rock
 		else:
 			var rect := RectangleShape2D.new()
 			rect.size = size
