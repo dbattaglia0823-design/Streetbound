@@ -17,7 +17,7 @@ import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
-import {buildRuntimePreview,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
+import {buildRuntimePreview,browseRuntimeAssets,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
   GAME_ART,GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
@@ -239,14 +239,18 @@ function refreshHeader(){
   $('adopt-game-prop').hidden=!runtimePreview;
   $('adopt-game-hint').hidden=!runtimePreview;
   $('game-asset-status').textContent=runtimePreview
-    ?'Live project assets: game scenery atlas and parked-traffic PNGs. '+
-       runtimePreview.propsCount.toLocaleString()+' baked props displayed; generated props are rebuilt from the source.'
+    ?runtimePreview.propsCount.toLocaleString()+
+      ' existing game scenery assets loaded (buildings, trees, rocks, parking and landmarks). '+
+      doc.props.length+' editable additions/overrides. Select a game asset on the map or in the Assets list to edit it.'
     :'Open Game Map to load the playable scene and the asset atlas from the project folder.';
   $('world-dimensions').textContent=doc.world.width+' × '+doc.world.height+' world units';
+  const gameAssets=runtimePreview?.propsCount||0;
+  const authoringAdds=runtimePreview?doc.props.filter(p=>!p.replaces).length:doc.props.length;
   $('object-count').textContent=doc.roads.length+' roads · '+
     buildRoadJunctions(doc.roads).length+' intersections · '+
-    doc.regions.length+' regions · '+doc.props.length+' placed scenery'+
-    (runtimePreview?' · '+runtimePreview.propsCount.toLocaleString()+' existing game props':'');
+    doc.regions.length+' regions · '+
+    (gameAssets+authoringAdds).toLocaleString()+' scenery assets'+
+    (runtimePreview?' ('+gameAssets.toLocaleString()+' baked)':'');
   const canFinish=draft && draft.points.length>=(draft.type==='road'?2:3);
   $('finish-shape').disabled=!canFinish;$('cancel-shape').disabled=!draft;
   $('delete-entity').disabled=!selection;
@@ -461,32 +465,88 @@ function refreshInspector(){
 function refreshEntities(){
   const list=$('entity-list');list.replaceChildren();
   const filter=$('entities-filter').value;
-  const sections=filter==='all'?['roads','regions','markers','props']:[filter];
-  let entries=sections.flatMap(type=>doc[type].map(item=>({type,item})));
-  $('entities-count').textContent=entries.length+' TOTAL';
-  if(entries.length>180){
-    const selected=entries.find(entry=>entry.item.id===selection?.id);
-    entries=entries.slice(0,179);
-    if(selected&&!entries.some(e=>e.item.id===selected.item.id))entries.push(selected);
+  // Scenery imported from the live game is stored in a spatial preview, not
+  // doc.props, because the generator owns those thousands of source records.
+  // Show actual game objects first in All / Scenery instead of "0 TOTAL".
+  const showScenery=filter==='all'||filter==='props';
+  const baseTypes=filter==='all'?['props','roads','regions','markers']:[filter];
+  const baseEntries=baseTypes.flatMap(type=>doc[type].map(item=>({type,item})));
+  const added=runtimePreview?doc.props.filter(p=>!p.replaces).length:0;
+  const count=showScenery&&runtimePreview
+    ?runtimePreview.propsCount+added+
+      (filter==='all'?doc.roads.length+doc.regions.length+doc.markers.length:0)
+    :baseEntries.length;
+  $('entities-count').textContent=count.toLocaleString()+
+    (showScenery&&runtimePreview?' ASSETS':' TOTAL');
+  const maxRows=180;
+  const native=showScenery&&runtimePreview?
+    browseRuntimeAssets(runtimePreview,doc,maxRows):{total:0,rows:[]};
+  const entries=[
+    ...baseEntries.filter(e=>e.type==='props'),
+    ...native.rows.map(item=>({type:'native',item})),
+    ...baseEntries.filter(e=>e.type!=='props')
+  ];
+  let visibleEntries=entries.slice(0,maxRows);
+  const selected=baseEntries.find(e=>e.item.id===selection?.id);
+  if(selected&&!visibleEntries.some(e=>e.item.id===selected.item.id)){
+    if(visibleEntries.length>=maxRows)visibleEntries=visibleEntries.slice(0,maxRows-1);
+    visibleEntries.push(selected);
   }
-  if(!entries.length){const p=document.createElement('p');p.className='muted-copy';p.textContent='Nothing in this category yet.';list.append(p);}
-  for(const {type,item} of entries){
-    const row=document.createElement('button');row.type='button';row.className='entity-row'+(selection?.id===item.id?' selected':'');
-    row.setAttribute('aria-pressed',String(selection?.id===item.id));row.title=item.name;
+  if(!visibleEntries.length){
+    const empty=document.createElement('p');empty.className='muted-copy';
+    empty.textContent=runtimePreview&&showScenery
+      ?'No baked scenery found. Check the playable world archive and rebuild.'
+      :'No objects in this category yet.';
+    list.append(empty);
+  }
+  if(showScenery&&runtimePreview&&native.rows.length){
+    const hint=document.createElement('p');hint.className='muted-copy';
+    hint.textContent='Existing game scenery, nearest player start first. Click an asset to locate it; ordinary scenery becomes editable. Landmarks are protected. Apply to Game saves changes.';
+    list.append(hint);
+  }
+  for(const {type,item} of visibleEntries){
+    const game=type==='native';
+    const source=game?item.source:null;
+    const row=document.createElement('button');row.type='button';
+    row.className='entity-row'+(selection?.id===item.id?' selected':'');
+    row.setAttribute('aria-pressed',String(!game&&selection?.id===item.id));
+    row.title=game
+      ?(item.editable?'Edit existing game asset':'Protected game landmark — locate only')
+      :item.name;
     const ico=document.createElement('span');ico.className='icon';
-    ico.textContent={roads:'〰',regions:'⬡',props:'♣',markers:'◇'}[type];
-    const name=document.createElement('span');name.className='entity-name';name.textContent=item.name;
-    const tag=document.createElement('span');tag.className='entity-type';tag.textContent={roads:'ROAD',regions:'LAND',props:'PROP',markers:'POINT'}[type];
+    ico.textContent=game?'♣':{roads:'〰',regions:'⬡',props:'♣',markers:'◇'}[type];
+    const name=document.createElement('span');name.className='entity-name';
+    name.textContent=game
+      ?item.name+' · '+Math.round(item.x)+', '+Math.round(item.y)
+      :item.name;
+    const tag=document.createElement('span');tag.className='entity-type';
+    tag.textContent=game?(item.editable?'GAME':'LANDMARK'):
+      {roads:'ROAD',regions:'LAND',props:'EDIT',markers:'POINT'}[type];
     row.append(ico,name,tag);
     row.addEventListener('click',()=>{
-      setTool('select');setSelection(item.id);
-      if(type==='props'||type==='markers')focusPoint(item);
-      else focusPoint(item.points.reduce((p,q)=>({x:p.x+q.x/item.points.length,y:p.y+q.y/item.points.length}),{x:0,y:0}));
+      setTool('select');
+      if(game){
+        // Do not move or overwrite gameplay-critical POI scenery. Selection
+        // of ordinary game assets creates an explicit, undoable override.
+        if(item.editable)adoptRuntimeScenery(source);
+        else status('Protected game landmark: location shown. Its original asset is unchanged.');
+        if(zoom<0.5)setZoom(0.65);
+        focusPoint(item);
+      }else{
+        setSelection(item.id);
+        if(type==='props'||type==='markers')focusPoint(item);
+        else focusPoint(item.points.reduce((p,q)=>({
+          x:p.x+q.x/item.points.length,y:p.y+q.y/item.points.length
+        }),{x:0,y:0}));
+      }
     });
     list.append(row);
   }
-  if((filter==='all'?doc.roads.length+doc.regions.length+doc.props.length+doc.markers.length:doc[filter].length)>entries.length){
-    const p=document.createElement('p');p.className='muted-copy';p.textContent='Showing the first 180 items. Filter by category to find more.';list.append(p);
+  if(count>visibleEntries.length){
+    const hint=document.createElement('p');hint.className='muted-copy';
+    hint.textContent='Showing '+visibleEntries.length+' of '+count.toLocaleString()+
+      ' objects. Pan the map or click visible scenery to edit other existing assets.';
+    list.append(hint);
   }
 }
 function refreshSpriteLists(){
@@ -508,12 +568,12 @@ function refreshSpriteLists(){
   }
 }
 function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();requestRender();}
-function startWorld(world,message,{skipRecovery=false}={}){
+function startWorld(world,message,{skipRecovery=false,preview=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
   if(dirty&&!skipRecovery)auditUI.stash(doc);
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
-  runtimePreview=null;loadedWorldSha='';adoptGameProp=false;
+  runtimePreview=preview;loadedWorldSha='';adoptGameProp=false;
   undoStack=[];redoStack=[];dirty=false;
   auditUI.invalidate();refreshUI();fit();status(message);
   try{localStorage.setItem(AUTO,serializeWorld(doc));}
@@ -1033,17 +1093,30 @@ async function openGameMap({skipConfirm=false}={}){
         }
       }catch{/* Baked scene still loads if editable overlay is unavailable. */}
     }
+    // Build the native asset browser BEFORE the world UI renders. Previously
+    // the editor briefly displayed 0 scenery and could stay zoomed out so far
+    // that thousands of 7-metre trees were effectively invisible.
+    if(!Array.isArray(raw.props)||!raw.props.length)
+      throw new Error('Playable Morrow Coast contains no baked scenery assets. Rebuild Morrow Coast from the source map before editing.');
+    const preview=buildRuntimePreview(raw);
     startWorld(world,'Loaded current playable Morrow Coast: '+stats.roads+' roads, '+
       stats.regions+' regions, '+stats.landmarkMarkers+' landmarks and '+
-      stats.proceduralProps.toLocaleString()+' existing baked scenery objects.');
-    runtimePreview=buildRuntimePreview(raw);
+      stats.proceduralProps.toLocaleString()+' existing baked scenery objects.',
+      {preview});
     liveSession=session;
     loadedWorldSha=session?.worldSha||'';
     $('show-traffic').checked=true;
     $('show-scenery').checked=true;
+    // Start at the actual driving neighborhood where houses and foliage are
+    // recognizable; Fit remains available for the whole-coast overview.
+    setZoom(Math.max(zoom,0.65));
+    const spawn=world.markers.find(item=>item.type==='player_spawn');
+    if(spawn)focusPoint(spawn);
     refreshUI();
-    status(session?'Live project connected. Save to Game writes and rebuilds the playable world. Restart the game after saving.':
-      'Current map imported. Direct write requires Start Map Editor.cmd with Python 3.');
+    status(stats.proceduralProps.toLocaleString()+' existing game assets loaded. '+
+      (session?'Project connected: Apply to Game saves edits.':
+        'Start Map Editor.cmd for direct project saves.')+
+      ' Use Fit for the full map.');
   }catch(e){errorMessage(e);}
   finally{button.disabled=false;}
 }
