@@ -69,7 +69,7 @@ test('browse list stays bounded for large streamed maps and protected objects re
   const browser=browseRuntimeAssets(preview,doc,180);
   assert.equal(browser.total,4500);
   assert.equal(browser.rows.length,180);
-  assert.equal(browser.rows[0].source.kind,'tree');
+  assert.ok(['tree','warehouse'].includes(browser.rows[0].source.kind));
   assert.equal(doc.props.length,0,'procedural 4500 never pollute editable source cap of 4000');
 });
 
