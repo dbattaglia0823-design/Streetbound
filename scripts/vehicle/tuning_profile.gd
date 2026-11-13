@@ -29,9 +29,18 @@ func load_into(config: VehicleConfig) -> bool:
 		var value: float = float(raw)
 		if is_nan(value) or is_inf(value):
 			continue
-		if value < float(entry[2]) - 0.0001 or value > float(entry[3]) + 0.0001:
+		var minimum: float = float(entry[2])
+		var maximum: float = float(entry[3])
+		# ConfigFile serializes floats with reduced decimal precision. At the
+		# 10,000 hp slider endpoint, 7456.9987 kW reloads as 7457.0 kW.
+		# Treat ONLY small round-trip quantization as valid, and clamp back
+		# to the original range. Larger invalid/corrupt edits remain ignored.
+		var round_trip_tolerance: float = maxf(0.01,
+			maxf(absf(minimum),absf(maximum)) * 0.000001)
+		if value < minimum - round_trip_tolerance or \
+				value > maximum + round_trip_tolerance:
 			continue
-		config.set(key, clampf(value, float(entry[2]), float(entry[3])))
+		config.set(key, clampf(value, minimum, maximum))
 		applied = true
 	return applied
 

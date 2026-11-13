@@ -16,6 +16,9 @@ var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
 var chunk_m := 192.0
 var vehicle: VehicleController2D
+# Optional second live camera/player keeps two 3x3 stream neighborhoods active.
+var secondary_stream_vehicle: VehicleController2D
+var secondary_current_cell := Vector2i(-999,-999)
 var tire_marks: TireMarks2D
 var chunks: Dictionary = {}
 var pending: Array[Vector2i] = []
@@ -348,37 +351,74 @@ func _build_chunk(index: Vector2i) -> void:
 	# An initial synchronous spawn chunk is active even before stream_at()
 	# establishes current_cell; later preloads obey the live 3x3 radius.
 	var active_center: Vector2i = index if current_cell.x == -999 else current_cell
-	instance.set_stream_active(maxi(absi(index.x - active_center.x),
-		absi(index.y - active_center.y)) <= 1)
+	instance.set_stream_active(_stream_cell_distance(index,active_center,
+		secondary_current_cell) <= 1)
 	chunks[index] = instance
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
 	stream_build_usec += instance.build_microseconds
 
+func set_secondary_stream_vehicle(target: VehicleController2D) -> void:
+	secondary_stream_vehicle = target
+	# Force the next streaming tick to rebuild the union of active cells,
+	# including when P1 has not changed position.
+	secondary_current_cell = Vector2i(-999,-999)
+
+
+func _stream_cell_distance(index: Vector2i, a: Vector2i,
+		b: Vector2i) -> int:
+	var nearest := maxi(absi(index.x-a.x),absi(index.y-a.y))
+	if b.x != -999:
+		nearest = mini(nearest,maxi(absi(index.x-b.x),absi(index.y-b.y)))
+	return nearest
+
+
 func stream_at(position_px: Vector2) -> void:
 	var center := Vector2i((position_px/PPM/chunk_m).floor())
-	if center == current_cell:
+	var second := Vector2i(-999,-999)
+	if is_instance_valid(secondary_stream_vehicle):
+		second = Vector2i(
+			(secondary_stream_vehicle.global_position/PPM/chunk_m).floor())
+	if center == current_cell and second == secondary_current_cell:
 		return
 	current_cell = center
+	secondary_current_cell = second
 	pending.clear()
-	# 3x3 active, plus a one-cell hysteresis band to avoid boundary churn.
-	for x in range(center.x-1,center.x+2):
-		for y in range(center.y-1,center.y+2):
-			var index := Vector2i(x,y)
-			if not chunks.has(index):
-				pending.append(index)
-			else:
-				cached_chunk_reuses += 1
-	pending.sort_custom(func(a: Vector2i,b: Vector2i): return a.distance_squared_to(center)<b.distance_squared_to(center))
+	# Single-player is unchanged: 3x3 active and one-cell hysteresis.
+	# Split-screen loads the UNION of both neighborhoods, never thrashes
+	# chunks by alternating two calls to the original single-focus loader.
+	var requested: Dictionary = {}
+	var centers: Array[Vector2i] = [center]
+	if second.x != -999 and second != center:
+		centers.append(second)
+	for focus in centers:
+		for x in range(focus.x-1,focus.x+2):
+			for y in range(focus.y-1,focus.y+2):
+				var index := Vector2i(x,y)
+				if requested.has(index):
+					continue
+				requested[index] = true
+				if not chunks.has(index):
+					pending.append(index)
+				else:
+					cached_chunk_reuses += 1
+	# Avoid a nested inline conditional inside the sorter: this parses
+	# inconsistently across the project's pinned Godot versions.
+	pending.sort_custom(func(a: Vector2i,b: Vector2i) -> bool:
+		var a_distance := a.distance_squared_to(center)
+		var b_distance := b.distance_squared_to(center)
+		if second.x != -999:
+			a_distance = mini(a_distance,a.distance_squared_to(second))
+			b_distance = mini(b_distance,b.distance_squared_to(second))
+		return a_distance < b_distance
+	)
 	for index in chunks.keys():
-		var cell_delta := maxi(absi(index.x-center.x),absi(index.y-center.y))
+		var cell_delta := _stream_cell_distance(index,center,second)
 		if cell_delta > 2:
 			chunks[index].queue_free()
 			chunks.erase(index)
 		else:
-			# One toggle per cell crossing, not per frame. The dormant outer
-			# ring stores geometry but contributes zero draw/collision layer.
 			chunks[index].set_stream_active(cell_delta <= 1)
 
 func _process(dt: float) -> void:
