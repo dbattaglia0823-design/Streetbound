@@ -92,10 +92,14 @@ func _received(result: int, response_code: int, _headers: PackedStringArray,
 	var stage := phase
 	if stage.is_empty():
 		return
-	if result != HTTPRequest.RESULT_SUCCESS:
-		_fail("Local map backend is unavailable. Start it from the editor or launcher.")
-		return
 	var content := body.get_string_from_utf8()
+	# An HTTP 409 may still carry a useful validation/rollback error even
+	# when a platform reports an unsuccessful transport result. Read it
+	# before treating the service as unreachable.
+	if result != HTTPRequest.RESULT_SUCCESS and response_code < 400:
+		_fail("Local map backend is unavailable (transport %d, HTTP %d)." % [
+			result,response_code])
+		return
 	var parsed: Variant = JSON.parse_string(content)
 	if not parsed is Dictionary:
 		_fail("Invalid response from the local map backend.")
