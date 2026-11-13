@@ -2,9 +2,12 @@
 
 ## Native editing in Godot (developer builds)
 
-Launch Streetbound from its local Godot project in debug/development mode, drive
-in Morrow Coast, and press **F6**. The game pauses while you edit. **F6 / Test
-Drive** restores your original vehicle and camera. The native editor is not
+Launch Streetbound from its local Godot project in debug/development mode.
+The application opens the **Streetbound Main Menu** rather than loading the world
+immediately. Select **MAP EDITOR** to load Morrow Coast directly into Godot's
+live editing workspace, or start with **PLAY** and select **MAP EDITOR** from
+the Pause menu. Select **TEST DRIVE** to restore the original vehicle and
+camera. No dedicated F6 editor hotkey is required or registered. The native editor is not
 installed in release builds, cannot be opened while split-screen is active,
 and does not create a second game world.
 
@@ -36,13 +39,30 @@ and orange intersection turn connectors come from the same
   ordinary authored props may be deleted (not adopted or protected gameplay
   structures). Ctrl+Z and Ctrl+Y also navigate history.
 - **Right/middle drag or WASD/arrows:** Pan. **Mouse wheel:** zoom.
-  **CENTER ON CAR:** return focus to the original vehicle.
+  **CENTER ON CAR:** return focus to the original vehicle. **TEST DRIVE:**
+  resume normal gameplay; use the Pause menu to return to the Main Menu.
 
 **Draft preview versus playable geometry:** Bright yellow control points/lines
 and green asset footprints are **unbaked edits**. Live road, collision,
 intersection and traffic data are still the previous baked state until you
 click Apply to Game and Reload World. The native editor does not invent a
 separate intersection or traffic solver.
+
+## Title screen and menu flow
+
+- **Play / Free Roam** enters the normal single-player Morrow Coast scene.
+- **Map Editor** enters the real Godot-native authoring workspace in a
+  development build. The option is disabled in release builds.
+- **Local Multiplayer** starts the existing two-player split-screen mode,
+  using one keyboard plus controller or two connected controllers. If no
+  controller is connected, the title remains open with a clear instruction.
+- The game Pause menu contains **Resume, Map Editor, Local Multiplayer,
+  Settings, Main Menu, and Quit Game**. Main Menu unloads Morrow Coast and
+  restores the title without leaving physics paused. Switching from
+  split-screen to Map Editor first restores the single-player camera.
+- Editor source drafts remain in memory until Apply; opening the title will
+  unload any unsaved gameplay workspace, so Apply or discard intentional edits
+  before leaving.
 
 ## Safe Apply to Game
 
