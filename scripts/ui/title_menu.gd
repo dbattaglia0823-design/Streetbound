@@ -148,8 +148,8 @@ func _refresh_buttons() -> void:
 	var editor_mode := OS.has_feature("debug") or OS.has_feature("editor")
 	var button: Button = actions["map_editor"]
 	button.disabled = not editor_mode
-	button.tooltip_text = "Godot development builds only." if not editor_mode else
-		"Edit Morrow Coast using the actual game rendering and traffic data."
+	button.tooltip_text = ("Godot development builds only." if not editor_mode else
+		"Edit Morrow Coast using the actual game rendering and traffic data.")
 	if not editor_mode:
 		message.text = "Map Editor is available in development builds only."
 
