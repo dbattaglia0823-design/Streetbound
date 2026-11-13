@@ -14,15 +14,34 @@ var center_m := Vector2.ZERO
 var pixels_per_m := 0.15
 var fit_scale := 0.15
 var miniature := false
+var minimap_shape := "square"
+var minimap_border: Line2D
 var follow_car := false
 var dragging := false
 var player_m := Vector2.ZERO
 var player_heading := 0.0
 
 func _draw() -> void:
-	# The live map builds its nearby world tiles over several frames. Use
-	# the same ground tint beneath them rather than a blank loading patch.
-	draw_rect(Rect2(Vector2.ZERO, custom_minimum_size), Color("a3b789"))
+	# The background is also the clipping mask for ALL map children, including
+	# the streamed road/scenery mirror, race guidance, labels and car cursor.
+	var extent := size if size.x > 0.0 and size.y > 0.0 else custom_minimum_size
+	if miniature and minimap_shape == "circle":
+		draw_circle(extent * 0.5, minf(extent.x, extent.y) * 0.5 - 1.0,
+			Color("a3b789"))
+	else:
+		draw_rect(Rect2(Vector2.ZERO, extent), Color("a3b789"))
+
+
+func set_minimap_shape(shape: String) -> void:
+	# Full atlas remains rectangular; only the small HUD map is affected.
+	minimap_shape = "circle" if shape == "circle" else "square"
+	if not miniature:
+		return
+	clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW if minimap_shape == "circle" \
+		else CanvasItem.CLIP_CHILDREN_DISABLED
+	if is_instance_valid(minimap_border):
+		minimap_border.visible = minimap_shape == "circle"
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -60,6 +79,21 @@ func _ready() -> void:
 	scale_bar.dimensions=custom_minimum_size
 	scale_bar.z_index=21
 	add_child(scale_bar)
+	if miniature:
+		minimap_border = Line2D.new()
+		minimap_border.name = "MinimapCircleBorder"
+		minimap_border.default_color = Color("d9e6c6")
+		minimap_border.width = 2.0
+		minimap_border.antialiased = true
+		minimap_border.closed = true
+		minimap_border.z_index = 25
+		var radius := minf(custom_minimum_size.x, custom_minimum_size.y)*0.5 - 3.0
+		for i in 64:
+			var angle := TAU * float(i) / 64.0
+			minimap_border.add_point(custom_minimum_size * 0.5 +
+				Vector2(cos(angle), sin(angle)) * radius)
+		add_child(minimap_border)
+		set_minimap_shape(minimap_shape)
 	fit_scale=minf(custom_minimum_size.x/model.extent.x,custom_minimum_size.y/model.extent.y)*.95
 	if miniature:
 		pixels_per_m=custom_minimum_size.x/460.0

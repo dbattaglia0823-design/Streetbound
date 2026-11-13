@@ -57,6 +57,33 @@ func _run() -> void:
 	follow.button_pressed = true
 	await process_frame
 	check("camera_toggle_applied", bool(pause.settings_store.get_setting("camera_follow")))
+	# The one shape button shows the active value, applies immediately and
+	# persists in the same settings store as volume and camera follow.
+	var map_hud: Variant = get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	var shape_button: Button = pause.settings_screen.controls["minimap_shape_button"]
+	check("minimap_shape_setting_starts_square",
+		shape_button.text == "Square" and
+		str(pause.settings_store.get_setting("minimap_shape")) == "square" and
+		map_hud != null and map_hud.mini_view.minimap_shape == "square")
+	shape_button.pressed.emit()
+	await process_frame
+	check("shape_button_switches_to_circle_live",
+		shape_button.text == "Circle" and
+		str(pause.settings_store.get_setting("minimap_shape")) == "circle" and
+		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_AND_DRAW and
+		map_hud.mini_view.minimap_border.visible)
+	check("full_atlas_remains_rectangular",
+		map_hud.full_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
+	var stored := ConfigFile.new()
+	check("circle_preference_saved_to_config",
+		stored.load(pause.settings_store.path) == OK and
+		str(stored.get_value("settings", "minimap_shape", "")) == "circle")
+	shape_button.pressed.emit()
+	await process_frame
+	check("shape_button_switches_back_to_square",
+		shape_button.text == "Square" and
+		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED and
+		not map_hud.mini_view.minimap_border.visible)
 	# Escape in Settings should go back to Pause, not unpause gameplay.
 	press_escape()
 	await process_frame
@@ -81,6 +108,8 @@ func _run() -> void:
 	pause._handle_action("settings.volume_changed", {"value":80.0})
 	pause._handle_action("settings.sfx_changed", {"value":true})
 	pause._handle_action("settings.camera_changed", {"value":false})
+	pause.settings_store.set_setting("minimap_shape", "square")
+	pause._apply_minimap_shape()
 	main.queue_free()
 	paused = false
 	print("PAUSE MENU TESTS: ", "PASS" if failures.is_empty() else "FAIL")
