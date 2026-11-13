@@ -87,8 +87,8 @@ func _run() -> void:
 			expect("game_camera_contains_"+str(item.name),valid)
 			if valid:
 				samples[str(item.name)] = shot.get_pixel(int(pixel.x),int(pixel.y))
-		if samples.has("garage_roof") and samples.has("nearby_house") and
-				samples.has("driveway_asphalt"):
+		if (samples.has("garage_roof") and samples.has("nearby_house") and
+				samples.has("driveway_asphalt")):
 			var garage: Color = samples.garage_roof
 			var house: Color = samples.nearby_house
 			var road: Color = samples.driveway_asphalt
