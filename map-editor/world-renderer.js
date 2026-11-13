@@ -2,6 +2,8 @@ import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
+import {projectArtwork} from './world-project-assets.js';
+import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
 import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 
@@ -62,12 +64,14 @@ function drawRuntimeEditedRegion(ctx,region,bounds,sourceTerrain=null){
   ctx.fillStyle=originalBiome===region.biome&&/^[0-9a-f]{6}$/i.test(sourceColor||'')
     ? '#'+sourceColor:GAME_BIOME_COLORS[region.biome]||GAME_BIOME_COLORS.grass;
   ctx.fill();
+  textureTerrain(ctx,region.biome);
 }
 function drawRegion(ctx,region,seed,quality,bounds){
   const a=boundsOf(region.points);
   if(!visible(a,bounds))return;
   stroke(ctx,region.points,true);
   ctx.fillStyle=BIOME_COLORS[region.biome]||BIOME_COLORS.grass;ctx.fill();
+  if(textureTerrain(ctx,region.biome))return;
   if(region.biome==='ocean'||region.biome==='lake'){
     stroke(ctx,region.points,true);
     ctx.strokeStyle=region.biome==='ocean'?'#acd9cb':'#b6d7c0';ctx.lineWidth=12;ctx.globalAlpha=.5;ctx.stroke();
@@ -324,6 +328,15 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  const project=projectArtwork(prop);
+  if(project){
+    ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);
+    ctx.scale(prop.scale,prop.scale);
+    const [w,h]=project.size,image=getSprite({...project,src:project.src});
+    if(image?.complete&&image.naturalWidth)ctx.drawImage(image,-w/2,-h/2,w,h);
+    else{ctx.fillStyle='#819191';ctx.fillRect(-w/2,-h/2,w,h);}
+    ctx.restore();return;
+  }
   // Adopted world props use the game's own rendering code so dragging or
   // rotating a baked car, lot, field or street fixture does not replace it
   // with an unrelated generic placeholder.
@@ -400,7 +413,8 @@ export function drawWorld(ctx,doc,options={}){
   ctx.save();
   rect(ctx,0,0,doc.world.width,doc.world.height,
     options.runtimePreview?GAME_BIOME_COLORS.grass:BIOME_COLORS[doc.world.base]);
-  if(quality&&!options.runtimePreview){
+  const texturedBase=textureTerrainRect(ctx,doc.world.base,0,0,doc.world.width,doc.world.height);
+  if(quality&&!options.runtimePreview&&!texturedBase){
     const rand=seeded(doc.world.seed+17);
     const step=65;
     for(let y=22;y<doc.world.height;y+=step)for(let x=25;x<doc.world.width;x+=step){

@@ -19,6 +19,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
+from project_asset_catalog import catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 EDITOR = ROOT / "map-editor"
@@ -50,7 +51,7 @@ def allowed_file(route: str) -> Path | None:
         relative = path[len("/game-assets/"):]
         target = (ROOT / "assets" / relative).resolve()
         parent = (ROOT / "assets").resolve()
-        if (target.is_relative_to(parent) and target.suffix.lower() in {".png", ".webp"}
+        if (target.is_relative_to(parent) and target.suffix.lower() in {".png", ".webp", ".svg"}
                 and target.is_file()):
             return target
         return None
@@ -152,6 +153,8 @@ def make_handler(token: str = TOKEN):
 
         def do_GET(self):
             route = urlsplit(self.path).path
+            if route == "/api/project-assets":
+                return self._json(200, {"assets":catalog(ROOT)})
             if route == "/api/morrow-edits":
                 if EDIT.exists():
                     return self._send(200, EDIT.read_bytes())

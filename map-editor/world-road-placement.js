@@ -9,6 +9,7 @@
  */
 import {clamp, distance, pointSegment, sampleRoad} from './world-geometry.js';
 import {nativeAdoptedRadius} from './morrow-runtime-preview.js';
+import {projectArtwork} from './world-project-assets.js';
 
 const CELL=160, BUFFER=9, MAX_ROAD_HALF_WIDTH=100;
 const roadIndexes=new WeakMap();
@@ -25,6 +26,8 @@ const footprints={
 const inside=(doc,p,r=0)=>p.x>=r&&p.y>=r&&p.x<=doc.world.width-r&&p.y<=doc.world.height-r;
 export const normalizeAngle=angle=>((angle+180)%360+360)%360-180;
 export function placementFootprint(doc,prop){
+  const project=projectArtwork(prop);
+  if(project)return Math.hypot(...project.size)*(prop.scale??1)/2+1;
   // Adopted production scenery uses metre-scale collision bounds. The older
   // generic World Forge display-icon dimensions could be 10x too large and
   // make a correctly parked house look as if it overlapped a distant road.

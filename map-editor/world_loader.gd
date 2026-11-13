@@ -77,6 +77,26 @@ func load_world_json(source: String) -> bool:
             return false
         image.convert(Image.FORMAT_RGBA8)
         textures[str(asset.get("id", ""))] = ImageTexture.create_from_image(image)
+    for prop in decoded.props:
+        if not prop.has("assetPath"):
+            continue
+        var relative: String = str(prop.assetPath)
+        if not relative.begins_with("Buildings/") or ".." in relative or "\\" in relative or ":" in relative:
+            return false
+        var path: String = "res://assets/"+relative
+        if ResourceLoader.exists(path,"Texture2D") and (FileAccess.file_exists(path+".import") or OS.has_feature("template")):
+            textures[str(prop.assetId)]=load(path)
+            continue
+        var image := Image.new()
+        var result: Error = ERR_FILE_UNRECOGNIZED
+        match path.get_extension().to_lower():
+            "png":result=image.load_png_from_buffer(FileAccess.get_file_as_bytes(path))
+            "webp":result=image.load_webp_from_buffer(FileAccess.get_file_as_bytes(path))
+            "svg":result=image.load_svg_from_string(FileAccess.get_file_as_string(path))
+        if result != OK:
+            push_error("Missing project building artwork: "+relative)
+            return false
+        textures[str(prop.assetId)] = ImageTexture.create_from_image(image)
     _sprite_textures = textures
     world_data = decoded
     _road_cache.clear()
@@ -528,6 +548,8 @@ func _draw_prop(entry: Dictionary) -> void:
         var max_side: float = 132.0 if kind in ["building","warehouse","garage","gas_station","parking"] else 65.0
         var factor: float = max_side / maxf(float(maxi(texture.get_width(),texture.get_height())),1.0)
         var dim: Vector2 = Vector2(texture.get_width(),texture.get_height()) * factor
+        if entry.has("assetSize"):
+            dim=Vector2(float(entry.assetSize[0]),float(entry.assetSize[1]))
         draw_texture_rect(texture,Rect2(-dim/2.0,dim),false)
         draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
         return
@@ -623,6 +645,9 @@ func _build_blockers() -> void:
         if kind == "warehouse" or kind == "garage":
             width = 110.0
         var scale_value: float = float(item.get("scale",1.0))
+        if item.has("assetSize"):
+            width=float(item.assetSize[0])
+            height=float(item.assetSize[1])
         var shape := RectangleShape2D.new()
         shape.size = Vector2(width,height) * scale_value
         var node := CollisionShape2D.new()

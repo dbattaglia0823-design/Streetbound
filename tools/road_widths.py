@@ -42,6 +42,8 @@ def adapt(world):
     # their exact original size. Static building/foliage assets alone get
     # proportionally smaller physical AND visual bounds.
     for prop in world["props"]:
+        if prop.get("asset_path"):
+            continue  # Project artwork already has an explicit matching visual/collision footprint.
         factor = SCENERY_FACTORS.get(prop["kind"], 1.0)
         if factor == 1.0:
             continue

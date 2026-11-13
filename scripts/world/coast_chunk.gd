@@ -1,6 +1,27 @@
 extends Node2D
 ## Cached static illustration and local collision for a 192m square.
 const PPM := 20.0
+## UV tags identify materials explicitly; authored colors never decide surface type.
+const TERRAIN_TAGS := {"grass":2,"meadow":2,"town":2,"forest":3,
+	"mountain":4,"rock":5,"beach":6,"sand":6,"ocean":7,"water":8,"lake":8,
+	"foam":9,"riverbank":9,"farmland":10,"field":10,"city":11,
+	"desert":12,"dirt":13,"gravel":14,"highland":15}
+static var _terrain_texture: Texture2D
+
+static func terrain_texture() -> Texture2D:
+	# Canvas polygons discard UVs without a texture. One shared white texel
+	# preserves material tags without adding per-chunk texture allocations.
+	if _terrain_texture==null:
+		var image:=Image.create(1,1,false,Image.FORMAT_RGBA8)
+		image.fill(Color.WHITE)
+		_terrain_texture=ImageTexture.create_from_image(image)
+	return _terrain_texture
+
+static func terrain_uvs(count: int, kind: String) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	result.resize(count)
+	result.fill(Vector2(float(TERRAIN_TAGS.get(kind,2)),0.0))
+	return result
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 var world: Node2D
 var cell := Vector2i.ZERO
@@ -76,7 +97,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		var polygon := PackedVector2Array()
 		for p in terrain.points:
 			polygon.append(point(p))
-		ground_polys.append({"points": polygon, "color": Color(terrain.color),"kind":terrain.kind})
+		ground_polys.append({"points": polygon, "color": Color(terrain.color),"kind":terrain.kind,
+			"uvs":terrain_uvs(polygon.size(),str(terrain.kind))})
 	for prop_index in data.get("props", []):
 		prop_list.append(world.data.props[int(prop_index)])
 	prop_list.sort_custom(func(a: Dictionary,b: Dictionary): return _prop_order(a)<_prop_order(b))
@@ -259,10 +281,12 @@ func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	draw_style_box(style, rect)
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO,Vector2.ONE*world.chunk_m*PPM),Color("a3b789"))
+	var extent: float = world.chunk_m*PPM
+	var base := PackedVector2Array([Vector2.ZERO,Vector2(extent,0),Vector2.ONE*extent,Vector2(0,extent)])
+	draw_polygon(base,PackedColorArray([Color("a3b789")]),terrain_uvs(4,"grass"),terrain_texture())
 	for terrain in ground_polys:
 		if terrain.points.size()>=3:
-			draw_colored_polygon(terrain.points,terrain.color)
+			draw_polygon(terrain.points,PackedColorArray([terrain.color]),terrain.uvs,terrain_texture())
 	# Decorative strokes are cached with the chunk draw list, never spawned as
 	# nodes or moved each frame. Roads are painted in the later stages.
 	_draw_ground_foliage()
@@ -289,7 +313,7 @@ func _draw_ground_foliage() -> void:
 			var p := Vector2(float(x) * 12.0 + rng.randf_range(1.0, 11.0),
 				float(y) * 12.0 + rng.randf_range(1.0, 11.0)) * PPM
 			var kind := ground_kind_at(p)
-			if kind in ["beach", "water", "ocean", "foam", "riverbank"]:
+			if kind not in ["grass","meadow","forest","farmland","field","highland"]:
 				continue
 			if kind in ["city", "town"] and rng.randf() > 0.40:
 				continue

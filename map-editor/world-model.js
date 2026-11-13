@@ -1,6 +1,7 @@
 import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-geometry.js';
 import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
 import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
+import {projectArtwork,projectAssetId} from './world-project-assets.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
@@ -14,6 +15,7 @@ const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value)
 const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
   (GAME_ART_KINDS[type]||[]).includes(assetId.slice(5));
 const assetOk=(doc,prop)=>!prop.assetId||gameAssetOk(prop.assetId,prop.type)||
+  Boolean(projectArtwork(prop))||
   doc.assets.some(a=>a.id===prop.assetId);
 const title=(value, fallback)=> typeof value==='string' ? (value.trim().slice(0,80)||fallback):fallback;
 const integer=(n,min,max,label)=>{if(!Number.isInteger(n)||n<min||n>max)throw new RangeError('Invalid '+label);return n;};
@@ -63,6 +65,11 @@ function validEntity(item,type,w,h){
       x:real(item.x,0,w,'prop x'),y:real(item.y,0,h,'prop y'),
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.25,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
+    if(projectAssetId(entity.assetId)){
+      const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});
+      if(!art)throw new TypeError('Missing or invalid project building artwork');
+      entity.assetPath=art.path;entity.assetSize=[...art.size];
+    }
     if(item.replaces){
       const source=item.replaces;
       if(!source||typeof source!=='object'||Array.isArray(source)||
@@ -172,7 +179,11 @@ export function updateEntity(doc,id,patch){
   const found=getEntity(doc,id);
   if(!found)return doc;
   const {type,item}=found;
-  let updated=validEntity({...item,...patch,id},type,doc.world.width,doc.world.height);
+  const merged={...item,...patch,id};
+  if(type==='props'&&patch.assetId!==undefined&&patch.assetId!==item.assetId){
+    delete merged.assetPath;delete merged.assetSize;
+  }
+  let updated=validEntity(merged,type,doc.world.width,doc.world.height);
   if(type==='props'){
     if(!assetOk(doc,updated))throw new TypeError('Unknown or incompatible game asset');
     // Preserve exact positions and rotation for BOTH adopted game objects and

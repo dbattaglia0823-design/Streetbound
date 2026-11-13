@@ -11,6 +11,7 @@ corrupting the entire streamed map.
 import json
 import math
 import re
+from project_asset_catalog import building_file, asset_id
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -192,11 +193,20 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             "rock": {"rock"},
             "boulder": {"rock"},
         }
-        if game_art:
+        project_path = raw.get("assetPath") if str(game_art).startswith("project-") else None
+        if project_path is not None:
+            building_file(project_path,ROOT)
+            if game_art!=asset_id(project_path) or type_name not in {"house","building","warehouse","garage","gas_station"}:
+                raise ValueError("Invalid project building artwork reference")
+            asset_size=raw.get("assetSize")
+            if not isinstance(asset_size,list) or len(asset_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=100 for v in asset_size):
+                raise ValueError("Invalid project building footprint")
+        elif game_art:
             if (not isinstance(game_art, str) or not game_art.startswith("game-")
                     or game_art[5:] not in available.get(type_name, set())):
                 raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
+        if project_path is not None:base_size=asset_size
         size = [round(v * scale, 3) for v in base_size]
         radius = math.hypot(*size) / 2.0 if solid else 0.0
         seed = zlib.crc32(item_id.encode("utf-8")) & 0x7fffffff
@@ -206,7 +216,11 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                      radius=radius,solid=solid,seed=seed,
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
-        if game_art:
+        if project_path is not None:
+            entry["asset_path"]=project_path
+            entry["asset_size"]=asset_size
+            entry["asset_id"]=game_art
+        elif game_art:
             entry["asset_kind"] = game_art[5:]
             entry["asset_id"] = game_art
         if raw.get("replaces") is not None:

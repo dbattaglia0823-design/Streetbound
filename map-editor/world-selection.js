@@ -3,6 +3,7 @@
  * at the prop origin. This module has no DOM/canvas dependency.
  */
 import {BASE_SIZE} from './morrow-runtime-preview.js';
+import {projectArtwork} from './world-project-assets.js';
 
 const EDITOR_SIZE={
   oak:[96,96],pine:[56,72],palm:[72,72],bush:[40,40],
@@ -28,9 +29,10 @@ export function pickEditableScenery(props,point,{gameArt=false,tolerance=0}={}){
   for(let i=props.length-1;i>=0;i--){
     const prop=props[i];
     if(prop.hidden)continue;
-    const base=(gameArt?BASE_SIZE:EDITOR_SIZE)[prop.type]||[12,12];
+    const project=projectArtwork(prop);
+    const base=project?.size||(gameArt?BASE_SIZE:EDITOR_SIZE)[prop.type]||[12,12];
     const factor=(Number(prop.scale)||1)*
-      (!gameArt&&['building','warehouse'].includes(prop.type)?1.2:1);
+      (!project&&!gameArt&&['building','warehouse'].includes(prop.type)?1.2:1);
     if(pointInRotatedFootprint(point,prop,
       [base[0]*factor,base[1]*factor],(Number(prop.rotation)||0)*Math.PI/180,
       tolerance))return prop;

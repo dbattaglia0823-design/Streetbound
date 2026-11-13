@@ -244,6 +244,21 @@ the map view and the game revision they were based on. Ctrl+S saves the current
 property field too. Finish or cancel a shape before saving. Game loads and
 rebuilds temporarily pause editing; failed rebuilds keep your draft.
 
+**Terrain materials:** Grass, forest floor, exposed rock, sand, water, crop rows,
+urban ground and loose surfaces have distinct textured previews. Patterns are
+cached and anchored in world space, so moving or resizing regions does not
+stretch them. The game uses corresponding procedural materials with animated
+water and relief lighting. Fine detail fades at distant zoom; map geometry,
+surface grip and collisions are unchanged. No world rebake is needed.
+
+**Building folders:** Launch `Start Map Editor.cmd` to automatically discover
+PNG, WebP and SVG artwork in `assets/Buildings/`, including subfolders. New files
+appear in the Buildings asset browser within a few seconds; **Refresh folders**
+rescans immediately. Names come from filenames. Placed objects retain their
+file references, aspect ratio and collision footprint when saved or reopened.
+Godot ZIP exports include the used images. Keep files at their original paths;
+if a used image is missing, Save to Game reports it instead of changing the art.
+
 **Regression checks:** Run `node --test map-editor/tests/*.test.mjs` for editor
 checks. Run `python tests/morrow_rebuild_stability_test.py` for two real production
 bakes in an isolated temporary copy. It verifies stable roads, widths, scenery,

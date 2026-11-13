@@ -11,7 +11,7 @@ export function createZip(files,{maxFileSize=2_000_000}={}){
  if(!Number.isInteger(maxFileSize)||maxFileSize<1||maxFileSize>8_000_000)throw new RangeError('Invalid ZIP size limit');
  const locals=[],centrals=[];let offset=0;
  for(const [path,content] of files){
-  if(typeof path!=='string'||path.length>220||path.startsWith('/')||path.includes('\\')||!path.split('/').every(x=>x&&x!=='.'&&x!=='..')||!/^[-\w./]+$/.test(path))throw new TypeError('Unsafe ZIP filename');
+  if(typeof path!=='string'||path.length>220||path.startsWith('/')||path.includes('\\')||!path.split('/').every(x=>x&&x!=='.'&&x!=='..')||/[\x00-\x1f\x7f<>:"|?*]/.test(path))throw new TypeError('Unsafe ZIP filename');
   const name=utf8.encode(path),data=content instanceof Uint8Array?content:utf8.encode(String(content)),crc=crc32(data);
   if(data.length>maxFileSize)throw new RangeError('File too large for browser package');
   const local=new Uint8Array(30+name.length),lv=new DataView(local.buffer);

@@ -30,6 +30,12 @@ class LocalMapEditorTests(unittest.TestCase):
             url=f"http://127.0.0.1:{host.server_port}"
             with urlopen(url+"/api/editor-status") as response:
                 self.assertTrue(json.load(response)["live"])
+            with urlopen(url+"/api/project-assets") as response:
+                assets=json.load(response)["assets"]
+                self.assertTrue(assets)
+                self.assertEqual(len({a['id'] for a in assets}),len(assets))
+                self.assertTrue(all(a['path'].startswith('Buildings/') for a in assets))
+                self.assertFalse(any(a['path'].endswith('.import') for a in assets))
             # A page at another origin must not initiate a local file write,
             # even if it somehow supplies the private session token.
             bad=Request(url+"/api/apply-morrow",data=b'{}',method="POST",

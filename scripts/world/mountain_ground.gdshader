@@ -35,84 +35,113 @@ void vertex() {
 }
 
 void fragment() {
-	vec3 paint = COLOR.rgb;
-	// Palettes from Morrow Coast polygons; road surfaces use another shader.
-	float water = step(0.14, paint.b - paint.r) * step(0.64, paint.b);
-	float sand = step(0.82, paint.r) * (1.0 - step(0.74, paint.b));
-	float foam = step(0.75, paint.r) * step(0.82, paint.g) * step(0.78, paint.b);
-	float broad = field_noise(world_m * 0.027);
-	float medium = field_noise(world_m * 0.16);
-	float grit = hash21(floor(world_m * 3.1));
-	float vegetation = clamp((paint.g - paint.b - 0.008) * 5.0, 0.0, 1.0);
-	float patch = (broad - 0.5) * mix(0.07, 0.20, vegetation);
-	float small = (medium - 0.5) * 0.09 + (grit - 0.5) * 0.025;
-	vec3 meadow = paint * (1.0 + (patch + small) * terrain_detail);
-	// Natural grass and warm bare-soil breaks, tied to WORLD metres rather
-	// than the current 192m chunk. These patches do not affect traction.
-	float soil_noise = field_noise(world_m * 0.072 + vec2(32.4, 13.7));
-	float soil_exposure = smoothstep(.57,.79,
-		broad*.47 + medium*.27 + soil_noise*.26);
-	meadow = mix(meadow,meadow*vec3(.85,1.055,.81),
-		clamp(vegetation*.70*terrain_detail,0.0,0.85));
-	vec3 earthy = mix(vec3(.39,.35,.27),vec3(.59,.50,.35),soil_noise);
-	meadow = mix(meadow,earthy,soil_exposure*.57*vegetation*terrain_detail);
-	float dry = smoothstep(0.57, 0.87, broad * 0.85 + medium * 0.15);
-	meadow = mix(meadow, meadow * vec3(1.075, 1.045, 0.91), dry * 0.29 * vegetation * terrain_detail);
-	// Grass silhouettes progressively fade below a screen pixel instead of
-	// aliasing into a crawling high-frequency pattern at far camera zoom.
-	float blade_visibility = 1.0 - smoothstep(0.45, 1.05, length(fwidth(world_m * 0.73)));
-	float blade = grass_tuft(world_m) * blade_visibility * vegetation * terrain_detail;
-	meadow = mix(meadow, meadow * vec3(0.57, 0.77, 0.53), clamp(blade * 0.31, 0.0, 1.0));
-
-	// Soft beach granules, and restrained static water ripples.
-	vec3 beach = paint * (1.0 + ((broad - 0.5) * 0.12 + (medium - 0.5) * 0.10 + (grit - 0.5) * 0.07) * terrain_detail);
-	beach += vec3(0.020, 0.015, 0.009) * smoothstep(0.92, 1.0, grit) * terrain_detail;
-	// Drier higher sand flecks and darker packed patches reuse existing noise,
-	// producing natural shallow depth without another sampled texture.
-	beach *= 1.0 - smoothstep(0.73, 0.96, medium) * 0.045 * terrain_detail;
-	// Wind-driven water is evaluated in world metres, not per streamed cell:
-	// all ocean, river and lake polygons therefore share seamless motion.
-	// Two low-frequency noise layers give the muted, silt-clouded look of
-	// natural coastal water without texture allocations or CPU animation.
-	vec2 drift = vec2(TIME * 0.045, -TIME * 0.025);
-	float turbidity = field_noise(world_m * 0.046 + drift);
-	float sediment = field_noise(world_m * 0.12 - drift * 1.65);
-	float cloud = smoothstep(0.24, 0.82, turbidity * 0.70 + sediment * 0.30);
-	vec3 deep_water = paint * vec3(0.69, 0.84, 0.88);
-	vec3 shallow_water = paint * vec3(1.13, 1.09, 0.92);
-	vec3 lagoon = mix(deep_water, shallow_water, cloud * 0.70 + 0.12);
-	// Broad slow-moving swells carry thinner, faster capillary ripples.
-	// Derivative filtering removes tiny waves when zoomed far out.
-	float swell = sin(world_m.y * 0.30 + world_m.x * 0.12
-		- TIME * 0.75 + (turbidity - 0.5) * 2.6);
-	float cross_swell = sin(world_m.x * 0.22 - world_m.y * 0.15
-		+ TIME * 0.49 + sediment * 1.4);
-	float ripple_phase = world_m.y * 2.15 + world_m.x * 0.34
-		- TIME * 1.85 + sin(world_m.x * 0.29 + TIME * 0.27);
-	float ripple_visibility = 1.0 - smoothstep(0.8, 2.2, fwidth(ripple_phase));
-	float ripple = smoothstep(0.74, 0.985, sin(ripple_phase))
-		* ripple_visibility;
-	float wave_light = swell * 0.033 + cross_swell * 0.018;
-	lagoon = clamp(lagoon + vec3(wave_light * 0.78, wave_light, wave_light * 1.08)
-		+ vec3(0.021, 0.032, 0.028) * ripple * terrain_detail,
-		vec3(0.0), vec3(1.0));
-
-	vec3 textured = mix(meadow, beach, sand);
-	textured = mix(textured, lagoon, water);
-	// Narrow breaker/riverbank foam drifts subtly rather than remaining ink-flat.
-	vec3 foam_tint = paint * (0.95 + 0.05 * sin(world_m.y * 0.55 + world_m.x * 0.19 - TIME * 0.7));
-	textured = mix(textured, foam_tint, foam);
-
-	// Preserve the existing northwest-lit terrain relief, never tinting water.
-	vec2 uv = world_m / vec2(2800.0, 2400.0);
-	vec4 field = texture(relief, uv);
-	float inside = step(0.0, uv.x) * step(0.0, uv.y) * step(uv.x, 1.0) * step(uv.y, 1.0);
-	float relief_mask = field.a * inside * (1.0 - water) * (1.0 - foam);
-	vec3 upland = mix(vec3(0.49, 0.58, 0.45), vec3(0.69, 0.67, 0.58), smoothstep(0.12, 0.88, field.g));
-	vec3 shaded = mix(textured, upland, 0.45 + field.b * 0.25);
-	shaded *= 0.67 + field.r * 0.57;
-	COLOR.rgb = clamp(mix(textured, shaded, relief_mask), vec3(0.0), vec3(1.0));
-	// Let the ground/base layer show faintly through the silty water; higher
-	// turbidity makes it less transparent. Keep land and foam fully opaque.
-	COLOR.a *= mix(1.0, mix(0.84, 0.94, cloud), water);
+    // Untagged grass blades/flowers retain their original transparent ink.
+    // Only polygon UVs >= 2 select a terrain material (no color guessing).
+    if (UV.x >= 1.5) {
+        int kind = int(round(UV.x));
+        vec3 paint = COLOR.rgb;
+        float broad = field_noise(world_m * 0.027);
+        float medium = field_noise(world_m * 0.16);
+        float fine_visibility = 1.0-smoothstep(0.45,1.25,length(fwidth(world_m*4.0)));
+        float grit_visibility = 1.0-smoothstep(.4,1.2,length(fwidth(world_m*10.0)));
+        float grit = (field_noise(world_m*10.0)-0.5)*grit_visibility;
+        vec3 ground = paint;
+        bool water = kind==7 || kind==8;
+        bool foam = kind==9;
+        if (kind==2 || kind==3 || kind==15) {
+            float soil_noise = field_noise(world_m * 0.072 + vec2(32.4,13.7));
+            float soil_exposure = smoothstep(0.62,0.82,broad*.42+medium*.28+soil_noise*.30);
+            vec3 earthy = mix(vec3(.28,.24,.16),vec3(.47,.39,.25),soil_noise);
+            ground = mix(vec3(.32,.42,.20),vec3(.46,.55,.29),broad);
+            ground *= 0.93+medium*.14+grit*.035;
+            float dry = smoothstep(.62,.88,soil_noise);
+            ground = mix(ground,vec3(.56,.53,.31),dry*.27);
+            if (kind==3) {
+                ground = mix(vec3(.19,.27,.17),vec3(.31,.38,.23),broad);
+                ground = mix(ground,earthy,medium*.32);
+                // Leaf litter is warm and irregular rather than meadow green.
+                vec2 leaf_grid = world_m*2.1;
+                vec2 leaf_cell = floor(leaf_grid);
+                vec2 leaf_center = vec2(hash21(leaf_cell+vec2(7,19)),hash21(leaf_cell+vec2(31,5)))*.7+.15;
+                vec2 leaf_point = fract(leaf_grid)-leaf_center;
+                vec2 leaf_axis = mix(vec2(2.8,1.0),vec2(1.0,2.8),step(.5,hash21(leaf_cell)));
+                float leaves = 1.0-smoothstep(.09,.18,length(leaf_point*leaf_axis));
+                ground += vec3(.07,.035,-.004)*leaves*fine_visibility;
+            }
+            ground = mix(ground,earthy,soil_exposure*.48);
+            float blade_visibility = 1.0-smoothstep(.4,1.1,length(fwidth(world_m*.73)));
+            float blades = grass_tuft(world_m)*blade_visibility;
+            ground *= 1.0-blades*.22;
+        } else if (kind==4 || kind==5) {
+            float layers = world_m.y*.47+world_m.x*.13+medium*3.4+broad*5.0;
+            float strata = smoothstep(.65,.93,sin(layers));
+            float fissure = smoothstep(.90,.98,field_noise(world_m*.63));
+            ground = mix(vec3(.36,.37,.33),vec3(.57,.55,.47),broad);
+            ground *= .94+medium*.16+grit*.10;
+            ground -= vec3(.09,.085,.075)*strata*.55;
+            ground -= vec3(.11,.10,.085)*fissure;
+            ground += vec3(.035,.033,.025)*smoothstep(.35,.60,sin(layers+.14));
+        } else if (kind==6 || kind==12) {
+            float dune_phase = world_m.y*1.15+world_m.x*.32+medium*1.7;
+            float ripple_fade = 1.0-smoothstep(.65,1.6,fwidth(dune_phase));
+            ground = mix(vec3(.70,.58,.37),vec3(.87,.77,.55),broad);
+            ground += vec3(.028,.023,.014)*sin(dune_phase)*ripple_fade;
+            ground += grit*.045;
+            if (kind==12) ground *= vec3(1.08,.95,.82);
+        } else if (water || foam) {
+            float moving = field_noise(world_m*.045+vec2(TIME*.018,-TIME*.012));
+            float swell_phase = world_m.y*.46+world_m.x*.16-TIME*.60+medium*2.1;
+            float ripple_fade = 1.0-smoothstep(.7,1.8,fwidth(swell_phase));
+            float crest = pow(max(0.0,sin(swell_phase)),14.0)*ripple_fade;
+            ground = mix(vec3(.12,.31,.39),vec3(.26,.48,.49),moving);
+            if (kind==8) ground = mix(vec3(.17,.32,.31),vec3(.29,.45,.39),moving);
+            ground += vec3(.07,.10,.10)*crest*(.35+medium*.65);
+            if (foam) {
+                float broken = smoothstep(.24,.72,medium*.6+moving*.4);
+                ground = mix(vec3(.48,.65,.60),vec3(.84,.88,.73),broken);
+            }
+        } else if (kind==10) {
+            float phase = world_m.y*3.5+sin(world_m.x*.035)*.18;
+            float rows = (.5+.5*sin(phase))*(1.0-smoothstep(.6,1.7,fwidth(phase)));
+            ground = mix(vec3(.40,.35,.22),vec3(.45,.51,.24),broad);
+            ground = mix(ground,vec3(.28,.37,.17),rows*.48);
+            ground += grit*.03;
+        } else if (kind==11) {
+            // Concrete/compacted urban ground; roads keep their own material.
+            ground = mix(vec3(.47,.47,.41),vec3(.59,.58,.51),broad);
+            ground += (medium-.5)*.045+grit*.025;
+        } else if (kind==13 || kind==14) {
+            ground = kind==13 ? mix(vec3(.35,.25,.16),vec3(.52,.39,.25),broad)
+                             : mix(vec3(.39,.39,.35),vec3(.57,.55,.47),broad);
+            // Sparse pebble highlights and their darker contact side.
+            vec2 cell = world_m*3.2;
+            vec2 index = floor(cell);
+            vec2 center = vec2(hash21(index+vec2(7,31)),hash21(index+vec2(41,5)))*.62+.19;
+            vec2 pebble = fract(cell)-center;
+            float radius = mix(.07,.22,hash21(index+vec2(13,29)));
+            float occupied = step(.22,hash21(index+vec2(19,71)));
+            float stone = 1.0-smoothstep(radius*.55,radius,length(pebble*vec2(1.0,1.35)));
+            float shade = 1.0-smoothstep(radius*.5,radius*1.25,length(pebble-vec2(.04,.06)));
+            ground += (stone*.12-shade*.085)*fine_visibility*occupied;
+            ground += grit*.065;
+        }
+        // Honor authored color variation modestly, while keeping the material recognizable.
+        vec3 reference = vec3(.64,.72,.54);
+        if(kind==3) reference=vec3(.44,.55,.44);
+        else if(kind==4 || kind==5 || kind==15) reference=vec3(.61,.67,.63);
+        else if(kind==6 || kind==12) reference=vec3(.89,.83,.67);
+        else if(water) reference=vec3(.51,.71,.71);
+        else if(foam) reference=vec3(.78,.85,.79);
+        else if(kind==10) reference=vec3(.71,.74,.54);
+        else if(kind==11) reference=vec3(.69,.71,.63);
+        vec3 tint = clamp(paint/max(reference,vec3(.1)),vec3(.75),vec3(1.25));
+        ground *= mix(vec3(1.0),tint,.25);
+        // Preserve relief lighting without painting every upland region the same green.
+        vec2 uv = world_m/vec2(2800.0,2400.0);
+        vec4 field = texture(relief,uv);
+        float inside = step(0.0,uv.x)*step(0.0,uv.y)*step(uv.x,1.0)*step(uv.y,1.0);
+        float relief_mask = field.a*inside*(water || foam ? 0.0 : 1.0);
+        ground *= mix(1.0,.73+field.r*.45,relief_mask);
+        COLOR.rgb = clamp(mix(paint,ground,clamp(terrain_detail,0.0,1.0)),vec3(0.0),vec3(1.0));
+    }
 }

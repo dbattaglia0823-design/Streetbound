@@ -23,6 +23,7 @@ import {buildRuntimePreview,browseRuntimeAssets,pickRuntimeProp,REPLACEABLE_KIND
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {encodeSession,decodeSession,shouldRestoreSession} from './world-session.js';
+import {setProjectAssets,projectAssets,projectArtwork,projectAssetUrl} from './world-project-assets.js';
 import {
   placeBesideRoad,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -428,6 +429,7 @@ function setTool(next){
 function setSelection(id,point=-1){
   if(id!==selection?.id)pointInsertMode=null;
   selection=id?{id,point}:null;
+  refreshSpriteLists();
   refreshHeader();refreshInspector();refreshEntities();
   if(tool==='select')contextView='auto';
   renderContextPanel();requestRender();
@@ -693,6 +695,19 @@ const ASSET_GROUPS={
   landscaping:new Set(['planter','garden','field','island','forecourt'])
 };
 let activeDockAsset=null;
+let projectCatalogSignature='',catalogLoading=false;
+async function refreshProjectAssets(){
+  if(catalogLoading)return;
+  catalogLoading=true;
+  try{
+    const response=await fetch('/api/project-assets',{cache:'no-store'});
+    if(!response.ok)throw new Error('Start Map Editor.cmd to discover project artwork.');
+    const data=await response.json(),signature=JSON.stringify(data.assets);
+    if(signature!==projectCatalogSignature){
+      setProjectAssets(data.assets);projectCatalogSignature=signature;refreshUI();
+    }
+  }finally{catalogLoading=false;}
+}
 const dockCategory=type=>Object.entries(ASSET_GROUPS).find(([,types])=>types.has(type))?.[0]||'roads';
 function assetCandidates(){
   const kinds=[...$('prop-type').options].filter(option=>option.value);
@@ -706,6 +721,8 @@ function assetCandidates(){
       assets.push({type:kind.value,assetId:custom.id,label:custom.name,group:'imported',custom});
     }
   }
+  for(const item of projectAssets())assets.push({type:item.type,assetId:item.id,
+    label:item.name,group:'buildings',project:true});
   return assets;
 }
 function drawAssetThumbnail(canvas,item){
@@ -715,7 +732,8 @@ function drawAssetThumbnail(canvas,item){
   const usingNativeArt=item.game||(!item.custom&&!!runtimePreview);
   // The standalone illustrated props are intentionally larger than the
   // metre-scale game atlas. Fit them independently to avoid clipped thumbnails.
-  const [w,h]=item.custom?[item.custom.width,item.custom.height]:
+  const [w,h]=item.project?projectArtwork({type:item.type,assetId:item.assetId}).size:
+    item.custom?[item.custom.width,item.custom.height]:
     usingNativeArt?(BASE_SIZE[item.type]||[30,30]):[116,104];
   const extent=Math.max(1,w,h);
   const scale=Math.min(67/extent,8);
@@ -789,6 +807,8 @@ function refreshSpriteLists(){
       }
     }
     for(const asset of doc.assets||[])select.append(new Option(asset.name,asset.id));
+    if(['house','building','warehouse','garage','gas_station'].includes(type))
+      for(const asset of projectAssets())select.append(new Option('Project folder · '+asset.name,asset.id));
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
@@ -930,7 +950,7 @@ canvas.addEventListener('pointerdown',event=>{
     if($('scenery-paint').checked||$('scenery-erase').checked){beginSpray(event,p);return;}
     const type=$('prop-type').value;
     const before=doc;
-    if(change(d=>createEntity(d,'props',{type,name:type.replace(/_/g,' '),x:p.x,y:p.y,scale:1,rotation:0,assetId:$('prop-asset').value}),
+    if(change(d=>createEntity(d,'props',{type,name:projectAssets().find(a=>a.id===$('prop-asset').value)?.name||type.replace(/_/g,' '),x:p.x,y:p.y,scale:1,rotation:0,assetId:$('prop-asset').value}),
       'Placed '+type.replace(/_/g,' ')+' beside the nearest road (if nearby).')&&doc!==before)
       setSelection(doc.props.at(-1)?.id);
     return;
@@ -1532,7 +1552,13 @@ $('export-godot').addEventListener('click',async()=>{
     if(!auditUI.preflight())return;
     const response=await fetch('./world_loader.gd',{cache:'no-store'});
     if(!response.ok)throw new Error('Could not load the Godot world adapter from the server.');
-    const zip=buildWorldZip(doc,await response.text());
+    const images=new Map();
+    for(const path of new Set(doc.props.map(p=>p.assetPath).filter(Boolean))){
+      const image=await fetch(projectAssetUrl(path),{cache:'no-store'});
+      if(!image.ok)throw new Error('Building artwork is missing: '+path);
+      images.set('assets/'+path,new Uint8Array(await image.arrayBuffer()));
+    }
+    const zip=buildWorldZip(doc,await response.text(),images);
     download(zip.bytes,worldSlug(doc.name)+'-godot4.zip','application/zip');
     status('Godot 4 world ZIP downloaded. See CODEX_IMPORT.md inside.');
   }catch(e){errorMessage(e);}
@@ -1604,6 +1630,9 @@ $('import-sprite').addEventListener('change',async event=>{
 });
 const resize=new ResizeObserver(requestRender);resize.observe(viewport);
 $('busy-dialog').addEventListener('cancel',event=>event.preventDefault());
+$('refresh-project-assets').addEventListener('click',()=>refreshProjectAssets()
+  .then(()=>status(projectAssets().length+' project building assets found.')).catch(errorMessage));
+setInterval(()=>{if(liveSession&&!busyDepth)refreshProjectAssets().catch(()=>{});},3000);
 window.addEventListener('resize',requestRender);
 let recoveredSession=null;
 try{recoveredSession=decodeSession(localStorage.getItem(AUTO));}catch{}
@@ -1618,6 +1647,7 @@ requestAnimationFrame(async()=>{
   try{
   fit();
   const session=await detectProjectMode();
+  if(session)try{await refreshProjectAssets();}catch(e){errorMessage(e);}
   if(shouldRestoreSession(recoveredSession,Boolean(session))){
     liveSession=session;
     let preview=null;

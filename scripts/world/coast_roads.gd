@@ -53,7 +53,7 @@ static func wear_stations(start: float, length: float, spacing: float = 480.0) -
 
 func _road_wear(path: PackedVector2Array, road: Dictionary, width: float, station: float) -> void:
 	# Race circuits stay pristine; gravel is already given its own aggregate.
-	if str(road.surface) == "GRAVEL" or str(road.kind) == "track" or width < 140.0:
+	if str(road.surface) in ["GRAVEL","DIRT"] or str(road.kind) == "track" or width < 140.0:
 		return
 	var passed := station
 	for i in range(1, path.size()):
@@ -187,7 +187,7 @@ func _roads(stage: int) -> void:
 		var r: Dictionary = batch.road
 		var width := float(r.width) * PPM
 		var urban: bool = r.kind in ["local", "arterial"]
-		var gravel: bool = r.surface == "GRAVEL"
+		var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 		if stage == 0:
 			if urban:
 				# Both sides are real road-relative paths, not disconnected
@@ -207,7 +207,7 @@ func _roads(stage: int) -> void:
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
-			draw_polyline(path,Color("a1947d") if gravel else Color("58656c"),width,true)
+			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
 				var lanes: Array = [-width*.375,-width*.125,width*.125,width*.375] if r.kind=="highway" else [-width*.25,width*.25]
@@ -273,7 +273,7 @@ func _street_surface_details(path: PackedVector2Array, road: Dictionary, width: 
 
 func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
 	var urban: bool = r.kind in ["local","arterial"]
-	var gravel: bool = r.surface=="GRAVEL"
+	var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 	if urban:
 		_paver_joints(path,width,station)
 		_street_surface_details(path,r,width,station)

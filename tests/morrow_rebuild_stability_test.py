@@ -20,6 +20,9 @@ class RebuildStabilityTests(unittest.TestCase):
             shutil.copytree(ROOT / "tools", work / "tools", ignore=shutil.ignore_patterns("__pycache__"))
             (work / "worlds").mkdir()
             (work / "map-editor/maps").mkdir(parents=True)
+            artwork=work / "assets/Buildings/QA New Building.svg"
+            artwork.parent.mkdir(parents=True)
+            artwork.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="blue"/></svg>')
             archive = work / "worlds/morrow-coast.world.json"
             overlay = work / "map-editor/maps/morrow-coast.edits.world.json"
             shutil.copy2(ROOT / "worlds/morrow-coast.world.json", archive)
@@ -27,6 +30,7 @@ class RebuildStabilityTests(unittest.TestCase):
             def import_world(edit=False):
                 code = f"""
                     import {{readFileSync,writeFileSync}} from 'node:fs';
+                    import {{createHash}} from 'node:crypto';
                     import {{convertMorrowWorld}} from {json.dumps(bridge)};
                     const {{doc}}=convertMorrowWorld(JSON.parse(readFileSync(process.argv[1],'utf8')));
                     if(process.argv[3]==='edit'){{
@@ -37,6 +41,10 @@ class RebuildStabilityTests(unittest.TestCase):
                             points:[source.points[0],{{x:source.points[0].x+80,y:source.points[0].y+80}},source.points.at(-1)]}});
                         doc.markers.push({{id:'marker-'+doc.markers.length,name:'QA checkpoint',
                             type:'checkpoint',x:2420,y:3035,rotation:0,properties:{{}}}});
+                        const assetPath='Buildings/QA New Building.svg';
+                        doc.props.push({{id:'prop-qa-building',name:'QA new building',type:'building',
+                            x:200,y:4500,rotation:0,scale:1,assetPath,assetSize:[12,12],
+                            assetId:'project-'+createHash('sha256').update(assetPath).digest('hex').slice(0,24)}});
                     }}
                     writeFileSync(process.argv[2],JSON.stringify(doc));
                 """
@@ -51,6 +59,10 @@ class RebuildStabilityTests(unittest.TestCase):
                 return json.loads(archive.read_text(encoding="utf-8"))
             import_world(edit=True)
             first = bake()
+            building=next(p for p in first['props'] if p.get('authoring_id')=='prop-qa-building')
+            self.assertEqual(building['asset_path'],'Buildings/QA New Building.svg')
+            self.assertEqual(building['size'],[12,12])
+            self.assertTrue(building['solid'])
             import_world()
             exported = json.loads(overlay.read_text(encoding="utf-8"))
             self.assertTrue(any(m["name"] == "QA checkpoint" for m in exported["markers"]))

@@ -324,6 +324,11 @@ func _draw_prop(prop: Dictionary) -> void:
 	var kind: String = prop.kind
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
+	if prop.has("asset_path"):
+		var project_texture: Texture2D = Art.project_sprite(str(prop.asset_path))
+		if project_texture!=null:
+			draw_texture_rect(project_texture,Rect2(-size*.5,size),false)
+		return
 	# Drag-strip fixtures stay in the static chunk draw batch: no extra
 	# runtime nodes, animation callbacks, or full-screen overlay sprites.
 	if kind == "drag_prep":

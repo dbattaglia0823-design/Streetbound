@@ -37,7 +37,7 @@ export function buildRoadNetwork(doc){
   return {format:'gdt.racing-road-network',version:1,source:world.name,worldSize:world.world,
     roads,junctions,connections,verifiedNavigation:false};
 }
-export function buildWorldZip(doc,loader){
+export function buildWorldZip(doc,loader,projectFiles=new Map()){
   const world=normalizeWorld(doc);
   if(typeof loader!=='string'||!loader.includes('extends Node2D')||!loader.includes('load_world'))throw new TypeError('Godot world adapter source missing');
   const name=worldSlug(world.name),path='worlds/'+name+'.world.json',roads='navigation/'+name+'.roads.json';
@@ -70,5 +70,9 @@ export function buildWorldZip(doc,loader){
       ''
     ].join('\n')]
   ]);
+  for(const [path,bytes] of projectFiles){
+    if(!world.props.some(p=>p.assetPath&&path==='assets/'+p.assetPath))throw new TypeError('Unexpected project artwork file');
+    files.set(path,bytes);
+  }
   return {files,bytes:createZip(files,{maxFileSize:8_000_000}),manifest:JSON.parse(files.get('manifest.json'))};
 }

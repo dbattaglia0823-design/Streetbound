@@ -5,6 +5,7 @@
  * Source artwork and region bounds are shared with scripts/world/coast_art.gd.
  */
 import {stringSeed} from './world-geometry.js';
+import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
 
 export const GAME_ATLAS = '/game-assets/scenery/morrow-atlas-v1.png';
 export const GAME_ART = Object.freeze([
@@ -317,6 +318,7 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
     ctx.fillStyle=/^[0-9a-f]{6}$/i.test(terrain.color)?'#'+terrain.color:
       colors[terrain.kind]||'#a3b789';
     ctx.fill();
+    textureTerrain(ctx,terrain.kind);
   }
   // The ID format alone cannot identify a new region: the editor allocates
   // numeric region-N IDs too. Compare against actual source terrain indices.
@@ -341,6 +343,7 @@ export function drawRuntimeExpansion(ctx,preview,doc){
     ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
     for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
     ctx.closePath();ctx.fillStyle=color;ctx.fill();
+    textureTerrain(ctx,Object.keys(colors).find(key=>colors[key]===color)||'grass');
   };
   for(const terrain of preview.extensionTerrain||[])
     polygon(terrain.points,colors[terrain.kind]||'#a3b789');
@@ -349,6 +352,7 @@ export function drawRuntimeExpansion(ctx,preview,doc){
   if(width>oldW){
     ctx.fillStyle=colors.ocean;
     ctx.fillRect(oldW,0,width-oldW,height);
+    textureTerrainRect(ctx,'ocean',oldW,0,width-oldW,height);
   }
   if(height>oldH){
     const shore=y=>5190+115*Math.sin((y-4800)/560);
