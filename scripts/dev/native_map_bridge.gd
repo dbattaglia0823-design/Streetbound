@@ -45,6 +45,39 @@ func _request(method: HTTPClient.Method, route: String,
 		return false
 	return true
 
+## Godot JSON.parse_string may decode JSON integer tokens as floats. Python
+## validates dimensions, stable road basis, lane counts and replacement seeds
+## with exact-int semantics. Re-type these known fields before POST; never
+## stringify an untyped runtime dictionary as an authoring document.
+func _python_typed_source(raw: Dictionary) -> Dictionary:
+	var doc: Dictionary = raw.duplicate(true)
+	doc["version"] = int(doc.get("version",2))
+	if doc.get("world") is Dictionary:
+		var bounds: Dictionary = doc.world
+		for key in ["width","height","seed"]:
+			if bounds.has(key):
+				bounds[key] = int(bounds[key])
+	for key in ["morrowSourceRoadCount","morrowSourcePoiCount"]:
+		if doc.has(key):
+			doc[key] = int(doc[key])
+	for road in doc.get("roads",[]):
+		if road is Dictionary and road.has("lanes"):
+			road["lanes"] = int(road["lanes"])
+	for prop in doc.get("props",[]):
+		if not prop is Dictionary:
+			continue
+		if prop.get("replaces") is Dictionary:
+			var replace_info: Dictionary = prop.replaces
+			replace_info["seed"] = int(replace_info.get("seed",0))
+	for art in doc.get("assets",[]):
+		if not art is Dictionary:
+			continue
+		for key in ["width","height"]:
+			if art.has(key):
+				art[key] = int(art[key])
+	return doc
+
+
 func apply_source(draft: Dictionary, source_hash: String,
 		loaded_world_sha: String = "") -> bool:
 	if phase != "":
@@ -131,7 +164,7 @@ func _received(result: int, response_code: int, _headers: PackedStringArray,
 			phase = "apply"
 			var payload := JSON.stringify({
 				"worldSha":baked_revision,
-				"world":requested_doc
+				"world":_python_typed_source(requested_doc)
 			})
 			if payload.to_utf8_buffer().size() > 8002048:
 				_fail("Native map edit exceeds the 8 MB server limit.")
