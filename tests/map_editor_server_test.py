@@ -87,8 +87,8 @@ class LocalMapEditorTests(unittest.TestCase):
             svg.write_bytes(b'<svg/>')
             old_edit=edit.stat().st_mtime_ns
             old_world=world.stat().st_mtime_ns
-            with patch.object(server,"EDIT",edit),patch.object(server,"BAKED",world),\\
-                 patch.object(server,"OVERVIEW",svg),\\
+            with patch.object(server,"EDIT",edit),patch.object(server,"BAKED",world),\
+                 patch.object(server,"OVERVIEW",svg),\
                  patch.object(server.subprocess,"run") as run:
                 result=server.transactional_rebuild(doc,server.digest(world))
             self.assertTrue(result["ok"])
