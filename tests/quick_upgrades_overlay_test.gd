@@ -27,10 +27,10 @@ func _run() -> void:
 		return
 	car.set_physics_process(false)
 	check("six_quick_slots_not_eight",quick.slot_buttons.size() == 6)
-	check("real_parts_not_fake_turbo_nitrous_slots",
-		quick.slot_buttons.has("engine") and quick.slot_buttons.has("intake") and
+	check("six_slots_include_functional_turbo_and_nitrous",
+		quick.slot_buttons.has("engine") and quick.slot_buttons.has("turbo") and
 		quick.slot_buttons.has("transmission") and quick.slot_buttons.has("tires") and
-		quick.slot_buttons.has("suspension") and quick.slot_buttons.has("brakes"))
+		quick.slot_buttons.has("suspension") and quick.slot_buttons.has("nitrous"))
 	check("in_game_car_preview_uses_current_vehicle_art",
 		quick.car_preview.texture != null)
 	check("world_visible_when_closed",
@@ -39,7 +39,9 @@ func _run() -> void:
 	test_economy.car_xp[Ownership.STARTER_ID] = Progress.car_threshold(30)
 	test_economy.upgrade_inventory = [
 		{"uid":"up-101","template":"engine-street-common"},
-		{"uid":"up-102","template":"engine-street-rare"}
+		{"uid":"up-102","template":"engine-street-rare"},
+		{"uid":"up-103","template":"turbo-balanced-common"},
+		{"uid":"up-104","template":"nitrous-sprint-common"}
 	]
 	quick.economy = test_economy
 	# Use a deterministic starter car; no real save is changed.
