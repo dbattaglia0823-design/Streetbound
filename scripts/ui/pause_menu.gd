@@ -320,7 +320,7 @@ func _input(event: InputEvent) -> void:
 			_cancel_capture()
 			get_viewport().set_input_as_handled()
 			return
-		if key.keycode in [KEY_BACKSPACE,KEY_DELETE] and capture_device == "keyboard":
+		if key.keycode in [KEY_BACKSPACE,KEY_DELETE]:
 			var cleared := Controls.clear_binding(capture_action,capture_device)
 			binding_feedback.text = "Binding cleared." if cleared else "Could not clear binding."
 			_cancel_capture(false)
