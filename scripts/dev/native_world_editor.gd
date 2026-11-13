@@ -25,6 +25,7 @@ var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
 var root_ui: Control
 var details: Label
+var selected_preview: TextureRect
 var status: Label
 var lane_button: Button
 var junction_button: Button
@@ -311,6 +312,8 @@ func _filter_assets() -> void:
 
 
 func _select_asset(entry: Dictionary) -> void:
+	if _editing_locked():
+		return
 	if bool(entry.get("project",false)):
 		active_project_asset = entry.duplicate()
 		_choose_tool("place:project")
@@ -682,10 +685,17 @@ func _build_ui() -> void:
 	help.add_theme_color_override("font_color",Color("#aeb9bb"))
 	col.add_child(help)
 	col.add_child(HSeparator.new())
+	selected_preview = TextureRect.new()
+	selected_preview.name = "SelectedAssetPreview"
+	selected_preview.custom_minimum_size = Vector2(304,82)
+	selected_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	selected_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	selected_preview.visible = false
+	col.add_child(selected_preview)
 	details = Label.new()
 	details.name = "SelectedWorldObject"
 	details.text = "Select a road, junction or building to inspect its live game data."
-	details.custom_minimum_size = Vector2(300,225)
+	details.custom_minimum_size = Vector2(300,160)
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	details.add_theme_font_size_override("font_size",13)
 	col.add_child(details)
@@ -950,6 +960,8 @@ func select_at(position_px: Vector2) -> Dictionary:
 func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	selected = what.duplicate()
 	gizmos.set_selection(selected)
+	selected_preview.visible = false
+	selected_preview.texture = null
 	var kind := str(what.get("kind",""))
 	var index := int(what.get("index",-1))
 	if kind == "road" and index>=0:
@@ -981,6 +993,19 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 	elif kind=="prop" and index>=0:
 		var prop: Dictionary = world.data.props[index]
 		var asset := str(prop.get("asset_path",prop.get("asset_id","builtin")))
+		if prop.has("asset_path"):
+			var texture_path := "res://assets/"+str(prop.asset_path)
+			if ResourceLoader.exists(texture_path):
+				selected_preview.texture = load(texture_path) as Texture2D
+				selected_preview.visible = selected_preview.texture != null
+		elif prop.has("asset_id"):
+			for item in asset_entries:
+				if not bool(item.get("project",false)) and \
+						str(item.kind) == str(prop.get("asset_kind",str(prop.get(
+							"asset_id","")).trim_prefix("game-"))):
+					selected_preview.texture = item.texture
+					selected_preview.visible = true
+					break
 		details.text = "WORLD OBJECT #%d\n\nType: %s\nArtwork: %s\nPosition: %.1f, %.1f metres\nSize: %.1f × %.1f metres\nSolid collision: %s\n\nUses the live game asset,\nnot a browser preview." % [
 			index,str(prop.kind),asset,float(prop.p[0]),float(prop.p[1]),
 			float(prop.size[0]),float(prop.size[1]),
