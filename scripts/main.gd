@@ -17,6 +17,7 @@ const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.g
 const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
+const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 var pause_menu
@@ -30,6 +31,7 @@ var drag_race: Node2D
 var circuit_race: Node2D
 var street_race: Node2D
 var progression_hud: CanvasLayer
+var quick_upgrades: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -172,6 +174,14 @@ func _ready() -> void:
 	selector.inventory = vehicle_ownership
 	add_child(selector)
 	selector.restore_selection()
+	if not proving_ground:
+		# Accessible from anywhere, not restricted to the physical garage.
+		# The live world remains visible behind a pause-safe transparent HUD.
+		quick_upgrades = CanvasLayer.new()
+		quick_upgrades.set_script(QuickUpgradesScript)
+		quick_upgrades.economy = vehicle_ownership
+		quick_upgrades.vehicle = vehicle
+		add_child(quick_upgrades)
 	if not proving_ground:
 		dealership_menu = CanvasLayer.new()
 		dealership_menu.set_script(DealerMenuScript)
