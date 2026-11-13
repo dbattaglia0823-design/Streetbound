@@ -275,7 +275,14 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		"shop":["building","game-shop"],"building":["building","game-shop"],
 		"warehouse":["warehouse","game-shop"],"showroom":["building","game-garage"],
 		"garage":["garage","game-garage"],"workshop":["garage","game-garage"],
-		"fuel":["gas_station","game-shop"]
+		"fuel":["gas_station","game-shop"],
+		"bush":["bush",""],"lamp":["streetlight",""],
+		"sign":["sign",""],"barrier":["barrier",""],
+		"dock":["dock",""],"lot":["parking",""],
+		"forecourt":["forecourt",""],
+		"parked_car":["parked_car",""],"planter":["planter",""],
+		"garden":["garden",""],"field":["field",""],
+		"island":["island",""]
 	}
 	var original_kind := str(runtime.get("kind",""))
 	var identity_seed: Variant = runtime.get("seed")
@@ -290,7 +297,7 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
 			runtime.has("poi") or runtime.has("authoring_id") or \
-			bool(runtime.get("protected",false)) or doc.props.size()>=200:
+			bool(runtime.get("protected",false)) or doc.props.size()>=MAX_PROPS:
 		last_error = "This generated item has no safe replaceable source identity."
 		return ""
 	var origin := Vector2(float(place[0]),float(place[1]))
@@ -320,6 +327,18 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		"oak","pine":base_size=Vector2(7,7)
 		"palm":base_size=Vector2(6.5,6.5)
 		"rock":base_size=Vector2(3,2.5)
+		"bush":base_size=Vector2(2.5,2.5)
+		"streetlight":base_size=Vector2(1.3,1.3)
+		"sign":base_size=Vector2(1.6,1.4)
+		"barrier":base_size=Vector2(3,1)
+		"parking":base_size=Vector2(38,28)
+		"dock":base_size=Vector2(3,11)
+		"parked_car":base_size=Vector2(1.9,4.6)
+		"planter":base_size=Vector2(2.8,2.8)
+		"garden":base_size=Vector2(8,2.4)
+		"field":base_size=Vector2(90,70)
+		"island":base_size=Vector2(23,23)
+		"forecourt":base_size=Vector2(23,16)
 	var size_ratio := 1.0
 	if native_size is Array and native_size.size()==2:
 		size_ratio = clampf((float(native_size[0])/base_size.x+
