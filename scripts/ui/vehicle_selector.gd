@@ -4,7 +4,6 @@ extends CanvasLayer
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
-const UpgradesScript = preload("res://scripts/ui/garage_upgrades.gd")
 var player: VehicleController2D
 var driving_hud: CanvasLayer
 var pause_menu: CanvasLayer
@@ -17,10 +16,6 @@ var scroll: ScrollContainer
 var grid: GridContainer
 var search: LineEdit
 var title_label: Label
-var upgrade_screen: Control
-var cars_tab: Button
-var upgrades_tab: Button
-var active_tab := "cars"
 var cards: Array[Dictionary] = []
 var _thumb_cache: Dictionary = {}
 var _thumb_clock := 0.0
@@ -73,22 +68,6 @@ func _ready() -> void:
 	help.text = "Owned vehicles only. Race to level cars; part rarity unlocks at car LV 10 / 20 / 30 / 40 / 50."
 	help.add_theme_font_size_override("font_size", 14)
 	column.add_child(help)
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation",9)
-	column.add_child(tabs)
-	cars_tab = Button.new()
-	cars_tab.name = "CarsTab"
-	cars_tab.text = "CARS / OWNED COLLECTION"
-	cars_tab.custom_minimum_size = Vector2(230,43)
-	cars_tab.pressed.connect(_show_tab.bind("cars"))
-	tabs.add_child(cars_tab)
-	if is_instance_valid(inventory):
-		upgrades_tab = Button.new()
-		upgrades_tab.name = "UpgradesTab"
-		upgrades_tab.text = "UPGRADES / PART SLOTS"
-		upgrades_tab.custom_minimum_size = Vector2(230,43)
-		upgrades_tab.pressed.connect(_show_tab.bind("upgrades"))
-		tabs.add_child(upgrades_tab)
 	search = LineEdit.new()
 	search.name = "VehicleSearch"
 	search.placeholder_text = "Search manufacturer or model"
@@ -109,14 +88,6 @@ func _ready() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(grid)
-	if is_instance_valid(inventory):
-		upgrade_screen = Control.new()
-		upgrade_screen.set_script(UpgradesScript)
-		upgrade_screen.set("economy",inventory)
-		upgrade_screen.set("vehicle",player)
-		upgrade_screen.set("driving_hud",driving_hud)
-		upgrade_screen.visible = false
-		column.add_child(upgrade_screen)
 	for entry in Catalog.all():
 		_create_card(entry)
 	overlay.visible = false
@@ -205,31 +176,12 @@ func _apply_filter(query: String) -> void:
 func _refresh_owned_cars() -> void:
 	if search != null:
 		_apply_filter(search.text)
-	if is_instance_valid(upgrade_screen):
-		upgrade_screen.call("refresh")
 	if is_instance_valid(inventory):
 		for item in cards:
 			var entry: Dictionary = item.entry
 			(item.level_note as Label).text = "LV %d/50  /  %s" % [
 				inventory.level_for_car(str(entry.id)),
 				inventory.highest_upgrade_rarity(str(entry.id)).to_upper()]
-
-
-func _show_tab(tab: String) -> void:
-	if tab == "upgrades" and not is_instance_valid(upgrade_screen):
-		return
-	active_tab = tab
-	var cars_visible := tab == "cars"
-	search.visible = cars_visible
-	title_label.visible = cars_visible
-	scroll.visible = cars_visible
-	if is_instance_valid(upgrade_screen):
-		upgrade_screen.visible = not cars_visible
-		if not cars_visible:
-			upgrade_screen.call("refresh")
-	cars_tab.disabled = cars_visible
-	if is_instance_valid(upgrades_tab):
-		upgrades_tab.disabled = not cars_visible
 
 
 func _can_open_garage() -> bool:
@@ -262,7 +214,6 @@ func open_menu() -> void:
 	search.clear()
 	_apply_filter("")
 	_refresh_owned_cars()
-	_show_tab("cars")
 	search.grab_focus()
 
 
@@ -270,7 +221,6 @@ func close_menu() -> void:
 	if not overlay.visible:
 		return
 	overlay.visible = false
-	_show_tab("cars")
 	launch_button.visible = true
 	get_viewport().gui_release_focus()
 	_update_garage_access()
@@ -340,8 +290,6 @@ func _process(dt: float) -> void:
 		if _access_clock <= 0.0:
 			_access_clock = 0.12
 			_update_garage_access()
-		return
-	if active_tab != "cars":
 		return
 	_thumb_clock += dt
 	if _thumb_clock < 0.08:
