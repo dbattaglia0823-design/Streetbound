@@ -138,8 +138,9 @@ func _run() -> void:
 	var adopt_idx := -1
 	for i in game.ground.data.props.size():
 		var item: Dictionary = game.ground.data.props[i]
-		if str(item.get("kind",""))=="tree" and typeof(item.get("seed"))==TYPE_INT and
-				not item.has("poi") and not item.has("authoring_id"):
+		if (str(item.get("kind",""))=="tree" and
+				typeof(item.get("seed"))==TYPE_INT and
+				not item.has("poi") and not item.has("authoring_id")):
 			adopt_idx = i
 			break
 	check("real_world_has_safe_generated_scenery_to_adopt",adopt_idx>=0)
