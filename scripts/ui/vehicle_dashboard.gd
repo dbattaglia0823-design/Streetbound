@@ -88,6 +88,12 @@ func _label(value: String, at: Vector2, dimensions: Vector2,
 	# rectangle; all dashboard regions rely on these tight layout bounds.
 	node.reset_size()
 	node.size = dimensions
+	# Headless Godot 4.4 reports a three-em Label minimum height even
+	# when the glyphs render at the requested font size. If the control
+	# inflates, keep the visible text anchored to the authored top edge
+	# rather than vertically centering it inside the oversized rectangle.
+	if node.size.y > dimensions.y * 1.5:
+		node.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	return node
 
 
