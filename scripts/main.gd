@@ -19,6 +19,7 @@ const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd")
 const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
+const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 var pause_menu
@@ -34,6 +35,7 @@ var street_race: Node2D
 var progression_hud: CanvasLayer
 var quick_upgrades: CanvasLayer
 var local_split_screen
+var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
@@ -211,6 +213,19 @@ func _ready() -> void:
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
+	# This is a developer-only transition workspace. It renders the EXISTING
+	# Morrow Coast scene and visualizes the traffic network already built by
+	# the game. Release players cannot open it, and it never writes map files.
+	if not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")):
+		native_world_editor = CanvasLayer.new()
+		native_world_editor.set_script(NativeWorldEditorScript)
+		native_world_editor.world = ground
+		native_world_editor.player = vehicle
+		native_world_editor.driving_camera = camera
+		var ambient_traffic: Node = ground.get_node_or_null("AmbientTraffic")
+		if is_instance_valid(ambient_traffic):
+			native_world_editor.traffic_network = ambient_traffic.get("network")
+		add_child(native_world_editor)
 
 
 func _toggle_local_split_screen() -> void:
