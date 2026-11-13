@@ -69,7 +69,12 @@ func _run() -> void:
 			{"name":"driveway_asphalt","metres":Vector2(2428.5,3038.5)},
 			{"name":"background_grass","metres":Vector2(2448.0,3003.0)}
 		]:
+			# canvas_transform operates in the logical 1440x900 design
+			# viewport. The GL capture may be a 1280x800 override window, so
+			# convert logical screen coordinates to real framebuffer pixels.
 			var pixel: Vector2 = root.canvas_transform * (item.metres * 20.0)
+			pixel *= Vector2(float(shot.get_width())/float(root.size.x),
+				float(shot.get_height())/float(root.size.y))
 			var valid := (pixel.x >= 0.0 and pixel.y >= 0.0 and
 				pixel.x < float(shot.get_width()) and pixel.y < float(shot.get_height()))
 			print("GAME WORLD PIXEL ",item.name," at ",pixel," visible=",valid,
