@@ -121,18 +121,18 @@ func _run() -> void:
 		session.adopt_runtime_prop({"kind":"house",
 			"p":[2240,3120]})=="")
 	session.discard_changes()
-	var road_count := session.doc.roads.size()
+	var road_count: int = session.doc.roads.size()
 	var native_road := session.add_road(Vector2(1800,2700),Vector2(1840,2710))
 	check("draw_road_uses_unsaved_undoable_browser_source",
 		native_road=="road-%d" % road_count and
 		session.doc.roads.size()==road_count+1 and session.undo())
-	var region_count := session.doc.regions.size()
+	var region_count: int = session.doc.regions.size()
 	var corners: Array[Vector2] = [Vector2(310,320),Vector2(390,320),Vector2(390,370)]
 	var native_region := session.add_region(corners)
 	check("terrain_region_is_previewed_without_world_rebake",
 		native_region=="region-%d" % region_count and
 		session.doc.regions.size()==region_count+1 and session.undo())
-	var marker_count := session.doc.markers.size()
+	var marker_count: int = session.doc.markers.size()
 	var native_marker := session.add_marker(Vector2(2350,3100))
 	check("native_marker_uses_browser_source_contract",
 		native_marker=="marker-%d" % marker_count and
