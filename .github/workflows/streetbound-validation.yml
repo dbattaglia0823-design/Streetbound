@@ -59,7 +59,7 @@ jobs:
       - name: Verify real rendered roads and scenery across developed districts
         run: |
           set -o pipefail
-          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
+          LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --audio-driver Dummy --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
           grep -q 'WORLD RENDER CONTRACT: PASS' /tmp/godot463-world-render.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/godot463-world-render.log
       - name: Verify real 10000 HP and 10000 lb-ft acceleration, RPM, grip and wheelspin
