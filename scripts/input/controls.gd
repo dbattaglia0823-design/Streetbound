@@ -6,7 +6,8 @@ const SAVE_PATH := "user://controls.cfg"
 const ACTIONS := [
 	"throttle", "brake", "left", "right", "handbrake", "nitrous",
 	"shift_up", "shift_down", "transmission", "reset", "camera",
-	"map", "garage", "upgrades", "tuning", "mute", "pause"
+	"map", "garage", "upgrades", "tuning", "mute", "pause",
+	"zoom_in", "zoom_out"
 ]
 const LABELS := {
 	"throttle":"Accelerate", "brake":"Brake / Reverse",
@@ -17,7 +18,8 @@ const LABELS := {
 	"camera":"Camera view", "map":"Open map",
 	"garage":"Garage", "upgrades":"Upgrades",
 	"tuning":"Tuning / Stats", "mute":"Mute audio",
-	"pause":"Pause / Menu"
+	"pause":"Pause / Menu", "zoom_in":"Zoom in",
+	"zoom_out":"Zoom out"
 }
 const KEYS := {
 	"throttle":KEY_W, "brake":KEY_S, "left":KEY_A, "right":KEY_D,
@@ -37,7 +39,12 @@ const BUTTONS := {
 	"garage":JOY_BUTTON_DPAD_RIGHT, "mute":JOY_BUTTON_DPAD_LEFT,
 	"map":JOY_BUTTON_BACK, "pause":JOY_BUTTON_START
 }
+const MOUSE := {
+	"zoom_in":MOUSE_BUTTON_WHEEL_UP, "zoom_out":MOUSE_BUTTON_WHEEL_DOWN
+}
 const AXES := {
+	"zoom_in":[JOY_AXIS_RIGHT_Y,-1.0],
+	"zoom_out":[JOY_AXIS_RIGHT_Y,1.0],
 	"throttle":[JOY_AXIS_TRIGGER_RIGHT,1.0],
 	"brake":[JOY_AXIS_TRIGGER_LEFT,1.0],
 	"left":[JOY_AXIS_LEFT_X,-1.0],
@@ -100,7 +107,12 @@ func restore_defaults(save: bool = true) -> bool:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action,0.15)
 		InputMap.action_erase_events(action)
-		InputMap.action_add_event(action,_key_event(int(KEYS[action])))
+		if KEYS.has(action):
+			InputMap.action_add_event(action,_key_event(int(KEYS[action])))
+		elif MOUSE.has(action):
+			var mouse := InputEventMouseButton.new()
+			mouse.button_index = int(MOUSE[action])
+			InputMap.action_add_event(action,mouse)
 		if BUTTONS.has(action):
 			InputMap.action_add_event(action,_button_event(int(BUTTONS[action])))
 		elif AXES.has(action):
@@ -141,6 +153,8 @@ func binding_text(action: String, kind: String) -> String:
 			MOUSE_BUTTON_MIDDLE: return "Mouse Middle"
 			MOUSE_BUTTON_XBUTTON1: return "Mouse Back"
 			MOUSE_BUTTON_XBUTTON2: return "Mouse Forward"
+			MOUSE_BUTTON_WHEEL_UP: return "Mouse Wheel Up"
+			MOUSE_BUTTON_WHEEL_DOWN: return "Mouse Wheel Down"
 		return "Mouse %d" % mouse.button_index
 	if event is InputEventJoypadButton:
 		var pad: InputEventJoypadButton = event
@@ -212,7 +226,8 @@ func rebind(action: String, kind: String, event: InputEvent) -> Dictionary:
 				(key.keycode == 0 and key.physical_keycode == 0):
 			return {"status":"reserved"}
 	if event is InputEventMouseButton and \
-			(event as InputEventMouseButton).button_index >= MOUSE_BUTTON_WHEEL_UP:
+			(event as InputEventMouseButton).button_index >= MOUSE_BUTTON_WHEEL_UP and \
+			action not in ["zoom_in","zoom_out"]:
 		return {"status":"reserved"}
 	if event is InputEventJoypadMotion and \
 			absf((event as InputEventJoypadMotion).axis_value) < 0.5:
