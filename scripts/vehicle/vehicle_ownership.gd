@@ -8,7 +8,7 @@ const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const SAVE_PATH := "user://streetbound_vehicle_ownership.cfg"
 const OLD_SELECTION_PATH := "user://streetbound_selected_vehicle.cfg"
-const STARTER_ID := "ford-fiesta"
+const STARTER_ID := "audi-rs3"
 const STARTING_CASH := 32000
 
 var balance := STARTING_CASH
