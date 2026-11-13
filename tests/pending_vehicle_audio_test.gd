@@ -41,12 +41,17 @@ func run() -> void:
 	for profile in profiles:
 		var id := str(profile.id)
 		var name := str(profile.display_name)
-		duplicates = duplicates or found.has(id) or existing.has(name)
+		# A future-only audio profile may now have a playable car with the
+		# same exact ID and name (the RS3 was promoted as the starter).
+		# Different IDs sharing a display name remain invalid.
+		var playable: Dictionary = Catalog.find_by_id(id)
+		var promoted: bool = not playable.is_empty() and str(playable.display_name)==name
+		duplicates = duplicates or found.has(id) or (existing.has(name) and not promoted)
 		found[id] = true
 		# Source requests evolve as new trims are added. Prepared audio
 		# may be staged for an older generic model until a trim is verified.
 		valid = valid and Pending.find_by_id(id).id == id and \
-			Catalog.find_by_id(id).is_empty() and \
+			(playable.is_empty() or promoted) and \
 			Synth.family_supported(str(profile.audio_family)) and \
 			str(profile.audio_status) == "prepared_unreleased" and \
 			float(profile.audio_aggression) >= 0.0 and \
@@ -94,8 +99,9 @@ func run() -> void:
 			legacy_profiles.append(str(profile.display_name))
 	if not legacy_profiles.is_empty():
 		print("PENDING AUDIO LEGACY PROFILES: %s" % [legacy_profiles])
-	check("playable_vehicle_catalog_remains_88_vehicles",
-		Catalog.all().size() == 88)
+	check("playable_catalog_includes_new_rs3_starter_without_losing_cars",
+		Catalog.all().size() == 89 and
+		not Catalog.find_by_id("audi-rs3").is_empty())
 	check("future_audi_five_cylinder_has_correct_turbo",
 		Pending.find_by_id("audi-rs3").audio_family == "i5" and \
 		Pending.find_by_id("audi-rs3").audio_induction == "turbo")
