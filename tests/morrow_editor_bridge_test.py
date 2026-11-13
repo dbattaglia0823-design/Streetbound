@@ -52,12 +52,12 @@ def editor_doc():
 
 
 class SourceBridgeTests(unittest.TestCase):
-    def apply(self, doc, base=None):
+    def apply(self, doc, base=None, **options):
         data = copy.deepcopy(base or fixture())
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "edits.json"
             source.write_text(json.dumps(doc), encoding="utf-8")
-            extras = apply_edits(*data, filename=source)
+            extras = apply_edits(*data, filename=source, **options)
         return data, extras
 
     def test_unchanged_round_trip_does_not_reduce_coastal_data(self):
@@ -127,6 +127,56 @@ class SourceBridgeTests(unittest.TestCase):
             markers = apply_edits(*data, filename=Path(tmp) / "missing.json")
         self.assertEqual(markers, [])
         self.assertEqual(data, fixture())
+
+    def test_legacy_added_road_does_not_overwrite_new_source_road(self):
+        base=fixture()
+        base[0].append(dict(id=2,name="New default road",start="a",end="c",
+            anchors=[[100,200],[900,200]],kind="local",surface="ASPHALT",
+            width=9,lanes=2,points=[]))
+        doc=editor_doc()
+        doc["roads"].append(dict(id="road-2",name="My added road",roadClass="city",
+            surface="asphalt",width=9,lanes=2,
+            points=[dict(x=100,y=200),dict(x=900,y=200)]))
+        result,_=self.apply(doc,base,legacy_source_count=2)
+        self.assertEqual([r["name"] for r in result[0]],
+            ["West Road","East Road","New default road","My added road"])
+        current=copy.deepcopy(doc)
+        current["morrowSourceRoadCount"]=3
+        current["roads"][2]["id"]="road-3"
+        current["roads"].insert(2,dict(doc["roads"][0],id="road-2",name="Edited new default"))
+        again,_=self.apply(current,base,legacy_source_count=2)
+        self.assertEqual(len(again[0]),4)
+        self.assertEqual(again[0][2]["name"],"Edited new default")
+        current["roads"].pop(2)
+        with self.assertRaisesRegex(ValueError,"removed"):
+            self.apply(current,base,legacy_source_count=2)
+
+    def test_legacy_custom_marker_does_not_move_new_destination(self):
+        base=fixture()
+        base[3].append(dict(name="New fuel stop",position=[800,150],road=1))
+        doc=editor_doc()
+        doc["markers"].append(dict(id="marker-2",type="race_start",x=400,y=200))
+        result,extras=self.apply(doc,base,legacy_source_poi_count=1)
+        self.assertEqual(result[3][1]["position"],[800,150])
+        self.assertEqual(len(extras),1)
+        self.assertEqual(extras[0]["kind"],"race_start")
+        self.assertEqual(extras[0]["p"],[400,200])
+
+    def test_baked_widths_are_unscaled_before_the_next_bake(self):
+        doc=editor_doc()
+        doc["morrowRoadWidthScale"]=1.1
+        for road in doc["roads"]:
+            road["width"]*=1.1
+        result,_=self.apply(doc)
+        self.assertEqual([r["width"] for r in result[0]],[9,12])
+
+    def test_legacy_migration_cannot_exceed_editor_road_limit(self):
+        base=fixture()
+        base[0].append(dict(base[0][0],id=2,name="New default"))
+        doc=editor_doc()
+        doc["roads"].extend(dict(doc["roads"][0],id="road-%d" % i) for i in range(2,180))
+        with self.assertRaisesRegex(ValueError,"editor limit"):
+            self.apply(doc,base,legacy_source_count=2)
 
 
 if __name__ == "__main__":

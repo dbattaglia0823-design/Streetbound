@@ -222,7 +222,10 @@ function drawRoads(ctx,roads,bounds,options){
       // fill before curb fillets and stop/yield markings. Do not reuse baked
       // polygons after a participating road has been moved or reshaped.
       if(j.polygon?.length>=3){
-        stroke(ctx,j.polygon.map(([x,y])=>({x,y})),true);
+        // Runtime preview already normalizes archive [x,y] pairs to {x,y}.
+        // Destructuring these objects as pairs used to abort every game-map
+        // render, including scenery, selection overlays and the zoom label.
+        stroke(ctx,j.polygon,true);
         ctx.fillStyle='#58656c';
         ctx.fill();
       }

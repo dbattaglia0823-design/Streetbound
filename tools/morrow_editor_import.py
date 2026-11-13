@@ -260,7 +260,8 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
 
 
 def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
-                width=BASE_WIDTH, height=BASE_HEIGHT):
+                width=BASE_WIDTH, height=BASE_HEIGHT, legacy_source_count=None,
+                legacy_source_poi_count=None):
     """Mutate the source-builder collections once, before tessellation/props.
 
     This never reads or writes the 7.5 MB production JSON directly.
@@ -279,6 +280,15 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
     if (doc_width,doc_height)!=(width,height):
         raise ValueError("Map bounds mismatch between editor and production generator")
     source_count = len(roads)
+    width_scale = doc.get("morrowRoadWidthScale", 1.0)
+    if type(width_scale) not in (int,float) or width_scale not in (1.0,1.1):
+        raise ValueError("Unsupported baked road-width scale.")
+    basis_count = doc.get("morrowSourceRoadCount", legacy_source_count if legacy_source_count is not None else source_count)
+    if type(basis_count) is not int or not 0 <= basis_count <= source_count:
+        raise ValueError("Unsupported Morrow source-road layout. Reopen the game map.")
+    poi_basis = doc.get("morrowSourcePoiCount", legacy_source_poi_count if legacy_source_poi_count is not None else len(pois))
+    if type(poi_basis) is not int or not 0 <= poi_basis <= len(pois):
+        raise ValueError("Unsupported Morrow destination layout. Reopen the game map.")
     road_edits = doc.get("roads")
     if not isinstance(road_edits, list) or len(road_edits) > 180:
         raise ValueError("Invalid Morrow road count")
@@ -288,17 +298,28 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         if not match:
             raise ValueError("Road must retain stable road-<id> identifiers")
         index = int(match.group(1))
+        # Old archives predate the coastal extension. Keep their added roads
+        # after the new source records instead of treating a user's road-120
+        # as the newly introduced north-coast highway. The persisted legacy
+        # overlay remains valid; new imports carry the current basis count.
+        if index >= basis_count:
+            index += source_count - basis_count
         if index in numbered:
             raise ValueError("Duplicate road ID")
         numbered[index] = entry
-    if any(i not in numbered for i in range(source_count)):
+    if any(i not in numbered for i in range(basis_count)):
         raise ValueError("A source Morrow Coast road was removed. Restore it: deleting a baked road requires a dedicated migration.")
-    if sorted(numbered) != list(range(len(numbered))):
+    all_ids = set(numbered) | set(range(source_count))
+    if len(all_ids) > 180:
+        raise ValueError("Morrow roads exceed the editor limit after source-layout migration.")
+    if sorted(all_ids) != list(range(len(all_ids))):
         raise ValueError("New Morrow Coast roads must have consecutive IDs; do not renumber originals.")
 
     proposed_nodes = {}
     edited = 0
     for index in range(source_count):
+        if index not in numbered:
+            continue  # Newly introduced defaults absent from a legacy overlay.
         road = roads[index]
         entry = numbered[index]
         fresh = points(entry["points"], width, height)
@@ -326,7 +347,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         lanes = entry.get("lanes", road["lanes"])
         if not isinstance(road_width, (int, float)) or not 6 <= road_width <= 160 or not isinstance(lanes, int) or not 1 <= lanes <= 6:
             raise ValueError("Invalid road width or lane count at road " + str(index))
-        road["width"] = float(road_width)
+        road["width"] = round(float(road_width) / width_scale, 9)
         road["lanes"] = int(lanes)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
@@ -341,13 +362,16 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road["anchors"][0] = list(nodes[road["start"]])
         road["anchors"][-1] = list(nodes[road["end"]])
 
-    for index in range(source_count, len(numbered)):
+    for index in range(source_count, len(all_ids)):
         entry = numbered[index]
         new_points = points(entry["points"], width, height)
         surf = str(entry.get("surface", "asphalt")).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown new-road surface " + surf)
         kind = CLASS_TO_KIND.get(str(entry.get("roadClass", "city")), "local")
+        road_width = entry.get("width", 9.0)
+        if type(road_width) not in (int,float) or not 6 <= road_width <= 160:
+            raise ValueError("Invalid new-road width")
         if surf == "GRAVEL":
             kind = "gravel"
         loose = surf in LOOSE
@@ -367,7 +391,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             endpoint_names.append(near_name)
         roads.append(dict(id=index, name=str(entry.get("name", "Editor Road"))[:80],
                           start=endpoint_names[0], end=endpoint_names[1],
-                          kind=kind, width=float(entry.get("width", 9.0)),
+                          kind=kind, width=round(float(road_width) / width_scale, 9),
                           surface="ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf,
                           grade=0, anchors=new_points, points=[],
                           lanes=int(entry.get("lanes", 2))))
@@ -397,6 +421,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
     extra = []
     for marker in doc.get("markers", []):
         tag = str(marker.get("id", ""))
+        marker_index = re.fullmatch(r"marker-(\d+)", tag)
+        if marker_index and int(marker_index.group(1)) > poi_basis:
+            marker = dict(marker, id="marker-%d" % (int(marker_index.group(1)) + len(pois) - poi_basis))
+            tag = marker["id"]
         if tag == "marker-0":
             xy = (float(marker["x"]), float(marker["y"]))
             if length(xy, spawn["position"]) > 0.05:

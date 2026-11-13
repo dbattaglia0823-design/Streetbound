@@ -335,12 +335,13 @@ def keys_for(bounds, cell):
 # Optional versioned overlay from the browser Map Builder. Applied to authored
 # control points BEFORE sampling, junction baking, scenery placement and collision
 # indices. Rebuilds the entire streamed world rather than patching stale segments.
-EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
-                             width=WIDTH, height=HEIGHT)
+LEGACY_SOURCE_ROAD_COUNT = len(ROADS)
+LEGACY_SOURCE_POI_COUNT = len(POIS)
 
 # Upgrade the original fragmented scenic route into a continuous coastal
 # highway. Keep existing editor road IDs (66-69) and all original POI access
-# roads stable; extend the route only AFTER overlay edits have been imported.
+# roads stable. Define ALL source roads before applying edits, so a repeated
+# save updates these records instead of importing them and appending duplicates.
 for index in (67, 68, 69):
     highway = ROADS[index]
     highway["name"] = "Morrow Coastal Highway"
@@ -375,6 +376,12 @@ road("Morrow Coastal Highway", "coasts", "south_coastal_gate",
 add_poi("Northshore Fuel Stop", "FUEL", "north_coastal_gate", (-1,0), "fuel")
 add_poi("Southpoint Travel Stop", "FUEL", "south_coastal_gate", (-1,0), "fuel")
 add_poi("Juniper Roadside Fuel", "FUEL", "mwest", (1,-1), "fuel")
+
+EDITOR_SOURCE_ROAD_COUNT = len(ROADS)
+EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
+                             width=WIDTH, height=HEIGHT,
+                             legacy_source_count=LEGACY_SOURCE_ROAD_COUNT,
+                             legacy_source_poi_count=LEGACY_SOURCE_POI_COUNT)
 
 # New terrain is derived, never editable source geometry. Generate it AFTER
 # importing the stable old terrain IDs so the additional land cannot silently
@@ -1035,6 +1042,8 @@ assert all(land(p["position"]) for p in POIS)
 assert all(distance(NODES[r["start"]],r["points"][0])<.01 and distance(NODES[r["end"]],r["points"][-1])<.01 for r in ROADS)
 length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
+          editor_source_road_count=EDITOR_SOURCE_ROAD_COUNT,
+          editor_source_poi_count=len(POIS),
           original_extent=[BASE_WIDTH,BASE_HEIGHT],
           size=[WIDTH,HEIGHT],chunk_size=CHUNK,surface_cell=CELL,spawn=SPAWN,nodes=NODES,roads=ROADS,segments=SEGMENTS,
           props=PROPS,pois=POIS,districts=DISTRICTS,terrain=TERRAIN,walls=WALLS,junctions=JUNCTIONS,bridges=BRIDGES,

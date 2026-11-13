@@ -239,6 +239,16 @@ perfect, properly signaled, fully routable, or ready to ship. Traffic lane
 permissions, elevation/bridges, AI turn decisions, accessibility and final
 drive-testing still require separate implementation and visual review.
 
+**Session recovery:** Refreshing restores unfinished editing sessions, including
+the map view and the game revision they were based on. Ctrl+S saves the current
+property field too. Finish or cancel a shape before saving. Game loads and
+rebuilds temporarily pause editing; failed rebuilds keep your draft.
+
+**Regression checks:** Run `node --test map-editor/tests/*.test.mjs` for editor
+checks. Run `python tests/morrow_rebuild_stability_test.py` for two real production
+bakes in an isolated temporary copy. It verifies stable roads, widths, scenery,
+coastal edits and custom checkpoints without modifying the playable map.
+
 ### Research references
 
 - OSM JOSM validator — crossing ways, near-unconnected endpoints, geometry

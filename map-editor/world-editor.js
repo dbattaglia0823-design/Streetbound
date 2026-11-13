@@ -22,6 +22,7 @@ import {buildRuntimePreview,browseRuntimeAssets,pickRuntimeProp,REPLACEABLE_KIND
   GAME_ART,GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
+import {encodeSession,decodeSession,shouldRestoreSession} from './world-session.js';
 import {
   placeBesideRoad,nearestRoadPlacement,placementFootprint,
   roadwayClearance,repairRoadsideObjects
@@ -35,11 +36,33 @@ let doc=demoWorld(),tool='select',selection=null,draft=null,gesture=null,hover=n
 let zoom=.25,offsetX=0,offsetY=0,panSpace=false,dirty=false,frame=0,autosaveTimer=0;
 let liveSession=null,loadedWorldSha='',runtimePreview=null,adoptGameProp=false;
 let undoStack=[],redoStack=[];
+let busyDepth=0;
+let sessionReady=false;
+function setBusy(active){
+  busyDepth+=active?1:-1;
+  const dialog=$('busy-dialog');
+  if(busyDepth>0&&!dialog.open)dialog.showModal();
+  if(!busyDepth&&dialog.open)dialog.close();
+  document.body.setAttribute('aria-busy',String(busyDepth>0));
+  panSpace=false;
+}
+function flushAutosave(){
+  if(!sessionReady)return; // Do not overwrite a draft while startup is still fetching its preview.
+  clearTimeout(autosaveTimer);
+  try{localStorage.setItem(AUTO,encodeSession(doc,{dirty,worldSha:loadedWorldSha,
+    view:{zoom,x:(viewport.clientWidth/2-offsetX)/zoom,y:(viewport.clientHeight/2-offsetY)/zoom}}));}
+  catch{status('Autosave unavailable. Export JSON to protect your world.');}
+}
+function readyToSave(){
+  if(busyDepth)return false;
+  if(draft||gesture){status('Finish or cancel the current shape or edit before saving.');return false;}
+  return true;
+}
 let presetCache=null;
 const laneCache=new WeakMap();
 const trafficFor=()=>{let lanes=laneCache.get(doc.roads);if(!lanes){lanes=lanePatterns(doc.roads);laneCache.set(doc.roads,lanes);}return lanes;};
 const minZoom=.007,maxZoom=5; // Entire 22k+ worlds still fit on narrow mobile viewports.
-const status=message=>{$('status').textContent=message;};
+const status=message=>{$('status').textContent=message;$('busy-message').textContent=message;};
 const errorMessage=e=>status(e?.message||'Action failed.');
 const worldPoint = (x,y)=>({x:clamp(x,0,doc.world.width),y:clamp(y,0,doc.world.height)});
 const screen = event => {
@@ -355,10 +378,7 @@ function makeSnapshot(before,label){
   redoStack=[];dirty=true;
   auditUI.invalidate();
   clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(()=>{
-    try{localStorage.setItem(AUTO,serializeWorld(doc));}
-    catch{status('Autosave unavailable. Export JSON to protect your world.');}
-  },650);
+  autosaveTimer=setTimeout(flushAutosave,650);
   refreshUI();if(label)status(label);
 }
 function change(edit,label){
@@ -382,7 +402,7 @@ function redo(){
 function afterHistory(message){
   if(selection&&!getEntity(doc,selection.id))selection=null;
   dirty=true;auditUI.invalidate();clearTimeout(autosaveTimer);
-  autosaveTimer=setTimeout(()=>{try{localStorage.setItem(AUTO,serializeWorld(doc));}catch{status('Autosave unavailable. Export JSON instead.');}},650);
+  autosaveTimer=setTimeout(flushAutosave,650);
   refreshUI();status(message);
 }
 function setTool(next){
@@ -773,16 +793,17 @@ function refreshSpriteLists(){
   }
 }
 function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();renderContextPanel();refreshAssetDock();requestRender();}
-function startWorld(world,message,{skipRecovery=false,preview=null}={}){
+function startWorld(world,message,{skipRecovery=false,preview=null,restoredDirty=false,worldSha='',view=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
   if(dirty&&!skipRecovery)auditUI.stash(doc);
   doc=normalizeWorld(world);selection=null;pointInsertMode=null;draft=null;gesture=null;
-  runtimePreview=preview;loadedWorldSha='';adoptGameProp=false;
-  undoStack=[];redoStack=[];dirty=false;
+  sessionReady=true;
+  runtimePreview=preview;loadedWorldSha=worldSha;adoptGameProp=false;
+  undoStack=[];redoStack=[];dirty=restoredDirty;
   auditUI.invalidate();refreshUI();fit();status(message);
-  try{localStorage.setItem(AUTO,serializeWorld(doc));}
-  catch{status('Autosave unavailable. Export JSON for a backup.');}
+  if(view){setZoom(view.zoom);focusPoint(view);}
+  flushAutosave();
 }
 function cancelDraft(notify=true){
   draft=null;refreshHeader();requestRender();
@@ -1057,6 +1078,12 @@ mini.addEventListener('pointerdown',event=>{
   focusPoint({x,y});
 });
 document.addEventListener('keydown',event=>{
+  if(busyDepth){event.preventDefault();return;}
+  if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){
+    event.preventDefault();
+    if(event.target instanceof HTMLElement)event.target.blur();
+    $('save-world').click();return;
+  }
   const target=event.target;
   const typing=target instanceof HTMLElement&&(['INPUT','TEXTAREA','SELECT'].includes(target.tagName)||target.isContentEditable);
   if(typing)return;
@@ -1324,11 +1351,13 @@ async function detectProjectMode(){
   }catch{/* Hosted/static mode cannot write project files. */}
   return null;
 }
-async function openGameMap({skipConfirm=false}={}){
+async function openGameMap({skipConfirm=false,fromApply=false}={}){
+  if(busyDepth&&!fromApply)return false;
   const button=$('load-morrow');
   if(!skipConfirm&&dirty&&!window.confirm(
     'Reload current playable Morrow Coast? Keep unsaved edits with Export JSON first.'))return;
   button.disabled=true;
+  setBusy(true);
   status('Loading actual Morrow Coast, current game scenery and installed artwork...');
   try{
     const session=await detectProjectMode();
@@ -1361,6 +1390,7 @@ async function openGameMap({skipConfirm=false}={}){
       {preview});
     liveSession=session;
     loadedWorldSha=session?.worldSha||'';
+    flushAutosave();
     $('show-traffic').checked=true;
     $('show-scenery').checked=true;
     // Start at the actual driving neighborhood where houses and foliage are
@@ -1373,8 +1403,9 @@ async function openGameMap({skipConfirm=false}={}){
       (session?'Project connected: Apply to Game saves edits.':
         'Start Map Editor.cmd for direct project saves.')+
       ' Use Fit for the full map.');
-  }catch(e){errorMessage(e);}
-  finally{button.disabled=false;}
+    return true;
+  }catch(e){errorMessage(e);return false;}
+  finally{button.disabled=false;setBusy(false);}
 }
 $('load-morrow').addEventListener('click',()=>openGameMap());
 $('expand-morrow').addEventListener('click',()=>{
@@ -1395,8 +1426,10 @@ $('expand-morrow').addEventListener('click',()=>{
 });
 $('save-morrow').addEventListener('click',async()=>{
   const button=$('save-morrow');
+  if(!readyToSave())return;
   if(!isMorrowEdit(doc))return status('Open Game Map first.');
   button.disabled=true;
+  flushAutosave();setBusy(true);
   try{
     const content=morrowEditText(doc);
     if(liveSession&&loadedWorldSha){
@@ -1415,7 +1448,10 @@ $('save-morrow').addEventListener('click',async()=>{
         throw new Error(result.error||'The map rebuild failed; project files were restored.');
       // The rebuild is complete before the world is reloaded, and the
       // revision is refreshed to avoid a second-save conflict.
-      await openGameMap({skipConfirm:true});
+      loadedWorldSha=result.worldSha;
+      dirty=false;flushAutosave();
+      if(!await openGameMap({skipConfirm:true,fromApply:true}))
+        throw new Error('Map applied, but preview reload failed. Your saved edits are retained; use Open Game Map to retry.');
       status('Applied directly to worlds/morrow-coast.world.json. '+
         'Rebuilt '+(result.stats?.roads||0)+' roads and '+
         (result.stats?.props||0).toLocaleString()+' scenery items. Restart the game to load changes.');
@@ -1430,7 +1466,7 @@ $('save-morrow').addEventListener('click',async()=>{
       status('Exported edit overlay. Start the local Map Editor to apply directly to the game.');
     }
   }catch(e){if(e?.name!=='AbortError')errorMessage(e);}
-  finally{button.disabled=false;}
+  finally{button.disabled=false;setBusy(false);}
 });
 
 $('create-atlas').addEventListener('click',loadAtlasCoast);
@@ -1448,6 +1484,9 @@ function download(content,filename,mime){
   setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 $('save-world').addEventListener('click',()=>{
+  if(!readyToSave())return;
+  if(isMorrowEdit(doc)&&liveSession&&!loadedWorldSha)
+    return status('This recovered draft has no game revision. Export JSON before reopening the current game map.');
   // When editing the playable map, Save means write the actual game world,
   // not an unrelated localStorage copy that Godot never reads.
   if(isMorrowEdit(doc)&&liveSession&&loadedWorldSha){
@@ -1458,6 +1497,7 @@ $('save-world').addEventListener('click',()=>{
     const last=localStorage.getItem(SAVE),next=serializeWorld(doc);
     if(last&&last!==next)auditUI.stash(last);
     localStorage.setItem(SAVE,next);dirty=false;
+    flushAutosave();
     status('Saved in browser. Previous save retained when storage permits; export JSON for a portable backup.');
   }
   catch{status('Browser storage is full or disabled. Export JSON instead.');}
@@ -1481,10 +1521,12 @@ $('import-world').addEventListener('change',async event=>{
   event.target.value='';
 });
 $('export-world').addEventListener('click',()=>{
+  if(!readyToSave())return;
   try{download(serializeWorld(doc),worldSlug(doc.name)+'.world.json','application/json');status('World geometry JSON downloaded.');}
   catch(e){errorMessage(e);}
 });
 $('export-godot').addEventListener('click',async()=>{
+  if(!readyToSave())return;
   const button=$('export-godot');button.disabled=true;
   try{
     if(!auditUI.preflight())return;
@@ -1561,20 +1603,41 @@ $('import-sprite').addEventListener('change',async event=>{
   event.target.value='';
 });
 const resize=new ResizeObserver(requestRender);resize.observe(viewport);
+$('busy-dialog').addEventListener('cancel',event=>event.preventDefault());
 window.addEventListener('resize',requestRender);
-try{const stored=localStorage.getItem(AUTO);if(stored)doc=parseWorld(stored);}catch{}
+let recoveredSession=null;
+try{recoveredSession=decodeSession(localStorage.getItem(AUTO));}catch{}
+window.addEventListener('pagehide',flushAutosave);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flushAutosave();});
 // Read-only integration/testing API. Callers cannot mutate editor state through this snapshot.
 window.GDTWorldForge=Object.freeze({getSnapshot:()=>structuredClone(doc)});
 window.StreetboundMapEditor=window.GDTWorldForge;
 refreshUI();
 requestAnimationFrame(async()=>{
+  setBusy(true);
+  try{
   fit();
   const session=await detectProjectMode();
+  if(shouldRestoreSession(recoveredSession,Boolean(session))){
+    liveSession=session;
+    let preview=null;
+    if(session&&isMorrowEdit(recoveredSession.doc)){
+      try{const {raw}=await loadMorrowCoast();preview=buildRuntimePreview(raw);}
+      catch{/* Keep the draft even when the source map cannot be fetched. */}
+    }
+    const stale=session&&isMorrowEdit(recoveredSession.doc)&&recoveredSession.worldSha!==session.worldSha;
+    startWorld(recoveredSession.doc,'Restored your last editing session. '+
+      (stale?'The game map has changed. Export this draft before reopening the current game map.':
+        recoveredSession.dirty?'Unsaved edits recovered.':'Your browser save is ready.'),
+      {preview,restoredDirty:recoveredSession.dirty,worldSha:recoveredSession.worldSha,view:recoveredSession.view});
+    return;
+  }
   if(session){
     // Local project mode always opens the live game, not an outdated demo
     // cached in the browser from a previous editing session.
     liveSession=session;
-    await openGameMap({skipConfirm:true});
+    await openGameMap({skipConfirm:true,fromApply:true});
   }else status('Map Builder ready. Open Game Map for the current Morrow Coast; '+
     'launch Start Map Editor.cmd for one-click project saves.');
+  }finally{sessionReady=true;setBusy(false);}
 });

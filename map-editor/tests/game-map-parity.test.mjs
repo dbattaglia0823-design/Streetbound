@@ -4,8 +4,27 @@ import {readFile} from 'node:fs/promises';
 import {convertMorrowWorld} from '../morrow-coast-bridge.js';
 import {buildRuntimePreview,REPLACEABLE_KINDS,BASE_SIZE} from '../morrow-runtime-preview.js';
 import {normalizeWorld} from '../world-model.js';
+import {drawWorld} from '../world-renderer.js';
 
 const file=name=>readFile(new URL(name,import.meta.url),'utf8');
+
+test('the actual game archive draws roads, baked junctions and scenery without canvas errors',async()=>{
+  const raw=JSON.parse(await file('../../worlds/morrow-coast.world.json'));
+  const {doc}=convertMorrowWorld(raw),preview=buildRuntimePreview(raw);
+  const coordinates=[];
+  const ctx=new Proxy({}, {get(target,key){
+    if(key==='measureText')return ()=>({width:20});
+    if(key==='createLinearGradient'||key==='createRadialGradient')return ()=>({addColorStop(){}});
+    return target[key]??((...args)=>{
+      for(const value of args)if(typeof value==='number')assert.ok(Number.isFinite(value),key+' received invalid coordinates');
+      if(key==='moveTo')coordinates.push(args.slice(0,2));
+    });
+  }});
+  assert.ok(preview.junctions.some(j=>j.polygon.length>=3));
+  drawWorld(ctx,doc,{runtimePreview:preview,quality:1});
+  const point=preview.junctions.find(j=>j.polygon.length>=3).polygon[0];
+  assert.ok(coordinates.some(([x,y])=>x===point.x&&y===point.y),'baked junction polygon must actually reach the canvas');
+});
 
 test('runtime preview retains true baked intersection geometry and rules',()=>{
   const raw={
@@ -22,6 +41,18 @@ test('runtime preview retains true baked intersection geometry and rules',()=>{
   assert.deepEqual(preview.junctions[0].polygon[0],{x:100,y:120});
   assert.equal(preview.junctions[0].approaches[1].control,'stop');
   assert.equal(preview.junctions[0].curbs.length,1);
+});
+
+test('game-map imports retain source layout versions and saved racing/traffic markers',async()=>{
+  const raw=JSON.parse(await file('../../worlds/morrow-coast.world.json'));
+  raw.editor_source_road_count=126;raw.editor_source_poi_count=18;
+  raw.editor_markers=[{kind:'race_start',name:'My race',p:[2420,3035]},
+    {kind:'traffic_spawn',name:'My traffic',p:[2500,3000]}];
+  const {doc}=convertMorrowWorld(raw);
+  assert.equal(doc.morrowSourceRoadCount,126);
+  assert.equal(doc.morrowSourcePoiCount,18);
+  assert.deepEqual(doc.markers.slice(-2).map(m=>[m.type,m.name,m.x,m.y]),
+    [['race_start','My race',2420,3035],['traffic_spawn','My traffic',2500,3000]]);
 });
 
 test('supported native game scenery can be adopted and validated',()=>{
@@ -59,7 +90,7 @@ test('game preview does not overlay square intersection polygons or simplify oce
   assert.match(runtime,/for\(const terrain of preview\.sourceTerrain\)/);
   assert.match(renderer,/exact saved junction pavement/i);
   assert.match(renderer,/ctx\.clip\('evenodd'\)/);
-  assert.doesNotMatch(renderer,/stroke\(ctx,j\.polygon,true\)/);
+  assert.doesNotMatch(renderer,/j\.polygon\.map\(\(\[x,y\]\)/);
   assert.doesNotMatch(html,/id="export-png"/);
   assert.doesNotMatch(html,/>Guide<\/a>/);
 });

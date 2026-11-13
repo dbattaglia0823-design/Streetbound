@@ -41,7 +41,7 @@ test('renderer avoids fake convex junction fills and uses exact saved game pavem
     source('../world-renderer.js'),source('../world-automation-preview.js')]);
   assert.doesNotMatch(renderer,/for\(const junction of buildRoadJunctions\(roads\)\)\s*\{[\s\S]{0,300}junction\.polygon/);
   assert.match(renderer,/ctx\.clip\('evenodd'\)/);
-  assert.match(renderer,/j\.polygon\.map\(\(\[x,y\]\)=>\(\{x,y\}\)\)/);
+  assert.match(renderer,/stroke\(ctx,j\.polygon,true\)/);
   assert.match(renderer,/j\.roads\.every\(unchanged\)/);
   assert.doesNotMatch(automation,/j\.polygon\[0\]/);
 });

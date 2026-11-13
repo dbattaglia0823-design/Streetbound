@@ -65,7 +65,7 @@ test('local live bridge, apply action and real asset library are wired to editor
     assert.ok(html.includes('id="'+id+'"'));
   assert.ok(editor.includes("'/api/apply-morrow'"));
   assert.ok(editor.includes('buildRuntimePreview(raw)'));
-  assert.ok(editor.includes('openGameMap({skipConfirm:true})'));
+  assert.ok(editor.includes('openGameMap({skipConfirm:true,fromApply:true})'));
   assert.ok(api.includes('transactional_rebuild'));
   assert.ok(api.includes('subprocess.run'));
 });

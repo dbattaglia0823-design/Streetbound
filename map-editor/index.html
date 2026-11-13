@@ -368,5 +368,10 @@
   <div class="field"><label for="new-base">Base ground</label><select id="new-base"><option value="grass">Grassland</option><option value="city">City</option><option value="beach">Beach</option><option value="desert">Desert</option></select></div>
   <div class="dialog-actions"><button id="cancel-new" class="gdt-btn">Cancel</button><button id="create-demo" class="gdt-btn">Coastal demo</button><button id="confirm-new" class="gdt-btn gdt-btn--primary">Create blank</button></div>
 </dialog>
+<dialog id="busy-dialog" class="gdt-dialog" aria-labelledby="busy-title" aria-describedby="busy-message">
+  <h2 id="busy-title">Working on your map</h2>
+  <p id="busy-message" role="status" aria-live="polite">Loading map...</p>
+  <p>Editing will resume when this finishes.</p>
+</dialog>
 <script type="module" src="./world-editor.js"></script>
 </body></html>

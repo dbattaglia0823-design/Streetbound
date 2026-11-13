@@ -105,6 +105,12 @@ export function normalizeWorld(raw){
   const base=oneOf(raw.world.base,BIOMES,'base biome');
   const result={format:WORLD_FORMAT,version:WORLD_VERSION,name:title(raw.name,'Untitled world'),
     world:{width,height,seed,base},roads:[],regions:[],props:[],markers:[],assets:[]};
+  if(raw.morrowSourceRoadCount!==undefined)
+    result.morrowSourceRoadCount=integer(raw.morrowSourceRoadCount,0,LIM.roads,'Morrow source road count');
+  if(raw.morrowSourcePoiCount!==undefined)
+    result.morrowSourcePoiCount=integer(raw.morrowSourcePoiCount,0,LIM.markers,'Morrow source destination count');
+  if(raw.morrowRoadWidthScale!==undefined)
+    result.morrowRoadWidthScale=real(raw.morrowRoadWidthScale,.1,10,'Morrow road width scale');
   const ids=new Set();
   const allAssets=raw.assets??[];
   if(!Array.isArray(allAssets)||allAssets.length>LIM.assets)throw new RangeError('Invalid sprite asset count');
