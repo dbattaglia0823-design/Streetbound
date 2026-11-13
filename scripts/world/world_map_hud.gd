@@ -19,6 +19,7 @@ var scale_label: Label
 var atlas_scale_label: Label
 var refresh := 0.0
 var large := false
+var minimap_shape := "square"
 
 func panel(at: Vector2, dimensions: Vector2) -> PanelContainer:
 	var node := PanelContainer.new()
@@ -66,7 +67,7 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 		node.player_m=vehicle.global_position/20.0
 		node.center_m=node.player_m
 	node.custom_minimum_size=dimensions
-	node.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
+	node.size_flags_horizontal=Control.SIZE_SHRINK_CENTER if miniature else Control.SIZE_SHRINK_BEGIN
 	parent.add_child(node)
 	return node
 
@@ -81,7 +82,8 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	mini.add_child(column)
 	district_label=text(column,"MORROW COAST",16)
-	mini_view=map_view(column,Vector2(284,244),true)
+	mini_view=map_view(column,Vector2(244,244),true)
+	mini_view.set_minimap_shape(minimap_shape)
 	mini_cursor=mini_view.cursor
 	road_label=text(column,"Laurel Motor House access",13)
 	road_label.custom_minimum_size.x=284
@@ -134,6 +136,12 @@ func _ready() -> void:
 	text(body,"TAB close   ·   Wheel zooms toward the pointer   ·   Drag to explore   ·   Find car restores tracking",12,Color("c5d0ba"))
 	full.visible=false
 	_update_scale()
+
+func set_minimap_shape(shape: String) -> void:
+	minimap_shape = "circle" if shape == "circle" else "square"
+	if is_instance_valid(mini_view):
+		mini_view.set_minimap_shape(minimap_shape)
+
 
 func _update_scale() -> void:
 	if atlas_scale_label==null or full_view==null: return
