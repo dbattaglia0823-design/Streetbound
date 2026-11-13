@@ -22,6 +22,7 @@ const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
 const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
+static var pending_launch_mode := ""
 var pause_menu
 var player_garage: Node2D
 var dealership_world: Node2D
@@ -213,6 +214,8 @@ func _ready() -> void:
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
+	pause_menu.main_menu_requested.connect(_return_to_main_menu)
+	pause_menu.map_editor_requested.connect(_open_native_map_editor)
 	# This is a developer-only transition workspace. It renders the EXISTING
 	# Morrow Coast scene and visualizes the traffic network already built by
 	# the game. Release players cannot open it, and it never writes map files.
@@ -226,6 +229,50 @@ func _ready() -> void:
 		if is_instance_valid(ambient_traffic):
 			native_world_editor.traffic_network = ambient_traffic.get("network")
 		add_child(native_world_editor)
+	# The title screen supplies one explicit launch target. Tests that
+	# instantiate main.tscn directly still start in normal single-player.
+	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor))
+	if not pending_launch_mode.is_empty():
+		call_deferred("_apply_title_launch_mode")
+
+
+func _apply_title_launch_mode() -> void:
+	var mode := pending_launch_mode
+	pending_launch_mode = ""
+	match mode:
+		"multiplayer":
+			if is_instance_valid(local_split_screen) and local_split_screen.start_split():
+				pause_menu.set_split_screen_active(true)
+			else:
+				pause_menu.pause_game()
+				pause_menu.show_split_screen_error(
+					local_split_screen.warning if is_instance_valid(local_split_screen) else
+					"Local split-screen is unavailable.")
+		"map_editor":
+			_begin_native_map_editor()
+
+
+func _open_native_map_editor() -> void:
+	if not is_instance_valid(native_world_editor) or \
+			(is_instance_valid(local_split_screen) and local_split_screen.active):
+		return
+	pause_menu.resume_game()
+	call_deferred("_begin_native_map_editor")
+
+
+func _begin_native_map_editor() -> void:
+	if is_instance_valid(native_world_editor):
+		native_world_editor.open_editor()
+
+
+func _return_to_main_menu() -> void:
+	# Restore the single player state, including its camera and HUD, before
+	# destroying the gameplay scene. Career data stays in the normal save.
+	if is_instance_valid(local_split_screen) and local_split_screen.active:
+		local_split_screen.stop_split()
+	pause_menu.resume_game()
+	pending_launch_mode = ""
+	get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
 
 
 func _toggle_local_split_screen() -> void:

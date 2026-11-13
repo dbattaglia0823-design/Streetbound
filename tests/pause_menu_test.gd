@@ -30,8 +30,12 @@ func _run() -> void:
 	check("unpaused_initially", not paused and not pause.overlay.visible)
 	check("layout_source_from_toolkit", pause.pause_screen.controls.has("resume")
 		and pause.pause_screen.controls.has("settings") and pause.pause_screen.controls.has("main_menu")
+		and pause.pause_screen.controls.has("local_multiplayer")
+		and pause.pause_screen.controls.has("map_editor") and pause.pause_screen.controls.has("quit")
 		and pause.pause_screen.controls["resume"].get_meta("ui_action") == "game.resume"
-		and pause.pause_screen.controls["main_menu"].get_meta("ui_action") == "game.quit")
+		and pause.pause_screen.controls["main_menu"].get_meta("ui_action") == "nav.main_menu"
+		and pause.pause_screen.controls["map_editor"].get_meta("ui_action") == "game.map_editor"
+		and pause.pause_screen.controls["quit"].get_meta("ui_action") == "game.quit")
 	# This must travel through Godot's normal input system, not a direct method call.
 	press_escape()
 	await process_frame
@@ -91,7 +95,7 @@ func _run() -> void:
 	pause.allow_quit = false # Prevent shutting down test runner when testing Quit.
 	var exits := [0]
 	pause.exit_requested.connect(func(): exits[0] += 1)
-	var quit_button: Button = pause.pause_screen.controls["main_menu"]
+	var quit_button: Button = pause.pause_screen.controls["quit"]
 	quit_button.pressed.emit()
 	check("quit_action_connected", exits[0] == 1 and paused)
 	var resume_button: Button = pause.pause_screen.controls["resume"]
