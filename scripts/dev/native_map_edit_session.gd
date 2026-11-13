@@ -230,6 +230,39 @@ func add_prop(art_kind: String, position_m: Vector2) -> String:
 	})
 	return identity if _commit(draft) else ""
 
+
+## Match the browser editor's validated project asset contract exactly.
+## These paths are relative to res://assets, never arbitrary external files.
+func add_project_prop(relative_path: String, art_type: String, position_m: Vector2,
+		footprint: Vector2) -> String:
+	if not relative_path.begins_with("Buildings/") or "\\" in relative_path or \
+			":" in relative_path or ".." in relative_path or \
+			art_type not in ["house","building","warehouse","garage"] or \
+			not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS or \
+			footprint.x <= 0.0 or footprint.y <= 0.0 or \
+			footprint.x > 100.0 or footprint.y > 100.0:
+		last_error = "Invalid project asset or placement."
+		return ""
+	var ext := relative_path.get_extension().to_lower()
+	if ext not in ["png","webp","svg"] or not FileAccess.file_exists(
+			"res://assets/"+relative_path):
+		last_error = "Project artwork is missing or unsupported."
+		return ""
+	var identity := _new_prop_id()
+	if identity.is_empty():
+		last_error = "No source prop IDs remain."
+		return ""
+	var draft: Dictionary = doc.duplicate(true)
+	draft.props.append({
+		"id":identity,"name":relative_path.get_file().get_basename().replace("_"," "),
+		"type":art_type,"x":position_m.x,"y":position_m.y,
+		"rotation":0.0,"scale":1.0,
+		"assetId":"project-"+relative_path.sha256_text().substr(0,24),
+		"assetPath":relative_path,
+		"assetSize":[footprint.x,footprint.y]
+	})
+	return identity if _commit(draft) else ""
+
 ## Adopt a specifically selected, replaceable original scene prop using the same
 ## (kind, seed, original-position) identity expected by the Python importer.
 ## Never edit an anonymous procedural instance in-place or change landmarks.
