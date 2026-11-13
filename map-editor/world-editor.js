@@ -14,6 +14,7 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {liveRoadAutomation,liveRoadClearances,drawLiveAutomation} from './world-automation-preview.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
+import {joinRoadEndpoints,splitRoadAt} from './world-road-topology.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
@@ -418,26 +419,39 @@ function selectedShape(){
 function choosePointInsert(mode){
   const found=selectedShape();
   if(!found){status('Select an existing road or terrain region first.');return;}
-  if(mode!=='between'&&found.type!=='roads')return;
+  if(mode!=='between'&&mode!=='split'&&found.type!=='roads')return;
   pointInsertMode=pointInsertMode?.id===selection.id&&pointInsertMode?.mode===mode?null:{id:selection.id,mode};
   refreshInspector();requestRender();
   status(pointInsertMode
-    ?mode==='between'?'Click directly on the selected curve to insert a point.':'Click anywhere in the world to extend this end of the selected road.'
+    ?mode==='split'?'Click anywhere along the road to split it into two roads.':mode==='between'?'Click directly on the selected curve to insert a point.':'Click anywhere in the world to extend this end of the selected road.'
     :'Point insertion canceled.');
 }
 function insertSelectedPoint(p,mode='between'){
   const found=selectedShape();if(!found)return false;
   const threshold=clamp(14/zoom,17,75);
+  if(mode==='split'){
+    try{
+      const before=doc;
+      const result=splitRoadAt(doc,found.item.id,worldPoint(p.x,p.y),{maxDistance:threshold});
+      doc=result.doc;pointInsertMode=null;
+      makeSnapshot(before,'Split road at the chosen point. Both sections are editable and can be joined again.');
+      setSelection(result.newRoadId,0);
+      return true;
+    }catch(e){errorMessage(e);return false;}
+  }
   try{
     const result=insertShapePoint(doc,found.item.id,worldPoint(p.x,p.y),{mode,maxDistance:threshold});
     const before=doc;
     let next=result.doc;
-    if(found.type==='roads'){
-      // Moving/inserting a control point must never move other scenery.
-      // The live overlap overlay and Map health report any new conflicts.
+    let joined=false;
+    if(found.type==='roads'&&(mode==='start'||mode==='end')&&$('road-smart-snap').checked){
+      const outcome=joinRoadEndpoints(next,found.item.id,{radius:clamp(15/zoom,8,28)});
+      next=outcome.doc;joined=outcome.joined;
     }
-    doc=next;pointInsertMode=null;makeSnapshot(before,'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
-    setSelection(found.item.id,result.index);
+    doc=next;pointInsertMode=null;
+    makeSnapshot(before,joined?'Extended and joined the road to a compatible endpoint.':
+      'Added control point '+(result.index+1)+'. Drag it to reshape the '+(found.type==='roads'?'road':'coastline')+'.');
+    setSelection(found.item.id,joined?-1:result.index);
     return true;
   }catch(e){errorMessage(e);return false;}
 }
@@ -537,12 +551,14 @@ function refreshInspector(){
   $('prop-transform-buttons').hidden=type!=='props';
   if(type==='roads'){
     $('road-point-count').textContent=item.points.length+' road points'+(selection.point>=0?' · editing point '+(selection.point+1):'');
-    for(const [id,mode] of [['insert-road-point','between'],['extend-road-start','start'],['extend-road-end','end']]){
+    $('split-selected-road').disabled=item.points.length<2;
+    $('join-selected-road').disabled=doc.roads.length<2;
+    for(const [id,mode] of [['insert-road-point','between'],['extend-road-start','start'],['extend-road-end','end'],['split-selected-road','split']]){
       const button=$(id);const active=pointInsertMode?.id===item.id&&pointInsertMode.mode===mode;
       button.setAttribute('aria-pressed',String(active));button.classList.toggle('is-active',active);
     }
     $('insert-hint').textContent=pointInsertMode?.id===item.id
-      ?(pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
+      ?(pointInsertMode.mode==='split'?'Click on the road where it should separate.':pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
       :'Insert points on the curve, or extend either endpoint. Shift-click a selected road to insert directly.';
     $('inspect-road-class').value=item.roadClass;$('inspect-road-surface').value=item.surface;
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
@@ -780,8 +796,21 @@ function finishDraft(){
       const roadClass=$('road-class').value,surface=$('road-surface').value;
       const width=Number($('road-width').value),lanes=Number($('road-lanes').value);
       const shoulder=Number($('road-shoulder').value);
-      applied=change(d=>createEntity(d,'roads',{name:roadClass[0].toUpperCase()+roadClass.slice(1)+' road',roadClass,surface,
-        width,lanes,shoulder,smooth:$('road-smooth').checked,markings:$('road-markings').checked,points:work.points}),'Curved road added. Select it to refine the control points.');
+      applied=change(d=>{
+        const created=createEntity(d,'roads',{name:roadClass[0].toUpperCase()+roadClass.slice(1)+' road',roadClass,surface,
+          width,lanes,shoulder,smooth:$('road-smooth').checked,markings:$('road-markings').checked,points:work.points});
+        if(!$('road-smart-snap').checked)return created;
+        const newId=created.roads.at(-1).id;
+        // Join one or both unambiguous compatible end pairs as part of this
+        // same undo step; T junctions and mismatched road types remain separate.
+        let working=created;
+        for(let i=0;i<2;i++){
+          const outcome=joinRoadEndpoints(working,newId,{radius:1});
+          if(!outcome.joined)break;
+          working=outcome.doc;
+        }
+        return working;
+      },'Road added. Compatible touching road ends joined automatically.');
     }else{
       const biome=$('biome').value,elevation=Number($('elevation').value);
       applied=change(d=>createEntity(d,'regions',{name:biome[0].toUpperCase()+biome.slice(1)+' region',biome,elevation,points:work.points}),'Terrain area added. Select its boundary to reshape the area.');
@@ -988,6 +1017,14 @@ function pointerEnd(event,wasCancelled=false){
         if(jump>350&&!window.confirm(
           'This road moved '+Math.round(jump)+' world units. It may create unintended intersections. Keep the change?'))
           throw new RangeError('Large road move canceled; previous road geometry restored.');
+        // Join when an existing endpoint is dragged onto another compatible
+        // endpoint. Interior edits keep all existing road objects separate.
+        if($('road-smart-snap').checked&&
+          (current.mode==='shape'||(current.mode==='control'&&
+          (current.index===0||current.index===doc.roads.find(r=>r.id===current.id)?.points.length-1)))){
+          const joined=joinRoadEndpoints(doc,current.id,{radius:clamp(15/zoom,8,28)});
+          if(joined.joined){doc=joined.doc;selection={id:joined.roadId,point:-1};pointInsertMode=null;}
+        }
         // New junctions and overlap indicators update live, but unchanged
         // scenery and game markers remain at their authored coordinates.
       }
@@ -1041,8 +1078,20 @@ $('undo-world').addEventListener('click',undo);$('redo-world').addEventListener(
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.3));
 $('zoom-out').addEventListener('click',()=>setZoom(zoom/1.3));
 $('fit').addEventListener('click',fit);
-for(const [id,mode] of [['insert-road-point','between'],['extend-road-start','start'],['extend-road-end','end']])
+for(const [id,mode] of [['insert-road-point','between'],['extend-road-start','start'],['extend-road-end','end'],['split-selected-road','split']])
   $(id).addEventListener('click',()=>choosePointInsert(mode));
+$('join-selected-road').addEventListener('click',()=>{
+  const found=selectedShape();
+  if(!found||found.type!=='roads')return status('Select a road to join.');
+  const radius=clamp(15/zoom,8,28);
+  try{
+    const result=joinRoadEndpoints(doc,found.item.id,{radius});
+    if(!result.joined)return status('No unambiguous matching road ends. Move two compatible road endpoints together first.');
+    const before=doc;doc=result.doc;pointInsertMode=null;
+    makeSnapshot(before,'Joined two roads into one editable road.');
+    setSelection(result.roadId);
+  }catch(e){errorMessage(e);}
+});
 for(const [id,axis] of [['inspect-point-x','x'],['inspect-point-y','y']]){
   $(id).addEventListener('change',event=>{
     const found=selectedShape();if(!found||selection.point<0)return;
@@ -1051,8 +1100,14 @@ for(const [id,axis] of [['inspect-point-x','x'],['inspect-point-y','y']]){
       errorMessage(new RangeError('Point coordinate is outside the world'));refreshInspector();return;
     }
     const original=found.item.points[selection.point];
-    if(!change(d=>moveControlPoint(d,found.item.id,selection.point,{...original,[axis]:numeric}),
-      'Changed point '+(selection.point+1)+' '+axis.toUpperCase()+'.'))refreshInspector();
+    const pointIndex=selection.point;
+    const endpoint=found.type==='roads'&&(pointIndex===0||pointIndex===found.item.points.length-1);
+    if(!change(d=>{
+      const changed=moveControlPoint(d,found.item.id,pointIndex,{...original,[axis]:numeric});
+      if(!endpoint||!$('road-smart-snap').checked)return changed;
+      return joinRoadEndpoints(changed,found.item.id,{radius:1}).doc;
+    },'Updated road control point. Compatible endpoints join automatically.'))refreshInspector();
+    else if(endpoint)setSelection(found.item.id,-1);
   });
 }
 function duplicateSelected(){
