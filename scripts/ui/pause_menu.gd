@@ -25,7 +25,8 @@ func _ready() -> void:
 	settings_store = ToolkitSettings.new("user://streetbound_pause_settings.cfg", {
 		"sound": true,
 		"volume": 80.0,
-		"camera_follow": false
+		"camera_follow": false,
+		"minimap_shape": "square"
 	})
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
@@ -147,6 +148,13 @@ func _apply_saved_settings() -> void:
 		vehicle_audio.muted = not bool(settings_store.get_setting("sound"))
 	if is_instance_valid(driving_camera):
 		driving_camera.follow_heading = bool(settings_store.get_setting("camera_follow"))
+	_apply_minimap_shape()
+
+func _apply_minimap_shape() -> void:
+	var map_hud: Node = get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	if is_instance_valid(map_hud) and map_hud.has_method("set_minimap_shape"):
+		map_hud.call("set_minimap_shape", str(settings_store.get_setting("minimap_shape")))
+
 
 func _sync_settings() -> void:
 	var sound: bool = bool(settings_store.get_setting("sound"))
@@ -158,7 +166,8 @@ func _sync_settings() -> void:
 	settings_screen.set_data({"settings": {
 		"sound": sound,
 		"volume": float(settings_store.get_setting("volume")),
-		"camera_follow": camera_follow
+		"camera_follow": camera_follow,
+		"minimap_shape": "Circle" if str(settings_store.get_setting("minimap_shape")) == "circle" else "Square"
 	}})
 
 func _show_page(page: String) -> void:
@@ -223,6 +232,12 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 			settings_store.set_setting("camera_follow", enabled)
 			if is_instance_valid(driving_camera):
 				driving_camera.follow_heading = enabled
+		"settings.minimap_shape_toggle":
+			var current: String = str(settings_store.get_setting("minimap_shape"))
+			settings_store.set_setting("minimap_shape",
+				"square" if current == "circle" else "circle")
+			_apply_minimap_shape()
+			_sync_settings()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
