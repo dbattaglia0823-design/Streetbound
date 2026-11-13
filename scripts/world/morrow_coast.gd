@@ -257,9 +257,31 @@ func _update_performance_display() -> void:
 	var draws := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 	var texture_mb := Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / (1024.0 * 1024.0)
 	var traffic_count := get_tree().get_nodes_in_group("traffic_vehicle").size()
+	# F7 diagnoses the actual game scene, not just the map-editor source:
+	# a nonzero archive with empty active render chunks points to streaming;
+	# both nonzero with a blank screen point to the renderer/local checkout.
+	var active_road_batches := 0
+	var active_props := 0
+	var active_road_draw_nodes := 0
+	var active_scenery_draw_nodes := 0
+	for chunk in chunks.values():
+		if not bool(chunk.stream_active) or not chunk.visible:
+			continue
+		active_road_batches += chunk.road_batches.size()
+		active_props += chunk.prop_list.size()
+		for child in chunk.get_children():
+			if child.get_script() == preload("res://scripts/world/coast_roads.gd"):
+				active_road_draw_nodes += 1
+			elif child.get_script() == preload("res://scripts/world/coast_scenery.gd"):
+				active_scenery_draw_nodes += 1
 	performance_label.text = "F7 / MORROW PERFORMANCE (toggle)\n" + \
 		"FPS %.0f | CPU frame %.2f ms | Physics %.2f ms\n" % [fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Texture memory %.1f MB\n" % [draws,texture_mb] + \
+		"Archive roads %d | scenery %d\n" % [
+			data.roads.size(),data.props.size()] + \
+		"Visible road batches %d / layers %d | Props %d / layers %d\n" % [
+			active_road_batches,active_road_draw_nodes,
+			active_props,active_scenery_draw_nodes] + \
 		"Active/cached chunks %d/%d | Traffic %d\n" % [
 			active_chunk_count(),chunks.size(),traffic_count] + \
 		"Chunk builds %d | Cached reuses %d | Max build %.2f ms" % [
