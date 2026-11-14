@@ -75,7 +75,7 @@ and remove background pixels for correct transparency.
   are stable only while the source path and sheet sprite name remain the same.
 - The game must ship with all referenced image files; a reference alone does
   not embed their bytes in the playable world.
-- Traffic artwork belongs in `assets/vehicles/Traffic Vehicles/`, outside
+- Traffic artwork belongs in `assets/Vehicles/Traffic Vehicles/`, outside
   this scenery catalog.
 
 Legacy `assets/Buildings` references remain supported while you migrate
