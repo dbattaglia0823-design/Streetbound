@@ -305,6 +305,9 @@ func add_prop(art_kind: String, position_m: Vector2) -> String:
 		last_error = "Choose a supported game asset inside Morrow Coast."
 		return ""
 	var entry: Dictionary = ART[art_kind]
+	if not sprite_key.is_empty() and (region.size() != 4 or sprite_key.length() > 50):
+		last_error = "Invalid sprite sheet selection."
+		return ""
 	var identity := _new_prop_id()
 	if identity.is_empty():
 		return ""
@@ -321,10 +324,11 @@ func add_prop(art_kind: String, position_m: Vector2) -> String:
 ## Match the browser editor's validated project asset contract exactly.
 ## These paths are relative to res://assets, never arbitrary external files.
 func add_project_prop(relative_path: String, art_type: String, position_m: Vector2,
-		footprint: Vector2) -> String:
-	if not relative_path.begins_with("Buildings/") or "\\" in relative_path or \
+		footprint: Vector2, sprite_key: String = "", region: Array = [], collision: String = "solid") -> String:
+	if not (relative_path.begins_with("Buildings/") or relative_path.begins_with("Map Building Assets/")) or "\\" in relative_path or \
 			":" in relative_path or ".." in relative_path or \
-			art_type not in ["house","building","warehouse","garage"] or \
+			art_type not in ["house","building","warehouse","garage","gas_station","prop","decal","oak","pine","palm","bush","planter","barrier","rock","boulder","streetlight","sign"] or \
+			collision not in ["solid","none"] or \
 			not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS or \
 			footprint.x <= 0.0 or footprint.y <= 0.0 or \
 			footprint.x > 100.0 or footprint.y > 100.0:
@@ -344,9 +348,12 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 		"id":identity,"name":relative_path.get_file().get_basename().replace("_"," "),
 		"type":art_type,"x":position_m.x,"y":position_m.y,
 		"rotation":0.0,"scale":1.0,
-		"assetId":"project-"+relative_path.sha256_text().substr(0,24),
+		"assetId":"project-"+(relative_path if sprite_key.is_empty() else relative_path+"#"+sprite_key).sha256_text().substr(0,24),
 		"assetPath":relative_path,
-		"assetSize":[footprint.x,footprint.y]
+		"assetSize":[footprint.x,footprint.y],
+		"assetRegion":region.duplicate() if not sprite_key.is_empty() else null,
+		"assetSprite":sprite_key if not sprite_key.is_empty() else null,
+		"assetCollision":collision
 	})
 	return identity if _commit(draft) else ""
 
