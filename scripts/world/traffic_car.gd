@@ -16,6 +16,33 @@ const MODEL_PATHS := [
 	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
 	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
+static var _model_scan_done := false
+static var _discovered_model_paths: Array[String] = []
+
+static func _model_paths() -> Array[String]:
+	if _model_scan_done:
+		return _discovered_model_paths
+	_model_scan_done = true
+	for base in ["res://assets/vehicles/Traffic Vehicles", "res://assets/Traffic Vehicles"]:
+		var dir := DirAccess.open(base)
+		if dir == null:
+			continue
+		dir.list_dir_begin()
+		var entry := dir.get_next()
+		while not entry.is_empty():
+			if not dir.current_is_dir() and not entry.begins_with(".") and entry.get_extension().to_lower() in ["png","webp"]:
+				_discovered_model_paths.append(base.path_join(entry))
+			entry = dir.get_next()
+		dir.list_dir_end()
+		if not _discovered_model_paths.is_empty():
+			break  # Prefer the reorganized folder; never duplicate old models.
+	_discovered_model_paths.sort()
+	if _discovered_model_paths.is_empty():
+		for original in MODEL_PATHS:
+			_discovered_model_paths.append(original)
+	return _discovered_model_paths
+
+
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
 ## moving traffic and static parked cars; each chunk does not rescan PNG data.
@@ -36,7 +63,7 @@ var impact_count := 0
 var model_loaded := false
 
 static func model_count() -> int:
-	return MODEL_PATHS.size()
+	return _model_paths().size()
 
 
 func _ready() -> void:
@@ -61,10 +88,10 @@ func _ready() -> void:
 
 
 static func appearance_for(index: int) -> Dictionary:
-	var slot := posmod(index,MODEL_PATHS.size())
+	var slot := posmod(index,_model_paths().size())
 	if art_cache.has(slot):
 		return art_cache[slot]
-	var path: String = MODEL_PATHS[slot]
+	var path: String = _model_paths()[slot]
 	# Old checkouts still carry models under assets/Traffic Vehicles.
 	# Prefer the new organized location without breaking existing releases.
 	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
