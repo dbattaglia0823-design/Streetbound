@@ -39,7 +39,9 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 	ready_to_show=false
 	visible = detailed
 	if not detailed:
-		pending.clear();wanted.clear();set_process(false)
+		# Discard stale close-up tiles when switching to the full-map overview.
+		# Otherwise a detached detail island survives a zoom-to-fit transition.
+		_clear()
 		visible=false
 		return false
 	var requested: Dictionary = {}
