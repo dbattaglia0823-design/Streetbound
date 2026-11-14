@@ -18,7 +18,7 @@ import tempfile
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urlsplit, quote
 from project_asset_catalog import catalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +36,20 @@ REBUILD_LOCK = threading.Lock()
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else ""
+
+
+def traffic_assets(root=ROOT):
+    """Return URLs for art in the new vehicle folder, with old folder support."""
+    for relative in ("vehicles/Traffic Vehicles", "Traffic Vehicles"):
+        folder = root / "assets" / relative
+        if folder.is_dir():
+            models = sorted((p for p in folder.iterdir()
+                             if p.is_file() and p.suffix.lower() in {".png", ".webp"}),
+                            key=lambda p: p.name.casefold())
+            if models:
+                return ["/game-assets/" + quote(relative + "/" + p.name, safe="/")
+                        + "?v=" + str(p.stat().st_mtime_ns) for p in models]
+    return []
 
 
 def allowed_file(route: str) -> Path | None:
@@ -164,7 +178,7 @@ def make_handler(token: str = TOKEN):
         def do_GET(self):
             route = urlsplit(self.path).path
             if route == "/api/project-assets":
-                return self._json(200, {"assets":catalog(ROOT)})
+                return self._json(200, {"assets":catalog(ROOT), "traffic":traffic_assets(ROOT)})
             if route == "/api/morrow-edits":
                 if EDIT.exists():
                     return self._send(200, EDIT.read_bytes())
