@@ -748,7 +748,7 @@ function assetCandidates(){
     }
   }
   for(const item of projectAssets())assets.push({type:item.type,assetId:item.id,
-    label:item.name,group:'buildings',project:true});
+    label:item.name,group:(item.category||'Buildings').toLowerCase(),project:true});
   return assets;
 }
 function drawAssetThumbnail(canvas,item){
@@ -773,6 +773,12 @@ function drawAssetThumbnail(canvas,item){
   ctx.restore();
 }
 function refreshAssetDock(){
+  const choices=$('asset-dock-category');
+  const projectCategories=[...new Set(projectAssets().map(a=>(a.category||'Buildings').toLowerCase()))].sort();
+  for(const category of projectCategories){
+    if(![...choices.options].some(option=>option.value===category))
+      choices.add(new Option(category.replace(/\\b\\w/g,c=>c.toUpperCase()),category));
+  }
   const container=$('asset-dock-scroller');
   if(!container)return;
   const category=$('asset-dock-category').value;
@@ -833,8 +839,8 @@ function refreshSpriteLists(){
       }
     }
     for(const asset of doc.assets||[])select.append(new Option(asset.name,asset.id));
-    if(['house','building','warehouse','garage','gas_station'].includes(type))
-      for(const asset of projectAssets())select.append(new Option('Project folder · '+asset.name,asset.id));
+    for(const asset of projectAssets())if(asset.type===type)
+      select.append(new Option((asset.category||'Map assets')+' · '+asset.name,asset.id));
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
@@ -1685,7 +1691,7 @@ $('import-sprite').addEventListener('change',async event=>{
 const resize=new ResizeObserver(requestRender);resize.observe(viewport);
 $('busy-dialog').addEventListener('cancel',event=>event.preventDefault());
 $('refresh-project-assets').addEventListener('click',()=>refreshProjectAssets()
-  .then(()=>status(projectAssets().length+' project building assets found.')).catch(errorMessage));
+  .then(()=>status(projectAssets().length+' map artwork assets found.')).catch(errorMessage));
 setInterval(()=>{if(liveSession&&!busyDepth)refreshProjectAssets().catch(()=>{});},3000);
 window.addEventListener('resize',requestRender);
 let recoveredSession=null;
