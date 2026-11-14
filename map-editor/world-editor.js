@@ -19,7 +19,7 @@ import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
 import {buildRuntimePreview,browseRuntimeAssets,pickRuntimeProp,REPLACEABLE_KINDS,BASE_SIZE,
-  GAME_ART,GAME_ART_KINDS} from './morrow-runtime-preview.js';
+  GAME_ART,GAME_ART_KINDS,setTrafficArtwork} from './morrow-runtime-preview.js';
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {encodeSession,decodeSession,shouldRestoreSession} from './world-session.js';
@@ -728,9 +728,9 @@ async function refreshProjectAssets(){
   try{
     const response=await fetch('/api/project-assets',{cache:'no-store'});
     if(!response.ok)throw new Error('Start Map Editor.cmd to discover project artwork.');
-    const data=await response.json(),signature=JSON.stringify(data.assets);
+    const data=await response.json(),signature=JSON.stringify([data.assets,data.traffic]);
     if(signature!==projectCatalogSignature){
-      setProjectAssets(data.assets);projectCatalogSignature=signature;refreshUI();
+      setProjectAssets(data.assets);setTrafficArtwork(data.traffic||[]);projectCatalogSignature=signature;refreshUI();
     }
   }finally{catalogLoading=false;}
 }
