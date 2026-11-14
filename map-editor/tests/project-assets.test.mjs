@@ -46,3 +46,33 @@ test('Godot ZIP includes the actual project artwork with spaces in its filename'
   assert.ok(zip.bytes.length>1000);
   setProjectAssets([]);
 });
+
+test('category assets and cropped sprites roundtrip with explicit collisions',()=>{
+  const sheetId='project-'+'c'.repeat(24);
+  const item={id:sheetId,path:'Map Building Assets/Industrial/cargo.png',
+    name:'Pallet',type:'industrial_prop',width:64,height:64,
+    region:[64,0,64,64],collision:'solid',worldSize:[2,1.5]};
+  setProjectAssets([item]);
+  const doc=createEntity(createWorld({name:'Warehouse'}),'props',{
+    type:'industrial_prop',name:'Pallet',x:300,y:350,rotation:0,scale:1,assetId:sheetId});
+  const prop=doc.props[0];
+  assert.deepEqual(prop.assetRegion,[64,0,64,64]);
+  assert.deepEqual(prop.assetSize,[2,1.5]);
+  assert.equal(prop.assetCollision,'solid');
+  const saved=parseWorld(serializeWorld(doc));
+  setProjectAssets([]);
+  assert.deepEqual(saved.props[0],prop);
+  assert.deepEqual(projectArtwork(saved.props[0]).region,[64,0,64,64]);
+  assert.ok(projectAssetPath(item.path));
+});
+
+test('ground decals remain collision-free in project metadata',()=>{
+  const sheetId='project-'+'d'.repeat(24);
+  setProjectAssets([{id:sheetId,path:'Map Building Assets/Ground Decals/oil.png',
+    name:'Oil',type:'ground_decal',width:128,height:128,collision:'none'}]);
+  const doc=createEntity(createWorld({name:'Streets'}),'props',{
+    type:'ground_decal',name:'Oil',x:400,y:500,rotation:0,scale:1,assetId:sheetId});
+  assert.equal(doc.props[0].assetCollision,'none');
+  assert.equal(projectArtwork(doc.props[0]).collision,'none');
+  setProjectAssets([]);
+});
