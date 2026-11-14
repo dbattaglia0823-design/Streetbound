@@ -121,6 +121,10 @@ func _refresh_preview_scenery() -> void:
 			"solid":kind not in ["tree","pine","palm","bush","field",
 				"garden","planter","lamp","sign","dock","lot","forecourt"]
 		}
+		if prop.get("sourceAppearance") is Dictionary:
+			var appearance: Dictionary=prop.sourceAppearance.duplicate(true)
+			for key in ["p","size","angle"]:appearance[key]=instance[key]
+			instance=appearance
 		if prop.has("assetPath"):
 			instance["asset_path"]=str(prop.assetPath)
 		elif str(prop.get("assetId","")).begins_with("game-"):
@@ -142,6 +146,19 @@ func _prop_size(prop: Dictionary) -> Vector2:
 		"oak","pine":base=Vector2(7,7)
 		"palm":base=Vector2(6.5,6.5)
 		"rock":base=Vector2(3,2.5)
+		"boulder":base=Vector2(4.5,3.4)
+		"bush":base=Vector2(2.5,2.5)
+		"streetlight":base=Vector2(1.3,1.3)
+		"sign":base=Vector2(1.6,1.4)
+		"barrier":base=Vector2(3,1)
+		"parking":base=Vector2(38,28)
+		"dock":base=Vector2(3,11)
+		"parked_car":base=Vector2(1.9,4.6)
+		"planter":base=Vector2(2.8,2.8)
+		"garden":base=Vector2(8,2.4)
+		"field":base=Vector2(90,70)
+		"island":base=Vector2(23,23)
+		"forecourt":base=Vector2(23,16)
 		"drag_prep":base=Vector2(8.5,22)
 		"drag_tree":base=Vector2(3,10)
 		"drag_lane_mark":base=Vector2(.35,12)
@@ -150,12 +167,16 @@ func _prop_size(prop: Dictionary) -> Vector2:
 		"start_line","finish_line":base=Vector2(14,1.2)
 	if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
 		base=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
-	return base * PPM * float(prop.get("scale",1.0))
+	return base * PPM * float(prop.get("scale",1.0)) * Vector2(float(prop.get("scaleX",1)),float(prop.get("scaleY",1)))
 
 
 func _prop_texture(prop: Dictionary) -> Texture2D:
 	if prop.has("assetPath"):
 		return Art.project_sprite(str(prop.assetPath))
+	if prop.get("sourceAppearance") is Dictionary and str(prop.get("assetId",""))=="":
+		var appearance: Dictionary=prop.sourceAppearance
+		if appearance.has("asset_path"):return Art.project_sprite(str(appearance.asset_path))
+		return Art.sprite(str(appearance.get("asset_kind",appearance.kind)),int(appearance.seed))
 	var kind := str(prop.get("assetId","")).trim_prefix("game-")
 	if kind in ["","none"]:
 		kind=str(prop.get("type",""))

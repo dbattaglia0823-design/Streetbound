@@ -338,7 +338,7 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
   const project=projectArtwork(prop);
   if(project){
     ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);
-    ctx.scale(prop.scale,prop.scale);
+    ctx.scale(prop.scale*(prop.scaleX??1),prop.scale*(prop.scaleY??1));
     const [w,h]=project.size,image=getSprite({...project,src:project.src});
     if(image?.complete&&image.naturalWidth)ctx.drawImage(image,-w/2,-h/2,w,h);
     else{ctx.fillStyle='#819191';ctx.fillRect(-w/2,-h/2,w,h);}
@@ -348,10 +348,11 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
   // rotating a baked car, lot, field or street fixture does not replace it
   // with an unrelated generic placeholder.
   if(gameArt&&prop.replaces&&BASE_SIZE[prop.type]){
-    const [w,h]=BASE_SIZE[prop.type];
+    const [w,h]=prop.assetSize||BASE_SIZE[prop.type];
     drawNative(ctx,{
+      ...prop.sourceAppearance,
       kind:prop.replaces.kind,p:[prop.x,prop.y],
-      size:[w*prop.scale,h*prop.scale],
+      size:[w*prop.scale*(prop.scaleX??1),h*prop.scale*(prop.scaleY??1)],
       angle:prop.rotation*Math.PI/180,
       seed:prop.replaces.seed,solid:!['garden','field','planter','forecourt'].includes(prop.type),
       stall_width:prop.stallWidth,occupancy:prop.occupancy,
@@ -362,12 +363,12 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
   if(gameArt&&['parked_car','planter','garden','field','island','forecourt'].includes(prop.type)){
     const [w,h]=BASE_SIZE[prop.type];
     drawNative(ctx,{kind:prop.type,p:[prop.x,prop.y],
-      size:[w*prop.scale,h*prop.scale],angle:prop.rotation*Math.PI/180,
+      size:[w*prop.scale*(prop.scaleX??1),h*prop.scale*(prop.scaleY??1)],angle:prop.rotation*Math.PI/180,
       seed:stringSeed(prop.id),solid:prop.type==='parked_car'||prop.type==='island'},1);
     return;
   }
   const size=!gameArt&&(prop.type==='building'||prop.type==='warehouse')?1.2:1;
-  ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size,prop.scale*size);
+  ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*size*(prop.scaleX??1),prop.scale*size*(prop.scaleY??1));
   const type=prop.type;
   if(gameArt){
     // Real metre-scale footprints, directly matching the production baker.

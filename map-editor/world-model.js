@@ -53,6 +53,7 @@ function validEntity(item,type,w,h){
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
       markings:typeof item.markings==='boolean'?item.markings:true,
+      ...(item.independentEnds===true?{independentEnds:true}:{}),
       points};
   }
   if(type==='regions'){
@@ -73,13 +74,16 @@ function validEntity(item,type,w,h){
     const entity={id:item.id,name:title(item.name,'Scenery'),type:oneOf(item.type,PROPS,'prop type'),
       x:real(item.x,0,w,'prop x'),y:real(item.y,0,h,'prop y'),
       rotation:real(item.rotation,-360,360,'prop rotation'),
-      scale:real(item.scale,.25,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
+      scale:real(item.scale,.2,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
+    for(const axis of ['scaleX','scaleY'])if(item[axis]!==undefined)entity[axis]=real(item[axis],.2,5,'prop axis scale');
     if(projectAssetId(entity.assetId)){
       const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});
       if(!art)throw new TypeError('Missing or invalid project building artwork');
       entity.assetPath=art.path;entity.assetSize=[...art.size];
     }
     if(item.replaces){
+      if(item.assetSize)entity.assetSize=item.assetSize.map(v=>real(v,.001,1000,'original footprint'));
+      if(item.sourceAppearance)entity.sourceAppearance=validateMetadata(item.sourceAppearance);
       const source=item.replaces;
       if(!source||typeof source!=='object'||Array.isArray(source)||
          typeof source.kind!=='string'||!/^[a-z_]{2,25}$/.test(source.kind)||

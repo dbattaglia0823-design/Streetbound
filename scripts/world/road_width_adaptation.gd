@@ -50,6 +50,7 @@ static func adapt(world_data: Dictionary) -> void:
 	# the same prop size. Do NOT change parked_car, moving traffic, the
 	# player, parking aprons or the functional Laurel garage bay.
 	for prop in world_data.get("props", []):
+		if prop.has("authoring_id") or prop.has("asset_path"):continue
 		var factor: float = float(SCENERY_FACTORS.get(str(prop.kind), 1.0))
 		if is_equal_approx(factor, 1.0):
 			continue

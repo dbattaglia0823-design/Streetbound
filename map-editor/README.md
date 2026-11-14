@@ -55,6 +55,17 @@ or rebake is required to see the updated bridges.
   its middle. A road must retain at least two points. Browser point insertion
   and splitting can also target a click on the selected curve. Splitting keeps
   the original outer endpoints and creates a second editable road.
+  Select the first or last control point for **Detach junction**. Detached
+  roads move independently; drag the endpoint away to create a gap. To join
+  again, move it within 12 m of a compatible endpoint and choose
+  **Reconnect endpoint**. Equally close endpoints in different places require
+  moving closer to the intended connection. Undo restores the previous geometry.
+  The connection readout shows whether touching ends move together.
+- Scenery has independent X/Y size multipliers and a footprint readout in metres.
+  Position, rotation and scale fields accept three decimal places.
+  **Reset asset size** restores all size multipliers to one in a single undo
+  step, preserving artwork, position and rotation.
+
   **Escape** cancels an unfinished shape or drag. **Delete** removes a selected
   prop or a newly created object. Original roads, terrain and gameplay markers
   are protected from deletion; they can be moved or reshaped.

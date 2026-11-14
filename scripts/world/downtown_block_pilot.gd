@@ -29,6 +29,11 @@ static func sprite(index: int) -> Texture2D:
 	if index < 0 or index >= SPRITES.size():
 		return null
 	if not _textures.has(index):
+		if not FileAccess.file_exists(SPRITES[index]):
+			# Optional pilot art may be absent in a checkout. Use the building's
+			# existing game artwork and remember the miss rather than error each frame.
+			_textures[index]=null
+			return null
 		# Source SVGs can arrive in a Git pull before Godot's editor import runs.
 		# Decode the actual artwork directly and cache it; an optional art import
 		# must never prevent the entire world/scenery scripts from compiling.

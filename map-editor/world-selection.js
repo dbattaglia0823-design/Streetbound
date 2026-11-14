@@ -30,11 +30,11 @@ export function pickEditableScenery(props,point,{gameArt=false,tolerance=0}={}){
     const prop=props[i];
     if(prop.hidden)continue;
     const project=projectArtwork(prop);
-    const base=project?.size||(gameArt?BASE_SIZE:EDITOR_SIZE)[prop.type]||[12,12];
+    const base=project?.size||prop.assetSize||(gameArt?BASE_SIZE:EDITOR_SIZE)[prop.type]||[12,12];
     const factor=(Number(prop.scale)||1)*
       (!project&&!gameArt&&['building','warehouse'].includes(prop.type)?1.2:1);
     if(pointInRotatedFootprint(point,prop,
-      [base[0]*factor,base[1]*factor],(Number(prop.rotation)||0)*Math.PI/180,
+      [base[0]*factor*(prop.scaleX??1),base[1]*factor*(prop.scaleY??1)],(Number(prop.rotation)||0)*Math.PI/180,
       tolerance))return prop;
   }
   return null;

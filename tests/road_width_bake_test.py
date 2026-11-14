@@ -9,6 +9,8 @@ from road_widths import adapt, ROAD_WIDTH_SCALE, SCENERY_FACTORS
 
 ROOT = Path(__file__).resolve().parents[1]
 data = json.loads((ROOT / "worlds" / "morrow-coast.world.json").read_text(encoding="utf-8"))
+if "road_width_scale" not in data:
+    adapt(data)  # Legacy checked-in maps receive this same migration at load.
 assert math.isclose(data["road_width_scale"], 1.10)
 assert len(data["roads"]) > 60
 assert all(r["width"] > 0 for r in data["roads"])
@@ -38,7 +40,8 @@ fixture = {"roads":[{"width":10.0}], "bridges":[{"width":10.0}],
                          "approaches":[{"width":10.0}], "radius":12.0}],
            "props":[{"kind":"building","size":[20.0,30.0],"radius":18.0},
                     {"kind":"parked_car","size":[2.0,5.0],"radius":3.0},
-                    {"kind":"garage","size":[30.0,25.0],"radius":20.0}]}
+                    {"kind":"garage","size":[30.0,25.0],"radius":20.0},
+                    {"kind":"house","authoring_id":"prop-test","size":[19.0,11.0],"radius":12.0}]}
 adapt(fixture)
 assert fixture["roads"][0]["width"] == 11.0
 assert fixture["bridges"][0]["width"] == 11.0
@@ -46,6 +49,7 @@ assert fixture["junctions"][0]["approaches"][0]["width"] == 11.0
 assert all(math.isclose(a, b) for a, b in zip(fixture["props"][0]["size"], [18.8,28.2]))
 assert fixture["props"][1]["size"] == [2.0,5.0]
 assert fixture["props"][2]["size"] == [30.0,25.0]
+assert fixture["props"][3]["size"] == [19.0,11.0]
 adapt(fixture)
 assert fixture["roads"][0]["width"] == 11.0
 print("MORROW ROAD WIDTH REBAKE: PASS")

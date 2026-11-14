@@ -129,16 +129,30 @@ static func build(e) -> void:
 	var xy:=HBoxContainer.new();inspector.add_child(xy)
 	e.inspector_x=e._number(xy,"X m",0,100000,0);e.inspector_x.custom_minimum_size.x=100
 	e.inspector_y=e._number(xy,"Y m",0,100000,0);e.inspector_y.custom_minimum_size.x=100
-	for spin in [e.inspector_x,e.inspector_y]:spin.value_changed.connect(func(_value: float)->void:e._commit_inspector())
+	for spin in [e.inspector_x,e.inspector_y]:spin.step=.001
+	e.inspector_x.value_changed.connect(func(_value: float)->void:e._commit_inspector("x"))
+	e.inspector_y.value_changed.connect(func(_value: float)->void:e._commit_inspector("y"))
 	e.prop_transforms=VBoxContainer.new();inspector.add_child(e.prop_transforms)
 	e.inspector_rotation=e._number(e.prop_transforms,"Rotation °",-3600,3600,0)
 	e.inspector_scale=e._number(e.prop_transforms,"Scale",0.2,5,1);e.inspector_scale.step=.05
-	for spin in [e.inspector_rotation,e.inspector_scale]:spin.value_changed.connect(func(_value: float)->void:e._commit_inspector())
+	e.inspector_scale_x=e._number(e.prop_transforms,"X size multiplier",0.2,5,1);e.inspector_scale_x.step=.05
+	e.inspector_scale_y=e._number(e.prop_transforms,"Y size multiplier",0.2,5,1);e.inspector_scale_y.step=.05
+	for spin in [e.inspector_rotation,e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]:spin.step=.001
+	e.asset_dimensions_label=heading(e.prop_transforms,"")
+	e._btn("Reset asset size",e.prop_transforms,e._reset_asset_size)
+	for pair in [[e.inspector_rotation,"rotation"],[e.inspector_scale,"scale"],[e.inspector_scale_x,"scaleX"],[e.inspector_scale_y,"scaleY"]]:
+		var field_name: String=pair[1]
+		pair[0].value_changed.connect(func(_value: float)->void:e._commit_inspector(field_name))
 	e.point_picker=OptionButton.new();inspector.add_child(e.point_picker)
 	e.point_picker.item_selected.connect(e._select_point)
 	e.remove_point_button=e._btn("Remove selected road point",inspector,e._remove_point)
 	e.add_point_button=e._btn("Add road point",inspector,e._add_point)
 	e.split_road_button=e._btn("Split road here",inspector,e._split_road)
+	e.split_road_button.tooltip_text="Choose a road endpoint to detach a junction, or an interior control point to split the road. Drag afterwards to create a gap."
+	e.reconnect_road_button=e._btn("Reconnect endpoint",inspector,e._reconnect_road)
+	e.reconnect_road_button.tooltip_text="Select an endpoint, then snap it to the nearest compatible road end within 12 meters."
+	e.connection_label=heading(inspector,"")
+	e.connection_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.edit_actions=HFlowContainer.new();inspector.add_child(e.edit_actions)
 	e._btn("Duplicate  Ctrl+D",e.edit_actions,e._duplicate_selected)
 	e._btn("Delete",e.edit_actions,e._delete_selected)

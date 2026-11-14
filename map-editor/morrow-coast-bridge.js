@@ -99,8 +99,10 @@ export function convertMorrowWorld(raw){
       id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
+      scaleX:prop.editor_scale_x??1,scaleY:prop.editor_scale_y??1,
       rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
-      assetPath:prop.asset_path,assetSize:prop.asset_size,
+      assetPath:prop.asset_path,assetSize:prop.asset_size||prop.editor_base_size,
+      sourceAppearance:prop.source_replacement?prop:undefined,
       replaces:prop.source_replacement,hidden:prop.hidden===true,
       stallWidth:prop.stall_width,occupancy:prop.occupancy,
       entranceWidth:prop.entrance_width

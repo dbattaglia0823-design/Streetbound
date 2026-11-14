@@ -185,7 +185,7 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             raise ValueError("Non-finite editor scenery properties")
         if not 3 <= x <= width-3 or not 3 <= y <= height-3:
             raise ValueError("Scenery outside safe Morrow Coast bounds")
-        if not .25 <= scale <= 2.5 or not -360 <= rotation <= 360:
+        if not .2 <= scale <= 5 or not -360 <= rotation <= 360:
             raise ValueError("Editor prop scale or rotation out of range")
         game_art = raw.get("assetId", "")
         available = {
@@ -214,7 +214,14 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
         if project_path is not None:base_size=asset_size
-        size = [round(v * scale, 3) for v in base_size]
+        elif raw.get('replaces') and raw.get('assetSize') is not None:
+            base_size=raw['assetSize']
+            if not isinstance(base_size,list) or len(base_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=1000 for v in base_size):
+                raise ValueError('Invalid original scenery footprint')
+        axes=[raw.get('scaleX',1),raw.get('scaleY',1)]
+        if any(type(v) not in (int,float) or not math.isfinite(v) or not .2<=v<=5 for v in axes):
+            raise ValueError('Invalid scenery axis scale')
+        size = [round(v * scale * axis, 3) for v,axis in zip(base_size,axes)]
         radius = math.hypot(*size) / 2.0 if solid else 0.0
         seed = zlib.crc32(item_id.encode("utf-8")) & 0x7fffffff
         entry = dict(kind=kind,p=[round(x,3),round(y,3)],
@@ -223,6 +230,7 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                      radius=radius,solid=solid,seed=seed,
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
+        entry.update(editor_scale_x=axes[0],editor_scale_y=axes[1],editor_base_size=list(base_size))
         if project_path is not None:
             entry["asset_path"]=project_path
             entry["asset_size"]=asset_size

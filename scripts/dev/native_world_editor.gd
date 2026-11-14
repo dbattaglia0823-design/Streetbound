@@ -92,10 +92,15 @@ var inspector_x: SpinBox
 var inspector_y: SpinBox
 var inspector_rotation: SpinBox
 var inspector_scale: SpinBox
+var inspector_scale_x: SpinBox
+var inspector_scale_y: SpinBox
 var point_picker: OptionButton
 var remove_point_button: Button
 var add_point_button: Button
 var split_road_button: Button
+var reconnect_road_button: Button
+var connection_label: Label
+var asset_dimensions_label: Label
 var entity_search: LineEdit
 var entity_list: ItemList
 var _entity_revision:=-1
@@ -768,18 +773,8 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		if bool(prop.get("hidden",false)):
 			continue
 		var center := Vector2(float(prop.x),float(prop.y))
-		var footprint := Vector2(8,8)
-		match str(prop.get("type","")):
-			"house":footprint=Vector2(12,17)
-			"building":footprint=Vector2(22,29)
-			"warehouse":footprint=Vector2(28,37)
-			"garage":footprint=Vector2(20,21)
-			"parking":footprint=Vector2(38,28)
-			"field":footprint=Vector2(90,70)
-		if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
-			footprint=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
 		var local := (at-center).rotated(-deg_to_rad(float(prop.get("rotation",0))))
-		var half := footprint*float(prop.get("scale",1))*0.5
+		var half: Vector2=gizmos._prop_size(prop)/PPM*.5
 		var distance := Vector2(maxf(0,absf(local.x)-half.x),
 			maxf(0,absf(local.y)-half.y)).length()
 		if distance < best:
@@ -1450,34 +1445,49 @@ func _refresh_inspector() -> void:
 	_updating_inspector=true
 	var record:=_selected_record();var exists:=not record.is_empty()
 	inspector_name.editable=exists
-	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale]:spin.editable=exists
+	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category=="roads"
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
 	split_road_button.visible=point_picker.visible
+	reconnect_road_button.visible=point_picker.visible
+	connection_label.visible=point_picker.visible
 	point_picker.clear()
 	if exists:
 		var item: Dictionary=record.item
 		inspector_name.text=str(item.get("name",""))
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
+		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
+		if record.category=="props":
+			var size: Vector2=gizmos._prop_size(item)/PPM
+			asset_dimensions_label.text="Footprint: %.2f × %.2f m"%[size.x,size.y]
 		if record.category=="roads":
 			point_picker.add_item("Whole road (center)")
 			for i in item.points.size():point_picker.add_item("Control point %d"%[i+1])
 			point_picker.select(clampi(source_anchor+1,0,item.points.size()))
 			remove_point_button.disabled=item.points.size()<=2
+			split_road_button.text="Detach junction" if source_anchor==0 or source_anchor==item.points.size()-1 else "Split road here"
+			reconnect_road_button.disabled=source_anchor not in [0,item.points.size()-1]
+			connection_label.text="Ends move independently" if bool(item.get("independentEnds",false)) else "Touching ends move together"
 	else:
 		inspector_name.text="";inspector_x.value=0;inspector_y.value=0
 	_updating_inspector=false
 
-func _commit_inspector() -> void:
+func _commit_inspector(field: String="name") -> void:
 	if _updating_inspector or not active or _editing_locked():return
 	var record:=_selected_record()
 	if record.is_empty():return
-	var values: Dictionary={"name":inspector_name.text}
-	if record.category=="props":values.merge({"rotation":inspector_rotation.value,"scale":inspector_scale.value})
-	if authoring.edit_entity(source_id,values,Vector2(inspector_x.value,inspector_y.value),source_anchor):
+	var values: Dictionary={}
+	if field=="name":values["name"]=inspector_name.text
+	var destination:=_record_position(record)
+	if field=="x":destination.x=inspector_x.value
+	if field=="y":destination.y=inspector_y.value
+	if record.category=="props":
+		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y}
+		if controls.has(field):values[field]=controls[field].value
+	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
 
@@ -1539,6 +1549,19 @@ func _remove_point() -> void:
 	var index: int=source_anchor if source_anchor>=0 else road.get("points",[]).size()/2
 	if authoring.remove_road_point(source_id,index):source_anchor=-1;_refresh_authoring()
 	else:_notice(authoring.last_error)
+
+func _reconnect_road() -> void:
+	if _editing_locked() or not source_ready:return
+	if authoring.reconnect_endpoint(source_id,source_anchor):
+		_refresh_authoring();_notice("Endpoint snapped and reconnected. Touching road ends now move together. Undo restores the detached road.")
+	else:_notice(authoring.last_error)
+
+func _reset_asset_size() -> void:
+	if _editing_locked() or not source_ready:return
+	var record:=_selected_record()
+	if record.is_empty() or record.category!="props":return
+	if authoring.edit_entity(source_id,{"scale":1.0,"scaleX":1.0,"scaleY":1.0},_record_position(record)):
+		_refresh_authoring();_notice("Original asset size restored. Position, rotation and artwork are preserved.")
 
 func _duplicate_selected() -> void:
 	if _editing_locked() or not source_ready:return
@@ -1826,5 +1849,10 @@ func _add_point() -> void:
 func _split_road() -> void:
 	if _editing_locked() or not source_ready:return
 	var id: String=authoring.split_road(source_id,source_anchor)
-	if not id.is_empty():source_id=id;source_anchor=-1;_refresh_authoring();_notice("Road split into two editable roads. Move their points to separate them; Undo restores the original.")
+	if not id.is_empty():
+		var detached: bool=id==source_id
+		source_id=id
+		if not detached:source_anchor=0
+		_refresh_authoring()
+		_notice("Junction detached. Drag this road or endpoint away; neighboring roads stay put." if detached else "Road split. Each half now moves independently. Drag the selected endpoint to create a gap.")
 	else:_notice(authoring.last_error)

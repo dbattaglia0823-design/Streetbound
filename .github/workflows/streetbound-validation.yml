@@ -80,6 +80,13 @@ jobs:
           grep -q 'ROAD POINT TOOLS: PASS' /tmp/road-point-tools.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-point-tools.log
           python3 -B tests/road_split_bake_test.py
+      - name: Verify exact adopted artwork and independent asset sizing through production bake
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_asset_transform_test.gd 2>&1 | tee /tmp/editor-asset-transforms.log
+          grep -q 'EDITOR ASSET TRANSFORMS: PASS' /tmp/editor-asset-transforms.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-asset-transforms.log
+          python3 -B tests/editor_asset_bake_test.py
       - name: Verify automatic water bridges, collision clearance, streaming and live edits
         run: |
           set -o pipefail

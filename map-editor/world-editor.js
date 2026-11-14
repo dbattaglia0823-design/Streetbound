@@ -618,6 +618,7 @@ function refreshInspector(){
   }else if(type==='props'){
     $('inspect-prop-type').value=item.type;$('inspect-asset').value=item.assetId||'';
     $('inspect-scale').value=item.scale;$('inspect-rotation').value=item.rotation;
+    $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
   }else{
     $('inspect-marker-type').value=item.type;$('inspect-properties').value=JSON.stringify(item.properties,null,2);
   }
@@ -1347,6 +1348,7 @@ const fields={
   'inspect-road-markings':{markings:'boolean'},'inspect-biome':{biome:'string'},
   'inspect-elevation':{elevation:'number'},'inspect-barrier':{barrier:'boolean'},'inspect-prop-type':{type:'string'},'inspect-asset':{assetId:'string'},
   'inspect-scale':{scale:'number'},'inspect-rotation':{rotation:'number'},
+  'inspect-scale-x':{scaleX:'number'},'inspect-scale-y':{scaleY:'number'},
   'inspect-marker-type':{type:'string'},'inspect-x':{x:'number'},'inspect-y':{y:'number'},
   'inspect-properties':{properties:'json'}
 };

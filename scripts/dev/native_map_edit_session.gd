@@ -186,6 +186,19 @@ func reconcile_runtime(data: Dictionary) -> bool:
 	var current:=int(data.get("editor_source_road_count",basis))
 	var poi_basis:=int(doc.get("morrowSourcePoiCount",15))
 	var poi_current:=int(data.get("editor_source_poi_count",poi_basis))
+	var recovered:=false
+	var authored: Dictionary={}
+	for runtime in data.get("props",[]):
+		if runtime.has("authoring_id"):authored[str(runtime.authoring_id)]=runtime
+	for prop in doc.props:
+		if not prop.has("replaces") or prop.has("sourceAppearance") or not authored.has(str(prop.id)):continue
+		var runtime: Dictionary=authored[str(prop.id)]
+		prop["sourceAppearance"]=runtime.duplicate(true)
+		var scale_value: float=float(prop.get("scale",1))
+		prop["assetSize"]=[float(runtime.size[0])/scale_value/float(prop.get("scaleX",1)),float(runtime.size[1])/scale_value/float(prop.get("scaleY",1))]
+		recovered=true
+	if recovered:
+		initial=doc.duplicate(true);draft_baseline_hash=_fingerprint(doc);edit_revision+=1
 	if current<=basis and poi_current<=poi_basis:return true
 	var next:=doc.duplicate(true)
 	if current>basis:
@@ -246,10 +259,10 @@ func move_road_point(road_id: String, point_index: int, destination_m: Vector2,
 		last_error = "Road point moved more than 350m; choose a closer location."
 		return false
 	var draft: Dictionary = doc.duplicate(true)
-	var touching_endpoint: bool = point_index == 0 or point_index == target.points.size()-1
+	var touching_endpoint: bool = (point_index == 0 or point_index == target.points.size()-1) and not bool(target.get("independentEnds",false))
 	for road in draft.roads:
 		var is_target: bool = str(road.id) == road_id
-		if not is_target and not touching_endpoint:
+		if not is_target and (not touching_endpoint or bool(road.get("independentEnds",false))):
 			continue
 		for i in road.points.size():
 			if not is_target and i != 0 and i != road.points.size()-1:
@@ -425,10 +438,11 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	var draft: Dictionary = doc.duplicate(true)
 	draft.props.append({
 		"id":id,"name":original_kind.capitalize(),
-		"type":str(style[0]),"assetId":str(style[1]),
+		"type":str(style[0]),"assetId":"",
 		"x":origin.x,"y":origin.y,
 		"rotation":clampf(rad_to_deg(float(runtime.get("angle",0.0))),-360.0,360.0),
-		"scale":size_ratio,
+		"scale":1.0,"scaleX":1.0,"scaleY":1.0,
+		"assetSize":native_size.duplicate(),"sourceAppearance":runtime.duplicate(true),
 		"replaces":{"kind":original_kind,"seed":int(identity_seed),
 			"p":[origin.x,origin.y]},"hidden":false
 	})
@@ -545,13 +559,13 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 		target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
 	else:
 		var ends: Array[Vector2]=[]
-		if category=="roads":
+		if category=="roads" and not bool(target.get("independentEnds",false)):
 			ends=[Vector2(target.points[0].x,target.points[0].y),Vector2(target.points[-1].x,target.points[-1].y)]
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
 		if category=="roads":
 			for road in next.roads:
-				if str(road.id)==identity or not _same_network(target,road):continue
+				if str(road.id)==identity or not _same_network(target,road) or bool(road.get("independentEnds",false)):continue
 				for index in [0,road.points.size()-1]:
 					var point: Dictionary=road.points[index]
 					for old in ends:
@@ -717,6 +731,8 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 		if category=="props":
 			if values.has("rotation"):target.rotation=float(values.rotation)
 			if values.has("scale"):target.scale=clampf(float(values.scale),.2,5.0)
+			for axis in ["scaleX","scaleY"]:
+				if values.has(axis):target[axis]=clampf(float(values[axis]),.2,5.0)
 		if category=="regions" and values.has("biome"):target.biome=str(values.biome)
 		if category=="regions":
 			if values.has("elevation"):target.elevation=clampf(float(values.elevation),0,2000)
@@ -757,6 +773,9 @@ func split_road(identity: String,index: int) -> String:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
+		if index==0 or index==road.points.size()-1:
+			road["independentEnds"]=true
+			return identity if _commit(next) else ""
 		if road.points.size()==2:
 			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]
 			road.points.insert(1,{"x":(float(a.x)+float(b.x))*.5,"y":(float(a.y)+float(b.y))*.5});index=1
@@ -764,8 +783,38 @@ func split_road(identity: String,index: int) -> String:
 		var second: Dictionary=road.duplicate(true)
 		var id:=next_id("roads","road")
 		second.id=id;second.name=str(road.name)+" (2)"
+		second["independentEnds"]=true;road["independentEnds"]=true
 		second.points=road.points.slice(index)
 		road.points=road.points.slice(0,index+1)
 		next.roads.append(second)
 		return id if _commit(next) else ""
 	return ""
+
+func reconnect_endpoint(identity: String,index: int,radius: float=12.0) -> bool:
+	var target:=road_at_id(identity)
+	if target.is_empty() or index not in [0,target.points.size()-1]:
+		last_error="Select the first or last road point to reconnect.";return false
+	var at:=Vector2(target.points[index].x,target.points[index].y)
+	var best:=radius+.001
+	var candidates: Array[Dictionary]=[]
+	for road in doc.roads:
+		if str(road.id)==identity or not _same_network(target,road):continue
+		for end in [0,road.points.size()-1]:
+			var p:=Vector2(road.points[end].x,road.points[end].y)
+			var distance:=at.distance_to(p)
+			if distance>radius:continue
+			if distance<best-.05:best=distance;candidates.clear()
+			if absf(distance-best)<=.05:candidates.append({"id":str(road.id),"p":p})
+	if candidates.is_empty():
+		last_error="No compatible endpoint within 12 m. Move this point closer first.";return false
+	var destination: Vector2=candidates[0].p
+	for candidate in candidates:
+		if destination.distance_to(candidate.p)>.05:
+			last_error="Two different endpoints are equally close. Move nearer the intended one.";return false
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)==identity:
+			road.points[index]={"x":destination.x,"y":destination.y};road.erase("independentEnds")
+		for candidate in candidates:
+			if str(road.id)==candidate.id:road.erase("independentEnds")
+	return _commit(next)

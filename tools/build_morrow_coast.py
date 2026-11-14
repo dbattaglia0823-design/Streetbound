@@ -876,9 +876,11 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     selected_asset_id = replacement.get("asset_id")
     selected_asset_path = replacement.get("asset_path")
     selected_asset_size = replacement.get("asset_size")
+    editor_fields={k:v for k,v in replacement.items() if k.startswith('editor_') or k=='source_replacement'}
     original_fields = original.copy()
     replacement.clear()
     replacement.update(original_fields)
+    replacement.update(editor_fields)
     replacement.update(p=destination,size=size,angle=angle,
                        authoring_id=authored_id)
     if selected_asset_kind:
