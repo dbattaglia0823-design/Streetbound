@@ -766,7 +766,7 @@
       "drivetrain": "AWD",
       "kind": "sport",
       "price_usd": 65000,
-      "dealership_id": "performance",
+      "dealership_id": "premium",
       "required_player_level": 20,
       "audio_family": "i5",
       "audio_aggression": 0.85,
