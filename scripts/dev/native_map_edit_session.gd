@@ -305,9 +305,6 @@ func add_prop(art_kind: String, position_m: Vector2) -> String:
 		last_error = "Choose a supported game asset inside Morrow Coast."
 		return ""
 	var entry: Dictionary = ART[art_kind]
-	if not sprite_key.is_empty() and (region.size() != 4 or sprite_key.length() > 50):
-		last_error = "Invalid sprite sheet selection."
-		return ""
 	var identity := _new_prop_id()
 	if identity.is_empty():
 		return ""
@@ -338,6 +335,9 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 	if ext not in ["png","webp","svg"] or not FileAccess.file_exists(
 			"res://assets/"+relative_path):
 		last_error = "Project artwork is missing or unsupported."
+		return ""
+	if not sprite_key.is_empty() and (region.size() != 4 or sprite_key.length() > 50):
+		last_error = "Invalid sprite sheet selection."
 		return ""
 	var identity := _new_prop_id()
 	if identity.is_empty():
