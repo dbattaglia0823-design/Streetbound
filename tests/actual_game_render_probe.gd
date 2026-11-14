@@ -98,8 +98,8 @@ func _run() -> void:
 				garage.g < 0.55 and garage.b > garage.r + 0.035,
 				garage.to_html(false))
 			expect("real_game_draws_nearby_warm_house_roof",
-				house.r > 0.6 and house.r > house.g + 0.12 and
-					house.r > house.b + 0.2,house.to_html(false))
+				house.r > 0.68 and house.r > house.g + 0.02 and
+					house.g > house.b + 0.02 and house.b > 0.55,house.to_html(false))
 			expect("real_game_draws_dark_access_road_asphalt",
 				road.r < 0.55 and road.b > road.r + 0.035,
 				road.to_html(false))
