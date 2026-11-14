@@ -38,6 +38,7 @@ var _player_camera_input := true
 var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
 var _asset_refresh_elapsed := 0.0
+var _asset_catalog_signature := ""
 var root_ui: Control
 var inspector_panel: PanelContainer
 var asset_dock: PanelContainer
@@ -202,7 +203,35 @@ func _build_asset_browser() -> void:
 	_update_context_panels()
 
 
+func _current_asset_library_signature() -> String:
+	var found: Array[String] = []
+	_collect_asset_files("res://assets/Buildings",found)
+	_collect_asset_files("res://assets/Map Building Assets",found)
+	return "|".join(found).sha256_text()
+
+
+func _collect_asset_files(folder: String, found: Array[String]) -> void:
+	var directory := DirAccess.open(folder)
+	if directory==null:
+		return
+	directory.list_dir_begin()
+	var entry:=directory.get_next()
+	while not entry.is_empty():
+		if not entry.begins_with("."):
+			var child:=folder.path_join(entry)
+			if directory.current_is_dir():
+				_collect_asset_files(child,found)
+			elif entry.get_extension().to_lower() in ["png","webp","svg","json"]:
+				found.append(child+":"+str(FileAccess.get_modified_time(child)))
+		entry=directory.get_next()
+	directory.list_dir_end()
+
+
 func _scan_asset_library() -> void:
+	var signature := _current_asset_library_signature()
+	if signature==_asset_catalog_signature and not asset_entries.is_empty():
+		return
+	_asset_catalog_signature=signature
 	asset_entries.clear()
 	# Same folder hierarchy and project-id hashing used by the browser
 	# asset catalog and Python source importer.
