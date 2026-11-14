@@ -71,7 +71,14 @@ function imageAt(url){
   const img=new Image();
   images.set(url,img);
   img.onload=()=>document.dispatchEvent(new Event('gdt-world-asset-ready'));
-  img.onerror=()=>document.dispatchEvent(new Event('gdt-world-asset-ready'));
+  img.onerror=()=>{
+    if(url.includes('/game-assets/vehicles/Traffic%20Vehicles/') &&
+       !img.dataset?.legacyFallback){
+      img.dataset.legacyFallback='1';
+      img.src=url.replace('/game-assets/vehicles/Traffic%20Vehicles/',
+        '/game-assets/Traffic%20Vehicles/');
+    }else document.dispatchEvent(new Event('gdt-world-asset-ready'));
+  };
   img.src=url;
   return img;
 }
@@ -249,7 +256,7 @@ export function drawNative(ctx,prop,scale){
     }
   }else if(kind==='parked_car'){
     const slot=((seed%trafficFiles.length)+trafficFiles.length)%trafficFiles.length;
-    const img=imageAt('/game-assets/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
+    const img=imageAt('/game-assets/vehicles/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
     ctx.fillStyle='#334449';ctx.fillRect(-w/2,-h/2,w,h);
     if(ready(img))ctx.drawImage(img,-w/2,-h/2,w,h);
   }else if(drawAtlas(ctx,prop.asset_kind||kind,size,seed)){
