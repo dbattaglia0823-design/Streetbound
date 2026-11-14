@@ -79,7 +79,7 @@ static func engine_loop(family: String, stage: int,
 	# for odd three-cylinder, V6 and W16 engines.
 	var rasp := clampf(aggression,0.1,1.4)
 	var rough := clampf(roughness,0.0,1.0)
-	var bright := clampf((tone+1.0)*0.5,0.0,1.0)
+	var bright := clampf((tone+1.0)*0.34,0.0,0.68)
 	var output := PackedFloat32Array()
 	output.resize(LOOP_FRAMES)
 	var mean := 0.0
@@ -88,8 +88,8 @@ static func engine_loop(family: String, stage: int,
 		var phase := TAU*float(fire_cycles)*x
 		var base := sin(phase)*(0.63-bright*0.25)+ \
 			sin(phase*2.0+0.14)*(0.12+bright*0.16)+ \
-			sin(phase*3.0+0.35)*(0.045+bright*0.115)+ \
-			sin(phase*4.0+0.61)*(0.02+bright*0.075)
+			sin(phase*3.0+0.35)*(0.035+bright*0.075)+ \
+			sin(phase*4.0+0.61)*(0.012+bright*0.035)
 		var uneven := 0.0
 		match family:
 			"i3":
@@ -149,19 +149,18 @@ static func engine_loop(family: String, stage: int,
 				uneven = sin(phase*0.25+0.14)*0.065
 				base += sin(phase*2.0+0.34)*0.16+ \
 					sin(phase*3.0+0.19)*0.13
-		var cycle_grit := sin(phase*2.0+sin(phase*0.5)*0.17)*0.115
+		var cycle_grit := sin(phase*2.0+sin(phase*0.5)*0.17)*0.065
 		# Tiled, deterministic harmonic turbulence instead of unlooped white
 		# noise that pops when samples return to their start position.
-		var grains := sin(TAU*float(97+fire_cycles)*x+0.23)*0.11+ \
-			sin(TAU*float(171+fire_cycles)*x+1.17)*0.08+ \
-			sin(TAU*float(283+fire_cycles)*x+0.72)*0.05
+		var grains := sin(TAU*float(97+fire_cycles)*x+0.23)*0.045+ \
+			sin(TAU*float(171+fire_cycles)*x+1.17)*0.025
 		var valve := (0.65+0.35*maxf(0.0,sin(phase)))
 		var texture := (base+uneven*0.65)*(1.0+rough*0.23*valve)+ \
-			rasp*0.38*cycle_grit+grains*rasp*(0.20+float(stage)*0.055)
+			rasp*0.20*cycle_grit+grains*rasp*0.14
 		if loaded:
 			# Loud loaded firing pressure and straight-through exhaust rasp.
-			texture += rasp*(0.09+bright*0.12)*sin(phase*5.0+0.57)
-			texture += (0.07+rough*0.10)*sin(phase*6.0+0.84)
+			texture += rasp*(0.035+bright*0.045)*sin(phase*5.0+0.57)
+			texture += (0.025+rough*0.035)*sin(phase*6.0+0.84)
 		else:
 			# Engine braking: softer firing pulse, light driveline buzz and
 			# less high-frequency exhaust roar. Distinct from simply making
@@ -169,14 +168,23 @@ static func engine_loop(family: String, stage: int,
 			texture = texture*(0.65-bright*0.06)+ \
 				(0.13+rough*0.10)*sin(phase*0.5+0.1)
 		# Soft harmonic saturation adds growl without square-wave clipping.
-		var sample := tanh(texture*(1.0+rasp*(0.39 if loaded else 0.12)))* \
-			(0.52 if loaded else 0.43)
+		var sample := tanh(texture*(1.0+rasp*(0.22 if loaded else 0.10)))* \
+			(0.56 if loaded else 0.45)
 		output[i] = sample
 		mean += sample
 	mean /= float(LOOP_FRAMES)
 	for i in LOOP_FRAMES:
 		output[i] -= mean
-	var stream := _pcm(output,true)
+	# Periodic FIR smoothing removes thin, buzzy upper harmonics without
+	# introducing wrap clicks or changing the engine firing rate.
+	var softened := PackedFloat32Array()
+	softened.resize(LOOP_FRAMES)
+	for i in LOOP_FRAMES:
+		softened[i] = (output[(i + LOOP_FRAMES - 2) % LOOP_FRAMES] + \
+			output[(i + LOOP_FRAMES - 1) % LOOP_FRAMES] * 2.0 + \
+			output[i] * 3.0 + output[(i + 1) % LOOP_FRAMES] * 2.0 + \
+			output[(i + 2) % LOOP_FRAMES]) / 9.0
+	var stream := _pcm(softened,true)
 	_loops[key] = stream
 	return stream
 
@@ -196,14 +204,11 @@ static func texture_loop(kind: String) -> AudioStreamWAV:
 						(6.0+float(j)*0.38)
 				value *= 0.42
 			"turbo":
-				value = sin(TAU*180.0*x)*0.38+sin(TAU*360.0*x)*0.20+ \
-					sin(TAU*541.0*x)*0.08
+				value = sin(TAU*108.0*x)*0.18+sin(TAU*216.0*x)*0.07
 			"blower":
-				value = sin(TAU*235.0*x)*0.40+sin(TAU*470.0*x)*0.18+ \
-					sin(TAU*705.0*x)*0.085
+				value = sin(TAU*132.0*x)*0.21+sin(TAU*264.0*x)*0.09
 			"gear":
-				value = sin(TAU*144.0*x)*0.33+sin(TAU*288.0*x)*0.20+ \
-					sin(TAU*433.0*x)*0.08
+				value = sin(TAU*82.0*x)*0.15+sin(TAU*164.0*x)*0.06
 			"wind":
 				for j in 14:
 					var harmonic := float(31+j*j*19)
@@ -215,8 +220,7 @@ static func texture_loop(kind: String) -> AudioStreamWAV:
 					value += sin(TAU*harmonic*x+float(j)*2.38)* \
 						(0.29 / sqrt(float(j)+1.0))
 			"drivetrain":
-				value = sin(TAU*122.0*x)*0.32+sin(TAU*245.0*x)*0.14+ \
-					sin(TAU*491.0*x)*0.065
+				value = sin(TAU*68.0*x)*0.15+sin(TAU*136.0*x)*0.06
 			"electric_drive":
 				# Subtle EV inverter and reduction gear, no exhaust
 				# resonance or synthetic combustion pulses.
