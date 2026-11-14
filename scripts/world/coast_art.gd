@@ -27,6 +27,10 @@ static func project_sprite(relative: String, region: Array = []) -> Texture2D:
  var cache_key: String = relative + ":" + str(region)
  if project_textures.has(cache_key):return project_textures[cache_key]
  var path := "res://assets/"+relative
+ # Existing maps retain stable Buildings/ paths after the files move into
+ # the organized Map Building Assets/Buildings/ directory.
+ if relative.begins_with("Buildings/") and not ResourceLoader.exists(path,"Texture2D") and not FileAccess.file_exists(path):
+  path = "res://assets/Map Building Assets/"+relative
  if ResourceLoader.exists(path,"Texture2D"):
   var imported := load(path) as Texture2D
   if imported!=null:
