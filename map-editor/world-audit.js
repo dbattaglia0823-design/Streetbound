@@ -8,6 +8,7 @@
  */
 import {distance,polygonArea,pointSegment,segmentIntersection,sampleRoad} from './world-geometry.js';
 import {roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
+import {projectArtwork} from './world-project-assets.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {findEndpointGaps} from './world-safe-edit.js';
 import {nativeAdoptedRadius} from './morrow-runtime-preview.js';
@@ -118,6 +119,8 @@ export function auditWorld(doc,{maxIssues=180}={}){
   // Read-only collision review: ordinary road/scenery edits NEVER relocate
   // props. Show conflicts here and in the live road-clearance layer instead.
   for(const prop of doc.props){
+    // Painted decals and explicitly decorative artwork may overlap roads.
+    if(prop.type==='decal'||projectArtwork(prop)?.collision==='none')continue;
     const radius=placementFootprint(doc,prop);
     // A generated parking entry intentionally reaches the lot curb cut.
     const accessIds=prop.type==='parking'?new Set(doc.roads
