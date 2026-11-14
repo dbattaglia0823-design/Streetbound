@@ -68,7 +68,7 @@ class SourceBridgeTests(unittest.TestCase):
         self.assertEqual(result[4], original[4])
         self.assertEqual(markers, [])
 
-    def test_shared_node_move_propagates_and_adds_connected_road(self):
+    def test_shared_endpoint_detaches_when_neighbor_remains_and_adds_road(self):
         doc = editor_doc()
         doc["roads"][0]["points"][-1] = dict(x=510, y=215)
         doc["roads"][0]["width"] = 11
@@ -78,14 +78,31 @@ class SourceBridgeTests(unittest.TestCase):
                  points=[dict(x=900, y=200), dict(x=1000, y=550)]))
         data, _ = self.apply(doc)
         roads, nodes = data[0], data[1]
-        self.assertEqual(nodes["b"], (510, 215))
+        # A neighbor that is not moved retains its source node. The edited
+        # endpoint detaches explicitly rather than silently warping the road.
+        self.assertEqual(nodes["b"], (500, 200))
         self.assertEqual(roads[0]["anchors"][-1], [510, 215])
-        self.assertEqual(roads[1]["anchors"][0], [510, 215])
+        self.assertEqual(roads[1]["anchors"][0], [500, 200])
+        detached = roads[0]["end"]
+        self.assertNotEqual(detached, "b")
+        self.assertEqual(nodes[detached], (510, 215))
         self.assertEqual(roads[0]["width"], 11)
         self.assertEqual(roads[1]["kind"], "arterial")
         self.assertEqual(len(roads), 3)
         self.assertEqual(roads[2]["start"], "c")
         self.assertEqual(roads[2]["kind"], "rural")
+
+    def test_shared_endpoint_moves_together_when_both_roads_are_edited(self):
+        doc = editor_doc()
+        doc["roads"][0]["points"][-1] = dict(x=510, y=215)
+        doc["roads"][1]["points"][0] = dict(x=510, y=215)
+        data, _ = self.apply(doc)
+        roads, nodes = data[0], data[1]
+        self.assertEqual(nodes["b"], (510, 215))
+        self.assertEqual(roads[0]["end"], "b")
+        self.assertEqual(roads[1]["start"], "b")
+        self.assertEqual(roads[0]["anchors"][-1], [510, 215])
+        self.assertEqual(roads[1]["anchors"][0], [510, 215])
 
     def test_move_landmark_and_add_traffic_marker(self):
         doc = editor_doc()
