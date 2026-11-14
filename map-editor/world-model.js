@@ -9,7 +9,7 @@ export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
-export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk']);
+export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','prop','decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
@@ -84,9 +84,13 @@ function validEntity(item,type,w,h){
       entity.sidewalkPoints=item.sidewalkPoints.map(p=>[real(p[0],-12000,12000,'sidewalk x'),real(p[1],-12000,12000,'sidewalk y')]);
     }
     if(projectAssetId(entity.assetId)){
-      const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});
-      if(!art)throw new TypeError('Missing or invalid project building artwork');
+      const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize,
+        assetRegion:item.assetRegion,assetSprite:item.assetSprite,assetCollision:item.assetCollision});
+      if(!art)throw new TypeError('Missing or invalid project map artwork');
       entity.assetPath=art.path;entity.assetSize=[...art.size];
+      if(art.region)entity.assetRegion=[...art.region];
+      if(art.sprite)entity.assetSprite=art.sprite;
+      entity.assetCollision=art.collision;
     }
     if(item.replaces){
       if(item.assetSize)entity.assetSize=item.assetSize.map(v=>real(v,.001,1000,'original footprint'));
@@ -202,6 +206,7 @@ export function updateEntity(doc,id,patch){
   const merged={...item,...patch,id};
   if(type==='props'&&patch.assetId!==undefined&&patch.assetId!==item.assetId){
     delete merged.assetPath;delete merged.assetSize;
+    delete merged.assetRegion;delete merged.assetSprite;delete merged.assetCollision;
   }
   let updated=validEntity(merged,type,doc.world.width,doc.world.height);
   if(type==='props'){
