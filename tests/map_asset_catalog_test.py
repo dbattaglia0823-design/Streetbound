@@ -44,6 +44,17 @@ class MapLibraryTests(unittest.TestCase):
         self.assertEqual(asset_id("Buildings/House.png"),
                          "project-" + hashlib.sha256(b"Buildings/House.png").hexdigest()[:24])
 
+    def test_legacy_building_reference_survives_folder_migration(self):
+        moved = self.root / "assets/Map Building Assets/Buildings/Dealerships/01_showroom.png"
+        moved.parent.mkdir(parents=True)
+        moved.write_bytes(png_header())
+        legacy = "Buildings/Dealerships/01_showroom.png"
+        self.assertEqual(building_file(legacy, self.root), moved)
+        entry = validated_asset(legacy, asset_id(legacy), self.root)
+        self.assertEqual(entry["id"], asset_id(legacy))
+        self.assertEqual(entry["path"], legacy)
+        self.assertEqual(entry["type"], "building")
+
     def test_explicit_crops_preserve_ids_and_collision_modes(self):
         sidecar = self.image.with_name("containers.sprites.json")
         sidecar.write_text(json.dumps({"sprites": [
