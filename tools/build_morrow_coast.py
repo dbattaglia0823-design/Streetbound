@@ -877,6 +877,9 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     selected_asset_id = replacement.get("asset_id")
     selected_asset_path = replacement.get("asset_path")
     selected_asset_size = replacement.get("asset_size")
+    selected_asset_region = replacement.get("asset_region")
+    selected_asset_sprite = replacement.get("asset_sprite")
+    selected_asset_collision = replacement.get("asset_collision")
     editor_fields={k:v for k,v in replacement.items() if k.startswith('editor_') or k=='source_replacement'}
     original_fields = original.copy()
     replacement.clear()
@@ -891,6 +894,11 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
         replacement["asset_path"] = selected_asset_path
         replacement["asset_size"] = selected_asset_size
         replacement["asset_id"] = selected_asset_id
+        if selected_asset_region is not None:
+            replacement["asset_region"] = selected_asset_region
+            replacement["asset_sprite"] = selected_asset_sprite
+        if selected_asset_collision is not None:
+            replacement["asset_collision"] = selected_asset_collision
     PROPS.remove(original)
     # Keep the native object's collision category. In particular, procedural
     # trees have a small solid trunk even though normally painted editor trees
