@@ -47,6 +47,12 @@ var edit_actions: Control
 var draft_points: Array[Vector2] = []
 var preview_hidden: Dictionary = {}
 var synced_preview_revision := -1
+var synced_prop_drag:=""
+var _last_road_drag_ms:=-1000
+var _snap_neighbors_key:=""
+var _snap_neighbors: Array=[]
+var _runtime_prop_stamp:=-1
+var _runtime_props_by_source: Dictionary={}
 var overview_sprite: Sprite2D
 var overview_renderer: Node2D
 var _game_render_visibility: Dictionary={}
@@ -524,32 +530,33 @@ func _clear_editor_preview() -> void:
 func _sync_editor_preview() -> void:
 	if not active or not source_ready or not is_instance_valid(world):
 		return
-	if synced_preview_revision == authoring.edit_revision:
+	var dragging_prop: String=str(pending_drag.get("id","")) if pending_drag.get("kind","")=="prop" else ""
+	if synced_preview_revision == authoring.edit_revision and synced_prop_drag==dragging_prop:
 		return
 	synced_preview_revision = authoring.edit_revision
+	synced_prop_drag=dragging_prop
 	var next_hidden: Dictionary = {}
+	if not dragging_prop.is_empty():next_hidden["authored:"+dragging_prop]=true
+	var runtime_stamp: int=hash(world.data.props)
+	if runtime_stamp!=_runtime_prop_stamp:
+		_runtime_prop_stamp=runtime_stamp;_runtime_props_by_source.clear()
+		for original in world.data.props:
+			_runtime_props_by_source[_prop_source_key(original.kind,original.seed,original.p)]=original
+	var originals: Dictionary={};var current_ids: Dictionary={}
+	for old in authoring.initial.get("props",[]):originals[str(old.id)]=old
 	for prop in authoring.doc.get("props",[]):
-		var initial_prop: Dictionary = {}
-		for old in authoring.initial.get("props",[]):
-			if str(old.get("id","")) == str(prop.get("id","")):
-				initial_prop = old
-				break
-		if not initial_prop.is_empty() and JSON.stringify(initial_prop) != JSON.stringify(prop):
+		current_ids[str(prop.id)]=true
+		var initial_prop: Dictionary = originals.get(str(prop.id),{})
+		if not initial_prop.is_empty() and initial_prop != prop:
 			next_hidden["authored:"+str(prop.id)] = true
 		if prop.has("replaces"):
 			var source: Dictionary = prop.replaces
 			var pos: Array = source.get("p",[])
 			if pos.size()==2:
-				var source_pos := Vector2(float(pos[0]),float(pos[1]))
-				for original in world.data.get("props",[]):
-					var original_pos: Array = original.get("p",[])
-					if original_pos.size()==2 and \
-							str(original.get("kind","")) == str(source.get("kind","")) and \
-							int(original.get("seed",-1)) == int(source.get("seed",-2)) and \
-							Vector2(float(original_pos[0]),float(original_pos[1])).distance_to(
-								source_pos) < 0.025:
-						next_hidden[Scenery.editor_key(original)] = true
-						break
+				var original: Dictionary=_runtime_props_by_source.get(_prop_source_key(source.kind,source.seed,pos),{})
+				if not original.is_empty():next_hidden[Scenery.editor_key(original)]=true
+	for id in originals:
+		if not current_ids.has(id):next_hidden["authored:"+id]=true
 	if next_hidden != preview_hidden:
 		preview_hidden = next_hidden
 		Scenery.editor_hidden = preview_hidden.duplicate()
@@ -579,6 +586,9 @@ func _fit_map() -> void:
 	editor_camera.global_position = world_px*0.5
 	_position_camera_canvas()
 	_update_view(true)
+
+func _prop_source_key(kind: Variant,seed_value: Variant,p: Array) -> String:
+	return "%s:%d:%.2f,%.2f"%[str(kind),int(seed_value),float(p[0]),float(p[1])]
 
 func _layout_workspace() -> void:
 	Layout.resize(self)
@@ -692,9 +702,9 @@ func _refresh_authoring() -> void:
 	_refresh_entity_list()
 	if source_ready:
 		gizmos.road_width_scale=float(world.data.get("road_width_scale",1.0))/float(authoring.doc.get("morrowRoadWidthScale",1.0))
-		if not map_switcher.custom:
-			traffic_preview.request(world.data,preview_doc,authoring.initial)
-			_update_traffic_preview()
+		# Only committed road edits trigger topology work, never pointer motion.
+		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
+		_update_traffic_preview()
 		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
@@ -845,7 +855,7 @@ func _ensure_editable_runtime_prop(item: Dictionary) -> String:
 		var prior: Dictionary = prop.get("replaces",{})
 		if not prior.is_empty() and str(prior.get("kind","")) == str(item.get("kind","")) and \
 				int(prior.get("seed",-1)) == int(item.get("seed",-2)) and \
-				prior.get("p",[]) == item.get("p",[]):
+				prior.get("p",[]).size()==2 and Vector2(prior.p[0],prior.p[1]).distance_to(Vector2(item.p[0],item.p[1]))<.025:
 			return str(prop.id)
 	# Converts a regular generated prop into an editable replacement
 	# automatically. Protected landmarks remain protected.
@@ -902,7 +912,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.scenery:
 		return {}
 	var at: Vector2 = world_px/PPM
-	var best := 6.0
+	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	var hit: Dictionary = {}
 	for index in range(authoring.doc.props.size()-1,-1,-1):
 		var prop: Dictionary=authoring.doc.props[index]
@@ -1010,6 +1020,7 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			_notice("Click an editable road control point.")
 		if hit.is_empty():
+			source_id="";source_anchor=-1;_update_selection({});_refresh_authoring()
 			return
 	source_id = str(hit.id)
 	selected={}
@@ -1043,8 +1054,12 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		_refresh_authoring()
 		return
 	if str(drag.kind)=="road":
-		ok = authoring.move_road_point(str(drag.id),int(drag.index),
-			destination_m,snap_m)
+		var temporary=EditSession.new();temporary.doc=authoring.doc
+		ok=temporary.move_road_point(str(drag.id),int(drag.index),destination_m,snap_m)
+		if ok:
+			var road: Dictionary=temporary.road_at_id(str(drag.id))
+			if int(drag.index) in [0,road.points.size()-1] and not Input.is_physical_key_pressed(KEY_ALT):temporary.reconnect_endpoint(str(drag.id),int(drag.index),clampf(12.0/(editor_camera.zoom.x*PPM),2.0,12.0))
+			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
 		ok = authoring.move_prop(str(drag.id),_snap_building(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM)),0)
 	elif str(drag.kind) in ["road_move","region","marker"]:
@@ -1511,9 +1526,13 @@ func _notification(what: int) -> void:
 func _update_drag_preview(at: Vector2) -> void:
 	if pending_drag.kind=="prop":
 		pending_drag.to=_snap_building(authoring.prop_at_id(str(pending_drag.id)),_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM))*PPM
+		gizmos.update_prop_drag(pending_drag)
+		return
 	elif pending_drag.kind in ["road_move","region","marker"]:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
 	else:pending_drag.to=_snap_point(at/PPM)*PPM
+	if Time.get_ticks_msec()-_last_road_drag_ms<50:return
+	_last_road_drag_ms=Time.get_ticks_msec()
 	_refresh_authoring()
 
 func _sync_road_preview(preview_doc: Dictionary={}) -> void:
@@ -1534,9 +1553,8 @@ func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 		_update_overview_mask()
 
 func _update_traffic_preview() -> void:
-	if map_switcher.custom:return
 	var fresh:=traffic_preview.is_current()
-	var graph: RefCounted=traffic_preview.network if fresh else traffic_network
+	var graph: RefCounted=traffic_preview.network if fresh else (null if map_switcher.custom else traffic_network)
 	if gizmos.network==graph and gizmos.network_is_draft==fresh:return
 	gizmos.network=graph
 	gizmos.network_is_draft=fresh
@@ -1893,7 +1911,7 @@ func _nearest_prop(p: Vector2) -> Dictionary:
 	# The actual baked per-chunk prop indices, not a separate browser index.
 	var cell := Vector2i((p/PPM/float(world.chunk_m)).floor())
 	var nearest := {}
-	var best := 6.0 # max selection distance from a real asset footprint
+	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	for x in range(cell.x-1,cell.x+2):
 		for y in range(cell.y-1,cell.y+2):
 			var key := "%d,%d" % [x,y]
@@ -1901,6 +1919,7 @@ func _nearest_prop(p: Vector2) -> Dictionary:
 			for raw_index in chunk.get("props",[]):
 				var index := int(raw_index)
 				var item: Dictionary = world.data.props[index]
+				if Scenery.editor_hidden.has(Scenery.editor_key(item)):continue
 				var c := Vector2(float(item.p[0]),float(item.p[1]))
 				var half := Vector2(float(item.size[0]),float(item.size[1]))*0.5
 				var local: Vector2 = (p/PPM-c).rotated(-float(item.get("angle",0.0)))
@@ -2022,6 +2041,9 @@ func _toggle_building_snap() -> void:
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 	if not building_snap_enabled or Input.is_physical_key_pressed(KEY_ALT) or str(prop.get("type","")) not in ["house","building","warehouse","garage","gas_station"]:return at
 	var neighbors: Array=[]
+	var cache_key: String="%s/%s/%d/%s/%s"%[map_switcher.current_file,str(authoring.doc.name),authoring.edit_revision,str(prop.id),str(Vector2i((at/100.0).floor()))]
+	if cache_key==_snap_neighbors_key:
+		return BuildingSnap.position(at,gizmos._prop_size(prop)/PPM,deg_to_rad(float(prop.get("rotation",0))),_snap_neighbors)
 	for other in authoring.doc.props:
 		if str(other.id)==str(prop.id) or other.get("hidden",false) or str(other.type) not in ["house","building","warehouse","garage","gas_station"]:continue
 		if Vector2(other.x,other.y).distance_to(at)>150:continue
@@ -2031,5 +2053,6 @@ func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 		if preload("res://scripts/world/coast_scenery.gd").editor_hidden.has(preload("res://scripts/world/coast_scenery.gd").editor_key(other)):continue
 		var p:=Vector2(other.p[0],other.p[1])
 		if p.distance_to(at)<150:neighbors.append({"p":p,"size":Vector2(other.size[0],other.size[1]),"angle":float(other.angle)})
+	_snap_neighbors_key=cache_key;_snap_neighbors=neighbors
 	var snapped:=BuildingSnap.position(at,gizmos._prop_size(prop)/PPM,deg_to_rad(float(prop.get("rotation",0))),neighbors)
 	return snapped if authoring._in_bounds(snapped) else at

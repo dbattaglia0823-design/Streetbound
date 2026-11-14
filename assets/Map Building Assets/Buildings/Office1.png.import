@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d3n3coymgfbom"
-path="res://.godot/imported/Office1.png-6b1e78a9447fd0b5eb53f0e2f0e268ae.ctex"
+path="res://.godot/imported/Office1.png-619100161618dca0d0dd57c475d7d25c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Buildings/Office1.png"
-dest_files=["res://.godot/imported/Office1.png-6b1e78a9447fd0b5eb53f0e2f0e268ae.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/Office1.png"
+dest_files=["res://.godot/imported/Office1.png-619100161618dca0d0dd57c475d7d25c.ctex"]
 
 [params]
 

@@ -577,7 +577,9 @@ func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
 		if settings.has(key):road[key]=settings[key]
 	var next:=doc.duplicate(true)
 	next.roads.append(road)
-	return id if _commit(next) else ""
+	var temporary=get_script().new();temporary.doc=next
+	for endpoint in [0,vertices.size()-1]:temporary.reconnect_endpoint(id,endpoint,.05)
+	return id if _commit(temporary.doc) else ""
 
 func move_shape(category: String, identity: String, delta: Vector2, grid_m: float=0.0) -> bool:
 	if grid_m>0:delta=delta.snapped(Vector2.ONE*grid_m)
@@ -839,7 +841,7 @@ func reconnect_endpoint(identity: String,index: int,radius: float=12.0) -> bool:
 			if distance<best-.05:best=distance;candidates.clear()
 			if absf(distance-best)<=.05:candidates.append({"id":str(road.id),"p":p})
 	if candidates.is_empty():
-		last_error="No compatible endpoint within 12 m. Move this point closer first.";return false
+		return connect_road_interior(identity,index,at,radius)
 	var destination: Vector2=candidates[0].p
 	for candidate in candidates:
 		if destination.distance_to(candidate.p)>.05:
@@ -850,4 +852,36 @@ func reconnect_endpoint(identity: String,index: int,radius: float=12.0) -> bool:
 			road.points[index]={"x":destination.x,"y":destination.y};road.erase("independentEnds")
 		for candidate in candidates:
 			if str(road.id)==candidate.id:road.erase("independentEnds")
+	return _commit(next)
+
+func connect_road_interior(identity: String,index: int,at: Vector2,radius: float=12.0) -> bool:
+	var target:=road_at_id(identity)
+	var best:=radius;var hit: Dictionary={}
+	for road in doc.roads:
+		if str(road.id)==identity or not _same_network(target,road):continue
+		var path:=road_path(road)
+		var span:=1
+		var boundary:=clampi(ceili(Vector2(road.points[0].x,road.points[0].y).distance_to(Vector2(road.points[1].x,road.points[1].y))/6.0),2,160)
+		for i in range(1,path.size()):
+			while i>boundary and span<road.points.size()-1:
+				span+=1
+				boundary+=clampi(ceili(Vector2(road.points[span-1].x,road.points[span-1].y).distance_to(Vector2(road.points[span].x,road.points[span].y))/6.0),2,160)
+			var p:=Geometry2D.get_closest_point_to_segment(at,path[i-1],path[i])
+			var distance:=at.distance_to(p)
+			if distance<best:best=distance;hit={"id":str(road.id),"p":p,"span":span}
+	if hit.is_empty():last_error="No compatible road within reach. Move the endpoint closer to a road.";return false
+	var destination: Vector2=hit.p
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)==str(hit.id):
+			var anchor:=-1
+			for i in road.points.size():
+				var p:=Vector2(road.points[i].x,road.points[i].y)
+				if p.distance_to(destination)<.5:anchor=i;destination=p;break
+			if anchor<0:
+				if road.points.size()>=100:last_error="Target road has reached its control-point limit.";return false
+				road.points.insert(int(hit.span),{"x":destination.x,"y":destination.y})
+			road.erase("independentEnds")
+	for road in next.roads:
+		if str(road.id)==identity:road.points[index]={"x":destination.x,"y":destination.y};road.erase("independentEnds")
 	return _commit(next)

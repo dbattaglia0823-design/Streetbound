@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cpa2wvdfs808f"
-path="res://.godot/imported/Silo2.png-d0621bb264eb34a26e92be6bd9cb84a7.ctex"
+path="res://.godot/imported/Silo2.png-56e6da478151d0d9c040d9694f0cf900.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Buildings/Silo2.png"
-dest_files=["res://.godot/imported/Silo2.png-d0621bb264eb34a26e92be6bd9cb84a7.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/Silo2.png"
+dest_files=["res://.godot/imported/Silo2.png-56e6da478151d0d9c040d9694f0cf900.ctex"]
 
 [params]
 

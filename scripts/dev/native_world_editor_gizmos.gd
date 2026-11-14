@@ -28,6 +28,10 @@ var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
 var custom_terrain:=false
+var preview_indices: Dictionary={}
+var scenery_rebuild_count:=0
+var _props_stamp:=-1
+var _collision_stamp:=-1
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
 var pending_tool := ""
@@ -44,15 +48,17 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	for original in baseline.get("props",[]):
 		original_by_id[str(original.get("id",""))] = original
 	drag_preview = preview
-	_refresh_preview_scenery()
+	var props_stamp: int=hash([source.get("props",[]),baseline.get("props",[]),str(preview.get("id",""))])
+	if props_stamp!=_props_stamp:
+		_props_stamp=props_stamp;_refresh_preview_scenery()
 	selected_source_id = source_id
 	selected_anchor_index = point_index
 	if not is_instance_valid(mountain_preview):
 		mountain_preview=MountainPreview.new();add_child(mountain_preview)
 	mountain_preview.visible=bool(layer_flags.get("terrain",true))
 	mountain_preview.configure(source,baseline,source_id,preview_collisions_enabled)
-	if preview.is_empty() or not is_instance_valid(preview_body) or \
-			preview_body.get_child_count()==0:
+	if _collision_stamp!=props_stamp or not is_instance_valid(preview_body):
+		_collision_stamp=props_stamp
 		_rebuild_preview_collisions()
 	elif str(preview.get("kind",""))=="prop":
 		for shape in preview_body.get_children():
@@ -98,10 +104,12 @@ func _refresh_preview_scenery() -> void:
 		preview_scenery.origin_m = Vector2.ZERO
 		preview_scenery.z_index = -1
 		preview_scenery.process_mode = Node.PROCESS_MODE_ALWAYS
+		preview_scenery.ignore_editor_mask=true
 		add_child(preview_scenery)
 	var rendered: Array[Dictionary] = []
+	preview_indices.clear();scenery_rebuild_count+=1
 	for prop in draft_doc.get("props",[]):
-		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
+		if bool(prop.get("hidden",false)) or (not _prop_modified(prop) and str(prop.id)!=str(drag_preview.get("id",""))):
 			continue
 		var size: Vector2 = _prop_size(prop)/PPM
 		var pos := Vector2(float(prop.x),float(prop.y))
@@ -136,10 +144,23 @@ func _refresh_preview_scenery() -> void:
 			instance["sidewalk_points"]=prop.sidewalkPoints
 			instance["sidewalk_width"]=prop.sidewalkWidth
 			instance["sidewalk_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
-		rendered.append(instance)
+		preview_indices[str(prop.id)]=rendered.size();rendered.append(instance)
 	preview_scenery.prop_list = rendered
 	preview_scenery.visible=bool(layer_flags.get("scenery",true))
 	preview_scenery.queue_redraw()
+
+func update_prop_drag(preview: Dictionary) -> void:
+	drag_preview=preview
+	var id:=str(preview.get("id",""))
+	if not preview_indices.has(id):_refresh_preview_scenery()
+	if preview_indices.has(id):
+		var at: Vector2=preview.to/PPM
+		preview_scenery.prop_list[int(preview_indices[id])].p=[at.x,at.y]
+		preview_scenery.queue_redraw()
+	if is_instance_valid(preview_body):
+		for child in preview_body.get_children():
+			if str(child.get_meta("draft_prop_id",""))==id:child.position=preview.to
+	queue_redraw()
 
 
 func _prop_size(prop: Dictionary) -> Vector2:

@@ -154,7 +154,7 @@ static func build(e) -> void:
 	e.split_road_button=e._btn("Split road here",inspector,e._split_road)
 	e.split_road_button.tooltip_text="Choose a road endpoint to detach a junction, or an interior control point to split the road. Drag afterwards to create a gap."
 	e.reconnect_road_button=e._btn("Reconnect endpoint",inspector,e._reconnect_road)
-	e.reconnect_road_button.tooltip_text="Select an endpoint, then snap it to the nearest compatible road end within 12 meters."
+	e.reconnect_road_button.tooltip_text="Connect an endpoint to a compatible road end or any point along another road within 12 meters. Drag endpoints onto roads to make junctions; Alt bypasses snapping."
 	e.connection_label=heading(inspector,"")
 	e.connection_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.edit_actions=HFlowContainer.new();inspector.add_child(e.edit_actions)

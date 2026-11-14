@@ -61,6 +61,16 @@ or rebake is required to see the updated bridges.
   **Reconnect endpoint**. Equally close endpoints in different places require
   moving closer to the intended connection. Undo restores the previous geometry.
   The connection readout shows whether touching ends move together.
+  Endpoints can also attach to the **middle of another compatible road**.
+  Drag an endpoint onto a road, draw a new road ending on it, or use
+  Reconnect endpoint. The target receives a shared control point; junctions,
+  markings and navigation update from that geometry. Hold Alt while releasing
+  a dragged endpoint to bypass the automatic connection.
+  Asset picking excludes hidden/replaced baked objects and uses a small
+  screen-space tolerance around the current footprint. Live scenery has its
+  own visibility mask, so moving saved adopted assets keeps their artwork.
+  Dragging props updates their transform directly; full scenery/collision
+  work happens at edit boundaries, and road topology rebuilds after commits.
 - Scenery has independent X/Y size multipliers and a footprint readout in metres.
   **Building edges: on** snaps placed and dragged buildings to nearby parallel
   wall edges (within 2 m), including rotated blocks and existing city buildings.

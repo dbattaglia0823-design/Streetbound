@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bovdyge6qkwxg"
-path="res://.godot/imported/Hotel.png-4938c41ba628b1dee2871509ccbef3bb.ctex"
+path="res://.godot/imported/Hotel.png-226355c30d9070af7b5ee021e1d209c0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Buildings/Hotel.png"
-dest_files=["res://.godot/imported/Hotel.png-4938c41ba628b1dee2871509ccbef3bb.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/Hotel.png"
+dest_files=["res://.godot/imported/Hotel.png-226355c30d9070af7b5ee021e1d209c0.ctex"]
 
 [params]
 

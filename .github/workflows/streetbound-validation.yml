@@ -100,6 +100,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_library_test.gd 2>&1 | tee /tmp/map-library.log
           grep -q 'MAP LIBRARY: PASS' /tmp/map-library.log
           ! grep -E 'SCRIPT ERROR:|^FAIL ' /tmp/map-library.log
+      - name: Verify editor picking, live asset visibility, drag cost and arbitrary road junctions
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_integrity_test.gd 2>&1 | tee /tmp/editor-integrity.log
+          grep -q 'EDITOR INTEGRITY: PASS' /tmp/editor-integrity.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-integrity.log
+          python3 -B tests/editor_junction_bake_test.py
       - name: Verify automatic water bridges, collision clearance, streaming and live edits
         run: |
           set -o pipefail

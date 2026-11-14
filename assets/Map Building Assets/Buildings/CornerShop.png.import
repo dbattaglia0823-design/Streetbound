@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://decxl518e07dp"
-path="res://.godot/imported/CornerShop.png-3997d836cf6965575de0ad13c62abd4f.ctex"
+path="res://.godot/imported/CornerShop.png-2d48034fdcb9ab79b23c893ccc4c81c4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Buildings/CornerShop.png"
-dest_files=["res://.godot/imported/CornerShop.png-3997d836cf6965575de0ad13c62abd4f.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/CornerShop.png"
+dest_files=["res://.godot/imported/CornerShop.png-2d48034fdcb9ab79b23c893ccc4c81c4.ctex"]
 
 [params]
 
