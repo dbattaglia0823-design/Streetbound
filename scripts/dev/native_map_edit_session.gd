@@ -334,8 +334,10 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 		last_error = "Invalid project asset or placement."
 		return ""
 	var ext := relative_path.get_extension().to_lower()
-	if ext not in ["png","webp","svg"] or not FileAccess.file_exists(
-			"res://assets/"+relative_path):
+	var found := FileAccess.file_exists("res://assets/"+relative_path)
+	if not found and relative_path.begins_with("Buildings/"):
+		found=FileAccess.file_exists("res://assets/Map Building Assets/"+relative_path)
+	if ext not in ["png","webp","svg"] or not found:
 		last_error = "Project artwork is missing or unsupported."
 		return ""
 	if sprite_region.size()!=0 and sprite_region.size()!=4:
