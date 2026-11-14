@@ -119,7 +119,7 @@ func _refresh_preview_scenery() -> void:
 			"angle":deg_to_rad(float(prop.get("rotation",0.0))),
 			"seed":_source_seed(str(prop.id)),
 			"color":"9dac94","radius":maxf(size.x,size.y)*0.35,
-			"solid":kind not in ["tree","pine","palm","bush","field",
+			"solid":str(prop.get("assetCollision","solid")) != "none" and kind not in ["decal","tree","pine","palm","bush","field",
 				"garden","planter","lamp","sign","dock","lot","forecourt"]
 		}
 		if prop.get("sourceAppearance") is Dictionary:
@@ -128,6 +128,9 @@ func _refresh_preview_scenery() -> void:
 			instance=appearance
 		if prop.has("assetPath"):
 			instance["asset_path"]=str(prop.assetPath)
+			if prop.get("assetRegion") is Array:
+				instance["asset_region"]=prop.assetRegion
+			instance["asset_collision"]=str(prop.get("assetCollision","solid"))
 		elif str(prop.get("assetId","")).begins_with("game-"):
 			instance["asset_kind"]=str(prop.assetId).trim_prefix("game-")
 		if kind=="sidewalk":
@@ -177,10 +180,10 @@ func _prop_size(prop: Dictionary) -> Vector2:
 
 func _prop_texture(prop: Dictionary) -> Texture2D:
 	if prop.has("assetPath"):
-		return Art.project_sprite(str(prop.assetPath))
+		return Art.project_sprite(str(prop.assetPath),prop.get("assetRegion",[]) if prop.get("assetRegion") is Array else [])
 	if prop.get("sourceAppearance") is Dictionary and str(prop.get("assetId",""))=="":
 		var appearance: Dictionary=prop.sourceAppearance
-		if appearance.has("asset_path"):return Art.project_sprite(str(appearance.asset_path))
+		if appearance.has("asset_path"):return Art.project_sprite(str(appearance.asset_path),appearance.get("asset_region",[]))
 		return Art.sprite(str(appearance.get("asset_kind",appearance.kind)),int(appearance.seed))
 	var kind := str(prop.get("assetId","")).trim_prefix("game-")
 	if kind in ["","none"]:
@@ -205,7 +208,7 @@ func _rebuild_preview_collisions() -> void:
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
 		var kind := str(prop.get("type",""))
-		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
+		var is_decoration := str(prop.get("assetCollision","solid")) == "none" or kind in ["decal","oak","pine","palm","bush","streetlight",
 			"sign","parking","dock","planter","garden","field","forecourt",
 			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
 			"start_line","finish_line","sidewalk"]
