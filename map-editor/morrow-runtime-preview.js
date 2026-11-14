@@ -64,6 +64,13 @@ const trafficFiles = [
   'ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png',
   'ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png'
 ];
+let discoveredTrafficUrls=[];
+export function setTrafficArtwork(urls){
+  if(!Array.isArray(urls))return;
+  discoveredTrafficUrls=urls.filter(url=>typeof url==='string'&&
+    url.startsWith('/game-assets/')&&!url.includes('..')&&
+    /\.(png|webp)(?:\?|$)/i.test(url));
+}
 const images=new Map();
 function imageAt(url){
   if(images.has(url))return images.get(url);
@@ -255,8 +262,10 @@ export function drawNative(ctx,prop,scale){
       }
     }
   }else if(kind==='parked_car'){
-    const slot=((seed%trafficFiles.length)+trafficFiles.length)%trafficFiles.length;
-    const img=imageAt('/game-assets/vehicles/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
+    const images=discoveredTrafficUrls.length?discoveredTrafficUrls:
+      trafficFiles.map(name=>'/game-assets/vehicles/Traffic%20Vehicles/'+encodeURIComponent(name));
+    const slot=((seed%images.length)+images.length)%images.length;
+    const img=imageAt(images[slot]);
     ctx.fillStyle='#334449';ctx.fillRect(-w/2,-h/2,w,h);
     if(ready(img))ctx.drawImage(img,-w/2,-h/2,w,h);
   }else if(drawAtlas(ctx,prop.asset_kind||kind,size,seed)){
