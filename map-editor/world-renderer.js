@@ -345,7 +345,11 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
     ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);
     ctx.scale(prop.scale*(prop.scaleX??1),prop.scale*(prop.scaleY??1));
     const [w,h]=project.size,image=getSprite({...project,src:project.src});
-    if(image?.complete&&image.naturalWidth)ctx.drawImage(image,-w/2,-h/2,w,h);
+    if(image?.complete&&image.naturalWidth){
+      if(project.region){const [x,y,sw,sh]=project.region;
+        ctx.drawImage(image,x,y,sw,sh,-w/2,-h/2,w,h);
+      }else ctx.drawImage(image,-w/2,-h/2,w,h);
+    }
     else{ctx.fillStyle='#819191';ctx.fillRect(-w/2,-h/2,w,h);}
     ctx.restore();return;
   }
