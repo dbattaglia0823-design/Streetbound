@@ -1,17 +1,19 @@
 extends RefCounted
 ## Controlled one-block city-art pilot in central Larkspur. Tags existing
 ## authored buildings ONLY; never creates/moves roads, props or colliders.
-## Pilot rooftop artwork is under assets/Map Building Assets/Buildings/DowntownPilot.
+## Reuses existing PNG rooftop artwork from the map building asset library.
+## No separate pilot SVGs, duplicate raster files, or new colliders required.
+const Art = preload("res://scripts/world/coast_art.gd")
 const HOTSPOT_M := Vector2(3150.0, 2820.0) # Market Street downtown district
 const SEARCH_RADIUS_M := 620.0
 const BLOCK_CELL_M := 144.0
 const MAX_BUILDINGS := 8
 const TYPES := ["building", "shop", "cafe", "showroom", "office", "hotel"]
 const SPRITES := [
-	"res://assets/Map Building Assets/Buildings/DowntownPilot/glass-office.svg",
-	"res://assets/Map Building Assets/Buildings/DowntownPilot/brick-hotel.svg",
-	"res://assets/Map Building Assets/Buildings/DowntownPilot/retail-studio.svg",
-	"res://assets/Map Building Assets/Buildings/DowntownPilot/art-deco-tower.svg"
+	"Map Building Assets/Buildings/Office1.png",
+	"Map Building Assets/Buildings/Office2.png",
+	"Map Building Assets/Buildings/Hotel.png",
+	"Map Building Assets/Buildings/ConnectedBuilding1.png"
 ]
 static var _textures: Dictionary = {}
 
@@ -29,23 +31,10 @@ static func sprite(index: int) -> Texture2D:
 	if index < 0 or index >= SPRITES.size():
 		return null
 	if not _textures.has(index):
-		if not FileAccess.file_exists(SPRITES[index]):
-			# Optional pilot art may be absent in a checkout. Use the building's
-			# existing game artwork and remember the miss rather than error each frame.
-			_textures[index]=null
-			return null
-		# Source SVGs can arrive in a Git pull before Godot's editor import runs.
-		# Decode the actual artwork directly and cache it; an optional art import
-		# must never prevent the entire world/scenery scripts from compiling.
-		var image := Image.new()
-		var error := image.load_svg_from_string(FileAccess.get_file_as_string(SPRITES[index]))
-		if error != OK:
-			push_error("Cannot decode downtown artwork: %s (%s)" % [SPRITES[index],error])
-			return null
-		image.generate_mipmaps()
-		_textures[index] = ImageTexture.create_from_image(image)
+		# Share the same asset loading and cache as the rest of the city.
+		# Missing art returns null and the ordinary building renderer takes over.
+		_textures[index] = Art.project_sprite(SPRITES[index])
 	return _textures[index] as Texture2D
-
 
 ## Group by a stable 144m block cell so the city art cannot spread across
 ## multiple downtown neighborhoods. Prefer a dense cell near Market Street.
