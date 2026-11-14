@@ -254,10 +254,10 @@ func _walk_building_assets(folder: String) -> void:
 						if not grid.is_empty():
 							var cw := int(grid.get("width",0))
 							var ch := int(grid.get("height",0))
-							if cw>0 and ch>0 and texture.get_width()/cw*texture.get_height()/ch<=512:
+							if cw>0 and ch>0 and int(texture.get_width()/cw)*int(texture.get_height()/ch)<=512:
 								var index := 0
-								for gy in range(texture.get_height()/ch):
-									for gx in range(texture.get_width()/cw):
+								for gy in range(int(texture.get_height()/ch)):
+									for gx in range(int(texture.get_width()/cw)):
 										index+=1
 										sprites.append({"name":"Sprite %d"%index,"region":[gx*cw,gy*ch,cw,ch]})
 						if sprites.size()<=512:
