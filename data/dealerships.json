@@ -12,7 +12,7 @@
         660,
         4150
       ],
-      "texture": "res://assets/Buildings/Dealerships/01_junk_car_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/01_junk_car_dealership.png"
     },
     {
       "id": "budget",
@@ -24,7 +24,7 @@
         1190,
         3090
       ],
-      "texture": "res://assets/Buildings/Dealerships/02_budget_used_car_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/02_budget_used_car_dealership.png"
     },
     {
       "id": "used",
@@ -36,7 +36,7 @@
         2020,
         4050
       ],
-      "texture": "res://assets/Buildings/Dealerships/03_used_car_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/03_used_car_dealership.png"
     },
     {
       "id": "modern",
@@ -48,7 +48,7 @@
         3550,
         2640
       ],
-      "texture": "res://assets/Buildings/Dealerships/04_modern_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/04_modern_dealership.png"
     },
     {
       "id": "showroom",
@@ -60,7 +60,7 @@
         3060,
         2500
       ],
-      "texture": "res://assets/Buildings/Dealerships/05_modern_showroom_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/05_modern_showroom_dealership.png"
     },
     {
       "id": "premium",
@@ -72,7 +72,7 @@
         3150,
         2820
       ],
-      "texture": "res://assets/Buildings/Dealerships/06_premium_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/06_premium_dealership.png"
     },
     {
       "id": "luxury",
@@ -84,7 +84,7 @@
         3460,
         2970
       ],
-      "texture": "res://assets/Buildings/Dealerships/07_luxury_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/07_luxury_dealership.png"
     },
     {
       "id": "exotic",
@@ -96,7 +96,7 @@
         3040,
         2910
       ],
-      "texture": "res://assets/Buildings/Dealerships/08_exotic_dealership.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/08_exotic_dealership.png"
     },
     {
       "id": "trail",
@@ -108,7 +108,7 @@
         600,
         1595
       ],
-      "texture": "res://assets/Buildings/Dealerships/09_offroad_dealership_service.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/09_offroad_dealership_service.png"
     },
     {
       "id": "summit",
@@ -120,7 +120,7 @@
         1390,
         795
       ],
-      "texture": "res://assets/Buildings/Dealerships/10_offroad_dealership_showroom.png"
+      "texture": "res://assets/Map Building Assets/Buildings/Dealerships/10_offroad_dealership_showroom.png"
     }
   ]
 }
