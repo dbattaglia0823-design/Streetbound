@@ -366,9 +366,9 @@ func _walk_building_assets(folder: String) -> void:
 					else:
 						for i in definitions.size():
 							if definitions[i] is Dictionary:
-							var record: Dictionary = definitions[i].duplicate()
-							record["key"]=str(record.get("key",i+1))
-							_add_project_asset(relative,texture,manifest,record)
+								var record: Dictionary = definitions[i].duplicate()
+								record["key"]=str(record.get("key",i+1))
+								_add_project_asset(relative,texture,manifest,record)
 		entry = directory.get_next()
 	directory.list_dir_end()
 
