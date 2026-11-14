@@ -9,7 +9,7 @@ signal main_menu_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
-const Controls = preload("res://scripts/input/controls.gd")
+@onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
 var vehicle_audio
@@ -211,14 +211,14 @@ func _build_settings_tabs() -> void:
 	bindings_list.custom_minimum_size.x = 440.0
 	bindings_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroller.add_child(bindings_list)
-	for action in Controls.ACTIONS:
+	for action in controls_api.ACTIONS:
 		var row := HBoxContainer.new()
 		row.name = "BindingRow_"+action
 		row.custom_minimum_size.y = 40
 		row.add_theme_constant_override("separation",6)
 		bindings_list.add_child(row)
 		var action_label := Label.new()
-		action_label.text = str(Controls.LABELS.get(action,action.capitalize()))
+		action_label.text = str(controls_api.LABELS.get(action,action.capitalize()))
 		action_label.custom_minimum_size.x = 137
 		action_label.add_theme_font_size_override("font_size",12)
 		action_label.add_theme_color_override("font_color",Color("#e5efe5"))
@@ -278,15 +278,15 @@ func _set_settings_tab(tab: String) -> void:
 func _refresh_binding_buttons() -> void:
 	if binding_rows.is_empty():
 		return
-	for action in Controls.ACTIONS:
+	for action in controls_api.ACTIONS:
 		for kind in ["keyboard","controller"]:
 			var button: Button = binding_rows[action][kind]
 			var listening: bool = capture_action == str(action) and capture_device == kind
 			button.text = ("PRESS KEY / MOUSE" if kind=="keyboard" else
-				"PRESS CONTROLLER") if listening else Controls.binding_text(action,kind)
+				"PRESS CONTROLLER") if listening else controls_api.binding_text(action,kind)
 			button.tooltip_text = "Press to change the %s binding for %s" % [
 				"keyboard/mouse" if kind=="keyboard" else "controller",
-				str(Controls.LABELS.get(action,action))]
+				str(controls_api.LABELS.get(action,action))]
 			_button_skin(button,listening)
 
 
@@ -294,7 +294,7 @@ func _start_binding(action: String, kind: String) -> void:
 	capture_action = action
 	capture_device = kind
 	binding_feedback.text = "Press input for %s  ·  Esc cancel  ·  Backspace clear" % [
-		str(Controls.LABELS.get(action,action))]
+		str(controls_api.LABELS.get(action,action))]
 	_refresh_binding_buttons()
 	get_viewport().gui_release_focus()
 
@@ -309,7 +309,7 @@ func _cancel_capture(reset_feedback: bool = true) -> void:
 
 func _restore_binding_defaults() -> void:
 	_cancel_capture(false)
-	if Controls.restore_defaults():
+	if controls_api.restore_defaults():
 		binding_feedback.text = "Restored all keyboard, mouse and controller defaults."
 	else:
 		binding_feedback.text = "Could not save default bindings."
@@ -329,7 +329,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if key.keycode in [KEY_BACKSPACE,KEY_DELETE]:
-			var cleared := Controls.clear_binding(capture_action,capture_device)
+			var cleared := controls_api.clear_binding(capture_action,capture_device)
 			binding_feedback.text = "Binding cleared." if cleared else "Could not clear binding."
 			_cancel_capture(false)
 			get_viewport().set_input_as_handled()
@@ -351,13 +351,13 @@ func _input(event: InputEvent) -> void:
 	if candidate == null:
 		return
 	var action := capture_action
-	var result: Dictionary = Controls.rebind(action,capture_device,candidate)
+	var result: Dictionary = controls_api.rebind(action,capture_device,candidate)
 	if str(result.get("status","")) == "bound":
 		var exchanged := str(result.get("swapped_action",""))
 		binding_feedback.text = ("Saved %s. Swapped with %s." % [
-			str(Controls.LABELS.get(action,action)),
-			str(Controls.LABELS.get(exchanged,exchanged))]) if exchanged != "" else (
-			"Saved binding for %s." % str(Controls.LABELS.get(action,action)))
+			str(controls_api.LABELS.get(action,action)),
+			str(controls_api.LABELS.get(exchanged,exchanged))]) if exchanged != "" else (
+			"Saved binding for %s." % str(controls_api.LABELS.get(action,action)))
 		_cancel_capture(false)
 	else:
 		binding_feedback.text = "Cannot assign that input. Try another button."
