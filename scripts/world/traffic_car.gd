@@ -65,7 +65,7 @@ static func appearance_for(index: int) -> Dictionary:
 	if art_cache.has(slot):
 		return art_cache[slot]
 	var path: String = MODEL_PATHS[slot]
-	var texture := load(path) as Texture2D
+	var texture: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 	if texture == null:
 		# Keep older checkouts working while assets migrate to assets/vehicles.
 		var legacy := path.replace("res://assets/vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
