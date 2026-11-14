@@ -718,7 +718,8 @@ const ASSET_GROUPS={
   nature:new Set(['oak','pine','palm','bush','rock','boulder']),
   buildings:new Set(['house','building','warehouse','garage','gas_station']),
   roads:new Set(['streetlight','sign','barrier','dock','parking','parked_car']),
-  landscaping:new Set(['planter','garden','field','island','forecourt'])
+  landscaping:new Set(['planter','garden','field','island','forecourt','ground_decal']),
+  industrial:new Set(['industrial_prop']),infrastructure:new Set(['road_prop'])
 };
 let activeDockAsset=null;
 let projectCatalogSignature='',catalogLoading=false;
@@ -748,7 +749,7 @@ function assetCandidates(){
     }
   }
   for(const item of projectAssets())assets.push({type:item.type,assetId:item.id,
-    label:item.name,group:'buildings',project:true});
+    label:item.name,group:item.type==='industrial_prop'?'industrial':item.type==='road_prop'?'infrastructure':item.type==='ground_decal'?'landscaping':'buildings',project:true});
   return assets;
 }
 function drawAssetThumbnail(canvas,item){
@@ -833,7 +834,7 @@ function refreshSpriteLists(){
       }
     }
     for(const asset of doc.assets||[])select.append(new Option(asset.name,asset.id));
-    if(['house','building','warehouse','garage','gas_station'].includes(type))
+    if(['house','building','warehouse','garage','gas_station','industrial_prop','road_prop','ground_decal'].includes(type))
       for(const asset of projectAssets())select.append(new Option('Project folder · '+asset.name,asset.id));
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
