@@ -1,0 +1,44 @@
+name: Map asset library validation
+on:
+  pull_request:
+    paths:
+      - "tools/project_asset_catalog.py"
+      - "tools/morrow_editor_import.py"
+      - "map-editor/**"
+      - "scripts/world/coast_art.gd"
+      - "scripts/world/coast_scenery.gd"
+      - "scripts/dev/native_map_edit_session.gd"
+      - "scripts/dev/native_world_editor.gd"
+      - "scripts/dev/native_world_editor_gizmos.gd"
+      - "assets/Map Building Assets/**"
+      - "tests/map_asset_catalog_test.py"
+      - ".github/workflows/map-asset-library.yml"
+  push:
+    paths:
+      - "tools/project_asset_catalog.py"
+      - "tools/morrow_editor_import.py"
+      - "map-editor/**"
+      - "assets/Map Building Assets/**"
+      - "tests/map_asset_catalog_test.py"
+      - ".github/workflows/map-asset-library.yml"
+jobs:
+  map-asset-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Python compile check
+        run: python -m py_compile tools/project_asset_catalog.py tools/morrow_editor_import.py tools/map_editor_server.py
+      - name: Asset discovery, sprite regions and safe world bake
+        run: python -m unittest discover -s tests -p 'map_asset_catalog_test.py' -v
+      - name: Existing scenery import compatibility
+        run: python tests/morrow_environment_props_test.py
+      - name: Browser map editor regression suite
+        working-directory: map-editor
+        run: npm test
