@@ -21,15 +21,18 @@ const BUILDING_ART := {
 static var textures: Dictionary = {}
 static var project_textures: Dictionary = {}
 
-static func project_sprite(relative: String) -> Texture2D:
- if not relative.begins_with("Buildings/") or ".." in relative or "\\" in relative or ":" in relative:
+static func project_sprite(relative: String, region: Array = []) -> Texture2D:
+ if not (relative.begins_with("Buildings/") or relative.begins_with("Map Building Assets/")) or ".." in relative or "\\" in relative or ":" in relative:
   return null
- if project_textures.has(relative):return project_textures[relative]
+ var cache_key: String = relative + ":" + str(region)
+ if project_textures.has(cache_key):return project_textures[cache_key]
  var path := "res://assets/"+relative
  if ResourceLoader.exists(path,"Texture2D"):
   var imported := load(path) as Texture2D
   if imported!=null:
-   project_textures[relative]=imported
+   if region.size() == 4:
+    return _crop_project_texture(imported,region,cache_key)
+   project_textures[cache_key]=imported
    return imported
  if not FileAccess.file_exists(path):return null
  var image := Image.new()
@@ -40,8 +43,21 @@ static func project_sprite(relative: String) -> Texture2D:
   "svg":result=image.load_svg_from_string(FileAccess.get_file_as_string(path))
  if result!=OK:return null
  var texture := ImageTexture.create_from_image(image)
- project_textures[relative]=texture
+ if region.size() == 4:
+  return _crop_project_texture(texture,region,cache_key)
+ project_textures[cache_key]=texture
  return texture
+
+static func _crop_project_texture(source: Texture2D, region: Array, cache_key: String) -> Texture2D:
+ if region.size() != 4:return null
+ var x := int(region[0]);var y := int(region[1]);var w := int(region[2]);var h := int(region[3])
+ if x < 0 or y < 0 or w <= 0 or h <= 0 or x+w > source.get_width() or y+h > source.get_height():return null
+ var atlas := AtlasTexture.new()
+ atlas.atlas = source
+ atlas.region = Rect2(x,y,w,h)
+ atlas.filter_clip = true
+ project_textures[cache_key]=atlas
+ return atlas
 
 static func sprite(kind: String, seed_value: int) -> Texture2D:
  if BUILDING_ART.has(kind):
