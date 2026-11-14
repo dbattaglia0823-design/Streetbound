@@ -5,16 +5,16 @@ extends CharacterBody2D
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
 const MODEL_PATHS := [
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
-	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
+	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
@@ -68,8 +68,12 @@ static func appearance_for(index: int) -> Dictionary:
 	var texture: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 	if texture == null:
 		# Keep older checkouts working while assets migrate to assets/vehicles.
-		var legacy := path.replace("res://assets/vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
+		var legacy := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
 		texture = load(legacy) as Texture2D if ResourceLoader.exists(legacy,"Texture2D") else null
+		if texture == null:
+			# Windows accepts this differently cased folder; Linux needs Vehicles.
+			var lowercase := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/vehicles/Traffic Vehicles/")
+			texture = load(lowercase) as Texture2D if ResourceLoader.exists(lowercase,"Texture2D") else null
 	if texture == null:
 		push_warning("Traffic artwork unavailable: " + path)
 		return {}
