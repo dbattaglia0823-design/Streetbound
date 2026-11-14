@@ -37,6 +37,7 @@ var _player_camera_physics := true
 var _player_camera_input := true
 var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
+var _asset_refresh_elapsed := 0.0
 var root_ui: Control
 var inspector_panel: PanelContainer
 var asset_dock: PanelContainer
@@ -206,6 +207,7 @@ func _scan_asset_library() -> void:
 	# Same folder hierarchy and project-id hashing used by the browser
 	# asset catalog and Python source importer.
 	_walk_building_assets("res://assets/Buildings")
+	_walk_building_assets("res://assets/Map Building Assets")
 	var atlas: Texture2D = load("res://assets/scenery/morrow-atlas-v1.png")
 	var names := [
 		["House roof","house",Rect2(103,28,261,391),"house"],
@@ -243,17 +245,102 @@ func _walk_building_assets(folder: String) -> void:
 				var texture: Texture2D = load(child) as Texture2D
 				if texture != null:
 					var relative := child.trim_prefix("res://assets/")
-					var name := entry.get_basename().replace("_"," ").replace("-"," ")
-					var lower := name.to_lower()
-					var kind := "house" if "house" in lower and not "warehouse" in lower else \
-						"warehouse" if "warehouse" in lower else \
-						"garage" if "garage" in lower else "building"
-					var category := "house" if kind == "house" else \
-						"garage" if kind == "garage" else "building"
-					asset_entries.append({"name":name,"kind":kind,"category":category,
-						"texture":texture,"path":relative,"project":true})
+					var meta := _read_asset_metadata(child.get_basename()+".asset.json")
+					var sheet_path := child.get_basename()+".sheet.json"
+					if FileAccess.file_exists(sheet_path):
+						var sheet := _read_asset_metadata(sheet_path)
+						var sprites: Array = sheet.get("sprites",[]).duplicate(true) if sheet.get("sprites",[]) is Array else []
+						var grid: Dictionary = sheet.get("grid",{}) if sheet.get("grid",{}) is Dictionary else {}
+						if not grid.is_empty():
+							var cw := int(grid.get("width",0))
+							var ch := int(grid.get("height",0))
+							if cw>0 and ch>0 and texture.get_width()/cw*texture.get_height()/ch<=512:
+								var index := 0
+								for gy in range(texture.get_height()/ch):
+									for gx in range(texture.get_width()/cw):
+										index+=1
+										sprites.append({"name":"Sprite %d"%index,"region":[gx*cw,gy*ch,cw,ch]})
+						if sprites.size()<=512:
+							for item in sprites:
+								if not item is Dictionary:
+									continue
+								var region: Array = item.get("region",[])
+								if region.size()!=4:
+									continue
+								var x:=int(region[0])
+								var y:=int(region[1])
+								var w:=int(region[2])
+								var h:=int(region[3])
+								if x<0 or y<0 or w<1 or h<1 or x+w>texture.get_width() or y+h>texture.get_height():
+									continue
+								var crop:=AtlasTexture.new()
+								crop.atlas=texture
+								crop.region=Rect2(x,y,w,h)
+								crop.filter_clip=true
+								var sprite_meta:=meta.duplicate(true)
+								sprite_meta.merge(item,true)
+								_register_project_asset(relative,str(item.get("name","Sprite")),crop,sprite_meta,region)
+					else:
+						_register_project_asset(relative,entry.get_basename(),texture,meta,[])
 		entry = directory.get_next()
 	directory.list_dir_end()
+
+
+func _read_asset_metadata(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file:=FileAccess.open(path,FileAccess.READ)
+	if file==null or file.get_length()>100000:
+		return {}
+	var decoded=JSON.parse_string(file.get_as_text())
+	return decoded if decoded is Dictionary else {}
+
+
+func _register_project_asset(relative: String, label: String, texture: Texture2D,
+		meta: Dictionary, region: Array) -> void:
+	var lower := (relative+"/"+label).to_lower()
+	var kind := "industrial_prop"
+	var category := "industrial"
+	if "ground decal" in lower or "decal" in lower:
+		kind="ground_decal"
+		category="decals"
+	elif "road" in lower or "infrastructure" in lower or "barrier" in lower:
+		kind="road_prop"
+		category="roads"
+	elif "house" in lower and not "warehouse" in lower:
+		kind="house"
+		category="house"
+	elif "warehouse" in lower:
+		kind="warehouse"
+		category="building"
+	elif "garage" in lower:
+		kind="garage"
+		category="garage"
+	elif relative.begins_with("Buildings/") or "buildings/" in lower:
+		kind="building"
+		category="building"
+	kind=str(meta.get("type",kind))
+	if kind not in ["house","building","warehouse","garage","gas_station","industrial_prop","road_prop","ground_decal"]:
+		return
+	if kind=="ground_decal":
+		category="decals"
+	elif kind=="industrial_prop":
+		category="industrial"
+	elif kind=="road_prop":
+		category="roads"
+	elif kind=="house":
+		category="house"
+	elif kind=="garage":
+		category="garage"
+	var collision:=str(meta.get("collision","none" if kind=="ground_decal" else "solid"))
+	if collision not in ["solid","none"]:
+		return
+	var name:=label.replace("_"," ").replace("-"," ")
+	var key:=relative+("#"+name if region.size()==4 else "")
+	var size: Array = meta.get("worldSize",[]) if meta.get("worldSize",[]) is Array else []
+	asset_entries.append({"name":name,"kind":kind,"category":category,"texture":texture,
+		"path":relative,"project":true,"project_id":"project-"+key.sha256_text().substr(0,24),
+		"region":region.duplicate(),"collision":collision,"world_size":size})
 
 
 func _filter_assets() -> void:
@@ -275,6 +362,12 @@ func _filter_assets() -> void:
 		if category == 3 and entry.category != "garage":
 			continue
 		if category == 4 and entry.category != "nature":
+			continue
+		if category == 5 and entry.category != "industrial":
+			continue
+		if category == 6 and entry.category != "roads":
+			continue
+		if category == 7 and entry.category != "decals":
 			continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
@@ -829,8 +922,15 @@ func _source_click(world_px: Vector2) -> void:
 			var scale_factor: float = minf(base.x / maxf(1.0,texture.get_width()),
 				base.y / maxf(1.0,texture.get_height()))
 			var footprint := Vector2(texture.get_width(),texture.get_height()) * scale_factor
+			var preferred: Array = active_project_asset.get("world_size",[])
+			if preferred.size()==2 and float(preferred[0])>0.0 and float(preferred[1])>0.0:
+				footprint=Vector2(float(preferred[0]),float(preferred[1]))
 			id = authoring.add_project_prop(str(active_project_asset.path),
-				str(active_project_asset.kind),world_px/PPM,footprint)
+				str(active_project_asset.kind),world_px/PPM,footprint,
+				str(active_project_asset.get("project_id","")),
+				active_project_asset.get("region",[]),
+				str(active_project_asset.get("collision","solid")),
+				str(active_project_asset.get("name","")))
 		else:
 			id = authoring.add_prop(kind,world_px/PPM)
 		if id != "":
@@ -1144,6 +1244,10 @@ func _process(dt: float) -> void:
 		return
 	traffic_preview.poll()
 	_update_traffic_preview()
+	_asset_refresh_elapsed+=dt
+	if _asset_refresh_elapsed>=3.0:
+		_asset_refresh_elapsed=0.0
+		_scan_asset_library()
 	if is_instance_valid(overview_sprite):overview_sprite.visible=not render_tiles.ready_to_show
 	var direction := Vector2.ZERO
 	var focus:=get_viewport().gui_get_focus_owner()
