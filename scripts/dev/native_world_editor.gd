@@ -37,6 +37,7 @@ var _player_camera_physics := true
 var _player_camera_input := true
 var _last_cell := Vector2i(-999,-999)
 var _refresh_elapsed := 0.0
+var _asset_refresh_elapsed := 0.0
 var root_ui: Control
 var inspector_panel: PanelContainer
 var asset_dock: PanelContainer
@@ -229,7 +230,9 @@ func _scan_asset_library() -> void:
 
 
 func _load_map_texture(path: String) -> Texture2D:
-	var imported: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	var imported: Texture2D = null
+	if ResourceLoader.exists(path):
+		imported = load(path) as Texture2D
 	if imported != null:
 		return imported
 	var source := Image.new()
@@ -357,7 +360,7 @@ func _walk_building_assets(folder: String) -> void:
 							var names: Array = grid.get("names",[])
 							for i in range(columns*rows):
 								var label := str(names[i]) if i < names.size() else relative.get_file().get_basename()+" "+str(i+1)
-								definitions.append({"key":str(i+1),"name":label,"rect":[(i%columns)*(texture.get_width()/columns),(i/columns)*(texture.get_height()/rows),texture.get_width()/columns,texture.get_height()/rows]})
+								definitions.append({"key":str(i+1),"name":label,"rect":[(i%columns)*(texture.get_width()/columns),floori(float(i)/float(columns))*(texture.get_height()/rows),texture.get_width()/columns,texture.get_height()/rows]})
 					if definitions.is_empty():
 						_add_project_asset(relative,texture,manifest)
 					else:
@@ -1262,6 +1265,10 @@ func _process(dt: float) -> void:
 	if direction != Vector2.ZERO and not typing and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_ALT):
 		editor_camera.global_position += direction.normalized() * dt * \
 			950.0 / maxf(0.008,editor_camera.zoom.x)
+	_asset_refresh_elapsed += dt
+	if _asset_refresh_elapsed >= 12.0 and is_instance_valid(asset_dock) and asset_dock.visible:
+		_asset_refresh_elapsed = 0.0
+		_scan_asset_library()
 	_refresh_elapsed += dt
 	if _refresh_elapsed >= 0.12:
 		_refresh_elapsed = 0.0
