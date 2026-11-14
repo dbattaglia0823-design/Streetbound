@@ -1970,9 +1970,7 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 		var prop: Dictionary = world.data.props[index]
 		var asset := str(prop.get("asset_path",prop.get("asset_id","builtin")))
 		if prop.has("asset_path"):
-			var texture_path := "res://assets/"+str(prop.asset_path)
-			if ResourceLoader.exists(texture_path):
-				selected_preview.texture = load(texture_path) as Texture2D
+			selected_preview.texture = Art.project_sprite(str(prop.asset_path),prop.get("asset_region",[]))
 				selected_preview.visible = selected_preview.texture != null
 		elif prop.has("asset_id"):
 			for item in asset_entries:
