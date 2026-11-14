@@ -40,7 +40,7 @@ class MapLibraryTests(unittest.TestCase):
         self.assertEqual(cargo["category"], "Industrial")
         self.assertEqual(cargo["collision"], "solid")
         self.assertEqual(cargo["id"], asset_id(self.relative))
-        self.assertEqual(cargo["size"], [12.0, 2.6])
+        self.assertEqual(cargo["size"], [5.2, 2.6])  # retain 2:1 source aspect within 12 × 2.6 m
         self.assertEqual(asset_id("Buildings/House.png"),
                          "project-" + hashlib.sha256(b"Buildings/House.png").hexdigest()[:24])
 
