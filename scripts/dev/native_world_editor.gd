@@ -203,9 +203,9 @@ func _build_asset_browser() -> void:
 
 func _scan_asset_library() -> void:
 	asset_entries.clear()
-	# Same folder hierarchy and project-id hashing used by the browser
-	# asset catalog and Python source importer.
+	# Old Buildings/ IDs remain available; new art is classified by directory.
 	_walk_building_assets("res://assets/Buildings")
+	_walk_building_assets("res://assets/Map Building Assets")
 	var atlas: Texture2D = load("res://assets/scenery/morrow-atlas-v1.png")
 	var names := [
 		["House roof","house",Rect2(103,28,261,391),"house"],
@@ -228,10 +228,110 @@ func _scan_asset_library() -> void:
 	_filter_assets()
 
 
+func _load_map_texture(path: String) -> Texture2D:
+	var imported: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	if imported != null:
+		return imported
+	var source := Image.new()
+	if source.load(path) == OK:
+		return ImageTexture.create_from_image(source)
+	return null
+
+
+func _map_asset_type(relative: String) -> String:
+	var name := relative.get_file().to_lower()
+	var folder := relative.to_lower()
+	if folder.begins_with("buildings/") or "/buildings/" in folder:
+		if "house" in name and "warehouse" not in name:return "house"
+		if "warehouse" in name:return "warehouse"
+		if "garage" in name:return "garage"
+		return "building"
+	if "ground decals" in folder or "/decals/" in folder:return "decal"
+	if "vegetation" in folder or "nature" in folder:
+		if "pine" in name:return "pine"
+		if "palm" in name:return "palm"
+		if "tree" in name:return "oak"
+		return "bush"
+	return "prop"
+
+
+func _map_asset_category(relative: String, kind: String) -> String:
+	if relative.begins_with("Buildings/"):
+		return "house" if kind == "house" else "garage" if kind == "garage" else "building"
+	var parts := relative.split("/")
+	if parts.size() > 2:
+		var category := parts[1].to_lower()
+		return "nature" if category == "vegetation" else category
+	return "building"
+
+
+func _map_asset_size(kind: String, relative: String, width: float, height: float, requested: Variant) -> Vector2:
+	if requested is Array and requested.size() == 2:
+		var explicit := Vector2(float(requested[0]),float(requested[1]))
+		if explicit.x > 0.0 and explicit.y > 0.0 and explicit.x <= 100.0 and explicit.y <= 100.0:
+			return explicit
+	var base := Vector2(3,3)
+	match kind:
+		"house":base=Vector2(12,17)
+		"building":base=Vector2(22,29)
+		"warehouse":base=Vector2(28,37)
+		"garage":base=Vector2(20,21)
+		"gas_station":base=Vector2(18,17)
+		"decal":base=Vector2(5,5)
+		"oak","pine":base=Vector2(7,7)
+		"palm":base=Vector2(6.5,6.5)
+		"bush":base=Vector2(2.5,2.5)
+		"barrier":base=Vector2(3,1)
+		"planter":base=Vector2(2.8,2.8)
+		"rock":base=Vector2(3,2.5)
+		"boulder":base=Vector2(4.5,3.4)
+		"sign":base=Vector2(1.6,1.4)
+		"streetlight":base=Vector2(1.3,1.3)
+	if "Shipping Containers" in relative:base=Vector2(12,2.6)
+	elif "Pallet" in relative or "Crate" in relative:base=Vector2(1.5,1.3)
+	elif "Dumpster" in relative or "Bin" in relative:base=Vector2(2.5,1.7)
+	elif "/Equipment/" in relative:base=Vector2(3.5,2.8)
+	var ratio: float = minf(base.x/maxf(width,1.0),base.y/maxf(height,1.0))
+	return Vector2(width,height)*ratio
+
+
+func _add_project_asset(relative: String, texture: Texture2D, manifest: Dictionary,
+		definition: Dictionary = {}) -> void:
+	var kind := str(definition.get("type",manifest.get("type",_map_asset_type(relative))))
+	if kind not in ["house","building","warehouse","garage","gas_station",
+			"prop","decal","oak","pine","palm","bush","planter","barrier",
+			"rock","boulder","streetlight","sign"]:
+		return
+	var name := str(definition.get("name",relative.get_file().get_basename().replace("_"," ").replace("-"," ")))
+	var category := str(manifest.get("category",_map_asset_category(relative,kind))).to_lower()
+	var key := str(definition.get("key",""))
+	var region: Array = definition.get("rect",[])
+	var shown: Texture2D = texture
+	var rect_width := float(texture.get_width())
+	var rect_height := float(texture.get_height())
+	if not region.is_empty():
+		if region.size() != 4:return
+		var rect := Rect2(float(region[0]),float(region[1]),float(region[2]),float(region[3]))
+		if rect.position.x < 0 or rect.position.y < 0 or rect.size.x <= 0 or rect.size.y <= 0 or rect.end.x > rect_width or rect.end.y > rect_height:return
+		var crop := AtlasTexture.new()
+		crop.atlas = texture
+		crop.region = rect
+		crop.filter_clip = true
+		shown = crop
+		rect_width = rect.size.x
+		rect_height = rect.size.y
+	var collision := str(definition.get("collision",manifest.get("collision","none" if kind in ["decal","bush","oak","pine","palm","planter","streetlight","sign"] else "solid")))
+	if collision not in ["solid","none"]:return
+	var requested: Variant = definition.get("size",manifest.get("size",null))
+	var footprint := _map_asset_size(kind,relative,rect_width,rect_height,requested)
+	asset_entries.append({"name":name,"kind":kind,"category":category,
+		"texture":shown,"path":relative,"project":true,"sprite":key,
+		"region":region,"collision":collision,"size":footprint})
+
+
 func _walk_building_assets(folder: String) -> void:
 	var directory := DirAccess.open(folder)
-	if directory == null:
-		return
+	if directory == null:return
 	directory.list_dir_begin()
 	var entry := directory.get_next()
 	while not entry.is_empty():
@@ -240,18 +340,32 @@ func _walk_building_assets(folder: String) -> void:
 			if directory.current_is_dir():
 				_walk_building_assets(child)
 			elif entry.get_extension().to_lower() in ["png","webp","svg"]:
-				var texture: Texture2D = load(child) as Texture2D
+				var texture := _load_map_texture(child)
 				if texture != null:
 					var relative := child.trim_prefix("res://assets/")
-					var name := entry.get_basename().replace("_"," ").replace("-"," ")
-					var lower := name.to_lower()
-					var kind := "house" if "house" in lower and not "warehouse" in lower else \
-						"warehouse" if "warehouse" in lower else \
-						"garage" if "garage" in lower else "building"
-					var category := "house" if kind == "house" else \
-						"garage" if kind == "garage" else "building"
-					asset_entries.append({"name":name,"kind":kind,"category":category,
-						"texture":texture,"path":relative,"project":true})
+					var manifest: Dictionary = {}
+					var sidecar := child.get_basename()+".sprites.json"
+					if FileAccess.file_exists(sidecar):
+						var decoded: Variant = JSON.parse_string(FileAccess.get_file_as_string(sidecar))
+						if decoded is Dictionary:manifest=decoded
+					var definitions: Array = manifest.get("sprites",[])
+					if manifest.has("grid") and manifest.grid is Dictionary:
+						var grid: Dictionary = manifest.grid
+						var columns := int(grid.get("columns",0))
+						var rows := int(grid.get("rows",0))
+						if columns > 0 and rows > 0 and columns <= 32 and rows <= 32 and texture.get_width() % columns == 0 and texture.get_height() % rows == 0:
+							var names: Array = grid.get("names",[])
+							for i in range(columns*rows):
+								var label := str(names[i]) if i < names.size() else relative.get_file().get_basename()+" "+str(i+1)
+								definitions.append({"key":str(i+1),"name":label,"rect":[(i%columns)*(texture.get_width()/columns),(i/columns)*(texture.get_height()/rows),texture.get_width()/columns,texture.get_height()/rows]})
+					if definitions.is_empty():
+						_add_project_asset(relative,texture,manifest)
+					else:
+						for i in definitions.size():
+							if definitions[i] is Dictionary:
+							var record: Dictionary = definitions[i].duplicate()
+							record["key"]=str(record.get("key",i+1))
+							_add_project_asset(relative,texture,manifest,record)
 		entry = directory.get_next()
 	directory.list_dir_end()
 
@@ -263,18 +377,12 @@ func _filter_assets() -> void:
 		asset_grid.remove_child(node)
 		node.queue_free()
 	var keyword := asset_search.text.strip_edges().to_lower()
-	var category := asset_category.selected
+	var category := asset_category.get_item_text(asset_category.selected).to_lower().replace(" & "," and ")
 	var count := 0
 	for entry in asset_entries:
 		if not keyword.is_empty() and keyword not in str(entry.name).to_lower():
 			continue
-		if category == 1 and entry.category != "house":
-			continue
-		if category == 2 and entry.category != "building":
-			continue
-		if category == 3 and entry.category != "garage":
-			continue
-		if category == 4 and entry.category != "nature":
+		if category != "all assets" and not ((category == "houses" and entry.category == "house") or (category == "garages" and entry.category == "garage") or (category == "nature" and entry.category == "nature") or (category == "buildings" and entry.category in ["building","buildings"]) or category == entry.category):
 			continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
@@ -820,17 +928,12 @@ func _source_click(world_px: Vector2) -> void:
 		var kind := tool_name.substr(6)
 		var id := ""
 		if kind == "project" and not active_project_asset.is_empty():
-			var texture: Texture2D = active_project_asset.texture
-			var base := Vector2(12,17)
-			match str(active_project_asset.kind):
-				"building": base = Vector2(22,29)
-				"warehouse": base = Vector2(28,37)
-				"garage": base = Vector2(20,21)
-			var scale_factor: float = minf(base.x / maxf(1.0,texture.get_width()),
-				base.y / maxf(1.0,texture.get_height()))
-			var footprint := Vector2(texture.get_width(),texture.get_height()) * scale_factor
 			id = authoring.add_project_prop(str(active_project_asset.path),
-				str(active_project_asset.kind),world_px/PPM,footprint)
+				str(active_project_asset.kind),world_px/PPM,
+				active_project_asset.size,
+				str(active_project_asset.get("sprite","")),
+				active_project_asset.get("region",[]),
+				str(active_project_asset.get("collision","solid")))
 		else:
 			id = authoring.add_prop(kind,world_px/PPM)
 		if id != "":
