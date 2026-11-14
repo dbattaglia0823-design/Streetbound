@@ -21,16 +21,18 @@ const BUILDING_ART := {
 static var textures: Dictionary = {}
 static var project_textures: Dictionary = {}
 
-static func project_sprite(relative: String) -> Texture2D:
- if not relative.begins_with("Buildings/") or ".." in relative or "\\" in relative or ":" in relative:
+static func project_sprite(relative: String, region: Array = []) -> Texture2D:
+ if not (relative.begins_with("Buildings/") or relative.begins_with("Map Building Assets/")) or ".." in relative or "\\" in relative or ":" in relative:
   return null
- if project_textures.has(relative):return project_textures[relative]
+ var key := relative + (":" + str(region) if region.size() == 4 else "")
+ if project_textures.has(key):return project_textures[key]
  var path := "res://assets/"+relative
  if ResourceLoader.exists(path,"Texture2D"):
   var imported := load(path) as Texture2D
   if imported!=null:
-   project_textures[relative]=imported
-   return imported
+   var selected := _region_texture(imported,region)
+   project_textures[key]=selected
+   return selected
  if not FileAccess.file_exists(path):return null
  var image := Image.new()
  var result: Error = ERR_FILE_UNRECOGNIZED
@@ -40,8 +42,23 @@ static func project_sprite(relative: String) -> Texture2D:
   "svg":result=image.load_svg_from_string(FileAccess.get_file_as_string(path))
  if result!=OK:return null
  var texture := ImageTexture.create_from_image(image)
- project_textures[relative]=texture
- return texture
+ var selected := _region_texture(texture,region)
+ project_textures[key]=selected
+ return selected
+
+static func _region_texture(texture: Texture2D, region: Array) -> Texture2D:
+ if region.is_empty():return texture
+ if region.size()!=4:return null
+ var x := int(region[0])
+ var y := int(region[1])
+ var w := int(region[2])
+ var h := int(region[3])
+ if x<0 or y<0 or w<1 or h<1 or x+w>texture.get_width() or y+h>texture.get_height():return null
+ var crop := AtlasTexture.new()
+ crop.atlas=texture
+ crop.region=Rect2(x,y,w,h)
+ crop.filter_clip=true
+ return crop
 
 static func sprite(kind: String, seed_value: int) -> Texture2D:
  if BUILDING_ART.has(kind):
