@@ -177,7 +177,7 @@ func _run() -> void:
 		is_instance_valid(editor.asset_search) and
 		editor.asset_entries.size()>=8 and
 		editor.asset_entries.any(func(asset: Dictionary) -> bool:
-			return str(asset.get("path",""))=="Buildings/House.png"))
+			return str(asset.get("path","")) in ["Buildings/House.png","Map Building Assets/Buildings/House.png"]))
 	var runtime_road_count: int = game.ground.data.roads.size()
 	var runtime_prop_count: int = game.ground.data.props.size()
 	editor._choose_tool("place:house")
