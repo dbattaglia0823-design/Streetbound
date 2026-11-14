@@ -17,7 +17,7 @@ func check(title: String, valid: bool, details: Variant = "") -> void:
 
 func run() -> void:
 	var vehicles: Array[Dictionary] = Catalog.all()
-	check("all_88_vehicle_assets_cataloged", vehicles.size() == 88, vehicles.size())
+	check("all_playable_vehicle_assets_cataloged", vehicles.size() == 89, vehicles.size())
 	var ids := {}
 	var brands := {}
 	var all_resources := true
@@ -38,7 +38,7 @@ func run() -> void:
 	check("unique_vehicle_ids", ids.size() == vehicles.size())
 	check("twelve_vehicle_brands", brands.size() == 12, brands.size())
 	check("plausible_vehicle_baseline_data", all_metrics)
-	check("unknown_images_remain_flagged", unverified == 46, unverified)
+	check("unknown_images_remain_flagged", unverified == 47, unverified)
 	# Calibration fields must reject malformed values, and individual
 	# axle hubs stay independent from neighboring car selections.
 	var default_front := Vector2(0.075, 0.25)
@@ -64,8 +64,8 @@ func run() -> void:
 	if selector == null:
 		quit(1)
 		return
-	check("all_88_cards_in_scrollable_grid",
-		selector.cards.size() == 88 and selector.scroll is ScrollContainer \
+	check("all_playable_cards_in_scrollable_grid",
+		selector.cards.size() == 89 and selector.scroll is ScrollContainer \
 		and selector.grid is GridContainer)
 	selector.open_menu()
 	check("vehicle_menu_pauses_driving",

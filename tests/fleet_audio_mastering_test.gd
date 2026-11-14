@@ -38,7 +38,7 @@ func run() -> void:
 		car_sound_signatures["%s:%s:%s:%s" % [
 			str(car.audio_family),str(car.audio_tone),str(car.audio_lope),
 			str(car.audio_overrun)]] = true
-	check("all_89_vehicles_have_curated_audio_mastering",values_ok)
+	check("all_playable_vehicles_have_curated_audio_mastering",values_ok)
 	check("vehicles_have_many_distinct_acoustic_signatures",
 		car_sound_signatures.size() >= 35,car_sound_signatures.size())
 	for id in ["ford-mustang","dodge-challenger","bmw-m3",

@@ -24,6 +24,8 @@ var history: Array[Dictionary] = []
 var future: Array[Dictionary] = []
 var last_error := ""
 var dirty := false
+## Monotonic editor revision: avoids rescanning 20k runtime props every frame.
+var edit_revision := 0
 
 func load_source(path: String = SOURCE) -> bool:
 	var content := FileAccess.get_file_as_string(path)
@@ -41,6 +43,7 @@ func load_source(path: String = SOURCE) -> bool:
 	future.clear()
 	dirty = false
 	last_error = ""
+	edit_revision += 1
 	return true
 
 func _fingerprint(value: Dictionary) -> String:
@@ -107,6 +110,7 @@ func _commit(next: Dictionary) -> bool:
 	if history.size() > MAX_HISTORY:
 		history.pop_front()
 	doc = next
+	edit_revision += 1
 	future.clear()
 	dirty = _fingerprint(doc) != baseline_hash
 	last_error = ""
@@ -117,6 +121,7 @@ func undo() -> bool:
 		return false
 	future.append(doc.duplicate(true))
 	doc = history.pop_back()
+	edit_revision += 1
 	dirty = _fingerprint(doc) != baseline_hash
 	return true
 
@@ -125,11 +130,13 @@ func redo() -> bool:
 		return false
 	history.append(doc.duplicate(true))
 	doc = future.pop_back()
+	edit_revision += 1
 	dirty = _fingerprint(doc) != baseline_hash
 	return true
 
 func discard_changes() -> void:
 	doc = initial.duplicate(true)
+	edit_revision += 1
 	history.clear()
 	future.clear()
 	dirty = false
@@ -138,6 +145,7 @@ func accepted_remote(remote: Dictionary) -> bool:
 	if not _valid_source(remote):
 		return false
 	doc = remote.duplicate(true)
+	edit_revision += 1
 	initial = doc.duplicate(true)
 	baseline_hash = _fingerprint(doc)
 	dirty = false
@@ -270,19 +278,25 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	var mapping := {
 		"tree":["oak","game-tree"],"pine":["pine","game-pine"],
 		"palm":["palm","game-palm"],"rock":["rock","game-rock"],
-		"house":["house","game-house"],
+		"house":["house","game-house"],"lodge":["house",""],
 		"coastal_house":["house","game-coastal_house"],
 		"shop":["building","game-shop"],"building":["building","game-shop"],
 		"warehouse":["warehouse","game-shop"],"showroom":["building","game-garage"],
 		"garage":["garage","game-garage"],"workshop":["garage","game-garage"],
 		"fuel":["gas_station","game-shop"],
+		"cafe":["building",""],"office":["building",""],
+		"hotel":["building",""],"island":["island",""],
 		"bush":["bush",""],"lamp":["streetlight",""],
 		"sign":["sign",""],"barrier":["barrier",""],
 		"dock":["dock",""],"lot":["parking",""],
 		"forecourt":["forecourt",""],
 		"parked_car":["parked_car",""],"planter":["planter",""],
 		"garden":["garden",""],"field":["field",""],
-		"island":["island",""]
+		"drag_prep":["drag_prep",""],"drag_tree":["drag_tree",""],
+		"drag_lane_mark":["drag_lane_mark",""],
+		"drag_scoreboard":["drag_scoreboard",""],
+		"grandstand":["grandstand",""],
+		"start_line":["start_line",""],"finish_line":["finish_line",""]
 	}
 	var original_kind := str(runtime.get("kind",""))
 	var identity_seed: Variant = runtime.get("seed")
@@ -296,7 +310,7 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 	if not mapping.has(original_kind) or not integral_seed or \
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
-			runtime.has("poi") or runtime.has("authoring_id") or \
+			runtime.has("authoring_id") or \
 			bool(runtime.get("protected",false)) or doc.props.size()>=MAX_PROPS:
 		last_error = "This generated item has no safe replaceable source identity."
 		return ""
@@ -339,6 +353,12 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		"field":base_size=Vector2(90,70)
 		"island":base_size=Vector2(23,23)
 		"forecourt":base_size=Vector2(23,16)
+		"drag_prep":base_size=Vector2(8.5,22)
+		"drag_tree":base_size=Vector2(3,10)
+		"drag_lane_mark":base_size=Vector2(.35,12)
+		"drag_scoreboard":base_size=Vector2(4,10)
+		"grandstand":base_size=Vector2(36,17)
+		"start_line","finish_line":base_size=Vector2(14,1.2)
 	var size_ratio := 1.0
 	if native_size is Array and native_size.size()==2:
 		size_ratio = clampf((float(native_size[0])/base_size.x+

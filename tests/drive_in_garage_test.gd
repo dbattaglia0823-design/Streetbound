@@ -87,7 +87,7 @@ func run() -> void:
 		selector.launch_button.visible and not selector.launch_button.disabled)
 	selector.open_menu()
 	check("parked_car_opens_scrollable_catalog",
-		selector.overlay.visible and paused and selector.cards.size() == 88)
+		selector.overlay.visible and paused and selector.cards.size() == 89)
 	var parked_location := car.global_position
 	# Ownership is enforced outside the developer proving ground. Buy an
 	# inexpensive second car using an isolated in-memory test economy first.

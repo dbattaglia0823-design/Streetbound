@@ -10,6 +10,7 @@ const STOP_SPEED_MPS := 1.7
 const PARK_RADIUS_M := 7.0
 const SIGN_DISTANCE_M := 68.0
 var world: MorrowCoast
+var editor_render_only := false
 var player: VehicleController2D
 var sites: Array[Dictionary] = []
 var shop_nodes: Array[Node2D] = []
@@ -42,6 +43,7 @@ func _ready() -> void:
 		var node := Node2D.new()
 		node.set_script(Building)
 		node.site = site
+		node.map_render_only = editor_render_only
 		add_child(node)
 		shop_nodes.append(node)
 		# Map atlas and destination sidebar already support DEALERSHIP POIs.

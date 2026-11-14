@@ -1,5 +1,5 @@
 extends SceneTree
-## Validate all 88 sound profiles, deterministic seamless synth loops and
+## Validate all playable sound profiles, deterministic seamless synth loops and
 ## telemetry-coupled engine, turbo, BOV, flutter, shift and tuned exhaust.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
@@ -33,10 +33,10 @@ func run() -> void:
 			float(entry.get("audio_flutter",10.0)) <= 1.0
 		if induction == "turbo":
 			complete = complete and float(entry.get("boost_max_psi",0.0)) > 0.05
-	check("all_eighty_eight_cars_have_valid_sound_profile",
-		entries.size() == 88 and complete,entries.size())
+	check("all_playable_cars_have_valid_sound_profile",
+		entries.size() == 89 and complete,entries.size())
 	check("engine_layout_profiles_are_individually_distinct",
-		families.size() == 10,families.keys())
+		families.size() == 11 and families.has("i5"),families.keys())
 	var v8 := Synth.engine_loop("v8_cross",2,0.9,0.7)
 	var v12 := Synth.engine_loop("v12",2,0.9,0.2)
 	var i4 := Synth.engine_loop("i4",2,0.7,0.3)

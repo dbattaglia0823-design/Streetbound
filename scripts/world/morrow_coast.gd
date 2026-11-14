@@ -15,6 +15,8 @@ var data: Dictionary
 var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
 var chunk_m := 192.0
+## Standalone editor uses the same map data with no gameplay chunk physics.
+var editor_render_only := false
 var vehicle: VehicleController2D
 # Optional second live camera/player keeps two 3x3 stream neighborhoods active.
 var secondary_stream_vehicle: VehicleController2D
@@ -177,6 +179,9 @@ func _ready() -> void:
 	tire_marks.z_index = 4
 	add_child(tire_marks)
 	initialization_complete=true
+	# Standalone map editing uses render-only tiles managed by the camera.
+	if editor_render_only:
+		return
 	# Spawn collision is built synchronously; neighbor loading is incremental.
 	var spawn := spawn_position()
 	var first := Vector2i((spawn/PPM/chunk_m).floor())

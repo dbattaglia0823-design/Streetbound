@@ -256,8 +256,10 @@ func _open_native_map_editor() -> void:
 	if not is_instance_valid(native_world_editor) or \
 			(is_instance_valid(local_split_screen) and local_split_screen.active):
 		return
+	# The pause-menu editor uses the same isolated authoring scene as title.
+	# Do not leave simulation objects running behind the editor interface.
 	pause_menu.resume_game()
-	call_deferred("_begin_native_map_editor")
+	get_tree().call_deferred("change_scene_to_file","res://scenes/world_editor.tscn")
 
 
 func _begin_native_map_editor() -> void:

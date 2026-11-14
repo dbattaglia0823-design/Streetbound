@@ -54,7 +54,7 @@ func run() -> void:
 		== "invalid_or_duplicate" and economy.upgrade_inventory.size() == old_inventory_count)
 	check("fresh_car_cannot_equip_common_before_level_ten",
 		economy.install_part(Ownership.STARTER_ID,awarded_uid) == "level_locked")
-	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item("up-9001").template))
+	var rewarded: Dictionary = Parts.get_part(str(economy.get_upgrade_item(awarded_uid).get("template","")))
 	check("reward_part_stats_are_explicit",not rewarded.is_empty() and \
 		rewarded.get("modifiers",{}) is Dictionary and \
 		not (rewarded.modifiers as Dictionary).is_empty())
