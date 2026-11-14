@@ -4,7 +4,11 @@ extends Node
 ## never generates PCM in _process; it only envelopes AudioStreamPlayers.
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
 const SampleBank = preload("res://scripts/audio/vehicle_audio_sample_bank.gd")
-const AsphaltTires = preload("res://assets/audio/tire_asphalt.wav")
+const RpmMix = preload("res://scripts/audio/toolkit_rpm_mix.gd")
+const GenericRecordedEngine = preload("res://scripts/audio/generic_recorded_engine.gd")
+const ENGINE_BUS := "Streetbound Engine"
+const AsphaltTires = preload("res://assets/audio/tire_screech_recorded_cc0.wav")
+# An original synthetic tire bed remains in the repository for fallback/reference.
 const LooseTires = preload("res://assets/audio/tire_loose.wav")
 
 @export var engine_stream: AudioStream # Optional licensed power idle sample
@@ -47,6 +51,8 @@ var driveline := AudioStreamPlayer.new()
 ## Real CC0 recorded engine bed: subtle organic texture beneath each
 ## vehicle's model-specific, RPM-correct power/coast synthesis.
 var recorded_texture := AudioStreamPlayer.new()
+var generic_recorded_engine
+var _engine_filter: AudioEffectLowPassFilter
 ## Motor / inverter and final-drive whine for new BEVs and quiet hybrid launch.
 var electric_drive := AudioStreamPlayer.new()
 var tires := AudioStreamPlayer.new()
@@ -112,8 +118,14 @@ func _ready() -> void:
 		"Tires","LooseTires","RecordedEngineTexture","ElectricDrive","Shift","BlowOff","CompressorFlutter",
 		"ExhaustPop","Impact","Ignition","Shutdown","DownshiftBlip",
 		"RevLimiter","CurbContact"]
+	_ensure_engine_bus()
+	generic_recorded_engine = GenericRecordedEngine.new()
+	generic_recorded_engine.name = "CC0RecordedEngineBed"
+	add_child(generic_recorded_engine)
 	for i in _all_players.size():
 		var player: AudioStreamPlayer = _all_players[i]
+		if i < 8 or player == recorded_texture:
+			player.bus = ENGINE_BUS
 		player.name = names[i]
 		add_child(player)
 		player.volume_db = -80.0
@@ -139,6 +151,31 @@ func _ready() -> void:
 			player.play()
 
 
+
+func _ensure_engine_bus() -> void:
+	# One shared engine bus, as in REDLINE: low-pass filtering and peak
+	# protection are limited to combustion beds, not tires or BOV transients.
+	var bus_index := AudioServer.get_bus_index(ENGINE_BUS)
+	if bus_index < 0:
+		AudioServer.add_bus()
+		bus_index = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(bus_index, ENGINE_BUS)
+		AudioServer.set_bus_send(bus_index, "Master")
+	if AudioServer.get_bus_effect_count(bus_index) == 0:
+		var filter := AudioEffectLowPassFilter.new()
+		filter.cutoff_hz = 4200.0
+		filter.resonance = 0.45
+		AudioServer.add_bus_effect(bus_index, filter)
+		var limiter := AudioEffectHardLimiter.new()
+		limiter.ceiling_db = -1.5
+		AudioServer.add_bus_effect(bus_index, limiter)
+	for index in AudioServer.get_bus_effect_count(bus_index):
+		var effect := AudioServer.get_bus_effect(bus_index, index)
+		if effect is AudioEffectLowPassFilter:
+			_engine_filter = effect as AudioEffectLowPassFilter
+			break
+
+
 func _configure_engine(force := false) -> void:
 	if not is_instance_valid(vehicle) or vehicle.config == null:
 		return
@@ -147,7 +184,12 @@ func _configure_engine(force := false) -> void:
 	var aggression := clampf(cfg.audio_aggression,0.0,1.4)
 	var roughness := clampf(cfg.audio_exhaust_roughness,0.0,1.0)
 	var tone := clampf(cfg.audio_tone,-1.0,1.0)
-	var induction := str(cfg.audio_induction)
+	var induction := str(cfg.audio_induction).to_lower()
+	# Catalogs and Toolkit profiles use several names for the same hardware.
+	if induction in ["turbocharged","single_turbo","twin_turbo"]:
+		induction = "turbo"
+	if induction in ["roots","centrifugal_supercharger","twin_screw_supercharger"]:
+		induction = "supercharger"
 	if induction == "turbo" and cfg.boost_max_psi <= 0.05:
 		induction = "naturally_aspirated"
 	if not force and _config_id == cfg.get_instance_id() and \
@@ -213,6 +255,9 @@ func _configure_engine(force := false) -> void:
 	# make/model identity. A future per-car recording overrides that family.
 	var recording: AudioStream = SampleBank.resolve(
 		cfg.audio_sample_id,family,"recorded_texture")
+	if is_instance_valid(generic_recorded_engine):
+		generic_recorded_engine.active = (recording == null and family != "electric"
+			and induction != "electric")
 	if recorded_texture.stream != recording:
 		recorded_texture.stop()
 		recorded_texture.stream = recording
@@ -363,6 +408,16 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(vehicle) or vehicle.config == null:
 		return
 	_configure_engine()
+	# Mute is a hard audio boundary, not a multi-frame fade. A quiet
+	# exponential tail is still audible and can leak across car changes.
+	if muted:
+		for voice in _loop_players:
+			voice.volume_db = -80.0
+		for voice in [recorded_texture, intake, turbo, electric_drive,
+				gear_whine, driveline, wind, road, tires, scrub]:
+			voice.volume_db = -80.0
+		for voice in generic_recorded_engine.voices:
+			voice.volume_db = -80.0
 	var delta := clampf(dt,0.0,0.1)
 	_clock += delta
 	_shift_dip_time = maxf(0.0,_shift_dip_time-delta)
@@ -416,50 +471,52 @@ func _process(dt: float) -> void:
 		# and requested acceleration, never with a gasoline firing pulse.
 		engine_load = (0.0 if road_speed < 0.8 and throttle < 0.04 else \
 			0.14+0.27*throttle+0.18*smoothstep(1.0,40.0,road_speed))
-	var power_mix := clampf(0.16+throttle*0.84,0.0,1.0)
-	if revs < 0.11 and vehicle.linear_velocity.length() < 2.0:
-		power_mix = maxf(power_mix,0.30)
-	var weight := PackedFloat32Array([
-		1.0-smoothstep(0.06,0.27,revs),
-		smoothstep(0.05,0.24,revs)*(1.0-smoothstep(0.40,0.60,revs)),
-		smoothstep(0.35,0.54,revs)*(1.0-smoothstep(0.74,0.88,revs)),
-		smoothstep(0.68,0.87,revs)
-	])
+	var normalized_boost := boost / maxf(cfg.boost_max_psi, 0.1) if cfg.boost_max_psi > 0.05 else 0.0
+	var load_gains: Vector2 = RpmMix.load_weights(throttle, normalized_boost, revs)
+	var weight: PackedFloat32Array = RpmMix.rpm_weights(rpm, Synth.REFERENCE_RPM)
 	var smoothing := 1.0-exp(-11.0*delta)
 	var idle_pulse := 1.0
 	if revs <= 0.13 and throttle < 0.2:
 		idle_pulse += cfg.audio_lope*0.085*sin(_clock*9.1)
 	for i in 4:
 		var reference_rpm := float(Synth.REFERENCE_RPM[i])
-		var target_pitch := clampf(rpm/reference_rpm,0.48,1.75)* \
+		var target_pitch := clampf(rpm/reference_rpm,0.70,1.35)* \
 			(1.0+cfg.audio_lope*0.002*sin(_clock*6.1))
 		for side in 2:
 			var player: AudioStreamPlayer = _loop_players[i+side*4]
 			player.pitch_scale = lerpf(player.pitch_scale,target_pitch,
 				1.0-exp(-16.0*delta))
-			var mix := power_mix if side == 0 else (1.0-power_mix)
+			var mix := load_gains.x if side == 0 else load_gains.y
 			var gain := float(weight[i])*engine_load*mix*idle_pulse
-			var base_db := -38.0 if _induction == "electric" else -25.5
+			var base_db := -40.0 if _induction == "electric" else \
+			(-32.0 if recorded_texture.stream != null else -27.0)
 			var db := base_db+_profile_aggression*3.3+revs*2.8+ \
 				linear_to_db(maxf(gain,0.0001))
 			player.volume_db = lerpf(player.volume_db,
-				-80.0 if muted else maxf(-80.0,db),smoothing)
-	var intake_volume := -54.0+throttle*17.0+revs*10.0+ \
-		cfg.audio_intake_presence*5.0
-	intake.pitch_scale = 0.76+revs*1.15
+				-80.0 if muted else maxf(-80.0,db),1.0 if muted else smoothing)
+	# REDLINE-inspired engine-bus low pass follows throttle/load instead
+	# of exposing fixed-pitch high harmonics during relaxed cruising.
+	if is_instance_valid(_engine_filter):
+		var cutoff := 1900.0 + throttle * 1900.0 + revs * 1300.0 + normalized_boost * 650.0
+		_engine_filter.cutoff_hz = clampf(cutoff, 1400.0, 6000.0)
+	var intake_volume := -59.0+throttle*11.0+revs*5.0+ \
+		cfg.audio_intake_presence*3.0
+	intake.pitch_scale = 0.72+revs*0.48
 	intake.volume_db = lerpf(intake.volume_db,
 		-80.0 if muted or _induction == "electric" else intake_volume,
 		1.0-exp(-9.0*delta))
 	var turbo_db := -80.0
 	if _induction == "turbo" and cfg.boost_max_psi > 0.05:
 		var pressure := clampf(boost/cfg.boost_max_psi,0.0,1.0)
-		turbo_db = -63.0+pressure*23.0+throttle*6.0+revs*6.0+ \
-			cfg.audio_turbo_presence*4.0
-		turbo.pitch_scale = 0.95+revs*1.7+pressure*1.2
+		# Spool should become distinctly audible under real boost without
+		# increasing the zero-pressure floor (M3 12 PSI regression).
+		turbo_db = -68.0+pressure*24.0+throttle*4.0+revs*3.0+ \
+			cfg.audio_turbo_presence*3.0
+		turbo.pitch_scale = 0.80+revs*0.48+pressure*0.32
 	elif _induction == "supercharger":
-		turbo_db = -54.0+revs*15.0+throttle*10.0+ \
-			cfg.audio_turbo_presence*2.5
-		turbo.pitch_scale = 0.92+revs*2.0
+		turbo_db = -61.0+revs*9.0+throttle*6.0+ \
+			cfg.audio_turbo_presence*2.0
+		turbo.pitch_scale = 0.85+revs*0.65
 	turbo.volume_db = lerpf(turbo.volume_db,
 		-80.0 if muted else turbo_db,1.0-exp(-13.0*delta))
 	var speed := vehicle.linear_velocity.length()
@@ -476,16 +533,16 @@ func _process(dt: float) -> void:
 		throttle*0.18,0.66,2.5)
 	electric_drive.volume_db = lerpf(electric_drive.volume_db,
 		-80.0 if muted else motor_db,1.0-exp(-9.0*delta))
-	gear_whine.pitch_scale = clampf(0.65+speed/34.0,0.65,2.4)
+	gear_whine.pitch_scale = clampf(0.72+speed/95.0,0.72,1.5)
 	gear_whine.volume_db = lerpf(gear_whine.volume_db,
 		-80.0 if muted or speed < 4.0 else \
-			-59.0+smoothstep(4.0,45.0,speed)*13.0+ \
-			cfg.audio_driveline_presence*7.0,1.0-exp(-9.0*delta))
-	driveline.pitch_scale = clampf(0.7+speed/37.0,0.7,2.4)
+			-65.0+smoothstep(4.0,45.0,speed)*10.0+ \
+			cfg.audio_driveline_presence*4.0,1.0-exp(-9.0*delta))
+	driveline.pitch_scale = clampf(0.74+speed/95.0,0.74,1.5)
 	driveline.volume_db = lerpf(driveline.volume_db,
 		-80.0 if muted or speed < 5.0 else \
-			-59.0+smoothstep(5.0,60.0,speed)*14.0+ \
-			cfg.audio_driveline_presence*4.0,1.0-exp(-7.0*delta))
+			-64.0+smoothstep(5.0,60.0,speed)*11.0+ \
+			cfg.audio_driveline_presence*3.0,1.0-exp(-7.0*delta))
 	# Full-vehicle airflow and road-contact beds keep coasting audible
 	# independently of engine load, especially during long highway drives.
 	wind.pitch_scale = clampf(0.73+speed/62.0,0.73,2.2)
@@ -505,14 +562,18 @@ func _process(dt: float) -> void:
 	# Pitch follows its real RPM, but a single recording is NOT treated as a
 	# multi-RPM OEM pack. Its restrained level preserves tonal identity.
 	if recorded_texture.stream != null:
-		var texture_pitch := clampf(0.71+revs*0.92,0.7,1.7)
+		var texture_pitch := clampf(0.80+revs*0.60,0.80,1.40)
 		recorded_texture.pitch_scale = lerpf(recorded_texture.pitch_scale,
 			texture_pitch,1.0-exp(-8.0*delta))
-		var recorded_db := -40.0+throttle*8.0+revs*2.5+ \
-			cfg.audio_aggression*1.5+ \
+		var recorded_db := -30.0+throttle*6.0+revs*1.5+ \
+			cfg.audio_aggression*1.0+ \
 			linear_to_db(maxf(combustion_gain,0.001))
 		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
-			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
+			-80.0 if muted else recorded_db,1.0 if muted else 1.0-exp(-9.0*delta))
+	# Recorded six-band generic CC0 bed for combustion engines lacking their
+	# own recordings. Family-specific samples remain the preferred source.
+	if is_instance_valid(generic_recorded_engine):
+		generic_recorded_engine.update_mix(rpm,throttle,normalized_boost,muted,delta)
 	# Surface-reactive tyres remain quiet unless actual loss of grip occurs.
 	var speed_gate := smoothstep(2.0,12.0,speed)
 	var slip_sound := smoothstep(deg_to_rad(5.0),

@@ -132,14 +132,34 @@ static func _wheel_uv(entry: Dictionary, key: String, fallback: Vector2) -> Vect
 	return uv
 
 
+
+static func _temporary_unverified_body() -> Texture2D:
+	# Several catalog entries reference art that was never committed. Draw a
+	# neutral, clearly provisional top-down shape rather than loading an
+	# unavailable path or silently displaying another manufacturer's vehicle.
+	var image := Image.create(64, 128, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	image.fill_rect(Rect2i(14, 6, 36, 116), Color(0.29, 0.33, 0.39, 1.0))
+	image.fill_rect(Rect2i(18, 27, 28, 25), Color(0.13, 0.20, 0.28, 1.0))
+	image.fill_rect(Rect2i(18, 77, 28, 19), Color(0.13, 0.20, 0.28, 1.0))
+	image.fill_rect(Rect2i(15, 9, 34, 5), Color(0.53, 0.57, 0.61, 1.0))
+	image.fill_rect(Rect2i(15, 115, 34, 5), Color(0.43, 0.09, 0.08, 1.0))
+	return ImageTexture.create_from_image(image)
+
+
 static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	if entry.is_empty() or not is_instance_valid(player):
 		return false
 	var path := str(entry.get("texture", ""))
-	var texture: Texture2D = load(path) as Texture2D
+	# Avoid calling load() on a non-existent asset: on Godot 4.6 it logs a
+	# resource ERROR even if the caller handles null, breaking render CI.
+	var texture: Texture2D = null
+	if not path.is_empty() and FileAccess.file_exists(path) and \
+			ResourceLoader.exists(path, "Texture2D"):
+		texture = load(path) as Texture2D
 	if texture == null:
-		push_warning("Missing player vehicle artwork: " + path)
-		return false
+		push_warning("Using provisional silhouette for missing artwork: " + path)
+		texture = _temporary_unverified_body()
 	var image: Image = texture.get_image()
 	var rect := alpha_bounds(image)
 	if rect.size.x < 4 or rect.size.y < 4:
