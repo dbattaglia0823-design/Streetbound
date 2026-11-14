@@ -7,15 +7,9 @@ STREETBOUND — VEHICLE LIST (BY MANUFACTURER)
 
 Acura-
   Integra
-  TL
-  TLX
-  TSX
-  ILX
-  RLX
+  Integra TypeS
   NSX
-  MDX
-  RDX
-  ZDX
+  TLX
 
 Alfa Romeo-
   Giulia
