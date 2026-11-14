@@ -210,7 +210,7 @@ def _entries_for(path, root):
         sub_collision = sprite.get("collision", collision)
         if sub_collision not in ("solid", "none"):
             raise ValueError("Unsupported sprite collision")
-        result.append(dict(**common, id=asset_id(relative, key),
+        result.append(dict(common, id=asset_id(relative, key),
                            name=str(sprite.get("name") or f"{name} {index + 1}")[:80],
                            type=sub_kind, collision=sub_collision,
                            sprite=key, region=rect, width=rect[2], height=rect[3],
