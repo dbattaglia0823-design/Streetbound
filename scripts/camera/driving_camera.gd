@@ -96,8 +96,11 @@ static func target_zoom_for(speed: float, player_magnification: float,
 		collision_impact: float = 0.0) -> float:
 	var user_factor := clampf(player_magnification,
 		PLAYER_ZOOM_MIN, PLAYER_ZOOM_MAX)
-	var speed_mix := smoothstep(5.0, 57.0, speed)
-	var base := lerpf(1.06, 0.64,
+	# Speed should add a little road awareness without pulling far away
+	# from the car. Previously this fell from 1.06 to 0.64 (a 40%
+	# reduction), overpowering the player's manually chosen camera zoom.
+	var speed_mix := smoothstep(8.0, 65.0, speed)
+	var base := lerpf(1.06, 0.88,
 		speed_mix * speed_zoom_weight(user_factor))
 	var effects := 1.0 - acceleration_surge * 0.012 + collision_impact * 0.022
 	return clampf(base * world_magnification * user_factor * effects,

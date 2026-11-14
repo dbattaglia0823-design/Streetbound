@@ -107,6 +107,17 @@ func run() -> void:
 	check("at_default_settings_camera_still_widens_with_speed",
 		camera.target_zoom_for(45.0, 1.0, 1.20) <
 		camera.target_zoom_for(0.0, 1.0, 1.20), camera.zoom)
+	check("high_speed_camera_stays_close_to_player",
+		camera.target_zoom_for(75.0, 1.0, 1.20) >= 1.05 and
+		camera.target_zoom_for(75.0, 1.0, 1.20) <
+		camera.target_zoom_for(0.0, 1.0, 1.20),
+		camera.target_zoom_for(75.0, 1.0, 1.20))
+	check("manual_zoom_still_changes_fast_driving_camera",
+		camera.target_zoom_for(75.0, 1.20, 1.20) >
+		camera.target_zoom_for(75.0, 0.80, 1.20),
+		[camera.target_zoom_for(75.0, 1.20, 1.20),
+			camera.target_zoom_for(75.0, 0.80, 1.20)])
+
 	# Smooth input response should never jump directly to the new target.
 	camera.player_zoom_multiplier = 1.0
 	camera._smoothed_player_zoom = 1.0
