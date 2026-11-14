@@ -154,7 +154,8 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	# Avoid calling load() on a non-existent asset: on Godot 4.6 it logs a
 	# resource ERROR even if the caller handles null, breaking render CI.
 	var texture: Texture2D = null
-	if not path.is_empty() and ResourceLoader.exists(path, "Texture2D"):
+	if not path.is_empty() and FileAccess.file_exists(path) and \
+			ResourceLoader.exists(path, "Texture2D"):
 		texture = load(path) as Texture2D
 	if texture == null:
 		push_warning("Using provisional silhouette for missing artwork: " + path)
