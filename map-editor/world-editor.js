@@ -749,7 +749,7 @@ function assetCandidates(){
     }
   }
   for(const item of projectAssets())assets.push({type:item.type,assetId:item.id,
-    label:item.name,group:item.type==='industrial_prop'?'industrial':item.type==='road_prop'?'infrastructure':item.type==='ground_decal'?'landscaping':'buildings',project:true});
+    label:(item.category&&item.category!=='Buildings'?item.category+' / ':'')+item.name,group:item.type==='industrial_prop'?'industrial':item.type==='road_prop'?'roads':item.type==='ground_decal'?'landscaping':'buildings',project:true});
   return assets;
 }
 function drawAssetThumbnail(canvas,item){
@@ -1686,7 +1686,7 @@ $('import-sprite').addEventListener('change',async event=>{
 const resize=new ResizeObserver(requestRender);resize.observe(viewport);
 $('busy-dialog').addEventListener('cancel',event=>event.preventDefault());
 $('refresh-project-assets').addEventListener('click',()=>refreshProjectAssets()
-  .then(()=>status(projectAssets().length+' project building assets found.')).catch(errorMessage));
+  .then(()=>status(projectAssets().length+' project map assets found.')).catch(errorMessage));
 setInterval(()=>{if(liveSession&&!busyDepth)refreshProjectAssets().catch(()=>{});},3000);
 window.addEventListener('resize',requestRender);
 let recoveredSession=null;
