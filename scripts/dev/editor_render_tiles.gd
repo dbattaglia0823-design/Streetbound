@@ -39,7 +39,9 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 	ready_to_show=false
 	visible = detailed
 	if not detailed:
-		pending.clear();wanted.clear();set_process(false)
+		# Dispose previously created detail chunks when switching to full-map LOD.
+		# Otherwise stale tiles survive under the overview and the map-fit test fails.
+		_clear()
 		visible=false
 		return false
 	var requested: Dictionary = {}
