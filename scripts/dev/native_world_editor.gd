@@ -7,6 +7,7 @@ const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
+const Art = preload("res://scripts/world/coast_art.gd")
 const Roads = preload("res://scripts/world/coast_roads.gd")
 const TrafficPreview=preload("res://scripts/dev/native_traffic_preview.gd")
 const Overview=preload("res://scripts/dev/editor_world_overview.gd")
@@ -1971,7 +1972,7 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 		var asset := str(prop.get("asset_path",prop.get("asset_id","builtin")))
 		if prop.has("asset_path"):
 			selected_preview.texture = Art.project_sprite(str(prop.asset_path),prop.get("asset_region",[]))
-				selected_preview.visible = selected_preview.texture != null
+			selected_preview.visible = selected_preview.texture != null
 		elif prop.has("asset_id"):
 			for item in asset_entries:
 				if not bool(item.get("project",false)) and \
