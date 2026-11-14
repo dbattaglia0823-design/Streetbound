@@ -1,5 +1,11 @@
-"""Discover project building art without a generated manifest or dependencies."""
+"""Validated, recursive project map-art catalog shared by both editors and world baker.
+
+Legacy assets/Buildings paths remain valid. New artwork lives under
+assets/Map Building Assets/<category>/ and may use sidecar *.asset.json metadata
+or *.sheet.json sprite regions. Paths are never accepted outside these roots.
+"""
 import hashlib
+import json
 import re
 import struct
 import xml.etree.ElementTree as ET
@@ -8,6 +14,11 @@ from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTENSIONS = {'.png', '.webp', '.svg'}
+LEGACY = 'Buildings'
+LIBRARY = 'Map Building Assets'
+ALLOWED_KINDS = {'house', 'building', 'warehouse', 'garage', 'gas_station',
+                 'industrial_prop', 'road_prop', 'ground_decal'}
+MAX_SPRITES = 512
 
 
 def asset_id(path):
@@ -15,54 +26,188 @@ def asset_id(path):
 
 
 def building_file(relative, root=ROOT):
-    if not isinstance(relative,str) or '\\' in relative or ':' in relative:
+    """Backward-compatible name used by the authoritative world importer."""
+    if not isinstance(relative, str) or '\\' in relative or ':' in relative:
         raise ValueError('Invalid project artwork path')
-    parts=relative.split('/')
-    if len(parts)<2 or parts[0]!='Buildings' or any(p in ('','..','.') for p in parts):
-        raise ValueError('Project artwork must be inside assets/Buildings')
-    target=(root/'assets'/relative).resolve()
-    if not target.is_relative_to((root/'assets').resolve()) or not target.is_relative_to((root/'assets/Buildings').resolve()) or target.suffix.lower() not in EXTENSIONS:
-        raise ValueError('Unsupported project building artwork')
-    if not target.is_file():
-        raise ValueError('Building artwork is missing: '+relative)
+    parts = relative.split('/')
+    if len(parts) < 2 or parts[0] not in {LEGACY, LIBRARY} or any(
+            p in ('', '..', '.') for p in parts):
+        raise ValueError('Project artwork must be inside an approved asset folder')
+    target = (root / 'assets' / relative).resolve()
+    allowed_root = (root / 'assets' / parts[0]).resolve()
+    if (not target.is_relative_to(allowed_root)
+            or target.suffix.lower() not in EXTENSIONS or not target.is_file()):
+        raise ValueError('Unsupported or missing project artwork: ' + relative)
     return target
 
 
 def dimensions(path):
     with path.open('rb') as stream:
-        data=stream.read(64)
-    if data[:8]==b'\x89PNG\r\n\x1a\n':
-        return struct.unpack('>II',data[16:24])
-    if data[:4]==b'RIFF' and data[8:12]==b'WEBP':
-        if data[12:16]==b'VP8X':
-            return (1+int.from_bytes(data[24:27],'little'),1+int.from_bytes(data[27:30],'little'))
-        if data[12:16]==b'VP8L':
-            bits=int.from_bytes(data[21:25],'little')
-            return ((bits&16383)+1,((bits>>14)&16383)+1)
-        if data[12:16]==b'VP8 ' and data[23:26]==b'\x9d\x01\x2a':
-            return (int.from_bytes(data[26:28],'little')&16383,int.from_bytes(data[28:30],'little')&16383)
-    if path.suffix.lower()=='.svg':
-        element=ET.parse(path).getroot()
-        box=element.get('viewBox','').replace(',',' ').split()
-        if len(box)==4:return float(box[2]),float(box[3])
-        return float(element.get('width','0').removesuffix('px')),float(element.get('height','0').removesuffix('px'))
-    raise ValueError('Unreadable building image')
+        data = stream.read(64)
+    if data[:8] == b'\x89PNG\r\n\x1a\n':
+        return struct.unpack('>II', data[16:24])
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+        if data[12:16] == b'VP8X':
+            return (1 + int.from_bytes(data[24:27], 'little'),
+                    1 + int.from_bytes(data[27:30], 'little'))
+        if data[12:16] == b'VP8L':
+            bits = int.from_bytes(data[21:25], 'little')
+            return ((bits & 16383) + 1, ((bits >> 14) & 16383) + 1)
+        if data[12:16] == b'VP8 ' and data[23:26] == b'\x9d\x01\x2a':
+            return (int.from_bytes(data[26:28], 'little') & 16383,
+                    int.from_bytes(data[28:30], 'little') & 16383)
+    if path.suffix.lower() == '.svg':
+        element = ET.parse(path).getroot()
+        box = element.get('viewBox', '').replace(',', ' ').split()
+        if len(box) == 4:
+            return float(box[2]), float(box[3])
+        return (float(element.get('width', '0').removesuffix('px')),
+                float(element.get('height', '0').removesuffix('px')))
+    raise ValueError('Unreadable asset image')
+
+
+def _read_meta(path):
+    if not path.is_file():
+        return {}
+    if path.stat().st_size > 100_000:
+        raise ValueError('Asset metadata exceeds 100 KB')
+    data = json.loads(path.read_text(encoding='utf-8'))
+    if not isinstance(data, dict):
+        raise ValueError('Asset metadata must be a JSON object')
+    return data
+
+
+def _default_type(relative):
+    folders = relative.lower().replace('\\', '/')
+    filename = Path(relative).stem.lower()
+    if 'ground decal' in folders or 'decal' in folders:
+        return 'ground_decal'
+    if any(word in folders for word in ('road', 'infrastructure', 'traffic', 'barrier')):
+        return 'road_prop'
+    if any(word in folders for word in ('industrial', 'construction', 'pallet',
+                                        'dumpster', 'cargo', 'container')):
+        return 'industrial_prop'
+    if 'house' in filename and 'warehouse' not in filename:
+        return 'house'
+    if 'warehouse' in filename:
+        return 'warehouse'
+    if 'garage' in filename:
+        return 'garage'
+    if 'gas station' in filename:
+        return 'gas_station'
+    if relative.startswith(LEGACY + '/') or 'building' in folders:
+        return 'building'
+    return 'industrial_prop'
+
+
+def _size(meta):
+    raw = meta.get('worldSize')
+    if raw is None:
+        return None
+    if (not isinstance(raw, list) or len(raw) != 2 or
+            any(type(v) not in (int, float) or not 0 < v <= 100 for v in raw)):
+        raise ValueError('worldSize must contain two positive metre dimensions')
+    return [float(v) for v in raw]
+
+
+def _entry(relative, width, height, mtime, meta, label=None, region=None):
+    kind = meta.get('type', _default_type(relative))
+    if kind not in ALLOWED_KINDS:
+        raise ValueError('Unsupported asset type')
+    collision = meta.get('collision', 'none' if kind == 'ground_decal' else 'solid')
+    if collision not in ('solid', 'none'):
+        raise ValueError('Asset collision must be solid or none')
+    name = label or meta.get('name') or Path(relative).stem
+    if not isinstance(name, str) or not name.strip() or len(name) > 100:
+        raise ValueError('Invalid asset name')
+    name = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name).replace('_', ' ').replace('-', ' ')
+    source_id = relative + ('#' + name if region else '')
+    result = dict(id=asset_id(source_id), path=relative, name=name, type=kind,
+                  category=relative.split('/')[1] if relative.startswith(LIBRARY + '/') else 'Buildings',
+                  width=width, height=height, collision=collision,
+                  src='/game-assets/' + quote(relative, safe='/') + '?v=' + str(mtime))
+    size = _size(meta)
+    if size:
+        result['worldSize'] = size
+    if region:
+        result['region'] = region
+    return result
+
+
+def _regions(meta, image_width, image_height):
+    sprites = meta.get('sprites', [])
+    if not isinstance(sprites, list) or len(sprites) > MAX_SPRITES:
+        raise ValueError('Invalid sprite-sheet manifest')
+    grid = meta.get('grid')
+    if grid is not None:
+        if not isinstance(grid, dict):
+            raise ValueError('grid must be an object')
+        cell_w, cell_h = grid.get('width'), grid.get('height')
+        if (not isinstance(cell_w, int) or not isinstance(cell_h, int)
+                or cell_w < 1 or cell_h < 1):
+            raise ValueError('Invalid grid cell dimensions')
+        cols = image_width // cell_w
+        rows = image_height // cell_h
+        if cols * rows > MAX_SPRITES:
+            raise ValueError('Too many grid sprites')
+        sprites += [dict(name=f'Sprite {y * cols + x + 1}',
+                         region=[x * cell_w, y * cell_h, cell_w, cell_h])
+                    for y in range(rows) for x in range(cols)]
+    seen = set()
+    for item in sprites:
+        if not isinstance(item, dict):
+            raise ValueError('Invalid sprite sheet entry')
+        region = item.get('region')
+        name = item.get('name')
+        if (not isinstance(name, str) or not name.strip() or name in seen
+                or not isinstance(region, list) or len(region) != 4
+                or any(type(v) is not int for v in region)):
+            raise ValueError('Invalid or duplicate sprite sheet item')
+        x, y, w, h = region
+        if x < 0 or y < 0 or w < 1 or h < 1 or x+w > image_width or y+h > image_height:
+            raise ValueError('Sprite region exceeds source image')
+        seen.add(name)
+        yield item, region
 
 
 def catalog(root=ROOT):
-    result=[]
-    folder=root/'assets/Buildings'
-    for path in sorted(folder.rglob('*'),key=lambda p:p.as_posix().casefold()):
-        if path.suffix.lower() not in EXTENSIONS or not path.is_file():continue
-        relative=path.relative_to(root/'assets').as_posix()
-        try:
-            building_file(relative,root)
-            width,height=dimensions(path)
-            if not (0<width<=16384 and 0<height<=16384):continue
-        except (ValueError,OSError,ET.ParseError,struct.error):continue
-        name=re.sub(r'(?<=[a-z])(?=[A-Z])',' ',path.stem).replace('_',' ').replace('-',' ')
-        lower=name.lower()
-        kind='house' if 'house' in lower and 'warehouse' not in lower else 'warehouse' if 'warehouse' in lower else 'garage' if 'garage' in lower else 'building'
-        result.append(dict(id=asset_id(relative),path=relative,name=name,type=kind,
-            width=width,height=height,src='/game-assets/'+quote(relative)+'?v='+str(path.stat().st_mtime_ns)))
+    result = []
+    for base in (LEGACY, LIBRARY):
+        folder = root / 'assets' / base
+        if not folder.exists():
+            continue
+        for path in sorted(folder.rglob('*'), key=lambda p: p.as_posix().casefold()):
+            if path.suffix.lower() not in EXTENSIONS or not path.is_file():
+                continue
+            relative = path.relative_to(root / 'assets').as_posix()
+            try:
+                building_file(relative, root)
+                width, height = dimensions(path)
+                if not (0 < width <= 16384 and 0 < height <= 16384):
+                    continue
+                meta = _read_meta(path.with_suffix('.asset.json'))
+                sheet = path.with_suffix('.sheet.json')
+                if sheet.is_file():
+                    config = _read_meta(sheet)
+                    for sprite, region in _regions(config, width, height):
+                        merged = {**meta, **{k: v for k, v in sprite.items()
+                                            if k not in {'name', 'region'}}}
+                        result.append(_entry(relative, region[2], region[3],
+                                             path.stat().st_mtime_ns, merged,
+                                             label=sprite['name'], region=region))
+                else:
+                    result.append(_entry(relative, width, height,
+                                         path.stat().st_mtime_ns, meta))
+            except (ValueError, OSError, ET.ParseError, struct.error,
+                    json.JSONDecodeError):
+                continue
     return result
+
+
+def resolve_asset(relative, identifier, root=ROOT):
+    """Validate a saved ID against actual source artwork and sprite region."""
+    building_file(relative, root)
+    for entry in catalog(root):
+        if entry['path'] == relative and entry['id'] == identifier:
+            return entry
+    raise ValueError('Unknown or moved project asset: ' + relative)
