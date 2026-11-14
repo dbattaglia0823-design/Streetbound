@@ -3,6 +3,7 @@ extends Node2D
 ## Each storefront uses the corresponding artwork in assets/Buildings/Dealerships.
 ## The local -Y direction points toward the nearest existing road.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const Art = preload("res://scripts/world/coast_art.gd")
 const PPM := 20.0
 const BUILDING_M := Vector2(26.0, 18.0)
 var site: Dictionary = {}
@@ -22,7 +23,12 @@ func _ready() -> void:
 
 
 func _build_shop() -> void:
-	var texture := load(str(site.texture)) as Texture2D
+	var source_path := str(site.texture)
+	var texture: Texture2D = null
+	if ResourceLoader.exists(source_path):
+		texture = load(source_path) as Texture2D
+	if texture == null and source_path.begins_with("res://assets/Buildings/"):
+		texture = Art.project_sprite(source_path.trim_prefix("res://assets/"))
 	if texture == null:
 		push_warning("Dealership image missing: " + str(site.texture))
 		return
