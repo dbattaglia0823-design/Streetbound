@@ -6,3 +6,7 @@ capture_tuning.png
 capture*.png.import
 .runtime/
 *.log
+
+# Rebuildable Python caches (do not commit interpreter-specific bytecode)
+__pycache__/
+*.py[cod]
