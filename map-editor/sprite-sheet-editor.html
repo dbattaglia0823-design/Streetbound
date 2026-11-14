@@ -71,8 +71,19 @@ function refresh(){
     const card=document.createElement('div');card.className='sprite'+(selected===i?' selected':'');
     const top=document.createElement('div');top.className='fields';
     const name=document.createElement('input');name.type='text';name.maxLength=80;name.value=item.name;name.setAttribute('aria-label','Sprite name');
-    name.addEventListener('input',()=>{item.name=name.value;item.key=slug(item.name)+'-'+(i+1);});
+    name.addEventListener('input',()=>{item.name=name.value;});
     top.append(name);
+    const keyInput=document.createElement('input');keyInput.type='text';keyInput.maxLength=50;
+    keyInput.value=item.key;keyInput.setAttribute('aria-label','Stable sprite key');
+    keyInput.title='Stable ID. Changing this key invalidates previously placed map references.';
+    keyInput.addEventListener('change',()=>{
+      if(!/^[a-zA-Z0-9_-]{1,50}$/.test(keyInput.value)||
+         items.some((other,j)=>j!==i&&other.key===keyInput.value)){
+        keyInput.value=item.key;warn('Sprite keys must be unique and contain only letters, numbers, hyphens or underscores.');return;
+      }
+      item.key=keyInput.value;
+    });
+    top.append(keyInput);
     const rect=document.createElement('small');rect.textContent='Region: '+item.rect.join(', ');
     top.append(rect);
     const remove=document.createElement('button');remove.textContent='Remove';
@@ -102,7 +113,9 @@ function refresh(){
   });
   warn(items.length+' sprite regions · '+(image?image.width+'×'+image.height+' image':'select image'));
 }
-function add(rect,name){if(!validRect(rect))return false;const number=items.length+1;items.push({name:name||'Sprite '+number,key:'sprite-'+number,rect,type:'auto',collision:'auto'});return true;}
+function add(rect,name){if(!validRect(rect))return false;let number=1;
+  while(items.some(item=>item.key==='sprite-'+number))number++;
+  items.push({name:name||'Sprite '+number,key:'sprite-'+number,rect,type:'auto',collision:'auto'});return true;}
 function pos(event){const rect=canvas.getBoundingClientRect();return [Math.max(0,Math.min(image.width,Math.round((event.clientX-rect.left)*image.width/rect.width))),Math.max(0,Math.min(image.height,Math.round((event.clientY-rect.top)*image.height/rect.height)))];}
 canvas.addEventListener('pointerdown',event=>{if(!image)return;const [x,y]=pos(event);drag={start:[x,y],rect:[x,y,1,1]};canvas.setPointerCapture(event.pointerId);draw()});
 canvas.addEventListener('pointermove',event=>{if(!drag)return;const [x,y]=pos(event),[sx,sy]=drag.start;drag.rect=[Math.min(x,sx),Math.min(y,sy),Math.abs(x-sx),Math.abs(y-sy)];draw()});
@@ -184,7 +197,9 @@ $('export').addEventListener('click',()=>{
     if(item.collision!=='auto')sprite.collision=item.collision;
     return sprite;
   });
-  if(new Set(sprites.map(x=>x.key)).size!==sprites.length)return warn('Sprite keys must be unique.');
+  if(new Set(sprites.map(x=>x.key)).size!==sprites.length||
+     sprites.some(x=>!/^[a-zA-Z0-9_-]{1,50}$/.test(x.key)))
+       return warn('Sprite keys must be unique and use letters, digits, hyphens or underscores.');
   const blob=new Blob([JSON.stringify({sprites},null,2)+'\n'],{type:'application/json'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=imageName.replace(/\.(png|webp)$/i,'')+'.sprites.json';a.click();
