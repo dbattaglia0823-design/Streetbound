@@ -508,7 +508,9 @@ func _process(dt: float) -> void:
 	var turbo_db := -80.0
 	if _induction == "turbo" and cfg.boost_max_psi > 0.05:
 		var pressure := clampf(boost/cfg.boost_max_psi,0.0,1.0)
-		turbo_db = -68.0+pressure*19.0+throttle*4.0+revs*3.0+ \
+		# Spool should become distinctly audible under real boost without
+		# increasing the zero-pressure floor (M3 12 PSI regression).
+		turbo_db = -68.0+pressure*24.0+throttle*4.0+revs*3.0+ \
 			cfg.audio_turbo_presence*3.0
 		turbo.pitch_scale = 0.80+revs*0.48+pressure*0.32
 	elif _induction == "supercharger":
