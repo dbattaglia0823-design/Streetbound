@@ -9,6 +9,7 @@ signal main_menu_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
+const Controls = preload("res://scripts/input/controls.gd")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
 var vehicle_audio
