@@ -408,6 +408,16 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(vehicle) or vehicle.config == null:
 		return
 	_configure_engine()
+	# Mute is a hard audio boundary, not a multi-frame fade. A quiet
+	# exponential tail is still audible and can leak across car changes.
+	if muted:
+		for voice in _loop_players:
+			voice.volume_db = -80.0
+		for voice in [recorded_texture, intake, turbo, electric_drive,
+				gear_whine, driveline, wind, road, tire, loose_tire]:
+			voice.volume_db = -80.0
+		for voice in generic_recorded_engine.voices:
+			voice.volume_db = -80.0
 	var delta := clampf(dt,0.0,0.1)
 	_clock += delta
 	_shift_dip_time = maxf(0.0,_shift_dip_time-delta)
@@ -483,7 +493,7 @@ func _process(dt: float) -> void:
 			var db := base_db+_profile_aggression*3.3+revs*2.8+ \
 				linear_to_db(maxf(gain,0.0001))
 			player.volume_db = lerpf(player.volume_db,
-				-80.0 if muted else maxf(-80.0,db),smoothing)
+				-80.0 if muted else maxf(-80.0,db),1.0 if muted else smoothing)
 	# REDLINE-inspired engine-bus low pass follows throttle/load instead
 	# of exposing fixed-pitch high harmonics during relaxed cruising.
 	if is_instance_valid(_engine_filter):
@@ -557,7 +567,7 @@ func _process(dt: float) -> void:
 			cfg.audio_aggression*1.0+ \
 			linear_to_db(maxf(combustion_gain,0.001))
 		recorded_texture.volume_db = lerpf(recorded_texture.volume_db,
-			-80.0 if muted else recorded_db,1.0-exp(-9.0*delta))
+			-80.0 if muted else recorded_db,1.0 if muted else 1.0-exp(-9.0*delta))
 	# Recorded six-band generic CC0 bed for combustion engines lacking their
 	# own recordings. Family-specific samples remain the preferred source.
 	if is_instance_valid(generic_recorded_engine):
