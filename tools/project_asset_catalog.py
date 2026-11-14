@@ -48,8 +48,12 @@ def building_file(relative, root=ROOT):
         raise ValueError("Project artwork must be inside a map asset folder")
     target = (root / "assets" / relative).resolve()
     parent = (root / "assets").resolve()
-    if (not target.is_relative_to(parent) or
-            target.suffix.lower() not in EXTENSIONS or not target.is_file()):
+    if (not target.is_relative_to(parent) or target.suffix.lower() not in EXTENSIONS):
+        raise ValueError("Missing or unsupported project artwork: " + relative)
+    if not target.is_file() and relative.startswith("Buildings/"):
+        # Artwork was moved without rewriting existing source overlays.
+        target = (root / "assets/Map Building Assets" / relative).resolve()
+    if not target.is_relative_to(parent) or not target.is_file():
         raise ValueError("Missing or unsupported project artwork: " + relative)
     return target
 
@@ -242,4 +246,9 @@ def validated_asset(relative, identifier, root=ROOT):
     for entry in _entries_for(path, root):
         if entry["id"] == identifier:
             return entry
+        if relative.startswith("Buildings/") and path != (root / "assets" / relative):
+            # Preserve the originally authored legacy ID and relative path.
+            old_id = asset_id(relative, entry.get("sprite"))
+            if old_id == identifier:
+                return dict(entry, id=identifier, path=relative)
     raise ValueError("Unknown or stale map asset reference: " + str(identifier))
