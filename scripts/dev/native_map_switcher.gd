@@ -83,7 +83,7 @@ func save_current(e) -> bool:
 	if not e.authoring._valid_source(e.authoring.doc):e._notice("Map validation failed; saved version was kept.");return false
 	var file:=Library.save(e.authoring.doc,current_file)
 	if file.is_empty():e._notice("Could not save map; your unsaved draft is still open.");return false
-	current_file=file;e.authoring.accepted_remote(e.authoring.doc.duplicate(true));reload_list();e._notice("Saved "+str(e.authoring.doc.name)+".");return true
+	current_file=file;e.authoring.accepted_remote(e.authoring.doc.duplicate(true));save_recovery(e);reload_list();e._notice("Saved "+str(e.authoring.doc.name)+".");return true
 func save_recovery(e) -> void:
 	if current_file.is_empty() or recovery_revision==e.authoring.edit_revision:return
 	recovery_revision=e.authoring.edit_revision

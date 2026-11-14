@@ -94,6 +94,12 @@ jobs:
           grep -q 'CITY AUTHORING: PASS' /tmp/city-authoring.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/city-authoring.log
           python3 -B tests/city_authoring_bake_test.py
+      - name: Verify independent map library and full-map terrain/water authoring
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_library_test.gd 2>&1 | tee /tmp/map-library.log
+          grep -q 'MAP LIBRARY: PASS' /tmp/map-library.log
+          ! grep -E 'SCRIPT ERROR:|^FAIL ' /tmp/map-library.log
       - name: Verify automatic water bridges, collision clearance, streaming and live edits
         run: |
           set -o pipefail

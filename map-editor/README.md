@@ -80,6 +80,16 @@ or rebake is required to see the updated bridges.
 
 **Save to Game / Ctrl+S** starts the local Python backend automatically if
 needed, checks for outside file changes, and runs the production world builder.
+The native header also includes a saved-map dropdown and **New map**. The dialog
+asks for a name, width/height (600–24,000 m), and base terrain. Custom maps are
+saved independently in Godot's `user://streetbound-maps/` folder; Ctrl+S saves
+the selected custom map, and switching away saves its edits. Recovery journals
+keep unsaved custom-map drafts separate from Morrow Coast. New maps have full
+terrain coverage, support terrain polygons right to the edge, and draw land
+over water in authored order. Water uses a cached shoreline distance field for
+shallow/deep coloration, island shorelines, animated ripples and subtle foam.
+Custom maps are currently editor documents; gameplay Test Drive remains tied
+to Morrow Coast and does not replace its archive or player progression.
 The standalone editor reloads the rebuilt world automatically and retains the
 camera position. In the free-roam editor, use **Reload World** after saving.
 Traffic lane guides regenerate in the background when roads move, bend, change

@@ -26,10 +26,14 @@ func run() -> void:
 	check("terrain_can_cover_every_map_edge",not lake.is_empty() and not island.is_empty())
 	check("islands_draw_over_water_in_authored_order",switcher.terrain.get_child_count()==3 and switcher.terrain.get_child(1).material.shader==preload("res://scripts/dev/custom_water.gdshader") and switcher.terrain.get_child(2).material.shader==preload("res://scripts/world/mountain_ground.gdshader"))
 	check("new_terrain_has_no_morrow_relief_texture",switcher.terrain.land_material.get_shader_parameter("relief").get_image().get_pixel(0,0).a==0)
+	var depth_field: Dictionary=switcher.terrain.shore_field(lake_points.map(func(p):return {"x":p.x,"y":p.y}),[])
+	var distance: Image=depth_field.texture.get_image()
+	check("water_depth_is_continuous_and_shallow_near_shore",distance.get_pixel(0,0).r==0 and distance.get_pixel(distance.get_width()/2,distance.get_height()/2).r>distance.get_pixel(4,4).r)
 	check("custom_map_save_is_successful",switcher.save_current(e) and not e.authoring.dirty)
 	check("saved_map_can_be_overwritten_atomically",switcher.save_current(e) and Library.load_map(first).regions.size()==2)
 	switcher.map_name.text="Desert loop";switcher.width.value=800;switcher.height.value=800;switcher.create_map(e)
 	check("multiple_maps_appear_in_dropdown",switcher.selector.item_count==3 and Library.list_maps().size()==2)
+	check("draft_journals_do_not_appear_as_saved_maps",Library.list_maps().all(func(p):return not p.file.contains(".draft")))
 	for i in switcher.selector.item_count:
 		if str(switcher.selector.get_item_metadata(i))==first:switcher.select(e,i);break
 	print("RESTORED MAP ",e.authoring.doc.name," ",e.world.data.size," regions ",e.authoring.doc.regions.size())
