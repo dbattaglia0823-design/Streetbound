@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/world/race_event_definition.gd" id="1"]
+[resource]
+script = ExtResource("1")
+event_id = "coastline-dash"
+title = "Coastline Dash"
+district = "Bellwether Coast"
+start_road = "Waterfront Drive"
+start_fraction = 0.4
+finish_road = "Pacific Scenic Highway"
+finish_piece = 0
+finish_fraction = 0.85

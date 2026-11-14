@@ -70,7 +70,10 @@
         <option value="ocean">Ocean water</option><option value="lake">Lake / river water</option>
         <option value="desert">Desert</option><option value="farmland">Farmland</option>
       </select></div>
-      <div class="field"><label for="elevation">Elevation metadata (m)</label><input type="number" min="0" max="2000" id="elevation" value="0"></div>
+      <button id="mountain-barrier-tool" class="gdt-btn">Draw mountain barrier</button>
+      <label class="check"><input type="checkbox" id="terrain-barrier"> Solid mountain barrier</label>
+      <div class="field"><label for="elevation">Mountain height (m)</label><input type="number" min="0" max="2000" id="elevation" value="80"></div>
+      <p>Solid mountains have rocky peaks and collision. Draw their outline along the edge of the map; keep roads clear.</p>
       <div class="scatter">
         <div class="field"><label for="scatter-count">Scatter density</label><select id="scatter-count"><option value="20">Light · 20</option><option value="60" selected>Medium · 60</option><option value="140">Dense · 140</option><option value="260">Very dense · 260</option></select></div>
         <button id="scatter" class="gdt-btn">Scatter selected region</button>
@@ -281,6 +284,7 @@
       </div>
       <div id="inspect-region" hidden>
         <div class="field"><label for="inspect-biome">Biome</label><select id="inspect-biome"><option value="grass">Grassland</option><option value="forest">Forest</option><option value="mountain">Mountain</option><option value="rock">Rock</option><option value="beach">Beach</option><option value="ocean">Ocean</option><option value="lake">Lake</option><option value="city">City</option><option value="desert">Desert</option><option value="farmland">Farmland</option></select></div>
+        <label class="check"><input type="checkbox" id="inspect-barrier"> Solid mountain barrier</label>
         <div class="field"><label for="inspect-elevation">Height metadata (m)</label><input id="inspect-elevation" type="number" min="0" max="2000"></div>
       </div>
       <div id="inspect-prop" hidden>

@@ -24,6 +24,9 @@ static func terrain_uvs(count: int, kind: String) -> PackedVector2Array:
 	return result
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
+const Bridges=preload("res://scripts/world/coast_bridges.gd")
+const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
+const MountainArt=preload("res://scripts/world/coast_mountain_barriers.gd")
 var world: Node2D
 var cell := Vector2i.ZERO
 var content: Dictionary
@@ -39,6 +42,10 @@ var stream_active := true
 ## True only for the read-only map's duplicate render chunks. Never allocate
 ## physics bodies in a map viewport: the real world already owns collisions.
 var map_render_only := false
+## A single collision-free editor overview reuses this drawing pipeline for
+## the whole archive. Gameplay chunks keep their normal 192m extent.
+var render_extent_m:=Vector2.ZERO
+var show_terrain:=true
 var collider_body: StaticBody2D
 var collision_shape_count := 0
 var setup_complete := false
@@ -82,7 +89,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		var phase := 0.0
 		for segment_index in indices:
 			var segment: Dictionary = world.data.segments[segment_index]
-			if segment_index != previous + 1 and path.size() > 1:
+			if path.size()>1 and (segment_index != previous+1 or path[-1].distance_to(point(segment.a))>.02):
 				road_batches.append({"path": path, "road": world.data.roads[road_id],"phase":phase})
 				path = PackedVector2Array()
 			if path.is_empty():
@@ -105,6 +112,20 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	prop_list.sort_custom(func(a: Dictionary,b: Dictionary): return _prop_order(a)<_prop_order(b))
 	for junction_index in data.get("junctions", []):
 		junction_list.append(world.data.junctions[int(junction_index)])
+	# Draw the raised deck under the existing pavement, and rails above paint.
+	# A real clip rect gives neighboring cells one seamless, non-overdrawn span.
+	for stage in 2:
+		if content.get("bridges",[]).is_empty():break
+		var clip:=Control.new()
+		clip.name="BridgeDeckClip" if stage==0 else "BridgeRailsClip"
+		clip.mouse_filter=Control.MOUSE_FILTER_IGNORE;clip.clip_contents=true
+		clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+		clip.z_index=1 if stage==0 else 5
+		add_child(clip)
+		var bridges:=Node2D.new();bridges.set_script(Bridges)
+		bridges.world=world;bridges.origin_m=origin_m;bridges.render_stage=stage
+		bridges.extent_m=clip.size/PPM;bridges.bridge_indices=content.bridges
+		clip.add_child(bridges)
 	# Global stage ordering prevents neighboring shoulders painting over asphalt.
 	for stage in 4:
 		# Preserve the four-stage paint order only where roads/junctions exist.
@@ -121,12 +142,13 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		add_child(roads)
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.
-	if world.boardwalk_near_cell(cell):
+	if world.boardwalk_near_cell(cell) or render_extent_m!=Vector2.ZERO:
 		var boardwalk := Node2D.new()
 		boardwalk.name = "BeachBoardwalk"
 		boardwalk.set_script(preload("res://scripts/world/coast_boardwalk.gd"))
 		boardwalk.world = world
 		boardwalk.origin_m = origin_m
+		boardwalk.render_extent_m=render_extent_m
 		boardwalk.z_index = 1
 		add_child(boardwalk)
 	for stage in 2:
@@ -183,10 +205,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		details.chunk_size_px = world.chunk_m * PPM
 		details.road_batches = road_batches
 		details.junction_list = junction_list
+		details.bridge_spans=[]
+		for bridge_index in content.get("bridges",[]):details.bridge_spans.append(world.data.bridges[int(bridge_index)])
 		details.z_index = 5
 		add_child(details)
 	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
 	# or submitted to the renderer unless F4 developer mode is explicitly on.
+	if not content.get("mountains",[]).is_empty():
+		var clip:=Control.new();clip.name="MountainArtworkClip"
+		clip.mouse_filter=Control.MOUSE_FILTER_IGNORE;clip.clip_contents=true
+		clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+		clip.z_index=7;add_child(clip)
+		var mountain:=Node2D.new();mountain.set_script(MountainArt)
+		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains;clip.add_child(mountain)
 	var geometry_overlay := Node2D.new()
 	geometry_overlay.name = "GeometryOverlay"
 	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
@@ -199,6 +230,17 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
+
+func redraw_bridges() -> void:
+	for name in ["BridgeDeckClip","BridgeRailsClip"]:
+		var clip:=get_node_or_null(name)
+		if clip!=null:
+			for child in clip.get_children():child.queue_redraw()
+
+func redraw_mountains() -> void:
+	var clip:=get_node_or_null("MountainArtworkClip")
+	if clip!=null:
+		for child in clip.get_children():child.queue_redraw()
 
 ## Called once when a cached chunk enters/exits the active play ring,
 ## never per render frame. Dormant collisions keep their shapes for reuse.
@@ -225,7 +267,7 @@ func _build_collisions() -> void:
 	for prop in prop_list:
 		if bool(prop.solid):
 			solids += 1
-	if solids == 0 and content.get("walls", []).is_empty():
+	if solids == 0 and content.get("walls", []).is_empty() and content.get("mountains",[]).is_empty():
 		return
 	var body := StaticBody2D.new()
 	collider_body = body
@@ -275,6 +317,16 @@ func _build_collisions() -> void:
 		shape.b = b
 		collider.shape = shape
 		body.add_child(collider)
+	var rect:=PackedVector2Array([origin_m,origin_m+Vector2(world.chunk_m,0),origin_m+Vector2.ONE*world.chunk_m,origin_m+Vector2(0,world.chunk_m)])
+	for terrain_index in content.get("mountains",[]):
+		var region: Dictionary=world.data.terrain[int(terrain_index)]
+		for piece in Geometry2D.intersect_polygons(MountainGeometry.polygon(region),rect):
+			if piece.size()<3:continue
+			var collider:=CollisionPolygon2D.new()
+			var local:=PackedVector2Array()
+			for p in piece:local.append((p-origin_m)*PPM)
+			collider.polygon=local;collider.set_meta("editor_terrain_key",MountainGeometry.identity(region,int(terrain_index)))
+			body.add_child(collider);collision_shape_count+=1
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()
@@ -283,15 +335,16 @@ func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	draw_style_box(style, rect)
 
 func _draw() -> void:
-	var extent: float = world.chunk_m*PPM
-	var base := PackedVector2Array([Vector2.ZERO,Vector2(extent,0),Vector2.ONE*extent,Vector2(0,extent)])
+	if not show_terrain:return
+	var extent: Vector2=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+	var base := PackedVector2Array([Vector2.ZERO,Vector2(extent.x,0),extent,Vector2(0,extent.y)])
 	draw_polygon(base,PackedColorArray([Color("a3b789")]),terrain_uvs(4,"grass"),terrain_texture())
 	for terrain in ground_polys:
 		if terrain.points.size()>=3:
 			draw_polygon(terrain.points,PackedColorArray([terrain.color]),terrain.uvs,terrain_texture())
 	# Decorative strokes are cached with the chunk draw list, never spawned as
 	# nodes or moved each frame. Roads are painted in the later stages.
-	_draw_ground_foliage()
+	if render_extent_m==Vector2.ZERO:_draw_ground_foliage()
 
 
 func ground_kind_at(local_point: Vector2) -> String:

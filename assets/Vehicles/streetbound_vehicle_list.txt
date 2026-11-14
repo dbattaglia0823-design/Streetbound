@@ -1,0 +1,372 @@
+Use the attached existing model as a reference for style, quality, and consistency but not color scheme. Do not make the cars have wheels as the game puts the model overtop wheels that turn. No lettering or badges but still make it look exactly like the car. Don't make the empty wheel wells stand out, there should just be no visible tire. Make sure the background is transparent.
+Make these cars:
+
+
+
+STREETBOUND — VEHICLE LIST (BY MANUFACTURER)
+
+Acura-
+  Integra
+  TL
+  TLX
+  TSX
+  ILX
+  RLX
+  NSX
+  MDX
+  RDX
+  ZDX
+
+Alfa Romeo-
+  Giulia
+  Stelvio
+  Tonale
+  MiTo
+  Giulietta
+  Brera
+  GTV
+  4C
+  8C Competizione
+  33 Stradale
+
+Aston Martin-
+  DB9
+  DB11
+  DB12
+  DBS
+  Vantage
+  Vanquish
+  Rapide
+  DBX
+  Valkyrie
+  One-77
+
+Audi-
+  RS3
+  RS4
+  RS5
+  RS6
+  RS6 Avante
+  RS7
+  RSQ8
+  RSQ5
+  R8
+
+Bentley-
+  Continental GT
+  Mulsanne
+  Arnage
+  Bacalar
+  Batur
+
+BMW-
+  M2
+  M3
+  M4
+  M8
+  X3
+  X5
+  Z4
+  i8
+
+Bugatti-
+  Veyron
+  Chiron
+  Divo
+  Centodieci
+  Bolide
+  Mistral
+  Tourbillon
+
+Cadillac-
+  Escalade
+  CT5-V Blackwing
+  CTS
+  Celestiq
+
+Chevrolet-
+  Camaro Z/28
+  Camaro ZL1
+  Corvette C5
+  Corvette C6
+  Corvette C7
+  Corvette C8
+  Corvette ZO6
+  Corvette ZR1
+  Corvette ZR1X
+
+Dodge-
+  Charger Scatpack
+  Charger Hellcat Redeye
+  Challenger Scatpack
+  Challenger Hellcat Redeye
+  Viper
+  Durango
+  Dart
+  Neon
+
+Ferrari-
+  FXX K Evo
+  F40
+  F50
+  Enzo
+  458 Italia
+  488 GTB
+  F8 Tributo
+  Roma
+  296 GTB
+  Purosangue
+
+Ford-
+  Mustang
+  Focus
+  Fiesta
+  Taurus
+  Explorer
+  Bronco
+  F-150
+
+GMC-
+  Sierra
+  Jimmy
+  Hummer EV
+
+Honda-
+  Civic
+  Accord
+  NSX
+  Prelude
+  S2000
+
+Hyundai-
+  Elantra N
+  Veloster N
+  Ioniq 5
+  Ioniq 6
+
+Infiniti-
+  G35
+  Q50
+
+Jaguar-
+  XE
+  F-Type
+  XK
+  C-X75
+
+Jeep-
+  Wrangler
+  Gladiator
+
+Lamborghini-
+  Miura
+  Countach
+  Diablo
+  Murciélago
+  Gallardo
+  Aventador
+  Huracán
+  Revuelto
+  Temerario
+  Urus
+  Veneno
+
+Lexus-
+  IS
+  GX
+  LC
+
+Lotus-
+  Esprit
+  Elise
+  Exige
+  Evora
+  Emira
+  Europa
+  3-Eleven
+
+Mazda-
+  MX-5 Miata
+  RX-7
+  RX-8
+  Murai
+
+McLaren-
+  F1
+  12C
+  570S
+  650S
+  720S
+  750S
+  Artura
+  GT
+  P1
+  Senna
+
+Mercedes-Benz-
+  A-Class
+  C-Class
+  E-Class
+  S-Class
+  CLA
+  GLA
+  GLE
+  G-Class
+  SL
+  AMG GT
+  AMG ONE
+
+Mitsubishi-
+  Lancer Evolution VIII MR
+  Galant
+  Eclipse GSX
+  3000GT
+  Starion
+
+Nissan-
+  Altima SR
+  Maxima
+  Z
+  Z Nismo
+  GT-R
+  GT-R Nismo
+  Frontier
+  Silvia Spec-R
+  Skyline GT-R
+
+Porsche-
+  911
+  718 Cayman
+  Panamera
+  Taycan
+  Macan
+  Cayenne
+  918 Spyder
+  928
+  944
+  356
+
+Rolls-Royce-
+  Silver Shadow
+  Silver Spirit
+  Silver Seraph
+  Corniche
+  Phantom
+  Ghost
+  Wraith
+  Dawn
+  Cullinan
+  Spectre
+
+Subaru-
+  2005 Impreza WRX STI
+  2011 WRX STI
+  2013 BRZ
+  2015 WRX STI
+  Baja
+
+Tesla-
+  Model 3
+  Model S
+  Model X
+  Model Y
+  Roadster
+  Cybertruck
+  Plaid
+
+Toyota-
+  GR Corolla
+  1998 Supra RZ
+  2020 GR Supra
+  GR86
+  RAV4
+  Highlander
+  2019 Tacoma TRD Pro
+  Tundra
+  Land Cruiser
+
+Volkswagen-
+  Golf R
+  1992 Golf GTI 16V MK2
+  Jetta
+  Corrado VR6
+  Arteon
+  Touareg
+  Beetle
+  Phaeton
+  Scirocco R
+
+====================================================
+
+Additional vehicles for future content/development:
+
+2001 Acura Integra Type R
+
+2016 Ariel Nomad
+2013 Ariel Atom 500 V8
+
+2022 Aston Martin Valkyrie AMR PRO
+2016 Aston Martin Vulcan
+1964 Aston Martin DB5
+
+2009 Audi R8 LMS
+2013 Audi R8 Coupe v10 Plus 5.2 FSI Quattro
+1986 Audi Sport Quattro S1
+
+2014 BAC Mono
+
+2010 Ferrari 599XX
+2005 Ferrari FXX
+
+2025 Ford Mustang GTD
+2024 Ford Mustang Dark Horse
+2017 Ford GT
+2000 Ford Mustang SVT Cobra R
+1969 Ford Mustang Boss 302
+1966 Ford #2 GT40 MK II
+
+2021 Hennessey Venom F5
+
+1997 Honda Civic Type R
+
+2022 Hyundai N Vision 74
+
+2024 Koenigsegg Gemera
+2020 Koenigsegg Jesko
+2017 Koenigsegg Agera RS
+2016 Koenigsegg Regera
+2008 Koenigsegg CCGT
+
+2020 Lamborghini Essenza SCV12
+
+2020 Lotus Evija
+
+2022 Maserati MC20
+
+2025 Mclaren W1
+19997 Mclaren F1 GT
+
+1995 Nissan Nismo GT-R LM
+1969 Nissan Fairlady Z 432
+1997 Nissan Skyline GT-R V-Spec
+
+2010 Noble M600
+
+2016 Pagani Huayra BC Coupe
+2010 Zonda Cinque Roadster
+2009 Zonda R
+
+1971 Plymouth Cuda 426 Hemi
+1968 Plymouth Barracuda Formula S
+
+1987 Pontiac Firebird Trans AM GTA
+1977 Pontiac Firebird Trans AM
+
+2023 Porsche 911 GT3 RS
+2021 Porsche 911 GT3
+2019 Porsche #70 Porsche Motorsports 935
+2018 Porsche 911 GT2 RS
+
+1990 Mercedes-Benz E 2.5-16 Evolution II
+
+Zenvo TSR-S

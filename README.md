@@ -23,6 +23,16 @@ Morrow Coast's high-detail source is preserved by default. Edits reach
 the playable game only after the explicit Python/GitHub Actions full rebake.
 See the [Morrow editor and traffic integration guide](docs/MORROW_EDITOR_AND_TRAFFIC.md).
 
+## Races and player waypoints
+
+Seven events now have flags on the atlas and minimap, including Juniper Ascent,
+Coastline Dash, Harvest Run and Parkway Express. Stop in a race's circular start
+area, face the course and press **F**. The new 1v1 street events use practice rules.
+
+Open the atlas with **Tab** or click the minimap. Click a race, place or map
+position to set an amber road-following waypoint; right-click or choose
+**Clear waypoint** to remove it. See the [race and waypoint guide](docs/RACES_AND_WAYPOINTS.md).
+
 ## Archived Atlas Coast world and physics review
 
 The [Atlas Coast editable map](worlds/atlas-coast.world.json), [overview](worlds/atlas-coast-overview.svg), [level-design plan](docs/ATLAS_COAST_PLAN.md) and [reference loader](worlds/world_loader.gd) remain untouched. Normal launch now opens the original **Morrow Coast** region: a streamed 6.4 Ã— 4.8 km world with a starting city, coastal town, countryside, mountain roads and motorsport district. See [the playable-world guide](docs/MORROW_COAST.md) and [new overview](worlds/morrow-coast-overview.svg).

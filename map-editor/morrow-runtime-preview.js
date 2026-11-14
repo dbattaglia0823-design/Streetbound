@@ -158,7 +158,7 @@ export function buildRuntimePreview(raw){
     approaches:j.approaches||[],curbs:j.curbs||[]
   }));
   const sourceTerrain=(raw.terrain||[]).map((t,index)=>({
-    index,kind:String(t.kind),color:String(t.color||''),
+    index,editorId:t.authoring_id||'region-'+index,kind:String(t.kind),color:String(t.color||''),barrier:t.barrier===true,elevation:Number(t.elevation)||0,
     generatedExtension:t.generated_extension===true,
     points:(t.points||[]).map(([x,y])=>({x:+x,y:+y}))
   }));
@@ -295,14 +295,14 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
     riverbank:'#c6d9c9',foam:'#c6d9c9'};
   for(const terrain of preview.sourceTerrain){
     if(terrain.generatedExtension)continue;
-    const edited=byId.get('region-'+terrain.index);
+    const edited=byId.get(terrain.editorId||'region-'+terrain.index);
     if(edited){
       const source=simplified(terrain.points);
       const sameShape=edited.points.length===source.length&&
         edited.points.every((p,i)=>Math.hypot(p.x-source[i].x,p.y-source[i].y)<.025);
       const sourceBiome=terrain.kind==='water'?'lake':
         terrain.kind==='town'?'grass':terrain.kind;
-      if(!sameShape||edited.biome!==sourceBiome){
+      if(!sameShape||edited.biome!==sourceBiome||Boolean(edited.barrier)!==Boolean(terrain.barrier)){
         // Changed geometry replaces only this source region in its original
         // draw order; preserve the baked palette for a moved, same-kind coast.
         drawEdited(edited,terrain);
@@ -325,7 +325,7 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
   // Derived foam/riverbank/highland are not independent editable regions.
   const sourceIds=new Set(preview.sourceTerrain
     .filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind))
-    .map(t=>'region-'+t.index));
+    .map(t=>t.editorId||'region-'+t.index));
   for(const region of doc.regions){
     if(!sourceIds.has(region.id))drawEdited(region);
   }

@@ -5,6 +5,7 @@ extends Node2D
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
+const StartArea=preload("res://scripts/world/race_start_area.gd")
 signal race_finished(result: Dictionary)
 const PPM := 20.0
 const QUARTER_MILE_M := 402.336
@@ -19,6 +20,8 @@ var start_m := Vector2.ZERO
 var direction := Vector2.DOWN
 var available := false
 var state := "idle"
+var race_title:="Ashford Quarter Mile"
+var race_type:="Drag · 1v1"
 var countdown := 0.0
 var elapsed := 0.0
 var progress_m := 0.0
@@ -50,6 +53,7 @@ func _ready() -> void:
 		push_warning("Could not locate the Ashford Drag Strip in the active world")
 		return
 	position = start_m * PPM
+	add_to_group("streetbound_race")
 	rotation = direction.angle()
 	z_index = 5
 	queue_redraw()
@@ -77,11 +81,12 @@ func _local_position() -> Vector2:
 func can_stage() -> bool:
 	if not available or not is_instance_valid(player) or state != "idle":
 		return false
-	var p := _local_position()
 	var forward := Vector2.UP.rotated(player.rotation)
-	return absf(p.x) <= STAGING_DISTANCE_M and p.y <= LANE_HALF_WIDTH_M and \
+	return not StartArea.busy(self) and player.global_position.distance_to(start_m*PPM)<=start_radius_m()*PPM and \
 		player.linear_velocity.length() <= 1.5 and \
 		forward.dot(direction) >= 0.5
+
+func start_radius_m() -> float:return 8.0
 
 
 func start_race() -> bool:
@@ -208,6 +213,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if not available:
 		return
+	StartArea.draw_zone(self,start_radius_m(),Color("efb961"))
 	# Local X is down-strip and local Y is across the road.
 	for x in [0.0, QUARTER_MILE_M * PPM]:
 		var finish: bool = float(x) > 0.0

@@ -20,6 +20,7 @@ const ART: Dictionary = {
 var doc: Dictionary = {}
 var initial: Dictionary = {}
 var baseline_hash := ""
+var draft_baseline_hash := ""
 var history: Array[Dictionary] = []
 var future: Array[Dictionary] = []
 var last_error := ""
@@ -39,6 +40,7 @@ func load_source(path: String = SOURCE) -> bool:
 	doc = parsed.duplicate(true)
 	initial = doc.duplicate(true)
 	baseline_hash = _fingerprint(doc)
+	draft_baseline_hash=baseline_hash
 	history.clear()
 	future.clear()
 	dirty = false
@@ -48,7 +50,9 @@ func load_source(path: String = SOURCE) -> bool:
 
 func _fingerprint(value: Dictionary) -> String:
 	# A stable normalization of JSON within the same native serializer.
-	return JSON.stringify(value).sha256_text()
+	# JSON.parse_string normalizes integer tokens to floats in Godot. Hash the
+	# same normalized representation before/after recovery or HTTP round trips.
+	return JSON.stringify(JSON.parse_string(JSON.stringify(value))).sha256_text()
 
 func matches_remote(remote: Dictionary) -> bool:
 	return _valid_source(remote) and _fingerprint(remote) == baseline_hash
@@ -67,7 +71,7 @@ func _valid_source(value: Dictionary) -> bool:
 	for category in ["roads","regions","props","markers","assets"]:
 		if not value.get(category) is Array:
 			return false
-	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS:
+	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
 	for road in value.roads:
@@ -83,6 +87,20 @@ func _valid_source(value: Dictionary) -> bool:
 			if not p is Dictionary or not _in_bounds(Vector2(
 					float(p.get("x",-1)),float(p.get("y",-1))),value):
 				return false
+		for i in range(1,road.points.size()):
+			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
+		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
+	for category in ["regions","markers"]:
+		for item in value[category]:
+			if not item is Dictionary or not item.has("id") or used.has(str(item.id)):return false
+			used[str(item.id)]=true
+			if category=="regions":
+				if not item.get("points") is Array or item.points.size()<3 or item.points.size()>180:return false
+				for point in item.points:
+					if not _in_bounds(Vector2(float(point.get("x",-1)),float(point.get("y",-1))),value):return false
+				if item.has("barrier") and not item.barrier is bool:return false
+				if bool(item.get("barrier",false)) and (str(item.get("biome","")) not in ["mountain","rock"] or float(item.get("elevation",0))<5):return false
+			elif not _in_bounds(Vector2(float(item.get("x",-1)),float(item.get("y",-1))),value):return false
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
@@ -112,7 +130,7 @@ func _commit(next: Dictionary) -> bool:
 	doc = next
 	edit_revision += 1
 	future.clear()
-	dirty = _fingerprint(doc) != baseline_hash
+	dirty = _fingerprint(doc) != draft_baseline_hash
 	last_error = ""
 	return true
 
@@ -122,7 +140,7 @@ func undo() -> bool:
 	future.append(doc.duplicate(true))
 	doc = history.pop_back()
 	edit_revision += 1
-	dirty = _fingerprint(doc) != baseline_hash
+	dirty = _fingerprint(doc) != draft_baseline_hash
 	return true
 
 func redo() -> bool:
@@ -131,7 +149,7 @@ func redo() -> bool:
 	history.append(doc.duplicate(true))
 	doc = future.pop_back()
 	edit_revision += 1
-	dirty = _fingerprint(doc) != baseline_hash
+	dirty = _fingerprint(doc) != draft_baseline_hash
 	return true
 
 func discard_changes() -> void:
@@ -148,6 +166,7 @@ func accepted_remote(remote: Dictionary) -> bool:
 	edit_revision += 1
 	initial = doc.duplicate(true)
 	baseline_hash = _fingerprint(doc)
+	draft_baseline_hash=baseline_hash
 	dirty = false
 	history.clear()
 	future.clear()
@@ -158,6 +177,46 @@ func road_at_id(road_id: String) -> Dictionary:
 		if str(item.get("id","")) == road_id:
 			return item
 	return {}
+
+func reconcile_runtime(data: Dictionary) -> bool:
+	# The generator may introduce new default roads/POIs between editor saves.
+	# Keep the on-disk hash for conflict detection, but edit the complete current
+	# layout. Otherwise road-120 could mask a new highway instead of the user's road.
+	var basis:=int(doc.get("morrowSourceRoadCount",120))
+	var current:=int(data.get("editor_source_road_count",basis))
+	var poi_basis:=int(doc.get("morrowSourcePoiCount",15))
+	var poi_current:=int(data.get("editor_source_poi_count",poi_basis))
+	if current<=basis and poi_current<=poi_basis:return true
+	var next:=doc.duplicate(true)
+	if current>basis:
+		for road in next.roads:
+			var number:=int(str(road.id).trim_prefix("road-"))
+			if number>=basis:road.id="road-%d"%(number+current-basis)
+		for i in range(basis,current):
+			if i>=data.roads.size():return false
+			var raw: Dictionary=data.roads[i]
+			var points: Array[Dictionary]=[]
+			for p in raw.get("anchors",raw.points):points.append({"x":float(p[0]),"y":float(p[1])})
+			next.roads.append({"id":"road-%d"%i,"name":str(raw.name),
+				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track"}.get(str(raw.kind),"city"),
+				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
+				"lanes":int(raw.lanes),"shoulder":2.0,"smooth":true,"markings":true,"points":points})
+		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
+		next.morrowSourceRoadCount=current
+	if poi_current>poi_basis:
+		for marker in next.markers:
+			var number:=int(str(marker.id).trim_prefix("marker-"))
+			if number>poi_basis:marker.id="marker-%d"%(number+poi_current-poi_basis)
+		for i in range(poi_basis,poi_current):
+			if i>=data.pois.size():return false
+			var poi: Dictionary=data.pois[i]
+			next.markers.append({"id":"marker-%d"%(i+1),"name":str(poi.name),"type":"fuel" if "FUEL" in str(poi.category) else "custom",
+				"x":float(poi.position[0]),"y":float(poi.position[1]),"rotation":0.0,"properties":{}})
+		next.morrowSourcePoiCount=poi_current
+	if not _valid_source(next):return false
+	doc=next;initial=doc.duplicate(true);draft_baseline_hash=_fingerprint(doc)
+	history.clear();future.clear();dirty=false;edit_revision+=1
+	return true
 
 func prop_at_id(prop_id: String) -> Dictionary:
 	for item in doc.get("props",[]):
@@ -441,20 +500,142 @@ func delete_prop(prop_id: String) -> bool:
 
 ## Direct tools share the browser editor's source schema and undo log.
 func add_road(first: Vector2, last: Vector2) -> String:
-	if not _in_bounds(first) or not _in_bounds(last) or \
-			first.distance_to(last) < 3.0 or doc.roads.size() >= MAX_ROADS:
-		last_error = "Road must have two distinct in-bounds endpoints."
+	return add_road_path([first,last])
+
+func next_id(category: String, prefix: String) -> String:
+	var number := 0
+	for item in doc.get(category,[]):
+		var text:=str(item.get("id",""))
+		if text.begins_with(prefix+"-") and text.trim_prefix(prefix+"-").is_valid_int():
+			number=maxi(number,int(text.trim_prefix(prefix+"-"))+1)
+	return prefix+"-"+str(number)
+
+func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
+	if points_m.size()<2 or points_m.size()>100 or doc.roads.size()>=MAX_ROADS:
+		last_error="Roads need 2–100 control points; at most 180 roads are supported."
 		return ""
-	var id := "road-%d" % doc.roads.size()
-	var draft: Dictionary = doc.duplicate(true)
-	draft.roads.append({"id":id,"name":"Editor road","roadClass":"city",
-		"surface":"asphalt","width":10,"lanes":2,"shoulder":2,
-		"smooth":true,"markings":true,
-		"points":[{"x":first.x,"y":first.y},{"x":last.x,"y":last.y}]})
-	return id if _commit(draft) else ""
+	var vertices: Array[Dictionary]=[]
+	for point in points_m:
+		if not _in_bounds(point):
+			last_error="Road points must be inside the map."
+			return ""
+		if not vertices.is_empty() and point.distance_to(Vector2(vertices[-1].x,vertices[-1].y))<1.0:
+			last_error="Road points must be at least one metre apart."
+			return ""
+		vertices.append({"x":point.x,"y":point.y})
+	var id:=next_id("roads","road")
+	var road: Dictionary={"id":id,"name":"Editor road","roadClass":"city",
+		"surface":"asphalt","width":10.0,"lanes":2,"shoulder":2.0,"smooth":true,"markings":true,"points":vertices}
+	for key in ["roadClass","surface","width","lanes"]:
+		if settings.has(key):road[key]=settings[key]
+	var next:=doc.duplicate(true)
+	next.roads.append(road)
+	return id if _commit(next) else ""
 
+func move_shape(category: String, identity: String, delta: Vector2, grid_m: float=0.0) -> bool:
+	if grid_m>0:delta=delta.snapped(Vector2.ONE*grid_m)
+	var next:=doc.duplicate(true)
+	var target: Dictionary={}
+	for item in next.get(category,[]):
+		if str(item.id)==identity:target=item;break
+	if target.is_empty():
+		last_error="Select a road, region or marker first."
+		return false
+	if category=="markers":
+		target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
+	else:
+		var ends: Array[Vector2]=[]
+		if category=="roads":
+			ends=[Vector2(target.points[0].x,target.points[0].y),Vector2(target.points[-1].x,target.points[-1].y)]
+		for point in target.points:
+			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
+		if category=="roads":
+			for road in next.roads:
+				if str(road.id)==identity or not _same_network(target,road):continue
+				for index in [0,road.points.size()-1]:
+					var point: Dictionary=road.points[index]
+					for old in ends:
+						if Vector2(point.x,point.y).distance_to(old)<.05:
+							point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y;break
+	return _commit(next)
 
-func add_region(points_m: Array[Vector2], biome: String = "grass") -> String:
+static func road_path(road: Dictionary) -> PackedVector2Array:
+	var anchors: Array=road.get("points",[])
+	var result:=PackedVector2Array()
+	for i in range(anchors.size()-1):
+		var a:=Vector2(anchors[i].x,anchors[i].y)
+		var b:=Vector2(anchors[i+1].x,anchors[i+1].y)
+		var prior: Dictionary=anchors[maxi(0,i-1)]
+		var following: Dictionary=anchors[mini(anchors.size()-1,i+2)]
+		var ta: Vector2=((b-Vector2(prior.x,prior.y))*.33).limit_length(a.distance_to(b)*.7)
+		var tb: Vector2=((Vector2(following.x,following.y)-a)*.33).limit_length(a.distance_to(b)*.7)
+		var steps:=clampi(ceili(a.distance_to(b)/6.0),2,160)
+		for j in steps:
+			var t:=float(j)/steps
+			result.append(a.lerp(b,t) if not bool(road.get("smooth",true)) else
+				a*(2*t*t*t-3*t*t+1)+b*(-2*t*t*t+3*t*t)+ta*(t*t*t-2*t*t+t)+tb*(t*t*t-t*t))
+	if not anchors.is_empty():result.append(Vector2(anchors[-1].x,anchors[-1].y))
+	return result
+
+func road_preview_source(drag: Dictionary) -> Dictionary:
+	if drag.get("kind","") not in ["road","road_move","region"]:return doc
+	# Use the same endpoint propagation as the committed edit, without adding
+	# history or changing the real source while the mouse is held down.
+	var temporary=get_script().new()
+	temporary.doc=doc
+	if drag.kind=="road":temporary.move_road_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0)
+	elif drag.kind=="region":temporary.move_shape("regions",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
+	else:temporary.move_shape("roads",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
+	return temporary.doc
+
+func insert_road_point(identity: String, position_m: Vector2) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if road.points.size()>=100:return false
+		var nearest:=INF
+		var at:=1
+		for i in range(1,road.points.size()):
+			var a:=Vector2(road.points[i-1].x,road.points[i-1].y)
+			var b:=Vector2(road.points[i].x,road.points[i].y)
+			var distance:=Geometry2D.get_closest_point_to_segment(position_m,a,b).distance_to(position_m)
+			if distance<nearest:nearest=distance;at=i
+		road.points.insert(at,{"x":position_m.x,"y":position_m.y})
+		return _commit(next)
+	return false
+
+func set_road_settings(identity: String, settings: Dictionary) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		for key in ["roadClass","surface","width","lanes"]:
+			if settings.has(key):road[key]=settings[key]
+		return _commit(next)
+	return false
+
+func delete_entity(identity: String) -> bool:
+	if not prop_at_id(identity).is_empty():return delete_prop(identity)
+	for category in ["roads","regions","markers"]:
+		for item in initial.get(category,[]):
+			if str(item.id)==identity:
+				last_error="Original roads, terrain and gameplay markers are protected. Move or reshape them instead."
+				return false
+		for index in doc.get(category,[]).size():
+			if str(doc[category][index].id)!=identity:continue
+			var next:=doc.duplicate(true)
+			next[category].remove_at(index)
+			# Roads are numbered consecutively for the production importer.
+			if category=="roads":
+				for i in next.roads.size():next.roads[i].id="road-%d"%i
+			return _commit(next)
+	return false
+
+func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=false,elevation_m: float=0) -> String:
+	var clean: Array[Vector2]=[]
+	for p in points_m:
+		if clean.is_empty() or clean[-1].distance_to(p)>.05:clean.append(p)
+	if clean.size()>2 and clean[0].distance_to(clean[-1])<.05:clean.pop_back()
+	points_m=clean
 	if points_m.size()<3 or biome not in ["grass","forest","city","beach",
 			"rock","mountain","lake","desert","farmland","ocean"]:
 		last_error = "Terrain needs three points and a supported biome."
@@ -463,13 +644,22 @@ func add_region(points_m: Array[Vector2], biome: String = "grass") -> String:
 		if not _in_bounds(p):
 			last_error = "Terrain point outside the map."
 			return ""
-	var id := "region-%d" % doc.regions.size()
+	if points_m.size()>180:
+		last_error="Terrain supports at most 180 vertices."
+		return ""
+	var packed:=PackedVector2Array(points_m)
+	if Geometry2D.triangulate_polygon(packed).is_empty():
+		last_error="Terrain needs a simple, non-crossing polygon with real area."
+		return ""
+	var id := next_id("regions","region")
 	var vertices: Array[Dictionary] = []
 	for p in points_m:
 		vertices.append({"x":p.x,"y":p.y})
 	var draft: Dictionary = doc.duplicate(true)
 	draft.regions.append({"id":id,"name":"Editor terrain",
-		"biome":biome,"points":vertices})
+		"biome":biome,"points":vertices,"elevation":elevation_m})
+	if barrier:
+		draft.regions[-1]["barrier"]=true;draft.regions[-1].name="Mountain barrier"
 	return id if _commit(draft) else ""
 
 
@@ -478,11 +668,11 @@ func add_marker(position_m: Vector2, marker_kind: String = "checkpoint") -> Stri
 			"traffic_spawn","race_start","checkpoint","finish"]:
 		last_error = "Unsupported game marker or position."
 		return ""
-	var id := "marker-%d" % doc.markers.size()
+	var id := next_id("markers","marker")
 	var draft: Dictionary = doc.duplicate(true)
 	draft.markers.append({"id":id,"name":marker_kind.capitalize(),
 		"type":marker_kind,"x":position_m.x,"y":position_m.y,
-		"rotation":0.0})
+		"rotation":0.0,"properties":{}})
 	return id if _commit(draft) else ""
 
 
@@ -499,3 +689,83 @@ func index_of_runtime_prop(runtime: Dictionary) -> String:
 	# even when its appearance resembles a sourced object.
 	var authoring_id := str(runtime.get("authoring_id",""))
 	return authoring_id if not prop_at_id(authoring_id).is_empty() else ""
+
+func edit_entity(identity: String, values: Dictionary, destination: Vector2, point_index: int=-1) -> bool:
+	# Compose the inspector's fields and connected-end movement into one undo step.
+	var temporary=get_script().new();temporary.doc=doc
+	var category: String=""
+	var item: Dictionary={}
+	for collection in ["roads","regions","props","markers"]:
+		for candidate in doc.get(collection,[]):
+			if str(candidate.id)==identity:category=collection;item=candidate;break
+		if not item.is_empty():break
+	if item.is_empty():return false
+	var center:=Vector2.ZERO
+	if item.has("points"):
+		for p in item.points:center+=Vector2(p.x,p.y)
+		center/=item.points.size()
+	else:center=Vector2(item.x,item.y)
+	var ok:=false
+	if category=="props":ok=temporary.move_prop(identity,destination,0)
+	elif category=="roads" and point_index>=0:ok=temporary.move_road_point(identity,point_index,destination,0)
+	else:ok=temporary.move_shape(category,identity,destination-center,0)
+	if not ok:last_error=temporary.last_error;return false
+	var next: Dictionary=temporary.doc.duplicate(true)
+	for target in next[category]:
+		if str(target.id)!=identity:continue
+		if values.has("name"):target.name=str(values.name).strip_edges().left(120)
+		if category=="props":
+			if values.has("rotation"):target.rotation=float(values.rotation)
+			if values.has("scale"):target.scale=clampf(float(values.scale),.2,5.0)
+		if category=="regions" and values.has("biome"):target.biome=str(values.biome)
+		if category=="regions":
+			if values.has("elevation"):target.elevation=clampf(float(values.elevation),0,2000)
+			if values.has("barrier"):
+				if bool(values.barrier) and str(target.biome) in ["mountain","rock"]:target["barrier"]=true
+				else:target.erase("barrier")
+		break
+	return _commit(next)
+
+func duplicate_entity(identity: String) -> String:
+	for category in ["roads","regions","props","markers"]:
+		for item in doc.get(category,[]):
+			if str(item.id)!=identity or bool(item.get("hidden",false)):continue
+			if category=="markers" and str(item.get("type","")) not in ["checkpoint","race_start","finish","traffic_spawn"]:
+				last_error="This gameplay marker cannot be duplicated.";return ""
+			var copy: Dictionary=item.duplicate(true)
+			var prefix: String={"roads":"road","regions":"region","props":"prop","markers":"marker"}[category]
+			var id:=next_id(category,prefix)
+			copy.id=id;copy.name=str(item.get("name",prefix))+" copy"
+			copy.erase("replaces");copy.erase("hidden")
+			if copy.has("points"):
+				for p in copy.points:p.x=float(p.x)+12;p.y=float(p.y)+12
+			else:copy.x=float(copy.x)+12;copy.y=float(copy.y)+12
+			var next:=doc.duplicate(true);next[category].append(copy)
+			return id if _commit(next) else ""
+	return ""
+
+func remove_road_point(identity: String,index: int) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if index<0 or index>=road.points.size() or road.points.size()<=2:
+			last_error="A road needs two points. Add a point before removing one.";return false
+		road.points.remove_at(index);return _commit(next)
+	return false
+
+func split_road(identity: String,index: int) -> String:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if road.points.size()==2:
+			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]
+			road.points.insert(1,{"x":(float(a.x)+float(b.x))*.5,"y":(float(a.y)+float(b.y))*.5});index=1
+		if index<=0 or index>=road.points.size()-1:index=road.points.size()/2
+		var second: Dictionary=road.duplicate(true)
+		var id:=next_id("roads","road")
+		second.id=id;second.name=str(road.name)+" (2)"
+		second.points=road.points.slice(index)
+		road.points=road.points.slice(0,index+1)
+		next.roads.append(second)
+		return id if _commit(next) else ""
+	return ""

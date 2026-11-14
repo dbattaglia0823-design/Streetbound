@@ -23,6 +23,7 @@ import {buildRuntimePreview,browseRuntimeAssets,pickRuntimeProp,REPLACEABLE_KIND
 import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {encodeSession,decodeSession,shouldRestoreSession} from './world-session.js';
+import {isMountainBarrier} from './world-mountain-barriers.js';
 import {setProjectAssets,projectAssets,projectArtwork,projectAssetUrl} from './world-project-assets.js';
 import {
   placeBesideRoad,nearestRoadPlacement,placementFootprint,
@@ -535,6 +536,14 @@ function hitTest(p){
     for(let i=doc.markers.length-1;i>=0;i--)
       if(distance(p,doc.markers[i])<clamp(10/zoom,9,36))
         return {id:doc.markers[i].id,point:-1,kind:'entity'};
+  if($('show-terrain').checked){
+    const chosen=selection?getEntity(doc,selection.id):null;
+    if(chosen?.type==='regions'&&isMountainBarrier(chosen.item))
+      for(let i=0;i<chosen.item.points.length;i++)if(distance(p,chosen.item.points[i])<radius)
+        return {id:selection.id,point:i,kind:'handle'};
+    for(let i=doc.regions.length-1;i>=0;i--)
+      if(isMountainBarrier(doc.regions[i])&&pointInPolygon(p,doc.regions[i].points))return {id:doc.regions[i].id,point:-1,kind:'entity'};
+  }
   if($('show-scenery').checked){
     const edited=pickEditableScenery(doc.props,p,{
       gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8)});
@@ -580,7 +589,7 @@ function refreshInspector(){
   if(position){$('inspect-x').value=Math.round(item.x);$('inspect-y').value=Math.round(item.y);}
   $('point-help').hidden=!(type==='roads'||type==='regions');
   $('remove-point').hidden=!(type==='roads'||type==='regions');
-  $('remove-point').disabled=selection.point<0;
+  $('remove-point').disabled=(type==='roads'||type==='regions')&&item.points.length<=(type==='roads'?2:3);
   const shape=type==='roads'||type==='regions';
   $('point-coordinate-fields').hidden=!shape||selection.point<0;
   if(shape&&selection.point>=0){
@@ -605,6 +614,7 @@ function refreshInspector(){
     $('inspect-road-markings').checked=item.markings;
   }else if(type==='regions'){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
+    $('inspect-barrier').checked=Boolean(item.barrier);
   }else if(type==='props'){
     $('inspect-prop-type').value=item.type;$('inspect-asset').value=item.assetId||'';
     $('inspect-scale').value=item.scale;$('inspect-rotation').value=item.rotation;
@@ -871,7 +881,8 @@ function finishDraft(){
       },'Road added. Compatible touching road ends joined automatically.');
     }else{
       const biome=$('biome').value,elevation=Number($('elevation').value);
-      applied=change(d=>createEntity(d,'regions',{name:biome[0].toUpperCase()+biome.slice(1)+' region',biome,elevation,points:work.points}),'Terrain area added. Select its boundary to reshape the area.');
+      const barrier=$('terrain-barrier').checked;
+      applied=change(d=>createEntity(d,'regions',{name:barrier?'Mountain barrier':biome[0].toUpperCase()+biome.slice(1)+' region',biome,elevation,barrier,points:work.points}),barrier?'Solid mountain barrier added. Drag it or reshape its outline.':'Terrain area added. Select its boundary to reshape the area.');
     }
     if(applied){draft=null;refreshHeader();requestRender();}
   }catch(e){errorMessage(e);}
@@ -1226,8 +1237,10 @@ function deleteSelected(){
 }
 $('delete-entity').addEventListener('click',()=>{if(selection){const id=selection.id;change(d=>removeEntity(d,id),'Entity removed.');setSelection(null);}});
 $('remove-point').addEventListener('click',()=>{
-  if(!selection||selection.point<0)return;
-  change(d=>deleteControlPoint(d,selection.id,selection.point),'Removed control point.');
+  if(!selection)return;
+  const shape=getEntity(doc,selection.id);if(!shape?.item.points)return;
+  const index=selection.point>=0?selection.point:Math.floor(shape.item.points.length/2);
+  change(d=>deleteControlPoint(d,selection.id,index),'Removed control point.');
   setSelection(selection.id,-1);
 });
 $('move-forward').addEventListener('click',()=>{if(selection)change(d=>reorderEntity(d,selection.id,1),'Changed draw order.');});
@@ -1332,7 +1345,7 @@ const fields={
   'inspect-road-width':{width:'number'},'inspect-road-lanes':{lanes:'number'},
   'inspect-road-shoulder':{shoulder:'number'},'inspect-road-smooth':{smooth:'boolean'},
   'inspect-road-markings':{markings:'boolean'},'inspect-biome':{biome:'string'},
-  'inspect-elevation':{elevation:'number'},'inspect-prop-type':{type:'string'},'inspect-asset':{assetId:'string'},
+  'inspect-elevation':{elevation:'number'},'inspect-barrier':{barrier:'boolean'},'inspect-prop-type':{type:'string'},'inspect-asset':{assetId:'string'},
   'inspect-scale':{scale:'number'},'inspect-rotation':{rotation:'number'},
   'inspect-marker-type':{type:'string'},'inspect-x':{x:'number'},'inspect-y':{y:'number'},
   'inspect-properties':{properties:'json'}
@@ -1346,11 +1359,30 @@ for(const [elementId,options] of Object.entries(fields)){
       else if(kind==='boolean')value=event.target.checked;
       else if(kind==='json')value=JSON.parse(event.target.value);
       else value=event.target.value;
-      change(d=>updateEntity(d,selection.id,{[key]:value}),'Updated '+key+'.');
+      const update={[key]:value};
+      if(key==='biome'&&!['mountain','rock'].includes(value))update.barrier=false;
+      if(key==='barrier'&&value){const r=getEntity(doc,selection.id)?.item;
+        if(!['mountain','rock'].includes(r?.biome))update.biome='mountain';
+        if((r?.elevation||0)<5)update.elevation=80;
+      }
+      change(d=>updateEntity(d,selection.id,update),'Updated '+key+'.');
     }catch(e){errorMessage(e);refreshInspector();}
   });
 }
 $('world-title').addEventListener('change',e=>change(d=>normalizeWorld({...d,name:e.target.value}),'World renamed.'));
+$('mountain-barrier-tool').addEventListener('click',()=>{
+  setTool('terrain');$('biome').value='mountain';$('terrain-barrier').checked=true;$('elevation').value=80;
+  status('Click the mountain outline, then Finish. The visible rock face blocks vehicles.');
+});
+$('terrain-barrier').addEventListener('change',()=>{
+  if($('terrain-barrier').checked){
+    if(!['mountain','rock'].includes($('biome').value))$('biome').value='mountain';
+    if(Number($('elevation').value)<5)$('elevation').value=80;
+  }
+});
+$('biome').addEventListener('change',()=>{
+  if(!['mountain','rock'].includes($('biome').value))$('terrain-barrier').checked=false;
+});
 $('new-world').addEventListener('click',()=>$('new-dialog').showModal());
 $('cancel-new').addEventListener('click',()=>$('new-dialog').close());
 $('create-demo').addEventListener('click',()=>{

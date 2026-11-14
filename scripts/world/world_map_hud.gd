@@ -2,6 +2,8 @@ extends CanvasLayer
 ## Neighborhood navigator plus a zoomable field atlas sharing cached geometry.
 const Model = preload("res://scripts/world/coast_map_model.gd")
 const MapView = preload("res://scripts/world/coast_map_view.gd")
+const Waypoints=preload("res://scripts/world/player_waypoints.gd")
+const Activities=preload("res://scripts/world/map_activity_overlay.gd")
 var world: Node2D
 var vehicle: VehicleController2D
 var races: Array[Node2D] = []
@@ -20,6 +22,10 @@ var atlas_scale_label: Label
 var refresh := 0.0
 var large := false
 var minimap_shape := "square"
+var waypoints: Node
+var waypoint_label: Label
+var mini_waypoint_label: Label
+var clear_waypoint_button: Button
 
 func panel(at: Vector2, dimensions: Vector2) -> PanelContainer:
 	var node := PanelContainer.new()
@@ -61,6 +67,7 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	node.model=model
 	node.world=world
 	node.miniature=miniature
+	node.process_mode=Node.PROCESS_MODE_PAUSABLE
 	# Avoid briefly building/rendering an unrelated (0,0) region before
 	# the first player-follow frame arrives at game startup.
 	if miniature and is_instance_valid(vehicle):
@@ -69,25 +76,41 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	node.custom_minimum_size=dimensions
 	node.size_flags_horizontal=Control.SIZE_SHRINK_CENTER if miniature else Control.SIZE_SHRINK_BEGIN
 	parent.add_child(node)
+	var activities:=Node2D.new()
+	activities.set_script(Activities)
+	activities.map_view=node;activities.waypoints=waypoints;activities.races=races
+	activities.z_index=17
+	node.add_child(activities);node.activity_overlay=activities
 	return node
 
 func _ready() -> void:
 	add_to_group("streetbound_world_map_hud")
+	process_mode=Node.PROCESS_MODE_ALWAYS
 	# Bring the full atlas above normal driving/progression overlays so the
 	# level/status popover cannot cover roads, map controls or search results.
 	# The small minimap remains in the regular HUD drawing layer.
 	layer=2
 	model=Model.new(world.data)
+	waypoints=Waypoints.new();waypoints.world=world;waypoints.player=vehicle
+	waypoints.process_mode=Node.PROCESS_MODE_PAUSABLE
+	add_child(waypoints)
+	var world_route:=Node2D.new();world_route.set_script(Activities)
+	world_route.on_map=false;world_route.waypoints=waypoints;world_route.z_index=6
+	world.add_child(world_route)
 	mini=panel(Vector2(1100,24),Vector2(316,340))
 	var column := VBoxContainer.new()
 	mini.add_child(column)
 	district_label=text(column,"MORROW COAST",16)
 	mini_view=map_view(column,Vector2(244,244),true)
+	mini_view.atlas_requested.connect(func()->void:large=true)
 	mini_view.call("set_minimap_shape", minimap_shape)
 	mini_cursor=mini_view.cursor
 	road_label=text(column,"Laurel Motor House access",13)
 	road_label.custom_minimum_size.x=284
 	road_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	mini_waypoint_label=text(column,"",12,Color("ffcf7d"))
+	mini_waypoint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	mini_waypoint_label.visible=false
 	scale_label=text(column,"N ↑    LOCAL STREETS    ·    TAB ATLAS",11,Color("b8c9ad"))
 	full=panel(Vector2(52,30),Vector2(1336,840))
 	var body := VBoxContainer.new()
@@ -103,6 +126,7 @@ func _ready() -> void:
 	button(header,"Find car",func():
 		full_view.focus_on(vehicle.position/20,full_view.fit_scale*5)
 		full_view.follow_car=true)
+	button(header,"Close [Tab]",func()->void:large=false)
 	var contents := HBoxContainer.new()
 	contents.add_theme_constant_override("separation",14)
 	body.add_child(contents)
@@ -110,32 +134,73 @@ func _ready() -> void:
 	sidebar.custom_minimum_size.x=236
 	contents.add_child(sidebar)
 	text(sidebar,"DESTINATIONS",15,Color("c9d7b4"))
-	text(sidebar,"Select a place to inspect its roads.",12)
+	text(sidebar,"Select a race or place to set a route.",12)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size=Vector2(236,494)
+	scroll.custom_minimum_size=Vector2(236,422)
 	sidebar.add_child(scroll)
 	var destinations := VBoxContainer.new()
+	text(destinations,"RACES",13,Color("67e4e5"))
+	for race in races:
+		if not is_instance_valid(race) or not bool(race.get("available")):continue
+		var entry:=button(destinations,"[R] "+str(race.get("race_title")),_select_race.bind(race))
+		entry.custom_minimum_size=Vector2(216,31);entry.alignment=HORIZONTAL_ALIGNMENT_LEFT
+		entry.add_theme_font_size_override("font_size",12)
+		entry.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+		entry.tooltip_text=str(race.get("race_type"))+" · Set route to start"
+	text(destinations,"PLACES",13,Color("c9d7b4"))
 	for poi in world.data.pois:
 		var code: String = model.poi_type(poi)
 		var tag: String = {"garage":"G","workshop":"W","fuel":"F","race":"R","dealer":"D","marina":"M","view":"V"}.get(code,"•")
-		var entry := button(destinations,"[%s] %s"%[tag,poi.name],func():full_view.focus_on(model.poi_marker_position(poi),full_view.fit_scale*5))
+		var entry := button(destinations,"[%s] %s"%[tag,poi.name],func():
+			waypoints.set_destination(model.v(poi.position),str(poi.name))
+			full_view.focus_on(model.poi_marker_position(poi),full_view.fit_scale*5))
 		entry.custom_minimum_size=Vector2(216,31)
 		entry.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		entry.add_theme_font_size_override("font_size",12)
 		entry.tooltip_text=poi.category
 	scroll.add_child(destinations)
+	waypoint_label=text(sidebar,"Click the map to set a waypoint.",12,Color("ffcf7d"))
+	waypoint_label.custom_minimum_size.x=226
+	waypoint_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	waypoint_label.max_lines_visible=3
+	clear_waypoint_button=button(sidebar,"Clear waypoint",waypoints.clear_destination)
+	waypoints.changed.connect(_update_waypoint_label)
 	text(sidebar,"MAP DETAILS",14,Color("c9d7b4"))
 	text(sidebar,"Zoom in for actual streets, buildings,\nparking, scenery and terrain.\nGenerated from this game's world.",12)
 	text(sidebar,"G garage   W workshop   F fuel\nR racing   D dealer   M marina\nV viewpoint / landmark",11,Color("bfccb6"))
 	var right := VBoxContainer.new()
 	contents.add_child(right)
 	full_view=map_view(right,Vector2(1040,704),false)
+	full_view.destination_requested.connect(_map_destination)
+	full_view.clear_destination_requested.connect(waypoints.clear_destination)
 	full_cursor=full_view.cursor
 	atlas_scale_label=text(right,"N ↑  NORTH UP  /  Wheel to zoom · Drag to pan",12)
 	full_view.view_changed.connect(_update_scale)
-	text(body,"TAB close   ·   Wheel zooms toward the pointer   ·   Drag to explore   ·   Find car restores tracking",12,Color("c5d0ba"))
+	text(body,"TAB close · Click to set waypoint · Click a race flag to navigate · Right-click clears · Drag to pan · Wheel to zoom",12,Color("c5d0ba"))
 	full.visible=false
 	_update_scale()
+	_update_waypoint_label()
+
+func _select_race(race: Node2D) -> void:
+	waypoints.set_destination(race.get("start_m"),str(race.get("race_title")))
+	full_view.focus_on(race.get("start_m"),full_view.fit_scale*5)
+
+func _map_destination(point_m: Vector2, local_point: Vector2) -> void:
+	var race: Node2D=full_view.activity_overlay.race_at(local_point)
+	if race!=null:_select_race(race)
+	else:waypoints.set_destination(point_m)
+
+func _update_waypoint_label() -> void:
+	if not is_instance_valid(waypoint_label):return
+	clear_waypoint_button.disabled=not waypoints.active
+	mini_waypoint_label.visible=waypoints.active
+	if waypoints.active:
+		var distance:=float(waypoints.remaining_m)
+		var value:="%.1f mi"%(distance/1609.344) if distance>=160.9344 else "%.0f ft"%(distance*3.28084)
+		mini_waypoint_label.text="%s · %s"%[waypoints.destination_name,value]
+		waypoint_label.text="%s · %s\n%s"%[waypoints.destination_name,value,
+			"GPS resumes after the race" if waypoints.suspended else waypoints.status]
+	else:waypoint_label.text=waypoints.status if not str(waypoints.status).is_empty() else "Click the map to set a waypoint."
 
 func set_minimap_shape(shape: String) -> void:
 	minimap_shape = "circle" if shape == "circle" else "square"
@@ -163,9 +228,9 @@ func _active_race_navigation() -> RefCounted:
 
 
 func _process(dt: float) -> void:
-	mini.visible=not driving_hud.tuning.visible and not large
-	full.visible=large and not driving_hud.tuning.visible
-	layer=10 if full.visible else 2
+	mini.visible=not driving_hud.tuning.visible and not large and not get_tree().paused
+	full.visible=large and not driving_hud.tuning.visible and not get_tree().paused
+	layer=19 if full.visible else 2
 	var current_course := _active_race_navigation()
 	for view in [mini_view,full_view]:
 		view.player_m=vehicle.global_position/20

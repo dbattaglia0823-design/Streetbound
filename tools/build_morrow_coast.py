@@ -12,6 +12,8 @@ from mountain_field import height_m
 from junction_bake import build_junctions
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
+from road_bridges import apply as apply_automatic_bridges
+from mountain_barriers import validate_barriers
 
 ROOT = Path(__file__).resolve().parents[1]
 # Source coordinates retain their original origin. Only grow the east and
@@ -467,6 +469,7 @@ def in_poly(p, poly):
 # All roads share the drivable 2D plane; grade=1 denotes a water bridge,
 # not an invented flyover. One bake covers endpoint T joins and crossings.
 JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
+validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=1.10)
 
 JUNCTION_CLEARANCE=collections.defaultdict(list)
 for j in JUNCTIONS:
@@ -818,20 +821,8 @@ for x in [3190,3240,3290]:
                          angle=-.05,color="a0b5ab",radius=19.3,
                          solid=True,seed=int(x)))
 
-# Bridge spans are detected only over authored water. They are not graph
-# intersections with other roads; endpoint/grade connectivity remains explicit.
+# Bridges are derived after road-width adaptation, so rails and lanes agree.
 BRIDGES=[]
-for r in ROADS:
-    run=[]
-    for i,p in enumerate(r["points"]):
-        wet=any(in_poly(p,t["points"]) for t in TERRAIN if t["kind"]=="water")
-        if wet:
-            if not run and i>0: run.append(r["points"][i-1])
-            run.append(p)
-        elif run:
-            run.append(p)
-            BRIDGES.append(dict(road=r["id"],points=run,width=r["width"]))
-            run=[]
 
 # All original scenery generators have finished using the unchanged
 # base-world limits and shared RNG. Populate only truly new southern land
@@ -926,16 +917,6 @@ for poly in [COAST,RIVER_LEFT,RIVER_RIGHT,LAKE+[LAKE[0]]]:
         if not road_clear(((a[0]+b[0])/2,(a[1]+b[1])/2),5): continue
         WALLS.append([list(a),list(b)])
 WALLS += [[[25,25],[25,HEIGHT-25]],[[25,25],[COAST[0][0],25]],[[25,HEIGHT-25],[COAST[-1][0],HEIGHT-25]]]
-for bridge in BRIDGES:
-    pts=bridge["points"]
-    for side in [-1,1]:
-        edge=[]
-        for i,p in enumerate(pts):
-            a,b=pts[max(0,i-1)],pts[min(len(pts)-1,i+1)]
-            length=max(distance(a,b),.001)
-            offset=side*(bridge["width"]/2+1)
-            edge.append([p[0]-(b[1]-a[1])/length*offset,p[1]+(b[0]-a[0])/length*offset])
-        WALLS.extend([[a,b] for a,b in zip(edge,edge[1:])])
 # Road-cut faces occupy only the uphill shoulder; rails protect the downhill edge.
 # Sample shared vertex normals so adjacent facets meet without cracks.
 RELIEF_FACES, MOUNTAIN_RAILS = [], []
@@ -1005,7 +986,7 @@ def intersect(a,b,c,d):
 
 
 # Bake chunk membership once, leaving runtime streaming as cheap index lookups.
-CHUNKS=collections.defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],relief=[],rails=[]))
+CHUNKS=collections.defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],relief=[],rails=[],mountains=[]))
 for i,s in enumerate(SEGMENTS):
     r=ROADS[s["road"]]; a,b=s["a"],s["b"];pad=r["width"]/2+5
     for key in keys_for((min(a[0],b[0])-pad,min(a[1],b[1])-pad,max(a[0],b[0])+pad,max(a[1],b[1])+pad),CHUNK): CHUNKS[key]["segments"].append(i)
@@ -1043,7 +1024,7 @@ def clip_rect(poly,x0,y0,x1,y1):
 # Index each terrain polygon by its bounding chunks before clipping.
 # Previously every polygon was clipped against every chunk (O(chunks * terrain)).
 # Empty chunks never intersect the source polygon and need no clip operations.
-for t in TERRAIN:
+for terrain_index,t in enumerate(TERRAIN):
     points = t["points"]
     if len(points)<3:
         continue
@@ -1055,8 +1036,13 @@ for t in TERRAIN:
         for y in range(y0,y1+1):
             clipped=clip_rect(points,x*CHUNK,y*CHUNK,(x+1)*CHUNK,(y+1)*CHUNK)
             if len(clipped)>=3:
-                CHUNKS[f"{x},{y}"]["terrain"].append(
-                    dict(kind=t["kind"],color=t["color"],points=clipped))
+                fragment=dict(kind=t["kind"],color=t["color"],points=clipped)
+                for key in ("barrier","elevation","authoring_id"):
+                    if key in t:fragment[key]=t[key]
+                CHUNKS[f"{x},{y}"]["terrain"].append(fragment)
+    if t.get("barrier"):
+        for key in keys_for((max(0,min(p[0] for p in points)-40),max(0,min(p[1] for p in points)-40),min(WIDTH-.001,max(p[0] for p in points)+40),min(HEIGHT-.001,max(p[1] for p in points)+40)),CHUNK):
+            CHUNKS[key]["mountains"].append(terrain_index)
 
 # Validation is performed on actual baked centerlines, including facilities.
 adj=collections.defaultdict(set)
@@ -1096,6 +1082,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 # Legacy geometry and its chunk index keep the original road centerlines,
 # and future rebakes are explicitly marked so Godot never scales twice.
 adapt_road_widths(data)
+apply_automatic_bridges(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
 

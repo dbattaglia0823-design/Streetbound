@@ -7,6 +7,10 @@ const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const ROAD_NAME := "Ashford Grand Circuit"
+const StartArea=preload("res://scripts/world/race_start_area.gd")
+var race_title:="Ashford Circuit"
+var race_type:="Circuit · Time Trial"
+var start_radius_m:=8.0
 var world: MorrowCoast
 var player: VehicleController2D
 var navigation: RefCounted
@@ -78,6 +82,8 @@ func _ready() -> void:
 	start_m = ordered[0]
 	heading = (ordered[1] - ordered[0]).normalized()
 	available = true
+	add_to_group("streetbound_race")
+	position=start_m*PPM;z_index=5;queue_redraw()
 	world_guidance = Node2D.new()
 	world_guidance.name = "CircuitBrakingLine"
 	world_guidance.set_script(GuidanceScript)
@@ -109,7 +115,7 @@ func can_stage() -> bool:
 	if not available or state != "idle" or not is_instance_valid(player):
 		return false
 	var tangent: Vector2 = heading
-	return player.global_position.distance_to(start_m * PPM) <= 6.0 * PPM and \
+	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
 		player.linear_velocity.length() <= 1.5 and \
 		Vector2.UP.rotated(player.rotation).dot(tangent) >= 0.55
 
@@ -194,7 +200,7 @@ func _refresh() -> void:
 		"idle":
 			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\n%s" % (
 				"STOP AT CHECKERED LINE / [ F ] START" if can_stage()
-				else "DRIVE TO CIRCUIT START / PARK FACING THE COURSE")
+				else "STOP INSIDE THE CIRCLE / FACE THE COURSE")
 		"countdown":
 			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\nSTART IN %d" % maxi(1, ceili(countdown))
 		"running":
@@ -214,3 +220,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key.keycode in [KEY_F] or key.physical_keycode == KEY_F:
 		if can_stage() and start_race():
 			get_viewport().set_input_as_handled()
+
+func _draw() -> void:
+	if available:StartArea.draw_zone(self,start_radius_m,Color("efb961"))

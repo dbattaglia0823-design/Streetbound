@@ -33,6 +33,7 @@ var vehicle_ownership: OwnershipScript
 var drag_race: Node2D
 var circuit_race: Node2D
 var street_race: Node2D
+var extra_races: Array[Node2D]=[]
 var progression_hud: CanvasLayer
 var quick_upgrades: CanvasLayer
 var local_split_screen
@@ -105,6 +106,13 @@ func _ready() -> void:
 		street_race.network = traffic.get("network") as RefCounted
 		street_race.traffic = traffic
 		ground.add_child(street_race)
+		for resource in ["juniper_ascent","coastline_dash","harvest_run","parkway_express"]:
+			var event:=Node2D.new()
+			event.set_script(StreetSprintScript)
+			event.definition=load("res://resources/races/"+resource+".tres")
+			event.world=ground;event.player=vehicle;event.network=traffic.network;event.traffic=traffic
+			ground.add_child(event)
+			extra_races.append(event)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -162,6 +170,7 @@ func _ready() -> void:
 		world_hud.races.append(drag_race)
 		world_hud.races.append(circuit_race)
 		world_hud.races.append(street_race)
+		world_hud.races.append_array(extra_races)
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 	# CanvasLayer 20 is PROCESS_MODE_ALWAYS; menu controls work while paused.
@@ -211,6 +220,7 @@ func _ready() -> void:
 	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race]:
 		if is_instance_valid(system):
 			disabled.append(system)
+	disabled.append_array(extra_races)
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)

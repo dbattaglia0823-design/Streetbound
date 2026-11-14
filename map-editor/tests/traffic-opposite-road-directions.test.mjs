@@ -9,6 +9,16 @@ const road=(id,points)=>({
 const x=(x,y=300)=>({x,y});
 const lane=(lanes,roadId,direction)=>lanes.find(p=>p.roadId===roadId&&p.direction===direction);
 
+test('single and odd lane counts keep every traffic lane inside the road edges',()=>{
+  for(const count of [1,3,5]){
+    const lanes=lanePatterns([{...road('odd',[x(100),x(500)]),width:18,lanes:count}]);
+    assert.equal(lanes.length,Math.max(2,count));
+    for(const lane of lanes)for(const p of lane.points)assert.ok(Math.abs(p.y-300)<9);
+    const centers=lanes.map(l=>l.points[0].y).sort((a,b)=>a-b);
+    assert.equal(new Set(centers).size,centers.length);
+  }
+});
+
 test('opposite authored point orders preserve the same physical right-hand traffic lanes at a join',()=>{
   const lanes=lanePatterns([
     road('east-drawn',[x(100),x(300)]),

@@ -608,6 +608,9 @@ func _draw() -> void:
     _draw_junctions()
     for item in world_data.get("props",[]):
         _draw_prop(item)
+    for region in world_data.get("regions",[]):
+        if bool(region.get("barrier",false)):
+            _draw_mountain_barrier(region)
     if draw_markers:
         for marker in world_data.get("markers",[]):
             draw_circle(marker_position(marker),9.0,Color("#ffd180"))
@@ -624,7 +627,7 @@ func _build_blockers() -> void:
     _solid_body.collision_mask = 0
     add_child(_solid_body)
     for region in world_data.get("regions",[]):
-        if not str(region.get("biome","")) in ["ocean","lake"]:
+        if not str(region.get("biome","")) in ["ocean","lake"] and not bool(region.get("barrier",false)):
             continue
         var poly: PackedVector2Array = _make_polygon(region.get("points",[]))
         if poly.size() < 3:
@@ -655,3 +658,26 @@ func _build_blockers() -> void:
         node.position = Vector2(float(item.get("x",0)),float(item.get("y",0)))
         node.rotation = deg_to_rad(float(item.get("rotation",0)))
         _solid_body.add_child(node)
+
+func _draw_mountain_barrier(region: Dictionary) -> void:
+    # Self-contained artwork for exported ZIPs; no Streetbound runtime required.
+    var outline := _make_polygon(region.get("points",[]))
+    if outline.size()<3:
+        return
+    var shadow := outline.duplicate()
+    for i in shadow.size():
+        shadow[i]+=Vector2(7,10)
+    draw_colored_polygon(shadow,Color(.05,.1,.1,.20))
+    var triangles := Geometry2D.triangulate_polygon(outline)
+    var sun := Vector3(-.55,-.70,.65).normalized()
+    for i in range(0,triangles.size(),3):
+        var face := PackedVector2Array([outline[triangles[i]],outline[triangles[i+1]],outline[triangles[i+2]]])
+        var peak: Vector2=(face[0]+face[1]+face[2])/3.0
+        for j in 3:
+            var a: Vector2=face[j]
+            var b: Vector2=face[(j+1)%3]
+            var normal:=Vector3(b.x-a.x,b.y-a.y,0).cross(Vector3(peak.x-a.x,peak.y-a.y,float(region.get("elevation",80)))).normalized()
+            if normal.z<0:
+                normal=-normal
+            var light:=clampf(normal.dot(sun),0,1)
+            draw_colored_polygon(PackedVector2Array([a,b,peak]),Color("899080").darkened(.49*(1-light)))

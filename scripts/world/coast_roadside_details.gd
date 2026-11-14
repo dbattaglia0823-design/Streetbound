@@ -8,6 +8,7 @@ var road_batches: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
 var origin_m := Vector2.ZERO
 var chunk_size_px := 3840.0
+var bridge_spans: Array=[]
 
 func _in_chunk(p: Vector2) -> bool:
 	return p.x >= 8.0 and p.y >= 8.0 and p.x < chunk_size_px - 8.0 and p.y < chunk_size_px - 8.0
@@ -78,7 +79,10 @@ func _place_at_stations(batch: Dictionary, spacing: float, callback: Callable) -
 		var station := ceilf((start + .05) / spacing) * spacing
 		while station < finish - .05:
 			var center := a + forward * (station - start)
-			if _in_chunk(center):
+			var on_bridge:=false
+			for bridge in bridge_spans:
+				if int(bridge.road)==int(batch.road.id) and station>=float(bridge.start)*PPM and station<=float(bridge.end)*PPM:on_bridge=true;break
+			if not on_bridge and _in_chunk(center):
 				callback.call(center,forward,int(round(station / spacing)))
 			station += spacing
 		covered += length

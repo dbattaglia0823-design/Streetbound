@@ -6,6 +6,7 @@ const PPM := 20.0
 const DECK_WIDTH := 112.0
 var world: Node2D
 var origin_m := Vector2.ZERO
+var render_extent_m:=Vector2.ZERO
 
 
 func _draw() -> void:
@@ -14,7 +15,7 @@ func _draw() -> void:
 	# Include extra metres on each side so a deck crossing chunk boundaries
 	# retains its full width and parallel rails without visible seams.
 	var rectangle := Rect2(origin_m - Vector2.ONE * 8.0,
-		Vector2.ONE * (world.chunk_m + 16.0))
+		(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)+Vector2.ONE*16)
 	var outline := PackedVector2Array([
 		rectangle.position,
 		Vector2(rectangle.end.x, rectangle.position.y),

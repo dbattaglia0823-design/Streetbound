@@ -125,7 +125,7 @@ func _spawn_one() -> bool:
 		var candidates: Array[int] = preferred if on_race_route else ids
 		var id: int = candidates[random.randi_range(0,candidates.size()-1)]
 		var edge: Dictionary = network.edges[id]
-		if bool(edge.connector) or float(edge.length_px)<PPM*35.0:
+		if bool(edge.connector) or not bool(edge.get("through_route",true)) or float(edge.length_px)<PPM*35.0:
 			continue
 		var progress := random.randf_range(PPM*7.0,maxf(PPM*8.0,float(edge.length_px)-PPM*8.0))
 		var sample: Dictionary=network.point_on_edge(id,progress)
@@ -194,6 +194,9 @@ func _choose_next(edge: Dictionary) -> int:
 		if id < 0 or id >= network.edges.size():
 			continue
 		var candidate: Dictionary = network.edges[id]
+		# Avoid entering a terminal branch from a circulating route. Cars
+		# already on a finite entrance/exit route still need to move forward.
+		if not bool(candidate.get("through_route",true)) and bool(edge.get("through_route",true)):continue
 		var points: PackedVector2Array = candidate.points
 		if points.size() < 2:
 			continue
@@ -613,6 +616,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var previous_progress := float(agent.progress)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	desired=network.curve_speed_limit(int(agent.edge),float(agent.progress),desired)
 	var next_id := -2
 	# Determine upcoming connector before computing right-of-way and sensing.
 	# Waiting cars can otherwise appear to have no destination at all.

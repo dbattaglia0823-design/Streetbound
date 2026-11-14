@@ -3,6 +3,16 @@ extends Node2D
 ## Godot traffic graph. No shadow copy of browser road or lane math.
 const PPM := 20.0
 const Art = preload("res://scripts/world/coast_art.gd")
+const EditSession=preload("res://scripts/dev/native_map_edit_session.gd")
+const Roads=preload("res://scripts/world/coast_roads.gd")
+const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
+const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
+const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
+const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
+const MountainPreview=preload("res://scripts/dev/native_mountain_preview.gd")
+var mountain_preview: Node2D
+var bridge_overrides: Dictionary={}
+var bridge_redraw_roads: Dictionary={}
 var preview_body: StaticBody2D
 var preview_scenery: Node2D
 var original_by_id: Dictionary = {}
@@ -10,6 +20,8 @@ var preview_collisions_enabled := false
 
 var world
 var network
+var network_is_draft:=false
+var preview_junctions: Array=[]
 var selected: Dictionary = {}
 var draft_doc: Dictionary = {}
 var draft_initial: Dictionary = {}
@@ -20,6 +32,8 @@ var pending_shape: Array[Vector2] = []
 var pending_tool := ""
 var source_anchor_mode := false
 var zoom_level := 1.0
+var road_width_scale:=1.0
+var layer_flags: Dictionary={"terrain":true,"roads":true,"scenery":true,"markers":true,"grid":false}
 
 func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {},
 		source_id: String = "", point_index: int = -1) -> void:
@@ -32,6 +46,10 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	_refresh_preview_scenery()
 	selected_source_id = source_id
 	selected_anchor_index = point_index
+	if not is_instance_valid(mountain_preview):
+		mountain_preview=MountainPreview.new();add_child(mountain_preview)
+	mountain_preview.visible=bool(layer_flags.get("terrain",true))
+	mountain_preview.configure(source,baseline,source_id,preview_collisions_enabled)
 	if preview.is_empty() or not is_instance_valid(preview_body) or \
 			preview_body.get_child_count()==0:
 		_rebuild_preview_collisions()
@@ -52,6 +70,7 @@ func set_preview_collision_enabled(enabled: bool) -> void:
 	preview_collisions_enabled = enabled
 	if is_instance_valid(preview_body):
 		preview_body.collision_layer = 1 if enabled else 0
+	if is_instance_valid(mountain_preview) and is_instance_valid(mountain_preview.body):mountain_preview.body.collision_layer=1 if enabled else 0
 
 
 func _prop_modified(prop: Dictionary) -> bool:
@@ -108,6 +127,7 @@ func _refresh_preview_scenery() -> void:
 			instance["asset_kind"]=str(prop.assetId).trim_prefix("game-")
 		rendered.append(instance)
 	preview_scenery.prop_list = rendered
+	preview_scenery.visible=bool(layer_flags.get("scenery",true))
 	preview_scenery.queue_redraw()
 
 
@@ -199,7 +219,7 @@ func _rebuild_preview_collisions() -> void:
 		preview_body.add_child(collider)
 
 
-func _draft_line(road: Dictionary) -> PackedVector2Array:
+func _draft_anchors(road: Dictionary) -> PackedVector2Array:
 	var line := PackedVector2Array()
 	for i in road.points.size():
 		var point: Dictionary = road.points[i]
@@ -207,44 +227,72 @@ func _draft_line(road: Dictionary) -> PackedVector2Array:
 		if str(road.id)==str(drag_preview.get("id","")) and \
 				int(drag_preview.get("index",-1))==i:
 			p = drag_preview.get("to",p)
+		elif str(road.id)==str(drag_preview.get("id","")) and drag_preview.get("kind","")=="road_move":
+			p+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
 		line.append(p)
+	return line
+
+func _draft_line(road: Dictionary,use_baked: bool=false) -> PackedVector2Array:
+	if use_baked:
+		var index:=int(str(road.id).trim_prefix("road-"))
+		if index<world.data.roads.size():
+			var path:=PackedVector2Array()
+			for p in world.data.roads[index].points:path.append(Vector2(p[0],p[1])*PPM)
+			return path
+	var copy:=road.duplicate(true)
+	copy.points=[]
+	for point in _draft_anchors(road):copy.points.append({"x":point.x/PPM,"y":point.y/PPM})
+	var line:=EditSession.road_path(copy)
+	for i in line.size():line[i]*=PPM
 	return line
 
 func _draw_draft() -> void:
 	if draft_doc.is_empty():
 		return
 	for road in draft_doc.get("roads",[]):
+		if not layer_flags.get("roads",true):continue
 		var id := str(road.id)
 		var original: Dictionary = {}
 		for before in draft_initial.get("roads",[]):
 			if str(before.id)==id:
 				original = before
 				break
-		var changed: bool = original.is_empty() or \
-			JSON.stringify(road.points)!=JSON.stringify(original.get("points",[]))
+		var geometry_changed: bool=original.is_empty() or JSON.stringify(road)!=JSON.stringify(original) or str(drag_preview.get("id",""))==id
+		var changed: bool=geometry_changed or bridge_redraw_roads.has(int(id.trim_prefix("road-")))
 		var focused: bool = selected_source_id == id
 		if not changed and not focused:
 			continue
-		var line := _draft_line(road)
-		if line.size()<2 or not _visible_point(line[0]) and not \
-				_visible_point(line[line.size()-1]):
+		var line := _draft_line(road,not geometry_changed)
+		if line.size()<2:
 			continue
 		# Immediate road surface preview: only derived junction topology and
 		# traffic connections need the Save to Game rebake.
-		var road_width := float(road.get("width",10))*PPM
-		draw_polyline(line,Color("#ccc4ab"),road_width+85.0,true)
-		draw_polyline(line,Color("#424f55"),road_width,true)
-		draw_polyline(line,Color("#e5d6a0"),5.0,true)
+		var road_width := float(road.get("width",10))*road_width_scale*PPM
+		if changed:
+			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,0)
+			draw_polyline(line,Color("#ccc4ab"),road_width+60.0,true)
+			draw_polyline(line,Color("#a1947d") if str(road.surface) in ["gravel","dirt"] else Color("#58656c"),road_width,true)
+			if str(road.surface) not in ["gravel","dirt"]:
+				var layout:=Lanes.layout({"width":road_width/PPM,"lanes":int(road.lanes)})
+				var divider:=float(layout.divider)*PPM
+				draw_polyline(Lanes.offset_path(line,divider),Color("#e5d6a0"),2.0,true)
+				for direction in [1,-1]:
+					for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
+						draw_polyline(Lanes.offset_path(line,divider+direction*float(layout.width)*lane*PPM),Color("#dcd9c4"),2,true)
+			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,1,preview_junctions if network_is_draft else world.data.junctions)
 		draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
 			3.0,true)
-		if focused:
-			for i in line.size():
-				draw_circle(line[i],(18.0 if i==selected_anchor_index else 14.0)/maxf(.05,zoom_level),
-					Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else
-					Color(1.0,0.67,0.24,1.0))
+	_draw_draft_junctions(false)
+	for road in draft_doc.get("roads",[]):
+		if not layer_flags.get("roads",true):continue
+		if str(road.id)!=selected_source_id:continue
+		var handles:=_draft_anchors(road)
+		for i in handles.size():
+			draw_circle(handles[i],(7.0 if i==selected_anchor_index else 5.0)/maxf(.003,zoom_level),
+				Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else Color(1.0,0.67,0.24,1.0))
 	# Anchor mode exposes ALL editable road control points with large,
 	# zoom-aware handles; no prior road selection is necessary.
-	if source_anchor_mode and zoom_level >= 0.035:
+	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
 		for road in draft_doc.get("roads",[]):
 			for point in road.get("points",[]):
 				var at := Vector2(float(point.x),float(point.y))*PPM
@@ -255,17 +303,20 @@ func _draw_draft() -> void:
 				draw_circle(at,radius,Color("#ffc26a"))
 				draw_circle(at,radius*0.33,Color("#5a3827"))
 	for region in draft_doc.get("regions",[]):
+		if not layer_flags.get("terrain",true):continue
 		var original_region: Dictionary = {}
 		for earlier in draft_initial.get("regions",[]):
 			if str(earlier.get("id","")) == str(region.get("id","")):
 				original_region = earlier
 				break
 		if not original_region.is_empty() and \
-				JSON.stringify(region) == JSON.stringify(original_region):
+			JSON.stringify(region) == JSON.stringify(original_region) and str(region.id)!=str(drag_preview.get("id","")):
 			continue
 		var vertices := PackedVector2Array()
 		for point in region.get("points",[]):
-			vertices.append(Vector2(float(point.x),float(point.y))*PPM)
+			var p:=Vector2(float(point.x),float(point.y))*PPM
+			if str(region.id)==str(drag_preview.get("id","")):p+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
+			vertices.append(p)
 		if vertices.size() >= 3:
 			var color := Color("#84a878")
 			match str(region.get("biome","grass")):
@@ -274,20 +325,22 @@ func _draw_draft() -> void:
 				"beach":color=Color("#d7c89b")
 				"forest":color=Color("#658768")
 				"mountain","rock":color=Color("#8b9992")
-			draw_colored_polygon(vertices,Color(color.r,color.g,color.b,0.68))
+			if not MountainGeometry.solid(region):draw_colored_polygon(vertices,Color(color.r,color.g,color.b,0.68))
 			vertices.append(vertices[0])
 			draw_polyline(vertices,Color("#ffb653"),4,true)
 	for marker in draft_doc.get("markers",[]):
+		if not layer_flags.get("markers",true):continue
 		var unchanged := false
 		for original_marker in draft_initial.get("markers",[]):
 			if str(original_marker.get("id","")) == str(marker.get("id","")):
 				unchanged = JSON.stringify(marker) == JSON.stringify(original_marker)
 				break
-		if not unchanged:
+		if not unchanged or str(marker.id)==selected_source_id or _visible_point(Vector2(marker.x,marker.y)*PPM):
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
-			draw_circle(at,11,Color("#ffb653"))
-			draw_circle(at,16,Color("#ffb653"),false,3.0,true)
+			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
+			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
 	for prop in draft_doc.get("props",[]):
+		if not layer_flags.get("scenery",true):continue
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
 		var id := str(prop.id)
@@ -336,11 +389,33 @@ func _visible_point(p: Vector2) -> bool:
 	return absf(p.x-camera_center.x) < viewport_extents.x + PPM*75.0 and \
 		absf(p.y-camera_center.y) < viewport_extents.y + PPM*75.0
 
+func _draw_draft_junctions(shoulder: bool) -> void:
+	if not network_is_draft or not layer_flags.get("roads",true):return
+	for junction in preview_junctions:
+		var changed:=false
+		for id in junction.roads:
+			if Roads.editor_hidden.has(int(id)) or int(id)>=world.data.roads.size():changed=true;break
+		if not changed:continue
+		var polygon:=PackedVector2Array()
+		for p in junction.polygon:polygon.append(Vector2(p[0],p[1])*PPM)
+		if polygon.size()<3:continue
+		if shoulder:
+			for outline in Geometry2D.offset_polygon(polygon,PPM*1.5,Geometry2D.JOIN_ROUND):
+				draw_colored_polygon(outline,Color("#ccc4ab"))
+		else:draw_colored_polygon(polygon,Color("#58656c"))
+		if not shoulder:JunctionFurniture.draw_junction(self,junction)
+
 func _draw() -> void:
 	if not is_instance_valid(world) or world.data.is_empty():
 		return
-	if show_lanes and is_instance_valid(network):
+	if layer_flags.get("grid",false):_draw_grid()
+	_draw_draft_junctions(true)
+	_draw_draft()
+	if show_lanes and layer_flags.get("roads",true) and is_instance_valid(network):
 		for edge in network.edges:
+			if not network_is_draft:
+				if Roads.editor_hidden.has(int(edge.road)):continue
+				if bool(edge.connector) and not edge.next.is_empty() and Roads.editor_hidden.has(int(network.edges[int(edge.next[0])].road)):continue
 			var points: PackedVector2Array = edge.points
 			if points.size()<2:
 				continue
@@ -362,9 +437,14 @@ func _draw() -> void:
 				var side := tangent.orthogonal()
 				draw_line(middle-tangent*13.0+side*9.0,middle,color,3.0,true)
 				draw_line(middle-tangent*13.0-side*9.0,middle,color,3.0,true)
-	if show_junctions:
-		for index in world.data.junctions.size():
-			var j: Dictionary = world.data.junctions[index]
+	if show_junctions and layer_flags.get("roads",true):
+		var junctions: Array=preview_junctions if network_is_draft else world.data.junctions
+		for index in junctions.size():
+			var j: Dictionary = junctions[index]
+			var hidden:=false
+			for road_id in j.get("roads",[]):
+				if not network_is_draft and Roads.editor_hidden.has(int(road_id)):hidden=true;break
+			if hidden:continue
 			var center := Vector2(float(j.p[0]),float(j.p[1]))*PPM
 			if not _visible_point(center):
 				continue
@@ -388,7 +468,6 @@ func _draw() -> void:
 				path.append(Vector2(float(raw[0]),float(raw[1]))*PPM)
 			if path.size()>=2:
 				draw_polyline(path,Color(1.0,0.92,0.28,0.91),6.0,true)
-	_draw_draft()
 	if not pending_shape.is_empty():
 		var path := PackedVector2Array()
 		for item in pending_shape:
@@ -411,3 +490,15 @@ func _draw() -> void:
 				points.append(center+v.rotated(angle))
 			draw_polyline(points,Color(1.0,0.9,0.25,1.0),5.0,true)
 			draw_line(points[3],points[0],Color(1.0,0.9,0.25,1.0),5.0,true)
+
+func _draw_grid() -> void:
+	# Adaptive spacing keeps both the whole map and close-up edits readable.
+	var step:=pow(10.0,ceil(log(50.0/(maxf(.003,zoom_level)*PPM))/log(10.0)))*PPM
+	var extent:=Vector2(world.data.size[0],world.data.size[1])*PPM
+	var first: Vector2=(camera_center-viewport_extents).max(Vector2.ZERO)
+	var last: Vector2=(camera_center+viewport_extents).min(extent)
+	var color:=Color(.65,.76,.88,.16)
+	for x in range(ceili(first.x/step),floori(last.x/step)+1):
+		draw_line(Vector2(x*step,first.y),Vector2(x*step,last.y),color,1.0/zoom_level)
+	for y in range(ceili(first.y/step),floori(last.y/step)+1):
+		draw_line(Vector2(first.x,y*step),Vector2(last.x,y*step),color,1.0/zoom_level)

@@ -38,6 +38,7 @@ func _ready() -> void:
 	add_child(map_tiles)
 	editor_origin_camera = Camera2D.new()
 	editor_origin_camera.name = "EditorOriginCamera"
+	editor_origin_camera.physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_OFF
 	editor_origin_camera.position = ground.spawn_position()
 	if get_tree().has_meta("streetbound_editor_return_position"):
 		var saved: Variant = get_tree().get_meta("streetbound_editor_return_position")

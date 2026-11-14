@@ -34,6 +34,8 @@ func can_stage() -> bool:
 	# A head-to-head race must not grant a free 15-metre head start.
 	return super.can_stage() and absf(_local_position().x) <= 4.0
 
+func start_radius_m() -> float:return 4.0
+
 
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:

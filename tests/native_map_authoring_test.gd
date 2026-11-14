@@ -135,7 +135,7 @@ func _run() -> void:
 	var corners: Array[Vector2] = [Vector2(310,320),Vector2(390,320),Vector2(390,370)]
 	var native_region := session.add_region(corners)
 	check("terrain_region_is_previewed_without_world_rebake",
-		native_region=="region-%d" % region_count and
+		not session.initial.regions.any(func(item: Dictionary)->bool:return str(item.id)==native_region) and
 		session.doc.regions.size()==region_count+1 and session.undo())
 	var marker_count: int = session.doc.markers.size()
 	var native_marker := session.add_marker(Vector2(2350,3100))

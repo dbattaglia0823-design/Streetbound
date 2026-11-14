@@ -8,6 +8,8 @@ const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.gd")
+const AutomaticBridges=preload("res://scripts/world/automatic_road_bridges.gd")
+const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const PPM := 20.0
@@ -28,6 +30,9 @@ var current_cell := Vector2i(-999,-999)
 var surface_queries := 0
 var segment_tests := 0
 var segment_stations := PackedFloat64Array()
+var bridge_diagnostics: Dictionary={}
+var mountain_diagnostics: Dictionary={}
+var mountain_art_cache: Dictionary={}
 var max_chunk_build_usec := 0
 var stream_build_usec := 0
 var mark_clock := 0.0
@@ -70,7 +75,10 @@ func _ready() -> void:
 	# surfaces must agree before ANY chunks, traffic, parking or map are built.
 	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
 	# carries the marker and is not widened twice.
+	var legacy_bridges: Array=data.get("bridges",[]).duplicate(true)
 	RoadWidthAdaptation.adapt(data)
+	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
+	mountain_diagnostics=Mountains.apply(data)
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
 			player_garage_prop = prop

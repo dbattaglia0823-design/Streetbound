@@ -1,6 +1,9 @@
 extends Control
 ## A clipped, smoothly translated cartographic viewport with bounded detail caches.
 signal view_changed
+signal destination_requested(point_m: Vector2, local_point: Vector2)
+signal clear_destination_requested
+signal atlas_requested
 const Ink = preload("res://scripts/world/coast_map_ink.gd")
 const Scale = preload("res://scripts/world/coast_map_scale.gd")
 const RaceGuidance = preload("res://scripts/world/race_guidance.gd")
@@ -20,6 +23,8 @@ var follow_car := false
 var dragging := false
 var player_m := Vector2.ZERO
 var player_heading := 0.0
+var _drag_distance:=0.0
+var activity_overlay: Node2D
 
 func _draw() -> void:
 	# The background is also the clipping mask for ALL map children, including
@@ -46,7 +51,7 @@ func set_minimap_shape(shape: String) -> void:
 
 func _ready() -> void:
 	clip_contents=true
-	mouse_filter=Control.MOUSE_FILTER_IGNORE if miniature else Control.MOUSE_FILTER_STOP
+	mouse_filter=Control.MOUSE_FILTER_STOP
 	ink=Node2D.new()
 	ink.set_script(Ink)
 	ink.model=model
@@ -129,18 +134,35 @@ func zoom_at(factor: float, mouse: Vector2) -> void:
 	redraw_map()
 
 func _gui_input(event: InputEvent) -> void:
+	if miniature:
+		if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:atlas_requested.emit()
+		accept_event();return
 	if event is InputEventMouseButton:
 		if event.button_index==MOUSE_BUTTON_WHEEL_UP and event.pressed: zoom_at(1.3,event.position)
 		elif event.button_index==MOUSE_BUTTON_WHEEL_DOWN and event.pressed: zoom_at(1/1.3,event.position)
 		elif event.button_index==MOUSE_BUTTON_LEFT:
+			var was_dragging:=dragging
 			dragging=event.pressed
-			if event.pressed: follow_car=false
+			if event.pressed:
+				follow_car=false;_drag_distance=0
+			elif was_dragging and _drag_distance<7:
+				destination_requested.emit(center_m+(event.position-custom_minimum_size*.5)/pixels_per_m,event.position)
+		elif event.button_index==MOUSE_BUTTON_RIGHT and event.pressed:
+			dragging=false;clear_destination_requested.emit()
 		accept_event()
 	elif event is InputEventMouseMotion and dragging:
+		_drag_distance+=event.relative.length()
 		center_m=(center_m-event.relative/pixels_per_m).clamp(Vector2.ZERO,model.extent)
 		_update_translation()
 		view_changed.emit()
 		accept_event()
+
+func _input(event: InputEvent) -> void:
+	if dragging and event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and not event.pressed and not get_global_rect().has_point(event.position):
+		dragging=false
+
+func _notification(what: int) -> void:
+	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT:dragging=false
 
 func _process(_dt: float) -> void:
 	if miniature or follow_car: center_m=player_m

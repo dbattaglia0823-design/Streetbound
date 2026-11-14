@@ -1,7 +1,11 @@
 extends Node2D
 const PPM := 20.0
+const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
+## Editor-only draft masking. Cleared on editor close; game data stays intact.
+static var editor_hidden: Dictionary={}
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
 const Clip = preload("res://scripts/world/road_marking_clip.gd")
+const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
@@ -13,11 +17,7 @@ func _ready() -> void:
 	material=preload("res://scripts/world/road_surface.tres")
 
 func _offset(path: PackedVector2Array, amount: float) -> PackedVector2Array:
-	var result := PackedVector2Array()
-	for i in path.size():
-		var tangent := (path[mini(i+1,path.size()-1)] - path[maxi(i-1,0)]).normalized()
-		result.append(path[i] + Vector2(-tangent.y, tangent.x) * amount)
-	return result
+	return Lanes.offset_path(path,amount)
 
 func _dashes(path: PackedVector2Array, width: float, color: Color, dash := 55.0, gap := 85.0, station := 0.0, weathered := false) -> void:
 	var cursor := station
@@ -183,6 +183,7 @@ func _dealer_curb_gaps(road: Dictionary, side: float) -> Array:
 
 func _roads(stage: int) -> void:
 	for batch in road_batches:
+		if editor_hidden.has(int(batch.road.get("id",-1))):continue
 		var path: PackedVector2Array = batch.path
 		var r: Dictionary = batch.road
 		var width := float(r.width) * PPM
@@ -210,7 +211,11 @@ func _roads(stage: int) -> void:
 			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
-				var lanes: Array = [-width*.375,-width*.125,width*.125,width*.375] if r.kind=="highway" else [-width*.25,width*.25]
+				var lanes: Array=[]
+				var layout:=Lanes.layout(r)
+				for direction in [1,-1]:
+					for lane in int(layout.forward if direction>0 else layout.reverse):
+						lanes.append(Lanes.lane_offset(r,direction,lane)*PPM)
 				for lane in lanes:
 					for wheel in [-13.0,13.0]:
 						draw_polyline(_offset(path,float(lane)+wheel),Color(.18,.23,.25,.065),10,true)
@@ -283,16 +288,16 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 	if r.kind == "track":
 		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station,true)
 		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station,true)
-	elif r.kind == "highway":
-		draw_polyline(_offset(path,-8),Color("d7c696"),3,true)
-		draw_polyline(_offset(path,8),Color("d7c696"),3,true)
-		_dashes(_offset(path,width/4),3.5,edge,60,100,station,true)
-		_dashes(_offset(path,-width/4),3.5,edge,60,100,station,true)
-	elif r.kind in ["arterial","mountain"]:
-		draw_polyline(_offset(path,-5),Color("d8c69a"),3,true)
-		draw_polyline(_offset(path,5),Color("d8c69a"),3,true)
 	else:
-		_dashes(path,3,Color("ddd2a7"),55,85,station,true)
+		var layout:=Lanes.layout(r)
+		var divider:=float(layout.divider)*PPM
+		if r.kind in ["highway","arterial","mountain"]:
+			var gap:=8.0 if r.kind=="highway" else 5.0
+			for side in [-1,1]:draw_polyline(_offset(path,divider+side*gap),Color("d8c69a"),3,true)
+		else:_dashes(_offset(path,divider),3,Color("ddd2a7"),55,85,station,true)
+		for direction in [1,-1]:
+			for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
+				_dashes(_offset(path,divider+direction*float(layout.width)*lane*PPM),3.5,edge,60,100,station,true)
 	# Urban road-edge lines are emitted above from dealer/junction-clipped
 	# paths. Non-urban road shoulders retain their original full paint.
 	if not urban:
@@ -302,21 +307,11 @@ func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
 		return
-	# Bridge rails sit outside the usable deck, matching the bank collision gates.
-	for bridge in world.data.bridges:
-		var path := PackedVector2Array()
-		for p in bridge.points:
-			path.append(point(p))
-		if path.is_empty() or not Rect2(Vector2(-500,-500),Vector2.ONE*(world.chunk_m*PPM+1000)).has_point(path[0]):
-			continue
-		for side in [-1.0,1.0]:
-			draw_polyline(_offset(path,side*(float(bridge.width)*.5+1.0)*PPM),Color("d1c7b0"),12,true)
-			draw_polyline(_offset(path,side*(float(bridge.width)*.5+1.3)*PPM),Color("9ca99d"),4,true)
-		for i in range(2,path.size()-1,3):
-			var direction := (path[i+1]-path[i-1]).normalized()
-			var normal := Vector2(-direction.y,direction.x)*float(bridge.width)*PPM*.45
-			draw_line(path[i]-normal,path[i]+normal,Color(.67,.72,.70,.26),2,true)
 	for j in junction_list:
+		var hidden:=false
+		for road_id in j.get("roads",[]):
+			if editor_hidden.has(int(road_id)):hidden=true;break
+		if hidden:continue
 		var polygon := PackedVector2Array()
 		for p in j.polygon: polygon.append(point(p))
 		# The baker provides only OUTSIDE corner fillets, never a line across
@@ -345,33 +340,12 @@ func _draw() -> void:
 			var path := PackedVector2Array()
 			for p in curve: path.append(point(p))
 			draw_polyline(path,Color("eee7d5"),6,true)
+		JunctionFurniture.draw_junction(self,j,origin_m)
 		for arm in j.approaches:
-			var r: Dictionary = world.data.roads[int(arm.road)]
-			var p := point(arm.p)
-			var direction := Vector2(float(arm.direction[0]),float(arm.direction[1]))
-			var normal := Vector2(-direction.y,direction.x)
-			var width := float(arm.width)*PPM
-			# Both stop/yield lines run across the usable approach, not just
-			# one lane. No transverse markings are drawn into roundabouts.
-			if j.control != "roundabout":
-				var bar: PackedVector2Array = approach_stop_line(
-					p + direction * 20.0, direction, width)
-				if bar.size() == 2:
-					if arm.control == "stop":
-						draw_line(bar[0], bar[1], Color("e9e0cb"), 8.0, true)
-						_sign(p + direction * 30.0 - normal * (width * 0.5 + 32.0),
-							direction, false)
-					elif arm.control == "yield":
-						_dashes(bar, 7.0, Color("e9e0cb"), 9.0, 8.0)
-						_sign(p + direction * 30.0 - normal * (width * 0.5 + 32.0),
-							direction, true)
-			if r.kind in ["local","arterial"] and j.control != "roundabout" and j.approaches.size() >= 3:
-				# A centered zebra crossing sits outside the turning area,
-				# with the stop line beyond its far edge; widths scale with
-				# each actual inbound road instead of a common junction width.
-				for stripe in approach_crosswalk(p - direction * 26.0,
-						direction, width):
-					draw_line(stripe[0], stripe[1], Color("dfdac6"), 9.0, true)
+			if str(arm.get("control","")) not in ["stop","yield"]:continue
+			var direction:=Vector2(arm.direction[0],arm.direction[1])
+			var normal:=Vector2(-direction.y,direction.x)
+			_sign(point(arm.p)+direction*30-normal*(float(arm.width)*PPM*.5+32),direction,str(arm.control)=="yield")
 	draw_set_transform(Vector2.ZERO)
 
 func _sign(p: Vector2,outward: Vector2,yield_sign: bool) -> void:

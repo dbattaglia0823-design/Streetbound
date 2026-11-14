@@ -2,6 +2,7 @@ extends Node2D
 ## Camera-bounded map view: reuse the actual CoastChunk draw pipeline, without
 ## active vehicle streaming, collision bodies, traffic, or gameplay simulation.
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
+const Overview=preload("res://scripts/dev/editor_world_overview.gd")
 const PPM := 20.0
 const MAX_TILES := 64
 const BUILD_PER_FRAME := 2
@@ -11,6 +12,10 @@ var wanted: Dictionary = {}
 var pending: Array[Vector2i] = []
 var detailed := false
 var total_visible := 0
+var layer_flags: Dictionary={"terrain":true,"roads":true,"scenery":true}
+var ready_to_show:=false
+
+func _ready() -> void:process_mode=Node.PROCESS_MODE_ALWAYS
 
 
 func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
@@ -31,9 +36,11 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 	# A single consistent LOD across the entire camera avoids rectangular
 	# high-detail islands surrounded by a mismatched low-res map.
 	detailed = count > 0 and count <= MAX_TILES
+	ready_to_show=false
 	visible = detailed
 	if not detailed:
-		_clear()
+		pending.clear();wanted.clear();set_process(false)
+		visible=false
 		return false
 	var requested: Dictionary = {}
 	var ordered: Array[Vector2i] = []
@@ -57,6 +64,8 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 		if not tiles.has(cell):
 			pending.append(cell)
 	set_process(not pending.is_empty())
+	ready_to_show=not wanted.is_empty() and pending.is_empty() and tiles.size()==wanted.size()
+	visible=ready_to_show
 	return true
 
 
@@ -75,9 +84,16 @@ func _process(_dt: float) -> void:
 			node.free()
 			continue
 		node.z_index = -6
+		Overview.apply_layers(node,layer_flags)
 		add_child(node)
 		tiles[cell] = node
 	set_process(not pending.is_empty())
+	ready_to_show=detailed and not wanted.is_empty() and pending.is_empty() and tiles.size()==wanted.size()
+	visible=ready_to_show
+
+func set_layers(flags: Dictionary) -> void:
+	layer_flags=flags.duplicate()
+	for tile in tiles.values():Overview.apply_layers(tile,flags)
 
 
 func _clear() -> void:

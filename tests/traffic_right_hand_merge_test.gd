@@ -64,6 +64,10 @@ func _run() -> void:
 		var linked := false
 		var route_stays_right := false
 		for next_id in east_a.next:
+			if int(next_id)==int(east_b.id):
+				linked=true
+				route_stays_right=east_a.points[-1].y>300*PPM and east_b.points[0].y>300*PPM
+				continue
 			var connector: Dictionary = network.edges[int(next_id)]
 			if not bool(connector.connector):
 				continue
@@ -76,6 +80,7 @@ func _run() -> void:
 		check("two_oppositely_drawn_roads_connect_forward", linked)
 		check("join_connector_does_not_cross_into_oncoming_lane",
 			route_stays_right)
+		check("coincident_join_has_no_backtracking_cubic_loop",east_a.next.has(int(east_b.id)))
 	print("RIGHT HAND MERGE LANES: ", "PASS" if failures.is_empty() else
 		"FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)

@@ -370,6 +370,20 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                                (road["end"], baseline[-1], fresh[-1])):
             if length(old, new) <= 0.05:
                 continue
+            # A split keeps the former endpoint for the second half. Likewise,
+            # removing an endpoint detaches this road when its neighbors stay put.
+            following = any(length(points(candidate["points"],width,height)[0],new)<.05 and
+                            length(points(candidate["points"],width,height)[-1],old)<.05
+                            for candidate_index,candidate in numbered.items() if candidate_index>=source_count)
+            neighbor_stays = any(other["id"]!=index and
+                any(other[end]==name and other["id"] in numbered and
+                    length(points(numbered[other["id"]]["points"],width,height)[0 if end=="start" else -1],old)<.05
+                    for end in ("start","end")) for other in roads)
+            if following or neighbor_stays:
+                detached=f"editor-detached-{index}-{'start' if name==road['start'] else 'end'}"
+                road["start" if name==road["start"] else "end"]=detached
+                nodes[detached]=tuple(new)
+                continue
             previous = proposed_nodes.get(name)
             if previous is not None and length(previous, new) > 1.0:
                 raise ValueError("Conflicting edits for shared road endpoint " + name + "; snap the endpoints first")
@@ -429,25 +443,41 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
     # Terrain changes are applied ONLY when they differ from the sampled
     # source projection. This protects high-detail coastlines on an untouched
     # import, where the browser preview can display only 180 handles.
+    base_terrain_count=len(terrain)
     for entry in doc.get("regions", []):
         match = re.fullmatch(r"region-(\d+)", str(entry.get("id", "")))
         if match is None:
             raise ValueError("Terrain must keep stable region-<id> identifiers")
         index = int(match.group(1))
-        if index < len(terrain):
+        biome = str(entry.get("biome", "grass"))
+        barrier=entry.get("barrier",False)
+        elevation=entry.get("elevation",0)
+        if type(barrier) is not bool or type(elevation) not in (int,float) or not math.isfinite(elevation) or not 0<=elevation<=2000:
+            raise ValueError("Invalid mountain barrier or elevation setting")
+        if barrier and (biome not in {"mountain","rock"} or elevation<5):
+            raise ValueError("Solid mountain barriers need mountain/rock terrain and height of at least 5 metres")
+        if index < base_terrain_count:
             original = _thin_polygon(terrain[index]["points"],width=width,height=height)
             new = _polygon_points(entry["points"],width,height)
             unchanged = len(original) == len(new) and all(length(a, b) < 0.02 for a, b in zip(original, new))
+            source_kind=terrain[index]["kind"]
+            source_biome="lake" if source_kind=="water" else "grass" if source_kind in {"town","highland"} else source_kind
             if not unchanged:
                 terrain[index]["points"] = new
-                biome = str(entry.get("biome", terrain[index]["kind"]))
+            if not unchanged or biome!=source_biome:
                 terrain[index]["kind"] = "water" if biome == "lake" else biome
                 terrain[index]["color"] = PALETTES.get(biome, terrain[index]["color"])
+            target=terrain[index]
         else:
-            biome = str(entry.get("biome", "grass"))
-            terrain.append(dict(kind="water" if biome == "lake" else biome,
+            target=dict(kind="water" if biome == "lake" else biome,
                                 color=PALETTES.get(biome, PALETTES["grass"]),
-                                points=_polygon_points(entry["points"],width,height)))
+                                points=_polygon_points(entry["points"],width,height),authoring_id=str(entry["id"]))
+            terrain.append(target)
+        if elevation>0:target["elevation"]=float(elevation)
+        if barrier:
+            from mountain_barriers import validate_polygon
+            validate_polygon(target["points"])
+            target["barrier"]=True;target["authoring_id"]=str(entry["id"])
 
     extra = []
     for marker in doc.get("markers", []):

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/world/race_event_definition.gd" id="1"]
+[resource]
+script = ExtResource("1")
+event_id = "parkway-express"
+title = "Parkway Express"
+district = "Morrow Parkway"
+start_road = "Morrow Parkway"
+start_piece = 0
+start_fraction = 0.3
+finish_road = "Morrow Parkway"
+finish_piece = 3
+finish_fraction = 0.7

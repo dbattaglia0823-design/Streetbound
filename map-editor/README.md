@@ -5,7 +5,81 @@ https://github.com/dbattaglia0823-design/Game-Dev-Toolkit/tree/main/web/map-buil
 with Streetbound-specific road precedence. It lives inside this repository.
 No separate Toolkit setup is required.
 
-## Open the real game project (recommended)
+## Native editor inside Streetbound
+
+Choose **Map Editor** on the game's title screen in a local development build.
+This opens `scenes/world_editor.tscn`, using the real Godot map renderer and
+project artwork. **F6** also opens the editor during single-player free roam.
+
+The native workspace follows the browser builder: a top tool strip, settings
+and scenery library on the left, a canvas action bar, and layers, inspector and
+searchable object list on the right. A clickable minimap navigates the world.
+**Fit / F** fits the complete map inside the canvas between the sidebars.
+Zooming out retains the entire map's real terrain, roads and scenery in a
+cached 4096-pixel overview. Close views switch to collision-free detail tiles
+only after all requested tiles are ready. The tile budget never blanks the map.
+
+**Automatic bridges:** Roads crossing rivers, lakes or ocean gain a raised deck,
+shadows and guardrails automatically. Bridge width follows road width and the
+rails leave the driving lanes and intersection mouths clear. Road and terrain
+edits update the preview immediately; moving back onto land removes the bridge.
+Save to Game rebuilds the bridge artwork, streaming membership and rail collision
+together. Existing maps also derive bridges on load; no manual bridge placement
+or rebake is required to see the updated bridges.
+
+- **Select / Edit**: drag a road's body to move the whole road. Shared endpoints
+  move together. Select a road, then drag its orange handles to reshape it;
+  **Shift-click** adds a control point. **Road Point** exposes every road handle.
+- **Draw Road**: choose class, surface, width in metres and lanes, then click
+  successive points. **Finish / Enter** creates the road; double-click also
+  finishes. Compatible nearby roads attract new points for clean joins.
+- **Terrain Region**: choose a material, click at least three polygon corners,
+  then **Finish**. **Game Marker** offers checkpoint, race start, finish and
+  traffic spawn types. Select markers or terrain edges to move them.
+- **Scenery**: choose project artwork, click to place, then use Select / Edit
+  to move it. Inspector rotation and scale update the draft art and collision.
+  **Refresh Assets** scans the project again for newly added artwork.
+- Right/middle drag or **Space + drag** pans; the wheel zooms around the cursor.
+  WASD pans, except while entering text. Arrows nudge a selected object by
+  one metre; Shift nudges ten metres. Without a selection, arrows pan.
+  **Snap to grid** controls one-metre snapping; the separate Grid layer draws
+  an adaptive guide. Terrain, roads, scenery, markers, lanes and junctions can
+  be toggled independently.
+- The inspector edits names and coordinates, plus scenery rotation/scale.
+  Its road point picker targets one handle or the whole road; interior road
+  points can be removed. **Ctrl+D / Duplicate** creates an undoable copy.
+- **Ctrl+Z / Ctrl+Y** undo/redo. During drawing, Undo removes the last point.
+  Existing roads support **Add road point**, the control-point picker,
+  **Remove selected road point**, and **Split road here** in the native inspector.
+  With the whole road selected, Add chooses its longest span and Split chooses
+  its middle. A road must retain at least two points. Browser point insertion
+  and splitting can also target a click on the selected curve. Splitting keeps
+  the original outer endpoints and creates a second editable road.
+  **Escape** cancels an unfinished shape or drag. **Delete** removes a selected
+  prop or a newly created object. Original roads, terrain and gameplay markers
+  are protected from deletion; they can be moved or reshaped.
+
+**Save to Game / Ctrl+S** starts the local Python backend automatically if
+needed, checks for outside file changes, and runs the production world builder.
+The standalone editor reloads the rebuilt world automatically and retains the
+camera position. In the free-roam editor, use **Reload World** after saving.
+Traffic lane guides regenerate in the background when roads move, bend, change
+width/lane count, or are created. Undo restores the previous guides. Both editors
+keep traffic on the right and fit lane positions inside single and odd lane-count
+roads. The saved game uses the production junction geometry, including stop/yield
+controls; Save to Game rebuilds that final result. Finish or cancel a gesture
+before saving or leaving.
+
+Junctions automatically draw approach markings, crossing paint, applicable
+stop/yield signs, and decorative traffic-light fixtures. All signal lenses are
+dark and neutral: there are no signal phases, timers, or new AI traffic rules.
+
+Committed unsaved changes in the standalone editor have a local recovery copy,
+restored only against the same source and world revision. **Discard** clears
+the draft and recovery copy. Keep the editor open while saving. **Test Drive**
+opens the playable world after saving or discarding standalone edits.
+
+## Browser editor
 
 On Windows 11, open your local Streetbound checkout and double-click
 **map-editor/Start Map Editor.cmd**. This now starts the local-only Python 3

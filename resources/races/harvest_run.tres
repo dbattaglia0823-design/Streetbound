@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/world/race_event_definition.gd" id="1"]
+[resource]
+script = ExtResource("1")
+event_id = "harvest-run"
+title = "Harvest Run"
+district = "Willowmere Countryside"
+start_road = "Meadow Road"
+start_fraction = 0.25
+finish_road = "Harvest Road"
+finish_piece = 1
+finish_fraction = 0.75

@@ -2,6 +2,7 @@ import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-
 import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
 import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {projectArtwork,projectAssetId} from './world-project-assets.js';
+import {validateMountainRegion} from './world-mountain-barriers.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
@@ -55,10 +56,18 @@ function validEntity(item,type,w,h){
       points};
   }
   if(type==='regions'){
-    const points=polygon(item.points,w,h,3,LIM.regionPoints,'terrain');
+    let points=polygon(item.points,w,h,3,LIM.regionPoints,'terrain');
+    if(item.barrier===true){
+      points=points.filter((p,i)=>!i||distance(p,points[i-1])>.05);
+      if(points.length>2&&distance(points[0],points.at(-1))<.05)points.pop();
+      if(points.length<3)throw new RangeError('Mountain barrier needs three distinct outline points');
+    }
     if(polygonArea(points)<25)throw new RangeError('Terrain area is too small');
-    return {id:item.id,name:title(item.name,'Region'),biome:oneOf(item.biome,BIOMES,'biome'),
+    const region={id:item.id,name:title(item.name,'Region'),biome:oneOf(item.biome,BIOMES,'biome'),
       elevation:real(item.elevation,0,2000,'elevation'),points};
+    validateMountainRegion({...region,barrier:item.barrier});
+    if(item.barrier===true)region.barrier=true;
+    return region;
   }
   if(type==='props'){
     const entity={id:item.id,name:title(item.name,'Scenery'),type:oneOf(item.type,PROPS,'prop type'),

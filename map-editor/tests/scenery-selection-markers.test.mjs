@@ -79,7 +79,8 @@ test('select mode checks visible scenery before roads/terrain and starts direct 
   const hit=editor.slice(editor.indexOf('function hitTest(p){'),
     editor.indexOf('function refreshInspector()'));
   assert.ok(hit.indexOf("show-markers")<hit.indexOf('pickEditableScenery'));
-  assert.ok(hit.indexOf('pickEditableScenery')<hit.indexOf("show-terrain"));
+  assert.ok(hit.indexOf('isMountainBarrier')<hit.indexOf('pickEditableScenery'), 'Solid mountain faces cover scenery');
+  assert.ok(hit.indexOf('pickEditableScenery')<hit.lastIndexOf("show-terrain"), 'Ordinary ground stays below scenery');
   assert.ok(hit.indexOf('pickRuntimeProp')<hit.indexOf("show-roads"));
   assert.match(editor,/if\(hit\?\.kind==='native'\)/);
   assert.match(editor,/adoptRuntimeScenery\(hit\.source\)/);

@@ -20,6 +20,9 @@ const Relief = preload("res://assets/scenery/mountain-relief-map.png")
 const Mirror = preload("res://scripts/world/coast_map_world_mirror.gd")
 const Art = preload("res://scripts/world/coast_art.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
+const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
+const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
+var _mountain_cache: Dictionary={}
 var world: MorrowCoast
 var mirror: Node2D
 var mirror_enabled := false
@@ -148,6 +151,7 @@ func _draw() -> void:
 				draw_rect(rect,Color(prop.color))
 		draw_set_transform(Vector2.ZERO)
 		drawn_props+=1
+	_draw_bridges(0)
 	# Roads draw over parcels. True widths emerge naturally as you zoom in.
 	for stage in 2:
 		for entry in model.roads:
@@ -159,12 +163,20 @@ func _draw() -> void:
 	for junction in model.data.junctions:
 		var p: Vector2 = model.v(junction.p)
 		if cache_area.has_point(p): draw_colored_polygon(mapped(model.path_of(junction.polygon)),Color("58656c"))
-	for bridge in model.data.bridges:
-		var path := mapped(model.path_of(bridge.points))
-		if cache_area.grow(60).has_point(model.v(bridge.points[0])):
-			draw_polyline(path,Color("607f80"),maxf(4,float(bridge.width)*ppm+3),true)
-			draw_polyline(path,Color("e9dfc7"),maxf(2,float(bridge.width)*ppm),true)
+	_draw_bridges(1)
+	var mountain_cache: Dictionary=world.mountain_art_cache if is_instance_valid(world) else _mountain_cache
+	for region in model.data.terrain:
+		if MountainGeometry.solid(region) and MountainGeometry.bounds(MountainGeometry.polygon(region)).grow(40).intersects(cache_area,true):
+			MountainGeometry.draw_art(self,region,mountain_cache,center,ppm,viewport_size*.5)
 	_draw_map_labels()
+
+func _draw_bridges(stage: int) -> void:
+	draw_set_transform(viewport_size*.5-center*ppm,0,Vector2.ONE*ppm/20.0)
+	for bridge in model.data.bridges:
+		var path: PackedVector2Array=model.path_of(bridge.points)
+		if not model.bounds_of(path).grow(float(bridge.width)+8).intersects(cache_area,true):continue
+		BridgeArt.draw_span(self,bridge,Vector2.ZERO,stage,model.data.junctions)
+	draw_set_transform(Vector2.ZERO)
 
 func _draw_map_labels() -> void:
 	var overview := not miniature and ppm < .35

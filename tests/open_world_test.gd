@@ -33,6 +33,11 @@ func run() -> void:
 	check("world_scale_matches_vehicle", float(world.data.pixels_per_metre)==car.PIXELS_PER_METER and Engine.physics_ticks_per_second==120)
 	check("garage_spawn_is_asphalt",world.surface_at(car.position).name=="ASPHALT",car.position/20)
 	var spawn := car.position
+	# The parking spawn faces north; the paved driveway leaves to the
+	# southeast. Follow its actual tangent instead of driving into the lawn.
+	var departure: Dictionary=world.nearest_road_at(spawn,12.0)
+	check("garage_has_a_paved_departure",not departure.is_empty() and departure.road_kind=="driveway")
+	if not departure.is_empty():car.global_rotation=Vector2(departure.tangent).angle()+PI*.5
 	for i in 240:
 		await physics_frame
 		car.step_vehicle(1.0/120,Vector4(1,0,0,0))

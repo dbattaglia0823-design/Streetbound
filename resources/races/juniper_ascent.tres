@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/world/race_event_definition.gd" id="1"]
+[resource]
+script = ExtResource("1")
+event_id = "juniper-ascent"
+title = "Juniper Ascent"
+district = "Juniper Highlands"
+start_road = "Juniper Approach"
+start_fraction = 0.2
+finish_road = "Summit Ribbon"
+finish_fraction = 0.75
+time_limit_seconds = 720.0

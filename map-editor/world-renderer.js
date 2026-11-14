@@ -6,6 +6,9 @@ import {projectArtwork} from './world-project-assets.js';
 import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
 import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
+import {bridgesForDocument,drawBridge} from './world-road-bridges.js';
+import {isMountainBarrier,drawMountainRegion} from './world-mountain-barriers.js';
+import {drawJunctionFixtures} from './world-junction-fixtures.js';
 
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
 export const BIOME_COLORS={
@@ -169,6 +172,8 @@ function drawRoads(ctx,roads,bounds,options){
       return pieces.get(road.id)||[];
     return [baked.points];
   };
+  const bridges=options.doc?bridgesForDocument(options.doc,options.runtimePreview):[];
+  for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,0);
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
@@ -200,6 +205,7 @@ function drawRoads(ctx,roads,bounds,options){
     for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
   }
   ctx.restore();
+  for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,1,junctions);
   // Game-style pavement: road surfaces overlap naturally, without convex
   // hulls or artificial asphalt blobs. Clear road markings only inside the
   // actual junction mouths. The exact Godot-baked apron is drawn below when
@@ -255,6 +261,7 @@ function drawRoads(ctx,roads,bounds,options){
       ctx.restore();
     }
   }
+  if(options?.junctions!==false)drawJunctionFixtures(ctx,buildRoadJunctions(roads),roads);
 }
 function drawTree(ctx,type,seed){
   const rng=seeded(seed);
@@ -432,7 +439,7 @@ export function drawWorld(ctx,doc,options={}){
       for(const region of doc.regions)drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
   }
-  if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,options);
+  if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,{...options,doc});
   if(options.showScenery!==false){
     if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
     for(const prop of doc.props){
@@ -440,6 +447,9 @@ export function drawWorld(ctx,doc,options={}){
       if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))
         drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
     }
+  }
+  if(options.showTerrain!==false)for(const region of doc.regions){
+    if(isMountainBarrier(region)&&visible(expand(boundsOf(region.points),40),bounds))drawMountainRegion(ctx,region);
   }
   if(options.showMarkers!==false)drawMarkers(ctx,doc.markers,bounds);
   ctx.restore();

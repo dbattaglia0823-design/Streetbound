@@ -53,6 +53,47 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
           grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
+      - name: Verify expanded races, circular starts, map markers and player waypoints
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/races_waypoints_test.gd 2>&1 | tee /tmp/races-waypoints-463.log
+          grep -q 'RACES AND WAYPOINTS: PASS' /tmp/races-waypoints-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/races-waypoints-463.log
+      - name: Verify traffic lanes and car-width clearance against every real road and junction
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_road_alignment_test.gd 2>&1 | tee /tmp/traffic-alignment-463.log
+          grep -q 'TRAFFIC ROAD ALIGNMENT: PASS' /tmp/traffic-alignment-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/traffic-alignment-463.log
+      - name: Verify native road dragging, creation, panels and draft recovery (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_interaction_test.gd 2>&1 | tee /tmp/native-interactions-463.log
+          grep -q 'NATIVE EDITOR INTERACTIONS: PASS' /tmp/native-interactions-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-interactions-463.log
+      - name: Bake native editor creations with the production builder in an isolated copy
+        run: python3 -B tests/native_editor_build_test.py
+      - name: Verify existing road point editing and split production bake
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_point_tools_test.gd 2>&1 | tee /tmp/road-point-tools.log
+          grep -q 'ROAD POINT TOOLS: PASS' /tmp/road-point-tools.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-point-tools.log
+          python3 -B tests/road_split_bake_test.py
+      - name: Verify automatic water bridges, collision clearance, streaming and live edits
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_bridges_test.gd 2>&1 | tee /tmp/automatic-bridges-463.log
+          grep -q 'AUTOMATIC ROAD BRIDGES: PASS' /tmp/automatic-bridges-463.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/automatic-bridges-463.log
+          python3 -B tests/automatic_bridges_test.py
+          python3 -B tests/automatic_bridges_bake_test.py
+      - name: Verify browser-style native workspace, inspector and persistent full-map zoom
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_workspace_test.gd 2>&1 | tee /tmp/native-workspace-463.log
+          grep -q 'NATIVE EDITOR WORKSPACE: PASS' /tmp/native-workspace-463.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/native-workspace-463.log
       - name: Verify native F6 world editor uses real junctions, traffic and restores test drive (4.6.3)
         run: |
           set -o pipefail

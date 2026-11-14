@@ -9,6 +9,12 @@ const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const RacerDriverScript = preload("res://scripts/world/race_ai_driver.gd")
+const StartArea=preload("res://scripts/world/race_start_area.gd")
+const RoutePlanner=preload("res://scripts/world/road_route_planner.gd")
+@export var definition: Resource
+var race_title:="Larkspur Street Sprint"
+var race_type:="Street Sprint · 1v1"
+var start_radius_m:=8.0
 var world: MorrowCoast
 var player: VehicleController2D
 var network: RefCounted
@@ -45,11 +51,20 @@ func _ready() -> void:
 	name = "LarkspurStreetSprint"
 	if not is_instance_valid(world) or not is_instance_valid(player) or network == null:
 		return
-	edge_ids = RacingLine.city_sprint_edges(network, world, world.spawn_position())
+	var planned: Dictionary={}
+	if definition!=null:
+		race_title=str(definition.title)
+		name=str(definition.event_id)
+		var planner:=RoutePlanner.new();planner.setup(network,world.data)
+		planned=planner.plan(planner.road_anchor(definition.start_road,definition.start_piece,definition.start_fraction),
+			planner.road_anchor(definition.finish_road,definition.finish_piece,definition.finish_fraction),
+			Vector2.ZERO,definition.start_road,definition.finish_road)
+		if not planned.is_empty():edge_ids.assign(planned.edges)
+	else:edge_ids = RacingLine.city_sprint_edges(network, world, world.spawn_position())
 	if edge_ids.is_empty():
 		push_warning("No connected directed lanes for the Larkspur sprint")
 		return
-	var center_course: PackedVector2Array = RacingLine.traffic_line(network, world, edge_ids)
+	var center_course: PackedVector2Array=planned.points_m if not planned.is_empty() else RacingLine.traffic_line(network,world,edge_ids)
 	if center_course.size() < 40:
 		push_warning("Invalid Larkspur traffic racing line")
 		return
@@ -68,6 +83,7 @@ func _ready() -> void:
 	finish_m = course[course.size() - 1]
 	heading = (course[1] - course[0]).normalized()
 	available = true
+	add_to_group("streetbound_race")
 	position = start_m * PPM
 	rotation = heading.angle() + PI / 2.0
 	z_index = 5
@@ -93,7 +109,7 @@ func _ready() -> void:
 func can_stage() -> bool:
 	if not available or not is_instance_valid(player) or state != "idle":
 		return false
-	return player.global_position.distance_to(start_m * PPM) <= 6.0 * PPM and \
+	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
 		player.linear_velocity.length() <= 1.5 and \
 		Vector2.UP.rotated(player.rotation).dot(heading) >= 0.6
 
@@ -270,7 +286,7 @@ func _physics_process(dt: float) -> void:
 			_abort("RUN INVALID / FOLLOW ROAD")
 			return
 		previous_station = maxf(previous_station, station)
-		if elapsed > 280.0:
+		if elapsed > (float(definition.time_limit_seconds) if definition!=null else 280.0):
 			_abort("SPRINT TIMED OUT")
 			return
 		var length_m: float = navigation.get("length_m")
@@ -303,17 +319,16 @@ func _refresh() -> void:
 		player.linear_velocity.length() <= 5.0
 	match state:
 		"idle":
-			label.text = "LARKSPUR STREET SPRINT / PRACTICE\n%s" % (
-				"STOP AT START / FACE ROUTE / [ F ]" if can_stage()
-				else "DRIVE TO CYAN START LINE ON LAUREL AVENUE")
+			label.text = "%s / 1v1\n%s" % [race_title.to_upper(),
+				"[ F ] START RACE" if can_stage() else "STOP INSIDE THE CIRCLE / FACE ROUTE"]
 		"countdown":
-			label.text = "STREET SPRINT / 3 SECOND START\nSTART IN %d" % maxi(1, ceili(countdown))
+			label.text = "%s\nSTART IN %d" % [race_title.to_upper(),maxi(1, ceili(countdown))]
 		"running":
 			var fraction := previous_station / maxf(1.0, float(navigation.get("length_m")))
 			var rival := opponent_station_m / maxf(1.0, float(navigation.get("length_m")))
 			var maneuver := "DNF" if opponent_dnf else str(opponent_driver.get("traffic_mode")) if is_instance_valid(opponent_driver) else "clear"
-			label.text = "STREET SPRINT  %.2fs  /  YOU %.0f%%  AI %.0f%%\nTRAFFIC ACTIVE / AI %s / FOLLOW CYAN ROUTE" % [
-				elapsed,clampf(fraction * 100.0, 0.0, 100.0),
+			label.text = "%s / %.1fs\nYOU %.0f%% · RIVAL %.0f%% · %s" % [
+				race_title.to_upper(),elapsed,clampf(fraction * 100.0, 0.0, 100.0),
 				clampf(rival * 100.0, 0.0, 100.0),maneuver.to_upper()]
 		_:
 			label.text = result
@@ -333,7 +348,4 @@ func _unhandled_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if not available:
 		return
-	draw_line(Vector2(-58.0, 0.0), Vector2(58.0, 0.0),
-		Color("49eff4"), 6.0, true)
-	draw_circle(Vector2.ZERO, 12.0, Color("073f52"))
-	draw_circle(Vector2.ZERO, 7.0, Color("5df4fa"))
+	StartArea.draw_zone(self,start_radius_m)

@@ -122,8 +122,9 @@ func apply_source(draft: Dictionary, source_hash: String,
 func start_backend() -> bool:
 	# Spawn only after deliberate user action. Never open a browser. The
 	# process is terminated when the Godot game exits.
-	if started_pid > 0:
+	if started_pid > 0 and OS.is_process_running(started_pid):
 		return true
+	started_pid=-1
 	var path := ProjectSettings.globalize_path(BUILDER)
 	if not FileAccess.file_exists(path):
 		last_error = "Run from a local Streetbound source checkout."
@@ -148,6 +149,15 @@ func _received(result: int, response_code: int, _headers: PackedStringArray,
 	# when a platform reports an unsuccessful transport result. Read it
 	# before treating the service as unreachable.
 	if result != HTTPRequest.RESULT_SUCCESS and response_code < 400:
+		if stage=="status" and retry_count<10 and start_backend():
+			retry_count+=1
+			phase="starting_backend"
+			request_deadline_ms=0
+			get_tree().create_timer(.35,true).timeout.connect(func()->void:
+				if phase=="starting_backend":
+					phase="status"
+					_request(HTTPClient.METHOD_GET,"/api/editor-status"))
+			return
 		_fail("Local map backend is unavailable (transport %d, HTTP %d)." % [
 			result,response_code])
 		return

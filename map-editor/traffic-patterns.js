@@ -9,9 +9,10 @@ export function lanePatterns(roads,{includeLoose=false}={}){
   const patterns=[];
   for(const road of roads){
     if(['track','service'].includes(road.roadClass)||(!includeLoose&&isLoose(road)))continue;
-    const count=Math.max(1,Math.min(6,road.lanes||2));
+    const count=Math.max(2,Math.min(6,road.lanes||2));
     const forward=Math.max(1,Math.floor(count/2));
     const reverse=Math.max(1,count-forward);
+    const divider=(reverse-forward)*road.width/count*.5;
     const points=sampleRoad(road.points,road.smooth,20);
     if(points.length<2)continue;
     for(const direction of [1,-1]){
@@ -19,16 +20,23 @@ export function lanePatterns(roads,{includeLoose=false}={}){
       const polyline=direction===1?points:points.slice().reverse();
       const laneWidth=road.width/count;
       for(let index=0;index<lanes;index++){
-        const side=laneWidth*(index+.5);
+        const side=laneWidth*(index+.5)+direction*divider;
         // Road traffic is RIGHT-HAND. Two-way lane offsets must use the
         // direction of travel, not the original authoring direction.
         const result=[];
         for(let i=0;i<polyline.length;i++){
-          const a=polyline[Math.max(0,i-1)],b=polyline[Math.min(i+1,polyline.length-1)];
-          const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy)||1;
-          const normal={x:-dy/length,y:dx/length};
-          result.push({x:polyline[i].x+normal.x*side,
-            y:polyline[i].y+normal.y*side});
+          const p=polyline[i],closed=distance(polyline[0],polyline.at(-1))<.001;
+          const a=polyline[i-1]||(closed?polyline.at(-2):p);
+          const b=polyline[i+1]||(closed?polyline[1]:p);
+          let before={x:p.x-a.x,y:p.y-a.y},after={x:b.x-p.x,y:b.y-p.y};
+          if(i===0&&!closed)before=after;
+          if(i===polyline.length-1&&!closed)after=before;
+          const la=Math.hypot(before.x,before.y)||1,lb=Math.hypot(after.x,after.y)||1;
+          const nx=-before.y/la-after.y/lb,ny=before.x/la+after.x/lb;
+          const nl=Math.hypot(nx,ny)||1;
+          const normal={x:nx/nl,y:ny/nl};
+          const miter=1/Math.max(.55,normal.x*(-after.y/lb)+normal.y*(after.x/lb));
+          result.push({x:p.x+normal.x*side*miter,y:p.y+normal.y*side*miter});
         }
         patterns.push({roadId:road.id,roadName:road.name,
           lane:index,direction,points:result,kind:road.roadClass,
