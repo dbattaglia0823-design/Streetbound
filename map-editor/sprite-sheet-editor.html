@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Streetbound · Sprite Sheet Regions</title>
+<style>
+:root{color-scheme:dark;font:14px system-ui,sans-serif;background:#101820;color:#edf2f5}
+body{margin:24px auto;max-width:1340px;padding:0 18px}
+h1{font-size:23px}p{color:#acbbca;line-height:1.5}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+button,a.file{background:#24364a;color:#f3f6fa;border:1px solid #4e6580;border-radius:7px;padding:9px 12px;cursor:pointer}
+button.primary{background:#b85b24;border-color:#e98f50}
+input,select{background:#1d2938;color:#edf2f5;border:1px solid #53657a;border-radius:4px;padding:5px}
+input[type=number]{width:67px}input[type=text]{width:126px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}}
+#board{border:1px solid #415569;border-radius:8px;min-height:320px;overflow:auto;background-color:#263241;background-image:linear-gradient(45deg,#334251 25%,transparent 25%),linear-gradient(-45deg,#334251 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#334251 75%),linear-gradient(-45deg,transparent 75%,#334251 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0;display:flex;justify-content:center;align-items:flex-start}
+canvas{display:block;max-width:100%;height:auto;touch-action:none;cursor:crosshair}
+.side{border:1px solid #3e5061;border-radius:8px;padding:12px;max-height:700px;overflow:auto}
+.sprite{display:grid;grid-template-columns:1fr auto;gap:6px;border-bottom:1px solid #35485b;padding:12px 0}
+.sprite .fields{display:flex;flex-wrap:wrap;gap:6px}.sprite small{color:#aebfca}
+.sprite.selected{background:#27384a}
+#status{min-height:1.5em;color:#ffd1aa}
+code{background:#27384a;padding:2px 4px;border-radius:4px}
+</style></head>
+<body>
+<h1>Streetbound — Sprite Sheet Region Editor</h1>
+<p>Load a PNG/WebP image from <code>assets/Map Building Assets/</code>. Drag rectangles over each sprite, use an evenly spaced grid, or try alpha detection on transparent sheets. Review the boundaries, then export a <code>.sprites.json</code> manifest <strong>beside the original image</strong>; both map editors discover the named sprites automatically.</p>
+<div class="toolbar">
+<label>Image <input type="file" id="source" accept="image/png,image/webp"></label>
+<label>Existing manifest <input type="file" id="load" accept=".json,application/json"></label>
+<button id="detect">Detect transparent objects</button>
+<label>Grid columns <input id="cols" type="number" min="1" max="32" value="4"></label>
+<label>Rows <input id="rows" type="number" min="1" max="32" value="3"></label>
+<button id="grid">Make grid</button><button id="clear">Clear regions</button>
+<button class="primary" id="export">Export sprite manifest</button>
+</div>
+<p id="status" role="status">Select an image to begin. No project files are modified by this tool.</p>
+<div class="layout">
+<div id="board"><canvas id="canvas" aria-label="Drag to define an object region"></canvas></div>
+<aside class="side"><strong>Individual sprites</strong><p>Names and rectangles can be edited below. Collision defaults to the category type when left on Automatic; all values are in image pixels.</p><div id="items"></div></aside>
+</div>
+<script type="module">
+const $=id=>document.getElementById(id);
+const canvas=$('canvas'),ctx=canvas.getContext('2d');
+let image=null,imageName='',items=[],selected=-1,drag=null;
+const warn=message=>$('status').textContent=message;
+const slug=s=>s.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,42)||'sprite';
+const validRect=rect=>Array.isArray(rect)&&rect.length===4&&
+  rect.every(Number.isInteger)&&rect[0]>=0&&rect[1]>=0&&
+  rect[2]>0&&rect[3]>0&&image&&rect[0]+rect[2]<=image.width&&rect[1]+rect[3]<=image.height;
+function draw(){
+  if(!image){canvas.width=1;canvas.height=1;ctx.clearRect(0,0,1,1);return}
+  canvas.width=image.width;canvas.height=image.height;
+  ctx.drawImage(image,0,0);
+  items.forEach((item,index)=>{
+    const [x,y,w,h]=item.rect;
+    ctx.lineWidth=Math.max(2,Math.min(image.width,image.height)/300);
+    ctx.strokeStyle=index===selected?'#f8b76b':'#61cbf8';
+    ctx.strokeRect(x,y,w,h);
+    ctx.font=Math.max(14,Math.min(image.width,image.height)/35)+'px system-ui';
+    ctx.fillStyle='#082235';ctx.fillRect(x,y,36,24);
+    ctx.fillStyle='#fff';ctx.fillText(String(index+1),x+5,y+19);
+  });
+  if(drag){
+    const [x,y,w,h]=drag.rect;
+    ctx.strokeStyle='#ffb56c';ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);
+  }
+}
+function refresh(){
+  const root=$('items');root.replaceChildren();
+  items.forEach((item,i)=>{
+    const card=document.createElement('div');card.className='sprite'+(selected===i?' selected':'');
+    const top=document.createElement('div');top.className='fields';
+    const name=document.createElement('input');name.type='text';name.maxLength=80;name.value=item.name;name.setAttribute('aria-label','Sprite name');
+    name.addEventListener('input',()=>{item.name=name.value;item.key=slug(item.name)+'-'+(i+1);});
+    top.append(name);
+    const rect=document.createElement('small');rect.textContent='Region: '+item.rect.join(', ');
+    top.append(rect);
+    const remove=document.createElement('button');remove.textContent='Remove';
+    remove.addEventListener('click',()=>{items.splice(i,1);selected=-1;refresh();draw()});
+    card.append(top,remove);
+    const details=document.createElement('div');details.className='fields';
+    const type=document.createElement('select');
+    for(const value of ['auto','prop','decal','house','building','warehouse','garage','gas_station','barrier','bush','oak','pine','palm','planter','rock','boulder','sign','streetlight']){
+      const opt=new Option(value==='auto'?'Type: folder default':value,value);
+      type.add(opt);
+    }
+    type.value=item.type||'auto';type.addEventListener('change',()=>item.type=type.value);
+    details.append(type);
+    const collision=document.createElement('select');
+    for(const value of ['auto','solid','none'])collision.add(new Option('Collision: '+value,value));
+    collision.value=item.collision||'auto';collision.addEventListener('change',()=>item.collision=collision.value);
+    details.append(collision);
+    for(let n=0;n<4;n++){
+      const field=document.createElement('input');field.type='number';field.min=n<2?'0':'1';field.value=item.rect[n];
+      field.title=['X','Y','Width','Height'][n];field.setAttribute('aria-label',field.title);
+      field.addEventListener('change',()=>{const next=item.rect.slice();next[n]=Number(field.value);if(validRect(next)){item.rect=next;draw();}else {field.value=item.rect[n];warn('Region must fit inside the source image.')}});
+      details.append(field);
+    }
+    card.append(details);
+    card.addEventListener('click',event=>{if(event.target===card||event.target===top||event.target===rect){selected=i;refresh();draw();}});
+    root.append(card);
+  });
+  warn(items.length+' sprite regions · '+(image?image.width+'×'+image.height+' image':'select image'));
+}
+function add(rect,name){if(!validRect(rect))return false;const number=items.length+1;items.push({name:name||'Sprite '+number,key:'sprite-'+number,rect,type:'auto',collision:'auto'});return true;}
+function pos(event){const rect=canvas.getBoundingClientRect();return [Math.max(0,Math.min(image.width,Math.round((event.clientX-rect.left)*image.width/rect.width))),Math.max(0,Math.min(image.height,Math.round((event.clientY-rect.top)*image.height/rect.height)))];}
+canvas.addEventListener('pointerdown',event=>{if(!image)return;const [x,y]=pos(event);drag={start:[x,y],rect:[x,y,1,1]};canvas.setPointerCapture(event.pointerId);draw()});
+canvas.addEventListener('pointermove',event=>{if(!drag)return;const [x,y]=pos(event),[sx,sy]=drag.start;drag.rect=[Math.min(x,sx),Math.min(y,sy),Math.abs(x-sx),Math.abs(y-sy)];draw()});
+canvas.addEventListener('pointerup',()=>{if(!drag)return;const rect=drag.rect;drag=null;if(rect[2]>2&&rect[3]>2){add(rect);selected=items.length-1;}draw();refresh();});
+$('source').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];if(!file)return;
+  const url=URL.createObjectURL(file);const img=new Image();
+  try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});image=img;imageName=file.name;items=[];selected=-1;draw();refresh();}
+  catch{warn('Could not read the source image.')}
+  finally{URL.revokeObjectURL(url)}
+});
+$('clear').addEventListener('click',()=>{items=[];selected=-1;draw();refresh()});
+$('grid').addEventListener('click',()=>{
+  if(!image)return warn('Load an image first.');
+  const cols=Number($('cols').value),rows=Number($('rows').value);
+  if(!Number.isInteger(cols)||!Number.isInteger(rows)||cols<1||rows<1||cols>32||rows>32)return warn('Grid must be 1–32 rows and columns.');
+  items=[];
+  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+    const x0=Math.round(col*image.width/cols),x1=Math.round((col+1)*image.width/cols);
+    const y0=Math.round(row*image.height/rows),y1=Math.round((row+1)*image.height/rows);
+    add([x0,y0,x1-x0,y1-y0]);
+  }
+  selected=-1;draw();refresh();
+});
+$('detect').addEventListener('click',()=>{
+  if(!image)return warn('Load an image first.');
+  const factor=Math.min(1,1200/Math.max(image.width,image.height));
+  const w=Math.round(image.width*factor),h=Math.round(image.height*factor);
+  const temp=document.createElement('canvas');temp.width=w;temp.height=h;
+  const g=temp.getContext('2d',{willReadFrequently:true});g.drawImage(image,0,0,w,h);
+  const data=g.getImageData(0,0,w,h).data;
+  const alpha=new Uint8Array(w*h);let opaque=0;
+  for(let i=0;i<alpha.length;i++){alpha[i]=data[i*4+3]>32?1:0;opaque+=alpha[i];}
+  if(opaque>alpha.length*.92)return warn('Image is nearly opaque. Use the grid or manual rectangles; alpha detection needs transparent space between objects.');
+  const seen=new Uint8Array(w*h),boxes=[],minPixels=Math.max(60,w*h*.00007);
+  const queue=new Int32Array(w*h);
+  for(let i=0;i<w*h;i++){
+    if(seen[i]||!alpha[i])continue;
+    let head=0,tail=1;queue[0]=i;seen[i]=1;
+    let minx=w,maxx=0,miny=h,maxy=0;
+    while(head<tail){
+      const v=queue[head++],x=v%w,y=(v/w)|0;
+      minx=Math.min(x,minx);maxx=Math.max(x,maxx);
+      miny=Math.min(y,miny);maxy=Math.max(y,maxy);
+      for(let yy=Math.max(0,y-1);yy<=Math.min(h-1,y+1);yy++)
+        for(let xx=Math.max(0,x-1);xx<=Math.min(w-1,x+1);xx++){
+          const k=yy*w+xx;if(!seen[k]&&alpha[k]){seen[k]=1;queue[tail++]=k;}
+        }
+    }
+    if(tail>=minPixels)boxes.push([minx,miny,maxx+1,maxy+1]);
+  }
+  boxes.sort((a,b)=>a[1]-b[1]||a[0]-b[0]);items=[];
+  for(const box of boxes.slice(0,256)){
+    const rect=[Math.floor(box[0]/factor),Math.floor(box[1]/factor),
+      Math.min(image.width,Math.ceil(box[2]/factor))-Math.floor(box[0]/factor),
+      Math.min(image.height,Math.ceil(box[3]/factor))-Math.floor(box[1]/factor)];
+    add(rect);
+  }
+  selected=-1;draw();refresh();
+  warn(items.length+' alpha-connected regions detected. Review/merge regions for objects with disconnected parts before exporting.');
+});
+$('load').addEventListener('change',async event=>{
+  if(!image)return warn('Load the source image before its manifest.');
+  try{const data=JSON.parse(await event.target.files[0].text());
+    if(!Array.isArray(data.sprites))throw Error('Manifest does not contain a sprites array.');
+    const next=data.sprites.filter(e=>validRect(e.rect)).map((e,i)=>({
+      key:String(e.key||i+1),name:String(e.name||'Sprite '+(i+1)),
+      rect:e.rect,type:e.type||'auto',collision:e.collision||'auto'}));
+    if(!next.length||next.length>256)throw Error('Manifest has no valid sprite regions or exceeds 256.');
+    items=next;selected=-1;refresh();draw();
+  }catch(e){warn('Unable to import manifest: '+e.message)}
+});
+$('export').addEventListener('click',()=>{
+  if(!image||!items.length)return warn('Load an image and define at least one sprite.');
+  if(items.length>256)return warn('Maximum 256 sprites per sheet.');
+  const sprites=items.map((item,i)=>{
+    const sprite={key:item.key||'sprite-'+(i+1),name:item.name,rect:item.rect};
+    if(item.type!=='auto')sprite.type=item.type;
+    if(item.collision!=='auto')sprite.collision=item.collision;
+    return sprite;
+  });
+  if(new Set(sprites.map(x=>x.key)).size!==sprites.length)return warn('Sprite keys must be unique.');
+  const blob=new Blob([JSON.stringify({sprites},null,2)+'\n'],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=imageName.replace(/\.(png|webp)$/i,'')+'.sprites.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  warn('Manifest exported. Put it next to '+imageName+' and refresh the Streetbound map editor.');
+});
+draw();
+</script></body></html>
