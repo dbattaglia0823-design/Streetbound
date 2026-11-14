@@ -149,7 +149,7 @@ func _refresh_buttons() -> void:
 	var button: Button = actions["map_editor"]
 	button.disabled = not editor_mode
 	button.tooltip_text = ("Godot development builds only." if not editor_mode else
-		"Edit Morrow Coast using the actual game rendering and traffic data.")
+		"Edit Morrow Coast in a dedicated scene without traffic or gameplay physics.")
 	if not editor_mode:
 		message.text = "Map Editor is available in development builds only."
 
@@ -169,7 +169,10 @@ func _activate(mode: String) -> void:
 			if not (OS.has_feature("debug") or OS.has_feature("editor")):
 				message.text = "Map Editor requires a local Godot development build."
 				return
-			_start_game(mode)
+			get_tree().paused = false
+			var outcome := get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
+			if outcome != OK:
+				message.text = "Could not open the standalone World Editor."
 		"single_player":
 			_start_game(mode)
 

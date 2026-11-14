@@ -131,6 +131,11 @@ func run() -> void:
 	var na: Dictionary = Catalog.find_by_id("ford-fiesta")
 	check("ordinary_stock_engine_has_no_turbo_calibration",
 		float(na.get("boost_max_psi",0.0)) == 0.0)
+	# The new RS3 starter has a turbo. Switch explicitly to the naturally
+	# aspirated Fiesta before asserting the LOAD-only instrument state.
+	check("naturally_aspirated_reference_car_equips",Catalog.select(car,na))
+	hud.on_vehicle_selected(na)
+	hud._process(0.0)
 	check("boost_hides_for_naturally_aspirated_engine",
 		not bool(dash.boost_visible) and dash.boost_label.text == "LOAD")
 	# Test the actual pressure model using an isolated, unobstructed car.

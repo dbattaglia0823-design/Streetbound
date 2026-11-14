@@ -20,7 +20,7 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 
 func run() -> void:
 	var roster := Catalog.all()
-	var values_ok := roster.size() == 88
+	var values_ok := roster.size() == 89 and not Catalog.find_by_id("audi-rs3").is_empty()
 	var car_sound_signatures: Dictionary = {}
 	for car in roster:
 		var keys := ["audio_tone","audio_intake_presence",
@@ -38,7 +38,7 @@ func run() -> void:
 		car_sound_signatures["%s:%s:%s:%s" % [
 			str(car.audio_family),str(car.audio_tone),str(car.audio_lope),
 			str(car.audio_overrun)]] = true
-	check("eighty_eight_vehicles_have_curated_audio_mastering",values_ok)
+	check("all_playable_vehicles_have_curated_audio_mastering",values_ok)
 	check("vehicles_have_many_distinct_acoustic_signatures",
 		car_sound_signatures.size() >= 35,car_sound_signatures.size())
 	for id in ["ford-mustang","dodge-challenger","bmw-m3",

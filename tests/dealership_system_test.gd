@@ -42,8 +42,8 @@ func run() -> void:
 			counted[shop_id] = int(counted[shop_id]) + 1
 		valid_prices = valid_prices and int(item.get("price_usd",0)) >= 4500
 	check("all_10_buildings_have_images", all_building_images)
-	check("all_cars_have_valid_prices", all_cars.size() == 88 and valid_prices)
-	check("all_88_have_exactly_one_dealership",exact_stock)
+	check("all_cars_have_valid_prices", all_cars.size() == 89 and valid_prices)
+	check("all_playable_cars_have_exactly_one_dealership",exact_stock)
 	check("each_dealer_has_stock", counted.size() == 10 and \
 		counted.values().all(func(n: Variant): return int(n)>0),counted)
 	var main: Node = load("res://scenes/main.tscn").instantiate()

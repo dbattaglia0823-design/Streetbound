@@ -868,9 +868,35 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
               and not p.get("authoring_id") and p.get("kind")==target["kind"]
               and p.get("seed")==target["seed"]
               and distance(p.get("p",(0,0)),target["p"])<.025]
-    if len(matching)!=1 or matching[0].get("poi"):
-        raise ValueError("Adopted game scenery changed; reload current Morrow Coast before saving")
+    if len(matching)!=1:
+        raise ValueError("Edited game scenery changed; reload current Morrow Coast before saving")
     original=matching[0]
+    # Move the original production asset instead of replacing its identity,
+    # art family, roof variant, POI association or special geometry with a
+    # generic painted editor placeholder. Keep explicit authored transform.
+    destination = replacement["p"]
+    size = replacement["size"]
+    angle = replacement["angle"]
+    authored_id = replacement["authoring_id"]
+    is_hidden = bool(replacement.get("hidden",False))
+    # Preserve deliberate artist overrides while defaulting to the original
+    # runtime art. A 'game-*' request is an explicit artwork selection.
+    selected_asset_kind = replacement.get("asset_kind")
+    selected_asset_id = replacement.get("asset_id")
+    selected_asset_path = replacement.get("asset_path")
+    selected_asset_size = replacement.get("asset_size")
+    original_fields = original.copy()
+    replacement.clear()
+    replacement.update(original_fields)
+    replacement.update(p=destination,size=size,angle=angle,
+                       authoring_id=authored_id)
+    if selected_asset_kind:
+        replacement["asset_kind"] = selected_asset_kind
+        replacement["asset_id"] = selected_asset_id
+    if selected_asset_path:
+        replacement["asset_path"] = selected_asset_path
+        replacement["asset_size"] = selected_asset_size
+        replacement["asset_id"] = selected_asset_id
     PROPS.remove(original)
     # Keep the native object's collision category. In particular, procedural
     # trees have a small solid trunk even though normally painted editor trees
@@ -878,7 +904,10 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     replacement["solid"]=bool(original.get("solid",replacement["solid"]))
     if original["kind"] in {"tree","pine","palm"}:
         replacement["radius"]=float(original.get("radius",.65))
-    if replacement.get("hidden",False):
+    elif replacement["solid"]:
+        # Clearance indexing must follow resized structural collision geometry.
+        replacement["radius"]=math.hypot(*replacement["size"])*0.5
+    if is_hidden:
         PROPS.remove(replacement)
         continue
     if replacement["solid"] and (

@@ -115,9 +115,14 @@ func _run() -> void:
 		session.delete_prop(adopted) and
 		bool(session.prop_at_id(adopted).get("hidden",false)) and
 		session.undo() and not bool(session.prop_at_id(adopted).get("hidden",false)))
-	check("protected_and_unstable_runtime_props_cannot_be_adopted",
-		session.adopt_runtime_prop({"kind":"house","seed":1,
-			"p":[2240,3120],"poi":"Laurel Motor House"})=="" and
+	var poi_prop: String = session.adopt_runtime_prop({"kind":"house","seed":1,
+		"p":[2240,3120],"poi":"Laurel Motor House"})
+	check("poi_scenery_is_directly_editable_with_stable_identity",
+		poi_prop.begins_with("prop-native-") and
+		session.prop_at_id(poi_prop).replaces.kind=="house")
+	check("explicitly_protected_and_unstable_props_stay_safe",
+		session.adopt_runtime_prop({"kind":"house","seed":2,
+			"p":[2240,3120],"protected":true})=="" and
 		session.adopt_runtime_prop({"kind":"house",
 			"p":[2240,3120]})=="")
 	session.discard_changes()

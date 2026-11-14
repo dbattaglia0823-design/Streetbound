@@ -11,6 +11,8 @@ const PPM := 20.0
 const PANEL_COLOR := Color(0.055,0.075,0.085,0.94)
 const ACCENT := Color("#ff9a32")
 var world
+var standalone_mode := false
+var render_tiles: Node2D
 var player: VehicleController2D
 var driving_camera: Camera2D
 var traffic_network
@@ -30,6 +32,7 @@ var asset_dock: PanelContainer
 var edit_actions: Control
 var draft_points: Array[Vector2] = []
 var preview_hidden: Dictionary = {}
+var synced_preview_revision := -1
 var overview_sprite: Sprite2D
 var details: Label
 var selected_preview: TextureRect
@@ -352,7 +355,10 @@ func _update_context_panels() -> void:
 func _redraw_visible_scenery() -> void:
 	if not is_instance_valid(world):
 		return
-	for chunk in world.chunks.values():
+	var loaded: Array = world.chunks.values()
+	if standalone_mode and is_instance_valid(render_tiles):
+		loaded = render_tiles.tiles.values()
+	for chunk in loaded:
 		if not is_instance_valid(chunk):
 			continue
 		for canvas in chunk.get_children():
@@ -374,6 +380,7 @@ func _restore_colliders() -> void:
 
 
 func _clear_editor_preview() -> void:
+	synced_preview_revision = -1
 	if not preview_hidden.is_empty():
 		preview_hidden.clear()
 		Scenery.editor_hidden = {}
@@ -386,6 +393,9 @@ func _clear_editor_preview() -> void:
 func _sync_editor_preview() -> void:
 	if not active or not source_ready or not is_instance_valid(world):
 		return
+	if synced_preview_revision == authoring.edit_revision:
+		return
+	synced_preview_revision = authoring.edit_revision
 	var next_hidden: Dictionary = {}
 	for prop in authoring.doc.get("props",[]):
 		var initial_prop: Dictionary = {}
@@ -413,6 +423,8 @@ func _sync_editor_preview() -> void:
 		preview_hidden = next_hidden
 		Scenery.editor_hidden = preview_hidden.duplicate()
 		_redraw_visible_scenery()
+		if standalone_mode and is_instance_valid(render_tiles):
+			render_tiles.redraw_scenery()
 	# Source previews have their own real CollisionShape2D, and stale
 	# baked shapes are disabled only for the editing session.
 	for chunk in world.chunks.values():
@@ -473,6 +485,7 @@ func _choose_tool(mode: String) -> void:
 	tool_name = mode
 	draft_points.clear()
 	if is_instance_valid(gizmos):
+		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
 	source_id = ""
@@ -665,7 +678,7 @@ func _adopt_selected() -> void:
 func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	if not source_ready:
 		return {}
-	var best := 20.0 / maxf(0.26,editor_camera.zoom.x)
+	var best := 24.0 / maxf(0.05,editor_camera.zoom.x)
 	var result: Dictionary = {}
 	for road in authoring.doc.roads:
 		for i in road.points.size():
@@ -682,18 +695,26 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready:
 		return {}
 	var at: Vector2 = world_px/PPM
-	var best := 8.0
+	var best := 6.0
 	var hit: Dictionary = {}
 	for prop in authoring.doc.props:
-		var art := str(prop.get("type",""))
-		var width := 8.0
-		if art in ["house","garage"]:
-			width=12.0
-		elif art in ["building","warehouse"]:
-			width=20.0
+		if bool(prop.get("hidden",false)):
+			continue
 		var center := Vector2(float(prop.x),float(prop.y))
-		var distance := maxf(0.0,center.distance_to(at)-
-			width*float(prop.get("scale",1.0))*0.5)
+		var footprint := Vector2(8,8)
+		match str(prop.get("type","")):
+			"house":footprint=Vector2(12,17)
+			"building":footprint=Vector2(22,29)
+			"warehouse":footprint=Vector2(28,37)
+			"garage":footprint=Vector2(20,21)
+			"parking":footprint=Vector2(38,28)
+			"field":footprint=Vector2(90,70)
+		if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
+			footprint=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
+		var local := (at-center).rotated(-deg_to_rad(float(prop.get("rotation",0))))
+		var half := footprint*float(prop.get("scale",1))*0.5
+		var distance := Vector2(maxf(0,absf(local.x)-half.x),
+			maxf(0,absf(local.y)-half.y)).length()
 		if distance < best:
 			best = distance
 			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
@@ -859,9 +880,9 @@ func _build_ui() -> void:
 	row.add_child(title)
 	lane_button = _btn("LANES: ON",row,_toggle_lanes)
 	junction_button = _btn("JUNCTIONS: ON",row,_toggle_junctions)
-	_btn("CENTER ON CAR",row,_recenter)
+	_btn("CENTER / SPAWN" if standalone_mode else "CENTER ON CAR",row,_recenter)
 	_btn("FIT MAP",row,_fit_map)
-	_btn("TEST DRIVE  F6",row,close_editor)
+	_btn("TEST DRIVE  F6",row,_test_drive)
 	var sidebar := _panel(Vector2(14,72),Vector2(280,310))
 	inspector_panel = sidebar
 	sidebar.name = "SelectedObjectInspector"
@@ -912,6 +933,8 @@ func _build_ui() -> void:
 
 
 func _can_enter() -> bool:
+	if standalone_mode:
+		return not active and is_instance_valid(world) and bool(world.initialization_complete)
 	# A split-screen game has two cameras and a different input owner. Keep
 	# this development workspace exclusively in single-player free roam.
 	var split: Variant = get_parent().get("local_split_screen")
@@ -923,6 +946,8 @@ func _can_enter() -> bool:
 
 
 func _set_game_ui_visible(restore: bool) -> void:
+	if standalone_mode:
+		return
 	if restore:
 		for node in _hidden_game_ui:
 			if is_instance_valid(node):
@@ -947,33 +972,36 @@ func open_editor() -> bool:
 			_notice("Source not loaded: "+authoring.last_error)
 		else:
 			_notice("Native source loaded. Select a tool; draft changes stay in memory.")
-	_player_camera_enabled = driving_camera.enabled
-	_player_camera_physics = driving_camera.is_physics_processing()
-	_player_camera_input = driving_camera.is_processing_unhandled_input()
+	if is_instance_valid(driving_camera):
+		_player_camera_enabled = driving_camera.enabled
+		_player_camera_physics = driving_camera.is_physics_processing()
+		_player_camera_input = driving_camera.is_processing_unhandled_input()
 	editor_camera = Camera2D.new()
 	editor_camera.name = "WorldEditorCamera"
 	editor_camera.process_mode = Node.PROCESS_MODE_ALWAYS
-	editor_camera.position = driving_camera.global_position
+	editor_camera.position = driving_camera.global_position if is_instance_valid(driving_camera) else world.spawn_position()
 	editor_camera.rotation = 0.0
-	editor_camera.zoom = driving_camera.zoom
+	editor_camera.zoom = driving_camera.zoom if is_instance_valid(driving_camera) else Vector2(0.35,0.35)
 	editor_camera.zoom = editor_camera.zoom.clamp(
 		Vector2(MIN_EDITOR_ZOOM,MIN_EDITOR_ZOOM),
 		Vector2(MAX_EDITOR_ZOOM,MAX_EDITOR_ZOOM))
 	get_parent().add_child(editor_camera)
-	driving_camera.enabled = false
-	driving_camera.set_physics_process(false)
-	driving_camera.set_process_unhandled_input(false)
+	if is_instance_valid(driving_camera):
+		driving_camera.enabled = false
+		driving_camera.set_physics_process(false)
+		driving_camera.set_process_unhandled_input(false)
 	editor_camera.make_current()
 	active = true
 	_build_overview()
 	_set_game_ui_visible(false)
 	root_ui.visible = true
 	gizmos.visible = true
-	gizmos.set_preview_collision_enabled(true)
+	gizmos.set_preview_collision_enabled(not standalone_mode)
 	_update_context_panels()
 	_right_drag = false
 	_last_cell = Vector2i(-999,-999)
-	get_tree().paused = true
+	if not standalone_mode:
+		get_tree().paused = true
 	set_process(true)
 	_update_selection({})
 	_refresh_authoring()
@@ -983,8 +1011,11 @@ func open_editor() -> bool:
 func close_editor() -> void:
 	if not active:
 		return
+	if standalone_mode and source_ready and authoring.dirty:
+		_notice("Unsaved changes. Save to Game or DISCARD before leaving.")
+		return
 	if is_instance_valid(bridge) and bridge.phase != "":
-		_notice("Apply is still rebuilding. Exit after the transaction completes.")
+		_notice("Map save is still rebuilding. Exit after the transaction completes.")
 		return
 	active = false
 	root_ui.visible = false
@@ -999,6 +1030,14 @@ func close_editor() -> void:
 		editor_camera.enabled = false
 		editor_camera.queue_free()
 	editor_camera = null
+	if standalone_mode:
+		get_tree().paused = false
+		if get_tree().has_meta("streetbound_editor_return_position"):
+			get_tree().remove_meta("streetbound_editor_return_position")
+		if get_tree().has_meta("streetbound_editor_test_drive"):
+			get_tree().remove_meta("streetbound_editor_test_drive")
+		get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
+		return
 	driving_camera.enabled = _player_camera_enabled
 	driving_camera.set_physics_process(_player_camera_physics)
 	driving_camera.set_process_unhandled_input(_player_camera_input)
@@ -1011,9 +1050,25 @@ func close_editor() -> void:
 	_owns_pause = false
 
 func _recenter() -> void:
-	if active and is_instance_valid(player):
-		editor_camera.global_position = player.global_position
+	if active:
+		editor_camera.global_position = player.global_position if is_instance_valid(player) else world.spawn_position()
 		_update_view(true)
+
+func _test_drive() -> void:
+	if not active:
+		return
+	if standalone_mode:
+		if authoring.dirty or bridge.phase != "":
+			_notice("Save to Game or DISCARD before Test Drive.")
+			return
+		get_tree().set_meta("streetbound_editor_test_drive",true)
+		get_tree().set_meta("streetbound_editor_return_position",
+			editor_camera.global_position)
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
+	else:
+		close_editor()
+
 
 func _toggle_lanes() -> void:
 	gizmos.show_lanes = not gizmos.show_lanes
@@ -1053,20 +1108,31 @@ func _update_view(force: bool = false) -> void:
 	# update instead of creating a fake editor-only representation.
 	var here: Vector2 = editor_camera.global_position
 	var cell := Vector2i((here/PPM/float(world.chunk_m)).floor())
-	if cell != _last_cell or force:
-		world.stream_at(here)
-		_last_cell = cell
-	if not world.pending.is_empty():
-		world._build_chunk(world.pending.pop_front())
-	if is_instance_valid(overview_sprite):
-		overview_sprite.visible = editor_camera.zoom.x < 0.055
+	if standalone_mode and is_instance_valid(render_tiles):
+		var detailed: bool = render_tiles.configure(here,
+			get_viewport().get_visible_rect().size,editor_camera.zoom.x)
+		if is_instance_valid(overview_sprite):
+			overview_sprite.visible = not detailed
+	else:
+		if cell != _last_cell or force:
+			world.stream_at(here)
+			_last_cell = cell
+		if not world.pending.is_empty():
+			world._build_chunk(world.pending.pop_front())
+		if is_instance_valid(overview_sprite):
+			overview_sprite.visible = editor_camera.zoom.x < 0.055
 	_sync_editor_preview()
 	gizmos.set_view(here,get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
 	var meters := here / PPM
-	status.text = "WORLD  X %.0fm  Y %.0fm   |   %d roads   %d intersections   %d traffic links" % [
-		meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
-		traffic_network.edges.size() if is_instance_valid(traffic_network) else 0]
+	if standalone_mode and is_instance_valid(render_tiles):
+		status.text = "WORLD  X %.0fm  Y %.0fm  |  %d roads  %d junctions  |  %d visible tiles  |  %s" % [
+			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
+			render_tiles.total_visible,"DETAIL" if render_tiles.detailed else "OVERVIEW"]
+	else:
+		status.text = "WORLD  X %.0fm  Y %.0fm   |   %d roads   %d intersections   %d traffic links" % [
+			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
+			traffic_network.edges.size() if is_instance_valid(traffic_network) else 0]
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
@@ -1074,7 +1140,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.pressed and not key.echo:
 			if key.keycode == KEY_F6 or key.physical_keycode == KEY_F6:
 				if active:
-					close_editor()
+					_test_drive()
+				elif bool(get_tree().get_meta("streetbound_editor_test_drive",false)):
+					get_tree().remove_meta("streetbound_editor_test_drive")
+					get_tree().paused = false
+					get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
 				else:
 					open_editor()
 				get_viewport().set_input_as_handled()

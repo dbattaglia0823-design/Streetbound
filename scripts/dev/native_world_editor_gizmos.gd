@@ -18,6 +18,8 @@ var selected_source_id := ""
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
 var pending_tool := ""
+var source_anchor_mode := false
+var zoom_level := 1.0
 
 func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {},
 		source_id: String = "", point_index: int = -1) -> void:
@@ -120,6 +122,12 @@ func _prop_size(prop: Dictionary) -> Vector2:
 		"oak","pine":base=Vector2(7,7)
 		"palm":base=Vector2(6.5,6.5)
 		"rock":base=Vector2(3,2.5)
+		"drag_prep":base=Vector2(8.5,22)
+		"drag_tree":base=Vector2(3,10)
+		"drag_lane_mark":base=Vector2(.35,12)
+		"drag_scoreboard":base=Vector2(4,10)
+		"grandstand":base=Vector2(36,17)
+		"start_line","finish_line":base=Vector2(14,1.2)
 	if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
 		base=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
 	return base * PPM * float(prop.get("scale",1.0))
@@ -152,7 +160,9 @@ func _rebuild_preview_collisions() -> void:
 			continue
 		var kind := str(prop.get("type",""))
 		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
-			"sign","parking","dock","planter","garden","field","forecourt"]
+			"sign","parking","dock","planter","garden","field","forecourt",
+			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
+			"start_line","finish_line"]
 		var trunk_radius := 0.0
 		# A procedural tree has a small solid trunk. Ordinary placed editor
 		# foliage is non-solid; match the source builder rather than placing
@@ -229,9 +239,21 @@ func _draw_draft() -> void:
 			3.0,true)
 		if focused:
 			for i in line.size():
-				draw_circle(line[i],12.0 if i==selected_anchor_index else 7.0,
+				draw_circle(line[i],(18.0 if i==selected_anchor_index else 14.0)/maxf(.05,zoom_level),
 					Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else
 					Color(1.0,0.67,0.24,1.0))
+	# Anchor mode exposes ALL editable road control points with large,
+	# zoom-aware handles; no prior road selection is necessary.
+	if source_anchor_mode and zoom_level >= 0.035:
+		for road in draft_doc.get("roads",[]):
+			for point in road.get("points",[]):
+				var at := Vector2(float(point.x),float(point.y))*PPM
+				if not _visible_point(at):
+					continue
+				var radius := 14.0 / maxf(0.05,zoom_level)
+				draw_circle(at,radius+3.0/maxf(0.05,zoom_level),Color("#273237"))
+				draw_circle(at,radius,Color("#ffc26a"))
+				draw_circle(at,radius*0.33,Color("#5a3827"))
 	for region in draft_doc.get("regions",[]):
 		var original_region: Dictionary = {}
 		for earlier in draft_initial.get("regions",[]):
@@ -303,6 +325,7 @@ func _ready() -> void:
 func set_view(center: Vector2, screen_size: Vector2, zoom_level: float) -> void:
 	camera_center = center
 	viewport_extents = screen_size * 0.5 / maxf(0.003,zoom_level)
+	self.zoom_level = zoom_level
 	queue_redraw()
 
 func set_selection(info: Dictionary) -> void:
