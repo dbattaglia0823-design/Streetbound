@@ -1,17 +1,17 @@
 extends RefCounted
 ## Controlled one-block city-art pilot in central Larkspur. Tags existing
 ## authored buildings ONLY; never creates/moves roads, props or colliders.
-## All textures are original SVG art in assets/Buildings/DowntownPilot.
+## Pilot rooftop artwork is under assets/Map Building Assets/Buildings/DowntownPilot.
 const HOTSPOT_M := Vector2(3150.0, 2820.0) # Market Street downtown district
 const SEARCH_RADIUS_M := 620.0
 const BLOCK_CELL_M := 144.0
 const MAX_BUILDINGS := 8
 const TYPES := ["building", "shop", "cafe", "showroom", "office", "hotel"]
 const SPRITES := [
-	"res://assets/Buildings/DowntownPilot/glass-office.svg",
-	"res://assets/Buildings/DowntownPilot/brick-hotel.svg",
-	"res://assets/Buildings/DowntownPilot/retail-studio.svg",
-	"res://assets/Buildings/DowntownPilot/art-deco-tower.svg"
+	"res://assets/Map Building Assets/Buildings/DowntownPilot/glass-office.svg",
+	"res://assets/Map Building Assets/Buildings/DowntownPilot/brick-hotel.svg",
+	"res://assets/Map Building Assets/Buildings/DowntownPilot/retail-studio.svg",
+	"res://assets/Map Building Assets/Buildings/DowntownPilot/art-deco-tower.svg"
 ]
 static var _textures: Dictionary = {}
 
