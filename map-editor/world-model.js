@@ -9,7 +9,7 @@ export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
-export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt']);
+export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
@@ -76,6 +76,13 @@ function validEntity(item,type,w,h){
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.2,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
     for(const axis of ['scaleX','scaleY'])if(item[axis]!==undefined)entity[axis]=real(item[axis],.2,5,'prop axis scale');
+    if(entity.type==='sidewalk'){
+      if(!Array.isArray(item.assetSize)||item.assetSize.length!==2)throw new TypeError('Missing sidewalk footprint');
+      entity.assetSize=item.assetSize.map(v=>real(v,.1,12000,'sidewalk footprint'));
+      entity.sidewalkWidth=real(item.sidewalkWidth,.8,12,'sidewalk width');
+      if(!Array.isArray(item.sidewalkPoints)||item.sidewalkPoints.length<2||item.sidewalkPoints.length>100)throw new TypeError('Invalid sidewalk path');
+      entity.sidewalkPoints=item.sidewalkPoints.map(p=>[real(p[0],-12000,12000,'sidewalk x'),real(p[1],-12000,12000,'sidewalk y')]);
+    }
     if(projectAssetId(entity.assetId)){
       const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});
       if(!art)throw new TypeError('Missing or invalid project building artwork');

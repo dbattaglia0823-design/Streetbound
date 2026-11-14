@@ -227,6 +227,14 @@ export function drawNative(ctx,prop,scale){
   ctx.save();
   ctx.translate(Number(prop.p[0]),Number(prop.p[1]));
   ctx.rotate(Number(prop.angle)||0);
+  if(kind==='sidewalk'){
+    const points=prop.sidewalk_points||[],factor=prop.sidewalk_scale||[1,1];
+    ctx.scale(factor[0],factor[1]);ctx.lineJoin='round';ctx.lineCap='round';
+    for(const [extra,color] of [[.3,'#777f79'],[.1,'#d8d5c7'],[-.2,'#bcbdb3']]){
+      ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+      ctx.lineWidth=(prop.sidewalk_width||3)+extra;ctx.strokeStyle=color;ctx.stroke();
+    }ctx.restore();return;
+  }
   if(kind==='lot'||kind==='forecourt'){
     ctx.fillStyle=kind==='lot'?'#525959':'#7e8783';
     ctx.fillRect(-w/2,-h/2,w,h);

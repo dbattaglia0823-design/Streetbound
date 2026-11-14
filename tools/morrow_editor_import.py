@@ -125,6 +125,7 @@ def _near_node(nodes, point, tolerance=3.0):
 # Strict source-type mapping: only validated editor props are added to the
 # procedural world, never arbitrary runtime objects or client-provided flags.
 EDITOR_PROP_STYLES = {
+    "sidewalk": ("sidewalk", (3.0,10.0),False),
     "oak": ("tree", (7.0, 7.0), False),
     "pine": ("pine", (7.0, 7.0), False),
     "palm": ("palm", (6.5, 6.5), False),
@@ -214,9 +215,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
         if project_path is not None:base_size=asset_size
-        elif raw.get('replaces') and raw.get('assetSize') is not None:
+        elif (raw.get('replaces') or type_name=='sidewalk') and raw.get('assetSize') is not None:
             base_size=raw['assetSize']
-            if not isinstance(base_size,list) or len(base_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=1000 for v in base_size):
+            if not isinstance(base_size,list) or len(base_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=12000 for v in base_size):
                 raise ValueError('Invalid original scenery footprint')
         axes=[raw.get('scaleX',1),raw.get('scaleY',1)]
         if any(type(v) not in (int,float) or not math.isfinite(v) or not .2<=v<=5 for v in axes):
@@ -231,6 +232,14 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
         entry.update(editor_scale_x=axes[0],editor_scale_y=axes[1],editor_base_size=list(base_size))
+        if type_name=='sidewalk':
+            path=raw.get('sidewalkPoints',[]);walk_width=raw.get('sidewalkWidth',3)
+            if type(walk_width) not in (int,float) or not math.isfinite(walk_width) or not .8<=walk_width<=12 or not isinstance(path,list) or not 2<=len(path)<=100:
+                raise ValueError('Invalid sidewalk path or width')
+            for p in path:
+                if not isinstance(p,list) or len(p)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or abs(v)>12000 for v in p):raise ValueError('Invalid sidewalk point')
+            if any(math.dist(a,b)<.5 for a,b in zip(path,path[1:])):raise ValueError('Sidewalk points are too close')
+            entry.update(sidewalk_points=path,sidewalk_width=walk_width,sidewalk_scale=[scale*v for v in axes],radius=0)
         if project_path is not None:
             entry["asset_path"]=project_path
             entry["asset_size"]=asset_size

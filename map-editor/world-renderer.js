@@ -335,6 +335,11 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  if(prop.type==='sidewalk'){
+    drawNative(ctx,{kind:'sidewalk',p:[prop.x,prop.y],size:prop.assetSize,
+      angle:prop.rotation*Math.PI/180,sidewalk_points:prop.sidewalkPoints,
+      sidewalk_width:prop.sidewalkWidth,sidewalk_scale:[prop.scale*(prop.scaleX??1),prop.scale*(prop.scaleY??1)]},1);return;
+  }
   const project=projectArtwork(prop);
   if(project){
     ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);

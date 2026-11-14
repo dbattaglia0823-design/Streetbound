@@ -169,10 +169,20 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		var paved_props: Array[Dictionary] = []
 		var above_road_props: Array[Dictionary] = []
 		for prop in prop_list:
+			if str(prop.kind)=="sidewalk":continue
 			if str(prop.kind) in ["lot", "forecourt"]:
 				paved_props.append(prop)
 			else:
 				above_road_props.append(prop)
+		var sidewalks: Array[Dictionary]=[]
+		for prop in prop_list:
+			if str(prop.kind)=="sidewalk":sidewalks.append(prop)
+		if not sidewalks.is_empty():
+			var clip:=Control.new();clip.name="SidewalkClip";clip.clip_contents=true
+			clip.mouse_filter=Control.MOUSE_FILTER_IGNORE;clip.z_index=1
+			clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM;add_child(clip)
+			var pavement:=Node2D.new();pavement.set_script(Scenery)
+			pavement.prop_list=sidewalks;pavement.origin_m=origin_m;clip.add_child(pavement)
 		if not paved_props.is_empty():
 			var pavement := Node2D.new()
 			pavement.name = "ParkingPavement"

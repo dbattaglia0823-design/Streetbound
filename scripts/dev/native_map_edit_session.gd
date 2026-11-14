@@ -59,14 +59,17 @@ func matches_remote(remote: Dictionary) -> bool:
 
 func _valid_source(value: Dictionary) -> bool:
 	if value.get("format") != "gdt.racing-world" or int(value.get("version",-1)) != 2 or \
-			value.get("name") != "Morrow Coast":
+			(value.get("name") != "Morrow Coast" and not value.get("customMap",false)):
 		return false
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
 	var width: float = float(world.get("width",0))
 	var height: float = float(world.get("height",0))
-	if width < 6400 or width > 9600 or height < 4800 or height > 7200:
+	if value.get("customMap",false):
+		if str(value.get("name","")).strip_edges().is_empty() or world.get("base","grass") not in ["grass","forest","beach","desert","ocean","city","rock","mountain","lake","farmland"]:return false
+		if not is_finite(width) or not is_finite(height) or width!=floorf(width) or height!=floorf(height):return false
+	if (width < 600 or width > 24000 or height < 600 or height > 24000) if value.get("customMap",false) else (width < 6400 or width > 9600 or height < 4800 or height > 7200):
 		return false
 	for category in ["roads","regions","props","markers","assets"]:
 		if not value.get(category) is Array:
@@ -98,6 +101,10 @@ func _valid_source(value: Dictionary) -> bool:
 				if not item.get("points") is Array or item.points.size()<3 or item.points.size()>180:return false
 				for point in item.points:
 					if not _in_bounds(Vector2(float(point.get("x",-1)),float(point.get("y",-1))),value):return false
+				if value.get("customMap",false):
+					var polygon:=PackedVector2Array()
+					for point in item.points:polygon.append(Vector2(point.x,point.y))
+					if Geometry2D.triangulate_polygon(polygon).is_empty():return false
 				if item.has("barrier") and not item.barrier is bool:return false
 				if bool(item.get("barrier",false)) and (str(item.get("biome","")) not in ["mountain","rock"] or float(item.get("elevation",0))<5):return false
 			elif not _in_bounds(Vector2(float(item.get("x",-1)),float(item.get("y",-1))),value):return false
@@ -450,6 +457,20 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		return ""
 	return id
 
+func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
+	if points_m.size()<2 or points_m.size()>100 or width_m<.8 or width_m>12:
+		last_error="Sidewalks need 2–100 points and width 0.8–12 m.";return ""
+	var bounds:=Rect2(points_m[0],Vector2.ZERO)
+	for i in points_m.size():
+		if not _in_bounds(points_m[i]) or (i>0 and points_m[i].distance_to(points_m[i-1])<.5):
+			last_error="Keep sidewalk points in the map and at least half a metre apart.";return ""
+		bounds=bounds.expand(points_m[i])
+	var center:=bounds.get_center();var points: Array=[]
+	for p in points_m:points.append([p.x-center.x,p.y-center.y])
+	var id:=_new_prop_id();var next:=doc.duplicate(true)
+	next.props.append({"id":id,"name":"Sidewalk","type":"sidewalk","assetId":"","x":center.x,"y":center.y,"rotation":0,"scale":1,"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],"sidewalkWidth":width_m,"sidewalkPoints":points})
+	return id if _commit(next) else ""
+
 
 func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> bool:
 	var item := prop_at_id(prop_id)
@@ -630,7 +651,7 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 func delete_entity(identity: String) -> bool:
 	if not prop_at_id(identity).is_empty():return delete_prop(identity)
 	for category in ["roads","regions","markers"]:
-		for item in initial.get(category,[]):
+		for item in ([] if doc.get("customMap",false) else initial.get(category,[])):
 			if str(item.id)==identity:
 				last_error="Original roads, terrain and gameplay markers are protected. Move or reshape them instead."
 				return false

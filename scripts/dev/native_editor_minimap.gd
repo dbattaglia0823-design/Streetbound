@@ -12,7 +12,7 @@ func _process(_dt: float) -> void:
 
 func map_rect() -> Rect2:
 	if not is_instance_valid(editor.overview_renderer):return Rect2()
-	var extent: Vector2=editor.overview_renderer.extent_m
+	var extent: Vector2=extent_m()
 	var area:=size-Vector2(12,24)
 	var fitted:=extent*minf(area.x/extent.x,area.y/extent.y)
 	return Rect2(Vector2(6,18)+(area-fitted)*.5,fitted)
@@ -21,13 +21,27 @@ func _draw() -> void:
 	draw_style_box(_skin(),Rect2(Vector2.ZERO,size))
 	if not is_instance_valid(editor.overview_renderer):return
 	var rect:=map_rect()
-	draw_texture_rect(editor.overview_renderer.viewport.get_texture(),rect,false)
-	var world_px: Vector2=editor.overview_renderer.extent_m*20.0
+	if editor.map_switcher.custom:
+		draw_rect(rect,Color("#7e9c70"))
+		var extent:=extent_m()
+		for region in editor.authoring.doc.regions:
+			var polygon:=PackedVector2Array()
+			for p in region.points:polygon.append(rect.position+Vector2(p.x,p.y)/extent*rect.size)
+			if not Geometry2D.triangulate_polygon(polygon).is_empty():draw_colored_polygon(polygon,Color("#417f94") if region.biome in ["lake","ocean"] else Color("#b5b69c"))
+		for road in editor.authoring.doc.roads:
+			var line:=PackedVector2Array()
+			for p in road.points:line.append(rect.position+Vector2(p.x,p.y)/extent*rect.size)
+			if line.size()>1:draw_polyline(line,Color("#45545b"),1.5)
+	else:draw_texture_rect(editor.overview_renderer.viewport.get_texture(),rect,false)
+	var world_px: Vector2=extent_m()*20.0
 	var a: Vector2=editor._event_world_position(editor.canvas_rect.position)/world_px
 	var b: Vector2=editor._event_world_position(editor.canvas_rect.end)/world_px
 	var camera_rect:=Rect2(rect.position+a*rect.size,(b-a)*rect.size).intersection(rect)
 	draw_rect(camera_rect,Color("#f4a667"),false,1.5)
-	draw_string(ThemeDB.fallback_font,Vector2(7,12),"MORROW COAST",HORIZONTAL_ALIGNMENT_LEFT,-1,10,Color("#eaf0f7"))
+	draw_string(ThemeDB.fallback_font,Vector2(7,12),str(editor.authoring.doc.name).left(24),HORIZONTAL_ALIGNMENT_LEFT,-1,10,Color("#eaf0f7"))
+
+func extent_m() -> Vector2:
+	return Vector2(editor.authoring.doc.world.width,editor.authoring.doc.world.height) if editor.map_switcher.custom else editor.overview_renderer.extent_m
 
 func _skin() -> StyleBoxFlat:
 	var style:=StyleBoxFlat.new();style.bg_color=Color("#0b111a")
@@ -44,5 +58,5 @@ func navigate(at: Vector2) -> void:
 	var rect:=map_rect()
 	if not rect.has_area():return
 	var uv:=((at-rect.position)/rect.size).clamp(Vector2.ZERO,Vector2.ONE)
-	editor.editor_camera.global_position=uv*editor.overview_renderer.extent_m*20.0
+	editor.editor_camera.global_position=uv*extent_m()*20.0
 	editor._update_view(true)

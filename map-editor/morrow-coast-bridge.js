@@ -100,6 +100,7 @@ export function convertMorrowWorld(raw){
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
       scaleX:prop.editor_scale_x??1,scaleY:prop.editor_scale_y??1,
+      sidewalkPoints:prop.sidewalk_points,sidewalkWidth:prop.sidewalk_width,
       rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
       assetPath:prop.asset_path,assetSize:prop.asset_size||prop.editor_base_size,
       sourceAppearance:prop.source_replacement?prop:undefined,

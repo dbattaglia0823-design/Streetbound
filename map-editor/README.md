@@ -62,6 +62,14 @@ or rebake is required to see the updated bridges.
   moving closer to the intended connection. Undo restores the previous geometry.
   The connection readout shows whether touching ends move together.
 - Scenery has independent X/Y size multipliers and a footprint readout in metres.
+  **Building edges: on** snaps placed and dragged buildings to nearby parallel
+  wall edges (within 2 m), including rotated blocks and existing city buildings.
+  Hold **Alt** or turn the setting off for free placement.
+  **Draw sidewalk** in Tool Settings accepts path points like roads: set the
+  width (0.8–12 m), click points, then Enter/Finish. Escape cancels; Undo removes
+  the whole path. Finished sidewalks can be selected, moved, rotated, resized,
+  duplicated and deleted as scenery. They render below roads and do not add
+  traffic lanes or collision walls. Save to Game preserves paths across chunks.
   Position, rotation and scale fields accept three decimal places.
   **Reset asset size** restores all size multipliers to one in a single undo
   step, preserving artwork, position and rotation.

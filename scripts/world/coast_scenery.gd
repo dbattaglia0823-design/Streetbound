@@ -335,6 +335,24 @@ func _draw_prop(prop: Dictionary) -> void:
 	var kind: String = prop.kind
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
+	if kind=="sidewalk":
+		var scale_value: Array=prop.get("sidewalk_scale",[1,1])
+		draw_set_transform(center,float(prop.angle),Vector2(scale_value[0],scale_value[1]))
+		var path:=PackedVector2Array()
+		for p in prop.get("sidewalk_points",[]):path.append(Vector2(p[0],p[1])*PPM)
+		if path.size()<2:return
+		var width: float=float(prop.get("sidewalk_width",3))*PPM
+		for pass_index in 3:
+			var thickness: float=width+[6.0,2.0,-4.0][pass_index]
+			var ink: Color=[Color("#777f79"),Color("#d8d5c7"),Color("#bcbdb3")][pass_index]
+			draw_polyline(path,ink,thickness,true)
+			for p in path:draw_circle(p,thickness*.5,ink)
+		for i in range(1,path.size()):
+			var d: Vector2=(path[i]-path[i-1]).normalized();var n:=Vector2(-d.y,d.x)
+			for station in range(20,int(path[i].distance_to(path[i-1])),40):
+				var p: Vector2=path[i-1]+d*station
+				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#929a93"),1.0,true)
+		return
 	if prop.has("asset_path"):
 		var project_texture: Texture2D = Art.project_sprite(str(prop.asset_path))
 		if project_texture!=null:

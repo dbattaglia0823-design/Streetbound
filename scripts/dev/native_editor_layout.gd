@@ -37,7 +37,7 @@ static func build(e) -> void:
 	var row:=HBoxContainer.new();row.add_theme_constant_override("separation",8);header.add_child(row)
 	var brand:=VBoxContainer.new();brand.size_flags_horizontal=Control.SIZE_EXPAND_FILL;row.add_child(brand)
 	var title:=heading(brand,"STREETBOUND  /  WORLD DESIGN");title.add_theme_color_override("font_color",e.ACCENT)
-	var name:=Label.new();name.text="MAP BUILDER";name.add_theme_font_size_override("font_size",19);brand.add_child(name)
+	e.map_switcher.build(e,brand)
 	e._btn("Discard draft",row,e._discard_draft)
 	e.reload_button=e._btn("Reload world",row,e._reload_world);e.reload_button.disabled=true
 	e.apply_button=e._btn("Save to Game  Ctrl+S",row,e._apply_draft)
@@ -57,6 +57,10 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
+	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
+	e.building_snap_button.tooltip_text="Snap parallel building edges within 2 m. Hold Alt to bypass. Works when placing and dragging buildings."
+	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
+	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
 	e.road_settings=column(e.tool_options);heading(e.road_settings,"ROAD DESIGNER")
 	e.road_class=e._options(e.road_settings,"Road class",["city","highway","country","mountain","service","track"])

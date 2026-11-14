@@ -59,12 +59,18 @@ var authoring
 var bridge
 var source_ready := false
 var tool_name := "move_prop"
+const MapSwitcher=preload("res://scripts/dev/native_map_switcher.gd")
+var map_switcher=MapSwitcher.new()
+const BuildingSnap=preload("res://scripts/dev/building_snap.gd")
+var building_snap_enabled:=true
+var building_snap_button: Button
+var sidewalk_width: SpinBox
 var source_id := ""
 var source_anchor := -1
 var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
-const MIN_EDITOR_ZOOM := 0.003
+const MIN_EDITOR_ZOOM := 0.00025
 const MAX_EDITOR_ZOOM := 5.0
 var authoring_notice: Label
 var mode_label: Label
@@ -324,7 +330,7 @@ func _update_context_panels() -> void:
 	terrain_settings.visible=tool_name=="draw_terrain" or record.get("category","")=="regions"
 	marker_settings.visible=tool_name=="place_marker"
 	asset_dock.visible=tool_name.begins_with("place:")
-	finish_button.disabled=draft_points.size()<(2 if tool_name=="draw_road" else 3)
+	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk"] else 3)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
@@ -525,12 +531,13 @@ func _choose_tool(mode: String) -> void:
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
-	mode_label.text={"move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
+	mode_label.text={"draw_sidewalk":"DRAW SIDEWALK","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
 		"place_marker":"GAME MARKER","anchor":"ROAD POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
+		"draw_sidewalk":"Set walk width, click path points, then Finish or Enter. Select/Edit moves the finished sidewalk; Delete removes it.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.","anchor":"Drag the orange road handles to reshape roads.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor."}.get(mode,"Choose artwork, then click the map to place it."))
@@ -545,7 +552,7 @@ func _refresh_authoring() -> void:
 		elif record.category=="roads" and source_anchor>=record.item.points.size():source_anchor=-1
 	_sync_editor_preview()
 	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag) if source_ready else {}
-	if source_ready:
+	if source_ready and not map_switcher.custom:
 		_sync_mountain_preview(preview_doc)
 		bridge_preview.update(world.data,preview_doc,authoring.initial)
 		gizmos.bridge_overrides=bridge_preview.by_road
@@ -553,7 +560,7 @@ func _refresh_authoring() -> void:
 		if BridgeArt.editor_hidden!=bridge_preview.hidden:
 			BridgeArt.editor_hidden=bridge_preview.hidden.duplicate()
 			_redraw_roads();_update_overview_mask()
-	_sync_road_preview(preview_doc)
+	if not map_switcher.custom:_sync_road_preview(preview_doc)
 	_update_source_details()
 	_save_recovery()
 	_update_context_panels()
@@ -561,12 +568,14 @@ func _refresh_authoring() -> void:
 	_refresh_entity_list()
 	if source_ready:
 		gizmos.road_width_scale=float(world.data.get("road_width_scale",1.0))/float(authoring.doc.get("morrowRoadWidthScale",1.0))
-		traffic_preview.request(world.data,preview_doc,authoring.initial)
-		_update_traffic_preview()
-		gizmos.set_draft(preview_doc,authoring.initial,
+		if not map_switcher.custom:
+			traffic_preview.request(world.data,preview_doc,authoring.initial)
+			_update_traffic_preview()
+		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
 		gizmos.set_pending_shape(draft_points,tool_name)
+		if map_switcher.custom:map_switcher.refresh(self)
 		if is_instance_valid(apply_button):
 			apply_button.disabled = not authoring.dirty or bridge.phase != ""
 	else:
@@ -653,6 +662,9 @@ func _start_backend() -> void:
 		_notice(bridge.last_error)
 
 func _apply_draft() -> void:
+	if map_switcher.custom:
+		if not draft_points.is_empty() or not pending_drag.is_empty():_notice("Finish or cancel the current shape before saving.");return
+		map_switcher.save_current(self);return
 	if _editing_locked():
 		return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
@@ -787,8 +799,8 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
-	if tool_name == "draw_road":
-		var point:=_road_draw_point(world_px/PPM)
+	if tool_name in ["draw_road","draw_sidewalk"]:
+		var point:=_road_draw_point(world_px/PPM) if tool_name=="draw_road" else _snap_point(world_px/PPM)
 		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=1.0:draft_points.append(point)
 		_refresh_authoring()
 		_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
@@ -822,6 +834,10 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			id = authoring.add_prop(kind,world_px/PPM)
 		if id != "":
+			var prop: Dictionary=authoring.prop_at_id(id)
+			var snapped:=_snap_building(prop,Vector2(prop.x,prop.y))
+			# Fold automatic snapping into the placement's existing undo step.
+			if snapped!=Vector2(prop.x,prop.y):prop.x=snapped.x;prop.y=snapped.y
 			source_id = id
 			source_anchor = -1
 			_refresh_authoring()
@@ -899,7 +915,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		ok = authoring.move_road_point(str(drag.id),int(drag.index),
 			destination_m,snap_m)
 	elif str(drag.kind)=="prop":
-		ok = authoring.move_prop(str(drag.id),(Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM,snap_m)
+		ok = authoring.move_prop(str(drag.id),_snap_building(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM)),0)
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
 			str(drag.id),(world_px-Vector2(drag.grab))/PPM,snap_m)
@@ -1053,6 +1069,7 @@ func close_editor() -> void:
 	if is_instance_valid(bridge) and bridge.phase != "":
 		_notice("Map save is still rebuilding. Exit after the transaction completes.")
 		return
+	map_switcher.restore(self)
 	active = false
 	root_ui.visible = false
 	gizmos.visible = false
@@ -1092,6 +1109,8 @@ func _recenter() -> void:
 		_update_view(true)
 
 func _test_drive() -> void:
+	if map_switcher.custom:
+		_notice("This custom map is saved independently. Test Drive currently opens Morrow Coast; switch back to it to drive.");return
 	if not active:
 		return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
@@ -1148,6 +1167,8 @@ func _process(dt: float) -> void:
 func _update_view(force: bool = false) -> void:
 	if not active:
 		return
+	if map_switcher.custom:
+		map_switcher.update_view(self);return
 	# Morrow Coast normally streams around the player in _process(), which
 	# is paused in this mode. Load one real, collision-bearing chunk per UI
 	# update instead of creating a fake editor-only representation.
@@ -1201,7 +1222,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					close_editor()
 				get_viewport().set_input_as_handled()
 				return
-			if active and tool_name in ["draw_terrain","draw_road"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
 				_finish_shape()
 				get_viewport().set_input_as_handled()
 				return
@@ -1262,7 +1283,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var hit_position: Vector2 = _event_world_position(mouse.position)
 			if mouse.pressed:
 				_source_click(hit_position)
-				if mouse.double_click and tool_name in ["draw_road","draw_terrain"]:_finish_shape()
+				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk"]:_finish_shape()
 			elif not pending_drag.is_empty():
 				_finish_source_drag(hit_position)
 			get_viewport().set_input_as_handled()
@@ -1290,6 +1311,8 @@ func _exit_tree() -> void:
 	Scenery.editor_hidden={}
 
 func _save_recovery() -> void:
+	if map_switcher.custom:
+		map_switcher.save_recovery(self);return
 	if not standalone_mode or not active or not source_ready or not pending_drag.is_empty() or _recovery_revision==authoring.edit_revision:return
 	_recovery_revision=authoring.edit_revision
 	if not authoring.dirty:
@@ -1352,7 +1375,7 @@ func _notification(what: int) -> void:
 
 func _update_drag_preview(at: Vector2) -> void:
 	if pending_drag.kind=="prop":
-		pending_drag.to=_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)*PPM
+		pending_drag.to=_snap_building(authoring.prop_at_id(str(pending_drag.id)),_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM))*PPM
 	elif pending_drag.kind in ["road_move","region","marker"]:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
 	else:pending_drag.to=_snap_point(at/PPM)*PPM
@@ -1376,6 +1399,7 @@ func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 		_update_overview_mask()
 
 func _update_traffic_preview() -> void:
+	if map_switcher.custom:return
 	var fresh:=traffic_preview.is_current()
 	var graph: RefCounted=traffic_preview.network if fresh else traffic_network
 	if gizmos.network==graph and gizmos.network_is_draft==fresh:return
@@ -1672,6 +1696,7 @@ func _finish_shape() -> void:
 		identity=authoring.add_road_path(draft_points,{"roadClass":_option_value(road_class),
 			"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)})
 	elif tool_name=="draw_terrain":identity=authoring.add_region(draft_points,_option_value(terrain_biome),terrain_barrier.button_pressed,terrain_elevation.value if terrain_barrier.button_pressed else 0)
+	elif tool_name=="draw_sidewalk":identity=authoring.add_sidewalk(draft_points,sidewalk_width.value)
 	if identity.is_empty():_notice(authoring.last_error);return
 	source_id=identity;source_anchor=-1;draft_points.clear()
 	_refresh_authoring()
@@ -1856,3 +1881,22 @@ func _split_road() -> void:
 		_refresh_authoring()
 		_notice("Junction detached. Drag this road or endpoint away; neighboring roads stay put." if detached else "Road split. Each half now moves independently. Drag the selected endpoint to create a gap.")
 	else:_notice(authoring.last_error)
+
+func _toggle_building_snap() -> void:
+	building_snap_enabled=not building_snap_enabled
+	building_snap_button.text="Building edges: on" if building_snap_enabled else "Building edges: off"
+
+func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
+	if not building_snap_enabled or Input.is_physical_key_pressed(KEY_ALT) or str(prop.get("type","")) not in ["house","building","warehouse","garage","gas_station"]:return at
+	var neighbors: Array=[]
+	for other in authoring.doc.props:
+		if str(other.id)==str(prop.id) or other.get("hidden",false) or str(other.type) not in ["house","building","warehouse","garage","gas_station"]:continue
+		if Vector2(other.x,other.y).distance_to(at)>150:continue
+		neighbors.append({"p":Vector2(other.x,other.y),"size":gizmos._prop_size(other)/PPM,"angle":deg_to_rad(float(other.rotation))})
+	for other in world.data.props:
+		if other.has("authoring_id") or str(other.kind) not in ["house","building","warehouse","garage","shop","coastal_house","lodge","office","hotel","cafe","showroom","fuel"]:continue
+		if preload("res://scripts/world/coast_scenery.gd").editor_hidden.has(preload("res://scripts/world/coast_scenery.gd").editor_key(other)):continue
+		var p:=Vector2(other.p[0],other.p[1])
+		if p.distance_to(at)<150:neighbors.append({"p":p,"size":Vector2(other.size[0],other.size[1]),"angle":float(other.angle)})
+	var snapped:=BuildingSnap.position(at,gizmos._prop_size(prop)/PPM,deg_to_rad(float(prop.get("rotation",0))),neighbors)
+	return snapped if authoring._in_bounds(snapped) else at

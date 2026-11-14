@@ -27,6 +27,7 @@ var draft_doc: Dictionary = {}
 var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
+var custom_terrain:=false
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
 var pending_tool := ""
@@ -129,6 +130,10 @@ func _refresh_preview_scenery() -> void:
 			instance["asset_path"]=str(prop.assetPath)
 		elif str(prop.get("assetId","")).begins_with("game-"):
 			instance["asset_kind"]=str(prop.assetId).trim_prefix("game-")
+		if kind=="sidewalk":
+			instance["sidewalk_points"]=prop.sidewalkPoints
+			instance["sidewalk_width"]=prop.sidewalkWidth
+			instance["sidewalk_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
 		rendered.append(instance)
 	preview_scenery.prop_list = rendered
 	preview_scenery.visible=bool(layer_flags.get("scenery",true))
@@ -203,7 +208,7 @@ func _rebuild_preview_collisions() -> void:
 		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
 			"sign","parking","dock","planter","garden","field","forecourt",
 			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
-			"start_line","finish_line"]
+			"start_line","finish_line","sidewalk"]
 		var trunk_radius := 0.0
 		# A procedural tree has a small solid trunk. Ordinary placed editor
 		# foliage is non-solid; match the source builder rather than placing
@@ -324,6 +329,7 @@ func _draw_draft() -> void:
 				draw_circle(at,radius,Color("#ffc26a"))
 				draw_circle(at,radius*0.33,Color("#5a3827"))
 	for region in draft_doc.get("regions",[]):
+		if custom_terrain:continue
 		if not layer_flags.get("terrain",true):continue
 		var original_region: Dictionary = {}
 		for earlier in draft_initial.get("regions",[]):

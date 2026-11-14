@@ -12,6 +12,7 @@ from mountain_field import height_m
 from junction_bake import build_junctions
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
+from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
 from mountain_barriers import validate_barriers
 
@@ -908,8 +909,7 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
         not road_clear(replacement["p"],replacement["radius"])):
         raise ValueError("Moved game scenery overlaps a road or unsafe world boundary")
     if replacement["solid"] and any(other is not replacement and other.get("solid")
-            and distance(other["p"],replacement["p"]) <
-            other.get("radius",0)+replacement["radius"]+.5
+            and footprints_overlap(other,replacement,adapt_legacy=True)
             for other in PROPS):
         raise ValueError("Moved game scenery overlaps another solid object")
 
@@ -993,7 +993,13 @@ for i,s in enumerate(SEGMENTS):
     r=ROADS[s["road"]]; a,b=s["a"],s["b"];pad=r["width"]/2+5
     for key in keys_for((min(a[0],b[0])-pad,min(a[1],b[1])-pad,max(a[0],b[0])+pad,max(a[1],b[1])+pad),CHUNK): CHUNKS[key]["segments"].append(i)
 for i,p in enumerate(PROPS):
-    CHUNKS[f"{int(p['p'][0]//CHUNK)},{int(p['p'][1]//CHUNK)}"]["props"].append(i)
+    if p['kind']=='sidewalk':
+        # Include every crossed cell, not only a long path's midpoint.
+        radius=math.hypot(*p['size'])/2+2
+        for key in keys_for((p['p'][0]-radius,p['p'][1]-radius,p['p'][0]+radius,p['p'][1]+radius),CHUNK):
+            if key in CHUNKS:CHUNKS[key]['props'].append(i)
+    else:
+        CHUNKS[f"{int(p['p'][0]//CHUNK)},{int(p['p'][1]//CHUNK)}"]["props"].append(i)
 for i,face in enumerate(RELIEF_FACES):
     p=[sum(v[k] for v in face["toe"]+face["lip"])/4 for k in (0,1)]
     CHUNKS[f"{int(p[0]//CHUNK)},{int(p[1]//CHUNK)}"]["relief"].append(i)
