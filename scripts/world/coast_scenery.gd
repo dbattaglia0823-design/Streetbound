@@ -354,7 +354,7 @@ func _draw_prop(prop: Dictionary) -> void:
 				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#929a93"),1.0,true)
 		return
 	if prop.has("asset_path"):
-		var project_texture: Texture2D = Art.project_sprite(str(prop.asset_path))
+		var project_texture: Texture2D = Art.project_sprite(str(prop.asset_path),prop.get("asset_region",[]))
 		if project_texture!=null:
 			draw_texture_rect(project_texture,Rect2(-size*.5,size),false)
 		return
