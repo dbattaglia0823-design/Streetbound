@@ -414,7 +414,7 @@ func _process(dt: float) -> void:
 		for voice in _loop_players:
 			voice.volume_db = -80.0
 		for voice in [recorded_texture, intake, turbo, electric_drive,
-				gear_whine, driveline, wind, road, tire, loose_tire]:
+				gear_whine, driveline, wind, road, tires, scrub]:
 			voice.volume_db = -80.0
 		for voice in generic_recorded_engine.voices:
 			voice.volume_db = -80.0
