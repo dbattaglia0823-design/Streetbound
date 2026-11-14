@@ -51,9 +51,15 @@ def allowed_file(route: str) -> Path | None:
         relative = path[len("/game-assets/"):]
         target = (ROOT / "assets" / relative).resolve()
         parent = (ROOT / "assets").resolve()
-        if (target.is_relative_to(parent) and target.suffix.lower() in {".png", ".webp", ".svg"}
-                and target.is_file()):
-            return target
+        if target.is_relative_to(parent) and target.suffix.lower() in {".png", ".webp", ".svg"}:
+            if target.is_file():
+                return target
+            if relative.startswith("Buildings/"):
+                # Existing map JSON can still request old paths after relocation.
+                relocated = (ROOT / "assets" / "Map Building Assets" / relative).resolve()
+                approved = (ROOT / "assets" / "Map Building Assets" / "Buildings").resolve()
+                if relocated.is_relative_to(approved) and relocated.is_file():
+                    return relocated
         return None
     target = (EDITOR / path.lstrip("/")).resolve()
     if target.is_relative_to(EDITOR.resolve()) and target.is_file():

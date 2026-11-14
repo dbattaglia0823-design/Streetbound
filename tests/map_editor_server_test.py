@@ -34,7 +34,7 @@ class LocalMapEditorTests(unittest.TestCase):
                 assets=json.load(response)["assets"]
                 self.assertTrue(assets)
                 self.assertEqual(len({a['id'] for a in assets}),len(assets))
-                self.assertTrue(all(a['path'].startswith('Buildings/') for a in assets))
+                self.assertTrue(all(a['path'].startswith(('Buildings/', 'Map Building Assets/')) for a in assets))
                 self.assertFalse(any(a['path'].endswith('.import') for a in assets))
             # A page at another origin must not initiate a local file write,
             # even if it somehow supplies the private session token.

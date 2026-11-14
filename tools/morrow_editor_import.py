@@ -11,7 +11,7 @@ corrupting the entire streamed map.
 import json
 import math
 import re
-from project_asset_catalog import building_file, asset_id
+from project_asset_catalog import building_file, asset_id, resolve_asset
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,6 +135,9 @@ EDITOR_PROP_STYLES = {
     "house": ("house", (12.0, 17.0), True),
     "building": ("building", (22.0, 29.0), True),
     "warehouse": ("warehouse", (28.0, 37.0), True),
+    "industrial_prop": ("industrial_prop", (4.0, 4.0), True),
+    "road_prop": ("road_prop", (3.0, 3.0), True),
+    "ground_decal": ("ground_decal", (4.0, 4.0), False),
     "garage": ("garage", (20.0, 21.0), True),
     "gas_station": ("fuel", (18.0, 17.0), True),
     "streetlight": ("lamp", (1.3, 1.3), False),
@@ -202,10 +205,15 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             "boulder": {"rock"},
         }
         project_path = raw.get("assetPath") if str(game_art).startswith("project-") else None
+        project_asset = None
         if project_path is not None:
-            building_file(project_path,ROOT)
-            if game_art!=asset_id(project_path) or type_name not in {"house","building","warehouse","garage","gas_station"}:
-                raise ValueError("Invalid project building artwork reference")
+            project_asset = resolve_asset(project_path, game_art, ROOT)
+            if project_asset["type"] != type_name:
+                raise ValueError("Invalid category for project map artwork")
+            if raw.get("assetRegion") != project_asset.get("region"):
+                raise ValueError("Sprite sheet region differs from source manifest")
+            if raw.get("assetCollision", project_asset["collision"]) != project_asset["collision"]:
+                raise ValueError("Asset collision differs from source metadata")
             asset_size=raw.get("assetSize")
             if not isinstance(asset_size,list) or len(asset_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=100 for v in asset_size):
                 raise ValueError("Invalid project building footprint")
@@ -214,7 +222,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                     or game_art[5:] not in available.get(type_name, set())):
                 raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
-        if project_path is not None:base_size=asset_size
+        if project_path is not None:
+            base_size = asset_size
+            solid = project_asset["collision"] == "solid"
         elif (raw.get('replaces') or type_name=='sidewalk') and raw.get('assetSize') is not None:
             base_size=raw['assetSize']
             if not isinstance(base_size,list) or len(base_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=12000 for v in base_size):
@@ -244,6 +254,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             entry["asset_path"]=project_path
             entry["asset_size"]=asset_size
             entry["asset_id"]=game_art
+            entry["asset_collision"]=project_asset["collision"]
+            if project_asset.get("region"):
+                entry["asset_region"]=project_asset["region"]
         elif game_art:
             entry["asset_kind"] = game_art[5:]
             entry["asset_id"] = game_art

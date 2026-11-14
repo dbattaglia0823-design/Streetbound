@@ -1,4 +1,20 @@
 extends Node2D
+func _asset_texture(source: Texture2D, region: Array) -> Texture2D:
+    if region.size()!=4:
+        return source
+    var x:=int(region[0])
+    var y:=int(region[1])
+    var w:=int(region[2])
+    var h:=int(region[3])
+    if x<0 or y<0 or w<1 or h<1 or x+w>source.get_width() or y+h>source.get_height():
+        return null
+    var cropped:=AtlasTexture.new()
+    cropped.atlas=source
+    cropped.region=Rect2(x,y,w,h)
+    cropped.filter_clip=true
+    return cropped
+
+
 ## GDT World Forge v2: runtime renderer and geometry reader for freeform racing worlds.
 ## Attach to Node2D, set world_path, or call load_world(path) directly.
 ## This does NOT spawn cars, compute traffic AI, or generate a 3D elevation mesh.
@@ -81,11 +97,11 @@ func load_world_json(source: String) -> bool:
         if not prop.has("assetPath"):
             continue
         var relative: String = str(prop.assetPath)
-        if not relative.begins_with("Buildings/") or ".." in relative or "\\" in relative or ":" in relative:
+        if not (relative.begins_with("Buildings/") or relative.begins_with("Map Building Assets/")) or ".." in relative or "\\" in relative or ":" in relative:
             return false
         var path: String = "res://assets/"+relative
         if ResourceLoader.exists(path,"Texture2D") and (FileAccess.file_exists(path+".import") or OS.has_feature("template")):
-            textures[str(prop.assetId)]=load(path)
+            textures[str(prop.assetId)]=_asset_texture(load(path),prop.get("assetRegion",[]))
             continue
         var image := Image.new()
         var result: Error = ERR_FILE_UNRECOGNIZED
@@ -96,7 +112,7 @@ func load_world_json(source: String) -> bool:
         if result != OK:
             push_error("Missing project building artwork: "+relative)
             return false
-        textures[str(prop.assetId)] = ImageTexture.create_from_image(image)
+        textures[str(prop.assetId)] = _asset_texture(ImageTexture.create_from_image(image),prop.get("assetRegion",[]))
     _sprite_textures = textures
     world_data = decoded
     _road_cache.clear()

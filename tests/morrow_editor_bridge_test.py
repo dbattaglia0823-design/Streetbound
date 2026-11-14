@@ -71,6 +71,9 @@ class SourceBridgeTests(unittest.TestCase):
     def test_shared_node_move_propagates_and_adds_connected_road(self):
         doc = editor_doc()
         doc["roads"][0]["points"][-1] = dict(x=510, y=215)
+        # Explicitly move both road ends so the shared node remains connected.
+        # Moving only one end intentionally detaches that road in the editor.
+        doc["roads"][1]["points"][0] = dict(x=510, y=215)
         doc["roads"][0]["width"] = 11
         doc["roads"].append(
             dict(id="road-2", name="New Link", roadClass="country",
@@ -86,6 +89,17 @@ class SourceBridgeTests(unittest.TestCase):
         self.assertEqual(len(roads), 3)
         self.assertEqual(roads[2]["start"], "c")
         self.assertEqual(roads[2]["kind"], "rural")
+
+    def test_single_moved_endpoint_detaches_without_moving_neighbor(self):
+        doc = editor_doc()
+        doc["roads"][0]["points"][-1] = dict(x=510, y=215)
+        data, _ = self.apply(doc)
+        roads, nodes = data[0], data[1]
+        self.assertEqual(nodes["b"], (500, 200))
+        self.assertEqual(roads[1]["anchors"][0], [500, 200])
+        self.assertEqual(roads[0]["anchors"][-1], [510, 215])
+        self.assertNotEqual(roads[0]["end"], "b")
+        self.assertEqual(nodes[roads[0]["end"]], (510, 215))
 
     def test_move_landmark_and_add_traffic_marker(self):
         doc = editor_doc()

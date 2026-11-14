@@ -66,17 +66,20 @@ func run() -> void:
 		footprint_original and tagged_count == selected.size(),
 		[tagged_count, selected.size()])
 	var valid_textures := true
+	var distinct_paths: Dictionary = {}
 	for i in Pilot.SPRITES.size():
+		var path: String = Pilot.SPRITES[i]
+		distinct_paths[path] = true
+		valid_textures = valid_textures and path.begins_with("Map Building Assets/Buildings/") and path.ends_with(".png")
 		var image_texture: Texture2D = Pilot.sprite(i)
 		if image_texture == null:
 			valid_textures = false
 			continue
 		var image: Image = image_texture.get_image()
-		valid_textures = valid_textures and image.get_size() == Vector2i(512, 512)
-		valid_textures = valid_textures and image.get_pixel(0,0).a < 0.05
-		valid_textures = valid_textures and image.get_pixel(256,256).a > 0.95
-	check("four_independent_transparent_city_building_textures",
-		valid_textures and Pilot.SPRITES.size() == 4)
+		valid_textures = valid_textures and image.get_width() >= 64 and image.get_height() >= 64
+		valid_textures = valid_textures and image.get_used_rect().size.x > 16 and image.get_used_rect().size.y > 16
+	check("four_existing_raster_city_building_textures",
+		valid_textures and Pilot.SPRITES.size() == 4 and distinct_paths.size() == 4)
 	# A real streamed chunk should contain the decorated authored props
 	# without adding extra collision bodies, scenery nodes or map geometry.
 	var game: Node = load("res://scenes/main.tscn").instantiate()

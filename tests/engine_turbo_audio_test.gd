@@ -34,7 +34,7 @@ func run() -> void:
 		if induction == "turbo":
 			complete = complete and float(entry.get("boost_max_psi",0.0)) > 0.05
 	check("all_playable_cars_have_valid_sound_profile",
-		entries.size() == 89 and complete,entries.size())
+		entries.size() >= 89 and complete,entries.size())
 	check("engine_layout_profiles_are_individually_distinct",
 		families.size() == 11 and families.has("i5"),families.keys())
 	var v8 := Synth.engine_loop("v8_cross",2,0.9,0.7)

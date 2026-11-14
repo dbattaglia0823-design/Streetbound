@@ -128,6 +128,8 @@ func _refresh_preview_scenery() -> void:
 			instance=appearance
 		if prop.has("assetPath"):
 			instance["asset_path"]=str(prop.assetPath)
+			if prop.has("assetRegion"):instance["asset_region"]=prop.assetRegion
+			instance["solid"]=str(prop.get("assetCollision","solid"))=="solid"
 		elif str(prop.get("assetId","")).begins_with("game-"):
 			instance["asset_kind"]=str(prop.assetId).trim_prefix("game-")
 		if kind=="sidewalk":
@@ -177,10 +179,10 @@ func _prop_size(prop: Dictionary) -> Vector2:
 
 func _prop_texture(prop: Dictionary) -> Texture2D:
 	if prop.has("assetPath"):
-		return Art.project_sprite(str(prop.assetPath))
+		return Art.project_sprite(str(prop.assetPath),prop.get("assetRegion",[]))
 	if prop.get("sourceAppearance") is Dictionary and str(prop.get("assetId",""))=="":
 		var appearance: Dictionary=prop.sourceAppearance
-		if appearance.has("asset_path"):return Art.project_sprite(str(appearance.asset_path))
+		if appearance.has("asset_path"):return Art.project_sprite(str(appearance.asset_path),appearance.get("asset_region",[]))
 		return Art.sprite(str(appearance.get("asset_kind",appearance.kind)),int(appearance.seed))
 	var kind := str(prop.get("assetId","")).trim_prefix("game-")
 	if kind in ["","none"]:
@@ -227,6 +229,8 @@ func _rebuild_preview_collisions() -> void:
 					if kind in ["oak","pine","palm"]:
 						trunk_radius = float(original.get("radius",0.65))*PPM
 					break
+		if prop.has("assetPath"):
+			is_decoration=str(prop.get("assetCollision","solid"))=="none"
 		if is_decoration:
 			continue
 		var collider := CollisionShape2D.new()
