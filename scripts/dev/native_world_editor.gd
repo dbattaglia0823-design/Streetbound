@@ -365,7 +365,8 @@ func _register_project_asset(relative: String, label: String, texture: Texture2D
 	if collision not in ["solid","none"]:
 		return
 	var name:=label.replace("_"," ").replace("-"," ")
-	var key:=relative+("#"+name if region.size()==4 else "")
+	# Keep the hash based on the exact sprite manifest label, matching Python.
+	var key:=relative+("#"+label if region.size()==4 else "")
 	var size: Array = meta.get("worldSize",[]) if meta.get("worldSize",[]) is Array else []
 	asset_entries.append({"name":name,"kind":kind,"category":category,"texture":texture,
 		"path":relative,"project":true,"project_id":"project-"+key.sha256_text().substr(0,24),
