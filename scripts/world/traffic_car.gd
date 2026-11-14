@@ -5,16 +5,16 @@ extends CharacterBody2D
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
 const MODEL_PATHS := [
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
-	"res://assets/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
+	"res://assets/vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
@@ -65,7 +65,17 @@ static func appearance_for(index: int) -> Dictionary:
 	if art_cache.has(slot):
 		return art_cache[slot]
 	var path: String = MODEL_PATHS[slot]
-	var texture := load(path) as Texture2D
+	# Old checkouts still carry models under assets/Traffic Vehicles.
+	# Prefer the new organized location without breaking existing releases.
+	if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+		path = path.replace("res://assets/vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path):
+		texture = load(path) as Texture2D
+	if texture == null and FileAccess.file_exists(path):
+		var pixels := Image.new()
+		if pixels.load(path) == OK:
+			texture = ImageTexture.create_from_image(pixels)
 	if texture == null:
 		push_warning("Traffic artwork unavailable: " + path)
 		return {}
