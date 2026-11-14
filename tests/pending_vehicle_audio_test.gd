@@ -100,7 +100,7 @@ func run() -> void:
 	if not legacy_profiles.is_empty():
 		print("PENDING AUDIO LEGACY PROFILES: %s" % [legacy_profiles])
 	check("playable_catalog_includes_new_rs3_starter_without_losing_cars",
-		Catalog.all().size() == 89 and
+		Catalog.all().size() >= 89 and # Keep the old roster; allow added playable cars.
 		not Catalog.find_by_id("audi-rs3").is_empty())
 	check("future_audi_five_cylinder_has_correct_turbo",
 		Pending.find_by_id("audi-rs3").audio_family == "i5" and \
