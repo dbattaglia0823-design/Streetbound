@@ -27,6 +27,7 @@ const inside=(doc,p,r=0)=>p.x>=r&&p.y>=r&&p.x<=doc.world.width-r&&p.y<=doc.world
 export const normalizeAngle=angle=>((angle+180)%360+360)%360-180;
 export function placementFootprint(doc,prop){
   const project=projectArtwork(prop);
+  if(prop.type==='decal'||project?.collision==='none')return 0;
   if(project)return Math.hypot(...project.size)*(prop.scale??1)/2+1;
   // Adopted production scenery uses metre-scale collision bounds. The older
   // generic World Forge display-icon dimensions could be 10x too large and
@@ -177,6 +178,7 @@ export function placeSiteMarker(_doc,marker){return marker;}
 export function repairRoadsideObjects(doc,{alignAll=false}={}){
   let moved=0,rotated=0,failed=0;
   const props=doc.props.map(old=>{
+    if(old.type==='decal'||projectArtwork(old)?.collision==='none')return old;
     const radius=placementFootprint(doc,old);
     if(!alignAll&&roadwayClearance(doc,old,radius)>=0)return old;
     try{
