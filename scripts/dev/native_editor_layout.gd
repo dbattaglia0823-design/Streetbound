@@ -91,7 +91,9 @@ static func build(e) -> void:
 	e.asset_search=LineEdit.new();e.asset_search.name="AssetSearch";e.asset_search.placeholder_text="Search game assets..."
 	e.asset_search.text_changed.connect(func(_value: String)->void:e._filter_assets());assets.add_child(e.asset_search)
 	e.asset_category=OptionButton.new()
-	for title_text in ["All assets","Houses","Buildings","Garages","Nature"]:e.asset_category.add_item(title_text)
+	for title_text in ["All assets","Houses","Buildings","Garages","Nature",
+		"Industrial","Roads and Infrastructure","Construction","Commercial",
+		"Residential","Ground Decals"]:e.asset_category.add_item(title_text)
 	e.asset_category.item_selected.connect(func(_index: int)->void:e._filter_assets());assets.add_child(e.asset_category)
 	e.asset_count=heading(assets,"")
 	e.asset_grid=GridContainer.new();e.asset_grid.columns=2
