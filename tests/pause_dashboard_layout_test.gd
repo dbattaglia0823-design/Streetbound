@@ -48,6 +48,15 @@ func _run() -> void:
 		dash.detail_view.get_viewport() == dash.detail_render and
 		dash.detail_view.ink.mirror_enabled and
 		dash.detail_render.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	check("pause_map_scales_geography_and_icons_consistently",
+		is_equal_approx(
+			dash.detail_view.pixels_per_m / hud.mini_view.pixels_per_m,
+			960.0 / 244.0) and
+		is_equal_approx(float(dash.detail_view.get_meta("pause_render_density", 1.0)), 2.0) and
+		is_equal_approx(float(dash.detail_view.ink.label_scale), 2.0) and
+		is_equal_approx(dash.detail_view.cursor.scale.x, 2.0))
+	check("pause_map_race_guidance_matches_normal_atlas",
+		dash.detail_view.race_overlay.get("navigation") == hud._active_race_navigation())
 	check("map_previews_crop_without_stretching_low_resolution_minimap",
 		dash.map_image.texture == dash.detail_render.get_texture() and
 		dash.map_image.texture != hud.mini_render.get_texture() and
@@ -126,10 +135,16 @@ func _run() -> void:
 	(more.get_node("MoreAction") as Button).pressed.emit()
 	check("multiplayer_still_accessible",
 		pause.menu_state=="multiplayer" and not dash.visible)
+	check("multiplayer_suspends_pause_map_render",
+		dash.detail_render.render_target_update_mode == SubViewport.UPDATE_DISABLED and
+		dash.detail_view.process_mode == Node.PROCESS_MODE_DISABLED)
 	pause.back_to_pause()
 	dash.nav_buttons["settings"].pressed.emit()
 	check("settings_still_accessible",
 		pause.menu_state=="settings" and pause.settings_screen.visible)
+	check("settings_suspend_pause_map_render",
+		dash.detail_render.render_target_update_mode == SubViewport.UPDATE_DISABLED and
+		dash.detail_view.process_mode == Node.PROCESS_MODE_DISABLED)
 	pause.back_to_pause()
 	dash.show_section("upgrades")
 	var overlay=game.quick_upgrades
