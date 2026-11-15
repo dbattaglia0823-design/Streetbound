@@ -324,7 +324,8 @@ func _refresh() -> void:
 	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
 	# A small staging prompt appears only close to the start, rather than
 	# occupying the driving view whenever a race is nearby.
-	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM
+	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length())
 	match state:
 		"idle":
 			label.text = "%s / 1v1\n%s" % [race_title.to_upper(),
