@@ -940,7 +940,7 @@ func _pick_source_sidewalk_anchor(world_px: Vector2,only_id: String="") -> Dicti
 	for sidewalk in authoring.doc.get("props",[]):
 		if str(sidewalk.get("type",""))!="sidewalk" or bool(sidewalk.get("hidden",false)):continue
 		if not only_id.is_empty() and str(sidewalk.id)!=only_id:continue
-		var anchors:=EditSession.sidewalk_world_points(sidewalk)
+		var anchors: Array[Vector2]=EditSession.sidewalk_world_points(sidewalk)
 		for i in anchors.size():
 			var point: Vector2=anchors[i]*PPM
 			var distance:=point.distance_to(world_px)
@@ -1089,7 +1089,7 @@ func _source_click(world_px: Vector2) -> void:
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
 			str(road.get("name","")),source_anchor+1,road.points.size()]
 	elif hit.kind=="sidewalk_point":
-		var sidewalk:=authoring.prop_at_id(source_id)
+		var sidewalk: Dictionary=authoring.prop_at_id(source_id)
 		details.text="SIDEWALK PATH\n%s\nPoint %d of %d\n\nDrag a handle to reshape. Joined paths move together; Alt-drag detaches."%[
 			str(sidewalk.get("name","")),source_anchor+1,sidewalk.sidewalkPoints.size()]
 	elif hit.kind=="prop":
@@ -1124,7 +1124,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		var detached: bool=Input.is_physical_key_pressed(KEY_ALT)
 		ok=temporary.move_sidewalk_point(str(drag.id),int(drag.index),destination_m,snap_m,not detached)
 		if ok:
-			var sidewalk:=temporary.prop_at_id(str(drag.id))
+			var sidewalk: Dictionary=temporary.prop_at_id(str(drag.id))
 			if int(drag.index) in [0,sidewalk.sidewalkPoints.size()-1] and not detached:
 				# Only connect when another path is actually nearby.
 				temporary.reconnect_sidewalk_endpoint(str(drag.id),int(drag.index),EditSession.SIDEWALK_SNAP_M)
