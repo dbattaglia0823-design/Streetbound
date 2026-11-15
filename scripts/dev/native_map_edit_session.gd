@@ -779,7 +779,7 @@ func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> 
 		return false
 	var draft: Dictionary = doc.duplicate(true)
 	var moved_sidewalk:=str(item.get("type",""))=="sidewalk"
-	var previous: Array[Vector2]=sidewalk_world_points(item) if moved_sidewalk else []
+	var previous: Array[Vector2]=sidewalk_world_points(item)
 	var delta:=destination_m-original
 	for prop in draft.props:
 		if str(prop.id)==prop_id:
