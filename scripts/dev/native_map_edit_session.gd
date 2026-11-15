@@ -577,7 +577,8 @@ func move_sidewalk_point(identity: String, index: int, target_m: Vector2,
 	return true
 
 
-func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> bool:
+func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0,
+		preserve_joint: bool = true) -> bool:
 	var item := prop_at_id(prop_id)
 	if item.is_empty() or not _in_bounds(destination_m):
 		last_error = "Only source-authored assets may be moved inside the world."
@@ -593,8 +594,28 @@ func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> 
 	var draft: Dictionary = doc.duplicate(true)
 	for prop in draft.props:
 		if str(prop.id)==prop_id:
-			prop.x = destination_m.x
-			prop.y = destination_m.y
+			if str(prop.get("type",""))=="sidewalk":
+				var previous: Array[Vector2]=Sidewalks.world_points(prop)
+				var shift:=destination_m-original
+				var moved: Array[Vector2]=[]
+				for p in previous:moved.append(p+shift)
+				Sidewalks.write_world_points(prop,moved)
+				if preserve_joint:
+					for other in draft.props:
+						if str(other.id)==prop_id or str(other.get("type",""))!="sidewalk" or bool(other.get("hidden",false)):
+							continue
+						var neighbor: Array[Vector2]=Sidewalks.world_points(other)
+						var attached:=false
+						for i in neighbor.size():
+							for old_point in previous:
+								if neighbor[i].distance_to(old_point)<.05:
+									neighbor[i]+=shift
+									attached=true
+									break
+						if attached:Sidewalks.write_world_points(other,neighbor)
+			else:
+				prop.x = destination_m.x
+				prop.y = destination_m.y
 			return _commit(draft)
 	return false
 
