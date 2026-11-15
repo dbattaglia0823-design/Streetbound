@@ -21,6 +21,13 @@ func run() -> void:
 		player.rotation=forward.angle()+PI/2
 		check(str(race.race_title)+"_stages",race.start_race())
 		menu.pause_game();check(str(race.race_title)+"_quit_available_during_countdown",menu.quit_race_button.visible)
+		if race == events[0]:
+			menu.pause_screen.controls["main_menu"].pressed.emit()
+			check("leaving_active_race_requires_confirmation",
+				menu.menu_state=="confirm" and paused and menu.confirmation_screen.visible)
+			menu.back_to_pause()
+			check("cancel_race_exit_returns_to_pause",
+				menu.menu_state=="paused" and paused and menu.quit_race_button.visible)
 		menu.quit_race_button.pressed.emit()
 		check(str(race.race_title)+"_quit_resumes_free_driving",race.state=="idle" and not paused and not menu.quit_race_button.visible)
 		player.global_position=race.start_m*20;player.linear_velocity=Vector2.ZERO;player.rotation=forward.angle()+PI/2
