@@ -75,5 +75,16 @@ func run() -> void:
 			check("game_pixels_"+str(prop.editor_name),changed>3)
 		after.save_png("res://.runtime/sprite-sheets/game.png")
 	check("playable_archive_preserved",FileAccess.get_sha256("res://worlds/morrow-coast.world.json")==archive_hash)
-	Scenery.editor_hidden={};game.queue_free();camera.queue_free();await process_frame;await process_frame
+	# The test loads cropped AtlasTextures into the global CoastArt cache.
+	# On Godot 4.6.x those cached resources can outlive the temporary scene,
+	# producing ObjectDB/resource errors *after* all gameplay checks pass.
+	# Release the test's shared texture references only after scene teardown.
+	Scenery.editor_hidden.clear()
+	game.queue_free()
+	camera.queue_free()
+	await process_frame
+	await process_frame
+	Art.project_textures.clear()
+	Art.textures.clear()
+	await process_frame
 	print("SPRITE SHEET GAME: ","PASS" if failures.is_empty() else str(failures));quit(0 if failures.is_empty() else 1)
