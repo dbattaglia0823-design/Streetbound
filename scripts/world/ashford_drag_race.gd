@@ -193,7 +193,8 @@ func _refresh_overlay() -> void:
 	if _race_label == null or not available:
 		return
 	var distance := player.global_position.distance_to(start_m * PPM)/PPM
-	var show_prompt := distance <= 30.0
+	var show_prompt := distance <= 30.0 and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length())
 	match state:
 		"idle":
 			_race_label.text = "ASHFORD QUARTER-MILE\n%s" % (
