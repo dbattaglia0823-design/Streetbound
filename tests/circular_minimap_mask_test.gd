@@ -59,7 +59,8 @@ func _run() -> void:
 	probe.add_child(surface)
 	for i in 4:
 		await process_frame
-	await RenderingServer.frame_post_draw
+	# Fixed headless frames advance the SubViewport without relying on a
+	# display-server post-draw signal (not emitted by all CI renderers).
 	var image_pixels: Image=probe.get_texture().get_image()
 	if image_pixels.is_empty():
 		check("round_map_render_available",false)
@@ -85,7 +86,8 @@ func _run() -> void:
 	hud.set_minimap_shape("square")
 	for i in 2:
 		await process_frame
-	await RenderingServer.frame_post_draw
+	# Fixed headless frames advance the SubViewport without relying on a
+	# display-server post-draw signal (not emitted by all CI renderers).
 	image_pixels=probe.get_texture().get_image()
 	check("square_mode_restores_opaque_corners",
 		not bool(hud.mini_mask.get_shader_parameter("circle_mode")) and
