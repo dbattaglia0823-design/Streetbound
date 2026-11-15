@@ -26,7 +26,7 @@ func add_edge(graph: FakeNetwork, road: int, line: Array[Vector2], following: Ar
 		"stations":stations,"length_px":stations[-1],"next":following.duplicate()})
 	return id
 
-func make_planner(graph: FakeNetwork,road_names: Array[String]) -> RefCounted:
+func make_planner(graph: FakeNetwork,road_names: Array[String]) -> Variant:
 	var roads: Array=[]
 	for title in road_names:roads.append({"name":title})
 	var planner:=Planner.new()
