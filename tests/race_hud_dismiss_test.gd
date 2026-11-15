@@ -127,6 +127,14 @@ func _run() -> void:
 	street._refresh()
 	check("fast_driveby_no_longer_shows_street_popup",
 		not (sprint_hud.get("panel") as PanelContainer).visible)
+	car.linear_velocity = Vector2(7.0,0)
+	street._refresh()
+	check("above_15_mph_keeps_race_popup_hidden",
+		not (sprint_hud.get("panel") as PanelContainer).visible)
+	car.linear_velocity = Vector2(6.7056,0)
+	street._refresh()
+	check("exactly_15_mph_shows_race_start_hint",
+		(sprint_hud.get("panel") as PanelContainer).visible)
 	car.linear_velocity = Vector2.ZERO
 	street._refresh()
 	check("nearby_slow_driver_can_see_start_hint",

@@ -1,5 +1,6 @@
 extends SceneTree
 const Authored=preload("res://scripts/world/authored_race.gd")
+const InteractionSpeed=preload("res://scripts/world/interaction_speed.gd")
 var failures: Array[String]=[]
 func _initialize() -> void:call_deferred("run")
 func check(label: String,ok: bool) -> void:
@@ -12,6 +13,10 @@ func run() -> void:
 	var starting_xp: int=game.vehicle_ownership.player_xp
 	var starting_balance: int=game.vehicle_ownership.balance
 	var menu=game.pause_menu
+	check("interaction_speed_is_exactly_15_mph",
+		is_equal_approx(InteractionSpeed.MAX_SPEED_MPS,6.7056) and
+		InteractionSpeed.allowed(6.7056) and
+		not InteractionSpeed.allowed(6.71))
 	menu.pause_game();check("quit_race_is_hidden_in_free_roam",not menu.quit_race_button.visible);menu.resume_game()
 	var events: Array=[game.drag_race,game.circuit_race,game.street_race];events.append_array(game.extra_races)
 	for race in events:
@@ -19,7 +24,14 @@ func run() -> void:
 		player.global_position=race.start_m*20;player.linear_velocity=Vector2.ZERO
 		var forward: Vector2=race.direction if race==game.drag_race else race.heading
 		player.rotation=forward.angle()+PI/2
-		check(str(race.race_title)+"_stages",race.start_race())
+		player.linear_velocity=forward*7.0
+		check(str(race.race_title)+"_blocks_entry_above_15_mph",not race.can_stage())
+		player.linear_velocity=forward*InteractionSpeed.MAX_SPEED_MPS
+		player.velocity=player.linear_velocity*20.0
+		check(str(race.race_title)+"_stages_while_rolling_at_15_mph",
+			race.can_stage() and race.start_race() and
+			player.linear_velocity.is_zero_approx() and
+			player.velocity.is_zero_approx() and race.state=="countdown")
 		menu.pause_game();check(str(race.race_title)+"_quit_available_during_countdown",menu.quit_race_button.visible)
 		if race == events[0]:
 			menu.pause_screen.controls["main_menu"].pressed.emit()
@@ -45,8 +57,14 @@ func run() -> void:
 	var authored=Authored.new();authored.world=game.ground;authored.player=player
 	authored.definition={"id":"race-test","name":"Editor Sprint","mode":"sprint","laps":1,"checkpoint_radius":4,"start_radius":8,"time_limit":0,"points":[{"x":2400,"y":3200},{"x":2450,"y":3200},{"x":2500,"y":3200}]}
 	game.ground.add_child(authored);authored.set_physics_process(false)
-	player.global_position=authored.start_m*20;player.rotation=PI/2;player.linear_velocity=Vector2.ZERO
-	check("authored_race_stages",authored.available and authored.start_race())
+	player.global_position=authored.start_m*20;player.rotation=PI/2
+	player.linear_velocity=Vector2.RIGHT*7.0
+	check("authored_race_denies_above_15_mph",not authored.can_stage())
+	player.linear_velocity=Vector2.RIGHT*InteractionSpeed.MAX_SPEED_MPS
+	player.velocity=player.linear_velocity*20.0
+	check("authored_race_stages_at_15_mph",
+		authored.available and authored.can_stage() and authored.start_race() and
+		player.linear_velocity.is_zero_approx() and player.velocity.is_zero_approx())
 	authored._physics_process(3.05)
 	player.global_position=Vector2(2500,3200)*20;authored._physics_process(.016);authored._physics_process(.016)
 	check("finish_cannot_skip_ordered_checkpoints",authored.state=="running" and authored.next_checkpoint==1)

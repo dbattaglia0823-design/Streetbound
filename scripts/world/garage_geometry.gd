@@ -5,7 +5,7 @@ const POI_NAME := "Laurel Motor House"
 const PPM := 20.0
 const BAY_WIDTH_M := 13.0
 const BACK_WALL_M := 3.0
-const GARAGE_STOP_SPEED_MPS := 1.6
+const InteractionSpeed = preload("res://scripts/world/interaction_speed.gd")
 
 
 static func is_player_garage(prop: Dictionary) -> bool:
@@ -57,6 +57,6 @@ static func inside_bay(prop: Dictionary, point_px: Vector2) -> bool:
 
 
 static func is_parked(prop: Dictionary, point_px: Vector2, speed_mps: float) -> bool:
-	return absf(speed_mps) <= GARAGE_STOP_SPEED_MPS and \
+	return InteractionSpeed.allowed(speed_mps) and \
 		parking_rect(size_of(prop)).has_point(
 			local_point(prop, point_px / PPM))

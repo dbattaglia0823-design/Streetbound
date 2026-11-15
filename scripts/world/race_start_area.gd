@@ -1,4 +1,19 @@
 extends RefCounted
+const InteractionSpeed = preload("res://scripts/world/interaction_speed.gd")
+const MAX_ENTRY_MPH := InteractionSpeed.MAX_MPH
+
+static func can_stage_at_speed(speed_mps: float) -> bool:
+	return InteractionSpeed.allowed(speed_mps)
+
+## Accept a moving car at the start marker, then settle it before the existing
+## standing-start countdown. This prevents a free rolling head start and avoids
+## immediately failing the countdown from the pre-interaction velocity.
+static func settle_for_countdown(player: VehicleController2D) -> void:
+	player.linear_velocity = Vector2.ZERO
+	player.velocity = Vector2.ZERO
+	player.longitudinal_speed = 0.0
+	player.lateral_speed = 0.0
+	player.yaw_rate = 0.0
 ## One circular interaction shape for race staging and its visible world marker.
 static func busy(race: Node) -> bool:
 	if race.get_tree()==null:return false

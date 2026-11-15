@@ -1,5 +1,5 @@
 extends SceneTree
-## Validate a physical, marked garage entrance, a stop-to-switch interaction
+## Validate a physical, marked garage entrance, a low-speed interaction
 ## and the existing selectable vehicle collection without spawning cars in it.
 const Geometry = preload("res://scripts/world/garage_geometry.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
@@ -73,11 +73,20 @@ func run() -> void:
 		car.global_position.distance_to(before_location) > PPM * 8.0)
 	# Parking eligibility depends on the driver's speed and a safe inset.
 	car.global_position = local_to_world(prop, parking.get_center())
-	car.linear_velocity = Vector2.RIGHT * 5.0
-	check("moving_through_garage_does_not_open_selector",
-		garage.inside_bay() and not garage.can_switch())
+	car.linear_velocity = Vector2.RIGHT * 8.0
+	check("speed_above_15_mph_blocks_garage",
+		garage.inside_bay() and not garage.can_switch() and
+		garage.prompt().contains("15 MPH"))
 	selector.open_menu()
-	check("moving_car_cannot_switch_models", not selector.overlay.visible)
+	check("too_fast_car_cannot_switch_models", not selector.overlay.visible)
+	car.linear_velocity = Vector2.RIGHT * 6.7056
+	check("exactly_15_mph_can_interact_with_garage",garage.can_switch())
+	car.linear_velocity = Vector2.RIGHT * 5.0
+	check("rolling_garage_access_does_not_require_stopping",garage.can_switch())
+	selector.open_menu()
+	check("rolling_car_opens_garage_and_pauses",
+		selector.overlay.visible and paused)
+	selector.close_menu()
 	car.linear_velocity = Vector2.ZERO
 	car.velocity = Vector2.ZERO
 	check("stopped_interior_car_can_switch", garage.can_switch(),

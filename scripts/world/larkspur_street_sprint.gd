@@ -111,7 +111,7 @@ func can_stage() -> bool:
 	if not available or not is_instance_valid(player) or state != "idle":
 		return false
 	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
-		player.linear_velocity.length() <= 1.5 and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length()) and \
 		Vector2.UP.rotated(player.rotation).dot(heading) >= 0.6
 
 
@@ -120,6 +120,7 @@ func start_race() -> bool:
 		return false
 	if not _spawn_opponent():
 		return false
+	StartArea.settle_for_countdown(player)
 	if is_instance_valid(traffic):
 		traffic.call("set_street_race_route", navigation, edge_ids, true)
 	player.add_to_group("race_participant")
@@ -324,11 +325,13 @@ func _refresh() -> void:
 	# A small staging prompt appears only close to the start, rather than
 	# occupying the driving view whenever a race is nearby.
 	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM and \
-		player.linear_velocity.length() <= 5.0
+		StartArea.can_stage_at_speed(player.linear_velocity.length())
 	match state:
 		"idle":
 			label.text = "%s / 1v1\n%s" % [race_title.to_upper(),
-				"[ F ] START RACE" if can_stage() else "STOP INSIDE THE CIRCLE / FACE ROUTE"]
+				"[ F ] START RACE" if can_stage() else
+				"SLOW TO 15 MPH / FACE ROUTE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else
+				"ENTER START CIRCLE / FACE ROUTE"]
 		"countdown":
 			label.text = "%s\nSTART IN %d" % [race_title.to_upper(),maxi(1, ceili(countdown))]
 		"running":

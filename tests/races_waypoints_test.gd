@@ -41,6 +41,8 @@ func run() -> void:
 		game.vehicle.position=event.start_m*20;game.vehicle.rotation=event.heading.angle()+PI/2
 		game.vehicle.linear_velocity=Vector2.ZERO;game.vehicle.reset_physics_interpolation()
 		check(str(event.race_title)+"_can_stage_inside_circle",event.can_stage())
+		game.vehicle.linear_velocity=event.heading*6.7056
+		check(str(event.race_title)+"_rolling_F_interaction_is_available",event.can_stage())
 		var start_key:=InputEventKey.new();start_key.keycode=KEY_F;start_key.physical_keycode=KEY_F;start_key.pressed=true
 		event._unhandled_input(start_key)
 		check(str(event.race_title)+"_F_starts_race",event.state=="countdown")

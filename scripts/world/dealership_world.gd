@@ -6,7 +6,7 @@ const Building = preload("res://scripts/world/dealership_building.gd")
 const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const PPM := 20.0
 const LOCATION_PATH := "res://data/dealerships.json"
-const STOP_SPEED_MPS := 1.7
+const InteractionSpeed = preload("res://scripts/world/interaction_speed.gd")
 const PARK_RADIUS_M := 7.0
 const SIGN_DISTANCE_M := 68.0
 var world: MorrowCoast
@@ -187,7 +187,7 @@ func can_browse(site: Dictionary) -> bool:
 	# not on the roadside shoulder or an invisible radius on nearby grass.
 	return Pavement.contains_pavement(site, player.global_position) and \
 		player.global_position.distance_to(v(site.parking_m)*PPM) <= \
-		PARK_RADIUS_M*PPM and player.linear_velocity.length() <= STOP_SPEED_MPS
+		PARK_RADIUS_M*PPM and InteractionSpeed.allowed(player.linear_velocity.length())
 
 
 func nearby_shop() -> Dictionary:
@@ -203,7 +203,7 @@ func parking_prompt() -> String:
 	if can_browse(site):
 		return "BROWSE DEALERSHIP  [ F ]"
 	if distance <= PARK_RADIUS_M + 5.0:
-		return "PARK & STOP TO BROWSE  /  " + str(site.name)
+		return "SLOW TO 15 MPH TO BROWSE  /  " + str(site.name)
 	return "%s  /  %dm" % [str(site.name).to_upper(), roundi(distance)]
 
 

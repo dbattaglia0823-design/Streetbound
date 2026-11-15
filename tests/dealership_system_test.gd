@@ -161,9 +161,16 @@ func run() -> void:
 	garage.inventory = starter
 	car.global_position = site_position(budget)*PPM
 	car.linear_velocity = Vector2(7.0,0.0)
-	check("moving_car_cannot_browse",not manager.can_browse(budget))
+	check("above_15_mph_cannot_browse",not manager.can_browse(budget) and manager.parking_prompt().contains("15 MPH"))
 	menu.open_menu()
-	check("must_stop_to_enter_dealer",not menu.overlay.visible)
+	check("too_fast_car_cannot_enter_dealer",not menu.overlay.visible)
+	car.linear_velocity = Vector2(6.7056,0.0)
+	check("at_15_mph_can_browse_dealership",manager.can_browse(budget))
+	car.linear_velocity = Vector2(4.0,0.0)
+	check("rolling_car_can_browse_dealership",manager.can_browse(budget))
+	menu.open_menu()
+	check("rolling_car_opens_dealership_paused",menu.overlay.visible and paused)
+	menu.close_menu()
 	car.linear_velocity = Vector2.ZERO
 	car.velocity = Vector2.ZERO
 	check("stopped_customer_can_browse",manager.can_browse(budget))

@@ -50,9 +50,10 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if is_instance_valid(player) and state in ["countdown","running"]:player.remove_from_group("race_participant")
 func can_stage() -> bool:
-	return available and state=="idle" and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and player.linear_velocity.length()<=1.5 and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
+	return available and state=="idle" and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:return false
+	StartArea.settle_for_countdown(player)
 	_prepare_guidance()
 	state="countdown";countdown=3;elapsed=0;next_checkpoint=1;lap=1;result="";_gate_armed=true
 	_previous_m=player.global_position/PPM;player.add_to_group("race_participant");_refresh();return true
@@ -111,10 +112,10 @@ func _physics_process(dt: float) -> void:
 	if _draw_clock>=.1:_draw_clock=0;_refresh();queue_redraw()
 func _refresh() -> void:
 	if not is_instance_valid(status_strip):return
-	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM and player.linear_velocity.length()<5
+	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length())
 	var message:=result
 	match state:
-		"idle":message="%s / %s\n%s"%[race_title,race_type,"[ F ] START" if can_stage() else "STOP IN THE CIRCLE / FACE THE ROUTE"]
+		"idle":message="%s / %s\n%s"%[race_title,race_type,"[ F ] START" if can_stage() else "SLOW TO 15 MPH / FACE ROUTE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else "ENTER START CIRCLE / FACE ROUTE"]
 		"countdown":message="%s\nSTART IN %d"%[race_title,maxi(1,ceili(countdown))]
 		"running":message="%s / %.2fs\nLAP %d/%d · NEXT %s · Pause to quit"%[race_title,elapsed,lap,int(definition.get("laps",1)),"FINISH" if next_checkpoint==0 or (definition.mode=="sprint" and next_checkpoint==checkpoints.size()-1) else "CHECKPOINT %d"%next_checkpoint]
 	status_strip.set_status(state,nearby,message)

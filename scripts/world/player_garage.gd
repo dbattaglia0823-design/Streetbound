@@ -49,7 +49,7 @@ func prompt() -> String:
 	if can_switch():
 		return "OPEN GARAGE  [ G ]"
 	if inside_bay():
-		return "STOP INSIDE GARAGE TO SWITCH"
+		return "SLOW TO 15 MPH TO OPEN GARAGE"
 	var distance := distance_m()
 	if distance < 75.0:
 		return "DRIVE INTO LAUREL GARAGE  /  %dm" % roundi(distance)
