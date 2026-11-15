@@ -66,7 +66,9 @@ func _process(dt: float) -> void:
 		if _retry_clock<=0:_reroute()
 		return
 	var station:=float(navigation.station_at(position_m))
-	remaining_m=maxf(0,float(navigation.length_m)-station)+destination_access_m
+	# Include the approach to the road until the car actually joins the route.
+	var entry_m:=position_m.distance_to(navigation.points_m[0]) if station<=1.0 else 0.0
+	remaining_m=maxf(0,float(navigation.length_m)-station)+destination_access_m+entry_m
 	var deviation:=position_m.distance_to(navigation.point_at(station))
 	if _retry_clock<=0 and (deviation>22 or station<_last_station-25):
 		_reroute();return
