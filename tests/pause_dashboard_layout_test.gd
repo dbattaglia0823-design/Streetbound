@@ -19,6 +19,7 @@ func _run() -> void:
 	pause.pause_game()
 	await process_frame
 	var dash = pause.dashboard
+	var hud: Variant = get_first_node_in_group("streetbound_world_map_hud")
 	check("pause_hub_replaces_visible_legacy_layout",
 		paused and dash.visible and pause.pause_screen.visible and
 		is_zero_approx(pause.pause_screen.modulate.a))
@@ -43,8 +44,7 @@ func _run() -> void:
 		dash.car_level.text.contains("CAR LV"))
 	check("map_preview_uses_real_world_minimap_texture",
 		dash.map_image.texture != null and
-		dash.map_image.texture == get_first_node_in_group(
-			"streetbound_world_map_hud").mini_render.get_texture())
+		dash.map_image.texture == hud.mini_render.get_texture())
 	check("real_events_populate_cards",
 		dash.event_rows.size() > 0 and dash.events_list.get_child_count()==dash.event_rows.size())
 	var waypoint_race: Node = null
@@ -56,7 +56,7 @@ func _run() -> void:
 	if waypoint_race!=null and dash.event_rows.size()>0:
 		var selected_race=dash._available_events()[0]
 		dash.event_rows[0].pressed.emit()
-		var waypoint=get_first_node_in_group("streetbound_world_map_hud").waypoints
+		var waypoint = hud.waypoints
 		check("event_card_sets_real_driving_waypoint",
 			waypoint.active and
 			waypoint.destination_m.distance_to(selected_race.start_m)<.01 and
