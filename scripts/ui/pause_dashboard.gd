@@ -80,7 +80,13 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	var l := Label.new()
 	l.name = node_name
 	l.text = words
-	l.add_theme_font_size_override("font_size", font_px)
+	# Godot 4.4's fallback font reports roughly 3 pixels of line height
+	# per requested font pixel in this project. Size to the available row
+	# BEFORE parenting; later minimum-size changes cannot undo an expansion.
+	var effective_px: int = font_px
+	if int(Engine.get_version_info().get("minor", 6)) <= 4:
+		effective_px = mini(font_px, maxi(5, floori((rect.size.y - 1.0) / 3.0)))
+	l.add_theme_font_size_override("font_size", effective_px)
 	l.position = rect.position
 	l.add_theme_color_override("font_color", tint)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -96,8 +102,8 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	# minimum paint across the next row or outside its panel.
 	var minimum_height: float = l.get_combined_minimum_size().y
 	if minimum_height > rect.size.y and rect.size.y > 0.0:
-		var fitted_size: int = maxi(6, floori(font_px * rect.size.y / minimum_height))
-		l.add_theme_font_size_override("font_size", mini(font_px, fitted_size))
+		var fitted_size: int = maxi(5, floori(effective_px * rect.size.y / minimum_height))
+		l.add_theme_font_size_override("font_size", mini(effective_px, fitted_size))
 	l.size = rect.size
 	return l
 
