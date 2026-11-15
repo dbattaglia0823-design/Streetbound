@@ -186,6 +186,41 @@ func run() -> void:
 	check("budget_shop_opens_paused_with_its_stock",
 		menu.overlay.visible and paused and menu.cards.size() == counted.budget,
 		menu.cards.size())
+	var first_display_order := true
+	for i in menu.cards.size():
+		first_display_order = first_display_order and menu.grid.get_child(i) == menu.cards[i].panel
+	check("rendered_grid_matches_sorted_card_order", first_display_order)
+	var all_dealers_sorted := true
+	var prices_and_ties_sorted := true
+	for shop in manager.sites:
+		menu._active_shop = shop
+		menu._rebuild_cards()
+		all_dealers_sorted = all_dealers_sorted and menu.cards.size() == int(counted[str(shop.id)])
+		for index in range(1, menu.cards.size()):
+			var older: Dictionary = menu.cards[index - 1].entry
+			var newer: Dictionary = menu.cards[index].entry
+			var old_price := int(older.price_usd)
+			var new_price := int(newer.price_usd)
+			prices_and_ties_sorted = prices_and_ties_sorted and old_price <= new_price
+			if old_price == new_price:
+				var old_name := str(older.display_name).to_lower()
+				var new_name := str(newer.display_name).to_lower()
+				prices_and_ties_sorted = prices_and_ties_sorted and (
+					old_name < new_name or (old_name == new_name and str(older.id) < str(newer.id)))
+	check("all_dealerships_keep_full_stock",all_dealers_sorted)
+	check("every_dealership_sorted_cheapest_to_priciest_with_stable_ties",prices_and_ties_sorted)
+	menu._active_shop = budget
+	menu._rebuild_cards()
+	menu._filter("acura")
+	var filtered_sorted := true
+	var prior_filtered_price := -1
+	for item in menu.cards:
+		if (item.panel as Control).visible:
+			var current_price := int((item.entry as Dictionary).price_usd)
+			filtered_sorted = filtered_sorted and current_price >= prior_filtered_price
+			prior_filtered_price = current_price
+	check("search_keeps_price_order",filtered_sorted and prior_filtered_price >= 0)
+	menu._filter("")
 	var buy_entry := Catalog.find_by_id("acura-tl")
 	check("budget_car_has_reachable_price",
 		int(buy_entry.price_usd) <= starter.balance)
@@ -194,6 +229,10 @@ func run() -> void:
 	check("buy_deducts_correct_amount",
 		starter.balance == before - int(buy_entry.price_usd),starter.balance)
 	check("purchase_unlocks_owned_vehicle",starter.owns(str(buy_entry.id)))
+	var still_sorted := true
+	for i in range(1,menu.cards.size()):
+		still_sorted = still_sorted and int((menu.cards[i-1].entry as Dictionary).price_usd) <= int((menu.cards[i].entry as Dictionary).price_usd)
+	check("purchase_does_not_reorder_or_hide_vehicles",still_sorted and menu.cards.size()==int(counted.budget))
 	check("repeated_purchase_cannot_charge_again",
 		starter.purchase(str(buy_entry.id)) == "owned" and \
 		starter.balance == before-int(buy_entry.price_usd))
