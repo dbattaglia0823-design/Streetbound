@@ -100,6 +100,13 @@ func _ready() -> void:
 	layer.add_child(status_strip)
 	panel = status_strip.get("panel") as PanelContainer
 	label = status_strip.get("label") as Label
+	status_strip.call("configure_event", self, {
+		"title": race_title, "type": race_type, "format": "Time Trial",
+		"distance_m": float(navigation.get("length_m")),
+		"route": navigation.get("points_m"), "closed": true,
+		"lap": true, "entry": "FREE", "rewards": "PRACTICE",
+		"description": "Follow the full circuit. Learn the corners and improve your lap time."
+	})
 	_refresh()
 
 
