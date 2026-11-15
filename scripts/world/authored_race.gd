@@ -46,6 +46,14 @@ func _ready() -> void:
 	world_guidance=Guidance.new();add_child(world_guidance)
 	var layer:=CanvasLayer.new();layer.layer=7;add_child(layer)
 	status_strip=Status.new();layer.add_child(status_strip)
+	status_strip.call("configure_event",self,{
+		"title":race_title,"type":race_type,"format":"Time Trial",
+		"distance_m":float(navigation.get("length_m"))*float(definition.get("laps",1)),
+		"route":navigation.get("points_m"),"closed":definition.mode=="circuit",
+		"lap":definition.mode=="circuit",
+		"entry":"FREE","rewards":"PRACTICE",
+		"description":"Complete the mapped checkpoints in order. Time trial with no payouts."
+	})
 	available=true;z_index=6;add_to_group("streetbound_race");_refresh();queue_redraw()
 func _exit_tree() -> void:
 	if is_instance_valid(player) and state in ["countdown","running"]:player.remove_from_group("race_participant")
