@@ -91,8 +91,13 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	if wrap_text:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(l)
-	# Godot 4.4 retains the original default-font 48px minimum if sized
-	# before styling. Set bounds AFTER parenting and applying font overrides.
+	# The fallback font in Godot 4.4 can report 3x the line height of 4.6.
+	# A label must fit its allotted row rather than letting its theme
+	# minimum paint across the next row or outside its panel.
+	var minimum_height: float = l.get_combined_minimum_size().y
+	if minimum_height > rect.size.y and rect.size.y > 0.0:
+		var fitted_size: int = maxi(6, floori(font_px * rect.size.y / minimum_height))
+		l.add_theme_font_size_override("font_size", mini(font_px, fitted_size))
 	l.size = rect.size
 	return l
 
