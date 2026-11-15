@@ -61,6 +61,12 @@ func _run() -> void:
 		car_card.position.y + car_card.size.y < area_card.position.y and
 		area_card.position.y + area_card.size.y <= 747)
 	var cash_caption: Control = driver_card.get_node("CashCaption")
+	print("PAUSE BOUNDS driverXP=",dash.driver_xp.get_rect(),
+		" cash=",dash.driver_balance.get_rect(),
+		" cashLabel=",cash_caption.get_rect(),
+		" district=",dash.driver_district.get_rect(),
+		" mapTexture=",dash.map_image.get_rect(),
+		" mapStatus=",dash.map_status.get_rect())
 	check("driver_cash_xp_and_district_do_not_overlap",
 		not dash.driver_xp.get_rect().intersects(dash.driver_balance.get_rect()) and
 		not dash.driver_xp.get_rect().intersects(cash_caption.get_rect()) and
