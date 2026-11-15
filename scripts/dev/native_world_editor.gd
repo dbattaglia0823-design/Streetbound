@@ -731,7 +731,7 @@ func _refresh_authoring() -> void:
 		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
 		_update_traffic_preview()
 		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
-			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
+			{} if pending_drag.get("kind","") in ["road","road_move","region","sidewalk_point"] else pending_drag,
 			source_id,source_anchor)
 		gizmos.set_pending_shape(draft_points,tool_name)
 		if map_switcher.custom:map_switcher.refresh(self)
