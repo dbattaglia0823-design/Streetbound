@@ -56,10 +56,10 @@ func _candidates(at: Vector2, heading: Vector2, road_name: String) -> Array[Dict
 	# Never truncate to the six nearest lanes: they may all be disconnected.
 	return candidates
 
-func _local_candidates(candidates: Array[Dictionary]) -> Array[Dictionary]:
+func _local_candidates(candidates: Array[Dictionary],margin_m: float=LOCAL_ACCESS_MARGIN_M) -> Array[Dictionary]:
 	var nearby: Array[Dictionary]=[]
 	if candidates.is_empty():return nearby
-	var radius:=float(candidates[0].distance)+LOCAL_ACCESS_MARGIN_M*PPM
+	var radius:=float(candidates[0].distance)+margin_m*PPM
 	for item in candidates:
 		if float(item.distance)>radius:break
 		nearby.append(item)
@@ -95,9 +95,16 @@ func plan(from_m: Vector2, target_m: Vector2, heading:=Vector2.ZERO,
 	# Keep both endpoints close to the real nearby road system so the GPS
 	# cannot choose a huge off-road jump as a shortcut. If that neighborhood
 	# is isolated, expand to any legal connection within the access radius.
-	var direct:=_shortest(_local_candidates(starts),_local_candidates(goals))
+	var local_goals:=_local_candidates(goals)
+	var direct:=_shortest(_local_candidates(starts),local_goals)
 	if not direct.is_empty():return direct
-	return _shortest(starts,goals)
+	# A disconnected neighborhood may require another nearby entry road.
+	# Do NOT widen access all the way to 250 m: otherwise the solver could
+	# "finish" hundreds of metres from the pin across undrivable terrain.
+	var extended_starts:=_local_candidates(starts,100.0)
+	var connected:=_shortest(extended_starts,local_goals)
+	if not connected.is_empty():return connected
+	return _shortest(extended_starts,_local_candidates(goals,60.0))
 
 func _shortest(starts: Array[Dictionary],goals: Array[Dictionary]) -> Dictionary:
 	var goal_edges: Dictionary={}
