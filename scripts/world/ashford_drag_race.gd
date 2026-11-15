@@ -84,7 +84,7 @@ func can_stage() -> bool:
 		return false
 	var forward := Vector2.UP.rotated(player.rotation)
 	return not StartArea.busy(self) and player.global_position.distance_to(start_m*PPM)<=start_radius_m()*PPM and \
-		player.linear_velocity.length() <= 1.5 and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length()) and \
 		forward.dot(direction) >= 0.5
 
 func start_radius_m() -> float:return 8.0
@@ -93,6 +93,7 @@ func start_radius_m() -> float:return 8.0
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
+	StartArea.settle_for_countdown(player)
 	state = "countdown"
 	countdown = 3.0
 	elapsed = 0.0
@@ -192,12 +193,13 @@ func _refresh_overlay() -> void:
 	if _race_label == null or not available:
 		return
 	var distance := player.global_position.distance_to(start_m * PPM)/PPM
-	var show_prompt := distance <= 30.0 and player.linear_velocity.length() <= 5.0
+	var show_prompt := distance <= 30.0
 	match state:
 		"idle":
 			_race_label.text = "ASHFORD QUARTER-MILE\n%s" % (
-				"PARK ON START LINE / FACE DOWN STRIP / [ F ]" if can_stage()
-				else "DRIVE TO STAGING / STOP / FACE THE STRIP")
+				"[ F ] START RACE" if can_stage() else
+				"SLOW TO 15 MPH / FACE STRIP" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else
+				"ENTER START CIRCLE / FACE STRIP")
 		"countdown":
 			_race_label.text = "ASHFORD DRAG RACE  /  READY\nSTART IN %d" % maxi(1,ceili(countdown))
 		"running":
