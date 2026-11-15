@@ -7,6 +7,7 @@ const EditSession=preload("res://scripts/dev/native_map_edit_session.gd")
 const Roads=preload("res://scripts/world/coast_roads.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
+const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
 const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
 const MountainPreview=preload("res://scripts/dev/native_mountain_preview.gd")
@@ -475,6 +476,35 @@ func _draw_draft() -> void:
 		draw_rect(Rect2(-size*0.5,size),c,false,3.0,true)
 		draw_set_transform(Vector2.ZERO)
 		draw_circle(p,4.0,c)
+	# Walkway branch anchors remain independent source props. Draw selectable
+	# path handles and a compact junction marker where two or more meet.
+	if layer_flags.get("scenery",true):
+		for node in Sidewalks.junctions(draft_doc.get("props",[])):
+			var center: Vector2=Vector2(node.position)*PPM
+			if not _visible_point(center):continue
+			var radius:=maxf(5.0,6.0/maxf(.003,zoom_level))
+			draw_circle(center,radius,Color("#61e7c9"))
+			draw_arc(center,radius*1.55,0,TAU,22,Color("#183b47"),2.0,true)
+		for prop in draft_doc.get("props",[]):
+			if str(prop.get("type",""))!="sidewalk" or bool(prop.get("hidden",false)):
+				continue
+			if not source_anchor_mode and str(prop.id)!=selected_source_id:
+				continue
+			var path: Array[Vector2]=Sidewalks.world_points(prop)
+			var points:=PackedVector2Array()
+			for i in path.size():
+				var p: Vector2=path[i]*PPM
+				if str(drag_preview.get("kind",""))=="sidewalk_point" and str(drag_preview.get("id",""))==str(prop.id) and int(drag_preview.get("index",-1))==i:
+					p=Vector2(drag_preview.to)
+				points.append(p)
+			if points.size()>=2:
+				draw_polyline(points,Color("#67f4cc"),3.0,true)
+			for i in points.size():
+				if not _visible_point(points[i]):continue
+				var focused:=str(prop.id)==selected_source_id and selected_anchor_index==i
+				draw_circle(points[i],9.0 if focused else 5.5,
+					Color("#ffc16d") if focused else Color("#7df8da"))
+
 	# Native draft sprites and collision footprints update before Save to Game.
 var show_junctions := true
 var show_lanes := true

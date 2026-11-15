@@ -29,6 +29,12 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify branching sidewalk T, Y and X junctions (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/branching_sidewalk_paths_test.gd 2>&1 | tee /tmp/sidewalk-branches-463.log
+          grep -q 'BRANCHING SIDEWALK PATHS: PASS' /tmp/sidewalk-branches-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/sidewalk-branches-463.log
       - name: Verify compact race HUD can be closed and reopened
         run: |
           set -o pipefail
@@ -367,6 +373,12 @@ jobs:
         run: python3 tests/morrow_expansion_stability_test.py
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Verify branching sidewalk T, Y and X junctions (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/branching_sidewalk_paths_test.gd 2>&1 | tee /tmp/sidewalk-branches-441.log
+          grep -q 'BRANCHING SIDEWALK PATHS: PASS' /tmp/sidewalk-branches-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/sidewalk-branches-441.log
       - name: Verify Godot native HTTP apply while paused against isolated Python map backend
         run: python tests/native_map_bridge_http_roundtrip_test.py ./Godot_v4.4.1-stable_linux.x86_64
       - name: Verify title screen, shared settings and pause navigation (4.4.1)

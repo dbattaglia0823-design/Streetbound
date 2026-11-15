@@ -5,6 +5,7 @@ extends CanvasLayer
 const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
+const Sidewalks = preload("res://scripts/dev/sidewalk_topology.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const Art = preload("res://scripts/world/coast_art.gd")
@@ -688,18 +689,19 @@ func _choose_tool(mode: String) -> void:
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
-	mode_label.text={"place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"DRAW SIDEWALK","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
-		"place_marker":"GAME MARKER","anchor":"ROAD POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
+	mode_label.text={"place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
+		"place_marker":"GAME MARKER","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
-		"draw_sidewalk":"Set walk width, click path points, then Finish or Enter. Select/Edit moves the finished sidewalk; Delete removes it.",
+		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
 		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
-		"place_marker":"Choose a marker type and click to place.","anchor":"Drag the orange road handles to reshape roads.",
-		"pan":"Drag to pan; the mouse wheel zooms around the cursor."}.get(mode,"Choose artwork, then click the map to place it."))
+		"place_marker":"Choose a marker type and click to place.",
+		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
+		"anchor":"Drag road or sidewalk anchors to reshape; Alt-drag detaches connected path branches."}.get(mode,"Choose artwork, then click the map to place it."))
 	_refresh_authoring()
 
 func _refresh_authoring() -> void:
@@ -933,6 +935,28 @@ func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 					"from":point}
 	return result
 
+func _pick_sidewalk_anchor(world_px: Vector2) -> Dictionary:
+	if not source_ready or not layer_flags.scenery:
+		return {}
+	var best:=12.0/maxf(.003,editor_camera.zoom.x)
+	var result: Dictionary={}
+	for raw in authoring.doc.props:
+		var prop: Dictionary=raw
+		if str(prop.get("type",""))!="sidewalk" or bool(prop.get("hidden",false)):
+			continue
+		if tool_name!="anchor" and str(prop.id)!=source_id:
+			continue
+		var path: Array[Vector2]=Sidewalks.world_points(prop)
+		for i in path.size():
+			var at: Vector2=path[i]*PPM
+			var delta:=at.distance_to(world_px)
+			if delta<best:
+				best=delta
+				result={"kind":"sidewalk_point","id":str(prop.id),
+					"index":i,"from":at}
+	return result
+
+
 func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.scenery:
 		return {}
@@ -962,9 +986,19 @@ func _source_click(world_px: Vector2) -> void:
 		road_shapes.place(self,_snap_point(world_px/PPM));return
 	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
 		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
-		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=1.0:draft_points.append(point)
+		var connection: Dictionary={}
+		if tool_name=="draw_sidewalk":
+			connection=Sidewalks.snap(authoring.doc.props,point,Sidewalks.SNAP_RADIUS_M)
+			if not connection.is_empty():
+				point=connection.point
+		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=.5:
+			draft_points.append(point)
 		_refresh_authoring()
-		_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
+		if tool_name=="draw_sidewalk":
+			_notice("%d path points. %sFinish / Enter to keep every connected branch; Esc cancels."%
+				[draft_points.size(),"Snapped to a sidewalk. " if not connection.is_empty() else ""])
+		else:
+			_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
 		return
 	if tool_name == "draw_terrain":
 		draft_points.append(_snap_point(world_px/PPM))
@@ -1022,9 +1056,12 @@ func _source_click(world_px: Vector2) -> void:
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
 		_refresh_authoring();return
 	var hit: Dictionary={}
-	if tool_name=="anchor":hit=_pick_source_anchor(world_px)
+	if tool_name=="anchor":
+		hit=_pick_source_anchor(world_px)
+		if hit.is_empty():hit=_pick_sidewalk_anchor(world_px)
 	else:
-		hit=_pick_source_marker(world_px)
+		hit=_pick_sidewalk_anchor(world_px)
+		if hit.is_empty():hit=_pick_source_marker(world_px)
 		if hit.is_empty():hit=_pick_source_mountain(world_px)
 		if hit.is_empty():hit=_pick_source_prop(world_px)
 		if hit.is_empty() and not source_id.is_empty() and not authoring.road_at_id(source_id).is_empty():
@@ -1061,7 +1098,9 @@ func _source_click(world_px: Vector2) -> void:
 	pending_drag = hit.duplicate(true)
 	pending_drag["grab"]=world_px
 	pending_drag["to"] = hit.from
-	if hit.kind=="road":
+	if hit.kind=="sidewalk_point":
+		details.text="SIDEWALK BRANCH ANCHOR\\n%s\\nPoint %d\\n\\nDrag to reshape joined branches. Alt-drag detaches this point."%[source_id,source_anchor+1]
+	elif hit.kind=="road":
 		var road: Dictionary = authoring.road_at_id(source_id)
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
 			str(road.get("name","")),source_anchor+1,road.points.size()]
@@ -1085,7 +1124,11 @@ func _finish_source_drag(world_px: Vector2) -> void:
 	if world_px.distance_to(drag.get("grab",drag.get("from",world_px)))<3.0/maxf(.003,editor_camera.zoom.x):
 		_refresh_authoring()
 		return
-	if str(drag.kind)=="road":
+	if str(drag.kind)=="sidewalk_point":
+		ok=authoring.move_sidewalk_point(str(drag.id),int(drag.index),
+			_snap_point(destination_m),Sidewalks.SNAP_RADIUS_M,
+			not Input.is_physical_key_pressed(KEY_ALT))
+	elif str(drag.kind)=="road":
 		var temporary=EditSession.new();temporary.doc=authoring.doc
 		ok=temporary.move_road_point(str(drag.id),int(drag.index),destination_m,snap_m)
 		if ok:
@@ -1093,8 +1136,15 @@ func _finish_source_drag(world_px: Vector2) -> void:
 			if int(drag.index) in [0,road.points.size()-1] and not Input.is_physical_key_pressed(KEY_ALT):temporary.reconnect_endpoint(str(drag.id),int(drag.index),clampf(12.0/(editor_camera.zoom.x*PPM),2.0,12.0))
 			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
-		var snapped:=_snap_building_transform(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
-		ok = authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
+		var item: Dictionary=authoring.prop_at_id(str(drag.id))
+		if str(item.get("type",""))=="sidewalk":
+			ok=authoring.move_prop(str(drag.id),
+				_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM),0.0,
+				not Input.is_physical_key_pressed(KEY_ALT))
+		else:
+			var snapped:=_snap_building_transform(item,
+				_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
+			ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
 	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
@@ -1586,6 +1636,13 @@ func _update_drag_preview(at: Vector2) -> void:
 	elif pending_drag.kind in ["road_move","region","marker"]:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
 	elif pending_drag.kind=="race_point":pending_drag.to=_road_draw_point(at/PPM,true)*PPM
+	elif pending_drag.kind=="sidewalk_point":
+		var proposed:=_snap_point(at/PPM)
+		if not Input.is_physical_key_pressed(KEY_ALT):
+			var match_info:=Sidewalks.snap(authoring.doc.props,proposed,
+				Sidewalks.SNAP_RADIUS_M,str(pending_drag.id))
+			if not match_info.is_empty():proposed=match_info.point
+		pending_drag.to=proposed*PPM
 	else:pending_drag.to=_snap_point(at/PPM)*PPM
 	if Time.get_ticks_msec()-_last_road_drag_ms<50:return
 	_last_road_drag_ms=Time.get_ticks_msec()
@@ -1926,7 +1983,7 @@ func _update_source_details() -> void:
 		return
 	var prop: Dictionary=authoring.prop_at_id(source_id)
 	if not prop.is_empty():
-		details.text="SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
+		details.text=("SIDEWALK  /  %s\n%d path points · %.1fm wide\nSelect / Edit: drag point handles to branch or reshape.\nAlt-drag a handle to detach."%[source_id,prop.sidewalkPoints.size(),float(prop.sidewalkWidth)]) if str(prop.get("type",""))=="sidewalk" else "SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
 			source_id,str(prop.name),float(prop.x),float(prop.y),float(prop.get("rotation",0)),float(prop.get("scale",1))]
 		selected_preview.texture=gizmos._prop_texture(prop)
 		selected_preview.visible=selected_preview.texture!=null
