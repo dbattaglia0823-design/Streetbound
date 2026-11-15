@@ -36,23 +36,25 @@ func _draw() -> void:
 			station=next
 		return
 	if not is_instance_valid(map_view):return
+	# Only the high-DPI pause map opts into larger screen-space glyphs.
+	var density: float = maxf(1.0, float(map_view.get_meta("pause_render_density", 1.0)))
 	var clip:=Rect2(Vector2.ZERO,map_view.custom_minimum_size).grow(20)
 	if waypoints.active and nav!=null and not waypoints.suspended:
 		var points: PackedVector2Array=nav.points_m
 		for i in range(1,points.size()):
 			var a:=mapped(points[i-1]);var b:=mapped(points[i])
 			if not clip.has_point(a) and not clip.has_point(b) and not Rect2(a,b-a).abs().intersects(clip):continue
-			draw_line(a,b,Color("443522"),5.5,true);draw_line(a,b,GPS_COLOR,3,true)
+			draw_line(a,b,Color("443522"),5.5*density,true);draw_line(a,b,GPS_COLOR,3*density,true)
 	for race in races:
 		if not is_instance_valid(race) or not bool(race.get("available")):continue
 		var p:=mapped(race.get("start_m"))
 		if not clip.has_point(p):continue
-		var radius:=6.0 if map_view.miniature else 10.0
-		draw_circle(p,radius+2,Color("103c43"));draw_circle(p,radius,Color("4edee4"))
-		draw_line(p+Vector2(-3,4),p+Vector2(-3,-5),Color("15373c"),1.5,true)
+		var radius: float=(6.0 if map_view.miniature else 10.0)*density
+		draw_circle(p,radius+2*density,Color("103c43"));draw_circle(p,radius,Color("4edee4"))
+		draw_line(p+Vector2(-3,4)*density,p+Vector2(-3,-5)*density,Color("15373c"),1.5*density,true)
 		for x in 3:
 			for y in 2:
-				if (x+y)%2==0:draw_rect(Rect2(p+Vector2(-2+x*2,-5+y*2),Vector2(2,2)),Color("15373c"))
+				if (x+y)%2==0:draw_rect(Rect2(p+Vector2(-2+x*2,-5+y*2)*density,Vector2(2,2)*density),Color("15373c"))
 		if not map_view.miniature:
 			var font:=ThemeDB.fallback_font
 			var title:=str(race.get("race_title"))
@@ -62,5 +64,5 @@ func _draw() -> void:
 	if waypoints.active:
 		var p:=mapped(waypoints.destination_m)
 		if clip.has_point(p):
-			draw_circle(p,10,Color("443522"));draw_circle(p,7,GPS_COLOR)
-			draw_arc(p,12,0,TAU,32,GPS_COLOR,2,true)
+			draw_circle(p,10*density,Color("443522"));draw_circle(p,7*density,GPS_COLOR)
+			draw_arc(p,12*density,0,TAU,32,GPS_COLOR,2*density,true)
