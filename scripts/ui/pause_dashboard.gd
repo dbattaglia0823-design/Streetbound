@@ -283,6 +283,9 @@ func _progress(parent: Control, bounds: Rect2) -> ProgressBar:
 	# Hide the default percentage BEFORE sizing: otherwise Godot 4.4
 	# holds its original 52px label-minimum height even for a slim bar.
 	b.show_percentage = false
+	# The progress label is hidden. A tiny font prevents Godot 4.4 from
+	# reserving an invisible 52px text row inside this 10px meter.
+	b.add_theme_font_size_override("font_size", 1)
 	b.min_value = 0
 	b.max_value = 1
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
