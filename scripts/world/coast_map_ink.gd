@@ -6,6 +6,9 @@ var center := Vector2.ZERO
 var viewport_size := Vector2(960,700)
 var ppm := 0.15
 var miniature := false
+# Native-size map markers/labels for the existing HUD; the pause-only
+# high-DPI map sets this to 2 so downsampling stays readable.
+var label_scale := 1.0
 var cache_area := Rect2()
 var redraw_count := 0
 var drawn_props := 0
@@ -55,6 +58,7 @@ func configure(next_center: Vector2, scale_value: float, dimensions: Vector2) ->
 	queue_redraw()
 
 func label(value: String, at: Vector2, size: int, color: Color, angle := 0.0) -> bool:
+	size = maxi(1, roundi(size * label_scale))
 	var dimensions := font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,size)
 	var rect := Rect2(at-Vector2(dimensions.x*.5,dimensions.y*.7),dimensions).grow(4)
 	if absf(angle)>.05:
@@ -194,7 +198,7 @@ func _draw_map_labels() -> void:
 		icon(pos,category,7.0 if miniature else 8.0)
 		var name := str(poi.name)
 		for offset in [Vector2(0,-19),Vector2(0,24),Vector2(0,-35),Vector2(0,39)]:
-			if label(name,pos+offset,11 if miniature else 12,Color("314e49")): break
+			if label(name,pos+offset*label_scale,11 if miniature else 12,Color("314e49")): break
 	# One label per named street, selecting the longest visible piece.
 	var chosen: Dictionary = {}
 	for entry in model.roads:
@@ -212,31 +216,35 @@ func _draw_map_labels() -> void:
 			if angle>PI/2: angle-=PI
 			if angle<-PI/2: angle+=PI
 			if miniature and road_label_count>=3: break
-			if label(name,point(path[index])+Vector2(0,-8),10 if miniature else 12,Color("5a6b60"),angle):
+			if label(name,point(path[index])+Vector2(0,-8)*label_scale,10 if miniature else 12,Color("5a6b60"),angle):
 				road_label_count+=1
 				break
 	draw_set_transform(Vector2.ZERO)
 
 func icon(at: Vector2, category: String, radius: float) -> void:
-	draw_circle(at,radius+1.7,Color("f5edd9"))
-	draw_circle(at,radius,ICON_COLORS.get(category,Color("54776a")))
+	# Scale icon and its glyph together in high-resolution pause previews.
+	draw_set_transform(at, 0.0, Vector2.ONE * label_scale)
+	var local_at := Vector2.ZERO
+	draw_circle(local_at,radius+1.7,Color("f5edd9"))
+	draw_circle(local_at,radius,ICON_COLORS.get(category,Color("54776a")))
 	var ink := Color("faf2df")
 	match category:
 		"garage":
-			draw_polyline(PackedVector2Array([at+Vector2(-4,0),at+Vector2(0,-4),at+Vector2(4,0)]),ink,1.4,true)
-			draw_rect(Rect2(at+Vector2(-3,-.5),Vector2(6,5)),ink,false,1.2)
+			draw_polyline(PackedVector2Array([local_at+Vector2(-4,0),local_at+Vector2(0,-4),local_at+Vector2(4,0)]),ink,1.4,true)
+			draw_rect(Rect2(local_at+Vector2(-3,-.5),Vector2(6,5)),ink,false,1.2)
 		"fuel":
-			draw_rect(Rect2(at+Vector2(-3,-4),Vector2(4.5,8)),ink,false,1.3)
-			draw_line(at+Vector2(2,-2),at+Vector2(4,2),ink,1.2,true)
+			draw_rect(Rect2(local_at+Vector2(-3,-4),Vector2(4.5,8)),ink,false,1.3)
+			draw_line(local_at+Vector2(2,-2),local_at+Vector2(4,2),ink,1.2,true)
 		"race":
-			draw_line(at+Vector2(-3,5),at+Vector2(-3,-4),ink,1.2,true)
+			draw_line(local_at+Vector2(-3,5),local_at+Vector2(-3,-4),ink,1.2,true)
 			for x in 3:
 				for y in 2:
-					if (x+y)%2==0: draw_rect(Rect2(at+Vector2(-2+x*2,-4+y*2),Vector2(2,2)),ink)
+					if (x+y)%2==0: draw_rect(Rect2(local_at+Vector2(-2+x*2,-4+y*2),Vector2(2,2)),ink)
 		"marina":
-			draw_line(at+Vector2(0,-4),at+Vector2(0,3),ink,1.2,true)
+			draw_line(local_at+Vector2(0,-4),local_at+Vector2(0,3),ink,1.2,true)
 			draw_arc(at,4,.1,PI-.1,12,ink,1.2,true)
 		"view":
-			draw_polyline(PackedVector2Array([at+Vector2(-5,3),at+Vector2(-1,-3),at+Vector2(1,0),at+Vector2(3,-2),at+Vector2(5,3)]),ink,1.3,true)
-		"dealer": draw_colored_polygon(PackedVector2Array([at+Vector2(0,-4),at+Vector2(4,0),at+Vector2(0,4),at+Vector2(-4,0)]),ink)
-		_: draw_line(at+Vector2(-3,3),at+Vector2(3,-3),ink,2,true)
+			draw_polyline(PackedVector2Array([local_at+Vector2(-5,3),local_at+Vector2(-1,-3),local_at+Vector2(1,0),local_at+Vector2(3,-2),local_at+Vector2(5,3)]),ink,1.3,true)
+		"dealer": draw_colored_polygon(PackedVector2Array([local_at+Vector2(0,-4),local_at+Vector2(4,0),local_at+Vector2(0,4),local_at+Vector2(-4,0)]),ink)
+		_: draw_line(local_at+Vector2(-3,3),local_at+Vector2(3,-3),ink,2,true)
+	draw_set_transform(Vector2.ZERO)
