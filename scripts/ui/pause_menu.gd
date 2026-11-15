@@ -10,6 +10,7 @@ signal main_menu_requested
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
 const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const PauseDashboard = preload("res://scripts/ui/pause_dashboard.gd")
 @onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
@@ -39,6 +40,8 @@ var reset_bindings_button: Button
 var quit_race_button: Button
 var player_vehicle: Node2D
 var vehicle_ownership
+var quick_upgrades: CanvasLayer
+var dashboard: Control
 var vehicle_panel: Panel
 var vehicle_preview: TextureRect
 var vehicle_fallback: Label
@@ -95,6 +98,7 @@ func _ready() -> void:
 	quit_race_button.pressed.connect(_quit_active_race)
 	_update_race_button()
 	_build_settings_tabs()
+	_build_dashboard()
 	settings_screen.visible = false
 	multiplayer_screen.visible = false
 	confirmation_screen.visible = false
@@ -103,6 +107,27 @@ func _ready() -> void:
 	_resize_layout()
 	_apply_saved_settings()
 	_update_map_editor_button()
+
+func _build_dashboard() -> void:
+	# Preserve legacy layout action IDs and tests during this migration, but
+	# remove their visual and mouse presence. The hub is the actual pause UI.
+	pause_screen.modulate.a = 0.0
+	pause_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for node in pause_screen.controls.values():
+		if node is Control:
+			node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if node is Button:
+				node.focus_mode = Control.FOCUS_NONE
+	dashboard = Control.new()
+	dashboard.set_script(PauseDashboard)
+	dashboard.menu = self
+	dashboard.vehicle = player_vehicle
+	dashboard.economy = vehicle_ownership
+	dashboard.map_hud = get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	dashboard.upgrades = quick_upgrades
+	overlay.add_child(dashboard)
+	dashboard.visible = false
+
 
 func _load_screen(path: String, screen_name: String) -> Variant:
 	var screen: Variant = ToolkitLayout.new()
@@ -631,6 +656,11 @@ func _resize_layout() -> void:
 		if screen != null:
 			screen.position = screen_position
 			screen.scale = Vector2.ONE * factor
+	if is_instance_valid(dashboard):
+		var hub_size := Vector2(1440, 800)
+		var hub_scale := minf(available.x / hub_size.x, available.y / hub_size.y)
+		dashboard.position = (viewport_size - hub_size * hub_scale) * 0.5
+		dashboard.scale = Vector2.ONE * hub_scale
 
 func _apply_saved_settings() -> void:
 	var volume: float = clampf(float(settings_store.get_setting("volume")), 0.0, 100.0)
@@ -708,11 +738,18 @@ func _show_page(page: String) -> void:
 		set_split_screen_active(split_screen_active)
 		_update_race_button()
 		_refresh_vehicle_panel()
+		if is_instance_valid(dashboard):
+			dashboard.vehicle = player_vehicle
+			dashboard.economy = vehicle_ownership
+			dashboard.upgrades = quick_upgrades
+			dashboard.refresh_on_open()
 	elif page == "multiplayer":
 		_refresh_multiplayer_page()
 	menu_state = page
 	overlay.visible = true
 	pause_screen.visible = page == "paused"
+	if is_instance_valid(dashboard):
+		dashboard.visible = page == "paused"
 	settings_screen.visible = page == "settings"
 	multiplayer_screen.visible = page == "multiplayer"
 	confirmation_screen.visible = page == "confirm"
@@ -722,7 +759,7 @@ func _show_page(page: String) -> void:
 	var focused: Button
 	match page:
 		"paused":
-			focused = pause_screen.controls.get("resume")
+			focused = dashboard.nav_buttons.get("resume") if is_instance_valid(dashboard) else pause_screen.controls.get("resume")
 		"settings":
 			focused = settings_screen.controls.get("back")
 		"multiplayer":
