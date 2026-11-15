@@ -15,7 +15,7 @@ func _run() -> void:
 	var scene: Node=load("res://scenes/main.tscn").instantiate()
 	root.add_child(scene)
 	await process_frame
-	var hud: Node=get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	var hud: Node=get_first_node_in_group("streetbound_world_map_hud")
 	check("map_available",hud!=null)
 	if hud==null:
 		quit(1);return
