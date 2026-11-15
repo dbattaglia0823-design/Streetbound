@@ -9,6 +9,7 @@ signal main_menu_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
+const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 @onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
@@ -36,6 +37,25 @@ var capture_device := ""
 var binding_feedback: Label
 var reset_bindings_button: Button
 var quit_race_button: Button
+var player_vehicle: Node2D
+var vehicle_ownership
+var vehicle_panel: Panel
+var vehicle_preview: TextureRect
+var vehicle_fallback: Label
+var vehicle_name_label: Label
+var vehicle_level_label: Label
+var vehicle_power_label: Label
+var vehicle_torque_label: Label
+var vehicle_drivetrain_label: Label
+var vehicle_weight_label: Label
+var multiplayer_screen: Control
+var local_split_button: Button
+var multiplayer_feedback: Label
+var confirmation_screen: Control
+var confirmation_heading: Label
+var confirmation_copy: Label
+var confirmation_accept: Button
+var confirmation_target := ""
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -55,7 +75,7 @@ func _ready() -> void:
 
 	background = ColorRect.new()
 	background.name = "DimmedBackground"
-	background.color = Color(0.025, 0.043, 0.053, 0.86)
+	background.color = Color(0.025, 0.038, 0.054, 0.53)
 	background.anchor_right = 1.0
 	background.anchor_bottom = 1.0
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -63,16 +83,21 @@ func _ready() -> void:
 
 	pause_screen = _load_screen("res://assets/ui/pause-menu.layout.json", "PauseScreen")
 	settings_screen = _load_screen("res://assets/ui/pause-settings.layout.json", "SettingsScreen")
+	_build_vehicle_panel()
+	_build_multiplayer_screen()
+	_build_confirmation_screen()
 	quit_race_button=Button.new();quit_race_button.name="QuitRace";quit_race_button.text="Quit Race"
-	quit_race_button.position=Vector2(286,156);quit_race_button.size=Vector2(228,38)
+	quit_race_button.position=Vector2(51,158);quit_race_button.size=Vector2(290,42)
 	quit_race_button.tooltip_text="End the current race without rewards and return to free driving."
 	_button_skin(quit_race_button);pause_screen.add_child(quit_race_button)
 	for style in ["normal","hover","pressed","focus"]:quit_race_button.add_theme_stylebox_override(style,pause_screen.controls["map_editor"].get_theme_stylebox(style))
-	quit_race_button.add_theme_font_size_override("font_size",19)
+	quit_race_button.add_theme_font_size_override("font_size",18)
 	quit_race_button.pressed.connect(_quit_active_race)
 	_update_race_button()
 	_build_settings_tabs()
 	settings_screen.visible = false
+	multiplayer_screen.visible = false
+	confirmation_screen.visible = false
 	overlay.visible = false
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
@@ -101,40 +126,40 @@ func _style_screen(screen: Variant) -> void:
 			continue
 		if node is Panel:
 			var panel_style := StyleBoxFlat.new()
-			panel_style.bg_color = Color(0.055, 0.096, 0.109, 0.97)
-			panel_style.border_color = Color(0.30, 0.43, 0.43, 0.78)
+			panel_style.bg_color = Color(0.027, 0.052, 0.069, 0.94)
+			panel_style.border_color = Color(0.39, 0.50, 0.59, 0.72)
 			panel_style.set_border_width_all(1)
 			panel_style.set_corner_radius_all(20)
 			node.add_theme_stylebox_override("panel", panel_style)
 		elif node is Label:
 			var label_node := node as Label
-			label_node.add_theme_font_size_override("font_size", 40 if role == "screen_title" else 15)
+			label_node.add_theme_font_size_override("font_size", 34 if role == "screen_title" else 15)
 			label_node.add_theme_color_override("font_color", Color("#eff3e8"))
-			label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if id == "pause_heading" else HORIZONTAL_ALIGNMENT_CENTER
 		elif node is Button:
 			var button := node as Button
 			var primary: bool = role == "primary_action"
 			var danger: bool = role == "danger_action"
 			var normal := StyleBoxFlat.new()
-			normal.bg_color = Color("#b3d18f") if primary else Color("#342b2c") if danger else Color("#1b3035")
-			normal.border_color = Color("#b3d18f") if primary else Color("#9d686b") if danger else Color("#445c5c")
+			normal.bg_color = Color("#ff8733") if primary else Color("#342b2c") if danger else Color("#1b2b36")
+			normal.border_color = Color("#ff8733") if primary else Color("#9d686b") if danger else Color("#536775")
 			normal.set_border_width_all(1)
 			normal.set_corner_radius_all(11)
 			var hover := normal.duplicate() as StyleBoxFlat
-			hover.bg_color = Color("#c7e3a5") if primary else Color("#4d3839") if danger else Color("#29454b")
+			hover.bg_color = Color("#ff9c5b") if primary else Color("#4d3839") if danger else Color("#2b4557")
 			var pressed := hover.duplicate() as StyleBoxFlat
-			pressed.bg_color = Color("#91b26f") if primary else Color("#624044") if danger else Color("#15292c")
+			pressed.bg_color = Color("#cf602c") if primary else Color("#624044") if danger else Color("#15292c")
 			var focus := StyleBoxFlat.new()
 			focus.draw_center = false
-			focus.border_color = Color("#e5edca")
+			focus.border_color = Color("#f5f7fa")
 			focus.set_border_width_all(2)
 			focus.set_corner_radius_all(11)
 			button.add_theme_stylebox_override("normal", normal)
 			button.add_theme_stylebox_override("hover", hover)
 			button.add_theme_stylebox_override("pressed", pressed)
 			button.add_theme_stylebox_override("focus", focus)
-			button.add_theme_color_override("font_color", Color("#132325") if primary else Color("#f0efe6"))
-			button.add_theme_color_override("font_hover_color", Color("#132325") if primary else Color("#ffffff"))
+			button.add_theme_color_override("font_color", Color("#ffffff"))
+			button.add_theme_color_override("font_hover_color", Color("#ffffff"))
 			button.add_theme_color_override("font_pressed_color", Color("#132325") if primary else Color("#ffffff"))
 			button.add_theme_font_size_override("font_size", 19)
 			button.focus_mode = Control.FOCUS_ALL
@@ -147,14 +172,14 @@ func _style_screen(screen: Variant) -> void:
 
 func _button_skin(button: Button, selected: bool = false) -> void:
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color("#3a5048") if selected else Color("#1b3035")
-	normal.border_color = Color("#b3d18f") if selected else Color("#445c5c")
+	normal.bg_color = Color("#573820") if selected else Color("#1b2b36")
+	normal.border_color = Color("#ff8733") if selected else Color("#536775")
 	normal.set_border_width_all(2 if selected else 1)
 	normal.set_corner_radius_all(8)
 	var hover := normal.duplicate() as StyleBoxFlat
 	hover.bg_color = Color("#345551")
 	var focus := normal.duplicate() as StyleBoxFlat
-	focus.border_color = Color("#d6e6b9")
+	focus.border_color = Color("#f5f7fa")
 	button.add_theme_stylebox_override("normal",normal)
 	button.add_theme_stylebox_override("hover",hover)
 	button.add_theme_stylebox_override("pressed",hover)
@@ -382,7 +407,7 @@ func _track_style() -> StyleBoxFlat:
 
 func _filled_track_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#aac987")
+	style.bg_color = Color("#ff8733")
 	style.set_corner_radius_all(7)
 	return style
 
@@ -391,9 +416,9 @@ func _resize_layout() -> void:
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var available: Vector2 = Vector2(maxf(viewport_size.x - 20.0, 100.0), maxf(viewport_size.y - 20.0, 100.0))
-	var factor: float = clampf(minf(available.x / DESIGN_SIZE.x, available.y / DESIGN_SIZE.y), 0.36, 1.45)
+	var factor: float = minf(available.x / DESIGN_SIZE.x, available.y / DESIGN_SIZE.y)
 	var screen_position: Vector2 = (viewport_size - DESIGN_SIZE * factor) * 0.5
-	for screen in [pause_screen, settings_screen]:
+	for screen in [pause_screen, settings_screen, multiplayer_screen, confirmation_screen]:
 		if screen != null:
 			screen.position = screen_position
 			screen.scale = Vector2.ONE * factor
