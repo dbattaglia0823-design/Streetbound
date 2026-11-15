@@ -112,7 +112,7 @@ func _physics_process(dt: float) -> void:
 	if _draw_clock>=.1:_draw_clock=0;_refresh();queue_redraw()
 func _refresh() -> void:
 	if not is_instance_valid(status_strip):return
-	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM
+	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length())
 	var message:=result
 	match state:
 		"idle":message="%s / %s\n%s"%[race_title,race_type,"[ F ] START" if can_stage() else "SLOW TO 15 MPH / FACE ROUTE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else "ENTER START CIRCLE / FACE ROUTE"]
