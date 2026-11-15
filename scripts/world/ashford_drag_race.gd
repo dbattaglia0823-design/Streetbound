@@ -67,6 +67,14 @@ func _ready() -> void:
 	layer.add_child(_status_strip)
 	_race_panel = _status_strip.get("panel") as PanelContainer
 	_race_label = _status_strip.get("label") as Label
+	_status_strip.call("configure_event", self, {
+		"title": race_title, "type": race_type, "format": "Timed Drag",
+		"distance_m": QUARTER_MILE_M,
+		"route": PackedVector2Array([start_m, start_m + direction * QUARTER_MILE_M]),
+		"entry": "FREE", "rewards": "XP + CASH",
+		"description": "Time your quarter-mile launch and finish to earn driver and car progression.",
+		"best_seconds": economy.best_quarter_mile if is_instance_valid(economy) else 0.0
+	})
 	_refresh_overlay()
 
 
