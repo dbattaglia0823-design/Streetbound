@@ -117,13 +117,14 @@ func can_stage() -> bool:
 		return false
 	var tangent: Vector2 = heading
 	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
-		player.linear_velocity.length() <= 1.5 and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length()) and \
 		Vector2.UP.rotated(player.rotation).dot(tangent) >= 0.55
 
 
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
+	StartArea.settle_for_countdown(player)
 	state = "countdown"
 	countdown = 3.0
 	elapsed = 0.0
@@ -206,13 +207,13 @@ func _refresh() -> void:
 	var nearby := player.global_position.distance_to(start_m * PPM) < 110.0 * PPM
 	# A small staging prompt appears only close to the start, rather than
 	# occupying the driving view whenever a race is nearby.
-	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM and \
-		player.linear_velocity.length() <= 5.0
+	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM
 	match state:
 		"idle":
 			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\n%s" % (
-				"STOP AT CHECKERED LINE / [ F ] START" if can_stage()
-				else "STOP INSIDE THE CIRCLE / FACE THE COURSE")
+				"[ F ] START LAP" if can_stage() else
+				"SLOW TO 15 MPH / FACE COURSE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else
+				"ENTER START CIRCLE / FACE COURSE")
 		"countdown":
 			label.text = "ASHFORD CIRCUIT / PRACTICE LAP\nSTART IN %d" % maxi(1, ceili(countdown))
 		"running":
