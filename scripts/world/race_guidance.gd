@@ -56,7 +56,8 @@ func _draw() -> void:
 		if not is_instance_valid(map_view):
 			return
 		var size: Vector2 = map_view.custom_minimum_size
-		var clip := Rect2(Vector2.ZERO, size).grow(12.0)
+		var density: float = maxf(1.0, float(map_view.get_meta("pause_render_density", 1.0)))
+		var clip := Rect2(Vector2.ZERO, size).grow(12.0 * density)
 		var player_station: float = navigation.call("station_at", player.global_position / PPM)
 		for i in range(1, route.size()):
 			var a := _on_map(route[i - 1])
@@ -66,13 +67,15 @@ func _draw() -> void:
 			var traveled := not bool(navigation.get("closed")) and float(
 				navigation.get("stations_m")[i]) < player_station
 			var color := Color(0.15, 0.48, 0.53, 0.52) if traveled else ROUTE
-			draw_line(a, b, Color(0.02, 0.16, 0.23, 0.98), 6.0 if bool(map_view.get("miniature")) else 5.0, true)
-			draw_line(a, b, color, 3.2 if bool(map_view.get("miniature")) else 2.8, true)
+			draw_line(a, b, Color(0.02, 0.16, 0.23, 0.98),
+				(6.0 if bool(map_view.get("miniature")) else 5.0) * density, true)
+			draw_line(a, b, color,
+				(3.2 if bool(map_view.get("miniature")) else 2.8) * density, true)
 		# Small markers identify the actual start/finish, not nearest road.
 		var start := _on_map(route[0])
 		if clip.has_point(start):
-			draw_circle(start, 5.0, Color(0.02, 0.15, 0.19))
-			draw_circle(start, 3.0, Color(1.0, 0.92, 0.67))
+			draw_circle(start, 5.0 * density, Color(0.02, 0.15, 0.19))
+			draw_circle(start, 3.0 * density, Color(1.0, 0.92, 0.67))
 		return
 	var station: float = navigation.call("station_at", player.global_position / PPM)
 	var length: float = navigation.get("length_m")

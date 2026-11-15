@@ -409,6 +409,12 @@ func _refresh_map() -> void:
 			detail_view.set("player_heading", vehicle.rotation)
 			detail_view.set("center_m", vehicle.global_position / 20.0)
 			detail_view.call("redraw_map")
+			# The HUD updates its normal mini/atlas race guidance separately.
+			# Mirror the active race into this independent pause viewport too.
+			var race_route: Node2D = detail_view.get("race_overlay") as Node2D
+			if is_instance_valid(race_route) and map_hud.has_method("_active_race_navigation"):
+				var course: RefCounted = map_hud.call("_active_race_navigation") as RefCounted
+				race_route.call("set_guidance", course, vehicle, course != null)
 		var waypoint: Node = map_hud.get("waypoints") as Node
 		if is_instance_valid(waypoint) and bool(waypoint.get("active")):
 			map_status.text = "GPS: " + str(waypoint.get("destination_name"))

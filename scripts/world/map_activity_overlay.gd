@@ -58,9 +58,14 @@ func _draw() -> void:
 		if not map_view.miniature:
 			var font:=ThemeDB.fallback_font
 			var title:=str(race.get("race_title"))
-			var at:=p+Vector2(14,4)
-			draw_string_outline(font,at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,12,3,Color("15373c"))
-			draw_string(font,at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("eaffed"))
+			# Text must scale with the map source, not shrink when the
+			# high-resolution pause texture is downsampled to a card.
+			var font_size := maxi(1, roundi(12.0 * density))
+			var at:=p+Vector2(14,4)*density
+			draw_string_outline(font,at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,
+				font_size,maxi(1,roundi(3.0*density)),Color("15373c"))
+			draw_string(font,at,title,HORIZONTAL_ALIGNMENT_LEFT,-1,
+				font_size,Color("eaffed"))
 	if waypoints.active:
 		var p:=mapped(waypoints.destination_m)
 		if clip.has_point(p):
