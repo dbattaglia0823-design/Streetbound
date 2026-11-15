@@ -666,7 +666,9 @@ func set_split_screen_active(enabled: bool) -> void:
 	_update_map_editor_button()
 	var action: Button = pause_screen.controls.get("local_multiplayer")
 	if is_instance_valid(action):
-		action.text = "Exit Split-Screen" if enabled else "Local Split-Screen"
+		action.text = "Multiplayer"
+	if is_instance_valid(local_split_button):
+		local_split_button.text = "EXIT SPLIT-SCREEN" if enabled else "LOCAL SPLIT-SCREEN"
 	var title: Label = pause_screen.controls.get("pause_heading")
 	if is_instance_valid(title):
 		title.text = "PAUSED"
@@ -697,23 +699,37 @@ func show_split_screen_error(message: String) -> void:
 	var action: Button = pause_screen.controls.get("local_multiplayer")
 	if is_instance_valid(action):
 		action.tooltip_text = message
+	if is_instance_valid(multiplayer_feedback):
+		multiplayer_feedback.text = message
 
 
 func _show_page(page: String) -> void:
 	if page=="paused":
 		set_split_screen_active(split_screen_active)
 		_update_race_button()
+		_refresh_vehicle_panel()
+	elif page == "multiplayer":
+		_refresh_multiplayer_page()
 	menu_state = page
 	overlay.visible = true
 	pause_screen.visible = page == "paused"
 	settings_screen.visible = page == "settings"
+	multiplayer_screen.visible = page == "multiplayer"
+	confirmation_screen.visible = page == "confirm"
 	if page == "settings":
 		_sync_settings()
 		_set_settings_tab("general")
-	var active: Variant = pause_screen if page == "paused" else settings_screen
-	var primary_id: String = "resume" if page == "paused" else "back"
-	var focused: Button = active.controls.get(primary_id)
-	if focused != null:
+	var focused: Button
+	match page:
+		"paused":
+			focused = pause_screen.controls.get("resume")
+		"settings":
+			focused = settings_screen.controls.get("back")
+		"multiplayer":
+			focused = local_split_button
+		"confirm":
+			focused = confirmation_accept
+	if is_instance_valid(focused):
 		focused.grab_focus()
 
 func pause_game() -> void:
@@ -756,9 +772,12 @@ func _update_race_button() -> void:
 	var racing:=is_instance_valid(active_race())
 	quit_race_button.visible=racing
 	if racing:
-		var order: Array=[pause_screen.controls.resume,quit_race_button]
-		for id in ["local_multiplayer","map_editor","settings","main_menu","quit"]:order.append(pause_screen.controls[id])
-		for i in order.size():order[i].position.y=111+i*45;order[i].size.y=38
+		var order: Array = [pause_screen.controls.resume, quit_race_button]
+		for id in ["local_multiplayer","map_editor","settings","main_menu","quit"]:
+			order.append(pause_screen.controls[id])
+		for i in order.size():
+			order[i].position.y = 108 + i * 47
+			order[i].size.y = 42
 	else:
 		for entry in pause_screen.layout.nodes:
 			var control: Control=pause_screen.controls.get(str(entry.get("id","")))
@@ -775,18 +794,27 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 		"game.resume":
 			resume_game()
 		"game.local_multiplayer":
+			# Kept for existing direct calls; the visible button opens the submenu.
 			split_screen_requested.emit()
+		"nav.multiplayer":
+			_show_page("multiplayer")
 		"game.map_editor":
 			if map_editor_available and not split_screen_active:
 				map_editor_requested.emit()
 		"nav.main_menu":
-			main_menu_requested.emit()
+			if is_instance_valid(active_race()):
+				_show_confirmation("main_menu")
+			else:
+				main_menu_requested.emit()
 		"nav.settings":
 			open_settings()
 		"nav.back":
 			back_to_pause()
 		"game.quit":
-			_request_quit()
+			if is_instance_valid(active_race()):
+				_show_confirmation("quit")
+			else:
+				_request_quit()
 		"settings.sfx_changed":
 			var sound: bool = bool(payload.get("value", true))
 			settings_store.set_setting("sound", sound)
@@ -827,7 +855,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		pause_game()
 	elif menu_state == "settings" and settings_tab == "controls":
 		_set_settings_tab("general")
-	elif menu_state == "settings":
+	elif menu_state in ["settings", "multiplayer", "confirm"]:
 		back_to_pause()
 	else:
 		resume_game()
