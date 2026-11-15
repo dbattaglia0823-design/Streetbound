@@ -142,6 +142,37 @@ func _run() -> void:
 	check("native_marker_uses_browser_source_contract",
 		native_marker=="marker-%d" % marker_count and
 		session.doc.markers.size()==marker_count+1 and session.undo())
+	# Sidewalk paths now use the road-like source edit/undo machinery,
+	# without becoming drivable roads or changing traffic topology.
+	var unchanged_roads:=JSON.stringify(session.doc.roads)
+	var trunk:=session.add_sidewalk([Vector2(2000,2000),
+		Vector2(2040,2000),Vector2(2080,2000)],3.0)
+	var branch:=session.add_sidewalk([Vector2(2040,2000.5),Vector2(2040,2040)],3.0)
+	check("sidewalk_branch_snaps_to_an_existing_path_anchor",
+		not trunk.is_empty() and not branch.is_empty() and
+		Session.sidewalk_world_points(session.prop_at_id(branch))[0].distance_to(
+			Vector2(2040,2000))<0.05)
+	var mid:=session.add_sidewalk([Vector2(2060,1960),Vector2(2061,2001)],3.0)
+	var connected:=false
+	for point in Session.sidewalk_world_points(session.prop_at_id(trunk)):
+		if point.distance_to(Vector2(2060,2000))<0.05:connected=true
+	check("branch_to_path_interior_creates_editable_junction",
+		connected and not mid.is_empty())
+	var crossing:=session.add_sidewalk([Vector2(2030,1960),Vector2(2030,2040)],3.0)
+	var crossing_connected:=false
+	for point in Session.sidewalk_world_points(session.prop_at_id(trunk)):
+		if point.distance_to(Vector2(2030,2000))<0.05:crossing_connected=true
+	check("crossing_walkways_create_X_junction_without_road_changes",
+		not crossing.is_empty() and crossing_connected and
+		JSON.stringify(session.doc.roads)==unchanged_roads)
+	var snapshot:=JSON.stringify(session.doc)
+	check("moving_sidewalk_joint_updates_both_branches",
+		session.move_sidewalk_point(mid,1,Vector2(2060,2005)) and
+		Session.sidewalk_world_points(session.prop_at_id(trunk)).any(
+			func(p: Vector2)->bool:return p.distance_to(Vector2(2060,2005))<0.05))
+	check("undo_restores_both_sides_of_sidewalk_junction",
+		session.undo() and JSON.stringify(session.doc)==snapshot)
+	session.discard_changes()
 	var game: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
