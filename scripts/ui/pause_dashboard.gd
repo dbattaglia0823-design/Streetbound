@@ -551,8 +551,11 @@ func _show_map() -> void:
 	var preview := TextureRect.new()
 	preview.name = "InteractiveAreaPreview"
 	preview.position = Vector2(35, 157)
-	preview.size = Vector2(471, 435)
+	# Without IGNORE_SIZE, TextureRect grows to the 960x880 source
+	# texture's minimum size and spills outside the central map panel.
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.texture = map_image.texture
+	preview.size = Vector2(471, 435)
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	preview.clip_contents = true
 	map_full_preview = preview
