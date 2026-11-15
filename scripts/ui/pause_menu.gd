@@ -399,6 +399,215 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+
+func _info_label(parent: Control, node_name: String, value: String,
+		at: Vector2, dimensions: Vector2, size_px: int, tint: Color) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.text = value
+	label.position = at
+	label.size = dimensions
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", size_px)
+	label.add_theme_color_override("font_color", tint)
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(label)
+	return label
+
+
+func _neon_panel(parent: Control, name_value: String, at: Vector2, dimensions: Vector2) -> Panel:
+	var panel := Panel.new()
+	panel.name = name_value
+	panel.position = at
+	panel.size = dimensions
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var skin := StyleBoxFlat.new()
+	skin.bg_color = Color(0.026, 0.051, 0.071, 0.94)
+	skin.border_color = Color(0.38, 0.51, 0.61, 0.76)
+	skin.set_border_width_all(1)
+	skin.set_corner_radius_all(16)
+	skin.shadow_color = Color(0, 0, 0, 0.37)
+	skin.shadow_size = 13
+	panel.add_theme_stylebox_override("panel", skin)
+	parent.add_child(panel)
+	return panel
+
+
+func _native_button(parent: Control, name_value: String, value: String,
+		at: Vector2, dimensions: Vector2, primary: bool = false) -> Button:
+	var button := Button.new()
+	button.name = name_value
+	button.text = value
+	button.position = at
+	button.size = dimensions
+	_button_skin(button, primary)
+	button.add_theme_font_size_override("font_size", 18)
+	parent.add_child(button)
+	return button
+
+
+# The preview uses the selected vehicle's real catalog art and live tuning.
+func _build_vehicle_panel() -> void:
+	_info_label(pause_screen, "PauseBrand", "STREETBOUND  /  GAME PAUSED",
+		Vector2(51, 37), Vector2(288, 19), 11, Color("#ff9c5b"))
+	_info_label(pause_screen, "PauseShortcut", "ESC  /  RESUME DRIVING",
+		Vector2(51, 449), Vector2(288, 18), 10, Color("#9aabb7"))
+	vehicle_panel = _neon_panel(pause_screen, "VehicleInfoPanel",
+		Vector2(420, 88), Vector2(355, 350))
+	_info_label(vehicle_panel, "VehicleCaption", "CURRENT VEHICLE",
+		Vector2(18, 13), Vector2(315, 23), 12, Color("#ff9c5b"))
+	vehicle_name_label = _info_label(vehicle_panel, "VehicleName", "YOUR VEHICLE",
+		Vector2(18, 39), Vector2(318, 32), 23, Color("#f5f7fa"))
+	var preview_back := ColorRect.new()
+	preview_back.name = "VehiclePreviewBackdrop"
+	preview_back.position = Vector2(17, 78)
+	preview_back.size = Vector2(321, 137)
+	preview_back.color = Color("#12222e")
+	preview_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vehicle_panel.add_child(preview_back)
+	vehicle_preview = TextureRect.new()
+	vehicle_preview.name = "EquippedCarPreview"
+	vehicle_preview.position = Vector2(26, 83)
+	vehicle_preview.size = Vector2(303, 126)
+	vehicle_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vehicle_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	vehicle_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vehicle_panel.add_child(vehicle_preview)
+	vehicle_fallback = _info_label(vehicle_panel, "PreviewUnavailable",
+		"PREVIEW UNAVAILABLE", Vector2(35, 123), Vector2(282, 38),
+		13, Color("#90a1ad"))
+	vehicle_fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info_label(vehicle_panel, "PowerCaption", "POWER", Vector2(21, 223),
+		Vector2(144, 17), 11, Color("#9eafbe"))
+	_info_label(vehicle_panel, "DriveCaption", "DRIVETRAIN", Vector2(188, 223),
+		Vector2(140, 17), 11, Color("#9eafbe"))
+	vehicle_power_label = _info_label(vehicle_panel, "VehiclePower", "—",
+		Vector2(21, 242), Vector2(144, 27), 20, Color("#f5f7fa"))
+	vehicle_drivetrain_label = _info_label(vehicle_panel, "VehicleDrivetrain", "—",
+		Vector2(188, 242), Vector2(140, 27), 20, Color("#f5f7fa"))
+	_info_label(vehicle_panel, "TorqueCaption", "TORQUE", Vector2(21, 275),
+		Vector2(144, 17), 11, Color("#9eafbe"))
+	_info_label(vehicle_panel, "WeightCaption", "WEIGHT", Vector2(188, 275),
+		Vector2(140, 17), 11, Color("#9eafbe"))
+	vehicle_torque_label = _info_label(vehicle_panel, "VehicleTorque", "—",
+		Vector2(21, 292), Vector2(144, 27), 19, Color("#f5f7fa"))
+	vehicle_weight_label = _info_label(vehicle_panel, "VehicleWeight", "—",
+		Vector2(188, 292), Vector2(140, 27), 19, Color("#f5f7fa"))
+	vehicle_level_label = _info_label(vehicle_panel, "VehicleLevels", "",
+		Vector2(21, 323), Vector2(318, 17), 11, Color("#ffad76"))
+
+
+func _refresh_vehicle_panel() -> void:
+	if not is_instance_valid(vehicle_panel):
+		return
+	vehicle_panel.visible = is_instance_valid(player_vehicle)
+	if not vehicle_panel.visible:
+		return
+	var config: VehicleConfig = player_vehicle.get("config") as VehicleConfig
+	if config == null:
+		vehicle_name_label.text = "VEHICLE UNAVAILABLE"
+		vehicle_preview.texture = null
+		vehicle_fallback.visible = true
+		return
+	var active_id := str(config.audio_sample_id)
+	if is_instance_valid(vehicle_ownership):
+		active_id = str(vehicle_ownership.active_id)
+	var entry: Dictionary = VehicleCatalog.find_by_id(active_id)
+	vehicle_name_label.text = str(entry.get("display_name", "CURRENT VEHICLE"))
+	vehicle_power_label.text = "%.0f HP" % (config.engine_power_kw * 1.341022)
+	vehicle_torque_label.text = "%.0f Nm" % config.engine_torque_nm
+	vehicle_weight_label.text = "%.0f kg" % config.mass_kg
+	var drives := ["FWD", "RWD", "AWD"]
+	var index := int(config.drivetrain)
+	vehicle_drivetrain_label.text = drives[index] if index >= 0 and index < drives.size() else "—"
+	vehicle_level_label.text = ("DRIVER LV %d   /   CAR LV %d" % [
+		vehicle_ownership.player_level(), vehicle_ownership.active_car_level()
+	]) if is_instance_valid(vehicle_ownership) else "FREE DRIVE"
+	var texture_path := str(entry.get("texture", ""))
+	vehicle_preview.texture = (load(texture_path) as Texture2D) if (
+		not texture_path.is_empty() and ResourceLoader.exists(texture_path, "Texture2D")) else null
+	vehicle_fallback.visible = vehicle_preview.texture == null
+
+
+func _build_multiplayer_screen() -> void:
+	multiplayer_screen = Control.new()
+	multiplayer_screen.name = "PauseMultiplayerScreen"
+	multiplayer_screen.size = DESIGN_SIZE
+	overlay.add_child(multiplayer_screen)
+	var card := _neon_panel(multiplayer_screen, "MultiplayerPanel",
+		Vector2(154, 71), Vector2(492, 355))
+	_info_label(card, "MultiplayerEyebrow", "STREETBOUND  /  GAME MODES",
+		Vector2(32, 22), Vector2(432, 24), 12, Color("#ff9c5b"))
+	_info_label(card, "MultiplayerHeading", "MULTIPLAYER",
+		Vector2(32, 53), Vector2(432, 49), 33, Color("#f5f7fa"))
+	local_split_button = _native_button(card, "LocalSplitScreen",
+		"LOCAL SPLIT-SCREEN", Vector2(32, 124), Vector2(428, 54), true)
+	local_split_button.pressed.connect(_request_local_multiplayer)
+	var online := _native_button(card, "OnlineComingSoon",
+		"ONLINE MULTIPLAYER  —  COMING SOON",
+		Vector2(32, 189), Vector2(428, 51))
+	online.add_theme_font_size_override("font_size", 15)
+	online.disabled = true
+	online.tooltip_text = "Online multiplayer is not implemented yet."
+	var back := _native_button(card, "BackToPause", "BACK",
+		Vector2(32, 261), Vector2(428, 46))
+	back.pressed.connect(back_to_pause)
+	multiplayer_feedback = _info_label(card, "MultiplayerFeedback",
+		"Keyboard + controller, or two controllers.",
+		Vector2(32, 315), Vector2(428, 26), 12, Color("#bac8d3"))
+
+
+func _refresh_multiplayer_page() -> void:
+	if not is_instance_valid(local_split_button):
+		return
+	local_split_button.text = "EXIT SPLIT-SCREEN" if split_screen_active else "LOCAL SPLIT-SCREEN"
+	multiplayer_feedback.text = ("Return to single-player driving." if split_screen_active
+		else "Keyboard + controller, or two controllers.")
+
+
+func _request_local_multiplayer() -> void:
+	split_screen_requested.emit()
+
+
+func _build_confirmation_screen() -> void:
+	confirmation_screen = Control.new()
+	confirmation_screen.name = "PauseConfirmationScreen"
+	confirmation_screen.size = DESIGN_SIZE
+	overlay.add_child(confirmation_screen)
+	var panel := _neon_panel(confirmation_screen, "ConfirmationPanel",
+		Vector2(178, 119), Vector2(444, 266))
+	confirmation_heading = _info_label(panel, "ConfirmTitle", "LEAVE RACE?",
+		Vector2(27, 20), Vector2(387, 46), 31, Color("#f5f7fa"))
+	confirmation_copy = _info_label(panel, "ConfirmMessage",
+		"Leaving will forfeit this race and its rewards.",
+		Vector2(27, 77), Vector2(390, 56), 15, Color("#bac8d3"))
+	confirmation_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	confirmation_accept = _native_button(panel, "ConfirmLeave", "LEAVE",
+		Vector2(27, 148), Vector2(390, 43), true)
+	confirmation_accept.pressed.connect(_accept_confirmation)
+	var cancel := _native_button(panel, "CancelLeave", "KEEP DRIVING",
+		Vector2(27, 200), Vector2(390, 43))
+	cancel.pressed.connect(back_to_pause)
+
+
+func _show_confirmation(target: String) -> void:
+	confirmation_target = target
+	confirmation_heading.text = "QUIT RACE?" if target == "quit" else "RETURN TO MENU?"
+	confirmation_copy.text = "Your current race will end without rewards. Continue?"
+	confirmation_accept.text = "QUIT GAME" if target == "quit" else "MAIN MENU"
+	_show_page("confirm")
+
+
+func _accept_confirmation() -> void:
+	var target := confirmation_target
+	confirmation_target = ""
+	if target == "main_menu":
+		main_menu_requested.emit()
+	elif target == "quit":
+		_request_quit()
+
 func _track_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#283f42")
