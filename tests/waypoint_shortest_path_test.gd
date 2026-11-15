@@ -93,5 +93,14 @@ func _run() -> void:
 		not expanded.is_empty() and expanded.get("edges",[])==[1],expanded.get("edges",[]))
 	check("far_road_access_distance_is_not_hidden",
 		absf(float(expanded.get("start_access_distance_m",0))-80)<.1)
+	# Do not declare arrival on a disconnected destination road by ending a
+	# long way away and pretending the last off-road gap is driveable.
+	var remote:=FakeNetwork.new()
+	add_edge(remote,0,[Vector2(0,0),Vector2(200,0)])
+	add_edge(remote,1,[Vector2(200,100),Vector2(220,100)])
+	var remote_planner:=make_planner(remote,["CONNECTED","REMOTE"])
+	var unreachable: Dictionary=remote_planner.plan(Vector2(0,0),Vector2(215,100))
+	check("no_remote_offroad_finish_disguised_as_a_short_route",unreachable.is_empty())
+
 	print("WAYPOINT SHORTEST PATHS: ","PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
