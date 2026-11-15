@@ -933,6 +933,23 @@ func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 					"from":point}
 	return result
 
+func _pick_source_sidewalk_anchor(world_px: Vector2,only_id: String="") -> Dictionary:
+	if not source_ready or not layer_flags.scenery:return {}
+	var best:=11.0/maxf(.003,editor_camera.zoom.x)
+	var hit: Dictionary={}
+	for sidewalk in authoring.doc.get("props",[]):
+		if str(sidewalk.get("type",""))!="sidewalk" or bool(sidewalk.get("hidden",false)):continue
+		if not only_id.is_empty() and str(sidewalk.id)!=only_id:continue
+		var anchors:=EditSession.sidewalk_world_points(sidewalk)
+		for i in anchors.size():
+			var point: Vector2=anchors[i]*PPM
+			var distance:=point.distance_to(world_px)
+			if distance<best:
+				best=distance
+				hit={"kind":"sidewalk_point","id":str(sidewalk.id),"index":i,"from":point}
+	return hit
+
+
 func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.scenery:
 		return {}
@@ -1024,10 +1041,14 @@ func _source_click(world_px: Vector2) -> void:
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
 		_refresh_authoring();return
 	var hit: Dictionary={}
-	if tool_name=="anchor":hit=_pick_source_anchor(world_px)
+	if tool_name=="anchor":
+		hit=_pick_source_anchor(world_px)
+		if hit.is_empty():hit=_pick_source_sidewalk_anchor(world_px)
 	else:
 		hit=_pick_source_marker(world_px)
 		if hit.is_empty():hit=_pick_source_mountain(world_px)
+		if hit.is_empty() and str(authoring.prop_at_id(source_id).get("type",""))=="sidewalk":
+			hit=_pick_source_sidewalk_anchor(world_px,source_id)
 		if hit.is_empty():hit=_pick_source_prop(world_px)
 		if hit.is_empty() and not source_id.is_empty() and not authoring.road_at_id(source_id).is_empty():
 			var anchor:=_pick_source_anchor(world_px)
@@ -1067,6 +1088,10 @@ func _source_click(world_px: Vector2) -> void:
 		var road: Dictionary = authoring.road_at_id(source_id)
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
 			str(road.get("name","")),source_anchor+1,road.points.size()]
+	elif hit.kind=="sidewalk_point":
+		var sidewalk:=authoring.prop_at_id(source_id)
+		details.text="SIDEWALK PATH\n%s\nPoint %d of %d\n\nDrag a handle to reshape. Joined paths move together; Alt-drag detaches."%[
+			str(sidewalk.get("name","")),source_anchor+1,sidewalk.sidewalkPoints.size()]
 	elif hit.kind=="prop":
 		var prop: Dictionary = authoring.prop_at_id(source_id)
 		details.text = "AUTHORED ASSET\n%s\n\nDrag to move; Rotate and Delete are below.\nSource ID: %s" % [
@@ -1093,6 +1118,16 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		if ok:
 			var road: Dictionary=temporary.road_at_id(str(drag.id))
 			if int(drag.index) in [0,road.points.size()-1] and not Input.is_physical_key_pressed(KEY_ALT):temporary.reconnect_endpoint(str(drag.id),int(drag.index),clampf(12.0/(editor_camera.zoom.x*PPM),2.0,12.0))
+			ok=authoring._commit(temporary.doc)
+	elif str(drag.kind)=="sidewalk_point":
+		var temporary=EditSession.new();temporary.doc=authoring.doc
+		var detached: bool=Input.is_physical_key_pressed(KEY_ALT)
+		ok=temporary.move_sidewalk_point(str(drag.id),int(drag.index),destination_m,snap_m,not detached)
+		if ok:
+			var sidewalk:=temporary.prop_at_id(str(drag.id))
+			if int(drag.index) in [0,sidewalk.sidewalkPoints.size()-1] and not detached:
+				# Only connect when another path is actually nearby.
+				temporary.reconnect_sidewalk_endpoint(str(drag.id),int(drag.index),EditSession.SIDEWALK_SNAP_M)
 			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
 		var snapped:=_snap_building_transform(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
@@ -1819,6 +1854,12 @@ func _remove_point() -> void:
 		if authoring.change_race_points(source_id,maxi(0,source_anchor),true):source_anchor=-1;_refresh_authoring()
 		else:_notice(authoring.last_error)
 		return
+	var sidewalk: Dictionary=authoring.prop_at_id(source_id)
+	if str(sidewalk.get("type",""))=="sidewalk":
+		var point_index: int=source_anchor if source_anchor>=0 else sidewalk.sidewalkPoints.size()-2
+		if authoring.remove_sidewalk_point(source_id,point_index):source_anchor=-1;_refresh_authoring()
+		else:_notice(authoring.last_error)
+		return
 	var road: Dictionary=authoring.road_at_id(source_id)
 	var index: int=source_anchor if source_anchor>=0 else road.get("points",[]).size()/2
 	if authoring.remove_road_point(source_id,index):source_anchor=-1;_refresh_authoring()
@@ -1826,7 +1867,12 @@ func _remove_point() -> void:
 
 func _reconnect_road() -> void:
 	if _editing_locked() or not source_ready:return
-	if authoring.reconnect_endpoint(source_id,source_anchor):
+	var sidewalk: Dictionary=authoring.prop_at_id(source_id)
+	if str(sidewalk.get("type",""))=="sidewalk":
+		if authoring.reconnect_sidewalk_endpoint(source_id,source_anchor):
+			_refresh_authoring();_notice("Walkway junction connected. Joined handles now move together.")
+		else:_notice(authoring.last_error)
+	elif authoring.reconnect_endpoint(source_id,source_anchor):
 		_refresh_authoring();_notice("Endpoint snapped and reconnected. Touching road ends now move together. Undo restores the detached road.")
 	else:_notice(authoring.last_error)
 
@@ -2131,6 +2177,13 @@ func _add_point() -> void:
 	if _editing_locked() or not source_ready:return
 	if not authoring.race_at_id(source_id).is_empty():
 		if authoring.change_race_points(source_id,maxi(0,source_anchor),false):_refresh_authoring()
+		else:_notice(authoring.last_error)
+		return
+	var sidewalk: Dictionary=authoring.prop_at_id(source_id)
+	if str(sidewalk.get("type",""))=="sidewalk":
+		var at:=clampi(source_anchor,0,sidewalk.sidewalkPoints.size()-2)
+		if authoring.insert_sidewalk_point(source_id,at):
+			source_anchor=at+1;_refresh_authoring()
 		else:_notice(authoring.last_error)
 		return
 	var road: Dictionary=authoring.road_at_id(source_id)
