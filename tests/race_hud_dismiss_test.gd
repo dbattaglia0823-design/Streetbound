@@ -20,8 +20,14 @@ func _check_strip(race: Node, hud: Control, title: String) -> void:
 	if not is_instance_valid(hud):
 		return
 	var panel: PanelContainer = hud.get("panel") as PanelContainer
+	var card: PanelContainer = hud.get("start_panel") as PanelContainer
 	var close: Button = hud.get("close_button") as Button
 	var restore: Button = hud.get("restore_button") as Button
+	check(title + "_half_width_start_card_has_real_event_preview",
+		is_instance_valid(card) and card.size.x <= 340.0 and
+		card.get("route_preview") is Control and
+		card.get("start_button") is Button and
+		card.position.x > hud.get_viewport_rect().size.x * .55)
 	check(title + "_compact_bottom_right_away_from_road",
 		panel.position.y > hud.get_viewport_rect().size.y * 0.65 and
 		panel.position.x >= maxf(8.0, hud.get_viewport_rect().size.x - 380.0) and
@@ -31,10 +37,11 @@ func _check_strip(race: Node, hud: Control, title: String) -> void:
 		close.pressed.is_connected(Callable(hud, "dismiss")) and
 		restore.pressed.is_connected(Callable(hud, "restore")))
 	hud.call("set_status", "idle", true, "RACE / STOP / [ F ] START")
-	check(title + "_can_be_shown_near_start", panel.visible)
+	check(title + "_can_be_shown_near_start",
+		card.visible and not panel.visible)
 	close.pressed.emit()
 	check(title + "_close_actually_hides_hud",
-		not panel.visible and restore.visible and bool(hud.get("dismissed")))
+		not panel.visible and not card.visible and restore.visible and bool(hud.get("dismissed")))
 	hud.call("set_status", "idle", true, "RACE / [ F ] START")
 	check(title + "_remains_closed_after_repeated_physics_updates",
 		not panel.visible and restore.visible)
@@ -134,11 +141,11 @@ func _run() -> void:
 	car.linear_velocity = Vector2(6.7056,0)
 	street._refresh()
 	check("exactly_15_mph_shows_race_start_hint",
-		(sprint_hud.get("panel") as PanelContainer).visible)
+		(sprint_hud.get("start_panel") as PanelContainer).visible)
 	car.linear_velocity = Vector2.ZERO
 	street._refresh()
 	check("nearby_slow_driver_can_see_start_hint",
-		(sprint_hud.get("panel") as PanelContainer).visible)
+		(sprint_hud.get("start_panel") as PanelContainer).visible)
 	print("RACE HUD DISMISS AND POSITION: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
