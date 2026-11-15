@@ -183,6 +183,8 @@ func _ready() -> void:
 	pause_menu.name = "PauseMenu"
 	pause_menu.vehicle_audio = audio
 	pause_menu.driving_camera = camera
+	pause_menu.player_vehicle = vehicle
+	pause_menu.vehicle_ownership = vehicle_ownership
 	add_child(pause_menu)
 	var selector := CanvasLayer.new()
 	selector.set_script(VehicleSelectorScript)
