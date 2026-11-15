@@ -57,7 +57,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = DESIGN
 	_build_frame()
-	_build_detail_map()
+	# The high-resolution preview has no reason to render at initial startup.
 	show_section("events")
 
 func _skin(fill: Color, edge: Color, curve: int = 13) -> StyleBoxFlat:
@@ -260,6 +260,8 @@ func _build_frame() -> void:
 		Rect2(1096, 755, 292, 32), 12, LIME)
 
 func _build_detail_map() -> void:
+	if is_instance_valid(detail_render):
+		return
 	if not is_instance_valid(map_hud) or not map_hud.has_method("map_view"):
 		return
 	# Compose the same live streets/road geometry into one crisp source.
@@ -287,6 +289,8 @@ func _build_detail_map() -> void:
 
 
 func set_render_active(active: bool) -> void:
+	if active and not is_instance_valid(detail_render):
+		_build_detail_map()
 	if is_instance_valid(detail_render):
 		detail_render.render_target_update_mode = (
 			SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED)
@@ -413,6 +417,8 @@ func _refresh_car() -> void:
 
 func _refresh_map() -> void:
 	if is_instance_valid(map_hud):
+		if not is_instance_valid(detail_render):
+			_build_detail_map()
 		if is_instance_valid(detail_render):
 			map_image.texture = detail_render.get_texture()
 		if is_instance_valid(detail_view) and is_instance_valid(vehicle):

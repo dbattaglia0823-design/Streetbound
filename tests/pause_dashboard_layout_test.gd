@@ -16,9 +16,10 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 	var pause = game.pause_menu
+	var dash = pause.dashboard
+	check("hi_res_pause_map_is_lazy_at_game_start", dash.detail_render == null)
 	pause.pause_game()
 	await process_frame
-	var dash = pause.dashboard
 	var hud: Variant = get_first_node_in_group("streetbound_world_map_hud")
 	check("pause_hub_replaces_visible_legacy_layout",
 		paused and dash.visible and pause.pause_screen.visible and
