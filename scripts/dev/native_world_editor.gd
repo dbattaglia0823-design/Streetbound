@@ -699,7 +699,7 @@ func _choose_tool(mode: String) -> void:
 		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
 		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
-		"place_marker":"Choose a marker type and click to place.","anchor":"Drag the orange road handles to reshape roads.",
+		"place_marker":"Choose a marker type and click to place.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
 		"anchor":"Drag road or sidewalk anchors to reshape; Alt-drag detaches connected path branches."}.get(mode,"Choose artwork, then click the map to place it."))
 	_refresh_authoring()
