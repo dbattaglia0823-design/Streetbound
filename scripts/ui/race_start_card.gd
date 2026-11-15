@@ -56,9 +56,11 @@ func _ready() -> void:
 	route_preview = Control.new()
 	route_preview.name = "LiveRaceRoute"
 	route_preview.set_script(Preview)
-	route_preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	route_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero.add_child(route_preview)
+	# Apply full-rect anchors after parenting: otherwise the preview can
+	# inherit viewport-sized offsets instead of the 146px hero frame.
+	route_preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var shade := ColorRect.new()
 	shade.name = "TextLegibility"
 	shade.color = Color("#06131d", .42)
@@ -159,6 +161,13 @@ func configure_event(race: Node, info: Dictionary) -> void:
 func update_eligibility() -> void:
 	if not is_instance_valid(start_button):
 		return
+	# The one supported stored best is the persistent quarter-mile record.
+	# Update it on revisiting the start instead of freezing the launch value.
+	if data.has("best_seconds") and is_instance_valid(host):
+		var economy: Object = host.get("economy") as Object
+		if is_instance_valid(economy):
+			var best_seconds: float = float(economy.get("best_quarter_mile"))
+			best_label.text = "BEST  %.2fs" % best_seconds if best_seconds > 0.0 else "BEST  —"
 	var can_start: bool = is_instance_valid(host) and host.has_method("can_stage") and not get_tree().paused
 	if can_start:
 		can_start = bool(host.call("can_stage"))
