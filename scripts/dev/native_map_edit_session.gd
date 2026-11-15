@@ -6,6 +6,7 @@ const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
+const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
 const MAX_DRAG_M := 350.0
@@ -123,6 +124,11 @@ func _valid_source(value: Dictionary) -> bool:
 		if not _in_bounds(Vector2(float(prop.get("x",-1)),
 				float(prop.get("y",-1))),value):
 			return false
+		if str(prop.get("type",""))=="sidewalk":
+			var path: Array[Vector2]=Sidewalks.world_points(prop)
+			if not Sidewalks.valid_points(path,float(prop.get("sidewalkWidth",0)),
+					Rect2(Vector2.ZERO,Vector2(width,height))):
+				return false
 	return true
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
@@ -530,8 +536,45 @@ func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
 	var center:=bounds.get_center();var points: Array=[]
 	for p in points_m:points.append([p.x-center.x,p.y-center.y])
 	var id:=_new_prop_id();var next:=doc.duplicate(true)
-	next.props.append({"id":id,"name":"Sidewalk","type":"sidewalk","assetId":"","x":center.x,"y":center.y,"rotation":0,"scale":1,"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],"sidewalkWidth":width_m,"sidewalkPoints":points})
+	next.props.append({"id":id,"name":"Sidewalk","type":"sidewalk","assetId":"",
+		"x":center.x,"y":center.y,"rotation":0,"scale":1,
+		"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],
+		"sidewalkWidth":width_m,"sidewalkPoints":points})
+	# One atomic edit: both path ends join existing trunks, and genuine
+	# crossings receive shared anchors without deleting any branches.
+	Sidewalks.connect_tips(next.props,id)
+	Sidewalks.connect_crossings(next.props,id)
 	return id if _commit(next) else ""
+
+
+func move_sidewalk_point(identity: String, index: int, target_m: Vector2,
+		snap_radius_m: float = Sidewalks.SNAP_RADIUS_M,
+		preserve_joint: bool = true) -> bool:
+	var current: Dictionary=prop_at_id(identity)
+	if str(current.get("type",""))!="sidewalk":
+		last_error="Select a sidewalk control point.";return false
+	var before: Array[Vector2]=Sidewalks.world_points(current)
+	if index<0 or index>=before.size() or not _in_bounds(target_m):
+		last_error="Sidewalk points must remain inside the map.";return false
+	var next:=doc.duplicate(true)
+	var proposed:=target_m
+	if preserve_joint and index in [0,before.size()-1]:
+		var snap_to: Dictionary=Sidewalks.snap(next.props,target_m,snap_radius_m,identity)
+		if not snap_to.is_empty():
+			proposed=snap_to.point
+			# Create an explicit vertex on the receiving trunk, like road
+			# T junctions; do not merge away either independently editable path.
+			if int(snap_to.vertex)<0:
+				for other in next.props:
+					if str(other.get("id",""))==str(snap_to.id):
+						if not Sidewalks._insert_on_segment(other,proposed,int(snap_to.segment)):
+							last_error="Sidewalk has reached its 100-point limit.";return false
+						break
+	if not Sidewalks.move_anchor(next.props,identity,index,proposed,preserve_joint):
+		last_error="Sidewalk junction would become too short or invalid.";return false
+	if not _commit(next):
+		last_error="Unable to move sidewalk anchor inside the map.";return false
+	return true
 
 
 func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> bool:
