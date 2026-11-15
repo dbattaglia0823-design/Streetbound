@@ -43,6 +43,13 @@ var map_status: Label
 var map_full_preview: TextureRect
 var events_list: VBoxContainer
 var event_rows: Array[Button] = []
+# Rebuilt from the canonical vehicle catalog whenever Cars is opened.
+var car_rows: Array[Dictionary] = []
+var car_search: LineEdit
+var car_scroller: ScrollContainer
+var car_count_label: Label
+# Small, lazily created previews avoid loading all vehicle art on pause.
+var car_thumbnail_cache: Dictionary = {}
 
 func _ready() -> void:
 	name = "StreetboundPauseHub"
@@ -329,6 +336,10 @@ func _navigate(destination: String) -> void:
 func show_section(which: String) -> void:
 	section = which if which in ["map", "events", "cars", "upgrades", "more"] else "events"
 	_style_navigation()
+	car_rows.clear()
+	car_search = null
+	car_scroller = null
+	car_count_label = null
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -338,7 +349,7 @@ func show_section(which: String) -> void:
 		"map":
 			_show_map()
 		"cars":
-			_show_cars_wip()
+			_show_cars()
 		"upgrades":
 			_show_upgrades()
 		"more":
@@ -622,14 +633,211 @@ func _open_full_atlas() -> void:
 		menu.resume_game()
 		map_hud.set("large", true)
 
-func _show_cars_wip() -> void:
-	_heading("CARS", "Cars", "A dedicated vehicle collection is planned for a future update.")
-	var shell := _panel(content, "CarsWorkInProgress", Rect2(46, 171, 687, 396),
-		Color("#10282d"), Color("#60776c"))
-	_label(shell, "WIPTitle", "WORK IN PROGRESS",
-		Rect2(35, 120, 622, 74), 33, LIME)
-	_label(shell, "WIPCopy", "The Cars tab is reserved for a future update.\nNo car management features are available here yet.",
-		Rect2(35, 210, 610, 90), 17, WHITE, true)
+## The same catalog and price keys used by the real dealership menu.
+## No static car or dealership list is maintained by the pause UI.
+static func _car_price_less(a: Dictionary, b: Dictionary) -> bool:
+	var price_a := int(a.get("price_usd", 0))
+	var price_b := int(b.get("price_usd", 0))
+	if price_a != price_b:
+		return price_a < price_b
+	var name_a := str(a.get("display_name", "")).to_lower()
+	var name_b := str(b.get("display_name", "")).to_lower()
+	if name_a != name_b:
+		return name_a < name_b
+	return str(a.get("id", "")) < str(b.get("id", ""))
+
+
+func _sorted_cars() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for entry in Catalog.all():
+		entries.append(entry)
+	entries.sort_custom(_car_price_less)
+	return entries
+
+
+func _car_dealership_site(entry: Dictionary) -> Dictionary:
+	if not is_instance_valid(map_hud):
+		return {}
+	var world: Node2D = map_hud.get("world") as Node2D
+	if not is_instance_valid(world):
+		return {}
+	var manager: Node2D = world.get("dealerships") as Node2D
+	if not is_instance_valid(manager) or not manager.has_method("get_site"):
+		return {}
+	var dealer_id := str(entry.get("dealership_id", ""))
+	if dealer_id.is_empty():
+		return {}
+	var site: Dictionary = manager.call("get_site", dealer_id)
+	var parking: Variant = site.get("parking_m", [])
+	return site if parking is Array and parking.size() == 2 else {}
+
+
+func _show_cars() -> void:
+	_heading("CARS", "Browse Every Car",
+		"All showroom vehicles, cheapest first. Select a car to get GPS directions to its dealer.")
+	car_search = LineEdit.new()
+	car_search.name = "CarSearch"
+	car_search.placeholder_text = "Search by car or dealership"
+	car_search.position = Vector2(25, 150)
+	car_search.size = Vector2(521, 42)
+	car_search.add_theme_font_size_override("font_size", 16)
+	content.add_child(car_search)
+	car_count_label = _label(content, "CarCount", "",
+		Rect2(562, 153, 190, 34), 12, LIME)
+	car_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	car_scroller = ScrollContainer.new()
+	car_scroller.name = "CarScroller"
+	car_scroller.position = Vector2(24, 207)
+	car_scroller.size = Vector2(735, 416)
+	car_scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	car_scroller.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	car_scroller.mouse_filter = Control.MOUSE_FILTER_STOP
+	content.add_child(car_scroller)
+	var rows := VBoxContainer.new()
+	rows.name = "CarRows"
+	rows.custom_minimum_size.x = 712
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_theme_constant_override("separation", 9)
+	car_scroller.add_child(rows)
+	for entry in _sorted_cars():
+		_add_car_row(rows, entry)
+	car_search.text_changed.connect(_filter_cars)
+	_filter_cars("")
+
+
+func _add_car_row(parent: VBoxContainer, entry: Dictionary) -> void:
+	var site := _car_dealership_site(entry)
+	var row := _button(parent, "Car_" + str(entry.get("id", "")).replace("-", "_"), "",
+		Rect2(Vector2.ZERO, Vector2(710, 94)),
+		_route_to_car_dealership.bind(str(entry.get("id", ""))))
+	row.custom_minimum_size = Vector2(710, 94)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_stylebox_override("normal", _skin(Color("#142e34"), Color("#608680"), 11))
+	row.add_theme_stylebox_override("hover", _skin(Color("#244b4d"), LIME, 11))
+	var thumbnail_back := ColorRect.new()
+	thumbnail_back.position = Vector2(10, 9)
+	thumbnail_back.size = Vector2(102, 76)
+	thumbnail_back.color = Color("#203d42")
+	thumbnail_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(thumbnail_back)
+	var picture := TextureRect.new()
+	picture.name = "CarPreview"
+	picture.position = Vector2(13, 11)
+	picture.size = Vector2(96, 72)
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(picture)
+	_label(row, "CarName", str(entry.get("display_name", "Unknown vehicle")),
+		Rect2(122, 8, 375, 28), 18, WHITE)
+	_label(row, "CarSpecs", "%.0f HP  •  %s  •  %s" % [
+		float(entry.get("power_kw", 0.0)) * 1.341022,
+		str(entry.get("drivetrain", "—")),
+		str(entry.get("kind", "car")).to_upper()],
+		Rect2(122, 36, 372, 21), 12, MUTED)
+	var dealer_name := str(site.get("name", "Dealership unavailable"))
+	_label(row, "CarDealer", dealer_name,
+		Rect2(122, 61, 372, 23), 13, TEAL if not site.is_empty() else MUTED)
+	var price := _label(row, "CarPrice", "$" + _money(int(entry.get("price_usd", 0))),
+		Rect2(507, 8, 180, 30), 20, LIME)
+	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var status := "AVAILABLE"
+	if is_instance_valid(economy):
+		if economy.owns(str(entry.get("id", ""))):
+			status = "OWNED"
+		elif not economy.can_buy_at_level(entry):
+			status = "UNLOCK AT LV %d" % economy.required_player_level(entry)
+		elif not economy.can_afford(entry):
+			status = "SAVE UP TO BUY"
+	var status_label := _label(row, "CarStatus", status,
+		Rect2(501, 43, 186, 18), 12, MUTED)
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var action := _label(row, "CarAction",
+		"SET GPS TO DEALER" if not site.is_empty() else "NO DEALER FOUND",
+		Rect2(503, 67, 184, 19), 12, TEAL)
+	action.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.disabled = site.is_empty() or not is_instance_valid(map_hud) or \
+		not is_instance_valid(map_hud.get("waypoints") as Node)
+	row.tooltip_text = "Route to %s to find %s" % [
+		dealer_name, str(entry.get("display_name", ""))] if not row.disabled else \
+		"No active dealership location for this car"
+	car_rows.append({"row": row, "entry": entry, "site": site,
+		"photo": picture, "thumb_loaded": false})
+
+
+func _filter_cars(query: String) -> void:
+	if not is_instance_valid(car_count_label):
+		return
+	var needle := query.strip_edges().to_lower()
+	var shown := 0
+	for item in car_rows:
+		var entry: Dictionary = item.entry
+		var site: Dictionary = item.site
+		var matches := needle.is_empty() or \
+			needle in str(entry.get("display_name", "")).to_lower() or \
+			needle in str(site.get("name", "")).to_lower()
+		(item.row as Control).visible = matches
+		if matches:
+			shown += 1
+	car_count_label.text = "%d / %d CARS" % [shown, car_rows.size()]
+	if is_instance_valid(car_scroller):
+		car_scroller.scroll_vertical = 0
+
+
+func _route_to_car_dealership(id: String) -> void:
+	var entry: Dictionary = Catalog.find_by_id(id)
+	if entry.is_empty() or not is_instance_valid(map_hud):
+		return
+	var site := _car_dealership_site(entry)
+	if site.is_empty():
+		return
+	var waypoints: Node = map_hud.get("waypoints") as Node
+	if not is_instance_valid(waypoints):
+		return
+	var parking: Array = site.get("parking_m", [])
+	var destination := Vector2(float(parking[0]), float(parking[1]))
+	# Target the actual computed parking spot, not the authored approximate
+	# location or the physical building center.
+	if bool(waypoints.call("set_destination", destination, str(site.get("name", "")))):
+		_refresh_map()
+		show_section("map")
+
+
+func _process(_dt: float) -> void:
+	if section != "cars" or not visible or not is_instance_valid(car_scroller):
+		return
+	var visible_area := car_scroller.get_global_rect().grow(45.0)
+	var budget := 2
+	for item in car_rows:
+		if budget <= 0:
+			break
+		var row: Button = item.row
+		if not row.visible or not visible_area.intersects(row.get_global_rect()) or \
+				bool(item.get("thumb_loaded", false)):
+			continue
+		item["thumb_loaded"] = true
+		var entry: Dictionary = item.entry
+		var path := str(entry.get("texture", ""))
+		if path.is_empty() or not FileAccess.file_exists(path) or \
+				not ResourceLoader.exists(path, "Texture2D"):
+			continue
+		if not car_thumbnail_cache.has(path):
+			var source: Texture2D = load(path) as Texture2D
+			if source == null:
+				continue
+			var image: Image = source.get_image()
+			var bounds := Catalog.alpha_bounds(image)
+			if bounds.size.x < 4 or bounds.size.y < 4:
+				continue
+			var cropped := image.get_region(bounds)
+			var factor := minf(96.0 / float(cropped.get_width()),
+				72.0 / float(cropped.get_height()))
+			cropped.resize(maxi(1, roundi(cropped.get_width() * factor)),
+				maxi(1, roundi(cropped.get_height() * factor)), Image.INTERPOLATE_LANCZOS)
+			car_thumbnail_cache[path] = ImageTexture.create_from_image(cropped)
+		(item.photo as TextureRect).texture = car_thumbnail_cache.get(path) as Texture2D
+		budget -= 1
+
 
 func _show_upgrades() -> void:
 	_heading("UPGRADES", "Upgrade Your Ride",

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Regression for the three-column pause hub: actual event data, current car,
-## saved driver stats, waypoint selection, WIP Cars, and retained game flows.
+## saved driver stats, waypoint selection, dynamic Cars, and retained game flows.
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -118,12 +118,63 @@ func _run() -> void:
 		description.get_rect().end.x < dash.content.size.x and
 		description.get_rect().end.y < dash.content.size.y and
 		description.text.contains("Resume"))
+	# Use the real roster and placed dealerships, not a manually curated UI list.
+	var catalog: Array[Dictionary] = load(
+		"res://scripts/vehicle/player_vehicle_catalog.gd").all()
 	dash.show_section("cars")
-	var wip: Panel=dash.content.get_node_or_null("CarsWorkInProgress")
-	check("cars_tab_is_empty_work_in_progress",
-		dash.section=="cars" and wip!=null and
-		(wip.get_node("WIPTitle") as Label).text=="WORK IN PROGRESS" and
-		dash.content.get_node_or_null("EventScroller")==null)
+	check("cars_tab_lists_every_catalog_car",
+		dash.section=="cars" and dash.car_rows.size()==catalog.size() and
+		dash.content.get_node_or_null("CarScroller")!=null and
+		dash.content.get_node_or_null("CarsWorkInProgress")==null and
+		dash.car_count_label.text=="%d / %d CARS" % [catalog.size(),catalog.size()])
+	var ascending := true
+	for i in range(1,dash.car_rows.size()):
+		var previous: Dictionary=dash.car_rows[i-1].entry
+		var current: Dictionary=dash.car_rows[i].entry
+		if dash._car_price_less(current,previous):
+			ascending=false
+			break
+	check("car_catalog_sorted_by_actual_price_low_to_high",ascending)
+	dash._filter_cars("this car does not exist")
+	check("car_browser_search_filters_without_changing_catalog",
+		dash.car_count_label.text=="0 / %d CARS" % catalog.size() and
+		(dash.car_rows[0].row as Button).visible==false)
+	dash._filter_cars("")
+	check("car_browser_search_restores_all_vehicles",
+		dash.car_count_label.text=="%d / %d CARS" % [catalog.size(),catalog.size()])
+	# A newly added entry must appear without any pause-menu source edits.
+	var new_car: Dictionary = catalog[0].duplicate()
+	new_car["id"]="test-future-catalog-car"
+	new_car["display_name"]="Future Catalog Car"
+	new_car["price_usd"]=1
+	catalog.append(new_car)
+	dash.show_section("cars")
+	check("new_catalog_car_appears_in_price_order_automatically",
+		dash.car_rows.size()==catalog.size() and
+		str(dash.car_rows[0].entry.id)=="test-future-catalog-car")
+	new_car["dealership_id"]="missing-dealership"
+	dash.show_section("cars")
+	check("cars_with_no_valid_dealer_stay_visible_but_cannot_route",
+		dash.car_rows.size()==catalog.size() and
+		str(dash.car_rows[0].entry.id)=="test-future-catalog-car" and
+		(dash.car_rows[0].row as Button).disabled)
+	catalog.erase(new_car)
+	dash.show_section("cars")
+	var selected: Dictionary=dash.car_rows[0].entry
+	var dealer: Dictionary=game.dealership_world.get_site(str(selected.dealership_id))
+	check("each_car_row_shows_live_price_and_actual_dealer",
+		dealer.size()>0 and
+		(dash.car_rows[0].row as Button).get_node("CarPrice").text==
+			"$"+dash._money(int(selected.price_usd)) and
+		(dash.car_rows[0].row as Button).get_node("CarDealer").text==str(dealer.name))
+	(dash.car_rows[0].row as Button).pressed.emit()
+	var car_destination: Vector2=Vector2(
+		float(dealer.parking_m[0]),float(dealer.parking_m[1]))
+	check("select_car_sets_road_routed_waypoint_to_its_real_dealership",
+		hud.waypoints.active and
+		hud.waypoints.destination_m.distance_to(car_destination)<0.01 and
+		hud.waypoints.destination_name==str(dealer.name) and
+		dash.section=="map" and paused)
 	dash.show_section("events")
 	dash._set_event_filter("challenges")
 	check("unimplemented_challenges_are_not_fabricated",
