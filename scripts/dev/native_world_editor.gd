@@ -695,7 +695,7 @@ func _choose_tool(mode: String) -> void:
 	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
-		"draw_sidewalk":"Set walk width, click path points, then Finish or Enter. Select/Edit moves the finished sidewalk; Delete removes it.",
+		"draw_sidewalk":"Click to draw a walkway. Endpoints snap to other sidewalks, including mid-path branches. Select/Edit to drag junction handles.",
 		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.","anchor":"Drag the orange road handles to reshape roads.",
@@ -962,9 +962,11 @@ func _source_click(world_px: Vector2) -> void:
 		road_shapes.place(self,_snap_point(world_px/PPM));return
 	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
 		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
+		if tool_name=="draw_sidewalk":point=authoring.sidewalk_snap_point(point)
 		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=1.0:draft_points.append(point)
 		_refresh_authoring()
-		_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
+		_notice("%d sidewalk points. Finish / Enter to connect the path."%draft_points.size() if tool_name=="draw_sidewalk" else
+			"%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
 		return
 	if tool_name == "draw_terrain":
 		draft_points.append(_snap_point(world_px/PPM))
@@ -1675,6 +1677,9 @@ func _record_position(record: Dictionary) -> Vector2:
 		var center:=Vector2.ZERO
 		for p in item.points:center+=Vector2(p.x,p.y)
 		return center/item.points.size()
+	if record.category=="props" and str(item.get("type",""))=="sidewalk" and source_anchor>=0:
+		var points:=EditSession.sidewalk_world_points(item)
+		if source_anchor<points.size():return points[source_anchor]
 	return Vector2(item.x,item.y)
 
 func _refresh_inspector() -> void:
@@ -1684,15 +1689,17 @@ func _refresh_inspector() -> void:
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	prop_transforms.visible=exists and record.category=="props"
-	point_picker.visible=exists and record.category in ["roads","races"]
+	var sidewalk_selected: bool=exists and record.category=="props" and str(record.item.get("type",""))=="sidewalk"
+	point_picker.visible=exists and (record.category in ["roads","races"] or sidewalk_selected)
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
 	split_road_button.visible=point_picker.visible and record.category=="roads"
-	reconnect_road_button.visible=split_road_button.visible
-	connection_label.visible=split_road_button.visible
+	reconnect_road_button.visible=split_road_button.visible or sidewalk_selected
+	connection_label.visible=split_road_button.visible or sidewalk_selected
 	var race_selected: bool=exists and record.category=="races"
-	add_point_button.text="Add checkpoint" if race_selected else "Add road point"
-	remove_point_button.text="Remove checkpoint" if race_selected else "Remove selected road point"
+	add_point_button.text="Add checkpoint" if race_selected else "Add sidewalk point" if sidewalk_selected else "Add road point"
+	remove_point_button.text="Remove checkpoint" if race_selected else "Remove sidewalk point" if sidewalk_selected else "Remove selected road point"
+	reconnect_road_button.text="Connect sidewalk endpoint" if sidewalk_selected else "Reconnect road endpoint"
 	point_picker.clear()
 	if exists:
 		var item: Dictionary=record.item
@@ -1709,17 +1716,23 @@ func _refresh_inspector() -> void:
 			inspector_road_front.disabled=not RoadBuildingSnap.enabled(item)
 			for i in inspector_road_front.item_count:
 				if int(inspector_road_front.get_item_metadata(i))==int(item.get("roadFront",90)):inspector_road_front.select(i);break
-		if record.category in ["roads","races"]:
-			point_picker.add_item("Whole race (center)" if race_selected else "Whole road (center)")
-			for i in item.points.size():
-				var title: String="Control point %d"%[i+1]
-				if race_selected:title="Start" if i==0 else ("Finish" if item.mode=="sprint" and i==item.points.size()-1 else "Checkpoint %d"%i)
+		if record.category in ["roads","races"] or sidewalk_selected:
+			var count: int=item.sidewalkPoints.size() if sidewalk_selected else item.points.size()
+			point_picker.add_item("Whole sidewalk (center)" if sidewalk_selected else "Whole race (center)" if race_selected else "Whole road (center)")
+			for i in count:
+				var title: String="Path point %d"%[i+1] if sidewalk_selected else "Control point %d"%[i+1]
+				if sidewalk_selected:title="Start" if i==0 else "End" if i==count-1 else "Branch point %d"%[i+1]
+				elif race_selected:title="Start" if i==0 else ("Finish" if item.mode=="sprint" and i==count-1 else "Checkpoint %d"%i)
 				point_picker.add_item(title)
-			point_picker.select(clampi(source_anchor+1,0,item.points.size()))
-			remove_point_button.disabled=item.points.size()<=(3 if race_selected and item.mode=="circuit" else 2)
-			split_road_button.text="Detach junction" if source_anchor==0 or source_anchor==item.points.size()-1 else "Split road here"
-			reconnect_road_button.disabled=source_anchor not in [0,item.points.size()-1]
-			connection_label.text="Ends move independently" if bool(item.get("independentEnds",false)) else "Touching ends move together"
+			point_picker.select(clampi(source_anchor+1,0,count))
+			remove_point_button.disabled=count<=(3 if race_selected and item.mode=="circuit" else 2)
+			if sidewalk_selected:
+				reconnect_road_button.disabled=source_anchor not in [0,count-1]
+				connection_label.text="Endpoints snap onto existing paths; drag joined handles together, Alt-drag to detach."
+			else:
+				split_road_button.text="Detach junction" if source_anchor==0 or source_anchor==count-1 else "Split road here"
+				reconnect_road_button.disabled=source_anchor not in [0,count-1]
+				connection_label.text="Ends move independently" if bool(item.get("independentEnds",false)) else "Touching ends move together"
 	else:
 		inspector_name.text="";inspector_x.value=0;inspector_y.value=0
 	_updating_inspector=false
