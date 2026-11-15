@@ -78,7 +78,9 @@ func _ready() -> void:
 
 	background = ColorRect.new()
 	background.name = "DimmedBackground"
-	background.color = Color(0.025, 0.038, 0.054, 0.53)
+	# A stronger backdrop keeps the driving HUD and traffic from competing
+	# with pause menus and their footer text.
+	background.color = Color(0.016, 0.035, 0.039, 0.76)
 	background.anchor_right = 1.0
 	background.anchor_bottom = 1.0
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -750,6 +752,7 @@ func _show_page(page: String) -> void:
 	pause_screen.visible = page == "paused"
 	if is_instance_valid(dashboard):
 		dashboard.visible = page == "paused"
+		dashboard.set_render_active(page == "paused")
 	settings_screen.visible = page == "settings"
 	multiplayer_screen.visible = page == "multiplayer"
 	confirmation_screen.visible = page == "confirm"
@@ -776,6 +779,8 @@ func pause_game() -> void:
 	_show_page("paused")
 
 func resume_game() -> void:
+	if is_instance_valid(dashboard):
+		dashboard.set_render_active(false)
 	overlay.visible = false
 	menu_state = ""
 	_cancel_capture()
