@@ -45,7 +45,8 @@ func _reroute() -> void:
 		navigation=Navigation.new();navigation.setup(result.points_m,false)
 		destination_access_m=float(result.access_distance_m)
 		remaining_m=float(navigation.length_m)+destination_access_m+float(result.start_access_distance_m)
-		status="Follow shortest road route" if destination_access_m<20 else "Follow roads; destination is off-road"
+		status="Reach highlighted road, then follow route" if float(result.start_access_distance_m)>=20 else (
+			"Follow shortest road route" if destination_access_m<20 else "Follow roads; destination is off-road")
 	changed.emit()
 
 func _process(dt: float) -> void:
