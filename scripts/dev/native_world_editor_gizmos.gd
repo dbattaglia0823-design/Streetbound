@@ -28,6 +28,8 @@ var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
 var custom_terrain:=false
+## Render the saved authoring geometry without editor handles during a drive.
+var runtime_playtest:=false
 var preview_indices: Dictionary={}
 var scenery_rebuild_count:=0
 var _props_stamp:=-1
@@ -385,9 +387,12 @@ func _draw_draft() -> void:
 					for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
 						draw_polyline(Lanes.offset_path(line,divider+direction*float(layout.width)*lane*PPM),Color("#dcd9c4"),2,true)
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,1,preview_junctions if network_is_draft else world.data.junctions)
-		draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
-			3.0,true)
+		if not runtime_playtest:
+			draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
+				3.0,true)
 	_draw_draft_junctions(false)
+	if runtime_playtest:
+		return
 	for road in draft_doc.get("roads",[]):
 		if not layer_flags.get("roads",true):continue
 		if str(road.id)!=selected_source_id:continue

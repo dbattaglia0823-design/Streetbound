@@ -151,8 +151,12 @@ keep unsaved custom-map drafts separate from Morrow Coast. New maps have full
 terrain coverage, support terrain polygons right to the edge, and draw land
 over water in authored order. Water uses a cached shoreline distance field for
 shallow/deep coloration, island shorelines, animated ripples and subtle foam.
-Custom maps are currently editor documents; gameplay Test Drive remains tied
-to Morrow Coast and does not replace its archive or player progression.
+Custom maps support **Test Drive (F6)** directly from the native map builder.
+The editor saves the selected custom map before opening an isolated driving
+scene with Streetbound's normal vehicle physics, authored roads, terrain and
+placed scenery/collision. Use **Return to Map Editor**, F6 or Esc to reopen
+that same saved map and continue editing. Custom playtests do not load career,
+traffic, or race rewards, and never replace the Morrow Coast archive.
 The standalone editor reloads the rebuilt world automatically and retains the
 camera position. In the free-roam editor, use **Reload World** after saving.
 Traffic lane guides regenerate in the background when roads move, bend, change
@@ -169,7 +173,8 @@ dark and neutral: there are no signal phases, timers, or new AI traffic rules.
 Committed unsaved changes in the standalone editor have a local recovery copy,
 restored only against the same source and world revision. **Discard** clears
 the draft and recovery copy. Keep the editor open while saving. **Test Drive**
-opens the playable world after saving or discarding standalone edits.
+opens Morrow Coast after saving or discarding its standalone edits, or saves
+and opens the selected custom map in isolated drive mode.
 
 ## Browser editor
 

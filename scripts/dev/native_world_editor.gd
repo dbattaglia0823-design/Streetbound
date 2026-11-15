@@ -1289,12 +1289,28 @@ func _recenter() -> void:
 		_update_view(true)
 
 func _test_drive() -> void:
-	if map_switcher.custom:
-		_notice("This custom map is saved independently. Test Drive currently opens Morrow Coast; switch back to it to drive.");return
 	if not active:
 		return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
 		_notice("Finish or cancel the current shape or drag before Test Drive.")
+		return
+	if is_instance_valid(bridge) and bridge.phase != "":
+		_notice("Wait for the current map save to complete before Test Drive.")
+		return
+	if map_switcher.custom:
+		# A custom drive is isolated from Morrow Coast and career progression.
+		# Saving first guarantees the test and return both use this revision.
+		if not map_switcher.save_current(self):
+			return
+		get_tree().set_meta("streetbound_test_drive_map",map_switcher.current_file)
+		get_tree().set_meta("streetbound_editor_return_position",
+			editor_camera.global_position)
+		get_tree().paused = false
+		var outcome := get_tree().change_scene_to_file("res://scenes/custom_map_test_drive.tscn")
+		if outcome != OK:
+			get_tree().remove_meta("streetbound_test_drive_map")
+			get_tree().remove_meta("streetbound_editor_return_position")
+			_notice("Could not launch this custom map for Test Drive.")
 		return
 	if standalone_mode:
 		if authoring.dirty or bridge.phase != "":
