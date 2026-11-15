@@ -125,6 +125,20 @@ func _valid_source(value: Dictionary) -> bool:
 		if not _in_bounds(Vector2(float(prop.get("x",-1)),
 				float(prop.get("y",-1))),value):
 			return false
+		if str(prop.get("type",""))=="sidewalk":
+			var vertices: Array[Vector2]=sidewalk_world_points(prop)
+			var sizes: Array=prop.get("assetSize",[])
+			if vertices.size()<2 or vertices.size()>100 or sizes.size()!=2 or (
+					not is_finite(float(sizes[0])) or not is_finite(float(sizes[1])) or
+					minf(float(sizes[0]),float(sizes[1]))<=0 or
+					maxf(float(sizes[0]),float(sizes[1]))>12000 or
+					float(prop.get("sidewalkWidth",0))<0.8 or float(prop.get("sidewalkWidth",0))>12.0):
+				return false
+			var local: Array=prop.get("sidewalkPoints",[])
+			for i in vertices.size():
+				if not _in_bounds(vertices[i],value):return false
+				if i>0 and Vector2(float(local[i][0]),float(local[i][1])).distance_to(
+						Vector2(float(local[i-1][0]),float(local[i-1][1])))<SIDEWALK_POINT_MIN_M:return false
 	return true
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
@@ -716,12 +730,22 @@ func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0) -> 
 		last_error = "Asset moved more than 350m; use smaller steps."
 		return false
 	var draft: Dictionary = doc.duplicate(true)
+	var moved_sidewalk:=str(item.get("type",""))=="sidewalk"
+	var previous: Array[Vector2]=sidewalk_world_points(item) if moved_sidewalk else []
+	var delta:=destination_m-original
 	for prop in draft.props:
 		if str(prop.id)==prop_id:
-			prop.x = destination_m.x
-			prop.y = destination_m.y
-			return _commit(draft)
-	return false
+			prop.x=destination_m.x;prop.y=destination_m.y
+		elif moved_sidewalk and str(prop.get("type",""))=="sidewalk":
+			var points:=sidewalk_world_points(prop)
+			var changed:=false
+			for i in points.size():
+				for old in previous:
+					if points[i].distance_to(old)<0.05:
+						points[i]+=delta;changed=true;break
+			if changed and not _set_sidewalk_world_points(prop,points):
+				last_error="Moving this sidewalk would pull a joined path outside the map.";return false
+	return _commit(draft)
 
 func rotate_prop(prop_id: String, step_degrees: float) -> bool:
 	if not is_finite(step_degrees) or absf(step_degrees)>180.0:
@@ -913,7 +937,7 @@ func bend_road(identity: String,bend_m: float) -> bool:
 	return _replace_road_points(identity,vertices,anchors,moved)
 
 func road_preview_source(drag: Dictionary) -> Dictionary:
-	if drag.get("kind","") not in ["road","road_move","region","race_point"]:return doc
+	if drag.get("kind","") not in ["road","road_move","region","race_point","sidewalk_point","sidewalk_move"]:return doc
 	# Use the same endpoint propagation as the committed edit, without adding
 	# history or changing the real source while the mouse is held down.
 	var temporary=get_script().new()
@@ -921,6 +945,11 @@ func road_preview_source(drag: Dictionary) -> Dictionary:
 	if drag.kind=="road":temporary.move_road_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0)
 	elif drag.kind=="region":temporary.move_shape("regions",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
 	elif drag.kind=="race_point":temporary.move_race_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0)
+	elif drag.kind=="sidewalk_point":
+		temporary.move_sidewalk_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0,
+			not bool(drag.get("detach",false)))
+	elif drag.kind=="sidewalk_move":
+		temporary.move_prop(str(drag.id),Vector2(drag.to)/20.0,0.0)
 	else:temporary.move_shape("roads",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
 	return temporary.doc
 
@@ -1045,7 +1074,10 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 			if not circle.is_empty():center=circle.center
 	else:center=Vector2(item.x,item.y)
 	var ok:=false
-	if category=="props":ok=temporary.move_prop(identity,destination,0)
+	if category=="props":
+		if str(item.get("type",""))=="sidewalk" and point_index>=0:
+			ok=temporary.move_sidewalk_point(identity,point_index,destination)
+		else:ok=temporary.move_prop(identity,destination,0)
 	elif category=="roads" and point_index>=0:ok=temporary.move_road_point(identity,point_index,destination,0)
 	elif category=="races" and point_index>=0:ok=temporary.move_race_point(identity,point_index,destination)
 	else:ok=temporary.move_shape(category,identity,destination-center,0)
