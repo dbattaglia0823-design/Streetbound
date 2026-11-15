@@ -80,9 +80,8 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	var l := Label.new()
 	l.name = node_name
 	l.text = words
-	l.position = rect.position
-	l.size = rect.size
 	l.add_theme_font_size_override("font_size", font_px)
+	l.position = rect.position
 	l.add_theme_color_override("font_color", tint)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -92,6 +91,9 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	if wrap_text:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(l)
+	# Godot 4.4 retains the original default-font 48px minimum if sized
+	# before styling. Set bounds AFTER parenting and applying font overrides.
+	l.size = rect.size
 	return l
 
 func _button(parent: Control, node_name: String, title: String, rect: Rect2,
@@ -100,7 +102,6 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 	b.name = node_name
 	b.text = title
 	b.position = rect.position
-	b.size = rect.size
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.clip_text = true
 	b.add_theme_font_size_override("font_size", 16)
@@ -117,6 +118,7 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 	b.add_theme_stylebox_override("focus", focused)
 	b.pressed.connect(action)
 	parent.add_child(b)
+	b.size = rect.size
 	return b
 
 func _build_frame() -> void:
@@ -278,14 +280,16 @@ func set_render_active(active: bool) -> void:
 func _progress(parent: Control, bounds: Rect2) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.position = bounds.position
-	b.size = bounds.size
+	# Hide the default percentage BEFORE sizing: otherwise Godot 4.4
+	# holds its original 52px label-minimum height even for a slim bar.
+	b.show_percentage = false
 	b.min_value = 0
 	b.max_value = 1
-	b.show_percentage = false
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_theme_stylebox_override("background", _skin(Color("#354b49"), Color.TRANSPARENT, 3))
 	b.add_theme_stylebox_override("fill", _skin(LIME, Color.TRANSPARENT, 3))
 	parent.add_child(b)
+	b.size = bounds.size
 	return b
 
 func _style_navigation() -> void:
