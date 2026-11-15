@@ -37,7 +37,7 @@ func _run() -> void:
 		not t_branch.is_empty() and contains_anchor(session.prop_at_id(t_branch),
 			Vector2(2040,2000)))
 	var interior: String=session.add_sidewalk([Vector2(2060,1960),
-		Vector2(2060.6,2001.1)],2.8)
+		Vector2(2060,2001.1)],2.8)
 	check("T_branch_snaps_to_middle_of_an_existing_segment",
 		not interior.is_empty() and
 		contains_anchor(session.prop_at_id(trunk),Vector2(2060,2000)) and
