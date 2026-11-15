@@ -50,7 +50,7 @@ func _candidates(at: Vector2, heading: Vector2, road_name: String) -> Array[Dict
 		candidates.append({"edge":int(edge.id),"progress":progress,"nearest":nearest,
 			"distance":distance,"score":distance,"facing":facing})
 	candidates.sort_custom(func(a: Dictionary,b: Dictionary)->bool:
-		if absf(float(a.distance)-float(b.distance))<PPM*.1:
+		if float(a.distance)==float(b.distance):
 			return float(a.facing)>float(b.facing)
 		return float(a.distance)<float(b.distance))
 	# Never truncate to the six nearest lanes: they may all be disconnected.
