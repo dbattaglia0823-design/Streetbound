@@ -257,4 +257,8 @@ static func junctions(props: Array, tolerance: float = .05) -> Array[Dictionary]
 				nodes.append({"position": p, "paths": [str(prop.id)]})
 			elif not same.paths.has(str(prop.id)):
 				same.paths.append(str(prop.id))
-	return nodes.filter(func(node: Dictionary) -> bool: return node.paths.size() >= 2)
+	var joined: Array[Dictionary] = []
+	for node in nodes:
+		if node.paths.size() >= 2:
+			joined.append(node)
+	return joined
