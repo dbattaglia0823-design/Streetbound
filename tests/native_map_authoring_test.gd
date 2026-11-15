@@ -152,7 +152,7 @@ func _run() -> void:
 		not trunk.is_empty() and not branch.is_empty() and
 		Session.sidewalk_world_points(session.prop_at_id(branch))[0].distance_to(
 			Vector2(2040,2000))<0.05)
-	var mid:=session.add_sidewalk([Vector2(2060,1960),Vector2(2061,2001)],3.0)
+	var mid:=session.add_sidewalk([Vector2(2060,1960),Vector2(2060,2001)],3.0)
 	var connected:=false
 	for point in Session.sidewalk_world_points(session.prop_at_id(trunk)):
 		if point.distance_to(Vector2(2060,2000))<0.05:connected=true
