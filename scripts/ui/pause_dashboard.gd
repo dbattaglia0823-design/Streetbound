@@ -256,6 +256,12 @@ func _build_detail_map() -> void:
 		# Map chunk streaming must continue while the game is paused.
 		detail_view.process_mode = Node.PROCESS_MODE_ALWAYS
 		detail_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Labels, navigation markers and the car cursor must stay readable
+		# after the 2x map is downsampled into its on-screen cards.
+		detail_view.set_meta("pause_render_density", 2.0)
+		detail_view.ink.label_scale = 2.0
+		detail_view.cursor.scale = Vector2(2.0, 2.0)
+		detail_view.scale_bar.visible = false
 	map_image.texture = detail_render.get_texture()
 
 
@@ -552,6 +558,8 @@ func _show_map() -> void:
 	map_full_preview = preview
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(preview)
+	_label(content, "MapOrientation", "N ↑   /   LIVE LOCAL STREETS",
+		Rect2(45, 560, 280, 22), 12, LIME)
 	_label(content, "MapHelp", "GPS DESTINATION", Rect2(534, 156, 207, 26), 13, LIME)
 	var waypoint: Node = map_hud.get("waypoints") as Node if is_instance_valid(map_hud) else null
 	var destination := "No waypoint selected"
