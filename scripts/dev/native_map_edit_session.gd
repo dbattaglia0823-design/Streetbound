@@ -9,6 +9,8 @@ const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
 const MAX_DRAG_M := 350.0
+const SIDEWALK_SNAP_M := 3.0
+const SIDEWALK_POINT_MIN_M := 0.5
 const ART: Dictionary = {
 	"house":{"type":"house","assetId":"game-house","size":Vector2(12,17)},
 	"coastal_house":{"type":"house","assetId":"game-coastal_house","size":Vector2(12,17)},
@@ -519,6 +521,163 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		return ""
 	return id
 
+## Sidewalks stay independent from the road traffic graph. Convert their
+## authored local points into world coordinates before connecting branches.
+static func sidewalk_world_points(prop: Dictionary) -> Array[Vector2]:
+	var vertices: Array[Vector2]=[]
+	if str(prop.get("type",""))!="sidewalk":return vertices
+	var center:=Vector2(float(prop.get("x",0)),float(prop.get("y",0)))
+	var angle:=deg_to_rad(float(prop.get("rotation",0)))
+	var scale:=Vector2(float(prop.get("scale",1))*float(prop.get("scaleX",1)),
+		float(prop.get("scale",1))*float(prop.get("scaleY",1)))
+	for p in prop.get("sidewalkPoints",[]):
+		if not p is Array or p.size()!=2 or not is_finite(float(p[0])) or not is_finite(float(p[1])):return []
+		vertices.append(center+(Vector2(float(p[0]),float(p[1]))*scale).rotated(angle))
+	return vertices
+
+
+func _set_sidewalk_world_points(prop: Dictionary, vertices: Array[Vector2]) -> bool:
+	if vertices.size()<2 or vertices.size()>100:return false
+	var center:=Vector2(float(prop.x),float(prop.y))
+	var angle:=deg_to_rad(float(prop.get("rotation",0)))
+	var scale:=Vector2(float(prop.get("scale",1))*float(prop.get("scaleX",1)),
+		float(prop.get("scale",1))*float(prop.get("scaleY",1)))
+	if minf(scale.x,scale.y)<=0.0:return false
+	var local: Array=[]
+	var radius:=Vector2.ZERO
+	var previous:=Vector2.INF
+	for at in vertices:
+		if not _in_bounds(at):return false
+		var relative: Vector2=(at-center).rotated(-angle)/scale
+		if not is_finite(relative.x) or not is_finite(relative.y) or (
+				not local.is_empty() and relative.distance_to(previous)<SIDEWALK_POINT_MIN_M):
+			return false
+		local.append([relative.x,relative.y])
+		radius=radius.max(relative.abs())
+		previous=relative
+	var size: Vector2=radius*2.0+Vector2.ONE*float(prop.get("sidewalkWidth",3))
+	if maxf(size.x,size.y)>12000.0:return false
+	prop["sidewalkPoints"]=local
+	prop["assetSize"]=[size.x,size.y]
+	return true
+
+
+## Existing anchors and points in the middle of a path are both snap targets.
+func _sidewalk_connection(at: Vector2,skip_id: String="",radius: float=SIDEWALK_SNAP_M,
+		source: Dictionary={}) -> Dictionary:
+	var record: Dictionary=source if not source.is_empty() else doc
+	var best:=radius+0.00001
+	var hit: Dictionary={}
+	for prop in record.get("props",[]):
+		if str(prop.get("type",""))!="sidewalk" or str(prop.id)==skip_id or bool(prop.get("hidden",false)):continue
+		var vertices:=sidewalk_world_points(prop)
+		for i in vertices.size():
+			var distance:=at.distance_to(vertices[i])
+			if distance<best-0.001:
+				best=distance
+				hit={"id":str(prop.id),"point":vertices[i],"index":i}
+		for i in range(1,vertices.size()):
+			var point:=Geometry2D.get_closest_point_to_segment(at,vertices[i-1],vertices[i])
+			var distance:=at.distance_to(point)
+			if distance>=best-0.001:continue
+			if point.distance_to(vertices[i-1])<SIDEWALK_POINT_MIN_M or (
+					point.distance_to(vertices[i])<SIDEWALK_POINT_MIN_M):
+				continue
+			best=distance
+			hit={"id":str(prop.id),"point":point,"span":i}
+	return hit
+
+
+func sidewalk_snap_point(at: Vector2,radius: float=SIDEWALK_SNAP_M) -> Vector2:
+	var hit:=_sidewalk_connection(at,"",radius)
+	return Vector2(hit.point) if not hit.is_empty() else at
+
+
+func _connect_sidewalk_in_doc(next: Dictionary,identity: String,index: int,
+		radius: float=SIDEWALK_SNAP_M) -> bool:
+	var source: Dictionary={}
+	for prop in next.props:
+		if str(prop.id)==identity:source=prop;break
+	if source.is_empty():return false
+	var points:=sidewalk_world_points(source)
+	if index not in [0,points.size()-1]:return false
+	var hit:=_sidewalk_connection(points[index],identity,radius,next)
+	if hit.is_empty():return false
+	var destination: Vector2=hit.point
+	var target: Dictionary={}
+	for prop in next.props:
+		if str(prop.id)==str(hit.id):target=prop;break
+	if target.is_empty():return false
+	var neighbors:=sidewalk_world_points(target)
+	if hit.has("span"):neighbors.insert(int(hit.span),destination)
+	points[index]=destination
+	if not _set_sidewalk_world_points(source,points) or (
+			not _set_sidewalk_world_points(target,neighbors)):
+		return false
+	return true
+
+
+func reconnect_sidewalk_endpoint(identity: String,index: int,radius: float=SIDEWALK_SNAP_M) -> bool:
+	var source:=prop_at_id(identity)
+	if str(source.get("type",""))!="sidewalk" or index not in [0,source.sidewalkPoints.size()-1]:
+		last_error="Select the first or last sidewalk point to connect.";return false
+	var next:=doc.duplicate(true)
+	if not _connect_sidewalk_in_doc(next,identity,index,radius):
+		last_error="Move the endpoint within %.1fm of an existing sidewalk."%radius;return false
+	return _commit(next)
+
+
+func move_sidewalk_point(identity: String,index: int,destination: Vector2,
+		grid_m: float=0.0,move_joined: bool=true) -> bool:
+	var item:=prop_at_id(identity)
+	if str(item.get("type",""))!="sidewalk":return false
+	var current:=sidewalk_world_points(item)
+	if index<0 or index>=current.size():return false
+	if grid_m>0:destination=destination.snapped(Vector2.ONE*grid_m)
+	var old: Vector2=current[index]
+	if old.distance_to(destination)>MAX_DRAG_M or not _in_bounds(destination):
+		last_error="Keep sidewalk handles inside the map and move under 350m.";return false
+	var next:=doc.duplicate(true)
+	for prop in next.props:
+		if str(prop.get("type",""))!="sidewalk":continue
+		if str(prop.id)!=identity and not move_joined:continue
+		var points:=sidewalk_world_points(prop)
+		var changed:=false
+		for i in points.size():
+			if (str(prop.id)==identity and i==index) or (
+					move_joined and points[i].distance_to(old)<0.05):
+				points[i]=destination;changed=true
+		if changed and not _set_sidewalk_world_points(prop,points):
+			last_error="This would overlap path handles or move a joined path outside the map.";return false
+	return _commit(next)
+
+
+func insert_sidewalk_point(identity: String,index: int) -> bool:
+	var next:=doc.duplicate(true)
+	for prop in next.props:
+		if str(prop.id)!=identity or str(prop.get("type",""))!="sidewalk":continue
+		var points:=sidewalk_world_points(prop)
+		if points.size()>=100:return false
+		var segment:=clampi(index,0,points.size()-2)
+		points.insert(segment+1,(points[segment]+points[segment+1])*.5)
+		if not _set_sidewalk_world_points(prop,points):return false
+		return _commit(next)
+	return false
+
+
+func remove_sidewalk_point(identity: String,index: int) -> bool:
+	var next:=doc.duplicate(true)
+	for prop in next.props:
+		if str(prop.id)!=identity or str(prop.get("type",""))!="sidewalk":continue
+		var points:=sidewalk_world_points(prop)
+		if points.size()<=2 or index<0 or index>=points.size():
+			last_error="Keep at least two sidewalk points.";return false
+		points.remove_at(index)
+		if not _set_sidewalk_world_points(prop,points):return false
+		return _commit(next)
+	return false
+
+
 func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
 	if points_m.size()<2 or points_m.size()>100 or width_m<.8 or width_m>12:
 		last_error="Sidewalks need 2–100 points and width 0.8–12 m.";return ""
@@ -527,10 +686,19 @@ func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
 		if not _in_bounds(points_m[i]) or (i>0 and points_m[i].distance_to(points_m[i-1])<.5):
 			last_error="Keep sidewalk points in the map and at least half a metre apart.";return ""
 		bounds=bounds.expand(points_m[i])
-	var center:=bounds.get_center();var points: Array=[]
-	for p in points_m:points.append([p.x-center.x,p.y-center.y])
+	var center:=bounds.get_center()
 	var id:=_new_prop_id();var next:=doc.duplicate(true)
-	next.props.append({"id":id,"name":"Sidewalk","type":"sidewalk","assetId":"","x":center.x,"y":center.y,"rotation":0,"scale":1,"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],"sidewalkWidth":width_m,"sidewalkPoints":points})
+	var prop: Dictionary={"id":id,"name":"Sidewalk","type":"sidewalk","assetId":"",
+		"x":center.x,"y":center.y,"rotation":0,"scale":1,
+		"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],
+		"sidewalkWidth":width_m,"sidewalkPoints":[]}
+	if not _set_sidewalk_world_points(prop,points_m):
+		last_error="Invalid sidewalk path or footprint.";return ""
+	next.props.append(prop)
+	# Branch from the end or middle of any existing path in one undo step.
+	for endpoint in [0,points_m.size()-1]:
+		var trial: Dictionary=next.duplicate(true)
+		if _connect_sidewalk_in_doc(trial,id,endpoint):next=trial
 	return id if _commit(next) else ""
 
 
