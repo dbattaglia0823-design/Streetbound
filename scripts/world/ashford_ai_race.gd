@@ -173,14 +173,14 @@ func _refresh_overlay() -> void:
 	match state:
 		"idle":
 			_race_label.text = "ASHFORD  /  1V1 QUARTER-MILE\n%s" % (
-				"PARK AT START / FACE STRIP / [ F ] TO RACE" if can_stage()
-				else "DRIVE TO THE DRAG STRIP AND STOP AT STAGING")
+				"[ F ] START RACE" if can_stage() else
+				"SLOW TO 15 MPH / FACE STRIP" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else
+				"ENTER START CIRCLE / FACE STRIP")
 		"countdown":
 			_race_label.text = "ASHFORD  /  PLAYER VS AI\nLIGHTS IN %d" % maxi(1, ceili(countdown))
 		"running":
 			_race_label.text = "ASHFORD  /  %.2fs  /  PLAYER %.0fm\nRIVAL %.0fm   /   FINISH %.0fm" % [
 				elapsed, maxf(0.0, progress_m), opponent_progress_m, QUARTER_MILE_M]
 	_status_strip.call("set_status", state,
-		player.global_position.distance_to(start_m * PPM) / PPM <= 30.0 and \
-		player.linear_velocity.length() <= 5.0,
+		player.global_position.distance_to(start_m * PPM) / PPM <= 30.0,
 		_race_label.text)
