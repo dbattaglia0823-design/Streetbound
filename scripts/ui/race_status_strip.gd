@@ -92,7 +92,7 @@ func _layout() -> void:
 		maxf(8.0, viewport_size.y - 28.0 - EDGE_MARGIN))
 	restore_button.size = Vector2(96, 28)
 	if is_instance_valid(start_panel):
-		var shrink: float = minf(1.0, viewport_size.x / 1200.0,
+		var shrink: float = minf(minf(1.0, viewport_size.x / 1200.0),
 			viewport_size.y / 775.0)
 		shrink = maxf(.65, shrink)
 		start_panel.scale = Vector2.ONE * shrink
