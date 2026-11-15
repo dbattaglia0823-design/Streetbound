@@ -2,6 +2,9 @@ extends RefCounted
 ## Shortest directed road routes with exact partial first/last lane segments.
 ## Used by free-roam waypoints and data-authored street events.
 const PPM:=20.0
+const MAX_ACCESS_M:=250.0
+# Prefer nearby driveable access points, widening only if disconnected.
+const LOCAL_ACCESS_MARGIN_M:=18.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var network: RefCounted
 var data: Dictionary
@@ -31,20 +34,36 @@ func _candidates(at: Vector2, heading: Vector2, road_name: String) -> Array[Dict
 		for i in range(1,edge.points.size()):
 			var a: Vector2=edge.points[i-1];var b: Vector2=edge.points[i]
 			var segment:=b-a
-			var t:=clampf((at-a).dot(segment)/maxf(.001,segment.length_squared()),0,1)
+			if segment.length_squared()<.0001:continue
+			var t:=clampf((at-a).dot(segment)/segment.length_squared(),0,1)
 			var p:=a+segment*t
 			var distance:=at.distance_squared_to(p)
 			if distance<best:
 				best=distance;nearest=p;tangent=segment.normalized()
 				progress=float(edge.stations[i-1])+segment.length()*t
+		if best==INF:continue
 		var distance:=sqrt(best)
-		if road_name.is_empty() and distance>PPM*250:continue
-		var facing:=0.0 if heading==Vector2.ZERO else (1-heading.normalized().dot(tangent))*PPM*4
+		if road_name.is_empty() and distance>PPM*MAX_ACCESS_M:continue
+		# A lane's cost is distance actually traveled, not road rank, speed or
+		# direction penalties. Heading only resolves ties when equally close.
+		var facing:=0.0 if heading==Vector2.ZERO else heading.normalized().dot(tangent)
 		candidates.append({"edge":int(edge.id),"progress":progress,"nearest":nearest,
-			"distance":distance,"score":distance*3+facing})
-	candidates.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return a.score<b.score)
-	if candidates.size()>6:candidates.resize(6)
+			"distance":distance,"score":distance,"facing":facing})
+	candidates.sort_custom(func(a: Dictionary,b: Dictionary)->bool:
+		if absf(float(a.distance)-float(b.distance))<PPM*.1:
+			return float(a.facing)>float(b.facing)
+		return float(a.distance)<float(b.distance))
+	# Never truncate to the six nearest lanes: they may all be disconnected.
 	return candidates
+
+func _local_candidates(candidates: Array[Dictionary]) -> Array[Dictionary]:
+	var nearby: Array[Dictionary]=[]
+	if candidates.is_empty():return nearby
+	var radius:=float(candidates[0].distance)+LOCAL_ACCESS_MARGIN_M*PPM
+	for item in candidates:
+		if float(item.distance)>radius:break
+		nearby.append(item)
+	return nearby
 
 func _push(heap: Array, value: Array) -> void:
 	heap.append(value)
@@ -73,29 +92,49 @@ func plan(from_m: Vector2, target_m: Vector2, heading:=Vector2.ZERO,
 	var starts:=_candidates(from_m*PPM,heading,start_road)
 	var goals:=_candidates(target_m*PPM,Vector2.ZERO,finish_road)
 	if starts.is_empty() or goals.is_empty():return {}
+	# Keep both endpoints close to the real nearby road system so the GPS
+	# cannot choose a huge off-road jump as a shortcut. If that neighborhood
+	# is isolated, expand to any legal connection within the access radius.
+	var direct:=_shortest(_local_candidates(starts),_local_candidates(goals))
+	if not direct.is_empty():return direct
+	return _shortest(starts,goals)
+
+func _shortest(starts: Array[Dictionary],goals: Array[Dictionary]) -> Dictionary:
+	var goal_edges: Dictionary={}
+	for goal in goals:
+		var key:=int(goal.edge)
+		if not goal_edges.has(key):goal_edges[key]=[]
+		goal_edges[key].append(goal)
 	var distances: Dictionary={};var parents: Dictionary={};var roots: Dictionary={};var heap: Array=[]
 	var best:=INF;var best_ids: Array[int]=[];var best_start: Dictionary={};var best_goal: Dictionary={}
 	for start in starts:
-		for goal in goals:
-			if int(start.edge)==int(goal.edge) and float(goal.progress)>=float(start.progress):
-				var score:=float(goal.progress)-float(start.progress)+float(start.score)+float(goal.score)
-				if score<best:best=score;best_ids=[int(start.edge)];best_start=start;best_goal=goal
+		for goal in goal_edges.get(int(start.edge),[]):
+			# No backwards travel on a directed lane, even when reversing
+			# would be geometrically shorter. A legal loop can still reach it.
+			if float(goal.progress)<float(start.progress):continue
+			var score:=float(goal.progress)-float(start.progress)+float(start.score)+float(goal.score)
+			if score<best:
+				best=score;best_ids=[int(start.edge)];best_start=start;best_goal=goal
 		var cost:=float(network.edges[int(start.edge)].length_px)-float(start.progress)+float(start.score)
 		if cost<float(distances.get(int(start.edge),INF)):
 			distances[int(start.edge)]=cost;parents[int(start.edge)]=-1;roots[int(start.edge)]=start
 			_push(heap,[cost,int(start.edge)])
+	# Multi-source Dijkstra minimizes measured lane and junction-connector
+	# length. Nonnegative costs and a min-heap guarantee the shortest legal
+	# path; every successor comes from the runtime directed traffic graph.
 	while not heap.is_empty():
 		var entry:=_pop(heap);var cost:=float(entry[0]);var id:=int(entry[1])
 		if cost>float(distances.get(id,INF))+.001:continue
 		if cost>best:break
 		for raw_next in network.edges[id].next:
 			var next:=int(raw_next)
-			for goal in goals:
-				if next!=int(goal.edge):continue
+			for goal in goal_edges.get(next,[]):
 				var score:=cost+float(goal.progress)+float(goal.score)
 				if score>=best:continue
 				var sequence: Array[int]=[next];var cursor:=id
-				while cursor>=0:sequence.push_front(cursor);cursor=int(parents[cursor])
+				while cursor>=0:
+					sequence.push_front(cursor)
+					cursor=int(parents[cursor])
 				best=score;best_ids=sequence;best_start=roots[id];best_goal=goal
 			var proposed:=cost+float(network.edges[next].length_px)
 			if proposed<float(distances.get(next,INF)):
@@ -113,4 +152,6 @@ func plan(from_m: Vector2, target_m: Vector2, heading:=Vector2.ZERO,
 			points.append(p/PPM)
 	if points.size()<2:return {}
 	return {"points_m":points,"edges":best_ids,"length_m":length,
-		"road_destination_m":Vector2(best_goal.nearest)/PPM,"access_distance_m":float(best_goal.distance)/PPM}
+		"start_access_distance_m":float(best_start.distance)/PPM,
+		"road_destination_m":Vector2(best_goal.nearest)/PPM,
+		"access_distance_m":float(best_goal.distance)/PPM}

@@ -11,6 +11,7 @@ var destination_m:=Vector2.ZERO
 var destination_name:="Waypoint"
 var navigation: RefCounted
 var remaining_m:=0.0
+var destination_access_m:=0.0
 var status:=""
 var suspended:=false
 var route_revision:=0
@@ -31,19 +32,20 @@ func set_destination(point_m: Vector2,title: String="Waypoint") -> bool:
 	return true
 
 func clear_destination() -> void:
-	active=false;navigation=null;remaining_m=0;status="";route_revision+=1;suspended=false;_last_station=0
+	active=false;navigation=null;remaining_m=0;destination_access_m=0;status="";route_revision+=1;suspended=false;_last_station=0
 	changed.emit()
 
 func _reroute() -> void:
 	var result:=planner.plan(player.global_position/20,destination_m,Vector2.UP.rotated(player.rotation))
-	navigation=null;_last_station=0;route_revision+=1;_retry_clock=2.0
+	navigation=null;_last_station=0;destination_access_m=0;route_revision+=1;_retry_clock=2.0
 	if result.is_empty():
 		remaining_m=player.global_position.distance_to(destination_m*20)/20
 		status="No connected road route — move closer to a road"
 	else:
 		navigation=Navigation.new();navigation.setup(result.points_m,false)
-		remaining_m=float(navigation.length_m)
-		status="Follow the route" if float(result.access_distance_m)<20 else "Route to nearest road; destination is off-road"
+		destination_access_m=float(result.access_distance_m)
+		remaining_m=float(navigation.length_m)+destination_access_m+float(result.start_access_distance_m)
+		status="Follow shortest road route" if destination_access_m<20 else "Follow roads; destination is off-road"
 	changed.emit()
 
 func _process(dt: float) -> void:
@@ -57,13 +59,13 @@ func _process(dt: float) -> void:
 	if suspended:return
 	var position_m:=player.global_position/20
 	if position_m.distance_to(destination_m)<=16:
-		active=false;navigation=null;remaining_m=0;status="Arrived · "+destination_name;route_revision+=1
+		active=false;navigation=null;remaining_m=0;destination_access_m=0;status="Arrived · "+destination_name;route_revision+=1
 		changed.emit();return
 	if navigation==null:
 		if _retry_clock<=0:_reroute()
 		return
 	var station:=float(navigation.station_at(position_m))
-	remaining_m=maxf(0,float(navigation.length_m)-station)
+	remaining_m=maxf(0,float(navigation.length_m)-station)+destination_access_m
 	var deviation:=position_m.distance_to(navigation.point_at(station))
 	if _retry_clock<=0 and (deviation>22 or station<_last_station-25):
 		_reroute();return
