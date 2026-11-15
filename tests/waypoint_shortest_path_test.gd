@@ -49,7 +49,7 @@ func _run() -> void:
 	add_edge(graph,1,[Vector2(20,0),Vector2(80,0)],[3])
 	add_edge(graph,2,[Vector2(20,0),Vector2(20,80),Vector2(80,80),Vector2(80,0)],[3])
 	add_edge(graph,3,[Vector2(80,0),Vector2(100,0)])
-	var planner:=make_planner(graph,["START","SHORT","DETOUR","FINISH"])
+	var planner: Variant = make_planner(graph,["START","SHORT","DETOUR","FINISH"])
 	var shortest: Dictionary=planner.plan(Vector2(5,0),Vector2(95,0),Vector2.RIGHT,"START","FINISH")
 	check("chooses_shorter_leg_not_first_junction",shortest.get("edges",[])==[0,1,3],shortest.get("edges",[]))
 	check("uses_exact_partial_start_finish_edges",absf(float(shortest.get("length_m",0))-90.0)<.1,shortest.get("length_m",0))
@@ -63,14 +63,14 @@ func _run() -> void:
 	add_edge(many,10,[Vector2(195,8),Vector2(215,8)])
 	var names: Array[String]=[]
 	for i in many.edges.size():names.append("Road %d"%i)
-	var multi:=make_planner(many,names)
+	var multi: Variant = make_planner(many,names)
 	var reachable: Dictionary=multi.plan(Vector2(0,0),Vector2(210,8))
 	check("searches_past_six_disconnected_nearby_lanes",not reachable.is_empty() and int(reachable.edges[0])==8,reachable.get("edges",[]))
 	check("connected_route_follows_authorized_edges",valid_chain(many,reachable))
 	# A one-way lane cannot be followed backwards to save distance.
 	var one_way:=FakeNetwork.new()
 	add_edge(one_way,0,[Vector2(0,0),Vector2(100,0)])
-	var single:=make_planner(one_way,["ONE WAY"])
+	var single: Variant = make_planner(one_way,["ONE WAY"])
 	check("same_directed_lane_traverses_partially_forward",
 		single.plan(Vector2(20,0),Vector2(80,0)).get("edges",[])==[0])
 	check("no_reverse_drive_or_illegal_u_turn",
@@ -87,7 +87,7 @@ func _run() -> void:
 	var alternate:=FakeNetwork.new()
 	add_edge(alternate,0,[Vector2(0,0),Vector2(20,0)])
 	add_edge(alternate,1,[Vector2(0,80),Vector2(200,80)])
-	var fallback:=make_planner(alternate,["ISOLATED","CONNECTED"])
+	var fallback: Variant = make_planner(alternate,["ISOLATED","CONNECTED"])
 	var expanded: Dictionary=fallback.plan(Vector2(0,0),Vector2(190,80))
 	check("farther_connected_road_found_after_local_search_fails",
 		not expanded.is_empty() and expanded.get("edges",[])==[1],expanded.get("edges",[]))
@@ -98,7 +98,7 @@ func _run() -> void:
 	var remote:=FakeNetwork.new()
 	add_edge(remote,0,[Vector2(0,0),Vector2(200,0)])
 	add_edge(remote,1,[Vector2(200,100),Vector2(220,100)])
-	var remote_planner:=make_planner(remote,["CONNECTED","REMOTE"])
+	var remote_planner: Variant = make_planner(remote,["CONNECTED","REMOTE"])
 	var unreachable: Dictionary=remote_planner.plan(Vector2(0,0),Vector2(215,100))
 	check("no_remote_offroad_finish_disguised_as_a_short_route",unreachable.is_empty())
 
