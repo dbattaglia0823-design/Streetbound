@@ -254,7 +254,8 @@ func _build_detail_map() -> void:
 	detail_view = map_hud.call("map_view", detail_render, Vector2(960, 880), true) as Control
 	if is_instance_valid(detail_view):
 		# Map chunk streaming must continue while the game is paused.
-		detail_view.process_mode = Node.PROCESS_MODE_ALWAYS
+		# Stream map chunks only while the pause hub is visible.
+		detail_view.process_mode = Node.PROCESS_MODE_DISABLED
 		detail_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		# Labels, navigation markers and the car cursor must stay readable
 		# after the 2x map is downsampled into its on-screen cards.
@@ -269,6 +270,9 @@ func set_render_active(active: bool) -> void:
 	if is_instance_valid(detail_render):
 		detail_render.render_target_update_mode = (
 			SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED)
+	if is_instance_valid(detail_view):
+		detail_view.process_mode = (
+			Node.PROCESS_MODE_ALWAYS if active else Node.PROCESS_MODE_DISABLED)
 
 
 func _progress(parent: Control, bounds: Rect2) -> ProgressBar:
