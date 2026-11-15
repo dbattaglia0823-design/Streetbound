@@ -75,7 +75,7 @@ func _ready() -> void:
 	count_label.add_theme_font_size_override("font_size",13)
 	finance.add_child(count_label)
 	var note := Label.new()
-	note.text = "Purchased vehicles are added to your collection. Visit Laurel Motor House to switch cars."
+	note.text = "Cars sorted by price: lowest to highest. Purchases go to your Laurel Motor House garage."
 	note.add_theme_font_size_override("font_size",13)
 	vertical.add_child(note)
 	search = LineEdit.new()
@@ -155,13 +155,31 @@ func close_menu() -> void:
 	_update_access()
 
 
+## Dealerships list their own vehicles from the cheapest to the most
+## expensive. Equal prices use a consistent name/ID tie-breaker.
+static func _stock_price_less(a: Dictionary, b: Dictionary) -> bool:
+	var price_a := int(a.get("price_usd", 0))
+	var price_b := int(b.get("price_usd", 0))
+	if price_a != price_b:
+		return price_a < price_b
+	var name_a := str(a.get("display_name", "")).to_lower()
+	var name_b := str(b.get("display_name", "")).to_lower()
+	if name_a != name_b:
+		return name_a < name_b
+	return str(a.get("id", "")) < str(b.get("id", ""))
+
+
 func _rebuild_cards() -> void:
 	for item in cards:
 		(item.panel as Control).queue_free()
 	cards.clear()
+	var stock: Array[Dictionary] = []
 	for entry in Catalog.all():
 		if str(entry.get("dealership_id","")) == str(_active_shop.get("id","")):
-			_add_card(entry)
+			stock.append(entry)
+	stock.sort_custom(_stock_price_less)
+	for entry in stock:
+		_add_card(entry)
 	_layout()
 	_filter(search.text)
 
