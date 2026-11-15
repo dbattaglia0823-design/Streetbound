@@ -106,5 +106,49 @@ func run() -> void:
 		[marks.trail_count(),marks.point_count(),splits])
 	check("rendered_marks_still_present_after_pool_recycling",
 		marks.trail_count() >= 4 and marks.point_count() > 40)
+	# Timed removal works on real Line2D nodes and stays independent for
+	# multiple tracks (including when older marks are still fading).
+	var fading: TireMarks2D = TireMarks.new()
+	root.add_child(fading)
+	fading.add_mark(Vector2(0,0),0.0,true,0)
+	fading.add_mark(Vector2(0,20),0.0,true,0)
+	var old_ink: Line2D = fading.active_line(0)
+	fading._process(19.9)
+	check("drift_marks_remain_opaque_during_first_twenty_seconds",
+		is_equal_approx(old_ink.modulate.a,1.0))
+	fading._process(1.1)
+	var first_fade: float = old_ink.modulate.a
+	check("drift_marks_start_fading_after_twenty_seconds",
+		first_fade < 0.80 and first_fade > 0.70,first_fade)
+	fading.add_mark(Vector2(200,200),0.0,true,1)
+	var fresh_ink: Line2D = fading.active_line(1)
+	fading._process(1.4)
+	check("old_marks_fade_without_affecting_new_marks",
+		old_ink.modulate.a < first_fade and
+		is_equal_approx(fresh_ink.modulate.a,1.0))
+	# A new contact must not resurrect a previously faded old section.
+	fading.add_mark(Vector2(0,40),0.0,true,0)
+	var new_ink: Line2D = fading.active_line(0)
+	check("fresh_drift_does_not_revive_old_fading_path",
+		new_ink != old_ink and is_equal_approx(new_ink.modulate.a,1.0))
+	fading._process(1.7)
+	check("fully_faded_ink_is_removed_and_frees_its_vertices",
+		fading.trail_count() == 2 and
+		fading.point_count() == fresh_ink.get_point_count() + new_ink.get_point_count() and
+		not old_ink.is_inside_tree() and
+		new_ink.is_inside_tree() and fresh_ink.is_inside_tree())
+	# Continuing a drift refreshes the lifetime of the same live section.
+	var continuing: TireMarks2D = TireMarks.new()
+	root.add_child(continuing)
+	continuing.add_mark(Vector2(400,400),0.0,true,0)
+	continuing._process(19.0)
+	var ongoing: Line2D = continuing.active_line(0)
+	continuing.add_mark(Vector2(400,420),0.0,true,0)
+	continuing._process(2.0)
+	check("active_drift_section_stays_fully_visible",
+		continuing.active_line(0) == ongoing and is_equal_approx(ongoing.modulate.a,1.0))
+	continuing._process(20.5)
+	check("fade_clock_is_measured_from_last_contact_not_first_point",
+		ongoing.modulate.a < 1.0 and ongoing.modulate.a > 0.0)
 	print("CONTINUOUS TIRE MARKS: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
