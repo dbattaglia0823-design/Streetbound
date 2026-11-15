@@ -71,6 +71,22 @@ func _run() -> void:
 		session.move_sidewalk_point(branch_id,0,corner+Vector2(8,0),0.0,false) and
 		_at(session.prop_at_id(trunk_id),anchor_index).distance_to(corner)<.01 and
 		_at(session.prop_at_id(branch_id),0).distance_to(corner)>5.0)
+	var junction_before: Vector2=_at(session.prop_at_id(third_id),0)
+	var detached_before: Vector2=_at(session.prop_at_id(branch_id),0)
+	var moving: Dictionary=session.prop_at_id(trunk_id)
+	var center:=Vector2(float(moving.x),float(moving.y))
+	var offset:=Vector2(8,10)
+	check("moving_whole_sidewalk_keeps_shared_branches_attached",
+		session.move_prop(trunk_id,center+offset,0.0) and
+		_at(session.prop_at_id(third_id),0).distance_to(junction_before+offset)<.01 and
+		_at(session.prop_at_id(branch_id),0).distance_to(detached_before)<.01)
+	check("undo_restores_whole_path_and_joined_branches",
+		session.undo() and _at(session.prop_at_id(third_id),0).distance_to(junction_before)<.01)
+	check("Alt_move_does_not_pull_other_sidewalks",
+		session.move_prop(trunk_id,center+Vector2(10,0),0.0,false) and
+		_at(session.prop_at_id(third_id),0).distance_to(junction_before)<.01)
+	# Restore the source before testing an unrelated crossing.
+	session.undo()
 	# A walk crossing another with neither tip touching should form an X.
 	var crossing_parent: String=session.add_sidewalk([
 		Vector2(3500,3250),Vector2(3600,3250)],3.0)
