@@ -94,8 +94,9 @@ func _run() -> void:
 	check("shape_button_switches_to_circle_live",
 		shape_button.text == "Circle" and
 		str(pause.settings_store.get_setting("minimap_shape")) == "circle" and
-		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_AND_DRAW and
-		map_hud.mini_view.minimap_border.visible)
+		bool(map_hud.mini_mask.get_shader_parameter("circle_mode")) and
+		(map_hud.mini.get_theme_stylebox("panel") as StyleBoxFlat).bg_color.a < .01 and
+		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
 	check("full_atlas_remains_rectangular",
 		map_hud.full_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
 	var stored := ConfigFile.new()
@@ -106,8 +107,9 @@ func _run() -> void:
 	await process_frame
 	check("shape_button_switches_back_to_square",
 		shape_button.text == "Square" and
-		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED and
-		not map_hud.mini_view.minimap_border.visible)
+		not bool(map_hud.mini_mask.get_shader_parameter("circle_mode")) and
+		(map_hud.mini.get_theme_stylebox("panel") as StyleBoxFlat).bg_color.a > .9 and
+		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
 	# Escape in Settings should go back to Pause, not unpause gameplay.
 	press_escape()
 	await process_frame

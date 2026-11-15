@@ -4,6 +4,7 @@ const Model = preload("res://scripts/world/coast_map_model.gd")
 const MapView = preload("res://scripts/world/coast_map_view.gd")
 const Waypoints=preload("res://scripts/world/player_waypoints.gd")
 const Activities=preload("res://scripts/world/map_activity_overlay.gd")
+const CircularMask=preload("res://assets/ui/minimap_circle_mask.gdshader")
 var world: Node2D
 var vehicle: VehicleController2D
 var races: Array[Node2D] = []
@@ -12,6 +13,12 @@ var model: RefCounted
 var mini: PanelContainer
 var full: PanelContainer
 var mini_view: Control
+var mini_frame: Control
+var mini_render: SubViewport
+var mini_image: TextureRect
+var mini_mask: ShaderMaterial
+var mini_square_style: StyleBoxFlat
+var mini_round_style: StyleBoxFlat
 var full_view: Control
 var mini_cursor: Polygon2D
 var full_cursor: Polygon2D
@@ -75,6 +82,10 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 		node.center_m=node.player_m
 	node.custom_minimum_size=dimensions
 	node.size_flags_horizontal=Control.SIZE_SHRINK_CENTER if miniature else Control.SIZE_SHRINK_BEGIN
+	# When the minimap is hosted in a SubViewport (not a Container), give
+	# it an explicit render size for every native child and 2D overlay.
+	if miniature:
+		node.size=dimensions
 	parent.add_child(node)
 	var activities:=Node2D.new()
 	activities.set_script(Activities)
@@ -98,12 +109,46 @@ func _ready() -> void:
 	world_route.on_map=false;world_route.waypoints=waypoints;world_route.z_index=6
 	world.add_child(world_route)
 	mini=panel(Vector2(1100,24),Vector2(316,340))
+	mini_square_style=(mini.get_theme_stylebox("panel") as StyleBoxFlat).duplicate()
+	mini_round_style=mini_square_style.duplicate()
+	# Circular mode removes the full rectangular card backing so the
+	# transparent corners actually show the driving world behind the map.
+	mini_round_style.bg_color=Color.TRANSPARENT
+	mini_round_style.border_color=Color.TRANSPARENT
 	var column := VBoxContainer.new()
 	mini.add_child(column)
 	district_label=text(column,"MORROW COAST",16)
-	mini_view=map_view(column,Vector2(244,244),true)
+	# A single offscreen pass composites the original, cached live-world
+	# geometry, roof sprites, routes, POIs and player cursor first. Alpha-mask
+	# its final texture instead of attempting child clipping at mismatched
+	# z-indices (which left a rectangular map inside a circle overlay).
+	mini_frame=Control.new()
+	mini_frame.name="MinimapFrame"
+	mini_frame.custom_minimum_size=Vector2(244,244)
+	mini_frame.size_flags_horizontal=Control.SIZE_SHRINK_CENTER
+	mini_frame.mouse_filter=Control.MOUSE_FILTER_STOP
+	column.add_child(mini_frame)
+	mini_render=SubViewport.new()
+	mini_render.name="MinimapRenderViewport"
+	mini_render.size=Vector2i(244,244)
+	mini_render.disable_3d=true
+	mini_render.transparent_bg=false
+	mini_render.render_target_update_mode=SubViewport.UPDATE_ALWAYS
+	mini_frame.add_child(mini_render)
+	mini_view=map_view(mini_render,Vector2(244,244),true)
 	mini_view.atlas_requested.connect(func()->void:large=true)
-	mini_view.call("set_minimap_shape", minimap_shape)
+	mini_image=TextureRect.new()
+	mini_image.name="ClippedMinimap"
+	mini_image.position=Vector2.ZERO
+	mini_image.size=Vector2(244,244)
+	mini_image.texture=mini_render.get_texture()
+	mini_image.stretch_mode=TextureRect.STRETCH_SCALE
+	mini_image.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	mini_mask=ShaderMaterial.new()
+	mini_mask.shader=CircularMask
+	mini_image.material=mini_mask
+	mini_frame.add_child(mini_image)
+	mini_frame.gui_input.connect(_minimap_clicked)
 	mini_cursor=mini_view.cursor
 	road_label=text(column,"Laurel Motor House access",13)
 	road_label.custom_minimum_size.x=284
@@ -178,6 +223,7 @@ func _ready() -> void:
 	full_view.view_changed.connect(_update_scale)
 	text(body,"TAB close · Click to set waypoint · Click a race flag to navigate · Right-click clears · Drag to pan · Wheel to zoom",12,Color("c5d0ba"))
 	full.visible=false
+	set_minimap_shape(minimap_shape)
 	_update_scale()
 	_update_waypoint_label()
 
@@ -206,6 +252,30 @@ func set_minimap_shape(shape: String) -> void:
 	minimap_shape = "circle" if shape == "circle" else "square"
 	if is_instance_valid(mini_view):
 		mini_view.call("set_minimap_shape", minimap_shape)
+	if is_instance_valid(mini_mask):
+		mini_mask.set_shader_parameter("circle_mode", minimap_shape=="circle")
+	if is_instance_valid(mini) and mini_square_style!=null and mini_round_style!=null:
+		mini.add_theme_stylebox_override("panel",
+			mini_round_style if minimap_shape=="circle" else mini_square_style)
+		# HUD captions stay readable without bringing back the full square.
+		for field in [district_label,road_label,scale_label,mini_waypoint_label]:
+			if is_instance_valid(field):
+				field.add_theme_color_override("font_outline_color",Color("#0a1a1d"))
+				field.add_theme_constant_override("outline_size",
+					4 if minimap_shape=="circle" else 0)
+
+
+func _minimap_clicked(event: InputEvent) -> void:
+	if not event is InputEventMouseButton:
+		return
+	var click: InputEventMouseButton=event
+	if click.button_index!=MOUSE_BUTTON_LEFT or not click.pressed:
+		return
+	# Transparent circular corners are not part of the interactive map.
+	if minimap_shape=="circle" and click.position.distance_to(Vector2(122,122))>119:
+		return
+	mini_view.atlas_requested.emit()
+	mini_frame.accept_event()
 
 
 func _update_scale() -> void:
