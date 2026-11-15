@@ -76,6 +76,10 @@ func _resume_custom_map(file: String) -> void:
 	if not bool(doc.get("customMap",false)) or not validator._valid_source(doc):
 		native_world_editor._notice("Previous custom map is missing or invalid. Morrow Coast remains open.")
 		return
+	var where: Vector2 = native_world_editor.editor_camera.global_position
 	native_world_editor.map_switcher.activate(native_world_editor,doc,file)
+	# Map activation fits the entire map; restore the user's pre-drive editor view.
+	native_world_editor.editor_camera.global_position = where
+	native_world_editor._update_view(true)
 	native_world_editor.map_switcher.reload_list()
 	native_world_editor._notice("Returned from Test Drive. Continue editing "+str(doc.name)+".")
