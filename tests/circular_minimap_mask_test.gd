@@ -62,7 +62,7 @@ func _run() -> void:
 	# Fixed headless frames advance the SubViewport without relying on a
 	# display-server post-draw signal (not emitted by all CI renderers).
 	var image_pixels: Image=probe.get_texture().get_image()
-	if image_pixels.is_empty():
+	if image_pixels==null or image_pixels.is_empty():
 		check("round_map_render_available",false)
 	else:
 		check("circle_actual_corners_are_alpha_clipped",
@@ -89,10 +89,13 @@ func _run() -> void:
 	# Fixed headless frames advance the SubViewport without relying on a
 	# display-server post-draw signal (not emitted by all CI renderers).
 	image_pixels=probe.get_texture().get_image()
+	var opaque_square: bool=image_pixels!=null and not image_pixels.is_empty()
+	if opaque_square:
+		opaque_square=image_pixels.get_pixel(0,0).a>.9
 	check("square_mode_restores_opaque_corners",
 		not bool(hud.mini_mask.get_shader_parameter("circle_mode")) and
 		(hud.mini.get_theme_stylebox("panel") as StyleBoxFlat).bg_color.a>.9 and
-		not image_pixels.is_empty() and image_pixels.get_pixel(0,0).a>.9)
+		opaque_square)
 	check("atlas_shape_never_changes",
 		not atlas.miniature and atlas.minimap_shape=="square")
 	print("CIRCULAR MINIMAP MASK: ","PASS" if failures.is_empty() else "FAIL")
