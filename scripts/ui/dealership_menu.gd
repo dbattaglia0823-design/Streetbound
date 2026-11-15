@@ -171,7 +171,12 @@ static func _stock_price_less(a: Dictionary, b: Dictionary) -> bool:
 
 func _rebuild_cards() -> void:
 	for item in cards:
-		(item.panel as Control).queue_free()
+		var previous_panel: Control = item.panel
+		# Remove immediately so a close/reopen in one frame cannot leave
+		# queued-for-deletion cards ahead of the new price-sorted stock.
+		if previous_panel.get_parent() == grid:
+			grid.remove_child(previous_panel)
+		previous_panel.queue_free()
 	cards.clear()
 	var stock: Array[Dictionary] = []
 	for entry in Catalog.all():
