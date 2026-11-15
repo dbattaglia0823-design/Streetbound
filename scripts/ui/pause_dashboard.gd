@@ -834,7 +834,7 @@ func _route_to_car_dealership(id: String) -> void:
 
 
 func _process(_dt: float) -> void:
-	if section != "cars" or not visible or not is_instance_valid(car_scroller):
+	if section != "cars" or not is_visible_in_tree() or not is_instance_valid(car_scroller):
 		return
 	# Extend the row window when the player scrolls toward its end.
 	if is_instance_valid(car_load_more) and car_load_more.visible:
