@@ -18,7 +18,7 @@ func _run() -> void:
 	var pause = game.pause_menu
 	pause.pause_game()
 	await process_frame
-	var dash: Control = pause.dashboard
+	var dash = pause.dashboard
 	check("pause_hub_replaces_visible_legacy_layout",
 		paused and dash.visible and pause.pause_screen.visible and
 		is_zero_approx(pause.pause_screen.modulate.a))
@@ -54,9 +54,9 @@ func _run() -> void:
 			break
 	check("at_least_one_real_event_is_available",waypoint_race!=null)
 	if waypoint_race!=null and dash.event_rows.size()>0:
-		var selected_race: Node=dash._available_events()[0]
+		var selected_race=dash._available_events()[0]
 		dash.event_rows[0].pressed.emit()
-		var waypoint: Node=get_first_node_in_group("streetbound_world_map_hud").waypoints
+		var waypoint=get_first_node_in_group("streetbound_world_map_hud").waypoints
 		check("event_card_sets_real_driving_waypoint",
 			waypoint.active and
 			waypoint.destination_m.distance_to(selected_race.start_m)<.01 and
@@ -66,7 +66,7 @@ func _run() -> void:
 	var wip: Panel=dash.content.get_node_or_null("CarsWorkInProgress")
 	check("cars_tab_is_empty_work_in_progress",
 		dash.section=="cars" and wip!=null and
-		wip.get_node("WIPTitle").text=="WORK IN PROGRESS" and
+		(wip.get_node("WIPTitle") as Label).text=="WORK IN PROGRESS" and
 		dash.content.get_node_or_null("EventScroller")==null)
 	dash.show_section("events")
 	dash._set_event_filter("challenges")
@@ -76,7 +76,7 @@ func _run() -> void:
 	check("changing_tabs_does_not_lose_real_events",dash.event_rows.size()>0)
 	dash._navigate("more")
 	var more: Control=dash.content.get_node("MoreRow_0")
-	more.get_node("MoreAction").pressed.emit()
+	(more.get_node("MoreAction") as Button).pressed.emit()
 	check("multiplayer_still_accessible",
 		pause.menu_state=="multiplayer" and not dash.visible)
 	pause.back_to_pause()
@@ -85,7 +85,7 @@ func _run() -> void:
 		pause.menu_state=="settings" and pause.settings_screen.visible)
 	pause.back_to_pause()
 	dash.show_section("upgrades")
-	var overlay: Node=game.quick_upgrades
+	var overlay=game.quick_upgrades
 	var open_btn: Button=dash.content.get_node("UpgradeInfo/LaunchUpgrades")
 	check("upgrades_use_existing_real_overlay",not open_btn.disabled)
 	if not open_btn.disabled:
