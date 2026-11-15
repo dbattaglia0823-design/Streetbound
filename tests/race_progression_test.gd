@@ -114,11 +114,15 @@ func run() -> void:
 	var start: Vector2 = race.start_m * PPM
 	vehicle.global_position = start
 	vehicle.rotation = race.direction.angle() + PI/2.0
-	vehicle.linear_velocity = Vector2.ZERO
-	vehicle.velocity = Vector2.ZERO
-	check("player_must_stop_at_track_start",race.can_stage())
+	vehicle.linear_velocity = race.direction * 7.0
+	check("drag_race_rejects_above_15_mph",not race.can_stage())
+	vehicle.linear_velocity = race.direction * 6.7056
+	vehicle.velocity = vehicle.linear_velocity * PPM
+	check("drag_race_accepts_exactly_15_mph",race.can_stage())
 	check("race_countdown_starts_only_once",race.start_race() and \
 		not race.start_race() and race.state == "countdown")
+	check("rolling_start_settles_before_countdown",
+		vehicle.linear_velocity.is_zero_approx() and vehicle.velocity.is_zero_approx())
 	check("cannot_earn_during_countdown",
 		neutral.player_xp == 0 and neutral.active_car_level() == 1)
 	race._physics_process(3.05)
