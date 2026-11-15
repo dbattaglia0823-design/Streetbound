@@ -42,9 +42,37 @@ func _run() -> void:
 			str(game.vehicle_ownership.active_id)).display_name) and
 		dash.car_power.text == "%.0f HP" % (game.vehicle.config.engine_power_kw*1.341022) and
 		dash.car_level.text.contains("CAR LV"))
-	check("map_preview_uses_real_world_minimap_texture",
-		dash.map_image.texture != null and
-		dash.map_image.texture == hud.mini_render.get_texture())
+	check("pause_map_uses_dedicated_high_resolution_world_render",
+		dash.detail_render != null and dash.detail_view != null and
+		dash.detail_render.size == Vector2i(960,880) and
+		dash.detail_view.get_viewport() == dash.detail_render and
+		dash.detail_view.ink.mirror_enabled and
+		dash.detail_render.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	check("map_previews_crop_without_stretching_low_resolution_minimap",
+		dash.map_image.texture == dash.detail_render.get_texture() and
+		dash.map_image.texture != hud.mini_render.get_texture() and
+		dash.map_image.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED and
+		dash.map_image.clip_contents)
+	var driver_card: Control = dash.get_node("DriverCard")
+	var car_card: Control = dash.get_node("CurrentCarCard")
+	var area_card: Control = dash.get_node("AreaMapCard")
+	check("right_hand_cards_have_nonoverlapping_vertical_bounds",
+		driver_card.position.y + driver_card.size.y < car_card.position.y and
+		car_card.position.y + car_card.size.y < area_card.position.y and
+		area_card.position.y + area_card.size.y <= 747)
+	var cash_caption: Control = driver_card.get_node("CashCaption")
+	check("driver_cash_xp_and_district_do_not_overlap",
+		not dash.driver_xp.get_rect().intersects(dash.driver_balance.get_rect()) and
+		not dash.driver_xp.get_rect().intersects(cash_caption.get_rect()) and
+		not dash.driver_balance.get_rect().intersects(dash.driver_district.get_rect()) and
+		dash.driver_district.position.y + dash.driver_district.size.y <= driver_card.size.y)
+	check("cash_and_footer_have_readable_separate_backing",
+		dash.get_node("FooterBacking") != null and
+		(dash.get_node("FooterBacking") as Panel).size.x > 1300 and
+		pause.background.color.a > 0.7)
+	check("area_map_label_stays_below_image_and_inside_card",
+		dash.map_status.position.y >= dash.map_image.position.y + dash.map_image.size.y and
+		dash.map_status.position.y + dash.map_status.size.y < area_card.size.y)
 	check("real_events_populate_cards",
 		dash.event_rows.size() > 0 and dash.events_list.get_child_count()==dash.event_rows.size())
 	var waypoint_race: Node = null
@@ -62,6 +90,19 @@ func _run() -> void:
 			waypoint.destination_m.distance_to(selected_race.start_m)<.01 and
 			waypoint.destination_name==str(selected_race.race_title) and
 			dash.section=="map" and paused)
+	var description: Label = dash.content.get_node("DestinationHelp")
+	var preview: TextureRect = dash.content.get_node("InteractiveAreaPreview")
+	check("map_page_crops_high_res_preview_without_distortion",
+		preview.texture == dash.detail_render.get_texture() and
+		preview.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED and
+		preview.clip_contents and
+		preview.get_rect().end.x < dash.content.size.x and
+		preview.get_rect().end.y < dash.content.size.y)
+	check("navigation_help_no_longer_overflows_into_car_panel",
+		description.clip_text and
+		description.get_rect().end.x < dash.content.size.x and
+		description.get_rect().end.y < dash.content.size.y and
+		description.text.contains("Resume"))
 	dash.show_section("cars")
 	var wip: Panel=dash.content.get_node_or_null("CarsWorkInProgress")
 	check("cars_tab_is_empty_work_in_progress",
@@ -96,7 +137,8 @@ func _run() -> void:
 	pause.pause_game()
 	dash.nav_buttons["resume"].pressed.emit()
 	check("resume_from_navigation_unpauses",
-		not paused and not pause.overlay.visible)
+		not paused and not pause.overlay.visible and
+		dash.detail_render.render_target_update_mode == SubViewport.UPDATE_DISABLED)
 	game.queue_free()
 	paused=false
 	print("PAUSE HUB LAYOUT: ","PASS" if failures.is_empty() else str(failures))
