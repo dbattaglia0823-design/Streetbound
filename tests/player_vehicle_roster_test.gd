@@ -64,10 +64,12 @@ func run() -> void:
 	if selector == null:
 		quit(1)
 		return
-	check("all_playable_cards_in_scrollable_grid",
-		selector.cards.size() == vehicles.size() and selector.scroll is ScrollContainer \
-		and selector.grid is GridContainer)
+	check("no_garage_cards_at_game_start",
+		selector.cards.is_empty() and selector.scroll is ScrollContainer and
+		selector.grid is GridContainer)
 	selector.open_menu()
+	check("proving_ground_can_browse_every_car_after_open",
+		selector.cards.size() == vehicles.size())
 	check("vehicle_menu_pauses_driving",
 		selector.overlay.visible and paused and not selector.launch_button.visible)
 	selector.close_menu()

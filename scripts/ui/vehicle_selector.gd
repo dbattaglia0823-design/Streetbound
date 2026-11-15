@@ -17,6 +17,7 @@ var grid: GridContainer
 var search: LineEdit
 var title_label: Label
 var cards: Array[Dictionary] = []
+var _rendered_ids: Array[String] = []
 var _thumb_cache: Dictionary = {}
 var _thumb_clock := 0.0
 var _paused_by_selector := false
@@ -88,14 +89,33 @@ func _ready() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(grid)
-	for entry in Catalog.all():
-		_create_card(entry)
+	# Defer card creation until someone actually enters the garage.
 	overlay.visible = false
 	get_viewport().size_changed.connect(_layout_grid)
 	_layout_grid()
 	_update_garage_access()
 	if is_instance_valid(inventory):
 		inventory.changed.connect(_refresh_owned_cars)
+
+
+func _ensure_owned_cards() -> void:
+	var available: Array[Dictionary] = []
+	var current_ids: Array[String] = []
+	for entry in Catalog.all():
+		if is_instance_valid(inventory) and not inventory.owns(str(entry.id)):
+			continue
+		available.append(entry)
+		current_ids.append(str(entry.id))
+	if current_ids == _rendered_ids:
+		return
+	for card in cards:
+		var old_button: Button = card.button
+		grid.remove_child(old_button)
+		old_button.queue_free()
+	cards.clear()
+	for entry in available:
+		_create_card(entry)
+	_rendered_ids = current_ids
 
 
 func _create_card(entry: Dictionary) -> void:
@@ -174,6 +194,9 @@ func _apply_filter(query: String) -> void:
 
 
 func _refresh_owned_cars() -> void:
+	if not is_instance_valid(overlay) or not overlay.visible:
+		return
+	_ensure_owned_cards()
 	if search != null:
 		_apply_filter(search.text)
 	if is_instance_valid(inventory):
@@ -212,7 +235,7 @@ func open_menu() -> void:
 	overlay.visible = true
 	launch_button.visible = false
 	search.clear()
-	_apply_filter("")
+	_ensure_owned_cards()
 	_refresh_owned_cars()
 	search.grab_focus()
 

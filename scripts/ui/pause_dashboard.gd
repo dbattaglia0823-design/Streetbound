@@ -5,6 +5,7 @@ const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const RouteGraphic = preload("res://scripts/ui/race_route_preview.gd")
 const DESIGN := Vector2(1440, 800)
+const CAR_BATCH_SIZE := 18
 const WHITE := Color("#f0f2e9")
 const MUTED := Color("#a7bcb9")
 const LIME := Color("#bee795")
@@ -45,6 +46,9 @@ var events_list: VBoxContainer
 var event_rows: Array[Button] = []
 # Rebuilt from the canonical vehicle catalog whenever Cars is opened.
 var car_rows: Array[Dictionary] = []
+var car_filtered: Array[Dictionary] = []
+var car_row_parent: VBoxContainer
+var car_load_more: Button
 var car_search: LineEdit
 var car_scroller: ScrollContainer
 var car_count_label: Label
@@ -57,7 +61,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = DESIGN
 	_build_frame()
-	_build_detail_map()
+	# The high-resolution preview has no reason to render at initial startup.
 	show_section("events")
 
 func _skin(fill: Color, edge: Color, curve: int = 13) -> StyleBoxFlat:
@@ -260,6 +264,8 @@ func _build_frame() -> void:
 		Rect2(1096, 755, 292, 32), 12, LIME)
 
 func _build_detail_map() -> void:
+	if is_instance_valid(detail_render):
+		return
 	if not is_instance_valid(map_hud) or not map_hud.has_method("map_view"):
 		return
 	# Compose the same live streets/road geometry into one crisp source.
@@ -287,6 +293,8 @@ func _build_detail_map() -> void:
 
 
 func set_render_active(active: bool) -> void:
+	if active and not is_instance_valid(detail_render):
+		_build_detail_map()
 	if is_instance_valid(detail_render):
 		detail_render.render_target_update_mode = (
 			SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED)
@@ -337,9 +345,13 @@ func show_section(which: String) -> void:
 	section = which if which in ["map", "events", "cars", "upgrades", "more"] else "events"
 	_style_navigation()
 	car_rows.clear()
+	car_filtered.clear()
 	car_search = null
 	car_scroller = null
 	car_count_label = null
+	car_row_parent = null
+	car_load_more = null
+	set_process(section == "cars")
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -413,6 +425,8 @@ func _refresh_car() -> void:
 
 func _refresh_map() -> void:
 	if is_instance_valid(map_hud):
+		if not is_instance_valid(detail_render):
+			_build_detail_map()
 		if is_instance_valid(detail_render):
 			map_image.texture = detail_render.get_texture()
 		if is_instance_valid(detail_view) and is_instance_valid(vehicle):
@@ -699,8 +713,11 @@ func _show_cars() -> void:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", 9)
 	car_scroller.add_child(rows)
-	for entry in _sorted_cars():
-		_add_car_row(rows, entry)
+	car_row_parent = rows
+	car_load_more = _button(rows, "CarLoadMore", "SHOW MORE CARS",
+		Rect2(Vector2.ZERO, Vector2(710, 45)), _append_car_batch)
+	car_load_more.custom_minimum_size = Vector2(710, 45)
+	car_load_more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	car_search.text_changed.connect(_filter_cars)
 	_filter_cars("")
 
@@ -766,22 +783,35 @@ func _add_car_row(parent: VBoxContainer, entry: Dictionary) -> void:
 
 
 func _filter_cars(query: String) -> void:
-	if not is_instance_valid(car_count_label):
+	if not is_instance_valid(car_count_label) or not is_instance_valid(car_row_parent):
 		return
 	var needle := query.strip_edges().to_lower()
-	var shown := 0
 	for item in car_rows:
-		var entry: Dictionary = item.entry
-		var site: Dictionary = item.site
-		var matches := needle.is_empty() or \
-			needle in str(entry.get("display_name", "")).to_lower() or \
-			needle in str(site.get("name", "")).to_lower()
-		(item.row as Control).visible = matches
-		if matches:
-			shown += 1
-	car_count_label.text = "%d / %d CARS" % [shown, car_rows.size()]
-	if is_instance_valid(car_scroller):
-		car_scroller.scroll_vertical = 0
+		var old_row: Button = item.row
+		car_row_parent.remove_child(old_row)
+		old_row.queue_free()
+	car_rows.clear()
+	car_filtered.clear()
+	for entry in _sorted_cars():
+		var site := _car_dealership_site(entry)
+		if needle.is_empty() or needle in str(entry.get("display_name", "")).to_lower() or \
+				needle in str(site.get("name", "")).to_lower():
+			car_filtered.append(entry)
+	car_count_label.text = "%d / %d CARS" % [car_filtered.size(), Catalog.all().size()]
+	car_scroller.scroll_vertical = 0
+	_append_car_batch()
+
+
+func _append_car_batch() -> void:
+	if not is_instance_valid(car_row_parent) or not is_instance_valid(car_load_more):
+		return
+	var start := car_rows.size()
+	var finish := mini(start + CAR_BATCH_SIZE, car_filtered.size())
+	for index in range(start, finish):
+		_add_car_row(car_row_parent, car_filtered[index])
+	car_row_parent.move_child(car_load_more, car_row_parent.get_child_count() - 1)
+	car_load_more.visible = finish < car_filtered.size()
+	car_load_more.text = "SHOW MORE CARS  /  %d REMAINING" % (car_filtered.size() - finish)
 
 
 func _route_to_car_dealership(id: String) -> void:
@@ -804,8 +834,13 @@ func _route_to_car_dealership(id: String) -> void:
 
 
 func _process(_dt: float) -> void:
-	if section != "cars" or not visible or not is_instance_valid(car_scroller):
+	if section != "cars" or not is_visible_in_tree() or not is_instance_valid(car_scroller):
 		return
+	# Extend the row window when the player scrolls toward its end.
+	if is_instance_valid(car_load_more) and car_load_more.visible:
+		var bar: VScrollBar = car_scroller.get_v_scroll_bar()
+		if bar.value + bar.page >= bar.max_value - 100.0:
+			_append_car_batch()
 	var visible_area := car_scroller.get_global_rect().grow(45.0)
 	var budget := 2
 	for item in car_rows:

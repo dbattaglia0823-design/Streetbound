@@ -82,7 +82,13 @@ func _run() -> void:
 	pressed.position=Vector2(122,122)
 	hud._minimap_clicked(pressed)
 	check("clicking_circle_still_opens_atlas",hud.large)
+	hud._process(0.0)
+	check("minimap_does_not_render_under_full_atlas",
+		offscreen.render_target_update_mode==SubViewport.UPDATE_DISABLED)
 	hud.large=false
+	hud._process(0.0)
+	check("minimap_gpu_updates_restored_after_atlas",
+		offscreen.render_target_update_mode==SubViewport.UPDATE_ALWAYS)
 	hud.set_minimap_shape("square")
 	for i in 2:
 		await process_frame

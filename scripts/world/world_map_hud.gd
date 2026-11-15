@@ -300,6 +300,10 @@ func _active_race_navigation() -> RefCounted:
 func _process(dt: float) -> void:
 	mini.visible=not driving_hud.tuning.visible and not large and not get_tree().paused
 	full.visible=large and not driving_hud.tuning.visible and not get_tree().paused
+	# UPDATE_ALWAYS still uses GPU time for a hidden SubViewport.
+	var mini_mode := SubViewport.UPDATE_ALWAYS if mini.visible else SubViewport.UPDATE_DISABLED
+	if mini_render.render_target_update_mode != mini_mode:
+		mini_render.render_target_update_mode = mini_mode
 	layer=19 if full.visible else 2
 	var current_course := _active_race_navigation()
 	for view in [mini_view,full_view]:

@@ -95,8 +95,9 @@ func run() -> void:
 	check("visible_garage_button_is_enabled",
 		selector.launch_button.visible and not selector.launch_button.disabled)
 	selector.open_menu()
-	check("parked_car_opens_scrollable_catalog",
-		selector.overlay.visible and paused and selector.cards.size() == Catalog.all().size())
+	check("parked_car_opens_only_owned_catalog",
+		selector.overlay.visible and paused and
+		selector.cards.size() == selector.inventory.owned_count())
 	var parked_location := car.global_position
 	# Ownership is enforced outside the developer proving ground. Buy an
 	# inexpensive second car using an isolated in-memory test economy first.
