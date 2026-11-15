@@ -631,6 +631,53 @@ func _connect_sidewalk_in_doc(next: Dictionary,identity: String,index: int,
 	return true
 
 
+## Insert a real control point where two sidewalks cross, so an X junction
+## behaves like two T junctions rather than two independent overlays.
+func _insert_sidewalk_junction(prop: Dictionary,intersection: Vector2) -> bool:
+	var points:=sidewalk_world_points(prop)
+	for p in points:
+		if p.distance_to(intersection)<0.05:return true
+	if points.size()>=100:return false
+	for i in range(1,points.size()):
+		var projected:=Geometry2D.get_closest_point_to_segment(intersection,points[i-1],points[i])
+		if projected.distance_to(intersection)>0.05:continue
+		if points[i-1].distance_to(intersection)<SIDEWALK_POINT_MIN_M or (
+				points[i].distance_to(intersection)<SIDEWALK_POINT_MIN_M):
+			return false
+		points.insert(i,intersection)
+		return _set_sidewalk_world_points(prop,points)
+	return false
+
+
+func _link_sidewalk_crossings(next: Dictionary,identity: String) -> void:
+	var source: Dictionary={}
+	for prop in next.props:
+		if str(prop.id)==identity:source=prop;break
+	if source.is_empty():return
+	for target in next.props:
+		if str(target.get("type",""))!="sidewalk" or str(target.id)==identity:continue
+		var crossed: Array[Vector2]=[]
+		var a:=sidewalk_world_points(source)
+		var b:=sidewalk_world_points(target)
+		for i in range(1,a.size()):
+			for j in range(1,b.size()):
+				var intersection: Variant=Geometry2D.segment_intersects_segment(a[i-1],a[i],b[j-1],b[j])
+				if intersection is Vector2:
+					var unique:=true
+					for old in crossed:
+						if old.distance_to(intersection)<0.05:unique=false;break
+					if unique:crossed.append(intersection)
+		for intersection in crossed:
+			# Stage both insertions so an invalid 0.5m segment never alters
+			# either path when only one half of the junction is possible.
+			var src_copy: Dictionary=source.duplicate(true)
+			var dst_copy: Dictionary=target.duplicate(true)
+			if _insert_sidewalk_junction(src_copy,intersection) and (
+					_insert_sidewalk_junction(dst_copy,intersection)):
+				source.merge(src_copy,true)
+				target.merge(dst_copy,true)
+
+
 func reconnect_sidewalk_endpoint(identity: String,index: int,radius: float=SIDEWALK_SNAP_M) -> bool:
 	var source:=prop_at_id(identity)
 	if str(source.get("type",""))!="sidewalk" or index not in [0,source.sidewalkPoints.size()-1]:
@@ -713,6 +760,7 @@ func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
 	for endpoint in [0,points_m.size()-1]:
 		var trial: Dictionary=next.duplicate(true)
 		if _connect_sidewalk_in_doc(trial,id,endpoint):next=trial
+	_link_sidewalk_crossings(next,id)
 	return id if _commit(next) else ""
 
 
