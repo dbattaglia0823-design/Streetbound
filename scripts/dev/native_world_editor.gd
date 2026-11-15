@@ -988,8 +988,7 @@ func _source_click(world_px: Vector2) -> void:
 		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
 		var connection: Dictionary={}
 		if tool_name=="draw_sidewalk":
-			connection=Sidewalks.snap(authoring.doc.props,point,
-				clampf(10.0/(editor_camera.zoom.x*PPM),2.0,Sidewalks.SNAP_RADIUS_M))
+			connection=Sidewalks.snap(authoring.doc.props,point,Sidewalks.SNAP_RADIUS_M)
 			if not connection.is_empty():
 				point=connection.point
 		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=.5:
@@ -1127,8 +1126,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		return
 	if str(drag.kind)=="sidewalk_point":
 		ok=authoring.move_sidewalk_point(str(drag.id),int(drag.index),
-			_snap_point(destination_m),
-			clampf(10.0/(editor_camera.zoom.x*PPM),2.0,Sidewalks.SNAP_RADIUS_M),
+			_snap_point(destination_m),Sidewalks.SNAP_RADIUS_M,
 			not Input.is_physical_key_pressed(KEY_ALT))
 	elif str(drag.kind)=="road":
 		var temporary=EditSession.new();temporary.doc=authoring.doc
@@ -1138,8 +1136,15 @@ func _finish_source_drag(world_px: Vector2) -> void:
 			if int(drag.index) in [0,road.points.size()-1] and not Input.is_physical_key_pressed(KEY_ALT):temporary.reconnect_endpoint(str(drag.id),int(drag.index),clampf(12.0/(editor_camera.zoom.x*PPM),2.0,12.0))
 			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
-		var snapped:=_snap_building_transform(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
-		ok = authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
+		var item: Dictionary=authoring.prop_at_id(str(drag.id))
+		if str(item.get("type",""))=="sidewalk":
+			ok=authoring.move_prop(str(drag.id),
+				_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM),0.0,
+				not Input.is_physical_key_pressed(KEY_ALT))
+		else:
+			var snapped:=_snap_building_transform(item,
+				_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
+			ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
 	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
