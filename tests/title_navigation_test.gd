@@ -26,6 +26,36 @@ func _run() -> void:
 	check("keyboard_and_controller_menu_buttons_focus",
 		title.actions["single_player"].focus_mode==Control.FOCUS_ALL and
 		title.actions["multiplayer"].focus_mode==Control.FOCUS_ALL)
+	check("title_uses_new_streetbound_visuals_without_old_buttons",
+		title.get_node_or_null("MenuBackground") != null and
+		title.get_node_or_null("MenuShell/FeaturedVehicle") != null and
+		not title.actions.has("garage") and
+		not title.actions.has("customization") and
+		title.actions["single_player"].text.contains("PLAY") and
+		title.actions["map_editor"].text.contains("MAP BUILDER"))
+	check("multiplayer_is_separate_page_not_direct_local_launch",
+		title.main_page.visible and not title.multiplayer_page.visible)
+	title.actions["multiplayer"].pressed.emit()
+	check("multiplayer_page_has_local_and_disabled_online",
+		current_scene == title and title.multiplayer_page.visible and
+		not title.main_page.visible and
+		title.actions["local_multiplayer"].visible and
+		title.actions["online_multiplayer"].visible and
+		title.actions["online_multiplayer"].disabled and
+		title.actions["online_multiplayer"].text.contains("COMING SOON"))
+	title._activate("online_multiplayer")
+	check("online_multiplayer_has_no_accidental_launch_path",
+		current_scene == title and title.multiplayer_page.visible and
+		title.multiplayer_message.text.contains("coming soon"))
+	if Input.get_connected_joypads().is_empty():
+		title.actions["local_multiplayer"].pressed.emit()
+		check("local_multiplayer_requires_controller_without_changing_scenes",
+			current_scene == title and
+			title.multiplayer_message.text.contains("controller"))
+	title.actions["back"].pressed.emit()
+	check("multiplayer_back_restores_main_menu",
+		title.main_page.visible and not title.multiplayer_page.visible and
+		title.actions["multiplayer"].has_focus())
 	var dev: bool = OS.has_feature("debug") or OS.has_feature("editor")
 	check("map_editor_is_dev_only_but_visible_at_startup",
 		title.actions["map_editor"].visible and
@@ -45,11 +75,6 @@ func _run() -> void:
 	check("title_settings_back_resumes_without_opening_game_pause_menu",
 		not paused and title.settings_adapter.menu_state=="" and
 		not title.settings_adapter.overlay.visible and title.visible)
-	if Input.get_connected_joypads().is_empty():
-		title.actions["multiplayer"].pressed.emit()
-		check("multiplayer_requires_controller_without_changing_scenes",
-			current_scene == title and
-			title.message.text.contains("controller"))
 	# Main-menu world editing now uses an isolated scene with no player,
 	# racing AI, or game-physics chunks. Gameplay pause controls are separately
 	# exercised by launching an ordinary game after leaving this scene.
