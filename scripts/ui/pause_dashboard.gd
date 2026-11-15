@@ -418,7 +418,7 @@ func _populate_event_rows() -> void:
 	event_rows.clear()
 	for key in filter_buttons:
 		var tab: Button = filter_buttons[key]
-		var active := key == event_filter
+		var active: bool = str(key) == event_filter
 		tab.add_theme_stylebox_override("normal", _skin(
 			LIME if active else Color("#173137"),
 			LIME if active else Color("#53766b"), 10))
