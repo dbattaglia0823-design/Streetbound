@@ -24,9 +24,48 @@ func _ready() -> void:
 func point(raw: Array) -> Vector2:
 	return (Vector2(float(raw[0]),float(raw[1]))-origin_m)*PPM
 func _draw() -> void:
+	# One pass per material layer across every authored sidewalk. Rendering
+	# each branch's dark border AFTER its neighbor's pale paving would leave
+	# an artificial stripe across T and X junctions.
+	var walks: Array[Dictionary]=[]
 	for prop in prop_list:
-		_draw_prop(prop)
+		if str(prop.get("kind",""))=="sidewalk":
+			walks.append(prop)
+	for layer_index in 4:
+		for prop in walks:
+			_draw_sidewalk_layer(prop,layer_index)
+	for prop in prop_list:
+		if str(prop.get("kind",""))!="sidewalk":
+			_draw_prop(prop)
 	draw_set_transform(Vector2.ZERO)
+
+
+func _draw_sidewalk_layer(prop: Dictionary, layer_index: int) -> void:
+	if not suppressed_preview_id.is_empty() and str(prop.get("editor_source_id",""))==suppressed_preview_id:
+		return
+	if not ignore_editor_mask and editor_hidden.has(editor_key(prop)):
+		return
+	var path:=PackedVector2Array()
+	for raw in prop.get("sidewalk_points",[]):
+		path.append(Vector2(float(raw[0]),float(raw[1]))*PPM)
+	if path.size()<2:return
+	var center:=point(prop.p)
+	var axes: Array=prop.get("sidewalk_scale",[1,1])
+	draw_set_transform(center,float(prop.angle),Vector2(float(axes[0]),float(axes[1])))
+	var width: float=float(prop.get("sidewalk_width",3))*PPM
+	if layer_index<3:
+		var thickness: float=width+[6.0,2.0,-4.0][layer_index]
+		var ink: Color=[Color("#777f79"),Color("#d8d5c7"),Color("#bcbdb3")][layer_index]
+		draw_polyline(path,ink,thickness,true)
+		for p in path:
+			draw_circle(p,thickness*.5,ink)
+	else:
+		for i in range(1,path.size()):
+			var d: Vector2=(path[i]-path[i-1]).normalized()
+			var n:=Vector2(-d.y,d.x)
+			for station in range(20,int(path[i].distance_to(path[i-1])),40):
+				var p: Vector2=path[i-1]+d*station
+				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#929a93"),1.0,true)
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()
@@ -339,22 +378,8 @@ func _draw_prop(prop: Dictionary) -> void:
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
 	if kind=="sidewalk":
-		var scale_value: Array=prop.get("sidewalk_scale",[1,1])
-		draw_set_transform(center,float(prop.angle),Vector2(scale_value[0],scale_value[1]))
-		var path:=PackedVector2Array()
-		for p in prop.get("sidewalk_points",[]):path.append(Vector2(p[0],p[1])*PPM)
-		if path.size()<2:return
-		var width: float=float(prop.get("sidewalk_width",3))*PPM
-		for pass_index in 3:
-			var thickness: float=width+[6.0,2.0,-4.0][pass_index]
-			var ink: Color=[Color("#777f79"),Color("#d8d5c7"),Color("#bcbdb3")][pass_index]
-			draw_polyline(path,ink,thickness,true)
-			for p in path:draw_circle(p,thickness*.5,ink)
-		for i in range(1,path.size()):
-			var d: Vector2=(path[i]-path[i-1]).normalized();var n:=Vector2(-d.y,d.x)
-			for station in range(20,int(path[i].distance_to(path[i-1])),40):
-				var p: Vector2=path[i-1]+d*station
-				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#929a93"),1.0,true)
+		for layer_index in 4:
+			_draw_sidewalk_layer(prop,layer_index)
 		return
 	if prop.has("asset_path"):
 		var project_texture: Texture2D = Art.project_sprite(str(prop.asset_path),prop.get("asset_region",[]))
