@@ -203,6 +203,9 @@ func _ready() -> void:
 		quick_upgrades.economy = vehicle_ownership
 		quick_upgrades.vehicle = vehicle
 		add_child(quick_upgrades)
+		pause_menu.quick_upgrades = quick_upgrades
+		if is_instance_valid(pause_menu.dashboard):
+			pause_menu.dashboard.upgrades = quick_upgrades
 	if not proving_ground:
 		dealership_menu = CanvasLayer.new()
 		dealership_menu.set_script(DealerMenuScript)
