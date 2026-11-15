@@ -400,6 +400,23 @@ func _draw_draft() -> void:
 		for i in handles.size():
 			draw_circle(handles[i],(7.0 if i==selected_anchor_index else 5.0)/maxf(.003,zoom_level),
 				Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else Color(1.0,0.67,0.24,1.0))
+	# A selected footpath exposes editable control points, including points
+	# shared by several branches. These are not traffic-road handles.
+	if not runtime_playtest and layer_flags.get("scenery",true):
+		for prop in draft_doc.get("props",[]):
+			if str(prop.get("type",""))!="sidewalk" or bool(prop.get("hidden",false)):continue
+			if str(prop.id)!=selected_source_id and not source_anchor_mode:continue
+			var anchors:=EditSession.sidewalk_world_points(prop)
+			var path:=PackedVector2Array()
+			for point in anchors:path.append(point*PPM)
+			if path.size()<2:continue
+			draw_polyline(path,Color("#ffb653") if str(prop.id)==selected_source_id else Color("#94cfb7"),3.0,true)
+			for i in path.size():
+				if not _visible_point(path[i]):continue
+				var chosen: bool=str(prop.id)==selected_source_id and i==selected_anchor_index
+				var radius: float=(8.0 if chosen else 5.5)/maxf(.05,zoom_level)
+				draw_circle(path[i],radius+2.0/maxf(.05,zoom_level),Color("#26383c"))
+				draw_circle(path[i],radius,Color("#ffc26a") if chosen else Color("#76e2bb"))
 	# Anchor mode exposes ALL editable road control points with large,
 	# zoom-aware handles; no prior road selection is necessary.
 	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
