@@ -35,8 +35,12 @@ var car_power: Label
 var car_drive: Label
 var car_grip: Label
 var car_weight: Label
+# The 244px driving minimap is too small to enlarge without blur.
+var detail_render: SubViewport
+var detail_view: Control
 var map_image: TextureRect
 var map_status: Label
+var map_full_preview: TextureRect
 var events_list: VBoxContainer
 var event_rows: Array[Button] = []
 
@@ -46,6 +50,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	size = DESIGN
 	_build_frame()
+	_build_detail_map()
 	show_section("events")
 
 func _skin(fill: Color, edge: Color, curve: int = 13) -> StyleBoxFlat:
@@ -75,16 +80,31 @@ func _label(parent: Control, node_name: String, words: String, rect: Rect2,
 	var l := Label.new()
 	l.name = node_name
 	l.text = words
+	# Godot 4.4's fallback font reports roughly 3 pixels of line height
+	# per requested font pixel in this project. Size to the available row
+	# BEFORE parenting; later minimum-size changes cannot undo an expansion.
+	var effective_px: int = font_px
+	if int(Engine.get_version_info().get("minor", 6)) <= 4:
+		effective_px = mini(font_px, maxi(5, floori((rect.size.y - 1.0) / 3.0)))
+	l.add_theme_font_size_override("font_size", effective_px)
 	l.position = rect.position
-	l.size = rect.size
-	l.add_theme_font_size_override("font_size", font_px)
 	l.add_theme_color_override("font_color", tint)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# Never let multiline text paint behind the neighboring card.
+	l.clip_text = true
 	if wrap_text:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(l)
+	# The fallback font in Godot 4.4 can report 3x the line height of 4.6.
+	# A label must fit its allotted row rather than letting its theme
+	# minimum paint across the next row or outside its panel.
+	var minimum_height: float = l.get_combined_minimum_size().y
+	if minimum_height > rect.size.y and rect.size.y > 0.0:
+		var fitted_size: int = maxi(5, floori(effective_px * rect.size.y / minimum_height))
+		l.add_theme_font_size_override("font_size", mini(effective_px, fitted_size))
+	l.size = rect.size
 	return l
 
 func _button(parent: Control, node_name: String, title: String, rect: Rect2,
@@ -93,8 +113,8 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 	b.name = node_name
 	b.text = title
 	b.position = rect.position
-	b.size = rect.size
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.clip_text = true
 	b.add_theme_font_size_override("font_size", 16)
 	b.add_theme_color_override("font_color", DARK if emphasis else WHITE)
 	b.add_theme_color_override("font_hover_color", DARK if emphasis else WHITE)
@@ -109,6 +129,7 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 	b.add_theme_stylebox_override("focus", focused)
 	b.pressed.connect(action)
 	parent.add_child(b)
+	b.size = rect.size
 	return b
 
 func _build_frame() -> void:
@@ -153,7 +174,7 @@ func _build_frame() -> void:
 	content.size = Vector2(781, 650)
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(content)
-	var driver := _panel(self, "DriverCard", Rect2(1043, 97, 367, 139),
+	var driver := _panel(self, "DriverCard", Rect2(1043, 97, 367, 160),
 		Color("#10292c", .96), Color("#5c7e73"))
 	_label(driver, "DriverEyebrow", "DRIVER", Rect2(18, 7, 120, 24), 14, LIME)
 	driver_level = _label(driver, "DriverLevel", "DRIVER LV 1",
@@ -162,24 +183,25 @@ func _build_frame() -> void:
 		Rect2(181, 37, 169, 22), 12, MUTED)
 	driver_xp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	driver_xp = _progress(driver, Rect2(18, 66, 332, 10))
-	_label(driver, "CashCaption", "CASH", Rect2(18, 87, 125, 19), 12, MUTED)
+	# ProgressBar has a minimum height greater than 10px; keep money below it.
+	_label(driver, "CashCaption", "CASH", Rect2(18, 100, 125, 20), 12, MUTED)
 	driver_balance = _label(driver, "DriverCash", "$0",
-		Rect2(173, 85, 177, 24), 17, LIME)
+		Rect2(164, 100, 186, 23), 17, LIME)
 	driver_balance.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	driver_district = _label(driver, "DriverDistrict", "MORROW COAST",
-		Rect2(18, 111, 332, 20), 13, WHITE)
-	var car := _panel(self, "CurrentCarCard", Rect2(1043, 247, 367, 266),
+		Rect2(18, 131, 332, 21), 13, WHITE)
+	var car := _panel(self, "CurrentCarCard", Rect2(1043, 267, 367, 248),
 		Color("#10292c", .96), Color("#5c7e73"))
 	_label(car, "CurrentCarCaption", "CURRENT CAR", Rect2(18, 8, 194, 25), 14, LIME)
 	var photo_background := ColorRect.new()
 	photo_background.position = Vector2(18, 35)
-	photo_background.size = Vector2(155, 126)
+	photo_background.size = Vector2(155, 108)
 	photo_background.color = Color("#162b2d")
 	car.add_child(photo_background)
 	car_image = TextureRect.new()
 	car_image.name = "EquippedCarImage"
 	car_image.position = Vector2(22, 38)
-	car_image.size = Vector2(147, 119)
+	car_image.size = Vector2(147, 102)
 	car_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	car_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	car_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -188,17 +210,17 @@ func _build_frame() -> void:
 		Rect2(190, 46, 159, 47), 20, WHITE, true)
 	car_level = _label(car, "CarLevel", "CAR LV 1",
 		Rect2(190, 106, 160, 25), 14, LIME)
-	_label(car, "HorsepowerCaption", "HORSEPOWER", Rect2(18, 168, 150, 19), 12, MUTED)
-	car_power = _label(car, "Horsepower", "—", Rect2(180, 168, 169, 19), 14)
+	_label(car, "HorsepowerCaption", "HORSEPOWER", Rect2(18, 151, 150, 19), 12, MUTED)
+	car_power = _label(car, "Horsepower", "—", Rect2(180, 151, 169, 19), 14)
 	car_power.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_label(car, "DrivetrainCaption", "DRIVETRAIN", Rect2(18, 194, 150, 20), 12, MUTED)
-	car_drive = _label(car, "Drivetrain", "—", Rect2(180, 194, 169, 20), 14)
+	_label(car, "DrivetrainCaption", "DRIVETRAIN", Rect2(18, 177, 150, 20), 12, MUTED)
+	car_drive = _label(car, "Drivetrain", "—", Rect2(180, 177, 169, 20), 14)
 	car_drive.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_label(car, "GripCaption", "TIRE GRIP", Rect2(18, 220, 150, 20), 12, MUTED)
-	car_grip = _label(car, "TireGrip", "—", Rect2(180, 220, 169, 20), 14)
+	_label(car, "GripCaption", "TIRE GRIP", Rect2(18, 203, 150, 20), 12, MUTED)
+	car_grip = _label(car, "TireGrip", "—", Rect2(180, 203, 169, 20), 14)
 	car_grip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	car_weight = _label(car, "Mass", "", Rect2(19, 244, 331, 18), 11, MUTED)
-	var area := _panel(self, "AreaMapCard", Rect2(1043, 524, 367, 223),
+	car_weight = _label(car, "Mass", "", Rect2(19, 227, 331, 18), 11, MUTED)
+	var area := _panel(self, "AreaMapCard", Rect2(1043, 525, 367, 222),
 		Color("#10292c", .96), Color("#5c7e73"))
 	_label(area, "MapCaption", "AREA MAP — MORROW COAST",
 		Rect2(16, 6, 244, 24), 13, LIME)
@@ -206,35 +228,82 @@ func _build_frame() -> void:
 		Rect2(262, 6, 91, 27), _navigate.bind("map"))
 	map_action.add_theme_font_size_override("font_size", 11)
 	var map_bg := ColorRect.new()
-	map_bg.position = Vector2(15, 38)
-	map_bg.size = Vector2(337, 164)
+	map_bg.position = Vector2(15, 39)
+	map_bg.size = Vector2(337, 153)
 	map_bg.color = Color("#1a3439")
 	area.add_child(map_bg)
 	map_image = TextureRect.new()
 	map_image.name = "LiveLocalMap"
-	map_image.position = Vector2(15, 38)
-	map_image.size = Vector2(337, 164)
-	map_image.stretch_mode = TextureRect.STRETCH_SCALE
+	map_image.position = Vector2(15, 39)
+	map_image.size = Vector2(337, 153)
+	# Crop for this wide slot; do not distort the map's native aspect ratio.
+	map_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	map_image.clip_contents = true
 	map_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	area.add_child(map_image)
-	map_status = _label(area, "MapSource", "Live local streets", Rect2(19, 198, 331, 19),
+	map_status = _label(area, "MapSource", "Live local streets", Rect2(19, 197, 331, 18),
 		11, MUTED)
-	_label(self, "FooterInstructions", "ESC  Back / Resume       •       ENTER  Select       •       Drive to an event to start it",
-		Rect2(37, 757, 1220, 32), 13, MUTED)
+	_panel(self, "FooterBacking", Rect2(28, 753, 1382, 38),
+		Color("#0b1e24", 0.93), Color("#465f5d"))
+	_label(self, "FooterInstructions",
+		"ESC  Back / Resume     •     ENTER  Select     •     Drive to an event to start",
+		Rect2(42, 755, 940, 32), 13, MUTED)
 	_label(self, "FooterBrand", "STREETBOUND  •  MORROW COAST",
-		Rect2(1100, 757, 302, 32), 12, LIME)
+		Rect2(1096, 755, 292, 32), 12, LIME)
+
+func _build_detail_map() -> void:
+	if not is_instance_valid(map_hud) or not map_hud.has_method("map_view"):
+		return
+	# Compose the same live streets/road geometry into one crisp source.
+	# 960x880 is about double the main map's display resolution.
+	detail_render = SubViewport.new()
+	detail_render.name = "PauseMapHighResolution"
+	detail_render.size = Vector2i(960, 880)
+	detail_render.disable_3d = true
+	detail_render.transparent_bg = false
+	detail_render.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(detail_render)
+	detail_view = map_hud.call("map_view", detail_render, Vector2(960, 880), true) as Control
+	if is_instance_valid(detail_view):
+		# Map chunk streaming must continue while the game is paused.
+		# Stream map chunks only while the pause hub is visible.
+		detail_view.process_mode = Node.PROCESS_MODE_DISABLED
+		detail_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Labels, navigation markers and the car cursor must stay readable
+		# after the 2x map is downsampled into its on-screen cards.
+		detail_view.set_meta("pause_render_density", 2.0)
+		detail_view.ink.label_scale = 2.0
+		detail_view.cursor.scale = Vector2(2.0, 2.0)
+		detail_view.scale_bar.visible = false
+	map_image.texture = detail_render.get_texture()
+
+
+func set_render_active(active: bool) -> void:
+	if is_instance_valid(detail_render):
+		detail_render.render_target_update_mode = (
+			SubViewport.UPDATE_ALWAYS if active else SubViewport.UPDATE_DISABLED)
+	if is_instance_valid(detail_view):
+		detail_view.process_mode = (
+			Node.PROCESS_MODE_ALWAYS if active else Node.PROCESS_MODE_DISABLED)
+
 
 func _progress(parent: Control, bounds: Rect2) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.position = bounds.position
-	b.size = bounds.size
+	# Hide the default percentage BEFORE sizing: otherwise Godot 4.4
+	# holds its original 52px label-minimum height even for a slim bar.
+	b.show_percentage = false
+	# The progress label is hidden. A tiny font prevents Godot 4.4 from
+	# reserving an invisible 52px text row inside this 10px meter.
+	b.add_theme_font_size_override("font_size", 1)
 	b.min_value = 0
 	b.max_value = 1
-	b.show_percentage = false
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_theme_stylebox_override("background", _skin(Color("#354b49"), Color.TRANSPARENT, 3))
 	b.add_theme_stylebox_override("fill", _skin(LIME, Color.TRANSPARENT, 3))
 	parent.add_child(b)
+	b.size = bounds.size
 	return b
 
 func _style_navigation() -> void:
@@ -333,9 +402,13 @@ func _refresh_car() -> void:
 
 func _refresh_map() -> void:
 	if is_instance_valid(map_hud):
-		var rendered: SubViewport = map_hud.get("mini_render") as SubViewport
-		if is_instance_valid(rendered):
-			map_image.texture = rendered.get_texture()
+		if is_instance_valid(detail_render):
+			map_image.texture = detail_render.get_texture()
+		if is_instance_valid(detail_view) and is_instance_valid(vehicle):
+			detail_view.set("player_m", vehicle.global_position / 20.0)
+			detail_view.set("player_heading", vehicle.rotation)
+			detail_view.set("center_m", vehicle.global_position / 20.0)
+			detail_view.call("redraw_map")
 		var waypoint: Node = map_hud.get("waypoints") as Node
 		if is_instance_valid(waypoint) and bool(waypoint.get("active")):
 			map_status.text = "GPS: " + str(waypoint.get("destination_name"))
@@ -500,11 +573,18 @@ func _show_map() -> void:
 	var preview := TextureRect.new()
 	preview.name = "InteractiveAreaPreview"
 	preview.position = Vector2(35, 157)
-	preview.size = Vector2(471, 435)
+	# Without IGNORE_SIZE, TextureRect grows to the 960x880 source
+	# texture's minimum size and spills outside the central map panel.
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.texture = map_image.texture
-	preview.stretch_mode = TextureRect.STRETCH_SCALE
+	preview.size = Vector2(471, 435)
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	preview.clip_contents = true
+	map_full_preview = preview
 	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(preview)
+	_label(content, "MapOrientation", "N ↑   /   LIVE LOCAL STREETS",
+		Rect2(45, 560, 280, 22), 12, LIME)
 	_label(content, "MapHelp", "GPS DESTINATION", Rect2(534, 156, 207, 26), 13, LIME)
 	var waypoint: Node = map_hud.get("waypoints") as Node if is_instance_valid(map_hud) else null
 	var destination := "No waypoint selected"
@@ -512,8 +592,9 @@ func _show_map() -> void:
 		destination = str(waypoint.get("destination_name"))
 	_label(content, "DestinationName", destination,
 		Rect2(535, 187, 210, 56), 16, WHITE, true)
-	_label(content, "DestinationHelp", "Select a race in Events to place a GPS route.\nResume to follow the in-world directions.",
-		Rect2(535, 262, 208, 76), 13, MUTED, true)
+	_label(content, "DestinationHelp",
+		"Choose an event to set GPS.\nResume to follow the route.",
+		Rect2(535, 264, 204, 72), 13, MUTED, true)
 	_button(content, "MapShowEvents", "BROWSE EVENTS",
 		Rect2(535, 351, 207, 49), _navigate.bind("events"), true)
 	var clear := _button(content, "ClearWaypoint", "CLEAR WAYPOINT",
