@@ -53,6 +53,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
           grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
+      - name: Verify waypoint shortest paths and legal junction routing
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/waypoint_shortest_path_test.gd 2>&1 | tee /tmp/waypoint-shortest-463.log
+          grep -q 'WAYPOINT SHORTEST PATHS: PASS' /tmp/waypoint-shortest-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/waypoint-shortest-463.log
       - name: Verify expanded races, circular starts, map markers and player waypoints
         run: |
           set -o pipefail
