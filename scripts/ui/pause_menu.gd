@@ -35,6 +35,7 @@ var capture_action := ""
 var capture_device := ""
 var binding_feedback: Label
 var reset_bindings_button: Button
+var quit_race_button: Button
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -62,6 +63,14 @@ func _ready() -> void:
 
 	pause_screen = _load_screen("res://assets/ui/pause-menu.layout.json", "PauseScreen")
 	settings_screen = _load_screen("res://assets/ui/pause-settings.layout.json", "SettingsScreen")
+	quit_race_button=Button.new();quit_race_button.name="QuitRace";quit_race_button.text="Quit Race"
+	quit_race_button.position=Vector2(286,156);quit_race_button.size=Vector2(228,38)
+	quit_race_button.tooltip_text="End the current race without rewards and return to free driving."
+	_button_skin(quit_race_button);pause_screen.add_child(quit_race_button)
+	for style in ["normal","hover","pressed","focus"]:quit_race_button.add_theme_stylebox_override(style,pause_screen.controls["map_editor"].get_theme_stylebox(style))
+	quit_race_button.add_theme_font_size_override("font_size",19)
+	quit_race_button.pressed.connect(_quit_active_race)
+	_update_race_button()
 	_build_settings_tabs()
 	settings_screen.visible = false
 	overlay.visible = false
@@ -459,6 +468,7 @@ func show_split_screen_error(message: String) -> void:
 func _show_page(page: String) -> void:
 	if page=="paused":
 		set_split_screen_active(split_screen_active)
+		_update_race_button()
 	menu_state = page
 	overlay.visible = true
 	pause_screen.visible = page == "paused"
@@ -501,6 +511,30 @@ func _request_quit() -> void:
 	exit_requested.emit()
 	if allow_quit:
 		get_tree().quit()
+
+func active_race() -> Node:
+	for race in get_tree().get_nodes_in_group("streetbound_race"):
+		if str(race.get("state")) in ["countdown","running"] and race.has_method("quit_race"):return race
+	return null
+
+func _update_race_button() -> void:
+	if not is_instance_valid(quit_race_button):return
+	var racing:=is_instance_valid(active_race())
+	quit_race_button.visible=racing
+	if racing:
+		var order: Array=[pause_screen.controls.resume,quit_race_button]
+		for id in ["local_multiplayer","map_editor","settings","main_menu","quit"]:order.append(pause_screen.controls[id])
+		for i in order.size():order[i].position.y=111+i*45;order[i].size.y=38
+	else:
+		for entry in pause_screen.layout.nodes:
+			var control: Control=pause_screen.controls.get(str(entry.get("id","")))
+			if control is Button:control.position.y=float(entry.y);control.size.y=float(entry.h)
+
+func _quit_active_race() -> void:
+	var race:=active_race()
+	if is_instance_valid(race):race.call("quit_race")
+	_update_race_button()
+	resume_game()
 
 func _handle_action(action_id: String, payload: Dictionary) -> void:
 	match action_id:

@@ -9,6 +9,7 @@ road IDs, deleted original roads and disconnected endpoints to avoid quietly
 corrupting the entire streamed map.
 """
 import json
+from authored_races import authored_races
 import math
 import re
 from project_asset_catalog import building_file, asset_id, resolve_asset
@@ -242,6 +243,12 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
         entry.update(editor_scale_x=axes[0],editor_scale_y=axes[1],editor_base_size=list(base_size))
+        if 'roadFacing' in raw:
+            if type(raw['roadFacing']) is not bool:raise ValueError('Road-facing preference must be true or false')
+            entry['editor_road_facing']=raw['roadFacing']
+        if 'roadFront' in raw:
+            if type(raw['roadFront']) not in (int,float) or raw['roadFront'] not in (0,90,180,270):raise ValueError('Invalid building artwork front')
+            entry['editor_road_front']=raw['roadFront']
         if type_name=='sidewalk':
             path=raw.get('sidewalkPoints',[]);walk_width=raw.get('sidewalkWidth',3)
             if type(walk_width) not in (int,float) or not math.isfinite(walk_width) or not .8<=walk_width<=12 or not isinstance(path,list) or not 2<=len(path)<=100:
@@ -303,6 +310,17 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 "kind": source["kind"], "seed": src_seed,
                 "p": [round(float(v),3) for v in src_p]
             }
+            appearance=raw.get('sourceAppearance')
+            if appearance is not None:
+                if not isinstance(appearance,dict) or appearance.get('kind')!=source['kind'] or appearance.get('seed')!=src_seed:
+                    raise ValueError('Scenery snapshot differs from its original identity')
+                original_p=appearance.get('p');original_size=appearance.get('size')
+                if not isinstance(original_p,list) or len(original_p)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) for v in original_p) or math.dist(original_p,src_p)>.025:
+                    # Already-baked replacements can carry their edited location.
+                    if not appearance.get('authoring_id')==item_id:raise ValueError('Invalid scenery snapshot position')
+                if not isinstance(original_size,list) or len(original_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=12000 for v in original_size):raise ValueError('Invalid scenery snapshot dimensions')
+                if appearance.get('asset_path'):building_file(appearance['asset_path'],ROOT)
+                entry['source_appearance']=dict(appearance)
             if raw.get("hidden") is not None and type(raw.get("hidden")) is not bool:
                 raise ValueError("Invalid scenery visibility")
             entry["hidden"] = raw.get("hidden", False)
@@ -452,6 +470,9 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         loose = surf in LOOSE
         endpoint_names = []
         for end_idx, p in enumerate((new_points[0], new_points[-1])):
+            if end_idx == 1 and length(new_points[0], p) < .01:
+                endpoint_names.append(endpoint_names[0])
+                continue
             near_name = _near_node(nodes, p)
             if near_name is not None:
                 # Geometry nearest checks at crossings still allow T branches
@@ -546,6 +567,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
     # Props participate in the same procedural occupancy, clearance
     # assertions and streamed chunk indexes as native Morrow scenery.
     authored = _authoring_props(doc,width,height)
+    for race in authored_races(doc,width,height):
+        extra.append({'kind':'race_start','name':race['name'],'p':[race['points'][0]['x'],race['points'][0]['y']],'race':race})
     props.extend(authored)
     print(f"Morrow Coast editor overlay applied: {edited} roads edited, "
           f"{len(roads)-source_count} roads added, {len(proposed_nodes)} shared nodes moved")

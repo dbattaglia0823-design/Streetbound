@@ -100,6 +100,7 @@ export function convertMorrowWorld(raw){
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
       scaleX:prop.editor_scale_x??1,scaleY:prop.editor_scale_y??1,
+      roadFacing:prop.editor_road_facing,roadFront:prop.editor_road_front,
       sidewalkPoints:prop.sidewalk_points,sidewalkWidth:prop.sidewalk_width,
       rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
       assetPath:prop.asset_path,assetSize:prop.asset_size||prop.editor_base_size,
@@ -109,7 +110,7 @@ export function convertMorrowWorld(raw){
       entranceWidth:prop.entrance_width
     }));
   const result=normalizeWorld({
-    format:'gdt.racing-world',version:2,name:'Morrow Coast',
+    format:'gdt.racing-world',version:2,name:'Morrow Coast',races:raw.editor_races||[],
     morrowSourceRoadCount:raw.editor_source_road_count??120,
     morrowSourcePoiCount:raw.editor_source_poi_count??15,
     morrowRoadWidthScale:raw.road_width_scale??1,

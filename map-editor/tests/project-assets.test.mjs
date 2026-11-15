@@ -76,3 +76,19 @@ test('ground decals remain collision-free in project metadata',()=>{
   assert.equal(projectArtwork(doc.props[0]).collision,'none');
   setProjectAssets([]);
 });
+
+test('nature sprites from shared sheets keep crops and non-solid settings',()=>{
+  const sheet='Map Building Assets/Sprite Sheets/Top-Down Nature and Asphalt Asset Sheet-6.png';
+  const treeId='project-'+'e'.repeat(24),rockId='project-'+'f'.repeat(24);
+  setProjectAssets([
+    {id:treeId,path:sheet,name:'Tree',type:'oak',width:264,height:264,region:[322,0,264,264],worldSize:[8,8],collision:'none'},
+    {id:rockId,path:sheet,name:'Rock',type:'rock',width:140,height:89,region:[8,723,140,89],worldSize:[2.2,1.399],collision:'solid'}
+  ]);
+  let doc=createEntity(createWorld(),'props',{type:'oak',x:300,y:300,rotation:0,scale:1,assetId:treeId});
+  doc=createEntity(doc,'props',{type:'rock',x:350,y:300,rotation:20,scale:1,assetId:rockId});
+  const saved=parseWorld(serializeWorld(doc));setProjectAssets([]);
+  assert.equal(projectArtwork(saved.props[0]).collision,'none');
+  assert.equal(projectArtwork(saved.props[1]).collision,'solid');
+  assert.notDeepEqual(projectArtwork(saved.props[0]).region,projectArtwork(saved.props[1]).region);
+  assert.equal(saved.props[0].assetPath,saved.props[1].assetPath);
+});

@@ -33,6 +33,7 @@ var world_guidance: Node2D
 var edge_ids: Array[int] = []
 var available := false
 var state := "idle"
+var _previous_position_m:=Vector2.ZERO
 var countdown := 0.0
 var elapsed := 0.0
 var previous_station := 0.0
@@ -126,6 +127,7 @@ func start_race() -> bool:
 	countdown = 3.0
 	elapsed = 0.0
 	previous_station = float(navigation.call("station_at", player.global_position / PPM))
+	_previous_position_m=player.global_position/PPM
 	opponent_station_m = 0.0
 	opponent_elapsed = -1.0
 	opponent_dnf = false
@@ -255,6 +257,13 @@ func _abort(message: String) -> void:
 	status_timer = 5.0
 	_refresh()
 
+func quit_race() -> bool:
+	if state not in ["countdown","running"]:return false
+	_finish_race();_clear_opponent()
+	state="idle";countdown=0;elapsed=0;result=""
+	if is_instance_valid(world_guidance):world_guidance.call("set_guidance",navigation,player,false)
+	_refresh();return true
+
 
 func _physics_process(dt: float) -> void:
 	if not available or not is_instance_valid(player) or dt <= 0.0:
@@ -273,18 +282,17 @@ func _physics_process(dt: float) -> void:
 			if is_instance_valid(opponent_driver):
 				opponent_driver.call("launch")
 			previous_station = float(navigation.call("station_at", player.global_position / PPM))
+			_previous_position_m=player.global_position/PPM
 	elif state == "running":
 		elapsed += dt
 		_update_opponent(dt)
 		var station: float = navigation.call("station_at", player.global_position / PPM)
-		var on_line: Vector2 = navigation.call("point_at", station)
-		var advance := station - previous_station
 		var maximum := maxf(3.0, player.linear_velocity.length() * dt * 2.0 + 2.0)
-		# Validate actual progress, but allow wider cornering and overtaking.
-		if player.global_position.distance_to(on_line * PPM) > 13.0 * PPM or \
-				advance > maximum or advance < -8.0:
-			_abort("RUN INVALID / FOLLOW ROAD")
+		var position_m:=player.global_position/PPM
+		if position_m.distance_to(_previous_position_m)>maximum:
+			_abort("RUN INVALID / POSITION JUMP")
 			return
+		_previous_position_m=position_m
 		previous_station = maxf(previous_station, station)
 		if elapsed > (float(definition.time_limit_seconds) if definition!=null else 280.0):
 			_abort("SPRINT TIMED OUT")

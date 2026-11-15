@@ -16,6 +16,7 @@ var player: VehicleController2D
 var navigation: RefCounted
 var world_guidance: Node2D
 var state := "idle"
+var _previous_position_m:=Vector2.ZERO
 var available := false
 var countdown := 0.0
 var elapsed := 0.0
@@ -128,6 +129,7 @@ func start_race() -> bool:
 	elapsed = 0.0
 	distance_m = 0.0
 	previous_station = _station()
+	_previous_position_m=player.global_position/PPM
 	result = ""
 	_refresh()
 	return true
@@ -138,6 +140,12 @@ func _abort(reason: String) -> void:
 	result = reason
 	status_timer = 5.0
 	_refresh()
+
+func quit_race() -> bool:
+	if state not in ["countdown","running"]:return false
+	state="idle";countdown=0;elapsed=0;distance_m=0;result=""
+	if is_instance_valid(world_guidance):world_guidance.call("set_guidance",navigation,player,false)
+	_refresh();return true
 
 
 func _physics_process(dt: float) -> void:
@@ -153,6 +161,7 @@ func _physics_process(dt: float) -> void:
 		if countdown <= 0.0:
 			state = "running"
 			previous_station = _station()
+			_previous_position_m=player.global_position/PPM
 	elif state == "running":
 		elapsed += dt
 		var station := _station()
@@ -163,10 +172,13 @@ func _physics_process(dt: float) -> void:
 		elif advance > lap_length * 0.5:
 			advance -= lap_length
 		var maximum := maxf(3.0, player.linear_velocity.length() * dt * 2.0 + 2.0)
-		if _deviation(station) > 12.0 or advance > maximum or advance < -10.0:
-			_abort("LAP INVALID / FOLLOW THE CIRCUIT")
+		var position_m:=player.global_position/PPM
+		if position_m.distance_to(_previous_position_m)>maximum:
+			_abort("LAP INVALID / POSITION JUMP")
 			return
-		distance_m += maxf(0.0, advance)
+		_previous_position_m=position_m
+		# Rebase projections after detours without cancelling or awarding a skipped lap.
+		if advance>=0 and advance<=maximum:distance_m += advance
 		previous_station = station
 		if elapsed > 480.0:
 			_abort("LAP TIMED OUT")

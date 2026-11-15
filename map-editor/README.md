@@ -33,6 +33,18 @@ or rebake is required to see the updated bridges.
 - **Draw Road**: choose class, surface, width in metres and lanes, then click
   successive points. **Finish / Enter** creates the road; double-click also
   finishes. Compatible nearby roads attract new points for clean joins.
+- **Road Shapes** in the left settings: select an open road, set **Bend m**,
+  then **Curve left**, **Curve right** or **Straighten road**. Left/right is
+  relative to the first-to-last control-point direction. The whole selected
+  road is reshaped, keeping its end positions and moving attached branch
+  endpoints with its junction anchors. Use Split first to shape just one part.
+  **Place circular road** lets you set **Radius m** and click a center to make
+  an exact closed circle. Select it and use **Apply radius to circle** or the
+  **−/+ 5 m** buttons to resize around the same center; attached entry roads
+  follow. Circles retain their radius and smooth closing seam after saving,
+  moving or duplicating. Shape changes support Undo/Redo and reject edits
+  outside the map. Manually reshaping individual circle points returns it
+  to a normal road; the radius tools apply only to circular geometry.
 - **Terrain Region**: choose a material, click at least three polygon corners,
   then **Finish**. **Game Marker** offers checkpoint, race start, finish and
   traffic spawn types. Select markers or terrain edges to move them.
@@ -71,10 +83,46 @@ or rebake is required to see the updated bridges.
   own visibility mask, so moving saved adopted assets keeps their artwork.
   Dragging props updates their transform directly; full scenery/collision
   work happens at edit boundaries, and road topology rebuilds after commits.
+  The moving asset and outline use separate draw canvases, leaving roads,
+  lane guides and other scenery cached. The full-map texture refresh waits
+  until overview LOD is needed; asset-folder scans wait until dragging ends.
+  Adopted scenery keeps its saved appearance across procedural regeneration.
+  Save reports disconnected roads and manual building overlaps as warnings;
+  it keeps explicit placements and their collision instead of discarding the
+  whole transaction. Invalid source geometry still rolls the transaction back.
+- **Set up races** opens native sprint/circuit time-trial setup. Enter a name,
+  choose the format and lap count, then click a start, checkpoints and finish
+  and press Enter. Circuits close at the start. Gate radius, start-circle
+  radius and optional time limit are editable; zero disables the time limit.
+  Saved races appear in the Objects list and race selector. Select a race to
+  drag numbered checkpoint handles, edit their coordinates, add/remove
+  checkpoints, redraw the route, duplicate or delete the event. All edits
+  support Undo/Redo. Circuits need at least three points; sprints need two.
+  **Save to Game** on Morrow Coast bakes these definitions into the playable
+  archive. Reload/Test Drive to see race-start circles and map flags. Drive
+  to the start, stop facing the route and press F. Races require every gate
+  in order and complete as time trials without economy rewards. New custom
+  maps retain their race definitions as editor documents.
+  Existing races no longer cancel for leaving their racing line. Actual
+  position jumps still invalidate built-in reward races. During a countdown
+  or run, Pause shows **Quit Race**; it clears rivals and race state and
+  returns to free driving without rewards. The button is hidden otherwise.
 - Scenery has independent X/Y size multipliers and a footprint readout in metres.
+  Buildings default to **Face nearby road**: when brought within 3 m of the
+  roadside, their front turns toward the local road direction and their actual
+  scaled footprint snaps just outside its shoulder. The inspector checkbox
+  applies to that asset only; switching it off retains its position/rotation
+  and leaves building-edge snapping available. The preference is saved and
+  copied when duplicating. **Artwork front** chooses bottom, right, top or left
+  for models drawn with a different entrance direction. Existing assets align
+  when moved near a road; editing a map does not reorient every building.
   **Building edges: on** snaps placed and dragged buildings to nearby parallel
   wall edges (within 2 m), including rotated blocks and existing city buildings.
-  Hold **Alt** or turn the setting off for free placement.
+  Road alignment runs first, then compatible walls snap together into blocks.
+  Nearby curved-street buildings can share an alignment within 8 degrees;
+  automatic snaps keep their footprints clear of adjoining road surfaces.
+  Hold **Alt** to bypass both snaps temporarily. Disable **Face nearby road**
+  for that asset and **Building edges** for fully free placement.
   **Draw sidewalk** in Tool Settings accepts path points like roads: set the
   width (0.8–12 m), click points, then Enter/Finish. Escape cancels; Undo removes
   the whole path. Finished sidewalks can be selected, moved, rotated, resized,
@@ -83,6 +131,11 @@ or rebake is required to see the updated bridges.
   Position, rotation and scale fields accept three decimal places.
   **Reset asset size** restores all size multipliers to one in a single undo
   step, preserving artwork, position and rotation.
+
+New custom maps start empty. Morrow Coast's separate dealership and forecourt
+display layer stays with Morrow Coast, including when the Scenery layer is
+toggled. Custom-map data is isolated from the cached Morrow road/bridge
+canvases; switching maps does not rewrite the playable archive.
 
   **Escape** cancels an unfinished shape or drag. **Delete** removes a selected
   prop or a newly created object. Original roads, terrain and gameplay markers
@@ -371,6 +424,24 @@ rescans immediately. Names come from filenames. Placed objects retain their
 file references, aspect ratio and collision footprint when saved or reopened.
 Godot ZIP exports include the used images. Keep files at their original paths;
 if a used image is missing, Save to Game reports it instead of changing the art.
+
+**Supplied sprite sheets:** All six PNGs in
+`assets/Map Building Assets/Sprite Sheets/` have matching `.sheet.json` files
+defining **271 individual objects**. In the in-game editor, choose **Scenery →
+Sprite sheets**, then search for pallets, cones, fuel islands, garden props,
+plants, rocks or tyre marks. The regular Nature, Industrial, Roadside and
+Ground decals filters also include them. Each item has its own saved ID, pixel
+region, size in metres and collision setting. Several sprites can share one
+source texture without switching crops when moved, resized or reopened.
+Foliage and ground details are non-solid; equipment and other solid props have
+matching footprints. Runtime shadows use the same selected crop.
+
+The source PNGs and their transparency are preserved. Region metadata supports
+the irregular packing in these sheets; a uniform grid would cut many objects
+apart. Keep each `.sheet.json` alongside its PNG for authoring and baking.
+New sheets can use the same named-region format (or a `grid` definition for
+uniform sheets). Existing whole-sheet references remain valid. The checked-in
+definitions can be regenerated with `python tools/configure_map_sprite_sheets.py`.
 
 **Regression checks:** Run `node --test map-editor/tests/*.test.mjs` for editor
 checks. Run `python tests/morrow_rebuild_stability_test.py` for two real production

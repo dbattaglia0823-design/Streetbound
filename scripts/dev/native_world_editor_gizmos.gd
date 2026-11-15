@@ -32,6 +32,10 @@ var preview_indices: Dictionary={}
 var scenery_rebuild_count:=0
 var _props_stamp:=-1
 var _collision_stamp:=-1
+var drag_scenery: Node2D
+var drag_outline: Node2D
+var drag_redraw_count:=0
+var static_redraw_count:=0
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
 var pending_tool := ""
@@ -65,6 +69,7 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 			if shape is CollisionShape2D and \
 					str(shape.get_meta("draft_prop_id",""))==str(preview.get("id","")):
 				shape.position = preview.get("to",shape.position)
+				if preview.has("rotation"):shape.rotation=deg_to_rad(float(preview.rotation))
 	queue_redraw()
 
 func set_pending_shape(points: Array[Vector2], tool: String) -> void:
@@ -130,6 +135,8 @@ func _refresh_preview_scenery() -> void:
 			"solid":kind not in ["tree","pine","palm","bush","field",
 				"garden","planter","lamp","sign","dock","lot","forecourt"]
 		}
+		if str(drag_preview.get("id",""))==str(prop.id) and drag_preview.has("rotation"):
+			instance.angle=deg_to_rad(float(drag_preview.rotation))
 		if prop.get("sourceAppearance") is Dictionary:
 			var appearance: Dictionary=prop.sourceAppearance.duplicate(true)
 			for key in ["p","size","angle"]:appearance[key]=instance[key]
@@ -144,10 +151,36 @@ func _refresh_preview_scenery() -> void:
 			instance["sidewalk_points"]=prop.sidewalkPoints
 			instance["sidewalk_width"]=prop.sidewalkWidth
 			instance["sidewalk_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
+		instance["editor_source_id"]=str(prop.id)
 		preview_indices[str(prop.id)]=rendered.size();rendered.append(instance)
 	preview_scenery.prop_list = rendered
 	preview_scenery.visible=bool(layer_flags.get("scenery",true))
 	preview_scenery.queue_redraw()
+	_refresh_drag_canvases()
+
+func _refresh_drag_canvases() -> void:
+	if not is_instance_valid(drag_scenery):
+		drag_scenery=Node2D.new();drag_scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
+		drag_scenery.ignore_editor_mask=true;drag_scenery.z_index=7;add_child(drag_scenery)
+		drag_outline=Node2D.new();add_child(drag_outline);drag_outline.draw.connect(_draw_drag_outline)
+	var id:=str(drag_preview.get("id","")) if drag_preview.get("kind","")=="prop" else ""
+	preview_scenery.suppressed_preview_id=id
+	var moving: Array[Dictionary]=[]
+	if preview_indices.has(id):moving.append(preview_scenery.prop_list[int(preview_indices[id])])
+	drag_scenery.prop_list=moving
+	drag_scenery.visible=bool(layer_flags.get("scenery",true)) and not drag_scenery.prop_list.is_empty()
+	drag_scenery.queue_redraw();drag_outline.queue_redraw()
+
+func _draw_drag_outline() -> void:
+	if drag_preview.get("kind","")!="prop" or not layer_flags.get("scenery",true):return
+	var id:=str(drag_preview.id)
+	if not preview_indices.has(id):return
+	var instance: Dictionary=preview_scenery.prop_list[int(preview_indices[id])]
+	var half:=Vector2(instance.size[0],instance.size[1])*PPM*.5
+	var line:=PackedVector2Array([Vector2(-half.x,-half.y),Vector2(half.x,-half.y),half,Vector2(-half.x,half.y),Vector2(-half.x,-half.y)])
+	drag_outline.draw_set_transform(Vector2(drag_preview.to),float(instance.angle))
+	drag_outline.draw_polyline(line,Color("#8effbf"),2/maxf(.003,zoom_level),true)
+	drag_outline.draw_set_transform(Vector2.ZERO)
 
 func update_prop_drag(preview: Dictionary) -> void:
 	drag_preview=preview
@@ -156,11 +189,32 @@ func update_prop_drag(preview: Dictionary) -> void:
 	if preview_indices.has(id):
 		var at: Vector2=preview.to/PPM
 		preview_scenery.prop_list[int(preview_indices[id])].p=[at.x,at.y]
-		preview_scenery.queue_redraw()
+		if preview.has("rotation"):preview_scenery.prop_list[int(preview_indices[id])].angle=deg_to_rad(float(preview.rotation))
+		drag_redraw_count+=1;drag_scenery.queue_redraw();drag_outline.queue_redraw()
 	if is_instance_valid(preview_body):
 		for child in preview_body.get_children():
-			if str(child.get_meta("draft_prop_id",""))==id:child.position=preview.to
-	queue_redraw()
+			if str(child.get_meta("draft_prop_id",""))==id:
+				child.position=preview.to
+				if preview.has("rotation"):child.rotation=deg_to_rad(float(preview.rotation))
+	# The static road, lane and junction canvas stays cached during a house drag.
+
+func _draw_races() -> void:
+	for race in draft_doc.get("races",[]):
+		var line:=PackedVector2Array()
+		for p in race.points:line.append(Vector2(p.x,p.y)*PPM)
+		if line.size()<2:continue
+		var focused: bool=str(race.id)==selected_source_id
+		var route:=line.duplicate()
+		if race.mode=="circuit":route.append(line[0])
+		draw_polyline(route,Color(.2,.85,.9,.8 if focused else .28),2/maxf(.003,zoom_level),true)
+		for i in line.size():
+			if not focused and i>0:continue
+			if focused:draw_arc(line[i],float(race.get("checkpoint_radius",16))*PPM,0,TAU,40,Color(.25,.9,.85,.18),1/maxf(.003,zoom_level),true)
+			draw_set_transform(line[i],0,Vector2.ONE/maxf(.003,zoom_level))
+			draw_circle(Vector2.ZERO,7,Color("#163537"));draw_arc(Vector2.ZERO,6,0,TAU,24,Color("#4ee8dc"),2,true)
+			var label: String=(str(race.name)+" / START") if i==0 else ("FINISH" if race.mode=="sprint" and i==line.size()-1 else str(i))
+			draw_string(ThemeDB.fallback_font,Vector2(10,4),label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#defdf5"))
+			draw_set_transform(Vector2.ZERO)
 
 
 func _prop_size(prop: Dictionary) -> Vector2:
@@ -393,6 +447,7 @@ func _draw_draft() -> void:
 			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
 	for prop in draft_doc.get("props",[]):
 		if not layer_flags.get("scenery",true):continue
+		if drag_preview.get("kind","")=="prop" and str(drag_preview.get("id",""))==str(prop.id):continue
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
 		var id := str(prop.id)
@@ -428,8 +483,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func set_view(center: Vector2, screen_size: Vector2, zoom_level: float) -> void:
+	var extents:=screen_size*.5/maxf(.003,zoom_level)
+	if camera_center==center and viewport_extents==extents and self.zoom_level==zoom_level:return
 	camera_center = center
-	viewport_extents = screen_size * 0.5 / maxf(0.003,zoom_level)
+	viewport_extents = extents
 	self.zoom_level = zoom_level
 	queue_redraw()
 
@@ -458,9 +515,11 @@ func _draw_draft_junctions(shoulder: bool) -> void:
 		if not shoulder:JunctionFurniture.draw_junction(self,junction)
 
 func _draw() -> void:
+	static_redraw_count+=1
 	if not is_instance_valid(world) or world.data.is_empty():
 		return
 	if layer_flags.get("grid",false):_draw_grid()
+	if layer_flags.get("markers",true):_draw_races()
 	_draw_draft_junctions(true)
 	_draw_draft()
 	if show_lanes and layer_flags.get("roads",true) and is_instance_valid(network):
@@ -527,6 +586,8 @@ func _draw() -> void:
 			draw_circle(item*PPM,7,Color("#ffb653"))
 		if path.size() >= 2:
 			draw_polyline(path,Color("#ffb653"),4,true)
+		if pending_tool=="draw_race" and path.size()>=2:
+			for i in path.size():draw_arc(path[i],8/maxf(.003,zoom_level),0,TAU,24,Color("#4ee8dc"),2/maxf(.003,zoom_level),true)
 		if pending_tool == "draw_terrain" and path.size() >= 3:
 			draw_line(path[path.size()-1],path[0],Color("#ffb653"),2,true)
 	if selected.get("kind","")=="prop":

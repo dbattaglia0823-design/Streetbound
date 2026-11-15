@@ -48,7 +48,7 @@ class ProjectAssetTests(unittest.TestCase):
                 self.assertEqual(result['size'],[33,16.5])
                 self.assertTrue(result['solid'])
                 image.unlink()
-                with self.assertRaisesRegex(ValueError,'missing'):_authoring_props(doc)
+                with self.assertRaisesRegex(ValueError,'(?i)missing'):_authoring_props(doc)
 
     def test_paths_stay_inside_the_building_library(self):
         for path in ['../secret.png','Buildings/../secret.png','Buildings\\x.png',

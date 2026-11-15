@@ -15,6 +15,7 @@ from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
 from mountain_barriers import validate_barriers
+from road_shape_geometry import circle_path
 
 ROOT = Path(__file__).resolve().parents[1]
 # Source coordinates retain their original origin. Only grow the east and
@@ -72,6 +73,9 @@ def road_spline(points, previous=None, following=None, kind="local"):
 
     Long straights stay cheap, while hairpins get sub-metre edge samples.
     """
+    circular = circle_path(points)
+    if circular is not None:
+        return circular
     output=[]
     tension=.45 if kind=="highway" else .4
     for i in range(len(points)-1):
@@ -490,7 +494,7 @@ def land(p):
 
 # Fix dedicated facilities conservatively before any decorative placement.
 for prop in PROPS:
-    if prop["solid"] and not road_clear(prop["p"],prop["radius"]):
+    if prop["solid"] and not prop.get('authoring_id') and not road_clear(prop["p"],prop["radius"]):
         poi = next(p for p in POIS if p["name"]==prop["poi"])
         p, angle = poi["position"], prop["angle"]
         candidates = [(angle+turn,offset) for offset in [42,50,60,75] for turn in [0,math.pi/2,-math.pi/2,math.pi]]
@@ -522,6 +526,18 @@ def insert_prop(prop):
 for prop in list(PROPS):
     if prop["solid"]:
         PROP_GRID[f"{int(prop['p'][0]//64)},{int(prop['p'][1]//64)}"].append(prop)
+
+# Source-authored replacements reserve their chosen sites before procedural
+# scenery. Their saved artwork is independent of random generator ordering.
+for prop in ADOPTED_PROPS:
+    if prop.get('solid') and not prop.get('hidden'):
+        PROP_GRID[f"{int(prop['p'][0]//64)},{int(prop['p'][1]//64)}"].append(prop)
+    # Moving/deleting an authored object must not let random scenery respawn
+    # on its former site when roads change the generator's random sequence.
+    previous_sites=[prop['source_replacement']['p']]
+    if prop.get('source_appearance',{}).get('p'):previous_sites.append(prop['source_appearance']['p'])
+    for previous in previous_sites:
+        PROP_GRID[f"{int(previous[0]//64)},{int(previous[1]//64)}"].append({'p':previous,'radius':1.0})
 
 # A few parked cars occupy marked stalls, leaving the driveway/aisle open.
 for lot in list(PROPS):
@@ -850,6 +866,10 @@ if HEIGHT > BASE_HEIGHT:
                              radius=.65,solid=True,seed=local.randrange(100000)))
 
 PROPS.extend(ADOPTED_PROPS)
+archived_props=[]
+archive_path=ROOT/'worlds/morrow-coast.world.json'
+if any(not p.get('source_appearance') for p in ADOPTED_PROPS) and archive_path.is_file():
+    archived_props=json.loads(archive_path.read_text(encoding='utf-8')).get('props',[])
 # Authoring can adopt an existing generated object for direct editing.
 # Match by original kind/seed/location rather than runtime array position,
 # which may change when nearby roads generate different vegetation.
@@ -860,9 +880,14 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
               and not p.get("authoring_id") and p.get("kind")==target["kind"]
               and p.get("seed")==target["seed"]
               and distance(p.get("p",(0,0)),target["p"])<.025]
-    if len(matching)!=1:
+    snapshot=replacement.get('source_appearance')
+    if not snapshot and len(matching)!=1:
+        snapshots=[p for p in archived_props if p.get('authoring_id')==replacement['authoring_id'] or
+                   (p.get('kind')==target['kind'] and p.get('seed')==target['seed'] and distance(p.get('p',(0,0)),target['p'])<.025)]
+        if len(snapshots)==1:snapshot=snapshots[0]
+    if len(matching)!=1 and not snapshot:
         raise ValueError("Edited game scenery changed; reload current Morrow Coast before saving")
-    original=matching[0]
+    original=snapshot or matching[0]
     # Move the original production asset instead of replacing its identity,
     # art family, roof variant, POI association or special geometry with a
     # generic painted editor placeholder. Keep explicit authored transform.
@@ -891,7 +916,7 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
         replacement["asset_path"] = selected_asset_path
         replacement["asset_size"] = selected_asset_size
         replacement["asset_id"] = selected_asset_id
-    PROPS.remove(original)
+    if matching:PROPS.remove(matching[0])
     # Keep the native object's collision category. In particular, procedural
     # trees have a small solid trunk even though normally painted editor trees
     # are non-solid decorations.
@@ -904,14 +929,8 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     if is_hidden:
         PROPS.remove(replacement)
         continue
-    if replacement["solid"] and (
-        not land(replacement["p"]) or
-        not road_clear(replacement["p"],replacement["radius"])):
-        raise ValueError("Moved game scenery overlaps a road or unsafe world boundary")
-    if replacement["solid"] and any(other is not replacement and other.get("solid")
-            and footprints_overlap(other,replacement,adapt_legacy=True)
-            for other in PROPS):
-        raise ValueError("Moved game scenery overlaps another solid object")
+    # Authored transforms are explicit. Report conflicts instead of silently
+    # moving a house, or rejecting every other valid edit in the transaction.
 
 # Boundaries and river banks. Gates occur only at authored bridge crossings.
 for poly in [COAST,RIVER_LEFT,RIVER_RIGHT,LAKE+[LAKE[0]]]:
@@ -1058,8 +1077,14 @@ for a,b in connections: adj[a].add(b);adj[b].add(a)
 seen={0}; pending=[0]
 while pending:
     for nxt in adj[pending.pop()]-seen: seen.add(nxt);pending.append(nxt)
-assert len(seen)==len(ROADS), f"Disconnected roads: {set(range(len(ROADS)))-seen}"
-bad=[p for p in PROPS if p["solid"] and not road_clear(p["p"],p["radius"])]
+EDITOR_WARNINGS=[]
+if len(seen)!=len(ROADS):EDITOR_WARNINGS.append(f"{len(ROADS)-len(seen)} road(s) are separate from the main road network")
+authored_solids=[p for p in PROPS if p.get('authoring_id') and p.get('solid')]
+for prop in authored_solids:
+    if not road_clear(prop['p'],prop['radius']):EDITOR_WARNINGS.append(f"{prop['authoring_id']}: building footprint overlaps a road")
+    if not land(prop['p']):EDITOR_WARNINGS.append(f"{prop['authoring_id']}: building lies on water or near the map edge")
+    if any(other is not prop and other.get('solid') and footprints_overlap(other,prop,adapt_legacy=True) for other in PROPS):EDITOR_WARNINGS.append(f"{prop['authoring_id']}: building footprint overlaps scenery")
+bad=[p for p in PROPS if p["solid"] and not p.get('authoring_id') and not road_clear(p["p"],p["radius"])]
 assert not bad, f"Scenery obstructs a road: {bad[:2]}"
 bad_walls=[]
 for wall_index,(a,b) in enumerate(WALLS):
@@ -1076,6 +1101,7 @@ assert all(land(p["position"]) for p in POIS)
 assert all(distance(NODES[r["start"]],r["points"][0])<.01 and distance(NODES[r["end"]],r["points"][-1])<.01 for r in ROADS)
 length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
+          editor_warnings=EDITOR_WARNINGS,
           editor_source_road_count=EDITOR_SOURCE_ROAD_COUNT,
           editor_source_poi_count=len(POIS),
           original_extent=[BASE_WIDTH,BASE_HEIGHT],
@@ -1083,6 +1109,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
           props=PROPS,pois=POIS,districts=DISTRICTS,terrain=TERRAIN,walls=WALLS,junctions=JUNCTIONS,bridges=BRIDGES,
           road_connections=sorted(connections),surface_index=GRID,chunks=CHUNKS,road_crossings=CROSSINGS,
            editor_markers=EDITOR_MARKERS,
+          editor_races=[marker['race'] for marker in EDITOR_MARKERS if 'race' in marker],
           relief_faces=RELIEF_FACES,mountain_rails=MOUNTAIN_RAILS,
           visual_relief=dict(extent=[2800,2400],sun_direction=[-.65,-.76],maximum_m=1000),
           stats=dict(road_km=round(length/1000,2),roads=len(ROADS),props=len(PROPS),junctions=len(JUNCTIONS),connected_roads=len(seen)))

@@ -62,6 +62,7 @@ static func build(e) -> void:
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
+	e.race_editor.build(e,e.tool_options)
 	e.road_settings=column(e.tool_options);heading(e.road_settings,"ROAD DESIGNER")
 	e.road_class=e._options(e.road_settings,"Road class",["city","highway","country","mountain","service","track"])
 	e.road_surface=e._options(e.road_settings,"Surface",["asphalt","concrete","gravel","dirt","track"])
@@ -69,6 +70,7 @@ static func build(e) -> void:
 	e.road_lanes=e._number(e.road_settings,"Lanes",1,6,2)
 	for option in [e.road_class,e.road_surface]:option.item_selected.connect(func(_index: int)->void:e._change_road_settings())
 	for spin in [e.road_width,e.road_lanes]:spin.value_changed.connect(func(_value: float)->void:e._change_road_settings())
+	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
 	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])
 	e.terrain_biome.item_selected.connect(func(_index: int)->void:e._change_terrain_settings())
@@ -91,7 +93,7 @@ static func build(e) -> void:
 	e.asset_search=LineEdit.new();e.asset_search.name="AssetSearch";e.asset_search.placeholder_text="Search game assets..."
 	e.asset_search.text_changed.connect(func(_value: String)->void:e._filter_assets());assets.add_child(e.asset_search)
 	e.asset_category=OptionButton.new()
-	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals"]:e.asset_category.add_item(title_text)
+	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals","Sprite sheets"]:e.asset_category.add_item(title_text)
 	e.asset_category.item_selected.connect(func(_index: int)->void:e._filter_assets());assets.add_child(e.asset_category)
 	e.asset_count=heading(assets,"")
 	e.asset_grid=GridContainer.new();e.asset_grid.columns=2
@@ -137,6 +139,14 @@ static func build(e) -> void:
 	e.inspector_x.value_changed.connect(func(_value: float)->void:e._commit_inspector("x"))
 	e.inspector_y.value_changed.connect(func(_value: float)->void:e._commit_inspector("y"))
 	e.prop_transforms=VBoxContainer.new();inspector.add_child(e.prop_transforms)
+	e.inspector_road_facing=CheckBox.new();e.inspector_road_facing.text="Face nearby road";e.prop_transforms.add_child(e.inspector_road_facing)
+	e.inspector_road_facing.tooltip_text="This asset only. Align its front and curb clearance while placing or moving beside a road. Building-edge snapping still works. Alt temporarily bypasses both."
+	e.inspector_road_facing.toggled.connect(func(_enabled: bool)->void:e._commit_inspector("roadFacing"))
+	e.inspector_road_front=OptionButton.new();e.inspector_road_front.tooltip_text="Which side of the unrotated artwork is the building's front?"
+	for front in [["Artwork front: bottom",90],["Artwork front: right",0],["Artwork front: top",270],["Artwork front: left",180]]:
+		e.inspector_road_front.add_item(front[0]);e.inspector_road_front.set_item_metadata(e.inspector_road_front.item_count-1,front[1])
+	e.prop_transforms.add_child(e.inspector_road_front)
+	e.inspector_road_front.item_selected.connect(func(_index: int)->void:e._commit_inspector("roadFront"))
 	e.inspector_rotation=e._number(e.prop_transforms,"Rotation °",-3600,3600,0)
 	e.inspector_scale=e._number(e.prop_transforms,"Scale",0.2,5,1);e.inspector_scale.step=.05
 	e.inspector_scale_x=e._number(e.prop_transforms,"X size multiplier",0.2,5,1);e.inspector_scale_x.step=.05

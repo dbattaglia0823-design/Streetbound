@@ -749,7 +749,7 @@ function assetCandidates(){
     }
   }
   for(const item of projectAssets())assets.push({type:item.type,assetId:item.id,
-    label:(item.category&&item.category!=='Buildings'?item.category+' / ':'')+item.name,group:item.type==='industrial_prop'?'industrial':item.type==='road_prop'?'roads':item.type==='ground_decal'?'landscaping':'buildings',project:true});
+    label:(item.category&&item.category!=='Buildings'?item.category+' / ':'')+item.name,group:item.type==='road_prop'?'roads':dockCategory(item.type),project:true});
   return assets;
 }
 function drawAssetThumbnail(canvas,item){
@@ -834,7 +834,7 @@ function refreshSpriteLists(){
       }
     }
     for(const asset of doc.assets||[])select.append(new Option(asset.name,asset.id));
-    if(['house','building','warehouse','garage','gas_station','industrial_prop','road_prop','ground_decal'].includes(type))
+    if(['house','building','warehouse','garage','gas_station','industrial_prop','road_prop','ground_decal','oak','pine','palm','bush','rock','boulder'].includes(type))
       for(const asset of projectAssets())select.append(new Option('Project folder · '+asset.name,asset.id));
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }

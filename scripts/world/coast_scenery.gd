@@ -16,6 +16,7 @@ static func editor_key(prop: Dictionary) -> String:
 
 var prop_list: Array[Dictionary] = []
 var ignore_editor_mask:=false
+var suppressed_preview_id:=""
 var origin_m := Vector2.ZERO
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -328,6 +329,7 @@ func _draw_player_garage(size: Vector2) -> void:
 
 
 func _draw_prop(prop: Dictionary) -> void:
+	if not suppressed_preview_id.is_empty() and str(prop.get("editor_source_id",""))==suppressed_preview_id:return
 	if not ignore_editor_mask and editor_hidden.has(editor_key(prop)):
 		return
 	var center := point(prop.p)

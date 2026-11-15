@@ -1,0 +1,709 @@
+{
+  "sprites": [
+    {
+      "name": "Fuel island red single",
+      "region": [
+        24,
+        12,
+        205,
+        170
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        4.0,
+        3.317
+      ]
+    },
+    {
+      "name": "Fuel island blue single",
+      "region": [
+        236,
+        12,
+        194,
+        170
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        4.0,
+        3.505
+      ]
+    },
+    {
+      "name": "Fuel island red double",
+      "region": [
+        440,
+        12,
+        354,
+        170
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        7.0,
+        3.362
+      ]
+    },
+    {
+      "name": "Fuel island blue double",
+      "region": [
+        806,
+        12,
+        361,
+        170
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        7.0,
+        3.296
+      ]
+    },
+    {
+      "name": "Diesel pump island",
+      "region": [
+        1180,
+        14,
+        149,
+        172
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.166,
+        2.5
+      ]
+    },
+    {
+      "name": "Propane cylinder cage",
+      "region": [
+        1348,
+        10,
+        168,
+        178
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.36,
+        2.5
+      ]
+    },
+    {
+      "name": "Shopping cart shelter",
+      "region": [
+        15,
+        197,
+        333,
+        216
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        5.0,
+        3.243
+      ]
+    },
+    {
+      "name": "Shopping cart narrow",
+      "region": [
+        362,
+        223,
+        80,
+        169
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.521,
+        1.1
+      ]
+    },
+    {
+      "name": "Shopping cart wide",
+      "region": [
+        454,
+        242,
+        91,
+        151
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.663,
+        1.1
+      ]
+    },
+    {
+      "name": "Bicycles in rack",
+      "region": [
+        563,
+        221,
+        268,
+        180
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        3.5,
+        2.351
+      ]
+    },
+    {
+      "name": "Yellow parking stop striped",
+      "region": [
+        850,
+        228,
+        167,
+        43
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.8,
+        0.463
+      ]
+    },
+    {
+      "name": "Yellow parking stop",
+      "region": [
+        850,
+        282,
+        167,
+        43
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.8,
+        0.463
+      ]
+    },
+    {
+      "name": "Concrete parking stop",
+      "region": [
+        850,
+        339,
+        167,
+        43
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.8,
+        0.463
+      ]
+    },
+    {
+      "name": "Yellow safety bollard",
+      "region": [
+        1035,
+        271,
+        50,
+        116
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.345,
+        0.8
+      ]
+    },
+    {
+      "name": "Black safety bollard",
+      "region": [
+        1102,
+        268,
+        49,
+        119
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.329,
+        0.8
+      ]
+    },
+    {
+      "name": "Steel safety bollard",
+      "region": [
+        1171,
+        266,
+        48,
+        121
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.317,
+        0.8
+      ]
+    },
+    {
+      "name": "Concrete safety bollard",
+      "region": [
+        1231,
+        268,
+        68,
+        120
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.453,
+        0.8
+      ]
+    },
+    {
+      "name": "Parking sign",
+      "region": [
+        1321,
+        215,
+        66,
+        181
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.365,
+        1.0
+      ]
+    },
+    {
+      "name": "Accessible parking sign",
+      "region": [
+        1395,
+        215,
+        61,
+        181
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.337,
+        1.0
+      ]
+    },
+    {
+      "name": "Blank parking sign",
+      "region": [
+        1465,
+        215,
+        63,
+        181
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.348,
+        1.0
+      ]
+    },
+    {
+      "name": "Car wash brush bay",
+      "region": [
+        13,
+        423,
+        367,
+        254
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        9.0,
+        6.229
+      ]
+    },
+    {
+      "name": "Car wash gantry",
+      "region": [
+        400,
+        424,
+        339,
+        253
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        8.0,
+        5.971
+      ]
+    },
+    {
+      "name": "Car wash payment terminal",
+      "region": [
+        763,
+        491,
+        115,
+        177
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.975,
+        1.5
+      ]
+    },
+    {
+      "name": "Dual vacuum island",
+      "region": [
+        897,
+        493,
+        317,
+        178
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        5.0,
+        2.808
+      ]
+    },
+    {
+      "name": "Drive through menu board",
+      "region": [
+        1233,
+        431,
+        292,
+        254
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        3.0,
+        2.61
+      ]
+    },
+    {
+      "name": "Rooftop air conditioner double",
+      "region": [
+        12,
+        683,
+        205,
+        135
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        3.0,
+        1.976
+      ]
+    },
+    {
+      "name": "Rooftop air conditioner single",
+      "region": [
+        232,
+        688,
+        115,
+        130
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.592,
+        1.8
+      ]
+    },
+    {
+      "name": "Rooftop HVAC unit",
+      "region": [
+        366,
+        686,
+        187,
+        132
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.5,
+        1.765
+      ]
+    },
+    {
+      "name": "Rooftop ventilation elbow",
+      "region": [
+        574,
+        689,
+        185,
+        127
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.0,
+        1.373
+      ]
+    },
+    {
+      "name": "Rooftop extractor fan",
+      "region": [
+        779,
+        699,
+        117,
+        117
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.5,
+        1.5
+      ]
+    },
+    {
+      "name": "Rooftop turbine vent",
+      "region": [
+        916,
+        688,
+        110,
+        129
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.194,
+        1.4
+      ]
+    },
+    {
+      "name": "Rooftop louvre vent",
+      "region": [
+        1052,
+        696,
+        100,
+        119
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.092,
+        1.3
+      ]
+    },
+    {
+      "name": "Skylight square",
+      "region": [
+        1173,
+        689,
+        138,
+        126
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.0,
+        1.826
+      ]
+    },
+    {
+      "name": "Skylight wide",
+      "region": [
+        1332,
+        699,
+        185,
+        116
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        3.0,
+        1.881
+      ]
+    },
+    {
+      "name": "Red drinks vending machine",
+      "region": [
+        13,
+        836,
+        101,
+        183
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.552,
+        1.0
+      ]
+    },
+    {
+      "name": "Blue drinks vending machine",
+      "region": [
+        117,
+        836,
+        97,
+        183
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.53,
+        1.0
+      ]
+    },
+    {
+      "name": "Snack vending machine",
+      "region": [
+        213,
+        837,
+        100,
+        182
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.549,
+        1.0
+      ]
+    },
+    {
+      "name": "Green round bin",
+      "region": [
+        318,
+        877,
+        81,
+        131
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.495,
+        0.8
+      ]
+    },
+    {
+      "name": "Square concrete bin",
+      "region": [
+        395,
+        875,
+        68,
+        134
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.406,
+        0.8
+      ]
+    },
+    {
+      "name": "Blue recycling bin",
+      "region": [
+        468,
+        875,
+        66,
+        134
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.394,
+        0.8
+      ]
+    },
+    {
+      "name": "Round concrete bin",
+      "region": [
+        536,
+        875,
+        79,
+        134
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.472,
+        0.8
+      ]
+    },
+    {
+      "name": "Wooden litter bin",
+      "region": [
+        614,
+        873,
+        66,
+        139
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        0.38,
+        0.8
+      ]
+    },
+    {
+      "name": "Cafe table red umbrella",
+      "region": [
+        702,
+        826,
+        142,
+        192
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.849,
+        2.5
+      ]
+    },
+    {
+      "name": "Cafe table blue umbrella",
+      "region": [
+        849,
+        826,
+        148,
+        192
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        1.927,
+        2.5
+      ]
+    },
+    {
+      "name": "Picnic table rectangular",
+      "region": [
+        1001,
+        877,
+        168,
+        141
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.0,
+        1.679
+      ]
+    },
+    {
+      "name": "Picnic table round",
+      "region": [
+        1174,
+        871,
+        165,
+        147
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.0,
+        1.782
+      ]
+    },
+    {
+      "name": "Long shrub planter",
+      "region": [
+        1341,
+        872,
+        183,
+        146
+      ],
+      "type": "industrial_prop",
+      "collision": "solid",
+      "worldSize": [
+        2.5,
+        1.995
+      ]
+    }
+  ]
+}

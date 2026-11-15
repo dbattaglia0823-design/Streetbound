@@ -12,6 +12,8 @@ var custom:=false
 var current_file:=""
 var original_session
 var original_world: Dictionary={}
+var original_world_node: MorrowCoast
+var custom_world: MorrowCoast
 var terrain: Node2D
 var revision:=-1
 var drag_revision:=""
@@ -60,8 +62,10 @@ func select(e,index: int) -> void:
 	if not probe._valid_source(doc):e._notice("Saved map is invalid; the current map was kept.");reload_list();return
 	activate(e,doc,file)
 func activate(e,doc: Dictionary,file: String) -> void:
-	if not custom:original_session=e.authoring;original_world=e.world.data
+	if not custom:
+		original_session=e.authoring;original_world=e.world.data;original_world_node=e.world
 	custom=true;current_file=file
+	e._apply_landmark_layer()
 	e.authoring=Session.new();e.authoring.doc=doc.duplicate(true);e.authoring.initial=doc.duplicate(true)
 	e.authoring.baseline_hash=e.authoring._fingerprint(doc);e.authoring.draft_baseline_hash=e.authoring.baseline_hash;e.authoring.edit_revision+=1
 	var journal:=Library.folder().path_join(file+".draft.json")
@@ -70,8 +74,18 @@ func activate(e,doc: Dictionary,file: String) -> void:
 		if recovered is Dictionary and e.authoring._valid_source(recovered):
 			e.authoring.doc=recovered;e.authoring.history.append(doc.duplicate(true));e.authoring.dirty=e.authoring._fingerprint(recovered)!=e.authoring.baseline_hash
 	recovery_revision=-1
+	# Cached Morrow render canvases retain their original world owner. Swapping
+	# that owner's data underneath queued draw calls left stale road/bridge
+	# indices referencing empty arrays, even when their parent was hidden.
+	if not is_instance_valid(custom_world):
+		custom_world=MorrowCoast.new();custom_world.editor_render_only=true
+		# Do not add this data-only world to the tree: _ready loads Morrow.
+	e.world=custom_world;e.gizmos.world=custom_world
 	e.world.data=original_world.duplicate();e.world.data.size=[doc.world.width,doc.world.height]
 	for key in ["roads","segments","props","terrain","junctions","bridges","pois","relief_faces","mountain_rails"]:e.world.data[key]=[]
+	for key in ["chunks","nodes","surface_index"]:e.world.data[key]={}
+	e.world.data.road_width_scale=1.0
+	e.world.data.spawn={"position":[doc.world.width*.5,doc.world.height*.5],"rotation":0.0}
 	e.source_ready=true;e.source_id="";e.source_anchor=-1;e.source_revision="";e.selected={};e.synced_preview_revision=-1;e._entity_revision=-1
 	e.gizmos.custom_terrain=true;e.gizmos.network=null;e.gizmos.network_is_draft=false;e.gizmos.preview_junctions=[]
 	e.gizmos.bridge_overrides={};e.gizmos.bridge_redraw_roads={}
@@ -102,13 +116,19 @@ func refresh(e) -> void:
 func update_view(e) -> void:
 	if is_instance_valid(e.overview_renderer):e.overview_renderer.visible=false
 	if is_instance_valid(e.render_tiles):e.render_tiles.visible=false
-	e.gizmos.zoom_level=e.editor_camera.zoom.x;e.gizmos.queue_redraw()
+	e.gizmos.set_view(e.editor_camera.global_position,e.get_viewport().get_visible_rect().size,e.editor_camera.zoom.x)
+	e.zoom_label.text="%.1f%%"%(e.editor_camera.zoom.x*100)
 	e.status.text="%s  |  %d × %d m  |  %d roads · %d regions · %d objects"%[e.authoring.doc.name,e.authoring.doc.world.width,e.authoring.doc.world.height,e.authoring.doc.roads.size(),e.authoring.doc.regions.size(),e.authoring.doc.props.size()]
 func restore(e) -> void:
 	if not custom:return
-	e.world.data=original_world;e.authoring=original_session;custom=false;current_file=""
+	e.world=original_world_node;e.gizmos.world=e.world;e.authoring=original_session;custom=false;current_file=""
+	e._apply_landmark_layer()
+	if is_instance_valid(custom_world):custom_world.free();custom_world=null
 	e.source_id="";e.source_anchor=-1;e.synced_preview_revision=-1;e._entity_revision=-1
 	e.gizmos.custom_terrain=false;e.gizmos.network=e.traffic_network
 	if terrain!=null:terrain.queue_free();terrain=null
 	if is_instance_valid(e.overview_renderer):e.overview_renderer.visible=true
 	reload_list()
+
+func dispose() -> void:
+	if is_instance_valid(custom_world):custom_world.free();custom_world=null

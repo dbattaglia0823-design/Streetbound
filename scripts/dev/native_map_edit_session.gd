@@ -4,6 +4,8 @@ extends RefCounted
 ## until the checked-in production builder has completed an Apply operation.
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
+const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
+const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
 const MAX_DRAG_M := 350.0
@@ -77,6 +79,10 @@ func _valid_source(value: Dictionary) -> bool:
 	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
+	if not value.get("races",[]) is Array or value.get("races",[]).size()>64:return false
+	for race in value.get("races",[]):
+		if not race is Dictionary or not RaceDefinition.valid(race,width,height) or used.has(str(race.id)):return false
+		used[str(race.id)]=true
 	for road in value.roads:
 		if not road is Dictionary or not str(road.get("id","")).begins_with("road-") or \
 				not road.get("points") is Array or road.points.size() < 2 or \
@@ -111,6 +117,8 @@ func _valid_source(value: Dictionary) -> bool:
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
+		if prop.has("roadFacing") and not prop.roadFacing is bool:return false
+		if prop.has("roadFront") and prop.roadFront not in [0,90,180,270]:return false
 		used[str(prop.id)] = true
 		if not _in_bounds(Vector2(float(prop.get("x",-1)),
 				float(prop.get("y",-1))),value):
@@ -244,6 +252,48 @@ func prop_at_id(prop_id: String) -> Dictionary:
 			return item
 	return {}
 
+func race_at_id(identity: String) -> Dictionary:
+	for race in doc.get("races",[]):
+		if str(race.id)==identity:return race
+	return {}
+
+func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String="") -> String:
+	var race:=settings.duplicate(true)
+	race.id=next_id("races","race") if identity.is_empty() else identity
+	race.points=[]
+	for p in points_m:race.points.append({"x":p.x,"y":p.y})
+	if not RaceDefinition.valid(race,float(doc.world.width),float(doc.world.height)):
+		last_error="Use a named sprint with 2+ points or a circuit with 3+ points. Keep checkpoints at least 5 m apart.";return ""
+	var next:=doc.duplicate(true)
+	if not next.has("races"):next["races"]=[]
+	var replaced:=false
+	for i in next.races.size():
+		if str(next.races[i].id)==str(race.id):next.races[i]=race;replaced=true;break
+	if not replaced:next.races.append(race)
+	return str(race.id) if _commit(next) else ""
+
+func move_race_point(identity: String,index: int,destination: Vector2) -> bool:
+	var next:=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		if index<0 or index>=race.points.size():return false
+		race.points[index]={"x":destination.x,"y":destination.y};return _commit(next)
+	return false
+
+func change_race_points(identity: String,index: int,remove: bool) -> bool:
+	var next:=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		index=clampi(index,0,race.points.size()-1)
+		if remove:
+			if race.points.size()<=(3 if race.mode=="circuit" else 2):last_error="Keep the race's start, finish and required checkpoints.";return false
+			race.points.remove_at(index)
+		else:
+			var a: Dictionary=race.points[mini(index,race.points.size()-2)];var b: Dictionary=race.points[mini(index+1,race.points.size()-1)]
+			race.points.insert(mini(index+1,race.points.size()-1),{"x":(a.x+b.x)*.5,"y":(a.y+b.y)*.5})
+		return _commit(next)
+	return false
+
 func _same_network(first: Dictionary, second: Dictionary) -> bool:
 	var loose_a: bool = str(first.get("surface","")) in ["dirt","gravel"]
 	var loose_b: bool = str(second.get("surface","")) in ["dirt","gravel"]
@@ -326,7 +376,7 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 	if not (relative_path.begins_with("Buildings/") or relative_path.begins_with("Map Building Assets/")) or \
 			"\\" in relative_path or ":" in relative_path or ".." in relative_path or \
 			art_type not in ["house","building","warehouse","garage","gas_station",
-				"industrial_prop","road_prop","ground_decal"] or \
+				"industrial_prop","road_prop","ground_decal","oak","pine","palm","bush","rock","boulder"] or \
 			collision_mode not in ["solid","none"] or \
 			not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS or \
 			footprint.x <= 0.0 or footprint.y <= 0.0 or \
@@ -596,6 +646,9 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 		var ends: Array[Vector2]=[]
 		if category=="roads" and not bool(target.get("independentEnds",false)):
 			ends=[Vector2(target.points[0].x,target.points[0].y),Vector2(target.points[-1].x,target.points[-1].y)]
+			if not RoadShapes.circle(target.points).is_empty():
+				ends.clear()
+				for p in target.points:ends.append(RoadShapes.point(p))
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
 		if category=="roads":
@@ -610,6 +663,8 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 
 static func road_path(road: Dictionary) -> PackedVector2Array:
 	var anchors: Array=road.get("points",[])
+	var circle:=RoadShapes.circle(anchors)
+	if not circle.is_empty():return RoadShapes.circle_path(anchors,circle)
 	var result:=PackedVector2Array()
 	for i in range(anchors.size()-1):
 		var a:=Vector2(anchors[i].x,anchors[i].y)
@@ -626,14 +681,78 @@ static func road_path(road: Dictionary) -> PackedVector2Array:
 	if not anchors.is_empty():result.append(Vector2(anchors[-1].x,anchors[-1].y))
 	return result
 
+func add_circle_road(center: Vector2,radius: float,settings: Dictionary={}) -> String:
+	if not is_finite(radius) or radius<8:
+		last_error="Circular roads need a radius of at least 8 metres.";return ""
+	if radius<=float(settings.get("width",10))*.5+2:
+		last_error="Increase the radius so the roundabout has an open center.";return ""
+	return add_road_path(RoadShapes.circle_points(center,radius),settings)
+
+func _replace_road_points(identity: String,vertices: Array,old_points: Array,moved_points: Array) -> bool:
+	var target:=road_at_id(identity)
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)==identity:road.points=vertices
+		elif not target.get("independentEnds",false) and not road.get("independentEnds",false) and _same_network(target,road):
+			# Keep attached branch endpoints on their authored junction anchors.
+			for index in [0,road.points.size()-1]:
+				for i in old_points.size():
+					if RoadShapes.point(road.points[index]).distance_to(RoadShapes.point(old_points[i]))<.05:
+						road.points[index]=moved_points[i].duplicate();break
+	if not _valid_source(next):
+		last_error="The shape would leave the map or put road points less than 1 metre apart. Use a smaller change.";return false
+	return _commit(next)
+
+func resize_circle_road(identity: String,radius: float) -> bool:
+	var road:=road_at_id(identity)
+	var shape:=RoadShapes.circle(road.get("points",[]))
+	if shape.is_empty():last_error="Select a circular road to change its radius.";return false
+	if not is_finite(radius) or radius<8 or radius<=float(road.width)*.5+2:
+		last_error="Increase the radius so the roundabout has an open center.";return false
+	var vertices: Array=[]
+	for raw in road.points:
+		var p: Vector2=Vector2(shape.center)+(RoadShapes.point(raw)-Vector2(shape.center)).normalized()*radius
+		vertices.append({"x":p.x,"y":p.y})
+	return _replace_road_points(identity,vertices,road.points,vertices)
+
+func bend_road(identity: String,bend_m: float) -> bool:
+	var road:=road_at_id(identity)
+	if road.is_empty():last_error="Select a road to curve.";return false
+	var anchors: Array=road.points
+	var a:=RoadShapes.point(anchors[0]);var b:=RoadShapes.point(anchors[-1])
+	var chord:=a.distance_to(b)
+	if chord<2 or not is_finite(bend_m):last_error="Closed roads use the radius tool. Select an open road to curve.";return false
+	var left:=Vector2((b-a).y,-(b-a).x).normalized()
+	var stations: Array[float]=[0.0]
+	for i in range(1,anchors.size()):stations.append(stations[-1]+RoadShapes.point(anchors[i-1]).distance_to(RoadShapes.point(anchors[i])))
+	var knots: Array[float]=[]
+	for station in stations:knots.append(station/stations[-1])
+	if anchors.size()<17:
+		for i in range(1,16):
+			var t:=i/16.0;var too_close:=false
+			for old in knots:
+				if absf(t-old)*chord<1.1:too_close=true;break
+			if not too_close:knots.append(t)
+	knots.sort()
+	var vertices: Array=[];var moved: Array=[]
+	for t in knots:
+		var p:=a.lerp(b,t)+left*(4*bend_m*t*(1-t))
+		vertices.append({"x":p.x,"y":p.y})
+	for t in stations:
+		var fraction:=t/stations[-1]
+		var p:=a.lerp(b,fraction)+left*(4*bend_m*fraction*(1-fraction))
+		moved.append({"x":p.x,"y":p.y})
+	return _replace_road_points(identity,vertices,anchors,moved)
+
 func road_preview_source(drag: Dictionary) -> Dictionary:
-	if drag.get("kind","") not in ["road","road_move","region"]:return doc
+	if drag.get("kind","") not in ["road","road_move","region","race_point"]:return doc
 	# Use the same endpoint propagation as the committed edit, without adding
 	# history or changing the real source while the mouse is held down.
 	var temporary=get_script().new()
 	temporary.doc=doc
 	if drag.kind=="road":temporary.move_road_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0)
 	elif drag.kind=="region":temporary.move_shape("regions",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
+	elif drag.kind=="race_point":temporary.move_race_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0)
 	else:temporary.move_shape("roads",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
 	return temporary.doc
 
@@ -664,8 +783,8 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 
 func delete_entity(identity: String) -> bool:
 	if not prop_at_id(identity).is_empty():return delete_prop(identity)
-	for category in ["roads","regions","markers"]:
-		for item in ([] if doc.get("customMap",false) else initial.get(category,[])):
+	for category in ["roads","regions","markers","races"]:
+		for item in ([] if doc.get("customMap",false) or category=="races" else initial.get(category,[])):
 			if str(item.id)==identity:
 				last_error="Original roads, terrain and gameplay markers are protected. Move or reshape them instead."
 				return false
@@ -744,7 +863,7 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 	var temporary=get_script().new();temporary.doc=doc
 	var category: String=""
 	var item: Dictionary={}
-	for collection in ["roads","regions","props","markers"]:
+	for collection in ["roads","regions","props","markers","races"]:
 		for candidate in doc.get(collection,[]):
 			if str(candidate.id)==identity:category=collection;item=candidate;break
 		if not item.is_empty():break
@@ -753,10 +872,14 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 	if item.has("points"):
 		for p in item.points:center+=Vector2(p.x,p.y)
 		center/=item.points.size()
+		if category=="roads":
+			var circle:=RoadShapes.circle(item.points)
+			if not circle.is_empty():center=circle.center
 	else:center=Vector2(item.x,item.y)
 	var ok:=false
 	if category=="props":ok=temporary.move_prop(identity,destination,0)
 	elif category=="roads" and point_index>=0:ok=temporary.move_road_point(identity,point_index,destination,0)
+	elif category=="races" and point_index>=0:ok=temporary.move_race_point(identity,point_index,destination)
 	else:ok=temporary.move_shape(category,identity,destination-center,0)
 	if not ok:last_error=temporary.last_error;return false
 	var next: Dictionary=temporary.doc.duplicate(true)
@@ -765,6 +888,8 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 		if values.has("name"):target.name=str(values.name).strip_edges().left(120)
 		if category=="props":
 			if values.has("rotation"):target.rotation=float(values.rotation)
+			if values.has("roadFacing"):target["roadFacing"]=bool(values.roadFacing)
+			if values.has("roadFront"):target["roadFront"]=int(values.roadFront)
 			if values.has("scale"):target.scale=clampf(float(values.scale),.2,5.0)
 			for axis in ["scaleX","scaleY"]:
 				if values.has(axis):target[axis]=clampf(float(values[axis]),.2,5.0)
@@ -778,13 +903,13 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 	return _commit(next)
 
 func duplicate_entity(identity: String) -> String:
-	for category in ["roads","regions","props","markers"]:
+	for category in ["roads","regions","props","markers","races"]:
 		for item in doc.get(category,[]):
 			if str(item.id)!=identity or bool(item.get("hidden",false)):continue
 			if category=="markers" and str(item.get("type","")) not in ["checkpoint","race_start","finish","traffic_spawn"]:
 				last_error="This gameplay marker cannot be duplicated.";return ""
 			var copy: Dictionary=item.duplicate(true)
-			var prefix: String={"roads":"road","regions":"region","props":"prop","markers":"marker"}[category]
+			var prefix: String={"roads":"road","regions":"region","props":"prop","markers":"marker","races":"race"}[category]
 			var id:=next_id(category,prefix)
 			copy.id=id;copy.name=str(item.get("name",prefix))+" copy"
 			copy.erase("replaces");copy.erase("hidden")
@@ -860,6 +985,19 @@ func connect_road_interior(identity: String,index: int,at: Vector2,radius: float
 	for road in doc.roads:
 		if str(road.id)==identity or not _same_network(target,road):continue
 		var path:=road_path(road)
+		var circle:=RoadShapes.circle(road.points)
+		if not circle.is_empty():
+			var p:=RoadShapes.closest_on_circle(circle,at)
+			if at.distance_to(p)<best:
+				var angle: float=(p-Vector2(circle.center)).angle()
+				var phase: float=(RoadShapes.point(road.points[0])-Vector2(circle.center)).angle()
+				var station:=fposmod(float(circle.direction)*(angle-phase),TAU)
+				var insert_at: int=road.points.size()-1
+				for i in range(1,road.points.size()-1):
+					var next_angle: float=(RoadShapes.point(road.points[i])-Vector2(circle.center)).angle()
+					if fposmod(float(circle.direction)*(next_angle-phase),TAU)>station:insert_at=i;break
+				best=at.distance_to(p);hit={"id":str(road.id),"p":p,"span":insert_at}
+			continue
 		var span:=1
 		var boundary:=clampi(ceili(Vector2(road.points[0].x,road.points[0].y).distance_to(Vector2(road.points[1].x,road.points[1].y))/6.0),2,160)
 		for i in range(1,path.size()):

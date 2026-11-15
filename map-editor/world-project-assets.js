@@ -1,7 +1,7 @@
 const registry=new Map();
-const types=new Set(['house','building','warehouse','garage','gas_station','industrial_prop','road_prop','ground_decal']);
+const types=new Set(['house','building','warehouse','garage','gas_station','industrial_prop','road_prop','ground_decal','oak','pine','palm','bush','rock','boulder']);
 const sizes={house:[12,17],building:[22,29],warehouse:[28,37],garage:[20,21],gas_station:[18,17],
-  industrial_prop:[4,4],road_prop:[3,3],ground_decal:[4,4]};
+  industrial_prop:[4,4],road_prop:[3,3],ground_decal:[4,4],oak:[7,7],pine:[7,7],palm:[6.5,6.5],bush:[2.5,2.5],rock:[3,2.5],boulder:[4.5,3.4]};
 export const projectAssetId=id=>typeof id==='string'&&/^project-[a-f0-9]{24}$/.test(id);
 export const projectAssetPath=path=>typeof path==='string'&&
   (path.startsWith('Buildings/')||path.startsWith('Map Building Assets/'))&&

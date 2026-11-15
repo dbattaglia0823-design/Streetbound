@@ -48,6 +48,7 @@ var draft_points: Array[Vector2] = []
 var preview_hidden: Dictionary = {}
 var synced_preview_revision := -1
 var synced_prop_drag:=""
+var _overview_dirty:=false
 var _last_road_drag_ms:=-1000
 var _snap_neighbors_key:=""
 var _snap_neighbors: Array=[]
@@ -70,7 +71,15 @@ var source_ready := false
 var tool_name := "move_prop"
 const MapSwitcher=preload("res://scripts/dev/native_map_switcher.gd")
 var map_switcher=MapSwitcher.new()
+const RaceEditor=preload("res://scripts/dev/native_race_editor.gd")
+var race_editor=RaceEditor.new()
+const RoadShapeTools=preload("res://scripts/dev/native_road_shape_tools.gd")
+var road_shapes=RoadShapeTools.new()
 const BuildingSnap=preload("res://scripts/dev/building_snap.gd")
+const RoadBuildingSnap=preload("res://scripts/dev/road_building_snap.gd")
+var road_building_snap:=RoadBuildingSnap.new()
+var _road_snap_revision:=-1
+var _road_snap_context:=""
 var building_snap_enabled:=true
 var building_snap_button: Button
 var sidewalk_width: SpinBox
@@ -106,6 +115,8 @@ var inspector_name: LineEdit
 var inspector_x: SpinBox
 var inspector_y: SpinBox
 var inspector_rotation: SpinBox
+var inspector_road_facing: CheckBox
+var inspector_road_front: OptionButton
 var inspector_scale: SpinBox
 var inspector_scale_x: SpinBox
 var inspector_scale_y: SpinBox
@@ -185,6 +196,8 @@ func _reopen_baked_world(where: Vector2) -> void:
 		editor_camera.global_position = where
 		_update_view(true)
 		_notice("Rebuilt map loaded: inspect refreshed intersections and traffic.")
+		var warnings: Array=world.data.get("editor_warnings",[])
+		if not warnings.is_empty():_notice("Map loaded. %d placement/network warning(s): %s"%[warnings.size(),str(warnings[0])])
 
 func _build_authoring_ui() -> void:
 	_update_active_tool_style()
@@ -278,7 +291,7 @@ func _walk_building_assets(folder: String) -> void:
 			if directory.current_is_dir():
 				_walk_building_assets(child)
 			elif entry.get_extension().to_lower() in ["png","webp","svg"]:
-				var texture: Texture2D = load(child) as Texture2D
+				var texture: Texture2D = Art.project_sprite(child.trim_prefix("res://assets/"))
 				if texture != null:
 					var relative := child.trim_prefix("res://assets/")
 					var meta := _read_asset_metadata(child.get_basename()+".asset.json")
@@ -356,7 +369,7 @@ func _register_project_asset(relative: String, label: String, texture: Texture2D
 		kind="building"
 		category="building"
 	kind=str(meta.get("type",kind))
-	if kind not in ["house","building","warehouse","garage","gas_station","industrial_prop","road_prop","ground_decal"]:
+	if kind not in ["house","building","warehouse","garage","gas_station","industrial_prop","road_prop","ground_decal","oak","pine","palm","bush","rock","boulder"]:
 		return
 	if kind=="ground_decal":
 		category="decals"
@@ -368,6 +381,10 @@ func _register_project_asset(relative: String, label: String, texture: Texture2D
 		category="house"
 	elif kind=="garage":
 		category="garage"
+	elif kind in ["building","warehouse","gas_station"]:
+		category="building"
+	elif kind in ["oak","pine","palm","bush","rock","boulder"]:
+		category="nature"
 	var collision:=str(meta.get("collision","none" if kind=="ground_decal" else "solid"))
 	if collision not in ["solid","none"]:
 		return
@@ -406,10 +423,13 @@ func _filter_assets() -> void:
 			continue
 		if category == 7 and entry.category != "decals":
 			continue
+		if category == 8 and entry.get("region",[]).size()!=4:
+			continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
 		button.custom_minimum_size = Vector2(98,106)
 		button.tooltip_text = str(entry.name)
+		if entry.get("region",[]).size()==4:button.tooltip_text+="\nSheet: "+str(entry.path).get_file().get_basename()
 		button.pressed.connect(_select_asset.bind(entry))
 		var tile := VBoxContainer.new()
 		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -455,12 +475,15 @@ func _update_context_panels() -> void:
 	if not is_instance_valid(tool_options):return
 	var road_selected: bool=source_ready and not authoring.road_at_id(source_id).is_empty()
 	var record:=_selected_record()
-	road_settings.visible=tool_name in ["move_prop","anchor","pan","draw_road"] or road_selected
-	if record.get("category","")=="regions":road_settings.visible=false
+	road_settings.visible=tool_name in ["move_prop","anchor","pan","draw_road","place_circle_road"] or road_selected
+	if record.get("category","") in ["regions","races"] or tool_name=="draw_race":road_settings.visible=false
+	road_shapes.update(self)
+	race_editor.update(self)
 	terrain_settings.visible=tool_name=="draw_terrain" or record.get("category","")=="regions"
 	marker_settings.visible=tool_name=="place_marker"
 	asset_dock.visible=tool_name.begins_with("place:")
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk"] else 3)
+	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
@@ -537,7 +560,9 @@ func _sync_editor_preview() -> void:
 	synced_prop_drag=dragging_prop
 	var next_hidden: Dictionary = {}
 	if not dragging_prop.is_empty():next_hidden["authored:"+dragging_prop]=true
-	var runtime_stamp: int=hash(world.data.props)
+	# Baked archive objects are immutable for this editor session. Avoid
+	# re-hashing thousands of nested prop dictionaries on every committed edit.
+	var runtime_stamp: int=hash([world.get_instance_id(),world.data.props.size(),map_switcher.current_file])
 	if runtime_stamp!=_runtime_prop_stamp:
 		_runtime_prop_stamp=runtime_stamp;_runtime_props_by_source.clear()
 		for original in world.data.props:
@@ -561,8 +586,6 @@ func _sync_editor_preview() -> void:
 		preview_hidden = next_hidden
 		Scenery.editor_hidden = preview_hidden.duplicate()
 		_redraw_visible_scenery()
-		if is_instance_valid(render_tiles):
-			render_tiles.redraw_scenery()
 	# Source previews have their own real CollisionShape2D, and stale
 	# baked shapes are disabled only for the editing session.
 	for chunk in world.chunks.values():
@@ -665,13 +688,15 @@ func _choose_tool(mode: String) -> void:
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
-	mode_label.text={"draw_sidewalk":"DRAW SIDEWALK","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
+	mode_label.text={"place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"DRAW SIDEWALK","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
 		"place_marker":"GAME MARKER","anchor":"ROAD POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
+		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
 		"draw_sidewalk":"Set walk width, click path points, then Finish or Enter. Select/Edit moves the finished sidewalk; Delete removes it.",
+		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.","anchor":"Drag the orange road handles to reshape roads.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor."}.get(mode,"Choose artwork, then click the map to place it."))
@@ -933,8 +958,10 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
-	if tool_name in ["draw_road","draw_sidewalk"]:
-		var point:=_road_draw_point(world_px/PPM) if tool_name=="draw_road" else _snap_point(world_px/PPM)
+	if tool_name=="place_circle_road":
+		road_shapes.place(self,_snap_point(world_px/PPM));return
+	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
+		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
 		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=1.0:draft_points.append(point)
 		_refresh_authoring()
 		_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
@@ -976,9 +1003,9 @@ func _source_click(world_px: Vector2) -> void:
 			id = authoring.add_prop(kind,world_px/PPM)
 		if id != "":
 			var prop: Dictionary=authoring.prop_at_id(id)
-			var snapped:=_snap_building(prop,Vector2(prop.x,prop.y))
+			var snapped:=_snap_building_transform(prop,Vector2(prop.x,prop.y))
 			# Fold automatic snapping into the placement's existing undo step.
-			if snapped!=Vector2(prop.x,prop.y):prop.x=snapped.x;prop.y=snapped.y
+			prop.x=snapped.position.x;prop.y=snapped.position.y;prop.rotation=snapped.rotation
 			source_id = id
 			source_anchor = -1
 			_refresh_authoring()
@@ -989,6 +1016,11 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name not in ["anchor","move_prop"]:
 		select_at(world_px)
 		return
+	var race_handle:=_pick_race_handle(world_px)
+	if not race_handle.is_empty():
+		selected={};gizmos.set_selection({})
+		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
+		_refresh_authoring();return
 	var hit: Dictionary={}
 	if tool_name=="anchor":hit=_pick_source_anchor(world_px)
 	else:
@@ -1061,7 +1093,9 @@ func _finish_source_drag(world_px: Vector2) -> void:
 			if int(drag.index) in [0,road.points.size()-1] and not Input.is_physical_key_pressed(KEY_ALT):temporary.reconnect_endpoint(str(drag.id),int(drag.index),clampf(12.0/(editor_camera.zoom.x*PPM),2.0,12.0))
 			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
-		ok = authoring.move_prop(str(drag.id),_snap_building(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM)),0)
+		var snapped:=_snap_building_transform(authoring.prop_at_id(str(drag.id)),_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
+		ok = authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
+	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
 			str(drag.id),(world_px-Vector2(drag.grab))/PPM,snap_m)
@@ -1291,7 +1325,7 @@ func _process(dt: float) -> void:
 	traffic_preview.poll()
 	_update_traffic_preview()
 	_asset_refresh_elapsed+=dt
-	if _asset_refresh_elapsed>=3.0:
+	if _asset_refresh_elapsed>=3.0 and pending_drag.is_empty():
 		_asset_refresh_elapsed=0.0
 		_scan_asset_library()
 	if is_instance_valid(overview_sprite):overview_sprite.visible=not render_tiles.ready_to_show
@@ -1319,6 +1353,9 @@ func _update_view(force: bool = false) -> void:
 		return
 	if map_switcher.custom:
 		map_switcher.update_view(self);return
+	if _overview_dirty and pending_drag.is_empty() and is_instance_valid(render_tiles) and not render_tiles.ready_to_show:
+		_overview_dirty=false
+		if is_instance_valid(overview_renderer):overview_renderer.refresh()
 	# Morrow Coast normally streams around the player in _process(), which
 	# is paused in this mode. Load one real, collision-bearing chunk per UI
 	# update instead of creating a fake editor-only representation.
@@ -1363,18 +1400,18 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
 				else:
 					open_editor()
-				get_viewport().set_input_as_handled()
+				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
 				if not draft_points.is_empty() or not pending_drag.is_empty():
 					_cancel_gesture()
 				else:
 					close_editor()
-				get_viewport().set_input_as_handled()
+				_consume_input()
 				return
-			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_race"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
 				_finish_shape()
-				get_viewport().set_input_as_handled()
+				_consume_input()
 				return
 			# Mirror the browser map editor's V/R/T/P/M/H tool shortcuts.
 			# Never intercept typing in the searchable asset browser.
@@ -1391,7 +1428,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					KEY_H: shortcut = "pan"
 				if not shortcut.is_empty():
 					_choose_tool(shortcut)
-					get_viewport().set_input_as_handled()
+					_consume_input()
 					return
 			if active and key.ctrl_pressed and (key.keycode in [KEY_Z,KEY_Y] or
 					key.physical_keycode in [KEY_Z,KEY_Y]):
@@ -1399,58 +1436,59 @@ func _unhandled_input(event: InputEvent) -> void:
 					_redo()
 				else:
 					_undo()
-				get_viewport().set_input_as_handled()
+				_consume_input()
 				return
 			if active and key.ctrl_pressed and key.keycode==KEY_S:
-				_apply_draft();get_viewport().set_input_as_handled();return
+				_apply_draft();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
-				_duplicate_selected();get_viewport().set_input_as_handled();return
+				_duplicate_selected();_consume_input();return
 			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and not source_id.is_empty():
 				_nudge_selected({KEY_LEFT:Vector2.LEFT,KEY_RIGHT:Vector2.RIGHT,KEY_UP:Vector2.UP,KEY_DOWN:Vector2.DOWN}[key.keycode],key.shift_pressed)
-				get_viewport().set_input_as_handled();return
+				_consume_input();return
 			if active and key.keycode==KEY_F:
-				_fit_map();get_viewport().set_input_as_handled();return
+				_fit_map();_consume_input();return
 			if active and key.keycode in [KEY_DELETE,KEY_BACKSPACE]:
-				_delete_selected();get_viewport().set_input_as_handled();return
+				_delete_selected();_consume_input();return
 	if not active:
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE]:
 			_right_drag = mouse.pressed
-			get_viewport().set_input_as_handled()
+			_consume_input()
 		elif mouse.pressed and mouse.button_index in [
 				MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 			var factor := 1.13 if mouse.button_index==MOUSE_BUTTON_WHEEL_UP else 1.0/1.13
 			_set_zoom(editor_camera.zoom.x*factor,mouse.position)
-			get_viewport().set_input_as_handled()
+			_consume_input()
 		elif mouse.button_index==MOUSE_BUTTON_LEFT:
 			if tool_name == "pan" or Input.is_key_pressed(KEY_SPACE) or Input.is_physical_key_pressed(KEY_SPACE):
 				_right_drag = mouse.pressed
 				_space_pan=mouse.pressed and tool_name!="pan"
-				get_viewport().set_input_as_handled()
+				_consume_input()
 				return
 			var hit_position: Vector2 = _event_world_position(mouse.position)
 			if mouse.pressed:
 				_source_click(hit_position)
-				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk"]:_finish_shape()
+				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_race"]:_finish_shape()
 			elif not pending_drag.is_empty():
 				_finish_source_drag(hit_position)
-			get_viewport().set_input_as_handled()
+			_consume_input()
 	elif event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		if _right_drag:
 			editor_camera.global_position -= motion.relative/editor_camera.zoom
-			get_viewport().set_input_as_handled()
+			_consume_input()
 		elif not pending_drag.is_empty():
 			_update_drag_preview(_event_world_position(motion.position))
-			get_viewport().set_input_as_handled()
+			_consume_input()
 
 func _event_world_position(screen_position: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform().affine_inverse()*screen_position
 
 func _exit_tree() -> void:
 	traffic_preview.finish()
+	map_switcher.dispose()
 	_restore_gameplay_render()
 	if is_instance_valid(overview_renderer):overview_renderer.queue_free()
 	if _owns_render_tiles and is_instance_valid(render_tiles):render_tiles.queue_free()
@@ -1497,16 +1535,16 @@ func _input(event: InputEvent) -> void:
 			_space_pan=false
 		if event.button_index==MOUSE_BUTTON_LEFT and not pending_drag.is_empty():
 			_finish_source_drag(_event_world_position(event.position))
-			get_viewport().set_input_as_handled()
+			_consume_input()
 	elif event is InputEventMouseMotion:
 		if not pending_drag.is_empty():
 			_update_drag_preview(_event_world_position(event.position))
-			get_viewport().set_input_as_handled()
+			_consume_input()
 		elif _right_drag:
 			editor_camera.global_position-=event.relative/editor_camera.zoom
-			get_viewport().set_input_as_handled()
+			_consume_input()
 	elif event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE and not pending_drag.is_empty():
-		_cancel_gesture();get_viewport().set_input_as_handled()
+		_cancel_gesture();_consume_input()
 
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_WM_CLOSE_REQUEST and active and standalone_mode:
@@ -1525,11 +1563,13 @@ func _notification(what: int) -> void:
 
 func _update_drag_preview(at: Vector2) -> void:
 	if pending_drag.kind=="prop":
-		pending_drag.to=_snap_building(authoring.prop_at_id(str(pending_drag.id)),_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM))*PPM
+		var snapped:=_snap_building_transform(authoring.prop_at_id(str(pending_drag.id)),_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM))
+		pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
 		gizmos.update_prop_drag(pending_drag)
 		return
 	elif pending_drag.kind in ["road_move","region","marker"]:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
+	elif pending_drag.kind=="race_point":pending_drag.to=_road_draw_point(at/PPM,true)*PPM
 	else:pending_drag.to=_snap_point(at/PPM)*PPM
 	if Time.get_ticks_msec()-_last_road_drag_ms<50:return
 	_last_road_drag_ms=Time.get_ticks_msec()
@@ -1562,7 +1602,8 @@ func _update_traffic_preview() -> void:
 	gizmos.queue_redraw()
 
 func _update_overview_mask() -> void:
-	if is_instance_valid(overview_renderer):overview_renderer.refresh()
+	# The 4096px atlas is expensive. Keep it cached while editing at detail LOD.
+	_overview_dirty=true
 
 func _redraw_roads() -> void:
 	if not is_instance_valid(world):return
@@ -1594,7 +1635,7 @@ func _option_value(option: OptionButton) -> String:
 	return str(option.get_item_metadata(option.selected))
 
 func _change_road_settings() -> void:
-	if _setting_controls or not source_ready or tool_name=="draw_road" or _editing_locked():return
+	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
 	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
 		"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)}):
 		_refresh_authoring()
@@ -1602,7 +1643,7 @@ func _change_road_settings() -> void:
 
 func _selected_record() -> Dictionary:
 	if not source_ready or source_id.is_empty():return {}
-	for category in ["roads","regions","props","markers"]:
+	for category in ["roads","regions","props","markers","races"]:
 		for item in authoring.doc.get(category,[]):
 			if str(item.id)==source_id:return {"category":category,"item":item}
 	return {}
@@ -1610,8 +1651,11 @@ func _selected_record() -> Dictionary:
 func _record_position(record: Dictionary) -> Vector2:
 	var item: Dictionary=record.item
 	if item.has("points"):
-		if record.category=="roads" and source_anchor>=0 and source_anchor<item.points.size():
+		if record.category in ["roads","races"] and source_anchor>=0 and source_anchor<item.points.size():
 			return Vector2(item.points[source_anchor].x,item.points[source_anchor].y)
+		if record.category=="roads":
+			var circle:=EditSession.RoadShapes.circle(item.points)
+			if not circle.is_empty():return circle.center
 		var center:=Vector2.ZERO
 		for p in item.points:center+=Vector2(p.x,p.y)
 		return center/item.points.size()
@@ -1624,12 +1668,15 @@ func _refresh_inspector() -> void:
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	prop_transforms.visible=exists and record.category=="props"
-	point_picker.visible=exists and record.category=="roads"
+	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
-	split_road_button.visible=point_picker.visible
-	reconnect_road_button.visible=point_picker.visible
-	connection_label.visible=point_picker.visible
+	split_road_button.visible=point_picker.visible and record.category=="roads"
+	reconnect_road_button.visible=split_road_button.visible
+	connection_label.visible=split_road_button.visible
+	var race_selected: bool=exists and record.category=="races"
+	add_point_button.text="Add checkpoint" if race_selected else "Add road point"
+	remove_point_button.text="Remove checkpoint" if race_selected else "Remove selected road point"
 	point_picker.clear()
 	if exists:
 		var item: Dictionary=record.item
@@ -1640,11 +1687,20 @@ func _refresh_inspector() -> void:
 		if record.category=="props":
 			var size: Vector2=gizmos._prop_size(item)/PPM
 			asset_dimensions_label.text="Footprint: %.2f × %.2f m"%[size.x,size.y]
-		if record.category=="roads":
-			point_picker.add_item("Whole road (center)")
-			for i in item.points.size():point_picker.add_item("Control point %d"%[i+1])
+			var building:=RoadBuildingSnap.supports(item)
+			inspector_road_facing.visible=building;inspector_road_front.visible=building
+			inspector_road_facing.set_pressed_no_signal(RoadBuildingSnap.enabled(item))
+			inspector_road_front.disabled=not RoadBuildingSnap.enabled(item)
+			for i in inspector_road_front.item_count:
+				if int(inspector_road_front.get_item_metadata(i))==int(item.get("roadFront",90)):inspector_road_front.select(i);break
+		if record.category in ["roads","races"]:
+			point_picker.add_item("Whole race (center)" if race_selected else "Whole road (center)")
+			for i in item.points.size():
+				var title: String="Control point %d"%[i+1]
+				if race_selected:title="Start" if i==0 else ("Finish" if item.mode=="sprint" and i==item.points.size()-1 else "Checkpoint %d"%i)
+				point_picker.add_item(title)
 			point_picker.select(clampi(source_anchor+1,0,item.points.size()))
-			remove_point_button.disabled=item.points.size()<=2
+			remove_point_button.disabled=item.points.size()<=(3 if race_selected and item.mode=="circuit" else 2)
 			split_road_button.text="Detach junction" if source_anchor==0 or source_anchor==item.points.size()-1 else "Split road here"
 			reconnect_road_button.disabled=source_anchor not in [0,item.points.size()-1]
 			connection_label.text="Ends move independently" if bool(item.get("independentEnds",false)) else "Touching ends move together"
@@ -1664,6 +1720,14 @@ func _commit_inspector(field: String="name") -> void:
 	if record.category=="props":
 		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y}
 		if controls.has(field):values[field]=controls[field].value
+		if field=="roadFacing":values[field]=inspector_road_facing.button_pressed
+		if field=="roadFront":values[field]=int(inspector_road_front.get_item_metadata(inspector_road_front.selected))
+		if field in ["x","y","roadFacing","roadFront"]:
+			var adjusted: Dictionary=record.item.duplicate();adjusted.merge(values,true)
+			# Disabling this preference never moves or rotates the asset.
+			if field!="roadFacing" or bool(values[field]):
+				var snapped:=_snap_building_transform(adjusted,destination)
+				destination=snapped.position;values["rotation"]=snapped.rotation
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
@@ -1722,6 +1786,10 @@ func _select_point(index: int) -> void:
 
 func _remove_point() -> void:
 	if _editing_locked() or not source_ready:return
+	if not authoring.race_at_id(source_id).is_empty():
+		if authoring.change_race_points(source_id,maxi(0,source_anchor),true):source_anchor=-1;_refresh_authoring()
+		else:_notice(authoring.last_error)
+		return
 	var road: Dictionary=authoring.road_at_id(source_id)
 	var index: int=source_anchor if source_anchor>=0 else road.get("points",[]).size()/2
 	if authoring.remove_road_point(source_id,index):source_anchor=-1;_refresh_authoring()
@@ -1751,7 +1819,12 @@ func _nudge_selected(direction: Vector2,large: bool=false) -> void:
 	var record:=_selected_record()
 	if record.is_empty():return
 	var step: float=(snap_m if snap_m>0 else 1.0)*(10 if large else 1)
-	if authoring.edit_entity(source_id,{},_record_position(record)+direction*step,source_anchor):_refresh_authoring()
+	var destination:=_record_position(record)+direction*step
+	var values: Dictionary={}
+	if record.category=="props":
+		var snapped:=_snap_building_transform(record.item,destination)
+		destination=snapped.position;values["rotation"]=snapped.rotation
+	if authoring.edit_entity(source_id,values,destination,source_anchor):_refresh_authoring()
 	else:_notice(authoring.last_error)
 
 func _refresh_entity_list(force: bool=false) -> void:
@@ -1763,7 +1836,7 @@ func _refresh_entity_list(force: bool=false) -> void:
 		return
 	_entity_revision=authoring.edit_revision;entity_list.clear()
 	var keyword:=entity_search.text.to_lower()
-	for category in ["roads","regions","props","markers"]:
+	for category in ["roads","regions","props","markers","races"]:
 		for item in authoring.doc.get(category,[]):
 			if bool(item.get("hidden",false)):continue
 			var text: String=str(item.get("name",item.id))+"  ·  "+str(item.id)
@@ -1791,19 +1864,29 @@ func _set_layer(enabled: bool,key: String) -> void:
 	_apply_landmark_layer()
 
 func _apply_landmark_layer() -> void:
-	if is_instance_valid(world) and is_instance_valid(world.dealerships):
-		var node: Node2D=world.dealerships
+	var landmark_world=map_switcher.original_world_node if map_switcher.custom else world
+	if is_instance_valid(landmark_world) and is_instance_valid(landmark_world.dealerships):
+		var node: Node2D=landmark_world.dealerships
 		if not _landmark_visibility.has(node):_landmark_visibility[node]=node.visible
-		node.visible=bool(layer_flags.scenery)
+		# Morrow's dynamically placed showrooms/forecourts are a separate
+		# render layer, not authored objects in a blank custom map.
+		node.visible=bool(layer_flags.scenery) and not map_switcher.custom
 
 func _snap_point(point: Vector2) -> Vector2:
 	return point.snapped(Vector2.ONE*snap_m) if snap_m>0 else point
 
-func _road_draw_point(point: Vector2) -> Vector2:
+func _road_draw_point(point: Vector2,any_surface: bool=false) -> Vector2:
 	var best:=INF
 	var result:=_snap_point(point)
 	for road in authoring.doc.get("roads",[]):
-		if (str(road.surface) in ["gravel","dirt"])!=(_option_value(road_surface) in ["gravel","dirt"]):continue
+		if not any_surface and (str(road.surface) in ["gravel","dirt"])!=(_option_value(road_surface) in ["gravel","dirt"]):continue
+		var circle:=EditSession.RoadShapes.circle(road.points)
+		if not circle.is_empty():
+			var candidate:=EditSession.RoadShapes.closest_on_circle(circle,point)
+			var distance:=point.distance_to(candidate)
+			if distance<maxf(float(road.width)*.5+1.0,8/(editor_camera.zoom.x*PPM)) and distance<best:
+				best=distance;result=candidate
+			continue
 		var path:=_source_road_path(road)
 		for i in range(1,path.size()):
 			var candidate:=Geometry2D.get_closest_point_to_segment(point,path[i-1],path[i])
@@ -1832,6 +1915,9 @@ func _update_source_details() -> void:
 		selected_preview.texture=gizmos._prop_texture(prop)
 		selected_preview.visible=selected_preview.texture!=null
 		return
+	var race: Dictionary=authoring.race_at_id(source_id)
+	if not race.is_empty():
+		details.text="RACE / %s\n%s · %d points · %d lap(s)\nDrag checkpoint handles to reshape the route."%[race.name,str(race.mode).capitalize(),race.points.size(),int(race.get("laps",1))];return
 	for category in ["regions","markers"]:
 		for item in authoring.doc.get(category,[]):
 			if str(item.id)==source_id:
@@ -1850,8 +1936,10 @@ func _finish_shape() -> void:
 			"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)})
 	elif tool_name=="draw_terrain":identity=authoring.add_region(draft_points,_option_value(terrain_biome),terrain_barrier.button_pressed,terrain_elevation.value if terrain_barrier.button_pressed else 0)
 	elif tool_name=="draw_sidewalk":identity=authoring.add_sidewalk(draft_points,sidewalk_width.value)
+	elif tool_name=="draw_race":identity=race_editor.finish(self)
 	if identity.is_empty():_notice(authoring.last_error);return
 	source_id=identity;source_anchor=-1;draft_points.clear()
+	if tool_name=="draw_race":tool_name="move_prop";mode_label.text="SELECT / EDIT";_update_active_tool_style()
 	_refresh_authoring()
 	_notice("Created "+identity+". Select/Edit to move it; Save to Game when ready.")
 
@@ -2012,6 +2100,10 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 
 func _add_point() -> void:
 	if _editing_locked() or not source_ready:return
+	if not authoring.race_at_id(source_id).is_empty():
+		if authoring.change_race_points(source_id,maxi(0,source_anchor),false):_refresh_authoring()
+		else:_notice(authoring.last_error)
+		return
 	var road: Dictionary=authoring.road_at_id(source_id)
 	if road.is_empty():return
 	var index:=clampi(source_anchor,0,road.points.size()-2)
@@ -2038,12 +2130,34 @@ func _toggle_building_snap() -> void:
 	building_snap_enabled=not building_snap_enabled
 	building_snap_button.text="Building edges: on" if building_snap_enabled else "Building edges: off"
 
+func _pick_race_handle(at: Vector2) -> Dictionary:
+	if not source_ready or not layer_flags.markers:return {}
+	var race: Dictionary=authoring.race_at_id(source_id)
+	if race.is_empty():return {}
+	for i in race.points.size():
+		var p:=Vector2(race.points[i].x,race.points[i].y)*PPM
+		if p.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):return {"id":source_id,"kind":"race_point","index":i,"from":p}
+	return {}
+
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
-	if not building_snap_enabled or Input.is_physical_key_pressed(KEY_ALT) or str(prop.get("type","")) not in ["house","building","warehouse","garage","gas_station"]:return at
+	return _snap_building_transform(prop,at).position
+
+func _ensure_road_building_index() -> void:
+	var context: String="%d/%s/%d"%[world.get_instance_id(),map_switcher.current_file,authoring.get_instance_id()]
+	if _road_snap_revision==authoring.edit_revision and _road_snap_context==context:return
+	_road_snap_revision=authoring.edit_revision;_road_snap_context=context
+	var key: String=context+JSON.stringify(authoring.doc.roads).sha256_text()
+	if key==road_building_snap.stamp:return
+	var roads: Array=[]
+	var width_scale: float=float(world.data.get("road_width_scale",1))/float(authoring.doc.get("morrowRoadWidthScale",1))
+	for road in authoring.doc.roads:
+		roads.append({"id":road.id,"path":_source_road_path(road),"width":float(road.width)*width_scale,"shoulder":float(road.get("shoulder",2))})
+	road_building_snap.rebuild(roads,key)
+
+func _building_snap_neighbors(prop: Dictionary,at: Vector2) -> Array:
 	var neighbors: Array=[]
 	var cache_key: String="%s/%s/%d/%s/%s"%[map_switcher.current_file,str(authoring.doc.name),authoring.edit_revision,str(prop.id),str(Vector2i((at/100.0).floor()))]
-	if cache_key==_snap_neighbors_key:
-		return BuildingSnap.position(at,gizmos._prop_size(prop)/PPM,deg_to_rad(float(prop.get("rotation",0))),_snap_neighbors)
+	if cache_key==_snap_neighbors_key:return _snap_neighbors
 	for other in authoring.doc.props:
 		if str(other.id)==str(prop.id) or other.get("hidden",false) or str(other.type) not in ["house","building","warehouse","garage","gas_station"]:continue
 		if Vector2(other.x,other.y).distance_to(at)>150:continue
@@ -2054,5 +2168,44 @@ func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 		var p:=Vector2(other.p[0],other.p[1])
 		if p.distance_to(at)<150:neighbors.append({"p":p,"size":Vector2(other.size[0],other.size[1]),"angle":float(other.angle)})
 	_snap_neighbors_key=cache_key;_snap_neighbors=neighbors
-	var snapped:=BuildingSnap.position(at,gizmos._prop_size(prop)/PPM,deg_to_rad(float(prop.get("rotation",0))),neighbors)
-	return snapped if authoring._in_bounds(snapped) else at
+	return neighbors
+
+func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
+	var original: Dictionary={"position":at,"rotation":float(prop.get("rotation",0))}
+	if Input.is_physical_key_pressed(KEY_ALT) or not RoadBuildingSnap.supports(prop):return original
+	var size: Vector2=gizmos._prop_size(prop)/PPM
+	var hit: Dictionary={}
+	if RoadBuildingSnap.enabled(prop):
+		_ensure_road_building_index();hit=road_building_snap.snap(prop,at,size)
+	var position: Vector2=hit.get("position",at)
+	var angle: float=float(hit.get("angle",deg_to_rad(float(prop.get("rotation",0)))))
+	if building_snap_enabled:
+		var neighbors:=_building_snap_neighbors(prop,at)
+		var angles: Array[float]=[angle]
+		if not hit.is_empty():
+			# Slightly curved streets can share a block's existing alignment.
+			# Limit the adjustment to 8 degrees so fronts still face the road.
+			for other in neighbors:
+				if Vector2(other.p).distance_to(position)>(size.length()+Vector2(other.size).length())*.5+4:continue
+				var turn:=wrapf(angle-float(other.angle),-PI*.25,PI*.25)
+				if absf(turn)<.0001 or absf(turn)>deg_to_rad(8):continue
+				var candidate:=angle-turn;var duplicate:=false
+				for existing in angles:
+					if absf(candidate-existing)<.002:duplicate=true;break
+				if not duplicate:angles.append(candidate)
+				if angles.size()>=6:break
+		var best:=INF
+		for candidate_angle in angles:
+			var start: Vector2=position if candidate_angle==angle or hit.is_empty() else road_building_snap.pose(hit,size,candidate_angle)
+			var snapped:=BuildingSnap.position(start,size,candidate_angle,neighbors)
+			if snapped.distance_to(start)<.0001:continue
+			if not authoring._in_bounds(snapped):continue
+			if not hit.is_empty() and not road_building_snap.clear_of_roads(snapped,size,candidate_angle):continue
+			var score:=snapped.distance_to(at)
+			if score<best:best=score;position=snapped;angle=candidate_angle
+	if not authoring._in_bounds(position):return original
+	return {"position":position,"rotation":rad_to_deg(angle)}
+
+func _consume_input() -> void:
+	var viewport:=get_viewport()
+	if is_instance_valid(viewport):viewport.set_input_as_handled()

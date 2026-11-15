@@ -126,8 +126,9 @@ def transactional_rebuild(doc: object, expected_sha: str) -> dict:
         baked = json.loads(BAKED.read_text(encoding="utf-8"))
         if baked.get("format") != "streetbound.streamed-world" or not baked.get("chunks"):
             raise ValueError("Rebuild did not produce a complete playable world.")
-        return {"ok": True, "worldSha": digest(BAKED), "stats": baked.get("stats", {}),
-                "message": "Playable Morrow Coast rebuilt. Restart the running game to load it."}
+        warnings=baked.get('editor_warnings',[])
+        return {"ok": True, "worldSha": digest(BAKED), "stats": baked.get("stats", {}), "warnings":warnings,
+                "message": "Playable Morrow Coast rebuilt. "+(f"{len(warnings)} placement/network warning(s): "+'; '.join(warnings[:3]) if warnings else "Reload the world to drive it.")}
     except Exception:
         # A validation failure may occur after the builder wrote the world but
         # before the overview. Restore all three files, not just authoring JSON.

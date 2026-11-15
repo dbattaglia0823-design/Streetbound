@@ -87,6 +87,8 @@ func _python_typed_source(raw: Dictionary) -> Dictionary:
 		if prop.get("replaces") is Dictionary:
 			var replace_info: Dictionary = prop.replaces
 			replace_info["seed"] = int(replace_info.get("seed",0))
+	for race in doc.get("races",[]):
+		if race is Dictionary:race["laps"]=int(race.get("laps",1))
 	for art in doc.get("assets",[]):
 		if not art is Dictionary:
 			continue

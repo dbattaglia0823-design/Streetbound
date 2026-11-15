@@ -34,6 +34,9 @@ func _draw() -> void:
 			if line.size()>1:draw_polyline(line,Color("#45545b"),1.5)
 	else:draw_texture_rect(editor.overview_renderer.viewport.get_texture(),rect,false)
 	var world_px: Vector2=extent_m()*20.0
+	for race in editor.authoring.doc.get("races",[]):
+		var start:=Vector2(race.points[0].x,race.points[0].y)
+		draw_circle(rect.position+start/extent_m()*rect.size,3,Color("#4ee8dc"))
 	var a: Vector2=editor._event_world_position(editor.canvas_rect.position)/world_px
 	var b: Vector2=editor._event_world_position(editor.canvas_rect.end)/world_px
 	var camera_rect:=Rect2(rect.position+a*rect.size,(b-a)*rect.size).intersection(rect)

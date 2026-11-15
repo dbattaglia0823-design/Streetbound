@@ -76,6 +76,11 @@ function validEntity(item,type,w,h){
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.2,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
     for(const axis of ['scaleX','scaleY'])if(item[axis]!==undefined)entity[axis]=real(item[axis],.2,5,'prop axis scale');
+    if(item.roadFacing!==undefined){
+      if(typeof item.roadFacing!=='boolean')throw new TypeError('Invalid road-facing preference');
+      entity.roadFacing=item.roadFacing;
+    }
+    if(item.roadFront!==undefined)entity.roadFront=oneOf(item.roadFront,[0,90,180,270],'building artwork front');
     if(entity.type==='sidewalk'){
       if(!Array.isArray(item.assetSize)||item.assetSize.length!==2)throw new TypeError('Missing sidewalk footprint');
       entity.assetSize=item.assetSize.map(v=>real(v,.1,12000,'sidewalk footprint'));
@@ -141,6 +146,18 @@ export function normalizeWorld(raw){
   if(raw.morrowRoadWidthScale!==undefined)
     result.morrowRoadWidthScale=real(raw.morrowRoadWidthScale,.1,10,'Morrow road width scale');
   const ids=new Set();
+  if(raw.races!==undefined){
+    if(!Array.isArray(raw.races)||raw.races.length>64)throw new RangeError('Invalid editor race count');
+    result.races=raw.races.map(r=>{
+      if(!r||!idOk(r.id)||!r.id.startsWith('race-')||ids.has(r.id))throw new TypeError('Invalid/duplicate race ID');
+      ids.add(r.id);
+      const mode=oneOf(r.mode,['sprint','circuit'],'race format');
+      const points=polygon(r.points,width,height,mode==='circuit'?3:2,100,'race');
+      if(points.some((p,i)=>i>0&&distance(p,points[i-1])<5))throw new RangeError('Race checkpoints must be at least 5 m apart');
+      return {id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),
+        checkpoint_radius:real(r.checkpoint_radius??16,4,60,'checkpoint radius'),start_radius:real(r.start_radius??8,3,30,'race start radius'),time_limit:real(r.time_limit??0,0,7200,'race time limit')};
+    });
+  }
   const allAssets=raw.assets??[];
   if(!Array.isArray(allAssets)||allAssets.length>LIM.assets)throw new RangeError('Invalid sprite asset count');
   let assetBytes=0;

@@ -17,7 +17,8 @@ EXTENSIONS = {'.png', '.webp', '.svg'}
 LEGACY = 'Buildings'
 LIBRARY = 'Map Building Assets'
 ALLOWED_KINDS = {'house', 'building', 'warehouse', 'garage', 'gas_station',
-                 'industrial_prop', 'road_prop', 'ground_decal'}
+                 'industrial_prop', 'road_prop', 'ground_decal',
+                 'oak', 'pine', 'palm', 'bush', 'rock', 'boulder'}
 MAX_SPRITES = 512
 
 
@@ -128,8 +129,9 @@ def _entry(relative, width, height, mtime, meta, label=None, region=None):
     name = label or meta.get('name') or Path(relative).stem
     if not isinstance(name, str) or not name.strip() or len(name) > 100:
         raise ValueError('Invalid asset name')
+    source_name = name
     name = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name).replace('_', ' ').replace('-', ' ')
-    source_id = relative + ('#' + name if region else '')
+    source_id = relative + ('#' + source_name if region else '')
     result = dict(id=asset_id(source_id), path=relative, name=name, type=kind,
                   category=relative.split('/')[1] if relative.startswith(LIBRARY + '/') else 'Buildings',
                   width=width, height=height, collision=collision,
@@ -223,4 +225,12 @@ def resolve_asset(relative, identifier, root=ROOT):
         if (canonical != relative and entry['path'] == canonical and
                 not entry.get('region') and identifier == asset_id(relative)):
             return {**entry, 'path': relative, 'id': identifier}
+    # Before a sheet received region metadata it could be saved as a whole
+    # image. Keep those existing references valid without listing whole atlases
+    # among the new individual sprites in either editor.
+    if actual.with_suffix('.sheet.json').is_file() and identifier in {asset_id(relative), asset_id(canonical)}:
+        width, height = dimensions(actual)
+        legacy = _entry(relative, width, height, actual.stat().st_mtime_ns,
+                        _read_meta(actual.with_suffix('.asset.json')))
+        return {**legacy, 'id': identifier}
     raise ValueError('Unknown or moved project asset: ' + relative)

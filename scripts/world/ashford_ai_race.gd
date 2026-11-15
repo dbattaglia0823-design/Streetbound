@@ -111,6 +111,12 @@ func _clear_opponent() -> void:
 	opponent_driver = null
 	opponent = null
 
+func quit_race() -> bool:
+	if not super.quit_race():return false
+	_clear_opponent()
+	if is_instance_valid(world_guidance):world_guidance.call("set_guidance",navigation,player,false)
+	return true
+
 
 func _update_opponent_progress() -> void:
 	if not is_instance_valid(opponent) or opponent_elapsed >= 0.0:

@@ -20,6 +20,7 @@ var start_m := Vector2.ZERO
 var direction := Vector2.DOWN
 var available := false
 var state := "idle"
+var _previous_position_m:=Vector2.ZERO
 var race_title:="Ashford Quarter Mile"
 var race_type:="Drag · 1v1"
 var countdown := 0.0
@@ -97,6 +98,7 @@ func start_race() -> bool:
 	elapsed = 0.0
 	progress_m = 0.0
 	_previous_progress = 0.0
+	_previous_position_m=player.global_position/PPM
 	_result_text = ""
 	_run_id = "quarter-%s-%d-%d" % [str(economy.active_id),
 		Time.get_ticks_usec(),randi()]
@@ -109,6 +111,12 @@ func _abort(reason: String) -> void:
 	_status_clock = 3.0
 	_result_text = reason
 	_refresh_overlay()
+
+func quit_race() -> bool:
+	if state not in ["countdown","running"]:return false
+	state="idle";countdown=0;elapsed=0;progress_m=0;_result_text=""
+	_refresh_overlay()
+	return true
 
 
 func _complete() -> void:
@@ -148,23 +156,24 @@ func _physics_process(dt: float) -> void:
 			state = "running"
 			countdown = 0.0
 			_previous_progress = maxf(0.0,p.x)
+			_previous_position_m=player.global_position/PPM
 			_refresh_overlay()
 	elif state == "running":
 		elapsed += dt
 		var p := _local_position()
 		progress_m = p.x
-		# Physically remain on the drag strip, continuously travel forward,
-		# and finish in a plausible time. No finish-line teleport awards XP.
+		# Leaving the racing line never cancels a run. Reject only an actual
+		# implausible position jump; route projections can jump at junctions.
 		var max_step := maxf(5.0,player.linear_velocity.length() * dt * 2.0 + 3.0)
-		if p.y > LANE_HALF_WIDTH_M or p.x < -20.0 or \
-			progress_m < _previous_progress - 12.0 or \
-			progress_m - _previous_progress > max_step:
-			_abort("RUN INVALID / STAY ON THE DRAG STRIP")
+		var position_m:=player.global_position/PPM
+		if position_m.distance_to(_previous_position_m)>max_step:
+			_abort("RUN INVALID / POSITION JUMP")
 			return
+		_previous_position_m=position_m
 		if elapsed > MAX_VALID_SECONDS:
 			_abort("RUN TIMED OUT")
 			return
-		if progress_m >= QUARTER_MILE_M:
+		if progress_m >= QUARTER_MILE_M and p.y<=LANE_HALF_WIDTH_M:
 			if elapsed < 7.0:
 				_abort("RUN TOO SHORT TO COUNT")
 			else:

@@ -59,6 +59,16 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/races_waypoints_test.gd 2>&1 | tee /tmp/races-waypoints-463.log
           grep -q 'RACES AND WAYPOINTS: PASS' /tmp/races-waypoints-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/races-waypoints-463.log
+      - name: Verify native race setup, production bake and pause-only race quitting
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_editor_test.gd 2>&1 | tee /tmp/race-editor.log
+          grep -q 'RACE EDITOR: PASS' /tmp/race-editor.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/race-editor.log
+          python3 -B tests/race_editor_bake_test.py
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_pause_behavior_test.gd 2>&1 | tee /tmp/race-pause.log
+          grep -q 'RACE PAUSE BEHAVIOR: PASS' /tmp/race-pause.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/race-pause.log
       - name: Verify traffic lanes and car-width clearance against every real road and junction
         run: |
           set -o pipefail
@@ -87,6 +97,18 @@ jobs:
           grep -q 'EDITOR ASSET TRANSFORMS: PASS' /tmp/editor-asset-transforms.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-asset-transforms.log
           python3 -B tests/editor_asset_bake_test.py
+      - name: Verify supplied sprite-sheet crops, editor placement, production bake and game rendering
+        run: |
+          set -o pipefail
+          python3 -B tests/map_asset_catalog_test.py
+          python3 -B tests/project_asset_catalog_test.py
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/sprite_sheet_editor_test.gd 2>&1 | tee /tmp/sprite-sheet-editor.log
+          grep -q 'SPRITE SHEET EDITOR: PASS' /tmp/sprite-sheet-editor.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/sprite-sheet-editor.log
+          python3 -B tests/sprite_sheet_bake_test.py
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/sprite_sheet_game_test.gd 2>&1 | tee /tmp/sprite-sheet-game.log
+          grep -q 'SPRITE SHEET GAME: PASS' /tmp/sprite-sheet-game.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/sprite-sheet-game.log
       - name: Verify city building snapping and streamed sidewalk authoring
         run: |
           set -o pipefail
@@ -94,12 +116,26 @@ jobs:
           grep -q 'CITY AUTHORING: PASS' /tmp/city-authoring.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/city-authoring.log
           python3 -B tests/city_authoring_bake_test.py
+      - name: Verify per-building road facing, city-block walls, scaled collision previews and saved preferences
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_facing_buildings_test.gd 2>&1 | tee /tmp/road-facing-buildings.log
+          grep -q 'ROAD-FACING BUILDINGS: PASS' /tmp/road-facing-buildings.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-facing-buildings.log
+          python3 -B tests/road_facing_bake_test.py
       - name: Verify independent map library and full-map terrain/water authoring
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_library_test.gd 2>&1 | tee /tmp/map-library.log
           grep -q 'MAP LIBRARY: PASS' /tmp/map-library.log
           ! grep -E 'SCRIPT ERROR:|^FAIL ' /tmp/map-library.log
+      - name: Verify empty custom maps, curve tools, resizable circles and production roundabout geometry
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_shape_tools_test.gd 2>&1 | tee /tmp/road-shape-tools.log
+          grep -q 'ROAD SHAPE TOOLS: PASS' /tmp/road-shape-tools.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-shape-tools.log
+          python3 -B tests/road_shape_bake_test.py
       - name: Verify editor picking, live asset visibility, drag cost and arbitrary road junctions
         run: |
           set -o pipefail
@@ -107,6 +143,13 @@ jobs:
           grep -q 'EDITOR INTEGRITY: PASS' /tmp/editor-integrity.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-integrity.log
           python3 -B tests/editor_junction_bake_test.py
+      - name: Verify actual archived house and road edits through repeated save transactions
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_basic_changes_test.gd 2>&1 | tee /tmp/basic-editor.log
+          grep -q 'BASIC EDITOR CHANGES: PASS' /tmp/basic-editor.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/basic-editor.log
+          python3 -B tests/editor_basic_changes_bake_test.py
       - name: Verify automatic water bridges, collision clearance, streaming and live edits
         run: |
           set -o pipefail

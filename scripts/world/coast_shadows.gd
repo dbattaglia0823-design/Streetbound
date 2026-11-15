@@ -33,6 +33,7 @@ func _draw() -> void:
 		var artwork: Texture2D = DowntownPilot.sprite(
 			int(prop.downtown_pilot_style)) if prop.has("downtown_pilot_style") else \
 			Art.sprite(kind, int(prop.seed))
+		if prop.has("asset_path"):artwork=Art.project_sprite(str(prop.asset_path),prop.get("asset_region",[]))
 		draw_set_transform(center+projection,angle)
 		if artwork != null:
 			# The same atlas silhouette grounds the actual textured roof.

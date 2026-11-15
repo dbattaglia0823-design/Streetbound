@@ -14,6 +14,7 @@ const OwnershipScript = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const DragRaceScript = preload("res://scripts/world/ashford_ai_race.gd")
 const CircuitPracticeScript = preload("res://scripts/world/ashford_circuit_practice.gd")
 const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.gd")
+const AuthoredRaceScript=preload("res://scripts/world/authored_race.gd")
 const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
@@ -113,6 +114,10 @@ func _ready() -> void:
 			event.world=ground;event.player=vehicle;event.network=traffic.network;event.traffic=traffic
 			ground.add_child(event)
 			extra_races.append(event)
+		for definition in ground.data.get("editor_races",[]):
+			var event:=Node2D.new();event.set_script(AuthoredRaceScript)
+			event.definition=definition;event.world=ground;event.player=vehicle;event.network=traffic.network
+			ground.add_child(event);extra_races.append(event)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)

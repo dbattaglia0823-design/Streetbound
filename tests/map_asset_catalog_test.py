@@ -82,6 +82,32 @@ class MapAssetCatalogTests(unittest.TestCase):
         self.assertEqual(entry["type"], "house")
         self.assertEqual(entry["id"], asset_id("Buildings/House.png"))
 
+    def test_sprite_ids_use_original_manifest_names_and_keep_whole_sheet_references(self):
+        path = self.base / 'Sprite Sheets' / 'cargo.png'
+        fake_png(path)
+        path.with_suffix('.sheet.json').write_text(json.dumps({'sprites':[
+            {'name':'Cargo_Crate-A','region':[0,0,80,90]}]}))
+        entry = catalog(self.root)[0]
+        self.assertEqual(entry['id'], asset_id(entry['path']+'#Cargo_Crate-A'))
+        self.assertEqual(entry['name'], 'Cargo Crate A')
+        legacy = resolve_asset(entry['path'], asset_id(entry['path']), self.root)
+        self.assertNotIn('region', legacy)
+        self.assertEqual((legacy['width'], legacy['height']), (256,128))
+
+    def test_supplied_sprite_sheets_have_named_regions_sizes_and_stable_ids(self):
+        root = Path(__file__).resolve().parents[1]
+        entries = [p for p in catalog(root) if '/Sprite Sheets/' in p['path']]
+        self.assertEqual(len(entries), 271)
+        self.assertEqual(len({p['path'] for p in entries}), 6)
+        self.assertEqual(len({p['id'] for p in entries}), 271)
+        for entry in entries:
+            x,y,w,h = entry['region']
+            self.assertTrue(0<=x<x+w<=1536 and 0<=y<y+h<=1024)
+            self.assertTrue(all(0<v<=100 for v in entry['worldSize']))
+            self.assertEqual(entry['id'], asset_id(entry['path']+'#'+entry['name']))
+            if entry['type'] in ('oak','palm','bush','ground_decal'):
+                self.assertEqual(entry['collision'], 'none')
+
 
 if __name__ == "__main__":
     unittest.main()
