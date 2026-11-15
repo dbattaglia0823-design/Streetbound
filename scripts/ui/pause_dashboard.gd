@@ -378,6 +378,7 @@ func _matches_filter(race: Node) -> bool:
 	return true
 
 func _show_events() -> void:
+	filter_buttons.clear()
 	_heading("EVENTS", "Race, Earn, and Build Your Rep",
 		"Discover real races and time trials across Morrow Coast. Select an event to set GPS.")
 	var tabs := [["all", "All Events"], ["races", "Races"], ["trials", "Time Trials"], ["challenges", "Challenges"]]
@@ -583,8 +584,7 @@ func _show_more() -> void:
 		_label(card, "Description", str(actions[i][1]),
 			Rect2(22, 54, 485, 29), 13, MUTED)
 		var button := _button(card, "MoreAction", str(actions[i][0]),
-			Rect2(20, 11, 674, 42),
-			func() -> void: menu._handle_action(action, {}))
+			Rect2(20, 11, 674, 42), _more_action.bind(action))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		if action == "game.map_editor":
 			button.disabled = not bool(menu.map_editor_available) or bool(menu.split_screen_active)
@@ -592,3 +592,6 @@ func _show_more() -> void:
 		var end_race := _button(content, "QuitRace", "QUIT CURRENT RACE",
 			Rect2(30, 529, 713, 49), menu._quit_active_race)
 		end_race.add_theme_color_override("font_color", Color("#f5bda6"))
+
+func _more_action(action: String) -> void:
+	menu._handle_action(action, {})
