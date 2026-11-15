@@ -132,7 +132,7 @@ func _run() -> void:
 		not is_instance_valid(p2) and world.secondary_stream_vehicle==null)
 	check("pause_exit_resumes_normal_single_player",
 		not paused and not manager.screen_root.visible and
-		game.pause_menu.pause_screen.controls["local_multiplayer"].text=="Local Split-Screen")
+		game.pause_menu.pause_screen.controls["local_multiplayer"].text=="Multiplayer")
 	# A pair of gamepads must never share one steering input stream.
 	var two_pads: bool = manager.start_split([2,3])
 	check("two_controller_configuration_starts",

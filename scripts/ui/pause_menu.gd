@@ -9,6 +9,7 @@ signal main_menu_requested
 
 const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
+const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 @onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 
@@ -36,6 +37,25 @@ var capture_device := ""
 var binding_feedback: Label
 var reset_bindings_button: Button
 var quit_race_button: Button
+var player_vehicle: Node2D
+var vehicle_ownership
+var vehicle_panel: Panel
+var vehicle_preview: TextureRect
+var vehicle_fallback: Label
+var vehicle_name_label: Label
+var vehicle_level_label: Label
+var vehicle_power_label: Label
+var vehicle_torque_label: Label
+var vehicle_drivetrain_label: Label
+var vehicle_weight_label: Label
+var multiplayer_screen: Control
+var local_split_button: Button
+var multiplayer_feedback: Label
+var confirmation_screen: Control
+var confirmation_heading: Label
+var confirmation_copy: Label
+var confirmation_accept: Button
+var confirmation_target := ""
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -55,7 +75,7 @@ func _ready() -> void:
 
 	background = ColorRect.new()
 	background.name = "DimmedBackground"
-	background.color = Color(0.025, 0.043, 0.053, 0.86)
+	background.color = Color(0.025, 0.038, 0.054, 0.53)
 	background.anchor_right = 1.0
 	background.anchor_bottom = 1.0
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -63,16 +83,21 @@ func _ready() -> void:
 
 	pause_screen = _load_screen("res://assets/ui/pause-menu.layout.json", "PauseScreen")
 	settings_screen = _load_screen("res://assets/ui/pause-settings.layout.json", "SettingsScreen")
+	_build_vehicle_panel()
+	_build_multiplayer_screen()
+	_build_confirmation_screen()
 	quit_race_button=Button.new();quit_race_button.name="QuitRace";quit_race_button.text="Quit Race"
-	quit_race_button.position=Vector2(286,156);quit_race_button.size=Vector2(228,38)
+	quit_race_button.position=Vector2(51,158);quit_race_button.size=Vector2(290,42)
 	quit_race_button.tooltip_text="End the current race without rewards and return to free driving."
 	_button_skin(quit_race_button);pause_screen.add_child(quit_race_button)
 	for style in ["normal","hover","pressed","focus"]:quit_race_button.add_theme_stylebox_override(style,pause_screen.controls["map_editor"].get_theme_stylebox(style))
-	quit_race_button.add_theme_font_size_override("font_size",19)
+	quit_race_button.add_theme_font_size_override("font_size",18)
 	quit_race_button.pressed.connect(_quit_active_race)
 	_update_race_button()
 	_build_settings_tabs()
 	settings_screen.visible = false
+	multiplayer_screen.visible = false
+	confirmation_screen.visible = false
 	overlay.visible = false
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
@@ -101,40 +126,40 @@ func _style_screen(screen: Variant) -> void:
 			continue
 		if node is Panel:
 			var panel_style := StyleBoxFlat.new()
-			panel_style.bg_color = Color(0.055, 0.096, 0.109, 0.97)
-			panel_style.border_color = Color(0.30, 0.43, 0.43, 0.78)
+			panel_style.bg_color = Color(0.027, 0.052, 0.069, 0.94)
+			panel_style.border_color = Color(0.39, 0.50, 0.59, 0.72)
 			panel_style.set_border_width_all(1)
 			panel_style.set_corner_radius_all(20)
 			node.add_theme_stylebox_override("panel", panel_style)
 		elif node is Label:
 			var label_node := node as Label
-			label_node.add_theme_font_size_override("font_size", 40 if role == "screen_title" else 15)
+			label_node.add_theme_font_size_override("font_size", 34 if role == "screen_title" else 15)
 			label_node.add_theme_color_override("font_color", Color("#eff3e8"))
-			label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if id == "pause_heading" else HORIZONTAL_ALIGNMENT_CENTER
 		elif node is Button:
 			var button := node as Button
 			var primary: bool = role == "primary_action"
 			var danger: bool = role == "danger_action"
 			var normal := StyleBoxFlat.new()
-			normal.bg_color = Color("#b3d18f") if primary else Color("#342b2c") if danger else Color("#1b3035")
-			normal.border_color = Color("#b3d18f") if primary else Color("#9d686b") if danger else Color("#445c5c")
+			normal.bg_color = Color("#ff8733") if primary else Color("#342b2c") if danger else Color("#1b2b36")
+			normal.border_color = Color("#ff8733") if primary else Color("#9d686b") if danger else Color("#536775")
 			normal.set_border_width_all(1)
 			normal.set_corner_radius_all(11)
 			var hover := normal.duplicate() as StyleBoxFlat
-			hover.bg_color = Color("#c7e3a5") if primary else Color("#4d3839") if danger else Color("#29454b")
+			hover.bg_color = Color("#ff9c5b") if primary else Color("#4d3839") if danger else Color("#2b4557")
 			var pressed := hover.duplicate() as StyleBoxFlat
-			pressed.bg_color = Color("#91b26f") if primary else Color("#624044") if danger else Color("#15292c")
+			pressed.bg_color = Color("#cf602c") if primary else Color("#624044") if danger else Color("#15292c")
 			var focus := StyleBoxFlat.new()
 			focus.draw_center = false
-			focus.border_color = Color("#e5edca")
+			focus.border_color = Color("#f5f7fa")
 			focus.set_border_width_all(2)
 			focus.set_corner_radius_all(11)
 			button.add_theme_stylebox_override("normal", normal)
 			button.add_theme_stylebox_override("hover", hover)
 			button.add_theme_stylebox_override("pressed", pressed)
 			button.add_theme_stylebox_override("focus", focus)
-			button.add_theme_color_override("font_color", Color("#132325") if primary else Color("#f0efe6"))
-			button.add_theme_color_override("font_hover_color", Color("#132325") if primary else Color("#ffffff"))
+			button.add_theme_color_override("font_color", Color("#ffffff"))
+			button.add_theme_color_override("font_hover_color", Color("#ffffff"))
 			button.add_theme_color_override("font_pressed_color", Color("#132325") if primary else Color("#ffffff"))
 			button.add_theme_font_size_override("font_size", 19)
 			button.focus_mode = Control.FOCUS_ALL
@@ -147,14 +172,14 @@ func _style_screen(screen: Variant) -> void:
 
 func _button_skin(button: Button, selected: bool = false) -> void:
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color("#3a5048") if selected else Color("#1b3035")
-	normal.border_color = Color("#b3d18f") if selected else Color("#445c5c")
+	normal.bg_color = Color("#573820") if selected else Color("#1b2b36")
+	normal.border_color = Color("#ff8733") if selected else Color("#536775")
 	normal.set_border_width_all(2 if selected else 1)
 	normal.set_corner_radius_all(8)
 	var hover := normal.duplicate() as StyleBoxFlat
 	hover.bg_color = Color("#345551")
 	var focus := normal.duplicate() as StyleBoxFlat
-	focus.border_color = Color("#d6e6b9")
+	focus.border_color = Color("#f5f7fa")
 	button.add_theme_stylebox_override("normal",normal)
 	button.add_theme_stylebox_override("hover",hover)
 	button.add_theme_stylebox_override("pressed",hover)
@@ -374,6 +399,215 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+
+func _info_label(parent: Control, node_name: String, value: String,
+		at: Vector2, dimensions: Vector2, size_px: int, tint: Color) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.text = value
+	label.position = at
+	label.size = dimensions
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", size_px)
+	label.add_theme_color_override("font_color", tint)
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(label)
+	return label
+
+
+func _neon_panel(parent: Control, name_value: String, at: Vector2, dimensions: Vector2) -> Panel:
+	var panel := Panel.new()
+	panel.name = name_value
+	panel.position = at
+	panel.size = dimensions
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var skin := StyleBoxFlat.new()
+	skin.bg_color = Color(0.026, 0.051, 0.071, 0.94)
+	skin.border_color = Color(0.38, 0.51, 0.61, 0.76)
+	skin.set_border_width_all(1)
+	skin.set_corner_radius_all(16)
+	skin.shadow_color = Color(0, 0, 0, 0.37)
+	skin.shadow_size = 13
+	panel.add_theme_stylebox_override("panel", skin)
+	parent.add_child(panel)
+	return panel
+
+
+func _native_button(parent: Control, name_value: String, value: String,
+		at: Vector2, dimensions: Vector2, primary: bool = false) -> Button:
+	var button := Button.new()
+	button.name = name_value
+	button.text = value
+	button.position = at
+	button.size = dimensions
+	_button_skin(button, primary)
+	button.add_theme_font_size_override("font_size", 18)
+	parent.add_child(button)
+	return button
+
+
+# The preview uses the selected vehicle's real catalog art and live tuning.
+func _build_vehicle_panel() -> void:
+	_info_label(pause_screen, "PauseBrand", "STREETBOUND  /  GAME PAUSED",
+		Vector2(51, 37), Vector2(288, 19), 11, Color("#ff9c5b"))
+	_info_label(pause_screen, "PauseShortcut", "ESC  /  RESUME DRIVING",
+		Vector2(51, 449), Vector2(288, 18), 10, Color("#9aabb7"))
+	vehicle_panel = _neon_panel(pause_screen, "VehicleInfoPanel",
+		Vector2(420, 88), Vector2(355, 350))
+	_info_label(vehicle_panel, "VehicleCaption", "CURRENT VEHICLE",
+		Vector2(18, 13), Vector2(315, 23), 12, Color("#ff9c5b"))
+	vehicle_name_label = _info_label(vehicle_panel, "VehicleName", "YOUR VEHICLE",
+		Vector2(18, 39), Vector2(318, 32), 23, Color("#f5f7fa"))
+	var preview_back := ColorRect.new()
+	preview_back.name = "VehiclePreviewBackdrop"
+	preview_back.position = Vector2(17, 78)
+	preview_back.size = Vector2(321, 137)
+	preview_back.color = Color("#12222e")
+	preview_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vehicle_panel.add_child(preview_back)
+	vehicle_preview = TextureRect.new()
+	vehicle_preview.name = "EquippedCarPreview"
+	vehicle_preview.position = Vector2(26, 83)
+	vehicle_preview.size = Vector2(303, 126)
+	vehicle_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vehicle_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	vehicle_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vehicle_panel.add_child(vehicle_preview)
+	vehicle_fallback = _info_label(vehicle_panel, "PreviewUnavailable",
+		"PREVIEW UNAVAILABLE", Vector2(35, 123), Vector2(282, 38),
+		13, Color("#90a1ad"))
+	vehicle_fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info_label(vehicle_panel, "PowerCaption", "POWER", Vector2(21, 223),
+		Vector2(144, 17), 11, Color("#9eafbe"))
+	_info_label(vehicle_panel, "DriveCaption", "DRIVETRAIN", Vector2(188, 223),
+		Vector2(140, 17), 11, Color("#9eafbe"))
+	vehicle_power_label = _info_label(vehicle_panel, "VehiclePower", "—",
+		Vector2(21, 242), Vector2(144, 27), 20, Color("#f5f7fa"))
+	vehicle_drivetrain_label = _info_label(vehicle_panel, "VehicleDrivetrain", "—",
+		Vector2(188, 242), Vector2(140, 27), 20, Color("#f5f7fa"))
+	_info_label(vehicle_panel, "TorqueCaption", "TORQUE", Vector2(21, 275),
+		Vector2(144, 17), 11, Color("#9eafbe"))
+	_info_label(vehicle_panel, "WeightCaption", "WEIGHT", Vector2(188, 275),
+		Vector2(140, 17), 11, Color("#9eafbe"))
+	vehicle_torque_label = _info_label(vehicle_panel, "VehicleTorque", "—",
+		Vector2(21, 292), Vector2(144, 27), 19, Color("#f5f7fa"))
+	vehicle_weight_label = _info_label(vehicle_panel, "VehicleWeight", "—",
+		Vector2(188, 292), Vector2(140, 27), 19, Color("#f5f7fa"))
+	vehicle_level_label = _info_label(vehicle_panel, "VehicleLevels", "",
+		Vector2(21, 323), Vector2(318, 17), 11, Color("#ffad76"))
+
+
+func _refresh_vehicle_panel() -> void:
+	if not is_instance_valid(vehicle_panel):
+		return
+	vehicle_panel.visible = is_instance_valid(player_vehicle)
+	if not vehicle_panel.visible:
+		return
+	var config: VehicleConfig = player_vehicle.get("config") as VehicleConfig
+	if config == null:
+		vehicle_name_label.text = "VEHICLE UNAVAILABLE"
+		vehicle_preview.texture = null
+		vehicle_fallback.visible = true
+		return
+	var active_id := str(config.audio_sample_id)
+	if is_instance_valid(vehicle_ownership):
+		active_id = str(vehicle_ownership.active_id)
+	var entry: Dictionary = VehicleCatalog.find_by_id(active_id)
+	vehicle_name_label.text = str(entry.get("display_name", "CURRENT VEHICLE"))
+	vehicle_power_label.text = "%.0f HP" % (config.engine_power_kw * 1.341022)
+	vehicle_torque_label.text = "%.0f Nm" % config.engine_torque_nm
+	vehicle_weight_label.text = "%.0f kg" % config.mass_kg
+	var drives := ["FWD", "RWD", "AWD"]
+	var index := int(config.drivetrain)
+	vehicle_drivetrain_label.text = drives[index] if index >= 0 and index < drives.size() else "—"
+	vehicle_level_label.text = ("DRIVER LV %d   /   CAR LV %d" % [
+		vehicle_ownership.player_level(), vehicle_ownership.active_car_level()
+	]) if is_instance_valid(vehicle_ownership) else "FREE DRIVE"
+	var texture_path := str(entry.get("texture", ""))
+	vehicle_preview.texture = (load(texture_path) as Texture2D) if (
+		not texture_path.is_empty() and ResourceLoader.exists(texture_path, "Texture2D")) else null
+	vehicle_fallback.visible = vehicle_preview.texture == null
+
+
+func _build_multiplayer_screen() -> void:
+	multiplayer_screen = Control.new()
+	multiplayer_screen.name = "PauseMultiplayerScreen"
+	multiplayer_screen.size = DESIGN_SIZE
+	overlay.add_child(multiplayer_screen)
+	var card := _neon_panel(multiplayer_screen, "MultiplayerPanel",
+		Vector2(154, 71), Vector2(492, 355))
+	_info_label(card, "MultiplayerEyebrow", "STREETBOUND  /  GAME MODES",
+		Vector2(32, 22), Vector2(432, 24), 12, Color("#ff9c5b"))
+	_info_label(card, "MultiplayerHeading", "MULTIPLAYER",
+		Vector2(32, 53), Vector2(432, 49), 33, Color("#f5f7fa"))
+	local_split_button = _native_button(card, "LocalSplitScreen",
+		"LOCAL SPLIT-SCREEN", Vector2(32, 124), Vector2(428, 54), true)
+	local_split_button.pressed.connect(_request_local_multiplayer)
+	var online := _native_button(card, "OnlineComingSoon",
+		"ONLINE MULTIPLAYER  —  COMING SOON",
+		Vector2(32, 189), Vector2(428, 51))
+	online.add_theme_font_size_override("font_size", 15)
+	online.disabled = true
+	online.tooltip_text = "Online multiplayer is not implemented yet."
+	var back := _native_button(card, "BackToPause", "BACK",
+		Vector2(32, 261), Vector2(428, 46))
+	back.pressed.connect(back_to_pause)
+	multiplayer_feedback = _info_label(card, "MultiplayerFeedback",
+		"Keyboard + controller, or two controllers.",
+		Vector2(32, 315), Vector2(428, 26), 12, Color("#bac8d3"))
+
+
+func _refresh_multiplayer_page() -> void:
+	if not is_instance_valid(local_split_button):
+		return
+	local_split_button.text = "EXIT SPLIT-SCREEN" if split_screen_active else "LOCAL SPLIT-SCREEN"
+	multiplayer_feedback.text = ("Return to single-player driving." if split_screen_active
+		else "Keyboard + controller, or two controllers.")
+
+
+func _request_local_multiplayer() -> void:
+	split_screen_requested.emit()
+
+
+func _build_confirmation_screen() -> void:
+	confirmation_screen = Control.new()
+	confirmation_screen.name = "PauseConfirmationScreen"
+	confirmation_screen.size = DESIGN_SIZE
+	overlay.add_child(confirmation_screen)
+	var panel := _neon_panel(confirmation_screen, "ConfirmationPanel",
+		Vector2(178, 119), Vector2(444, 266))
+	confirmation_heading = _info_label(panel, "ConfirmTitle", "LEAVE RACE?",
+		Vector2(27, 20), Vector2(387, 46), 31, Color("#f5f7fa"))
+	confirmation_copy = _info_label(panel, "ConfirmMessage",
+		"Leaving will forfeit this race and its rewards.",
+		Vector2(27, 77), Vector2(390, 56), 15, Color("#bac8d3"))
+	confirmation_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	confirmation_accept = _native_button(panel, "ConfirmLeave", "LEAVE",
+		Vector2(27, 148), Vector2(390, 43), true)
+	confirmation_accept.pressed.connect(_accept_confirmation)
+	var cancel := _native_button(panel, "CancelLeave", "KEEP DRIVING",
+		Vector2(27, 200), Vector2(390, 43))
+	cancel.pressed.connect(back_to_pause)
+
+
+func _show_confirmation(target: String) -> void:
+	confirmation_target = target
+	confirmation_heading.text = "QUIT RACE?" if target == "quit" else "RETURN TO MENU?"
+	confirmation_copy.text = "Your current race will end without rewards. Continue?"
+	confirmation_accept.text = "QUIT GAME" if target == "quit" else "MAIN MENU"
+	_show_page("confirm")
+
+
+func _accept_confirmation() -> void:
+	var target := confirmation_target
+	confirmation_target = ""
+	if target == "main_menu":
+		main_menu_requested.emit()
+	elif target == "quit":
+		_request_quit()
+
 func _track_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#283f42")
@@ -382,7 +616,7 @@ func _track_style() -> StyleBoxFlat:
 
 func _filled_track_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#aac987")
+	style.bg_color = Color("#ff8733")
 	style.set_corner_radius_all(7)
 	return style
 
@@ -391,9 +625,9 @@ func _resize_layout() -> void:
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var available: Vector2 = Vector2(maxf(viewport_size.x - 20.0, 100.0), maxf(viewport_size.y - 20.0, 100.0))
-	var factor: float = clampf(minf(available.x / DESIGN_SIZE.x, available.y / DESIGN_SIZE.y), 0.36, 1.45)
+	var factor: float = minf(available.x / DESIGN_SIZE.x, available.y / DESIGN_SIZE.y)
 	var screen_position: Vector2 = (viewport_size - DESIGN_SIZE * factor) * 0.5
-	for screen in [pause_screen, settings_screen]:
+	for screen in [pause_screen, settings_screen, multiplayer_screen, confirmation_screen]:
 		if screen != null:
 			screen.position = screen_position
 			screen.scale = Vector2.ONE * factor
@@ -432,7 +666,9 @@ func set_split_screen_active(enabled: bool) -> void:
 	_update_map_editor_button()
 	var action: Button = pause_screen.controls.get("local_multiplayer")
 	if is_instance_valid(action):
-		action.text = "Exit Split-Screen" if enabled else "Local Split-Screen"
+		action.text = "Multiplayer"
+	if is_instance_valid(local_split_button):
+		local_split_button.text = "EXIT SPLIT-SCREEN" if enabled else "LOCAL SPLIT-SCREEN"
 	var title: Label = pause_screen.controls.get("pause_heading")
 	if is_instance_valid(title):
 		title.text = "PAUSED"
@@ -463,23 +699,37 @@ func show_split_screen_error(message: String) -> void:
 	var action: Button = pause_screen.controls.get("local_multiplayer")
 	if is_instance_valid(action):
 		action.tooltip_text = message
+	if is_instance_valid(multiplayer_feedback):
+		multiplayer_feedback.text = message
 
 
 func _show_page(page: String) -> void:
 	if page=="paused":
 		set_split_screen_active(split_screen_active)
 		_update_race_button()
+		_refresh_vehicle_panel()
+	elif page == "multiplayer":
+		_refresh_multiplayer_page()
 	menu_state = page
 	overlay.visible = true
 	pause_screen.visible = page == "paused"
 	settings_screen.visible = page == "settings"
+	multiplayer_screen.visible = page == "multiplayer"
+	confirmation_screen.visible = page == "confirm"
 	if page == "settings":
 		_sync_settings()
 		_set_settings_tab("general")
-	var active: Variant = pause_screen if page == "paused" else settings_screen
-	var primary_id: String = "resume" if page == "paused" else "back"
-	var focused: Button = active.controls.get(primary_id)
-	if focused != null:
+	var focused: Button
+	match page:
+		"paused":
+			focused = pause_screen.controls.get("resume")
+		"settings":
+			focused = settings_screen.controls.get("back")
+		"multiplayer":
+			focused = local_split_button
+		"confirm":
+			focused = confirmation_accept
+	if is_instance_valid(focused):
 		focused.grab_focus()
 
 func pause_game() -> void:
@@ -522,9 +772,12 @@ func _update_race_button() -> void:
 	var racing:=is_instance_valid(active_race())
 	quit_race_button.visible=racing
 	if racing:
-		var order: Array=[pause_screen.controls.resume,quit_race_button]
-		for id in ["local_multiplayer","map_editor","settings","main_menu","quit"]:order.append(pause_screen.controls[id])
-		for i in order.size():order[i].position.y=111+i*45;order[i].size.y=38
+		var order: Array = [pause_screen.controls.resume, quit_race_button]
+		for id in ["local_multiplayer","map_editor","settings","main_menu","quit"]:
+			order.append(pause_screen.controls[id])
+		for i in order.size():
+			order[i].position.y = 108 + i * 47
+			order[i].size.y = 42
 	else:
 		for entry in pause_screen.layout.nodes:
 			var control: Control=pause_screen.controls.get(str(entry.get("id","")))
@@ -541,18 +794,27 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 		"game.resume":
 			resume_game()
 		"game.local_multiplayer":
+			# Kept for existing direct calls; the visible button opens the submenu.
 			split_screen_requested.emit()
+		"nav.multiplayer":
+			_show_page("multiplayer")
 		"game.map_editor":
 			if map_editor_available and not split_screen_active:
 				map_editor_requested.emit()
 		"nav.main_menu":
-			main_menu_requested.emit()
+			if is_instance_valid(active_race()):
+				_show_confirmation("main_menu")
+			else:
+				main_menu_requested.emit()
 		"nav.settings":
 			open_settings()
 		"nav.back":
 			back_to_pause()
 		"game.quit":
-			_request_quit()
+			if is_instance_valid(active_race()):
+				_show_confirmation("quit")
+			else:
+				_request_quit()
 		"settings.sfx_changed":
 			var sound: bool = bool(payload.get("value", true))
 			settings_store.set_setting("sound", sound)
@@ -593,7 +855,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		pause_game()
 	elif menu_state == "settings" and settings_tab == "controls":
 		_set_settings_tab("general")
-	elif menu_state == "settings":
+	elif menu_state in ["settings", "multiplayer", "confirm"]:
 		back_to_pause()
 	else:
 		resume_game()
