@@ -4,11 +4,14 @@ extends Control
 const MAX_WIDTH := 342.0
 const STRIP_HEIGHT := 70.0
 const EDGE_MARGIN := 18.0
+const StartCard = preload("res://scripts/ui/race_start_card.gd")
 
 var panel: PanelContainer
 var label: Label
 var close_button: Button
 var restore_button: Button
+var start_panel: PanelContainer
+var _phase := "idle"
 var dismissed := false
 var _available := false
 var _status_text := ""
@@ -64,6 +67,10 @@ func _ready() -> void:
 	restore_button.custom_minimum_size = Vector2(96, 28)
 	restore_button.pressed.connect(restore)
 	add_child(restore_button)
+	start_panel = PanelContainer.new()
+	start_panel.set_script(StartCard)
+	add_child(start_panel)
+	start_panel.connect("hide_requested", Callable(self, "dismiss"))
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh_visibility()
@@ -84,6 +91,22 @@ func _layout() -> void:
 		maxf(8.0, viewport_size.x - 96.0 - EDGE_MARGIN),
 		maxf(8.0, viewport_size.y - 28.0 - EDGE_MARGIN))
 	restore_button.size = Vector2(96, 28)
+	if is_instance_valid(start_panel):
+		var shrink: float = minf(1.0, viewport_size.x / 1200.0,
+			viewport_size.y / 775.0)
+		shrink = maxf(.65, shrink)
+		start_panel.scale = Vector2.ONE * shrink
+		var side_height := maxf(400.0, start_panel.get_combined_minimum_size().y)
+		start_panel.size = Vector2(338, side_height)
+		start_panel.position = Vector2(
+			maxf(8.0, viewport_size.x - 338.0 * shrink - EDGE_MARGIN),
+			maxf(8.0, viewport_size.y - side_height * shrink - EDGE_MARGIN))
+
+
+func configure_event(host: Node, facts: Dictionary) -> void:
+	if is_instance_valid(start_panel):
+		start_panel.call("configure_event", host, facts)
+		_layout()
 
 
 func set_status(phase: String, in_range: bool, message: String) -> void:
@@ -91,7 +114,10 @@ func set_status(phase: String, in_range: bool, message: String) -> void:
 	# countdown. Only reset the preference after leaving the event area.
 	if phase == "idle" and not in_range:
 		dismissed = false
+	_phase = phase
 	_available = in_range or phase != "idle"
+	if phase == "idle" and in_range and is_instance_valid(start_panel):
+		start_panel.call("update_eligibility")
 	if label != null:
 		# Keep detailed result text readable in two compact lines.
 		var lines := message.split("\n")
@@ -131,7 +157,10 @@ func _refresh_visibility() -> void:
 	if panel == null or restore_button == null:
 		return
 	var allowed := _available and not _other_ui_open()
-	panel.visible = allowed and not dismissed
+	var show_start := allowed and not dismissed and _phase == "idle" and \
+		is_instance_valid(start_panel) and is_instance_valid(start_panel.get("host"))
+	start_panel.visible = show_start
+	panel.visible = allowed and not dismissed and not show_start
 	restore_button.visible = allowed and dismissed
 
 
