@@ -27,6 +27,39 @@ func _draw() -> void:
 	for prop in prop_list:
 		_draw_prop(prop)
 	draw_set_transform(Vector2.ZERO)
+	# Paint the shared concrete surface last: separate path outlines must
+	# not run visibly through an otherwise connected T/X junction.
+	for junction in sidewalk_junctions(prop_list,origin_m):
+		var center: Vector2=junction.position
+		var radius: float=junction.radius
+		draw_circle(center,radius+3.0,Color("#777f79"))
+		draw_circle(center,radius+1.0,Color("#d8d5c7"))
+		draw_circle(center,maxf(1.0,radius-2.0),Color("#bcbdb3"))
+
+
+static func sidewalk_junctions(props: Array[Dictionary],origin: Vector2=Vector2.ZERO) -> Array[Dictionary]:
+	var seen: Dictionary={}
+	var joined: Array[Dictionary]=[]
+	for prop in props:
+		if str(prop.get("kind",""))!="sidewalk":continue
+		var center:=Vector2(float(prop.p[0]),float(prop.p[1]))
+		var scale_raw: Array=prop.get("sidewalk_scale",[1,1])
+		var scale:=Vector2(float(scale_raw[0]),float(scale_raw[1]))
+		var angle:=float(prop.get("angle",0))
+		var radius:=float(prop.get("sidewalk_width",3))*20.0*.5*maxf(scale.x,scale.y)
+		var owner:=str(prop.get("editor_source_id",prop.get("authoring_id",prop.get("seed",0))))
+		for raw in prop.get("sidewalk_points",[]):
+			var world: Vector2=center+(Vector2(float(raw[0]),float(raw[1]))*scale).rotated(angle)
+			var point: Vector2=(world-origin)*20.0
+			var key: String="%d/%d"%[roundi(point.x),roundi(point.y)]
+			if not seen.has(key):
+				seen[key]={"position":point,"radius":radius,"owner":owner,"shared":false}
+			elif str(seen[key].owner)!=owner:
+				seen[key].radius=maxf(float(seen[key].radius),radius)
+				seen[key].shared=true
+	for item in seen.values():
+		if bool(item.shared):joined.append({"position":item.position,"radius":item.radius})
+	return joined
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()
