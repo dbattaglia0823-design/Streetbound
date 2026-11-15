@@ -242,7 +242,7 @@ func icon(at: Vector2, category: String, radius: float) -> void:
 					if (x+y)%2==0: draw_rect(Rect2(local_at+Vector2(-2+x*2,-4+y*2),Vector2(2,2)),ink)
 		"marina":
 			draw_line(local_at+Vector2(0,-4),local_at+Vector2(0,3),ink,1.2,true)
-			draw_arc(at,4,.1,PI-.1,12,ink,1.2,true)
+			draw_arc(local_at,4,.1,PI-.1,12,ink,1.2,true)
 		"view":
 			draw_polyline(PackedVector2Array([local_at+Vector2(-5,3),local_at+Vector2(-1,-3),local_at+Vector2(1,0),local_at+Vector2(3,-2),local_at+Vector2(5,3)]),ink,1.3,true)
 		"dealer": draw_colored_polygon(PackedVector2Array([local_at+Vector2(0,-4),local_at+Vector2(4,0),local_at+Vector2(0,4),local_at+Vector2(-4,0)]),ink)
