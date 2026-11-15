@@ -4,7 +4,7 @@ extends RefCounted
 const PPM:=20.0
 const MAX_ACCESS_M:=250.0
 # Prefer nearby driveable access points, widening only if disconnected.
-const LOCAL_ACCESS_MARGIN_M:=18.0
+const LOCAL_ACCESS_MARGIN_M:=10.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var network: RefCounted
 var data: Dictionary
