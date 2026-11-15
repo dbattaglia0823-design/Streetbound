@@ -41,6 +41,26 @@ func _run() -> void:
 	await process_frame
 	check("escape_pauses", paused and pause.overlay.visible and pause.menu_state == "paused")
 	check("vehicle_frozen_while_paused", not main.vehicle.can_process())
+	check("pause_uses_left_menu_and_live_vehicle_panel",
+		pause.pause_screen.controls["resume"].position.x < 100.0 and
+		pause.vehicle_panel.visible and
+		pause.vehicle_panel.get_node_or_null("EquippedCarPreview") == pause.vehicle_preview and
+		pause.vehicle_name_label.text.length() > 0 and
+		pause.vehicle_power_label.text.contains("HP") and
+		pause.vehicle_drivetrain_label.text in ["FWD", "RWD", "AWD"] and
+		pause.vehicle_level_label.text.contains("CAR LV"))
+	var multiplayer_button: Button = pause.pause_screen.controls["local_multiplayer"]
+	multiplayer_button.pressed.emit()
+	await process_frame
+	var online_button: Button = pause.multiplayer_screen.get_node("MultiplayerPanel/OnlineComingSoon")
+	check("pause_multiplayer_has_local_and_disabled_online",
+		paused and pause.menu_state == "multiplayer" and
+		pause.local_split_button.visible and online_button.disabled and
+		online_button.text.contains("COMING SOON"))
+	press_escape()
+	await process_frame
+	check("multiplayer_escape_returns_to_pause_not_game",
+		paused and pause.menu_state == "paused" and pause.pause_screen.visible)
 	check("pause_menu_still_processes", pause.can_process())
 	var settings_button: Button = pause.pause_screen.controls["settings"]
 	settings_button.pressed.emit()
