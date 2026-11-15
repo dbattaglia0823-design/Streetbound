@@ -182,5 +182,6 @@ func _refresh_overlay() -> void:
 			_race_label.text = "ASHFORD  /  %.2fs  /  PLAYER %.0fm\nRIVAL %.0fm   /   FINISH %.0fm" % [
 				elapsed, maxf(0.0, progress_m), opponent_progress_m, QUARTER_MILE_M]
 	_status_strip.call("set_status", state,
-		player.global_position.distance_to(start_m * PPM) / PPM <= 30.0,
+		player.global_position.distance_to(start_m * PPM) / PPM <= 30.0 and \
+		StartArea.can_stage_at_speed(player.linear_velocity.length()),
 		_race_label.text)
