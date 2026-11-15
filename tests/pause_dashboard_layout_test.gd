@@ -123,26 +123,30 @@ func _run() -> void:
 	var catalog: Array[Dictionary] = load(
 		"res://scripts/vehicle/player_vehicle_catalog.gd").all()
 	dash.show_section("cars")
-	check("cars_tab_lists_every_catalog_car",
-		dash.section=="cars" and dash.car_rows.size()==catalog.size() and
+	check("car_browser_initial_allocation_is_bounded",
+		dash.section=="cars" and dash.car_rows.size()==mini(18,catalog.size()) and
 		dash.content.get_node_or_null("CarScroller")!=null and
 		dash.content.get_node_or_null("CarsWorkInProgress")==null and
 		dash.car_count_label.text=="%d / %d CARS" % [catalog.size(),catalog.size()])
+	var ordered: Array[Dictionary] = dash._sorted_cars()
 	var ascending := true
-	for i in range(1,dash.car_rows.size()):
-		var previous: Dictionary=dash.car_rows[i-1].entry
-		var current: Dictionary=dash.car_rows[i].entry
-		if dash._car_price_less(current,previous):
+	for i in range(1,ordered.size()):
+		if dash._car_price_less(ordered[i],ordered[i-1]):
 			ascending=false
 			break
 	check("car_catalog_sorted_by_actual_price_low_to_high",ascending)
+	while dash.car_load_more.visible:
+		dash._append_car_batch()
+	check("all_catalog_cars_accessible_with_incremental_loading",
+		dash.car_rows.size()==catalog.size() and not dash.car_load_more.visible)
 	dash._filter_cars("this car does not exist")
 	check("car_browser_search_filters_without_changing_catalog",
 		dash.car_count_label.text=="0 / %d CARS" % catalog.size() and
-		(dash.car_rows[0].row as Button).visible==false)
+		dash.car_rows.is_empty() and not dash.car_load_more.visible)
 	dash._filter_cars("")
 	check("car_browser_search_restores_all_vehicles",
-		dash.car_count_label.text=="%d / %d CARS" % [catalog.size(),catalog.size()])
+		dash.car_count_label.text=="%d / %d CARS" % [catalog.size(),catalog.size()] and
+		dash.car_rows.size()==mini(18,catalog.size()))
 	# A newly added entry must appear without any pause-menu source edits.
 	var new_car: Dictionary = catalog[0].duplicate()
 	new_car["id"]="test-future-catalog-car"
@@ -151,12 +155,12 @@ func _run() -> void:
 	catalog.append(new_car)
 	dash.show_section("cars")
 	check("new_catalog_car_appears_in_price_order_automatically",
-		dash.car_rows.size()==catalog.size() and
+		dash.car_rows.size()==mini(18,catalog.size()) and
 		str(dash.car_rows[0].entry.id)=="test-future-catalog-car")
 	new_car["dealership_id"]="missing-dealership"
 	dash.show_section("cars")
 	check("cars_with_no_valid_dealer_stay_visible_but_cannot_route",
-		dash.car_rows.size()==catalog.size() and
+		dash.car_rows.size()==mini(18,catalog.size()) and
 		str(dash.car_rows[0].entry.id)=="test-future-catalog-car" and
 		(dash.car_rows[0].row as Button).disabled)
 	catalog.erase(new_car)
