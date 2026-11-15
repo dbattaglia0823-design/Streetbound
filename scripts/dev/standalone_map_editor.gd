@@ -6,6 +6,8 @@ const Editor = preload("res://scripts/dev/native_world_editor.gd")
 const Tiles = preload("res://scripts/dev/editor_render_tiles.gd")
 const Dealers = preload("res://scripts/world/dealership_world.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
+const Library = preload("res://scripts/dev/native_map_library.gd")
+const Session = preload("res://scripts/dev/native_map_edit_session.gd")
 var ground: MorrowCoast
 var native_world_editor: CanvasLayer
 var map_tiles: Node2D
@@ -60,3 +62,24 @@ func _ready() -> void:
 	native_world_editor.render_tiles = map_tiles
 	add_child(native_world_editor)
 	native_world_editor.call_deferred("open_editor")
+	if get_tree().has_meta("streetbound_editor_resume_map"):
+		var file := str(get_tree().get_meta("streetbound_editor_resume_map"))
+		get_tree().remove_meta("streetbound_editor_resume_map")
+		call_deferred("_resume_custom_map",file)
+
+
+func _resume_custom_map(file: String) -> void:
+	if not is_instance_valid(native_world_editor) or not native_world_editor.active:
+		return
+	var doc := Library.load_map(file) if file.get_file()==file and file.ends_with(".world.json") else {}
+	var validator := Session.new()
+	if not bool(doc.get("customMap",false)) or not validator._valid_source(doc):
+		native_world_editor._notice("Previous custom map is missing or invalid. Morrow Coast remains open.")
+		return
+	var where: Vector2 = native_world_editor.editor_camera.global_position
+	native_world_editor.map_switcher.activate(native_world_editor,doc,file)
+	# Map activation fits the entire map; restore the user's pre-drive editor view.
+	native_world_editor.editor_camera.global_position = where
+	native_world_editor._update_view(true)
+	native_world_editor.map_switcher.reload_list()
+	native_world_editor._notice("Returned from Test Drive. Continue editing "+str(doc.name)+".")
