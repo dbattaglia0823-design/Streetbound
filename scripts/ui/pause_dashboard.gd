@@ -10,9 +10,9 @@ const MUTED := Color("#a7bcb9")
 const LIME := Color("#bee795")
 const TEAL := Color("#77d6cc")
 const DARK := Color("#091d22")
-var menu: CanvasLayer
+var menu
 var vehicle: Node2D
-var economy: RefCounted
+var economy
 var map_hud: Node
 var upgrades: CanvasLayer
 var section := "events"
