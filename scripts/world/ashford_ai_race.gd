@@ -6,6 +6,7 @@ const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const RIVAL_LANE_OFFSET_M := 4.1
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 var opponent: VehicleController2D
 var opponent_driver: Node
 var opponent_progress_m := 0.0
@@ -40,11 +41,16 @@ func start_radius_m() -> float:return 4.0
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
+	var right:=direction.orthogonal().normalized()
+	player_grid_m=start_m+right*RIVAL_LANE_OFFSET_M
 	if not _spawn_opponent():
+		player_grid_m=Vector2.INF
 		return false
 	if not super.start_race():
 		_clear_opponent()
+		player_grid_m=Vector2.INF
 		return false
+	player_grid_m=Vector2.INF
 	opponent_progress_m = 0.0
 	opponent_elapsed = -1.0
 	return true
@@ -68,11 +74,7 @@ func _spawn_opponent() -> bool:
 	opponent.add_to_group("race_opponent")
 	add_child(opponent)
 	var right := direction.orthogonal().normalized()
-	var player_side := (player.global_position / PPM - start_m).dot(right)
-	var rival_lane := -RIVAL_LANE_OFFSET_M if player_side >= 0.0 else RIVAL_LANE_OFFSET_M
-	opponent.global_position = (start_m + right * rival_lane) * PPM
-	opponent.global_rotation = direction.angle() + PI * 0.5
-	opponent.reset_physics_interpolation()
+	Grid.teleport(opponent,Grid.pose(start_m-right*RIVAL_LANE_OFFSET_M,direction))
 	# Reflect the player's selected car artwork, wheel profile and dimensions.
 	var source_wheels := player.get_node_or_null("Art/Wheels")
 	var rival_wheels := opponent.get_node_or_null("Art/Wheels")
