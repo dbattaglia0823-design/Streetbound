@@ -63,6 +63,20 @@ func _run() -> void:
 	check("building_alignment_preserves_small_street_gap",
 		at(second_prop).distance_to(Vector2(312.25,200))<.05,at(second_prop))
 	# Multi-object operations must not sidestep building clearance.
+	# Inspector-style transformations and toolbar nudges must not let a
+	# previously clear building expand or rotate through its neighbor.
+	e._choose_tool("move_prop")
+	e.source_id=first
+	e._refresh_authoring()
+	var original_count: int=e.authoring.history.size()
+	e._resize_selected(1.2)
+	check("resize_does_not_expand_through_neighbor",
+		is_equal_approx(float(e.authoring.prop_at_id(first).scale),1.0) and
+		e.authoring.history.size()==original_count)
+	e._rotate_selected(45)
+	check("rotation_rejects_overlapping_wall",
+		is_equal_approx(float(e.authoring.prop_at_id(first).rotation),0.0) and
+		e.authoring.history.size()==original_count)
 	var one_selected: Array[String]=[second]
 	e._set_multi(one_selected)
 	var prior_group_history: int=e.authoring.history.size()
