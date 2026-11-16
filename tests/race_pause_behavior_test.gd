@@ -44,10 +44,16 @@ func run() -> void:
 		check(str(race.race_title)+"_quit_resumes_free_driving",race.state=="idle" and not paused and not menu.quit_race_button.visible)
 		player.global_position=race.start_m*20;player.linear_velocity=Vector2.ZERO;player.rotation=forward.angle()+PI/2
 		check(str(race.race_title)+"_can_restart_after_quitting",race.start_race())
+		# All race types now teleport to their own starting grid (including
+		# the offset player lane in a head-to-head drag race). Start this
+		# off-course regression from the actual staged grid position.
+		var grid_origin_m: Vector2=player.global_position/20.0
 		race._physics_process(3.05)
+		check(str(race.race_title)+"_countdown_reaches_running",race.state=="running")
 		var side:=Vector2(-forward.y,forward.x)
 		for step in range(1,31):
-			player.global_position=(race.start_m+side*step)*20;player.linear_velocity=side*5
+			player.global_position=(grid_origin_m+side*step)*20
+			player.linear_velocity=side*5
 			race._physics_process(.2)
 		check(str(race.race_title)+"_does_not_cancel_away_from_route",race.state=="running")
 		menu.pause_game();check(str(race.race_title)+"_quit_available_while_running",menu.quit_race_button.visible)
