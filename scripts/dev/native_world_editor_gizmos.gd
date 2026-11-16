@@ -327,6 +327,20 @@ func _rebuild_preview_collisions() -> void:
 		preview_body.add_child(collider)
 
 
+## Preview artwork and collision are independent of editor selection. Show
+## selection chrome for exactly one authored scenery asset, including one that
+## is already saved and unchanged. The drag canvas draws its own single outline.
+func _show_prop_outline(prop: Dictionary) -> bool:
+	if runtime_playtest or not bool(layer_flags.get("scenery",true)):
+		return false
+	if bool(prop.get("hidden",false)) or selected_source_id.is_empty():
+		return false
+	if str(prop.get("id",""))!=selected_source_id:
+		return false
+	return not (str(drag_preview.get("kind",""))=="prop" and
+		str(drag_preview.get("id",""))==selected_source_id)
+
+
 func _draft_anchors(road: Dictionary) -> PackedVector2Array:
 	var line := PackedVector2Array()
 	for i in road.points.size():
@@ -451,11 +465,10 @@ func _draw_draft() -> void:
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
 			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
 			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
+	# Asset artwork remains visible through preview_scenery, but only the
+	# selected source prop gets an editor bounding box or center handle.
 	for prop in draft_doc.get("props",[]):
-		if not layer_flags.get("scenery",true):continue
-		if drag_preview.get("kind","")=="prop" and str(drag_preview.get("id",""))==str(prop.id):continue
-		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
-			continue
+		if not _show_prop_outline(prop):continue
 		var id := str(prop.id)
 		var p := Vector2(float(prop.x),float(prop.y)) * PPM
 		if str(drag_preview.get("id",""))==id:
@@ -472,10 +485,10 @@ func _draw_draft() -> void:
 				draw_texture_rect(texture,Rect2(-size*0.5,size),false)
 			else:
 				draw_rect(Rect2(-size*0.5,size),Color(0.35,0.65,0.52,0.6),true)
-		var c := Color("#8effbf") if id==selected_source_id else Color("#ffcf73")
-		draw_rect(Rect2(-size*0.5,size),c,false,3.0,true)
+		var outline_color := Color("#8effbf")
+		draw_rect(Rect2(-size*0.5,size),outline_color,false,3.0,true)
 		draw_set_transform(Vector2.ZERO)
-		draw_circle(p,4.0,c)
+		draw_circle(p,4.0,outline_color)
 	# Walkway branch anchors remain independent source props. Draw selectable
 	# path handles and a compact junction marker where two or more meet.
 	if layer_flags.get("scenery",true):
