@@ -691,14 +691,21 @@ func _prune_multi_selection() -> void:
 		if live.has(id):valid.append(id)
 	if valid.size()!=multi_selection.size():_set_multi(valid)
 
+func _select_all() -> void:
+	if not active or not source_ready or tool_name!="move_prop":return
+	_set_multi(MultiSelect.all_visible(authoring.doc,layer_flags))
+	_notice("%d editable objects selected."%multi_selection.size())
+
 func _set_multi(ids: Array[String]) -> void:
 	multi_selection=ids.duplicate()
 	if is_instance_valid(gizmos):
 		gizmos.group_selected_ids=multi_selection.duplicate()
 		gizmos.queue_redraw()
+	if not multi_selection.is_empty():
+		selected={}
+		gizmos.set_selection({})
 	if multi_selection.size()>1:
 		source_id=""
-		selected={}
 		if is_instance_valid(details):
 			details.text="%d OBJECTS SELECTED\nDrag a selected object to move all.\nCtrl+D duplicate · Delete remove · Shift+drag add/remove."%multi_selection.size()
 
@@ -1621,8 +1628,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
 				_duplicate_selected();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_A and tool_name=="move_prop":
-				_set_multi(MultiSelect.all_visible(authoring.doc,layer_flags))
-				_notice("%d editable objects selected."%multi_selection.size())
+				_select_all()
 				_consume_input();return
 			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and (not source_id.is_empty() or multi_selection.size()>1):
 				_nudge_selected({KEY_LEFT:Vector2.LEFT,KEY_RIGHT:Vector2.RIGHT,KEY_UP:Vector2.UP,KEY_DOWN:Vector2.DOWN}[key.keycode],key.shift_pressed)
