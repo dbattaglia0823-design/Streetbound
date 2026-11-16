@@ -1,5 +1,6 @@
 extends RefCounted
 ## Metre-space authoring contract shared by editor and race runtime.
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 static func valid(race: Dictionary,width: float,height: float) -> bool:
 	if not str(race.get("id","")).begins_with("race-") or str(race.get("name","")).strip_edges().is_empty() or str(race.get("name","")).length()>80:return false
 	if race.get("mode","") not in ["sprint","circuit"]:return false
@@ -14,4 +15,4 @@ static func valid(race: Dictionary,width: float,height: float) -> bool:
 		var number= race.get(spec[0],{"laps":1,"checkpoint_radius":16,"start_radius":8,"time_limit":0}[spec[0]])
 		if not typeof(number) in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(number)) or float(number)<spec[1] or float(number)>spec[2]:return false
 	var laps: float=float(race.get("laps",1))
-	return laps==floorf(laps)
+	return laps==floorf(laps) and Grid.valid_grid(race,width,height)
