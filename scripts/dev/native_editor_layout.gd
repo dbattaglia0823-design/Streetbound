@@ -100,7 +100,7 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"SELECT / EDIT: Drag empty canvas to box-select.\nShift-click / Shift-drag adds. Ctrl-click / Ctrl-drag removes.\nGrab a selected object to move the whole group.\nShift during movement locks to one axis.\nCtrl+A selects everything in view.\nCtrl+D duplicates; Delete removes; Esc clears.\nCtrl+Shift-click inserts a road point.\nSpace + drag or right drag pans.\nWheel zooms; WASD pans; arrows nudge.\nEnter finishes a drawing.")
+	var help:=heading(settings,"Select: drag empty terrain.\nShift: add to selection.\nCtrl: remove from selection.\nGrab one to move the group.\nShift while moving: lock axis.\nCtrl+A: select visible.\nCtrl+D: duplicate.\nDelete: remove selected.\nEsc: clear selection.\nCtrl+Shift: insert road point.\nSpace/right drag: pan.\nWheel: zoom; WASD: pan.\nArrows: nudge.\nEnter: finish drawing.")
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
