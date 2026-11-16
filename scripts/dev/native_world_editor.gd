@@ -1558,13 +1558,13 @@ func _process(dt: float) -> void:
 	var direction := Vector2.ZERO
 	var focus:=get_viewport().gui_get_focus_owner()
 	var typing: bool=focus is LineEdit or focus is TextEdit
-	if Input.is_physical_key_pressed(KEY_A) or (source_id.is_empty() and Input.is_physical_key_pressed(KEY_LEFT)):
+	if Input.is_physical_key_pressed(KEY_A) or (selected_ids.is_empty() and Input.is_physical_key_pressed(KEY_LEFT)):
 		direction.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or (source_id.is_empty() and Input.is_physical_key_pressed(KEY_RIGHT)):
+	if Input.is_physical_key_pressed(KEY_D) or (selected_ids.is_empty() and Input.is_physical_key_pressed(KEY_RIGHT)):
 		direction.x += 1.0
-	if Input.is_physical_key_pressed(KEY_W) or (source_id.is_empty() and Input.is_physical_key_pressed(KEY_UP)):
+	if Input.is_physical_key_pressed(KEY_W) or (selected_ids.is_empty() and Input.is_physical_key_pressed(KEY_UP)):
 		direction.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S) or (source_id.is_empty() and Input.is_physical_key_pressed(KEY_DOWN)):
+	if Input.is_physical_key_pressed(KEY_S) or (selected_ids.is_empty() and Input.is_physical_key_pressed(KEY_DOWN)):
 		direction.y += 1.0
 	if direction != Vector2.ZERO and not typing and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_ALT):
 		editor_camera.global_position += direction.normalized() * dt * \
