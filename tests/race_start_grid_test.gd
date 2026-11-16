@@ -85,7 +85,7 @@ func _run() -> void:
 		car.linear_velocity.is_zero_approx() and car.velocity.is_zero_approx() and
 		Vector2.UP.rotated(car.rotation).dot(Vector2.RIGHT)>.99)
 	check("ai_cars_spawn_in_every_configured_slot",event.rivals.size()==3)
-	var positioned:=event.rivals.size()==3
+	var positioned: bool=event.rivals.size()==3
 	if positioned:
 		for i in event.rivals.size():
 			positioned=positioned and event.rivals[i].global_position.distance_to(Grid.point(race.enemy_starts[i])*Grid.PPM)<.01
