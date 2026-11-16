@@ -57,8 +57,9 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
+	e.grid_button.tooltip_text="Align general placement to 1 m coordinates. Buildings override the grid when necessary to preserve wall clearance."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
-	e.building_snap_button.tooltip_text="Snap parallel building edges within 2 m. Hold Alt to bypass. Works when placing and dragging buildings."
+	e.building_snap_button.tooltip_text="Align parallel building walls with a 0.25 m clearance. Auto-correct small grid overlaps; show a red drag outline when there is no safe nearby position. Alt bypasses snapping."
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
@@ -100,12 +101,14 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"Click to select or draw.\nDrag a road to move it.\nDrag its handles to reshape.\nShift-click inserts a road point.\nEnter finishes a shape.\nSpace + drag or right drag pans.\nWheel zooms at the cursor.\nArrow keys nudge the selection.\nWASD pans the map.")
+	var help:=heading(settings,"Drag blank space: box-select.\nShift+click/drag: add or remove.\nDrag selected: move group.\nAlt+drag or Ctrl+D: duplicate.\nDel remove; Ctrl+A select all.\nCtrl+Z/Y undo/redo; Esc clear.\nSpace/right drag pan; wheel zoom.")
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
 	e._btn("Undo",bar,e._undo).custom_minimum_size.x=48
 	e._btn("Redo",bar,e._redo).custom_minimum_size.x=48
+	e._btn("Select all",bar,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
+	e._btn("Duplicate",bar,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
 	e.finish_button=e._btn("Finish  Enter",bar,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",bar,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var spacer:=Control.new();spacer.size_flags_horizontal=Control.SIZE_EXPAND_FILL;bar.add_child(spacer)

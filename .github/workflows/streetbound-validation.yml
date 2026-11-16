@@ -81,6 +81,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_reload_test.gd 2>&1 | tee /tmp/native-map-reload-463.log
           grep -q 'NATIVE MAP WORLD RELOAD: PASS' /tmp/native-map-reload-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-map-reload-463.log
+      - name: Verify map marquee selection and multi-object undo (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_multi_select_test.gd 2>&1 | tee /tmp/native-multiselect-463.log
+          grep -q 'NATIVE MULTI SELECT: PASS' /tmp/native-multiselect-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-multiselect-463.log
       - name: Verify only selected placed assets show editor boxes (4.6.3)
         run: |
           set -o pipefail
@@ -162,6 +168,12 @@ jobs:
           grep -q 'CITY AUTHORING: PASS' /tmp/city-authoring.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/city-authoring.log
           python3 -B tests/city_authoring_bake_test.py
+      - name: Verify nonoverlapping building placement, grid snap, rotation and duplication (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/building_clearance_snap_test.gd 2>&1 | tee /tmp/building-clearance-463.log
+          grep -q 'BUILDING CLEARANCE SNAPPING: PASS' /tmp/building-clearance-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/building-clearance-463.log
       - name: Verify per-building road facing, city-block walls, scaled collision previews and saved preferences
         run: |
           set -o pipefail
