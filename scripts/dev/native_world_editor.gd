@@ -766,14 +766,21 @@ func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
 		return
 	_group_action("duplicate" if duplicate else "move",delta)
 
-func _group_buildings_clear(ids: Array[String]) -> bool:
-	# Group transforms preserve relative offsets. Check the final destination,
-	# including other members, so batching cannot bypass footprint clearance.
+func _group_buildings_clear(ids: Array[String],moving: bool=false) -> bool:
+	# Moving a group preserves separation among its original members.
+	# Only check against the outside world; do not strand older touching
+	# blocks by requiring newly introduced clearance within the group.
+	var selected: Dictionary={}
+	if moving:
+		for id in ids:selected[id]=true
 	for id in ids:
 		var prop: Dictionary=authoring.prop_at_id(id)
 		if prop.is_empty() or not RoadBuildingSnap.supports(prop):continue
 		var pos:=Vector2(float(prop.x),float(prop.y))
-		var near: Array=_building_snap_neighbors(prop,pos)
+		var near: Array=[]
+		for neighbor in _building_snap_neighbors(prop,pos):
+			if moving and selected.has(str(neighbor.get("id",""))):continue
+			near.append(neighbor)
 		if not BuildingSnap.has_clearance(pos,gizmos._prop_size(prop)/PPM,
 				deg_to_rad(float(prop.get("rotation",0.0))),near):
 			return false
@@ -793,7 +800,7 @@ func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 		if authoring.edit_revision==revision_before:
 			_notice(authoring.last_error)
 			return false
-		if operation!="delete" and not _group_buildings_clear(affected):
+		if operation!="delete" and not _group_buildings_clear(affected,operation=="move"):
 			authoring.undo()
 			authoring.future.clear()
 			continue
@@ -2500,7 +2507,7 @@ func _building_snap_neighbors(prop: Dictionary,at: Vector2) -> Array:
 	for other in authoring.doc.props:
 		if str(other.id)==str(prop.id) or other.get("hidden",false) or str(other.type) not in ["house","building","warehouse","garage","gas_station"]:continue
 		if Vector2(other.x,other.y).distance_to(at)>150:continue
-		neighbors.append({"p":Vector2(other.x,other.y),"size":gizmos._prop_size(other)/PPM,"angle":deg_to_rad(float(other.rotation))})
+		neighbors.append({"id":str(other.id),"p":Vector2(other.x,other.y),"size":gizmos._prop_size(other)/PPM,"angle":deg_to_rad(float(other.rotation))})
 	for other in world.data.props:
 		if other.has("authoring_id") or str(other.kind) not in ["house","building","warehouse","garage","shop","coastal_house","lodge","office","hotel","cafe","showroom","fuel"]:continue
 		if preload("res://scripts/world/coast_scenery.gd").editor_hidden.has(preload("res://scripts/world/coast_scenery.gd").editor_key(other)):continue
