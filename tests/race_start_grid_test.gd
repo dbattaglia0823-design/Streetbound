@@ -50,6 +50,17 @@ func _run() -> void:
 	check("overlapping_manual_move_is_rejected",not session.set_race_grid_slot(id,0,Grid.point(session.race_at_id(id).player_start)))
 	check("invalid_manual_slot_move_does_not_change_document",JSON.stringify(session.doc)==no_change)
 	check("reset_grid_layout_is_undoable",session.reset_race_grid(id,"staggered") and session.undo())
+	var copy_id: String=session.duplicate_entity(id)
+	var copied: Dictionary=session.race_at_id(copy_id)
+	check("duplicated_race_moves_player_grid_with_route",
+		not copied.is_empty() and Grid.point(copied.player_start)==Grid.point(session.race_at_id(id).player_start)+Vector2(12,12))
+	check("duplicated_race_moves_all_ai_slots",
+		not copied.is_empty() and Grid.point(copied.enemy_starts[0])==Grid.point(session.race_at_id(id).enemy_starts[0])+Vector2(12,12))
+	session.undo()
+	var original_grid: Vector2=Grid.point(session.race_at_id(id).player_start)
+	check("moving_entire_race_moves_its_grid",
+		session.move_shape("races",id,Vector2(20,0)) and Grid.point(session.race_at_id(id).player_start)==original_grid+Vector2(20,0))
+	session.undo()
 
 	var game: Variant=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
