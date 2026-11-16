@@ -84,7 +84,8 @@ func _run() -> void:
 		not e._group_action("move",Vector2(-12,0)) and
 		at(e.authoring.prop_at_id(second)).distance_to(Vector2(312.25,200))<.05 and
 		e.authoring.history.size()==prior_group_history)
-	e._set_multi([])
+	var cleared_group: Array[String]=[]
+	e._set_multi(cleared_group)
 	var previous_count: int=e.authoring.doc.props.size()
 	var bad: String=place(e,Vector2(301,200))
 	check("impossible_placement_is_rejected_atomically",
