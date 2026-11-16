@@ -747,7 +747,8 @@ func _finish_marquee(at: Vector2) -> void:
 		if not add and not remove:_set_group_selection([])
 		return
 	var result: Array[String]=_collect_marquee(Rect2(start/PPM,(at-start)/PPM).abs())
-	var combined: Array[String]=selected_ids.duplicate() if add or remove else []
+	var combined: Array[String]=[]
+	if add or remove:combined.assign(selected_ids)
 	for id in result:
 		if remove:combined.erase(id)
 		elif not combined.has(id):combined.append(id)
