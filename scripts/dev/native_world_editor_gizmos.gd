@@ -28,6 +28,11 @@ var draft_doc: Dictionary = {}
 var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
+var selected_ids: Array[String]=[]
+var group_drag_delta:=Vector2.ZERO
+var marquee_active:=false
+var marquee_from:=Vector2.ZERO
+var marquee_to:=Vector2.ZERO
 var custom_terrain:=false
 ## Render the saved authoring geometry without editor handles during a drive.
 var runtime_playtest:=false
@@ -206,7 +211,7 @@ func _draw_races() -> void:
 		var line:=PackedVector2Array()
 		for p in race.points:line.append(Vector2(p.x,p.y)*PPM)
 		if line.size()<2:continue
-		var focused: bool=str(race.id)==selected_source_id
+		var focused: bool=str(race.id)==selected_source_id or selected_ids.has(str(race.id))
 		var route:=line.duplicate()
 		if race.mode=="circuit":route.append(line[0])
 		draw_polyline(route,Color(.2,.85,.9,.8 if focused else .28),2/maxf(.003,zoom_level),true)
@@ -333,9 +338,9 @@ func _rebuild_preview_collisions() -> void:
 func _show_prop_outline(prop: Dictionary) -> bool:
 	if runtime_playtest or not bool(layer_flags.get("scenery",true)):
 		return false
-	if bool(prop.get("hidden",false)) or selected_source_id.is_empty():
+	if bool(prop.get("hidden",false)) or (selected_source_id.is_empty() and selected_ids.is_empty()):
 		return false
-	if str(prop.get("id",""))!=selected_source_id:
+	if str(prop.get("id",""))!=selected_source_id and not selected_ids.has(str(prop.get("id",""))):
 		return false
 	return not (str(drag_preview.get("kind",""))=="prop" and
 		str(drag_preview.get("id",""))==selected_source_id)
@@ -381,7 +386,7 @@ func _draw_draft() -> void:
 				break
 		var geometry_changed: bool=original.is_empty() or JSON.stringify(road)!=JSON.stringify(original) or str(drag_preview.get("id",""))==id
 		var changed: bool=geometry_changed or bridge_redraw_roads.has(int(id.trim_prefix("road-")))
-		var focused: bool = selected_source_id == id
+		var focused: bool = selected_source_id == id or selected_ids.has(id)
 		if not changed and not focused:
 			continue
 		var line := _draft_line(road,not geometry_changed)
@@ -461,16 +466,18 @@ func _draw_draft() -> void:
 			if str(original_marker.get("id","")) == str(marker.get("id","")):
 				unchanged = JSON.stringify(marker) == JSON.stringify(original_marker)
 				break
-		if not unchanged or str(marker.id)==selected_source_id or _visible_point(Vector2(marker.x,marker.y)*PPM):
+		if not unchanged or str(marker.id)==selected_source_id or selected_ids.has(str(marker.id)) or _visible_point(Vector2(marker.x,marker.y)*PPM):
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
 			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
-			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
+			draw_circle(at,7/maxf(.003,zoom_level) if selected_ids.has(str(marker.id)) else 5/maxf(.003,zoom_level),
+				Color("#8effbf") if selected_ids.has(str(marker.id)) else Color("#ffb653"))
 	# Asset artwork remains visible through preview_scenery, but only the
 	# selected source prop gets an editor bounding box or center handle.
 	for prop in draft_doc.get("props",[]):
 		if not _show_prop_outline(prop):continue
 		var id := str(prop.id)
 		var p := Vector2(float(prop.x),float(prop.y)) * PPM
+		if selected_ids.size()>1:p+=group_drag_delta
 		if str(drag_preview.get("id",""))==id:
 			p = drag_preview.get("to",p)
 		if not _visible_point(p):
@@ -651,6 +658,22 @@ func _draw() -> void:
 				points.append(center+v.rotated(angle))
 			draw_polyline(points,Color(1.0,0.9,0.25,1.0),5.0,true)
 			draw_line(points[3],points[0],Color(1.0,0.9,0.25,1.0),5.0,true)
+
+	# Marquee uses world-space corners so zoom/panning never changes which
+	# source geometry lies inside the drag rectangle.
+	if marquee_active:
+		var area:=Rect2(marquee_from,marquee_to-marquee_from).abs()
+		draw_rect(area,Color(0.37,0.81,0.95,0.13),true)
+		draw_rect(area,Color("#69cdf1"),false,2.0/maxf(0.003,zoom_level),true)
+	if group_drag_delta!=Vector2.ZERO and selected_ids.size()>1:
+		# A lightweight translated guide; full art/collision rebuild once
+		# after mouse release rather than on every pixel of pointer motion.
+		for road in draft_doc.get("roads",[]):
+			if not selected_ids.has(str(road.id)):continue
+			var line:=_draft_line(road)
+			if line.size()>=2:
+				for i in line.size():line[i]+=group_drag_delta
+				draw_polyline(line,Color("#8effbf"),3.0/maxf(0.003,zoom_level),true)
 
 func _draw_grid() -> void:
 	# Adaptive spacing keeps both the whole map and close-up edits readable.
