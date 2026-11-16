@@ -142,7 +142,7 @@ static func move(session, ids: Array, delta: Vector2) -> bool:
 		return false
 	return true
 
-static func duplicate(session, ids: Array) -> Array[String]:
+static func duplicate_entities(session, ids: Array) -> Array[String]:
 	var created: Array[String]=[]
 	var picked: Dictionary=_categories(session.doc,ids)
 	if ids.is_empty() or picked.size()!=ids.size():
