@@ -1,5 +1,6 @@
 extends RefCounted
-## Race setup uses the editor's existing draw, selection and undo workflows.
+## Per-race routes and starting slots share native world-editor undo and saved data.
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 var panel: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
@@ -8,9 +9,15 @@ var laps: SpinBox
 var radius: SpinBox
 var start_radius: SpinBox
 var time_limit: SpinBox
+var opponents: SpinBox
+var formation: OptionButton
+var grid_slot: OptionButton
+var slot_rotation: SpinBox
 var editing_id:=""
+var grid_race_id:=""
 var updating:=false
 var list_stamp:=-1
+var slots_stamp:=""
 func build(e,parent: Node) -> void:
 	e._btn("Set up races",parent,func():begin_route(e))
 	panel=VBoxContainer.new();parent.add_child(panel)
@@ -27,27 +34,92 @@ func build(e,parent: Node) -> void:
 	radius=e._number(panel,"Gate radius m",4,60,16)
 	start_radius=e._number(panel,"Start circle m",3,30,8)
 	time_limit=e._number(panel,"Limit sec (0=none)",0,7200,0)
+	var grid_label:=Label.new();grid_label.text="STARTING GRID";panel.add_child(grid_label)
+	opponents=e._number(panel,"AI racers",0,Grid.MAX_RIVALS,2)
+	opponents.step=1
+	formation=e._options(panel,"Formation",Grid.FORMATIONS)
+	grid_slot=OptionButton.new();grid_slot.tooltip_text="Select the player or a specific AI grid slot to move.";panel.add_child(grid_slot)
+	slot_rotation=e._number(panel,"Facing °",-180,180,0)
+	slot_rotation.step=1
+	e._btn("Place grid slot on map",panel,func():begin_grid(e)).tooltip_text="Click the map to place the chosen player or AI starting position. Drag an existing grid marker to move it."
+	e._btn("Auto-arrange grid",panel,func():auto_grid(e)).tooltip_text="Reset all positions to the selected formation behind/alongside the route start."
 	e._btn("Redraw race route",panel,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
 	var help:=Label.new();help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	help.text="Click start, checkpoints, then finish. Enter saves the route. Circuits return to the start. Select a race to drag its checkpoints or edit settings."
+	help.text="Click start, checkpoints, then finish. Enter saves. Select race, choose a grid slot, then Place on map. Drag slots to adjust."
 	help.add_theme_font_size_override("font_size",11);panel.add_child(help)
 	title.text_submitted.connect(func(_value):commit_settings(e))
 	title.focus_exited.connect(func():commit_settings(e))
 	mode.item_selected.connect(func(_index):commit_settings(e))
-	for spin in [laps,radius,start_radius,time_limit]:spin.value_changed.connect(func(_value):commit_settings(e))
+	formation.item_selected.connect(func(_index):commit_settings(e))
+	for spin in [laps,radius,start_radius,time_limit,opponents]:spin.value_changed.connect(func(_value):commit_settings(e))
+	grid_slot.item_selected.connect(func(_index):_sync_rotation(e))
+	slot_rotation.value_changed.connect(func(_value):commit_grid_rotation(e))
 	panel.visible=false
 func settings(e) -> Dictionary:
 	return {"name":title.text.strip_edges(),"mode":e._option_value(mode),"laps":int(laps.value) if e._option_value(mode)=="circuit" else 1,
-		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value}
+		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value,
+		"opponent_count":int(opponents.value),"formation":e._option_value(formation)}
 func minimum_points(e) -> int:return 3 if e._option_value(mode)=="circuit" else 2
 func begin_route(e,id: String="") -> void:
 	if e._editing_locked() or not e.source_ready:return
 	e._choose_tool("draw_race");editing_id=id
-	e._notice("Click the start, then checkpoints and finish. Press Enter to save the race route.")
+	e._notice("Click start, checkpoints and finish; Enter saves the route. Set AI grid positions afterward.")
+func selected_slot() -> int:
+	if grid_slot.item_count==0 or grid_slot.selected<0:return -1
+	return int(grid_slot.get_item_metadata(grid_slot.selected))
+func begin_grid(e) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	var id: String=e.source_id
+	if e.authoring.race_at_id(id).is_empty():
+		e._notice("Select a saved race before editing its starting grid.")
+		return
+	grid_race_id=id
+	e._choose_tool("race_grid")
+	e.source_id=id;e.source_anchor=-1
+	e._refresh_authoring()
+	e._notice("Click to place %s. Drag its existing marker to adjust; Esc returns to Select/Edit."%("PLAYER" if selected_slot()==-1 else "AI %d"%(selected_slot()+1)))
+func place_grid_slot(e,at_m: Vector2) -> bool:
+	var id: String=grid_race_id if e.tool_name=="race_grid" else e.source_id
+	if e.authoring.race_at_id(id).is_empty():return false
+	var index:=selected_slot()
+	var ok: bool=e.authoring.set_race_grid_slot(id,index,e._snap_point(at_m),slot_rotation.value)
+	if ok:
+		e.source_id=id;e._refresh_authoring()
+		e._notice("Saved %s grid start. Ctrl+Z undoes this placement."%("player" if index==-1 else "AI %d"%(index+1)))
+	else:e._notice(e.authoring.last_error)
+	return ok
+func commit_grid_rotation(e) -> void:
+	if updating or e._editing_locked() or not e.source_ready:return
+	var race: Dictionary=e.authoring.race_at_id(e.source_id)
+	if race.is_empty():return
+	var slot: Dictionary=Grid.player_slot(race) if selected_slot()==-1 else race.get("enemy_starts",[])[clampi(selected_slot(),0,maxi(0,race.get("enemy_starts",[]).size()-1))]
+	if slot.is_empty():return
+	if not e.authoring.set_race_grid_slot(e.source_id,selected_slot(),Grid.point(slot),slot_rotation.value):
+		e._notice(e.authoring.last_error)
+	e._refresh_authoring()
+func _sync_rotation(e) -> void:
+	var race: Dictionary=e.authoring.race_at_id(e.source_id)
+	if race.is_empty():return
+	var index:=selected_slot()
+	var slot: Dictionary={}
+	if index==-1:slot=Grid.player_slot(race)
+	elif index<race.get("enemy_starts",[]).size():slot=race.enemy_starts[index]
+	if slot.is_empty():return
+	updating=true;slot_rotation.value=float(slot.get("rotation",0));updating=false
+	e.gizmos.queue_redraw()
+func auto_grid(e) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	var id: String=e.source_id
+	if e.authoring.race_at_id(id).is_empty():
+		e._notice("Select a race first.");return
+	if e.authoring.reset_race_grid(id,e._option_value(formation)):
+		e._refresh_authoring()
+		e._notice("Reset race grid to %s. Ctrl+Z undoes it."%e._option_value(formation))
+	else:e._notice(e.authoring.last_error)
 func update(e) -> void:
 	if panel==null or not e.source_ready:return
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
-	panel.visible=e.tool_name=="draw_race" or not selected.is_empty()
+	panel.visible=e.tool_name in ["draw_race","race_grid"] or not selected.is_empty()
 	updating=true
 	var stamp: int=hash(e.authoring.doc.get("races",[]))
 	if stamp!=list_stamp:
@@ -58,8 +130,21 @@ func update(e) -> void:
 		mode.select(1 if selected.mode=="circuit" else 0)
 		laps.value=float(selected.get("laps",1));radius.value=float(selected.get("checkpoint_radius",16))
 		start_radius.value=float(selected.get("start_radius",8));time_limit.value=float(selected.get("time_limit",0))
+		opponents.value=float(selected.get("enemy_starts",[]).size())
+		for i in formation.item_count:
+			if str(formation.get_item_metadata(i))==str(selected.get("formation","single_file")):formation.select(i);break
 		for i in race_list.item_count:
 			if str(race_list.get_item_metadata(i))==e.source_id:race_list.select(i);break
+		var signature: String=str(e.source_id)+":"+str(selected.get("enemy_starts",[]).size())
+		if signature!=slots_stamp:
+			slots_stamp=signature
+			grid_slot.clear();grid_slot.add_item("Player start");grid_slot.set_item_metadata(0,-1)
+			for i in selected.get("enemy_starts",[]).size():
+				grid_slot.add_item("AI %d start"%(i+1));grid_slot.set_item_metadata(i+1,i)
+			grid_slot.select(clampi(grid_slot.selected,0,maxi(0,grid_slot.item_count-1)))
+		var slot_index:=selected_slot()
+		var slot: Dictionary=Grid.player_slot(selected) if slot_index==-1 else selected.enemy_starts[clampi(slot_index,0,maxi(0,selected.enemy_starts.size()-1))]
+		slot_rotation.value=float(slot.get("rotation",0))
 	laps.editable=e._option_value(mode)=="circuit"
 	updating=false
 func commit_settings(e) -> void:
