@@ -2505,14 +2505,14 @@ func _pick_race_grid_handle(at: Vector2) -> Dictionary:
 	slots.append(starting)
 	slots.append_array(race.get("enemy_starts",[]))
 	var nearest:=14.0/maxf(.003,editor_camera.zoom.x)
-	var match: Dictionary={}
+	var picked_slot: Dictionary={}
 	for i in slots.size():
 		var p:=Vector2(float(slots[i].x),float(slots[i].y))*PPM
 		var distance:=p.distance_to(at)
 		if distance<nearest:
 			nearest=distance
-			match={"kind":"race_grid","id":source_id,"index":i-1,"from":p}
-	return match
+			picked_slot={"kind":"race_grid","id":source_id,"index":i-1,"from":p}
+	return picked_slot
 
 func _pick_race_handle(at: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.markers:return {}
