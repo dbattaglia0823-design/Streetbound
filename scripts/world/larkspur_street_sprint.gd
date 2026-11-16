@@ -10,6 +10,7 @@ const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const RacerDriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const StartArea=preload("res://scripts/world/race_start_area.gd")
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 const RoutePlanner=preload("res://scripts/world/road_route_planner.gd")
 @export var definition: Resource
 var race_title:="Larkspur Street Sprint"
@@ -127,7 +128,7 @@ func start_race() -> bool:
 		return false
 	if not _spawn_opponent():
 		return false
-	StartArea.settle_for_countdown(player)
+	Grid.teleport(player,Grid.pose(start_m,heading))
 	if is_instance_valid(traffic):
 		traffic.call("set_street_race_route", navigation, edge_ids, true)
 	player.add_to_group("race_participant")

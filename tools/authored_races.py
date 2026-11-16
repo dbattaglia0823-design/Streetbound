@@ -27,5 +27,34 @@ def authored_races(doc,width,height):
             if type(value) not in (int,float) or not math.isfinite(value) or not low<=value<=high:raise ValueError('Invalid race setting: '+key)
             if key=='laps' and value!=int(value):raise ValueError('Race laps must be a whole number')
             entry[key]=int(value) if key=='laps' else float(value)
+        formation=race.get('formation','single_file')
+        if formation not in ('single_file','side_by_side','staggered'):raise ValueError('Invalid grid formation')
+        player=race.get('player_start')
+        enemies=race.get('enemy_starts',[])
+        if not isinstance(enemies,list) or len(enemies)>6:raise ValueError('Race grid allows at most six rivals')
+        def slot(value):
+            if not isinstance(value,dict) or any(type(value.get(k)) not in (int,float) or not math.isfinite(value[k]) for k in ('x','y','rotation')):raise ValueError('Invalid race grid slot')
+            x,y,rotation=value['x'],value['y'],value['rotation']
+            if not 0<=x<=width or not 0<=y<=height or abs(rotation)>360:raise ValueError('Race grid slot outside world')
+            return {'x':float(x),'y':float(y),'rotation':float(rotation)}
+        if player is not None or enemies:
+            if player is None:raise ValueError('Rivals need a player start slot')
+            starts=[slot(player)]+[slot(enemy) for enemy in enemies]
+            def separated(a,b):
+                pa=(a['x'],a['y']);pb=(b['x'],b['y'])
+                aa=math.radians(a['rotation']);ab=math.radians(b['rotation'])
+                fa=(math.cos(aa),math.sin(aa));fb=(math.cos(ab),math.sin(ab))
+                axes=[fa,(-fa[1],fa[0]),fb,(-fb[1],fb[0])]
+                for ax in axes:
+                    da=abs(ax[0]*fa[0]+ax[1]*fa[1])*1.1+abs(ax[0]*-fa[1]+ax[1]*fa[0])*2.3
+                    db=abs(ax[0]*fb[0]+ax[1]*fb[1])*1.1+abs(ax[0]*-fb[1]+ax[1]*fb[0])*2.3
+                    if abs((pb[0]-pa[0])*ax[0]+(pb[1]-pa[1])*ax[1])>=da+db+0.6:return True
+                return False
+            for i in range(len(starts)):
+                for j in range(i):
+                    if not separated(starts[i],starts[j]):raise ValueError('Race grid vehicles overlap')
+            entry.update({'player_start':starts[0],'enemy_starts':starts[1:],'formation':formation})
+        elif 'formation' in race:
+            entry['formation']=formation
         result.append(entry)
     return result

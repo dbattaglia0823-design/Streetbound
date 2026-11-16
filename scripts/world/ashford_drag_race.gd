@@ -6,6 +6,7 @@ extends Node2D
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const StartArea=preload("res://scripts/world/race_start_area.gd")
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 signal race_finished(result: Dictionary)
 const PPM := 20.0
 const QUARTER_MILE_M := 402.336
@@ -17,6 +18,7 @@ var world: MorrowCoast
 var player: VehicleController2D
 var economy: OwnershipModel
 var start_m := Vector2.ZERO
+var player_grid_m:=Vector2.INF
 var direction := Vector2.DOWN
 var available := false
 var state := "idle"
@@ -101,7 +103,7 @@ func start_radius_m() -> float:return 8.0
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
-	StartArea.settle_for_countdown(player)
+	Grid.teleport(player,Grid.pose(start_m if player_grid_m==Vector2.INF else player_grid_m,direction))
 	state = "countdown"
 	countdown = 3.0
 	elapsed = 0.0
