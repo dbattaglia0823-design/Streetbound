@@ -33,14 +33,16 @@ static func default_enemy(player: Dictionary,index: int,formation: String) -> Di
 	var position_m:=point(player)
 	match formation:
 		"side_by_side":
-			# First rival is alongside, additional pairs occupy distinct rows.
-			var row:=index/2
-			position_m+=right*(SIDE_M if index%2==0 else -SIDE_M)
+			# Two columns total (player lane and rival lane), never three
+			# across on narrow city roads. Subsequent cars fill paired rows.
+			var row: int=(index+1)/2
+			if index%2==0:position_m+=right*SIDE_M
 			position_m-=forward*(ROW_M*float(row))
 		"staggered":
-			var row:=index/2
-			position_m+=right*(SIDE_M if index%2==0 else -SIDE_M)
-			position_m-=forward*(ROW_M*float(row+1))
+			# Alternate lanes and longitudinal offsets for a rolling zig-zag
+			# grid, retaining two columns rather than placing AI off-road.
+			if index%2==0:position_m+=right*SIDE_M
+			position_m-=forward*(ROW_M*.5*float(index+1))
 		_:
 			position_m-=forward*ROW_M*float(index+1)
 	return pose(position_m,forward)
