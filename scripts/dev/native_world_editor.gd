@@ -692,7 +692,10 @@ func _prune_multi_selection() -> void:
 	if valid.size()!=multi_selection.size():_set_multi(valid)
 
 func _select_all() -> void:
-	if not active or not source_ready or tool_name!="move_prop":return
+	if not active or not source_ready:return
+	if tool_name!="move_prop":
+		_choose_tool("move_prop")
+		if tool_name!="move_prop":return
 	_set_multi(MultiSelect.all_visible(authoring.doc,layer_flags))
 	_notice("%d editable objects selected."%multi_selection.size())
 
@@ -700,6 +703,8 @@ func _set_multi(ids: Array[String]) -> void:
 	multi_selection=ids.duplicate()
 	if is_instance_valid(gizmos):
 		gizmos.group_selected_ids=multi_selection.duplicate()
+		gizmos.group_selected_lookup.clear()
+		for id in multi_selection:gizmos.group_selected_lookup[id]=true
 		gizmos.queue_redraw()
 	if not multi_selection.is_empty():
 		selected={}
@@ -844,6 +849,8 @@ func _refresh_authoring() -> void:
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
 		gizmos.group_selected_ids=multi_selection.duplicate()
+		gizmos.group_selected_lookup.clear()
+		for id in multi_selection:gizmos.group_selected_lookup[id]=true
 		gizmos.set_pending_shape(draft_points,tool_name)
 		if map_switcher.custom:map_switcher.refresh(self)
 		if is_instance_valid(apply_button):
