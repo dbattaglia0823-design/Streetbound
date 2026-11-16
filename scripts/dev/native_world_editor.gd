@@ -681,7 +681,7 @@ func _notice(message: String) -> void:
 		authoring_notice.text = message
 
 ## Selection IDs stay separate from the single-item inspector source_id.
-func _set_group_selection(ids: Array[String]) -> void:
+func _set_group_selection(ids: Array) -> void:
 	var found: Array[String]=[]
 	for id in ids:
 		if found.has(id):continue
