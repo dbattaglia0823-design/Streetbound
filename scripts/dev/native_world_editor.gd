@@ -4,6 +4,7 @@ extends CanvasLayer
 ## Source edits are undoable drafts; writes use the existing validated Python rebaker.
 const Geometry = preload("res://scripts/world/map_geometry.gd")
 const Gizmos = preload("res://scripts/dev/native_world_editor_gizmos.gd")
+const GroupEdit = preload("res://scripts/dev/native_map_group_edit.gd")
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const Sidewalks = preload("res://scripts/dev/sidewalk_topology.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
@@ -65,6 +66,12 @@ var status: Label
 var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
+var selected_ids: Array[String] = []
+var marquee_active := false
+var marquee_start_px := Vector2.ZERO
+var marquee_end_px := Vector2.ZERO
+var marquee_shift := false
+var marquee_ctrl := false
 var _hidden_game_ui: Dictionary = {}
 var authoring
 var bridge
@@ -673,6 +680,101 @@ func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
 
+## Selection IDs stay separate from the single-item inspector source_id.
+func _set_group_selection(ids: Array[String]) -> void:
+	var found: Array[String]=[]
+	for id in ids:
+		if found.has(id):continue
+		for category in ["roads","regions","props","markers","races"]:
+			for item in authoring.doc.get(category,[]):
+				if str(item.get("id",""))==id and not bool(item.get("hidden",false)):
+					found.append(id)
+					break
+			if found.has(id):break
+	selected_ids=found
+	source_id=found[0] if found.size()==1 else ""
+	source_anchor=-1
+	selected={}
+	gizmos.set_selection({})
+	gizmos.selected_ids=selected_ids.duplicate()
+	gizmos.group_drag_delta=Vector2.ZERO
+	_refresh_authoring()
+	_notice("%d objects selected · drag to move, Ctrl+D duplicate, Delete remove."%selected_ids.size() if selected_ids.size()>1 else
+		("Selected "+source_id if selected_ids.size()==1 else "Selection cleared."))
+
+func _toggle_group_id(id: String, remove_only: bool=false) -> void:
+	var next: Array[String]=selected_ids.duplicate()
+	if next.has(id):next.erase(id)
+	elif not remove_only:next.append(id)
+	_set_group_selection(next)
+
+func _collect_marquee(area: Rect2) -> Array[String]:
+	return GroupEdit.collect(authoring.doc,area,layer_flags,
+		func(prop: Dictionary)->Vector2:return gizmos._prop_size(prop)/PPM,
+		func(road: Dictionary)->PackedVector2Array:return _source_road_path(road))
+
+func _select_visible() -> void:
+	if not active or not source_ready or tool_name!="move_prop":return
+	var a:=_event_world_position(canvas_rect.position)/PPM
+	var b:=_event_world_position(canvas_rect.end)/PPM
+	_set_group_selection(_collect_marquee(Rect2(a,b-a).abs()))
+
+func _start_marquee(at: Vector2) -> void:
+	marquee_active=true
+	marquee_start_px=at
+	marquee_end_px=at
+	marquee_shift=Input.is_key_pressed(KEY_SHIFT)
+	marquee_ctrl=Input.is_key_pressed(KEY_CTRL)
+	gizmos.marquee_active=true
+	gizmos.marquee_from=at
+	gizmos.marquee_to=at
+	gizmos.queue_redraw()
+
+func _update_marquee(at: Vector2) -> void:
+	marquee_end_px=at
+	gizmos.marquee_to=at
+	gizmos.queue_redraw()
+
+func _finish_marquee(at: Vector2) -> void:
+	if not marquee_active:return
+	var start:=marquee_start_px
+	var add:=marquee_shift
+	var remove:=marquee_ctrl
+	marquee_active=false
+	gizmos.marquee_active=false
+	gizmos.queue_redraw()
+	if (at-start).length()*editor_camera.zoom.x<6.0:
+		if not add and not remove:_set_group_selection([])
+		return
+	var result: Array[String]=_collect_marquee(Rect2(start/PPM,(at-start)/PPM).abs())
+	var combined: Array[String]=selected_ids.duplicate() if add or remove else []
+	for id in result:
+		if remove:combined.erase(id)
+		elif not combined.has(id):combined.append(id)
+	_set_group_selection(combined)
+
+func _group_delta(at: Vector2, grab: Vector2) -> Vector2:
+	var delta: Vector2=(at-grab)/PPM
+	if Input.is_key_pressed(KEY_SHIFT):
+		if absf(delta.x)>absf(delta.y):delta.y=0.0
+		else:delta.x=0.0
+	if snap_m>0.0:delta=delta.snapped(Vector2.ONE*snap_m)
+	return delta
+
+func _move_group(delta: Vector2) -> bool:
+	if _editing_locked() or not source_ready or selected_ids.is_empty():return false
+	var ok: bool=GroupEdit.move(authoring,selected_ids,delta)
+	if ok:_refresh_authoring()
+	else:_notice(authoring.last_error)
+	return ok
+
+func _arrange_selected(mode: String) -> void:
+	if _editing_locked() or selected_ids.size()<2:return
+	if GroupEdit.arrange_props(authoring,selected_ids,mode):
+		_refresh_authoring()
+		_notice("Arranged selected scenery. Ctrl+Z undoes the group.")
+	else:_notice(authoring.last_error)
+
 func _choose_tool(mode: String) -> void:
 	if _editing_locked():
 		return
@@ -680,6 +782,10 @@ func _choose_tool(mode: String) -> void:
 		_notice("Source unavailable. The map can still be inspected.")
 		return
 	tool_name = mode
+	marquee_active=false
+	gizmos.marquee_active=false
+	selected_ids.clear()
+	gizmos.selected_ids.clear()
 	draft_points.clear()
 	if is_instance_valid(gizmos):
 		gizmos.source_anchor_mode = mode == "anchor"
@@ -707,6 +813,19 @@ func _choose_tool(mode: String) -> void:
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	if not source_id.is_empty() and (selected_ids.size()<=1 or not selected_ids.has(source_id)):
+		selected_ids=[source_id]
+	var surviving: Array[String]=[]
+	for id in selected_ids:
+		for category in ["roads","regions","props","markers","races"]:
+			for item in authoring.doc.get(category,[]):
+				if str(item.get("id",""))==id and not bool(item.get("hidden",false)):
+					surviving.append(id)
+					break
+			if surviving.has(id):break
+	selected_ids=surviving
+	gizmos.selected_ids=selected_ids.duplicate()
+	gizmos.queue_redraw()
 	if source_ready and not source_id.is_empty():
 		var record:=_selected_record()
 		if record.is_empty() or bool(record.item.get("hidden",false)):source_id="";source_anchor=-1
@@ -778,6 +897,7 @@ func _discard_draft() -> void:
 		draft_points.clear()
 		source_id = ""
 		source_anchor = -1
+		selected_ids.clear()
 		_refresh_authoring()
 		_notice("All unsaved edits discarded; original authoring source restored.")
 
@@ -805,16 +925,18 @@ func _toggle_snap() -> void:
 		"disabled" if snap_m == 0.0 else "set to 1 metre"])
 
 func _delete_selected() -> void:
-	if _editing_locked():
+	if _editing_locked() or not source_ready:return
+	if selected_ids.size()>1:
+		if GroupEdit.delete(authoring,selected_ids):
+			selected_ids.clear();source_id="";source_anchor=-1
+			_refresh_authoring();_notice("Deleted selected objects in one undoable edit.")
+		else:_notice(authoring.last_error)
 		return
-	if not source_ready or source_id.is_empty():
-		return
+	if source_id.is_empty():return
 	if authoring.delete_entity(source_id):
-		source_id = ""
-		_refresh_authoring()
-		_notice("Object deleted from draft. Undo is available.")
-	else:
-		_notice(authoring.last_error)
+		source_id="";selected_ids.clear()
+		_refresh_authoring();_notice("Object deleted from draft. Undo is available.")
+	else:_notice(authoring.last_error)
 
 func _start_backend() -> void:
 	if bridge.start_backend():
@@ -1737,7 +1859,7 @@ func _record_position(record: Dictionary) -> Vector2:
 func _refresh_inspector() -> void:
 	if not is_instance_valid(inspector_name):return
 	_updating_inspector=true
-	var record:=_selected_record();var exists:=not record.is_empty()
+	var record:=_selected_record();var exists:=not record.is_empty() and selected_ids.size()<=1
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	prop_transforms.visible=exists and record.category=="props"
@@ -1883,12 +2005,23 @@ func _reset_asset_size() -> void:
 
 func _duplicate_selected() -> void:
 	if _editing_locked() or not source_ready:return
+	if selected_ids.size()>1:
+		var copies: Array[String]=GroupEdit.duplicate(authoring,selected_ids)
+		if copies.is_empty():_notice(authoring.last_error);return
+		_set_group_selection(copies)
+		_notice("Duplicated %d objects with a 12 m offset. Ctrl+Z undoes the group."%copies.size())
+		return
+	if source_id.is_empty():return
 	var id: String=authoring.duplicate_entity(source_id)
 	if id.is_empty():_notice(authoring.last_error);return
-	source_id=id;source_anchor=-1;_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
+	source_id=id;selected_ids=[id];source_anchor=-1;_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
 
 func _nudge_selected(direction: Vector2,large: bool=false) -> void:
 	if _editing_locked():return
+	if selected_ids.size()>1:
+		var step: float=(snap_m if snap_m>0 else 1.0)*(10 if large else 1)
+		if _move_group(direction*step):_notice("Moved %d objects; one Undo restores them."%selected_ids.size())
+		return
 	var record:=_selected_record()
 	if record.is_empty():return
 	var step: float=(snap_m if snap_m>0 else 1.0)*(10 if large else 1)
@@ -1918,7 +2051,7 @@ func _refresh_entity_list(force: bool=false) -> void:
 			if str(item.id)==source_id:entity_list.select(entity_list.item_count-1)
 
 func _select_entity(index: int) -> void:
-	_choose_tool("move_prop");source_id=str(entity_list.get_item_metadata(index));source_anchor=-1
+	_choose_tool("move_prop");source_id=str(entity_list.get_item_metadata(index));selected_ids=[source_id];source_anchor=-1
 	var record:=_selected_record()
 	if record.is_empty():return
 	editor_camera.global_position=_record_position(record)*PPM
@@ -1970,6 +2103,10 @@ func _road_draw_point(point: Vector2,any_surface: bool=false) -> Vector2:
 
 func _update_source_details() -> void:
 	if not source_ready:return
+	if selected_ids.size()>1:
+		details.text="%d OBJECTS SELECTED\nDrag a member to move the group.\nCtrl+D duplicate · Delete remove · Arrows nudge.\nAlignment applies to scenery only."%selected_ids.size()
+		selected_preview.texture=null;selected_preview.visible=false
+		return
 	if source_id.is_empty():
 		if selected.is_empty():
 			details.text="Select a road, region, marker or scenery object. Edit its properties here, or find it in the list below."
