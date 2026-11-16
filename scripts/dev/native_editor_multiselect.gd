@@ -1,6 +1,7 @@
 extends RefCounted
 ## Shared selection geometry for the native map editor. Positions are metres.
 const LIMIT:=1200
+const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 
 static func _path_touches_area(path: PackedVector2Array,area: Rect2) -> bool:
 	if path.is_empty():return false
@@ -50,7 +51,7 @@ static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array
 			else:
 				var path:=PackedVector2Array()
 				if category=="roads":
-					path=preload("res://scripts/dev/native_map_edit_session.gd").road_path(item)
+					path=Session.road_path(item)
 				else:
 					for point in item.get("points",[]):path.append(Vector2(float(point.x),float(point.y)))
 					if path.size()>=3:path.append(path[0])
