@@ -62,7 +62,7 @@ func _run() -> void:
 		Vector2(session.prop_at_id(b).x,session.prop_at_id(b).y)==Vector2(145,100))
 	check("redo_restores_group_move",session.redo() and float(session.prop_at_id(a).x)==120)
 	before_history=session.history.size()
-	var clones: Array[String]=Groups.duplicate(session,[a,b])
+	var clones: Array[String]=Groups.duplicate_entities(session,[a,b])
 	check("group_duplicate_creates_two_unique_copies",clones.size()==2 and
 		clones[0]!=a and clones[1]!=b and clones[0]!=clones[1] and
 		not session.prop_at_id(clones[0]).is_empty() and not session.prop_at_id(clones[1]).is_empty())
