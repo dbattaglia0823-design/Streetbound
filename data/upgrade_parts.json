@@ -1,16 +1,12 @@
 {
-  "version": 2,
-  "notes": "Legacy parts retain their IDs and existing race drops. New variants, turbo and nitrous are catalog-only (race_drop_enabled=false); future race reward tables may unlock them explicitly. Stats are fixed per template and do not grant ownership.",
+  "version": 3,
+  "notes": "Six-slot Quick Upgrades catalog. Existing kept template IDs and current race-drop eligibility are preserved. Removed ECU, Intake, Exhaust, and Brakes templates are obsolete; old saves skip them during loading. New variants, turbo and nitrous remain catalog-only (race_drop_enabled=false) pending a separate rewards rework.",
   "slots": [
     "engine",
-    "ecu",
-    "intake",
-    "exhaust",
-    "suspension",
-    "tires",
-    "brakes",
-    "transmission",
     "turbo",
+    "transmission",
+    "tires",
+    "suspension",
     "nitrous"
   ],
   "rarities": [
@@ -30,40 +26,6 @@
       "modifiers": {
         "engine_power_kw": 0.025,
         "engine_torque_nm": 0.026
-      }
-    },
-    {
-      "id": "ecu-street-common",
-      "slot": "ecu",
-      "rarity": "Common",
-      "specialty": "Street",
-      "name": "Common Race ECU",
-      "modifiers": {
-        "engine_power_kw": 0.022,
-        "redline_rpm": 0.01,
-        "engine_torque_nm": 0.008
-      }
-    },
-    {
-      "id": "intake-street-common",
-      "slot": "intake",
-      "rarity": "Common",
-      "specialty": "Street",
-      "name": "Common High-Flow Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.026,
-        "engine_power_kw": 0.009
-      }
-    },
-    {
-      "id": "exhaust-street-common",
-      "slot": "exhaust",
-      "rarity": "Common",
-      "specialty": "Street",
-      "name": "Common Lightweight Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.018,
-        "mass_kg": -0.006
       }
     },
     {
@@ -117,17 +79,6 @@
       }
     },
     {
-      "id": "brakes-street-common",
-      "slot": "brakes",
-      "rarity": "Common",
-      "specialty": "Street",
-      "name": "Common Competition Brakes",
-      "modifiers": {
-        "brake_force_n": 0.045,
-        "handbrake_force_n": 0.025
-      }
-    },
-    {
       "id": "transmission-street-common",
       "slot": "transmission",
       "rarity": "Common",
@@ -148,40 +99,6 @@
       "modifiers": {
         "engine_power_kw": 0.04125,
         "engine_torque_nm": 0.0429
-      }
-    },
-    {
-      "id": "ecu-street-uncommon",
-      "slot": "ecu",
-      "rarity": "Uncommon",
-      "specialty": "Street",
-      "name": "Uncommon Race ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0363,
-        "redline_rpm": 0.0165,
-        "engine_torque_nm": 0.0132
-      }
-    },
-    {
-      "id": "intake-street-uncommon",
-      "slot": "intake",
-      "rarity": "Uncommon",
-      "specialty": "Street",
-      "name": "Uncommon High-Flow Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0429,
-        "engine_power_kw": 0.01485
-      }
-    },
-    {
-      "id": "exhaust-street-uncommon",
-      "slot": "exhaust",
-      "rarity": "Uncommon",
-      "specialty": "Street",
-      "name": "Uncommon Lightweight Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0297,
-        "mass_kg": -0.0099
       }
     },
     {
@@ -235,17 +152,6 @@
       }
     },
     {
-      "id": "brakes-street-uncommon",
-      "slot": "brakes",
-      "rarity": "Uncommon",
-      "specialty": "Street",
-      "name": "Uncommon Competition Brakes",
-      "modifiers": {
-        "brake_force_n": 0.07425,
-        "handbrake_force_n": 0.04125
-      }
-    },
-    {
       "id": "transmission-street-uncommon",
       "slot": "transmission",
       "rarity": "Uncommon",
@@ -266,40 +172,6 @@
       "modifiers": {
         "engine_power_kw": 0.0625,
         "engine_torque_nm": 0.065
-      }
-    },
-    {
-      "id": "ecu-street-rare",
-      "slot": "ecu",
-      "rarity": "Rare",
-      "specialty": "Street",
-      "name": "Rare Race ECU",
-      "modifiers": {
-        "engine_power_kw": 0.055,
-        "redline_rpm": 0.025,
-        "engine_torque_nm": 0.02
-      }
-    },
-    {
-      "id": "intake-street-rare",
-      "slot": "intake",
-      "rarity": "Rare",
-      "specialty": "Street",
-      "name": "Rare High-Flow Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.065,
-        "engine_power_kw": 0.0225
-      }
-    },
-    {
-      "id": "exhaust-street-rare",
-      "slot": "exhaust",
-      "rarity": "Rare",
-      "specialty": "Street",
-      "name": "Rare Lightweight Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.045,
-        "mass_kg": -0.015
       }
     },
     {
@@ -353,17 +225,6 @@
       }
     },
     {
-      "id": "brakes-street-rare",
-      "slot": "brakes",
-      "rarity": "Rare",
-      "specialty": "Street",
-      "name": "Rare Competition Brakes",
-      "modifiers": {
-        "brake_force_n": 0.1125,
-        "handbrake_force_n": 0.0625
-      }
-    },
-    {
       "id": "transmission-street-rare",
       "slot": "transmission",
       "rarity": "Rare",
@@ -384,40 +245,6 @@
       "modifiers": {
         "engine_power_kw": 0.08875,
         "engine_torque_nm": 0.0923
-      }
-    },
-    {
-      "id": "ecu-street-epic",
-      "slot": "ecu",
-      "rarity": "Epic",
-      "specialty": "Street",
-      "name": "Epic Race ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0781,
-        "redline_rpm": 0.0355,
-        "engine_torque_nm": 0.0284
-      }
-    },
-    {
-      "id": "intake-street-epic",
-      "slot": "intake",
-      "rarity": "Epic",
-      "specialty": "Street",
-      "name": "Epic High-Flow Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0923,
-        "engine_power_kw": 0.03195
-      }
-    },
-    {
-      "id": "exhaust-street-epic",
-      "slot": "exhaust",
-      "rarity": "Epic",
-      "specialty": "Street",
-      "name": "Epic Lightweight Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0639,
-        "mass_kg": -0.0213
       }
     },
     {
@@ -471,17 +298,6 @@
       }
     },
     {
-      "id": "brakes-street-epic",
-      "slot": "brakes",
-      "rarity": "Epic",
-      "specialty": "Street",
-      "name": "Epic Competition Brakes",
-      "modifiers": {
-        "brake_force_n": 0.15975,
-        "handbrake_force_n": 0.08875
-      }
-    },
-    {
       "id": "transmission-street-epic",
       "slot": "transmission",
       "rarity": "Epic",
@@ -502,40 +318,6 @@
       "modifiers": {
         "engine_power_kw": 0.12,
         "engine_torque_nm": 0.1248
-      }
-    },
-    {
-      "id": "ecu-street-legendary",
-      "slot": "ecu",
-      "rarity": "Legendary",
-      "specialty": "Street",
-      "name": "Legendary Race ECU",
-      "modifiers": {
-        "engine_power_kw": 0.1056,
-        "redline_rpm": 0.048,
-        "engine_torque_nm": 0.0384
-      }
-    },
-    {
-      "id": "intake-street-legendary",
-      "slot": "intake",
-      "rarity": "Legendary",
-      "specialty": "Street",
-      "name": "Legendary High-Flow Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.1248,
-        "engine_power_kw": 0.0432
-      }
-    },
-    {
-      "id": "exhaust-street-legendary",
-      "slot": "exhaust",
-      "rarity": "Legendary",
-      "specialty": "Street",
-      "name": "Legendary Lightweight Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0864,
-        "mass_kg": -0.0288
       }
     },
     {
@@ -589,17 +371,6 @@
       }
     },
     {
-      "id": "brakes-street-legendary",
-      "slot": "brakes",
-      "rarity": "Legendary",
-      "specialty": "Street",
-      "name": "Legendary Competition Brakes",
-      "modifiers": {
-        "brake_force_n": 0.216,
-        "handbrake_force_n": 0.12
-      }
-    },
-    {
       "id": "transmission-street-legendary",
       "slot": "transmission",
       "rarity": "Legendary",
@@ -638,82 +409,6 @@
       "race_drop_enabled": false
     },
     {
-      "id": "ecu-response-common",
-      "slot": "ecu",
-      "rarity": "Common",
-      "specialty": "Response",
-      "name": "Common Responsive ECU",
-      "modifiers": {
-        "engine_torque_nm": 0.016,
-        "redline_rpm": 0.019,
-        "engine_power_kw": 0.012
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "ecu-peak-common",
-      "slot": "ecu",
-      "rarity": "Common",
-      "specialty": "Peak",
-      "name": "Common Peak Power ECU",
-      "modifiers": {
-        "engine_power_kw": 0.033,
-        "redline_rpm": 0.007,
-        "engine_torque_nm": 0.006
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-high-flow-common",
-      "slot": "intake",
-      "rarity": "Common",
-      "specialty": "Flow",
-      "name": "Common High-Flow Intake",
-      "modifiers": {
-        "engine_power_kw": 0.026,
-        "engine_torque_nm": 0.012
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-response-common",
-      "slot": "intake",
-      "rarity": "Common",
-      "specialty": "Response",
-      "name": "Common Throttle Response Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.028,
-        "engine_power_kw": 0.01,
-        "redline_rpm": 0.003
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-lightweight-common",
-      "slot": "exhaust",
-      "rarity": "Common",
-      "specialty": "Lightweight",
-      "name": "Common Lightweight Exhaust",
-      "modifiers": {
-        "mass_kg": -0.01,
-        "engine_power_kw": 0.012
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-race-common",
-      "slot": "exhaust",
-      "rarity": "Common",
-      "specialty": "Race",
-      "name": "Common Race Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.028,
-        "engine_torque_nm": 0.012,
-        "mass_kg": 0.002
-      },
-      "race_drop_enabled": false
-    },
-    {
       "id": "suspension-balanced-common",
       "slot": "suspension",
       "rarity": "Common",
@@ -737,31 +432,6 @@
         "tire_grip": 0.033,
         "rear_grip_balance": 0.008,
         "handbrake_drive_grip": 0.007
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-track-common",
-      "slot": "brakes",
-      "rarity": "Common",
-      "specialty": "Track",
-      "name": "Common Track Brake Kit",
-      "modifiers": {
-        "brake_force_n": 0.045,
-        "handbrake_force_n": 0.01,
-        "mass_kg": 0.002
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-drift-common",
-      "slot": "brakes",
-      "rarity": "Common",
-      "specialty": "Drift",
-      "name": "Common Drift Brake Kit",
-      "modifiers": {
-        "handbrake_force_n": 0.06,
-        "brake_force_n": 0.015
       },
       "race_drop_enabled": false
     },
@@ -899,82 +569,6 @@
       "race_drop_enabled": false
     },
     {
-      "id": "ecu-response-uncommon",
-      "slot": "ecu",
-      "rarity": "Uncommon",
-      "specialty": "Response",
-      "name": "Uncommon Responsive ECU",
-      "modifiers": {
-        "engine_torque_nm": 0.0214,
-        "redline_rpm": 0.0255,
-        "engine_power_kw": 0.0161
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "ecu-peak-uncommon",
-      "slot": "ecu",
-      "rarity": "Uncommon",
-      "specialty": "Peak",
-      "name": "Uncommon Peak Power ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0442,
-        "redline_rpm": 0.0094,
-        "engine_torque_nm": 0.008
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-high-flow-uncommon",
-      "slot": "intake",
-      "rarity": "Uncommon",
-      "specialty": "Flow",
-      "name": "Uncommon High-Flow Intake",
-      "modifiers": {
-        "engine_power_kw": 0.0348,
-        "engine_torque_nm": 0.0161
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-response-uncommon",
-      "slot": "intake",
-      "rarity": "Uncommon",
-      "specialty": "Response",
-      "name": "Uncommon Throttle Response Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0375,
-        "engine_power_kw": 0.0134,
-        "redline_rpm": 0.004
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-lightweight-uncommon",
-      "slot": "exhaust",
-      "rarity": "Uncommon",
-      "specialty": "Lightweight",
-      "name": "Uncommon Lightweight Exhaust",
-      "modifiers": {
-        "mass_kg": -0.0134,
-        "engine_power_kw": 0.0161
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-race-uncommon",
-      "slot": "exhaust",
-      "rarity": "Uncommon",
-      "specialty": "Race",
-      "name": "Uncommon Race Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0375,
-        "engine_torque_nm": 0.0161,
-        "mass_kg": 0.0027
-      },
-      "race_drop_enabled": false
-    },
-    {
       "id": "suspension-balanced-uncommon",
       "slot": "suspension",
       "rarity": "Uncommon",
@@ -998,31 +592,6 @@
         "tire_grip": 0.0442,
         "rear_grip_balance": 0.0107,
         "handbrake_drive_grip": 0.0094
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-track-uncommon",
-      "slot": "brakes",
-      "rarity": "Uncommon",
-      "specialty": "Track",
-      "name": "Uncommon Track Brake Kit",
-      "modifiers": {
-        "brake_force_n": 0.0603,
-        "handbrake_force_n": 0.0134,
-        "mass_kg": 0.0027
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-drift-uncommon",
-      "slot": "brakes",
-      "rarity": "Uncommon",
-      "specialty": "Drift",
-      "name": "Uncommon Drift Brake Kit",
-      "modifiers": {
-        "handbrake_force_n": 0.0804,
-        "brake_force_n": 0.0201
       },
       "race_drop_enabled": false
     },
@@ -1160,82 +729,6 @@
       "race_drop_enabled": false
     },
     {
-      "id": "ecu-response-rare",
-      "slot": "ecu",
-      "rarity": "Rare",
-      "specialty": "Response",
-      "name": "Rare Responsive ECU",
-      "modifiers": {
-        "engine_torque_nm": 0.0283,
-        "redline_rpm": 0.0336,
-        "engine_power_kw": 0.0212
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "ecu-peak-rare",
-      "slot": "ecu",
-      "rarity": "Rare",
-      "specialty": "Peak",
-      "name": "Rare Peak Power ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0584,
-        "redline_rpm": 0.0124,
-        "engine_torque_nm": 0.0106
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-high-flow-rare",
-      "slot": "intake",
-      "rarity": "Rare",
-      "specialty": "Flow",
-      "name": "Rare High-Flow Intake",
-      "modifiers": {
-        "engine_power_kw": 0.046,
-        "engine_torque_nm": 0.0212
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-response-rare",
-      "slot": "intake",
-      "rarity": "Rare",
-      "specialty": "Response",
-      "name": "Rare Throttle Response Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0496,
-        "engine_power_kw": 0.0177,
-        "redline_rpm": 0.0053
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-lightweight-rare",
-      "slot": "exhaust",
-      "rarity": "Rare",
-      "specialty": "Lightweight",
-      "name": "Rare Lightweight Exhaust",
-      "modifiers": {
-        "mass_kg": -0.0177,
-        "engine_power_kw": 0.0212
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-race-rare",
-      "slot": "exhaust",
-      "rarity": "Rare",
-      "specialty": "Race",
-      "name": "Rare Race Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0496,
-        "engine_torque_nm": 0.0212,
-        "mass_kg": 0.0035
-      },
-      "race_drop_enabled": false
-    },
-    {
       "id": "suspension-balanced-rare",
       "slot": "suspension",
       "rarity": "Rare",
@@ -1259,31 +752,6 @@
         "tire_grip": 0.0584,
         "rear_grip_balance": 0.0142,
         "handbrake_drive_grip": 0.0124
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-track-rare",
-      "slot": "brakes",
-      "rarity": "Rare",
-      "specialty": "Track",
-      "name": "Rare Track Brake Kit",
-      "modifiers": {
-        "brake_force_n": 0.0797,
-        "handbrake_force_n": 0.0177,
-        "mass_kg": 0.0035
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-drift-rare",
-      "slot": "brakes",
-      "rarity": "Rare",
-      "specialty": "Drift",
-      "name": "Rare Drift Brake Kit",
-      "modifiers": {
-        "handbrake_force_n": 0.1062,
-        "brake_force_n": 0.0266
       },
       "race_drop_enabled": false
     },
@@ -1421,82 +889,6 @@
       "race_drop_enabled": false
     },
     {
-      "id": "ecu-response-epic",
-      "slot": "ecu",
-      "rarity": "Epic",
-      "specialty": "Response",
-      "name": "Epic Responsive ECU",
-      "modifiers": {
-        "engine_torque_nm": 0.0346,
-        "redline_rpm": 0.041,
-        "engine_power_kw": 0.0259
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "ecu-peak-epic",
-      "slot": "ecu",
-      "rarity": "Epic",
-      "specialty": "Peak",
-      "name": "Epic Peak Power ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0713,
-        "redline_rpm": 0.0151,
-        "engine_torque_nm": 0.013
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-high-flow-epic",
-      "slot": "intake",
-      "rarity": "Epic",
-      "specialty": "Flow",
-      "name": "Epic High-Flow Intake",
-      "modifiers": {
-        "engine_power_kw": 0.0562,
-        "engine_torque_nm": 0.0259
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-response-epic",
-      "slot": "intake",
-      "rarity": "Epic",
-      "specialty": "Response",
-      "name": "Epic Throttle Response Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0605,
-        "engine_power_kw": 0.0216,
-        "redline_rpm": 0.0065
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-lightweight-epic",
-      "slot": "exhaust",
-      "rarity": "Epic",
-      "specialty": "Lightweight",
-      "name": "Epic Lightweight Exhaust",
-      "modifiers": {
-        "mass_kg": -0.0216,
-        "engine_power_kw": 0.0259
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-race-epic",
-      "slot": "exhaust",
-      "rarity": "Epic",
-      "specialty": "Race",
-      "name": "Epic Race Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0605,
-        "engine_torque_nm": 0.0259,
-        "mass_kg": 0.0043
-      },
-      "race_drop_enabled": false
-    },
-    {
       "id": "suspension-balanced-epic",
       "slot": "suspension",
       "rarity": "Epic",
@@ -1520,31 +912,6 @@
         "tire_grip": 0.0713,
         "rear_grip_balance": 0.0173,
         "handbrake_drive_grip": 0.0151
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-track-epic",
-      "slot": "brakes",
-      "rarity": "Epic",
-      "specialty": "Track",
-      "name": "Epic Track Brake Kit",
-      "modifiers": {
-        "brake_force_n": 0.0972,
-        "handbrake_force_n": 0.0216,
-        "mass_kg": 0.0043
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-drift-epic",
-      "slot": "brakes",
-      "rarity": "Epic",
-      "specialty": "Drift",
-      "name": "Epic Drift Brake Kit",
-      "modifiers": {
-        "handbrake_force_n": 0.1296,
-        "brake_force_n": 0.0324
       },
       "race_drop_enabled": false
     },
@@ -1682,82 +1049,6 @@
       "race_drop_enabled": false
     },
     {
-      "id": "ecu-response-legendary",
-      "slot": "ecu",
-      "rarity": "Legendary",
-      "specialty": "Response",
-      "name": "Legendary Responsive ECU",
-      "modifiers": {
-        "engine_torque_nm": 0.0424,
-        "redline_rpm": 0.0504,
-        "engine_power_kw": 0.0318
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "ecu-peak-legendary",
-      "slot": "ecu",
-      "rarity": "Legendary",
-      "specialty": "Peak",
-      "name": "Legendary Peak Power ECU",
-      "modifiers": {
-        "engine_power_kw": 0.0875,
-        "redline_rpm": 0.0186,
-        "engine_torque_nm": 0.0159
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-high-flow-legendary",
-      "slot": "intake",
-      "rarity": "Legendary",
-      "specialty": "Flow",
-      "name": "Legendary High-Flow Intake",
-      "modifiers": {
-        "engine_power_kw": 0.0689,
-        "engine_torque_nm": 0.0318
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "intake-response-legendary",
-      "slot": "intake",
-      "rarity": "Legendary",
-      "specialty": "Response",
-      "name": "Legendary Throttle Response Intake",
-      "modifiers": {
-        "engine_torque_nm": 0.0742,
-        "engine_power_kw": 0.0265,
-        "redline_rpm": 0.008
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-lightweight-legendary",
-      "slot": "exhaust",
-      "rarity": "Legendary",
-      "specialty": "Lightweight",
-      "name": "Legendary Lightweight Exhaust",
-      "modifiers": {
-        "mass_kg": -0.0265,
-        "engine_power_kw": 0.0318
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "exhaust-race-legendary",
-      "slot": "exhaust",
-      "rarity": "Legendary",
-      "specialty": "Race",
-      "name": "Legendary Race Exhaust",
-      "modifiers": {
-        "engine_power_kw": 0.0742,
-        "engine_torque_nm": 0.0318,
-        "mass_kg": 0.0053
-      },
-      "race_drop_enabled": false
-    },
-    {
       "id": "suspension-balanced-legendary",
       "slot": "suspension",
       "rarity": "Legendary",
@@ -1781,31 +1072,6 @@
         "tire_grip": 0.0875,
         "rear_grip_balance": 0.0212,
         "handbrake_drive_grip": 0.0186
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-track-legendary",
-      "slot": "brakes",
-      "rarity": "Legendary",
-      "specialty": "Track",
-      "name": "Legendary Track Brake Kit",
-      "modifiers": {
-        "brake_force_n": 0.1193,
-        "handbrake_force_n": 0.0265,
-        "mass_kg": 0.0053
-      },
-      "race_drop_enabled": false
-    },
-    {
-      "id": "brakes-drift-legendary",
-      "slot": "brakes",
-      "rarity": "Legendary",
-      "specialty": "Drift",
-      "name": "Legendary Drift Brake Kit",
-      "modifiers": {
-        "handbrake_force_n": 0.159,
-        "brake_force_n": 0.0398
       },
       "race_drop_enabled": false
     },

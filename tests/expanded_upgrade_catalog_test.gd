@@ -1,5 +1,5 @@
 extends SceneTree
-## Upgrade catalog integrity and unavailable-until-race-integration contract.
+## Six-slot upgrade catalog integrity and unavailable-until-race-integration contract.
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
@@ -16,8 +16,8 @@ func check(label: String, success: bool, detail: Variant = "") -> void:
 
 func _run() -> void:
 	var all_parts: Dictionary = Parts.all()
-	check("catalog_has_150_unique_templates",all_parts.size()==150)
-	check("ten_upgrade_categories_available",Parts.SLOTS.size()==10)
+	check("catalog_has_90_unique_templates",all_parts.size()==90)
+	check("only_six_live_upgrade_slots",Parts.SLOTS == ["engine","turbo","transmission","tires","suspension","nitrous"])
 	var complete := true
 	for slot in Parts.SLOTS:
 		for rarity in Parts.RARITIES:
@@ -43,9 +43,16 @@ func _run() -> void:
 		for field in mods:
 			modifiers_valid = modifiers_valid and Parts.FIELD_LABELS.has(str(field)) and \
 				(typeof(mods[field]) == TYPE_FLOAT or typeof(mods[field]) == TYPE_INT)
-	check("legacy_50_preserved_new_100_are_future_race_rewards",legacy==50 and future==100,
+	check("retained_30_race_drops_and_60_catalog_only_variants",legacy==30 and future==60,
 		[legacy,future])
 	check("new_modifier_fields_all_supported_by_physics",modifiers_valid)
+	check("removed_slots_have_no_templates",
+		Parts.in_slot("ecu").is_empty() and Parts.in_slot("intake").is_empty() and
+		Parts.in_slot("exhaust").is_empty() and Parts.in_slot("brakes").is_empty() and
+		Parts.get_part("ecu-street-common").is_empty() and
+		Parts.get_part("brakes-street-legendary").is_empty())
+	check("old_ten_slot_ui_script_is_gone",
+		not FileAccess.file_exists("res://scripts/ui/garage_upgrades.gd"))
 	var no_new_race_part := true
 	for rarity_seed in 90:
 		var reward: Dictionary = Parts.reward_template("catalog-test-%d" % rarity_seed,50)

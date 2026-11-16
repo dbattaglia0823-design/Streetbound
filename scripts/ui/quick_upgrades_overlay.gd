@@ -483,8 +483,6 @@ func _change_equipment(uid: String,remove: bool) -> void:
 	var affected: Array[String] = []
 	for raw_key in Parts.FIELD_LABELS.keys():
 		affected.append(str(raw_key))
-	affected.append("audio_aggression")
-	affected.append("audio_exhaust_roughness")
 	affected.append("audio_turbo_presence")
 	affected.append("audio_flutter")
 	for property in affected:

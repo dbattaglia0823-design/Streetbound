@@ -21,8 +21,8 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 
 
 func run() -> void:
-	check("ten_distinct_upgrade_types",Parts.SLOTS.size() == 10)
-	check("one_hundred_fifty_part_variants_loaded",Parts.all().size() == 150)
+	check("only_six_current_upgrade_types",Parts.SLOTS.size() == 6)
+	check("ninety_current_part_variants_loaded",Parts.all().size() == 90)
 	var complete := true
 	for slot in Parts.SLOTS:
 		for rarity in Parts.RARITIES:
@@ -205,6 +205,46 @@ func run() -> void:
 		reloaded.equipped_uid(Ownership.STARTER_ID,"tires") == "")
 	check("serialized_next_item_identifier_is_not_reused",
 		reloaded.next_part_uid >= 14)
+	# A save created with the retired ten-slot catalog may still contain
+	# ECU, Intake, Exhaust or Brakes. Ignore obsolete inventory/loadouts
+	# while retaining eligible parts, unique IDs and all vehicle progress.
+	var old_slots := ConfigFile.new()
+	old_slots.set_value("economy","balance",32000)
+	old_slots.set_value("economy","owned_ids",[Ownership.STARTER_ID])
+	old_slots.set_value("economy","active_id",Ownership.STARTER_ID)
+	var old_car_xp: Dictionary = {}
+	old_car_xp[Ownership.STARTER_ID] = Progress.car_threshold(10)
+	old_slots.set_value("progression","car_xp",old_car_xp)
+	old_slots.set_value("upgrades","inventory",[
+		{"uid":"up-41","template":"engine-street-common"},
+		{"uid":"up-42","template":"ecu-street-common"},
+		{"uid":"up-43","template":"brakes-street-common"},
+		{"uid":"up-44","template":"turbo-balanced-common"}])
+	var old_car_loadouts: Dictionary = {}
+	old_car_loadouts[Ownership.STARTER_ID] = {
+		"engine":"up-41", "ecu":"up-42",
+		"brakes":"up-43", "turbo":"up-44"}
+	old_slots.set_value("upgrades","loadouts",old_car_loadouts)
+	old_slots.set_value("upgrades","next_uid",45)
+	check("previous_ten_slot_save_written",old_slots.save(path) == OK)
+	var six_slot_save := Ownership.new()
+	check("old_removed_parts_and_loadouts_pruned_on_load",
+		six_slot_save.upgrade_inventory.size() == 2 and
+		six_slot_save.get_upgrade_item("up-42").is_empty() and
+		six_slot_save.get_upgrade_item("up-43").is_empty() and
+		six_slot_save.equipped_uid(Ownership.STARTER_ID,"ecu").is_empty() and
+		six_slot_save.equipped_uid(Ownership.STARTER_ID,"brakes").is_empty())
+	check("compatible_parts_and_ids_survive_migration",
+		six_slot_save.equipped_uid(Ownership.STARTER_ID,"engine") == "up-41" and
+		six_slot_save.equipped_uid(Ownership.STARTER_ID,"turbo") == "up-44" and
+		six_slot_save.next_part_uid >= 45 and
+		six_slot_save.active_car_level() == 10)
+	check("pruned_save_can_be_saved_again",six_slot_save.save())
+	var migrated_six := Ownership.new()
+	check("retired_parts_stay_removed_after_resaving",
+		migrated_six.upgrade_inventory.size() == 2 and
+		migrated_six.installed_templates(Ownership.STARTER_ID).size() == 2 and
+		migrated_six.next_part_uid >= 45)
 	var legacy := ConfigFile.new()
 	legacy.set_value("economy","balance",32000)
 	legacy.set_value("economy","owned_ids",[Ownership.STARTER_ID])
