@@ -100,7 +100,7 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"Click to select or draw.\nDrag a road to move it.\nDrag its handles to reshape.\nShift-click inserts a road point.\nEnter finishes a shape.\nSpace + drag or right drag pans.\nWheel zooms at the cursor.\nArrow keys nudge the selection.\nWASD pans the map.")
+	var help:=heading(settings,"SELECT / EDIT: Drag empty canvas to box-select.\nShift-click / Shift-drag adds. Ctrl-click / Ctrl-drag removes.\nGrab a selected object to move the whole group.\nShift during movement locks to one axis.\nCtrl+A selects everything in view.\nCtrl+D duplicates; Delete removes; Esc clears.\nCtrl+Shift-click inserts a road point.\nSpace + drag or right drag pans.\nWheel zooms; WASD pans; arrows nudge.\nEnter finishes a drawing.")
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
@@ -168,8 +168,14 @@ static func build(e) -> void:
 	e.connection_label=heading(inspector,"")
 	e.connection_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.edit_actions=HFlowContainer.new();inspector.add_child(e.edit_actions)
+	e._btn("Select visible  Ctrl+A",e.edit_actions,e._select_visible)
+	e._btn("Clear selection",e.edit_actions,func()->void:e._set_group_selection([]))
 	e._btn("Duplicate  Ctrl+D",e.edit_actions,e._duplicate_selected)
 	e._btn("Delete",e.edit_actions,e._delete_selected)
+	heading(inspector,"ARRANGE SELECTED SCENERY")
+	e._btn("Align left",e.edit_actions,e._arrange_selected.bind("left"))
+	e._btn("Align top",e.edit_actions,e._arrange_selected.bind("top"))
+	e._btn("Distribute X",e.edit_actions,e._arrange_selected.bind("horizontal"))
 	heading(inspector,"OBJECTS")
 	e.entity_search=LineEdit.new();e.entity_search.placeholder_text="Find road, region or object...";inspector.add_child(e.entity_search)
 	e.entity_search.text_changed.connect(func(_value: String)->void:e._refresh_entity_list(true))
