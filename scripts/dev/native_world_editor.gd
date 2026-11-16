@@ -1152,6 +1152,10 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name=="race_grid":
 		var grid_handle:=_pick_race_grid_handle(world_px)
 		if not grid_handle.is_empty():
+			var choice:=int(grid_handle.get("index",-1))+1
+			if choice>=0 and choice<race_editor.grid_slot.item_count:
+				race_editor.grid_slot.select(choice)
+				race_editor._sync_rotation(self)
 			pending_drag=grid_handle
 			pending_drag["grab"]=world_px
 			pending_drag["to"]=grid_handle.from
