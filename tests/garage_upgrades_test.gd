@@ -212,17 +212,19 @@ func run() -> void:
 	old_slots.set_value("economy","balance",32000)
 	old_slots.set_value("economy","owned_ids",[Ownership.STARTER_ID])
 	old_slots.set_value("economy","active_id",Ownership.STARTER_ID)
-	old_slots.set_value("progression","car_xp",
-		{Ownership.STARTER_ID:Progress.car_threshold(10)})
+	var old_car_xp: Dictionary = {}
+	old_car_xp[Ownership.STARTER_ID] = Progress.car_threshold(10)
+	old_slots.set_value("progression","car_xp",old_car_xp)
 	old_slots.set_value("upgrades","inventory",[
 		{"uid":"up-41","template":"engine-street-common"},
 		{"uid":"up-42","template":"ecu-street-common"},
 		{"uid":"up-43","template":"brakes-street-common"},
 		{"uid":"up-44","template":"turbo-balanced-common"}])
-	old_slots.set_value("upgrades","loadouts",
-		{Ownership.STARTER_ID:{
-			"engine":"up-41", "ecu":"up-42",
-			"brakes":"up-43", "turbo":"up-44"}})
+	var old_car_loadouts: Dictionary = {}
+	old_car_loadouts[Ownership.STARTER_ID] = {
+		"engine":"up-41", "ecu":"up-42",
+		"brakes":"up-43", "turbo":"up-44"}
+	old_slots.set_value("upgrades","loadouts",old_car_loadouts)
 	old_slots.set_value("upgrades","next_uid",45)
 	check("previous_ten_slot_save_written",old_slots.save(path) == OK)
 	var six_slot_save := Ownership.new()
