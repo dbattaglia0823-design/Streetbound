@@ -65,6 +65,13 @@ var status: Label
 var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
+const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
+var multi_selection: Array[String]=[]
+var marquee_start:=Vector2.ZERO
+var marquee_tracking:=false
+var marquee_additive:=false
+var group_move_start:=Vector2.ZERO
+var group_moving:=false
 var _hidden_game_ui: Dictionary = {}
 var authoring
 var bridge
@@ -673,6 +680,82 @@ func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
 
+func _set_multi(ids: Array[String]) -> void:
+	multi_selection=ids.duplicate()
+	if is_instance_valid(gizmos):
+		gizmos.group_selected_ids=multi_selection.duplicate()
+		gizmos.queue_redraw()
+	if multi_selection.size()>1:
+		source_id=""
+		selected={}
+		if is_instance_valid(details):
+			details.text="%d OBJECTS SELECTED\nDrag a selected object to move all.\nCtrl+D duplicate · Delete remove · Shift+drag add/remove."%multi_selection.size()
+
+func _selection_hit(at: Vector2) -> String:
+	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_region(at),_pick_source_road(at)]:
+		var id:=str(hit.get("id",""))
+		if not id.is_empty():return id
+	return ""
+
+func _begin_marquee(at: Vector2,additive: bool) -> void:
+	marquee_tracking=true
+	marquee_start=at
+	marquee_additive=additive
+
+func _update_marquee(at: Vector2) -> void:
+	gizmos.marquee_active=true
+	gizmos.marquee_rect=Rect2(marquee_start,at-marquee_start).abs()
+	gizmos.queue_redraw()
+
+func _end_marquee(at: Vector2) -> void:
+	marquee_tracking=false
+	gizmos.marquee_active=false
+	var ids: Array[String]=multi_selection.duplicate() if marquee_additive else []
+	if marquee_start.distance_to(at)<6.0/maxf(.003,editor_camera.zoom.x):
+		if marquee_additive:
+			var hit:=_selection_hit(at)
+			if not hit.is_empty():
+				if ids.has(hit):ids.erase(hit)
+				else:ids.append(hit)
+	else:
+		var bounds:=Rect2(marquee_start/PPM,(at-marquee_start)/PPM).abs()
+		for id in MultiSelect.within_rect(authoring.doc,bounds,layer_flags):
+			if marquee_additive and ids.has(id):ids.erase(id)
+			elif not ids.has(id):ids.append(id)
+	_set_multi(ids)
+	if ids.size()==1:
+		source_id=ids[0]
+		_refresh_authoring()
+	elif ids.is_empty():
+		source_id=""
+		_update_selection({})
+	else:
+		_refresh_authoring()
+		_set_multi(ids)
+
+func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
+	group_moving=false
+	gizmos.group_drag_offset=Vector2.ZERO
+	var delta: Vector2=(at-group_move_start)/PPM
+	if snap_m>0:delta=delta.snapped(Vector2.ONE*snap_m)
+	if delta.length()<.01:
+		gizmos.queue_redraw()
+		return
+	_group_action("duplicate" if duplicate else "move",delta)
+
+func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
+	if _editing_locked() or not source_ready or multi_selection.is_empty():return false
+	var count:=multi_selection.size()
+	var affected: Array[String]=authoring.batch_entities(multi_selection,delta,operation)
+	if operation!="delete" and affected.is_empty():
+		_notice(authoring.last_error)
+		return false
+	_set_multi([] if operation=="delete" else affected)
+	_refresh_authoring()
+	_set_multi([] if operation=="delete" else affected)
+	_notice("%d objects %s in one undo step."%[count,operation])
+	return true
+
 func _choose_tool(mode: String) -> void:
 	if _editing_locked():
 		return
@@ -680,6 +763,12 @@ func _choose_tool(mode: String) -> void:
 		_notice("Source unavailable. The map can still be inspected.")
 		return
 	tool_name = mode
+	_set_multi([])
+	marquee_tracking=false
+	group_moving=false
+	if is_instance_valid(gizmos):
+		gizmos.marquee_active=false
+		gizmos.group_drag_offset=Vector2.ZERO
 	draft_points.clear()
 	if is_instance_valid(gizmos):
 		gizmos.source_anchor_mode = mode == "anchor"
@@ -735,6 +824,7 @@ func _refresh_authoring() -> void:
 		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
+		gizmos.group_selected_ids=multi_selection.duplicate()
 		gizmos.set_pending_shape(draft_points,tool_name)
 		if map_switcher.custom:map_switcher.refresh(self)
 		if is_instance_valid(apply_button):
@@ -806,6 +896,9 @@ func _toggle_snap() -> void:
 
 func _delete_selected() -> void:
 	if _editing_locked():
+		return
+	if multi_selection.size()>1:
+		_group_action("delete")
 		return
 	if not source_ready or source_id.is_empty():
 		return
@@ -1469,6 +1562,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
+				if marquee_tracking or group_moving or not multi_selection.is_empty():
+					marquee_tracking=false;group_moving=false
+					gizmos.marquee_active=false;gizmos.group_drag_offset=Vector2.ZERO
+					_set_multi([])
+					_consume_input()
+					return
 				if not draft_points.is_empty() or not pending_drag.is_empty():
 					_cancel_gesture()
 				else:
@@ -1508,7 +1607,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_apply_draft();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
 				_duplicate_selected();_consume_input();return
-			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and not source_id.is_empty():
+			if active and key.ctrl_pressed and key.keycode==KEY_A and tool_name=="move_prop":
+				_set_multi(MultiSelect.all_visible(authoring.doc,layer_flags))
+				_notice("%d editable objects selected."%multi_selection.size())
+				_consume_input();return
+			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and (not source_id.is_empty() or multi_selection.size()>1):
 				_nudge_selected({KEY_LEFT:Vector2.LEFT,KEY_RIGHT:Vector2.RIGHT,KEY_UP:Vector2.UP,KEY_DOWN:Vector2.DOWN}[key.keycode],key.shift_pressed)
 				_consume_input();return
 			if active and key.keycode==KEY_F:
@@ -1535,8 +1638,22 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			var hit_position: Vector2 = _event_world_position(mouse.position)
 			if mouse.pressed:
+				if tool_name=="move_prop" and source_ready and mouse.shift_pressed:
+					_begin_marquee(hit_position,true);_consume_input();return
+				if tool_name=="move_prop" and multi_selection.size()>1 and multi_selection.has(_selection_hit(hit_position)):
+					group_moving=true;group_move_start=hit_position;_consume_input();return
 				_source_click(hit_position)
+				if tool_name=="move_prop" and source_id.is_empty() and selected.is_empty() and pending_drag.is_empty():
+					_begin_marquee(hit_position,false)
+				elif tool_name=="move_prop" and not source_id.is_empty():
+					_set_multi([source_id])
+				else:
+					_set_multi([])
 				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_race"]:_finish_shape()
+			elif marquee_tracking:
+				_end_marquee(hit_position)
+			elif group_moving:
+				_end_group_move(hit_position,mouse.alt_pressed)
 			elif not pending_drag.is_empty():
 				_finish_source_drag(hit_position)
 			_consume_input()
@@ -1544,6 +1661,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		var motion := event as InputEventMouseMotion
 		if _right_drag:
 			editor_camera.global_position -= motion.relative/editor_camera.zoom
+			_consume_input()
+		elif marquee_tracking:
+			_update_marquee(_event_world_position(motion.position))
+			_consume_input()
+		elif group_moving:
+			var offset: Vector2=_event_world_position(motion.position)-group_move_start
+			if snap_m>0:offset=(offset/PPM).snapped(Vector2.ONE*snap_m)*PPM
+			gizmos.group_drag_offset=offset
+			gizmos.queue_redraw()
 			_consume_input()
 		elif not pending_drag.is_empty():
 			_update_drag_preview(_event_world_position(motion.position))
@@ -1599,11 +1725,26 @@ func _input(event: InputEvent) -> void:
 		if event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE] or (event.button_index==MOUSE_BUTTON_LEFT and (tool_name=="pan" or _space_pan)):
 			_right_drag=false
 			_space_pan=false
-		if event.button_index==MOUSE_BUTTON_LEFT and not pending_drag.is_empty():
+		if event.button_index==MOUSE_BUTTON_LEFT and marquee_tracking:
+			_end_marquee(_event_world_position(event.position))
+			_consume_input()
+		elif event.button_index==MOUSE_BUTTON_LEFT and group_moving:
+			_end_group_move(_event_world_position(event.position),event.alt_pressed)
+			_consume_input()
+		elif event.button_index==MOUSE_BUTTON_LEFT and not pending_drag.is_empty():
 			_finish_source_drag(_event_world_position(event.position))
 			_consume_input()
 	elif event is InputEventMouseMotion:
-		if not pending_drag.is_empty():
+		if marquee_tracking:
+			_update_marquee(_event_world_position(event.position))
+			_consume_input()
+		elif group_moving:
+			var offset: Vector2=_event_world_position(event.position)-group_move_start
+			if snap_m>0:offset=(offset/PPM).snapped(Vector2.ONE*snap_m)*PPM
+			gizmos.group_drag_offset=offset
+			gizmos.queue_redraw()
+			_consume_input()
+		elif not pending_drag.is_empty():
 			_update_drag_preview(_event_world_position(event.position))
 			_consume_input()
 		elif _right_drag:
@@ -1623,6 +1764,10 @@ func _notification(what: int) -> void:
 			get_tree().quit()
 	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_right_drag=false
+		marquee_tracking=false;group_moving=false
+		if is_instance_valid(gizmos):
+			gizmos.marquee_active=false
+			gizmos.group_drag_offset=Vector2.ZERO
 		if not pending_drag.is_empty():
 			pending_drag.clear()
 			_refresh_authoring()
@@ -1883,12 +2028,19 @@ func _reset_asset_size() -> void:
 
 func _duplicate_selected() -> void:
 	if _editing_locked() or not source_ready:return
+	if multi_selection.size()>1:
+		_group_action("duplicate",Vector2(12,12))
+		return
 	var id: String=authoring.duplicate_entity(source_id)
 	if id.is_empty():_notice(authoring.last_error);return
 	source_id=id;source_anchor=-1;_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
 
 func _nudge_selected(direction: Vector2,large: bool=false) -> void:
 	if _editing_locked():return
+	if multi_selection.size()>1:
+		var stride: float=(snap_m if snap_m>0 else 1.0)*(10 if large else 1)
+		_group_action("move",direction*stride)
+		return
 	var record:=_selected_record()
 	if record.is_empty():return
 	var step: float=(snap_m if snap_m>0 else 1.0)*(10 if large else 1)
