@@ -86,7 +86,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	for key in ["chunks","nodes","surface_index"]:e.world.data[key]={}
 	e.world.data.road_width_scale=1.0
 	e.world.data.spawn={"position":[doc.world.width*.5,doc.world.height*.5],"rotation":0.0}
-	e.source_ready=true;e.source_id="";e.source_anchor=-1;e.source_revision="";e.selected={};e.synced_preview_revision=-1;e._entity_revision=-1
+	e.source_ready=true;e.source_id="";e.source_anchor=-1;e.selected_ids.clear();e.marquee_active=false;e.source_revision="";e.selected={};e.synced_preview_revision=-1;e._entity_revision=-1
 	e.gizmos.custom_terrain=true;e.gizmos.network=null;e.gizmos.network_is_draft=false;e.gizmos.preview_junctions=[]
 	e.gizmos.bridge_overrides={};e.gizmos.bridge_redraw_roads={}
 	if terrain==null:
@@ -124,7 +124,7 @@ func restore(e) -> void:
 	e.world=original_world_node;e.gizmos.world=e.world;e.authoring=original_session;custom=false;current_file=""
 	e._apply_landmark_layer()
 	if is_instance_valid(custom_world):custom_world.free();custom_world=null
-	e.source_id="";e.source_anchor=-1;e.synced_preview_revision=-1;e._entity_revision=-1
+	e.source_id="";e.source_anchor=-1;e.selected_ids.clear();e.marquee_active=false;e.synced_preview_revision=-1;e._entity_revision=-1
 	e.gizmos.custom_terrain=false;e.gizmos.network=e.traffic_network
 	if terrain!=null:terrain.queue_free();terrain=null
 	if is_instance_valid(e.overview_renderer):e.overview_renderer.visible=true
