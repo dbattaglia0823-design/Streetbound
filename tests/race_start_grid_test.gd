@@ -62,10 +62,12 @@ func _run() -> void:
 	event.definition=race.duplicate(true)
 	game.ground.add_child(event)
 	event.set_physics_process(false)
-	car.global_position=Vector2(2400,3200)*Grid.PPM
+	# Stage five metres away, then require teleportation to the saved slot.
+	car.global_position=Vector2(2395,3200)*Grid.PPM
 	car.global_rotation=PI/2.0
 	car.linear_velocity=Vector2(3,1)
 	check("race_can_stage_from_staging_circle",event.available and event.can_stage())
+	check("staging_location_differs_from_grid_spawn",car.global_position.distance_to(Grid.point(race.player_start)*Grid.PPM)>4.9*Grid.PPM)
 	check("race_starts_from_saved_positions",event.start_race() and
 		car.global_position.distance_to(Grid.point(race.player_start)*Grid.PPM)<.01)
 	check("player_is_stationary_and_facing_route",
@@ -84,6 +86,24 @@ func _run() -> void:
 	check("quitting_releases_all_ai",event.quit_race() and event.rivals.is_empty() and event.rival_drivers.is_empty())
 	check("grid_race_can_restart_after_quit",event.start_race() and event.rivals.size()==3)
 	event.quit_race()
+	# Existing street/circuit/drag events also move a nearby staged player
+	# to one exact, stationary starting location, regardless of entry offset.
+	var builtin: Array=[game.drag_race,game.circuit_race,game.street_race]
+	for existing in builtin:
+		existing.set_physics_process(false)
+		var start: Vector2=existing.start_m
+		var forward: Vector2=existing.direction if existing==game.drag_race else existing.heading
+		car.global_position=(start-forward*3.0)*Grid.PPM
+		car.global_rotation=forward.angle()+PI*.5
+		car.linear_velocity=Vector2.ZERO
+		if not existing.can_stage():
+			check(str(existing.race_title)+"_approach_is_stageable",false)
+			continue
+		var staged: bool=existing.start_race()
+		var expected: Vector2=(start+existing.direction.orthogonal().normalized()*4.1)*Grid.PPM if existing==game.drag_race else start*Grid.PPM
+		check(str(existing.race_title)+"_uses_fixed_grid_teleport",staged and car.global_position.distance_to(expected)<.05)
+		check(str(existing.race_title)+"_starts_stationary",car.linear_velocity.is_zero_approx())
+		existing.quit_race()
 	game.queue_free()
 	await process_frame
 	await process_frame
