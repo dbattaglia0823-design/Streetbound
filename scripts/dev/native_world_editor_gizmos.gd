@@ -28,6 +28,10 @@ var draft_doc: Dictionary = {}
 var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
+var group_selected_ids: Array[String]=[]
+var group_drag_offset:=Vector2.ZERO
+var marquee_active:=false
+var marquee_rect:=Rect2()
 var custom_terrain:=false
 ## Render the saved authoring geometry without editor handles during a drive.
 var runtime_playtest:=false
@@ -333,9 +337,9 @@ func _rebuild_preview_collisions() -> void:
 func _show_prop_outline(prop: Dictionary) -> bool:
 	if runtime_playtest or not bool(layer_flags.get("scenery",true)):
 		return false
-	if bool(prop.get("hidden",false)) or selected_source_id.is_empty():
+	if bool(prop.get("hidden",false)) or (selected_source_id.is_empty() and group_selected_ids.is_empty()):
 		return false
-	if str(prop.get("id",""))!=selected_source_id:
+	if str(prop.get("id",""))!=selected_source_id and not group_selected_ids.has(str(prop.get("id",""))):
 		return false
 	return not (str(drag_preview.get("kind",""))=="prop" and
 		str(drag_preview.get("id",""))==selected_source_id)
@@ -381,7 +385,7 @@ func _draw_draft() -> void:
 				break
 		var geometry_changed: bool=original.is_empty() or JSON.stringify(road)!=JSON.stringify(original) or str(drag_preview.get("id",""))==id
 		var changed: bool=geometry_changed or bridge_redraw_roads.has(int(id.trim_prefix("road-")))
-		var focused: bool = selected_source_id == id
+		var focused: bool = selected_source_id == id or group_selected_ids.has(id)
 		if not changed and not focused:
 			continue
 		var line := _draft_line(road,not geometry_changed)
@@ -470,7 +474,7 @@ func _draw_draft() -> void:
 	for prop in draft_doc.get("props",[]):
 		if not _show_prop_outline(prop):continue
 		var id := str(prop.id)
-		var p := Vector2(float(prop.x),float(prop.y)) * PPM
+		var p := Vector2(float(prop.x),float(prop.y)) * PPM + group_drag_offset
 		if str(drag_preview.get("id",""))==id:
 			p = drag_preview.get("to",p)
 		if not _visible_point(p):
@@ -627,6 +631,25 @@ func _draw() -> void:
 				path.append(Vector2(float(raw[0]),float(raw[1]))*PPM)
 			if path.size()>=2:
 				draw_polyline(path,Color(1.0,0.92,0.28,0.91),6.0,true)
+	# Group selection and drag rectangle are purely editor overlays.
+	if not runtime_playtest:
+		for category in ["roads","regions","markers"]:
+			var layer_name: String={"roads":"roads","regions":"terrain","markers":"markers"}[category]
+			if not bool(layer_flags.get(layer_name,true)):continue
+			for item in draft_doc.get(category,[]):
+				if not group_selected_ids.has(str(item.get("id",""))) or bool(item.get("hidden",false)):continue
+				var path:=PackedVector2Array()
+				if item.has("points"):
+					for point in item.points:
+						path.append(Vector2(float(point.x),float(point.y))*PPM+group_drag_offset)
+					if category=="regions" and path.size()>=3:path.append(path[0])
+					if path.size()>=2:draw_polyline(path,Color("#8effbf"),3.0/maxf(.003,zoom_level),true)
+				else:
+					var pos:=Vector2(float(item.x),float(item.y))*PPM+group_drag_offset
+					draw_arc(pos,9.0/maxf(.003,zoom_level),0,TAU,28,Color("#8effbf"),2.0/maxf(.003,zoom_level),true)
+		if marquee_active:
+			draw_rect(marquee_rect,Color(0.45,0.87,0.69,0.14),true)
+			draw_rect(marquee_rect,Color("#8effbf"),false,2.0/maxf(.003,zoom_level),true)
 	if not pending_shape.is_empty():
 		var path := PackedVector2Array()
 		for item in pending_shape:
