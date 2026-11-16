@@ -11,7 +11,7 @@ func check(label: String, ok: bool) -> void:
 	if not ok:failures.append(label)
 
 func _run() -> void:
-	var gizmos: Node2D=Gizmos.new()
+	var gizmos: Variant=Gizmos.new()
 	root.add_child(gizmos)
 	var first: Dictionary={"id":"prop-native-0","type":"house","hidden":false}
 	var second: Dictionary={"id":"prop-native-1","type":"warehouse","hidden":false}
