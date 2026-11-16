@@ -16,7 +16,7 @@ static func route_heading(points: Array) -> Vector2:
 	return (b-a).normalized() if a.distance_to(b)>.01 else Vector2.UP
 
 static func pose(position_m: Vector2,forward: Vector2) -> Dictionary:
-	return {"x":position_m.x,"y":position_m.y,"rotation":rad_to_deg(forward.angle()+PI*.5)}
+	return {"x":position_m.x,"y":position_m.y,"rotation":wrapf(rad_to_deg(forward.angle()+PI*.5),-180.0,180.0)}
 
 static func point(value: Dictionary) -> Vector2:
 	return Vector2(float(value.get("x",0)),float(value.get("y",0)))
