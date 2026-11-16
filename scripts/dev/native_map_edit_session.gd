@@ -264,6 +264,14 @@ func race_at_id(identity: String) -> Dictionary:
 		if str(race.id)==identity:return race
 	return {}
 
+static func shift_race_grid(race: Dictionary,delta: Vector2) -> void:
+	if race.has("player_start") and race.player_start is Dictionary:
+		race.player_start.x=float(race.player_start.x)+delta.x
+		race.player_start.y=float(race.player_start.y)+delta.y
+	for slot in race.get("enemy_starts",[]):
+		slot.x=float(slot.x)+delta.x
+		slot.y=float(slot.y)+delta.y
+
 func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String="") -> String:
 	var race:=settings.duplicate(true)
 	race.id=next_id("races","race") if identity.is_empty() else identity
@@ -764,6 +772,7 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 				for p in target.points:ends.append(RoadShapes.point(p))
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
+		if category=="races":shift_race_grid(target,delta)
 		if category=="roads":
 			for road in next.roads:
 				if str(road.id)==identity or not _same_network(target,road) or bool(road.get("independentEnds",false)):continue
@@ -1107,6 +1116,7 @@ func duplicate_entity(identity: String) -> String:
 			copy.erase("replaces");copy.erase("hidden")
 			if copy.has("points"):
 				for p in copy.points:p.x=float(p.x)+12;p.y=float(p.y)+12
+				if category=="races":shift_race_grid(copy,Vector2(12,12))
 			else:copy.x=float(copy.x)+12;copy.y=float(copy.y)+12
 			var next:=doc.duplicate(true);next[category].append(copy)
 			return id if _commit(next) else ""
