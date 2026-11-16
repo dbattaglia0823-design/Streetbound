@@ -94,7 +94,8 @@ func _run() -> void:
 		session.history.size()==before_history)
 	# Mixing source roads, regions, markers, and scenery remains atomic.
 	var road: String=session.add_road(Vector2(600,600),Vector2(700,600))
-	var region: String=session.add_region([Vector2(750,600),Vector2(800,600),Vector2(800,650)],"forest")
+	var region_points: Array[Vector2]=[Vector2(750,600),Vector2(800,600),Vector2(800,650)]
+	var region: String=session.add_region(region_points,"forest")
 	before_history=session.history.size()
 	check("mixed_source_group_moves_in_one_history_entry",
 		not road.is_empty() and not region.is_empty() and
