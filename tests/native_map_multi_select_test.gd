@@ -39,12 +39,14 @@ func _run() -> void:
 	var g: Variant=Gizmos.new()
 	root.add_child(g)
 	g.selected_source_id=""
-	g.selected_ids=[a,b]
+	var outlined: Array[String]=[a,b]
+	g.selected_ids=outlined
 	check("multi_selected_props_both_have_outlines",
 		g._show_prop_outline(session.prop_at_id(a)) and
 		g._show_prop_outline(session.prop_at_id(b)) and
 		not g._show_prop_outline(session.prop_at_id(c)))
-	g.selected_ids=[]
+	var empty_selection: Array[String]=[]
+	g.selected_ids=empty_selection
 	check("deselect_hides_all_group_outlines",
 		not g._show_prop_outline(session.prop_at_id(a)))
 	var before_history: int=session.history.size()
