@@ -1278,7 +1278,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 			if bool(snapped.valid):
 				ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
 			else:
-				_notice("Building overlaps another asset. Try a clearer position.")
+				authoring.last_error="Building overlaps another asset. Try a clearer position."
 	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
@@ -2078,6 +2078,18 @@ func _duplicate_selected() -> void:
 		return
 	var id: String=authoring.duplicate_entity(source_id)
 	if id.is_empty():_notice(authoring.last_error);return
+	var duplicate: Dictionary=authoring.prop_at_id(id)
+	if not duplicate.is_empty() and RoadBuildingSnap.supports(duplicate):
+		var snapped:=_snap_building_transform(duplicate,Vector2(float(duplicate.x),float(duplicate.y)))
+		if not bool(snapped.valid):
+			authoring.undo()
+			authoring.future.clear()
+			_notice("No clear space to duplicate this building; move it first.")
+			return
+		# Preserve the duplicate's single undo step.
+		duplicate.x=snapped.position.x
+		duplicate.y=snapped.position.y
+		duplicate.rotation=snapped.rotation
 	source_id=id;source_anchor=-1;_set_multi([id]);_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
 
 func _nudge_selected(direction: Vector2,large: bool=false) -> void:
