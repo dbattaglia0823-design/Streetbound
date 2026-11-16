@@ -830,12 +830,12 @@ func _choose_tool(mode: String) -> void:
 		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
-	if mode not in ["move_prop","anchor"]:source_id = ""
+	if mode not in ["move_prop","anchor","race_grid"]:source_id = ""
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
 	mode_label.text={"place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
-		"place_marker":"GAME MARKER","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
+		"place_marker":"GAME MARKER","race_grid":"RACE START GRID","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
@@ -843,6 +843,7 @@ func _choose_tool(mode: String) -> void:
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
 		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
 		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
+		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
@@ -1148,6 +1149,15 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
+	if tool_name=="race_grid":
+		var grid_handle:=_pick_race_grid_handle(world_px)
+		if not grid_handle.is_empty():
+			pending_drag=grid_handle
+			pending_drag["grab"]=world_px
+			pending_drag["to"]=grid_handle.from
+			_refresh_authoring()
+		else:race_editor.place_grid_slot(self,world_px/PPM)
+		return
 	if tool_name=="place_circle_road":
 		road_shapes.place(self,_snap_point(world_px/PPM));return
 	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
@@ -1323,6 +1333,9 @@ func _finish_source_drag(world_px: Vector2) -> void:
 				ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
 			else:
 				authoring.last_error="Building overlaps another asset. Try a clearer position."
+	elif str(drag.kind)=="race_grid":
+		ok=authoring.set_race_grid_slot(str(drag.id),int(drag.index),
+			_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
 	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
@@ -1865,6 +1878,8 @@ func _update_drag_preview(at: Vector2) -> void:
 		return
 	elif pending_drag.kind in ["road_move","region","marker"]:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
+	elif pending_drag.kind=="race_grid":
+		pending_drag.to=_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)*PPM
 	elif pending_drag.kind=="race_point":pending_drag.to=_road_draw_point(at/PPM,true)*PPM
 	elif pending_drag.kind=="sidewalk_point":
 		var proposed:=_snap_point(at/PPM)
@@ -2470,6 +2485,25 @@ func _split_road() -> void:
 func _toggle_building_snap() -> void:
 	building_snap_enabled=not building_snap_enabled
 	building_snap_button.text="Building edges: on" if building_snap_enabled else "Building edges: off"
+
+func _pick_race_grid_handle(at: Vector2) -> Dictionary:
+	if not source_ready or not layer_flags.markers:return {}
+	var race: Dictionary=authoring.race_at_id(source_id)
+	if race.is_empty():return {}
+	var slots: Array=[]
+	var starting: Dictionary=race.get("player_start",{})
+	if starting.is_empty():starting=preload("res://scripts/world/race_start_grid.gd").player_slot(race)
+	slots.append(starting)
+	slots.append_array(race.get("enemy_starts",[]))
+	var nearest:=14.0/maxf(.003,editor_camera.zoom.x)
+	var match: Dictionary={}
+	for i in slots.size():
+		var p:=Vector2(float(slots[i].x),float(slots[i].y))*PPM
+		var distance:=p.distance_to(at)
+		if distance<nearest:
+			nearest=distance
+			match={"kind":"race_grid","id":source_id,"index":i-1,"from":p}
+	return match
 
 func _pick_race_handle(at: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.markers:return {}
