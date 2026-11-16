@@ -14,6 +14,7 @@ var throttle_limit := 0.90
 var cruise_speed_mps := 180.0
 var last_station_px := 0.0
 var navigation: RefCounted
+var loop_route := false
 var traffic_planner: RefCounted
 var traffic_mode := "clear"
 
@@ -23,6 +24,7 @@ func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
 	traffic_planner = null
 	traffic_mode = "clear"
 	navigation = null
+	loop_route = false
 	route = waypoints.duplicate()
 	stations.clear()
 	if route.size() < 2:
@@ -47,6 +49,7 @@ func setup_navigation(target: VehicleController2D, guide: RefCounted) -> void:
 			world_route.append(point * PPM)
 	setup(target, world_route)
 	navigation = guide
+	loop_route = bool(guide.get("closed")) if guide!=null else false
 
 
 ## A street racer uses the existing traffic actors as moving obstacles,
@@ -75,7 +78,8 @@ func stop() -> void:
 func _point_at(distance_px: float) -> Vector2:
 	if route.size() < 2:
 		return Vector2.ZERO
-	var d := clampf(distance_px, 0.0, stations[stations.size() - 1])
+	var total: float=stations[stations.size()-1]
+	var d := fposmod(distance_px,total) if loop_route and total>0 else clampf(distance_px,0.0,total)
 	for i in range(1, stations.size()):
 		if d <= stations[i]:
 			var span := maxf(0.01, stations[i] - stations[i - 1])
