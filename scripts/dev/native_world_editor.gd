@@ -2063,7 +2063,7 @@ func _reset_asset_size() -> void:
 func _duplicate_selected() -> void:
 	if _editing_locked() or not source_ready:return
 	if selected_ids.size()>1:
-		var copies: Array[String]=GroupEdit.duplicate(authoring,selected_ids)
+		var copies: Array[String]=GroupEdit.duplicate_entities(authoring,selected_ids)
 		if copies.is_empty():_notice(authoring.last_error);return
 		_set_group_selection(copies)
 		_notice("Duplicated %d objects with a 12 m offset. Ctrl+Z undoes the group."%copies.size())
