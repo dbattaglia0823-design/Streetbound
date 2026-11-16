@@ -29,6 +29,7 @@ var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
 var group_selected_ids: Array[String]=[]
+var group_selected_lookup: Dictionary={}
 var group_drag_offset:=Vector2.ZERO
 var marquee_active:=false
 var marquee_rect:=Rect2()
@@ -339,7 +340,7 @@ func _show_prop_outline(prop: Dictionary) -> bool:
 		return false
 	if bool(prop.get("hidden",false)) or (selected_source_id.is_empty() and group_selected_ids.is_empty()):
 		return false
-	if str(prop.get("id",""))!=selected_source_id and not group_selected_ids.has(str(prop.get("id",""))):
+	if str(prop.get("id",""))!=selected_source_id and not group_selected_lookup.has(str(prop.get("id",""))):
 		return false
 	return not (str(drag_preview.get("kind",""))=="prop" and
 		str(drag_preview.get("id",""))==selected_source_id)
@@ -385,7 +386,7 @@ func _draw_draft() -> void:
 				break
 		var geometry_changed: bool=original.is_empty() or JSON.stringify(road)!=JSON.stringify(original) or str(drag_preview.get("id",""))==id
 		var changed: bool=geometry_changed or bridge_redraw_roads.has(int(id.trim_prefix("road-")))
-		var focused: bool = selected_source_id == id or group_selected_ids.has(id)
+		var focused: bool = selected_source_id == id or group_selected_lookup.has(id)
 		if not changed and not focused:
 			continue
 		var line := _draft_line(road,not geometry_changed)
@@ -637,7 +638,7 @@ func _draw() -> void:
 			var layer_name: String={"roads":"roads","regions":"terrain","markers":"markers"}[category]
 			if not bool(layer_flags.get(layer_name,true)):continue
 			for item in draft_doc.get(category,[]):
-				if not group_selected_ids.has(str(item.get("id",""))) or bool(item.get("hidden",false)):continue
+				if not group_selected_lookup.has(str(item.get("id",""))) or bool(item.get("hidden",false)):continue
 				var path:=PackedVector2Array()
 				if item.has("points"):
 					for point in item.points:
