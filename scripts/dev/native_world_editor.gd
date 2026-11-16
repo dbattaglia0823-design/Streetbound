@@ -927,6 +927,12 @@ func _discard_draft() -> void:
 func _resize_selected(factor: float) -> void:
 	if _editing_locked() or not source_ready or source_id.is_empty():
 		return
+	var proposed: Dictionary=authoring.prop_at_id(source_id).duplicate(true)
+	if not proposed.is_empty():
+		proposed.scale=clampf(float(proposed.get("scale",1.0))*factor,.25,5.0)
+		if not _building_transform_clear(proposed,Vector2(float(proposed.x),float(proposed.y))):
+			_notice("Resize would overlap a neighboring building.")
+			return
 	if authoring.resize_prop(source_id,factor):
 		_refresh_authoring()
 		_notice("Asset size and draft collision updated. Save to Game when ready.")
@@ -937,6 +943,12 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if not source_ready or source_id.is_empty():
 		return
+	var proposed: Dictionary=authoring.prop_at_id(source_id).duplicate(true)
+	if not proposed.is_empty():
+		proposed.rotation=wrapf(float(proposed.get("rotation",0.0))+degrees,-180.0,180.0)
+		if not _building_transform_clear(proposed,Vector2(float(proposed.x),float(proposed.y))):
+			_notice("Rotation would overlap a neighboring building.")
+			return
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
 		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
@@ -2016,6 +2028,13 @@ func _commit_inspector(field: String="name") -> void:
 					_refresh_inspector()
 					return
 				destination=snapped.position;values["rotation"]=snapped.rotation
+	if record.category=="props" and field in ["rotation","scale","scaleX","scaleY"]:
+		var proposed: Dictionary=record.item.duplicate(true)
+		proposed.merge(values,true)
+		if not _building_transform_clear(proposed,destination):
+			_notice("Building footprint would overlap after this change.")
+			_refresh_inspector()
+			return
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
@@ -2093,6 +2112,11 @@ func _reset_asset_size() -> void:
 	if _editing_locked() or not source_ready:return
 	var record:=_selected_record()
 	if record.is_empty() or record.category!="props":return
+	var proposed: Dictionary=record.item.duplicate(true)
+	proposed.scale=1.0;proposed.scaleX=1.0;proposed.scaleY=1.0
+	if not _building_transform_clear(proposed,_record_position(record)):
+		_notice("Original size would overlap a neighboring building.")
+		return
 	if authoring.edit_entity(source_id,{"scale":1.0,"scaleX":1.0,"scaleY":1.0},_record_position(record)):
 		_refresh_authoring();_notice("Original asset size restored. Position, rotation and artwork are preserved.")
 
@@ -2448,6 +2472,11 @@ func _pick_race_handle(at: Vector2) -> Dictionary:
 		var p:=Vector2(race.points[i].x,race.points[i].y)*PPM
 		if p.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):return {"id":source_id,"kind":"race_point","index":i,"from":p}
 	return {}
+
+func _building_transform_clear(prop: Dictionary,at: Vector2) -> bool:
+	if not RoadBuildingSnap.supports(prop):return true
+	return BuildingSnap.has_clearance(at,gizmos._prop_size(prop)/PPM,
+		deg_to_rad(float(prop.get("rotation",0.0))),_building_snap_neighbors(prop,at))
 
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 	return _snap_building_transform(prop,at).position
