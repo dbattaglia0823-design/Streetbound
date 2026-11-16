@@ -680,6 +680,17 @@ func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
 
+func _prune_multi_selection() -> void:
+	if multi_selection.is_empty():return
+	var live: Dictionary={}
+	for category in ["props","markers","regions","roads"]:
+		for entry in authoring.doc.get(category,[]):
+			if not bool(entry.get("hidden",false)):live[str(entry.get("id",""))]=true
+	var valid: Array[String]=[]
+	for id in multi_selection:
+		if live.has(id):valid.append(id)
+	if valid.size()!=multi_selection.size():_set_multi(valid)
+
 func _set_multi(ids: Array[String]) -> void:
 	multi_selection=ids.duplicate()
 	if is_instance_valid(gizmos):
@@ -848,6 +859,7 @@ func _undo() -> void:
 		draft_points.pop_back();_refresh_authoring();_notice("Removed the last unfinished shape point.");return
 	if source_ready and authoring.undo():
 		pending_drag.clear()
+		_prune_multi_selection()
 		_refresh_authoring()
 		_notice("Undid the previous source edit. Changes remain unbaked.")
 
@@ -856,6 +868,7 @@ func _redo() -> void:
 		return
 	if source_ready and authoring.redo():
 		pending_drag.clear()
+		_prune_multi_selection()
 		_refresh_authoring()
 		_notice("Redid the source edit. Intersections rebuild only after Apply.")
 
