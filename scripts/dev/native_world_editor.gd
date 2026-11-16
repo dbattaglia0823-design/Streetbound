@@ -1660,6 +1660,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
+				if tool_name=="race_grid":
+					if not pending_drag.is_empty():_cancel_gesture()
+					else:_choose_tool("move_prop")
+					_consume_input()
+					return
 				if marquee_tracking or group_moving or not multi_selection.is_empty():
 					marquee_tracking=false;group_moving=false
 					gizmos.marquee_active=false;gizmos.group_drag_offset=Vector2.ZERO
