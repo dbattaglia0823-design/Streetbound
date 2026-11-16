@@ -764,8 +764,9 @@ func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
 func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 	if _editing_locked() or not source_ready or multi_selection.is_empty():return false
 	var count:=multi_selection.size()
+	var revision_before: int=authoring.edit_revision
 	var affected: Array[String]=authoring.batch_entities(multi_selection,delta,operation)
-	if operation!="delete" and affected.is_empty():
+	if authoring.edit_revision==revision_before and (operation=="delete" or affected.is_empty()):
 		_notice(authoring.last_error)
 		return false
 	_set_multi([] if operation=="delete" else affected)
@@ -924,6 +925,7 @@ func _delete_selected() -> void:
 		return
 	if authoring.delete_entity(source_id):
 		source_id = ""
+		_set_multi([])
 		_refresh_authoring()
 		_notice("Object deleted from draft. Undo is available.")
 	else:
@@ -2052,7 +2054,7 @@ func _duplicate_selected() -> void:
 		return
 	var id: String=authoring.duplicate_entity(source_id)
 	if id.is_empty():_notice(authoring.last_error);return
-	source_id=id;source_anchor=-1;_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
+	source_id=id;source_anchor=-1;_set_multi([id]);_refresh_authoring();_notice("Created an editable copy. Ctrl+Z undoes it.")
 
 func _nudge_selected(direction: Vector2,large: bool=false) -> void:
 	if _editing_locked():return
