@@ -766,19 +766,44 @@ func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
 		return
 	_group_action("duplicate" if duplicate else "move",delta)
 
+func _group_buildings_clear(ids: Array[String]) -> bool:
+	# Group transforms preserve relative offsets. Check the final destination,
+	# including other members, so batching cannot bypass footprint clearance.
+	for id in ids:
+		var prop: Dictionary=authoring.prop_at_id(id)
+		if prop.is_empty() or not RoadBuildingSnap.supports(prop):continue
+		var pos:=Vector2(float(prop.x),float(prop.y))
+		var near: Array=_building_snap_neighbors(prop,pos)
+		if not BuildingSnap.has_clearance(pos,gizmos._prop_size(prop)/PPM,
+				deg_to_rad(float(prop.get("rotation",0.0))),near):
+			return false
+	return true
+
 func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 	if _editing_locked() or not source_ready or multi_selection.is_empty():return false
 	var count:=multi_selection.size()
-	var revision_before: int=authoring.edit_revision
-	var affected: Array[String]=authoring.batch_entities(multi_selection,delta,operation)
-	if authoring.edit_revision==revision_before and (operation=="delete" or affected.is_empty()):
-		_notice(authoring.last_error)
-		return false
-	_set_multi([] if operation=="delete" else affected)
-	_refresh_authoring()
-	_set_multi([] if operation=="delete" else affected)
-	_notice("%d objects %s in one undo step."%[count,operation])
-	return true
+	var offsets: Array[Vector2]=[Vector2.ZERO]
+	if operation=="duplicate":
+		# The usual 12 m copy offset can put a full-size facade onto an
+		# original. Try minimal group translations without altering formation.
+		offsets.append_array([Vector2(.5,.5),Vector2(1,1),Vector2(2,2),Vector2(3,3)])
+	for correction in offsets:
+		var revision_before: int=authoring.edit_revision
+		var affected: Array[String]=authoring.batch_entities(multi_selection,delta+correction,operation)
+		if authoring.edit_revision==revision_before:
+			_notice(authoring.last_error)
+			return false
+		if operation!="delete" and not _group_buildings_clear(affected):
+			authoring.undo()
+			authoring.future.clear()
+			continue
+		_set_multi([] if operation=="delete" else affected)
+		_refresh_authoring()
+		_set_multi([] if operation=="delete" else affected)
+		_notice("%d objects %s in one undo step."%[count,operation])
+		return true
+	_notice("Selected buildings would overlap. Move the group to a clearer area.")
+	return false
 
 func _choose_tool(mode: String) -> void:
 	if _editing_locked():
