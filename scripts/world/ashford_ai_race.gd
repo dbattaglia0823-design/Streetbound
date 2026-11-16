@@ -6,7 +6,6 @@ const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const RIVAL_LANE_OFFSET_M := 4.1
-const Grid=preload("res://scripts/world/race_start_grid.gd")
 var opponent: VehicleController2D
 var opponent_driver: Node
 var opponent_progress_m := 0.0
