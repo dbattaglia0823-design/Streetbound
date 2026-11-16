@@ -2310,6 +2310,14 @@ func select_at(position_px: Vector2) -> Dictionary:
 	return selected_object
 
 func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
+	# Selecting baked-world geometry replaces, rather than overlaps, an
+	# authored-source group. Otherwise stale boxes persist in the draft layer.
+	if not what.is_empty():
+		source_id=""
+		source_anchor=-1
+		selected_ids.clear()
+		gizmos.selected_ids.clear()
+		gizmos.selected_source_id=""
 	selected = what.duplicate()
 	_update_context_panels()
 	gizmos.set_selection(selected)
