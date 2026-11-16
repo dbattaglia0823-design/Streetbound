@@ -80,7 +80,7 @@ static func _categories(doc: Dictionary, ids: Array[String]) -> Dictionary:
 		if not selection.has(id):return {}
 	return selection
 
-static func move(session: RefCounted, ids: Array[String], delta: Vector2) -> bool:
+static func move(session, ids: Array[String], delta: Vector2) -> bool:
 	if ids.is_empty() or not delta.is_finite() or delta.length()>350.0:
 		session.last_error="Move exceeds 350 m or has no selected objects."
 		return false
@@ -142,7 +142,7 @@ static func move(session: RefCounted, ids: Array[String], delta: Vector2) -> boo
 		return false
 	return true
 
-static func duplicate(session: RefCounted, ids: Array[String]) -> Array[String]:
+static func duplicate(session, ids: Array[String]) -> Array[String]:
 	var created: Array[String]=[]
 	var picked: Dictionary=_categories(session.doc,ids)
 	if ids.is_empty() or picked.size()!=ids.size():
@@ -180,17 +180,18 @@ static func duplicate(session: RefCounted, ids: Array[String]) -> Array[String]:
 	if not session._commit(next):return []
 	return created
 
-static func delete(session: RefCounted, ids: Array[String]) -> bool:
+static func delete(session, ids: Array[String]) -> bool:
 	var picked: Dictionary=_categories(session.doc,ids)
 	if ids.is_empty() or picked.size()!=ids.size():
 		session.last_error="No editable objects selected."
 		return false
 	var next: Dictionary=session.doc.duplicate(true)
 	for category in CATEGORIES:
-		for item in session.initial.get(category,[]) if not bool(session.doc.get("customMap",false)) and category in ["roads","regions","markers"] else []:
-			if picked.has(str(item.id)):
-				session.last_error="Original roads, terrain and gameplay markers are protected."
-				return false
+		if not bool(session.doc.get("customMap",false)) and category in ["roads","regions","markers"]:
+			for item in session.initial.get(category,[]):
+				if picked.has(str(item.id)):
+					session.last_error="Original roads, terrain and gameplay markers are protected."
+					return false
 		var remaining: Array=[]
 		for item in next.get(category,[]):
 			if not picked.has(str(item.id)):
@@ -202,7 +203,7 @@ static func delete(session: RefCounted, ids: Array[String]) -> bool:
 	for i in next.roads.size():next.roads[i].id="road-%d"%i
 	return session._commit(next)
 
-static func arrange_props(session: RefCounted, ids: Array[String], mode: String) -> bool:
+static func arrange_props(session, ids: Array[String], mode: String) -> bool:
 	if ids.size()<2 or mode not in ["left","top","horizontal"]:
 		session.last_error="Select two or more scenery assets."
 		return false
