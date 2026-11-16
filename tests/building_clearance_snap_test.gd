@@ -62,6 +62,15 @@ func _run() -> void:
 		[at(first_prop),at(second_prop)])
 	check("building_alignment_preserves_small_street_gap",
 		at(second_prop).distance_to(Vector2(312.25,200))<.05,at(second_prop))
+	# Multi-object operations must not sidestep building clearance.
+	var one_selected: Array[String]=[second]
+	e._set_multi(one_selected)
+	var prior_group_history: int=e.authoring.history.size()
+	check("group_move_rejects_colliding_footprint",
+		not e._group_action("move",Vector2(-12,0)) and
+		at(e.authoring.prop_at_id(second)).distance_to(Vector2(312.25,200))<.05 and
+		e.authoring.history.size()==prior_group_history)
+	e._set_multi([])
 	var previous_count: int=e.authoring.doc.props.size()
 	var bad: String=place(e,Vector2(301,200))
 	check("impossible_placement_is_rejected_atomically",
