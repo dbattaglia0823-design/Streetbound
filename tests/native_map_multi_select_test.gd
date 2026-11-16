@@ -108,5 +108,57 @@ func _run() -> void:
 		{"scenery":false,"markers":false,"roads":true,"terrain":true},size,path).has(road))
 	g.queue_free()
 	await process_frame
+	# Exercise the real editor's pointer state, not just the geometry helper.
+	var map_scene: Node=load("res://scenes/world_editor.tscn").instantiate()
+	root.add_child(map_scene)
+	for i in 6:await process_frame
+	var editor: Variant=map_scene.native_world_editor
+	var authored: Variant=Session.new()
+	var custom: Dictionary=Library.create("Selection integration",1200,900,"grass")
+	authored.doc=custom.duplicate(true)
+	authored.initial=custom.duplicate(true)
+	authored.draft_baseline_hash=authored._fingerprint(custom)
+	var first: String=authored.add_prop("house",Vector2(100,100))
+	var second: String=authored.add_prop("house",Vector2(145,100))
+	var third: String=authored.add_prop("house",Vector2(400,400))
+	editor.map_switcher.activate(editor,authored.doc.duplicate(true),"integration-fixture.world.json")
+	editor._choose_tool("move_prop")
+	var top_left:=Vector2(70,70)*20.0
+	var bottom_right:=Vector2(185,150)*20.0
+	editor._start_marquee(top_left)
+	editor._update_marquee(bottom_right)
+	check("dragging_displays_marquee_box",editor.marquee_active and editor.gizmos.marquee_active and
+		editor.gizmos.marquee_to==bottom_right)
+	editor._finish_marquee(bottom_right)
+	check("drag_marquee_picks_only_items_under_rectangle",
+		editor.selected_ids.has(first) and editor.selected_ids.has(second) and
+		not editor.selected_ids.has(third),editor.selected_ids)
+	var previous_history: int=editor.authoring.history.size()
+	editor._source_click(Vector2(100,100)*20.0)
+	check("pressing_selected_member_starts_group_drag",str(editor.pending_drag.get("kind",""))=="group")
+	editor._update_drag_preview(Vector2(110,105)*20.0)
+	check("moving_mouse_updates_group_preview",
+		editor.gizmos.group_drag_delta.distance_to(Vector2(10,5)*20.0)<.01)
+	editor._finish_source_drag(Vector2(110,105)*20.0)
+	check("releasing_drag_moves_selected_objects_together",
+		Vector2(editor.authoring.prop_at_id(first).x,editor.authoring.prop_at_id(first).y)==Vector2(110,105) and
+		Vector2(editor.authoring.prop_at_id(second).x,editor.authoring.prop_at_id(second).y)==Vector2(155,105) and
+		editor.authoring.history.size()==previous_history+1)
+	editor._undo()
+	check("editor_undo_restores_group_positions",
+		Vector2(editor.authoring.prop_at_id(first).x,editor.authoring.prop_at_id(first).y)==Vector2(100,100) and
+		Vector2(editor.authoring.prop_at_id(second).x,editor.authoring.prop_at_id(second).y)==Vector2(145,100))
+	editor._duplicate_selected()
+	check("editor_ctrl_d_duplicates_complete_selection",
+		editor.selected_ids.size()==2 and not editor.selected_ids.has(first) and
+		editor.authoring.doc.props.size()==5)
+	editor._delete_selected()
+	check("group_delete_from_editor_removes_duplicates",
+		editor.authoring.doc.props.size()==3 and editor.selected_ids.is_empty())
+	editor._undo()
+	check("editor_undo_restores_group_delete",
+		editor.authoring.doc.props.size()==5)
+	map_scene.queue_free()
+	await process_frame
 	print("MAP BUILDER MULTI-SELECT: ","PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
