@@ -966,6 +966,85 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 		break
 	return _commit(next)
 
+## Apply group edits as one validated source mutation and one undo step.
+func batch_entities(ids: Array[String], delta: Vector2, operation: String) -> Array[String]:
+	var result: Array[String]=[]
+	if ids.is_empty() or not delta.is_finite() or operation not in ["move","duplicate","delete"]:
+		last_error="Invalid group selection or operation."
+		return result
+	if operation=="move" and delta.length()>MAX_DRAG_M:
+		last_error="Group movement is limited to 350 metres per edit."
+		return result
+	var chosen: Dictionary={}
+	for id in ids:chosen[id]=true
+	var next: Dictionary=doc.duplicate(true)
+	var found: Dictionary={}
+	for category in ["props","markers","regions","roads"]:
+		for entity in next.get(category,[]):
+			var id:=str(entity.get("id",""))
+			if not chosen.has(id):continue
+			if bool(entity.get("hidden",false)):
+				last_error="Hidden objects cannot be edited."
+				return []
+			if operation=="duplicate" and category=="markers" and str(entity.get("type","")) not in ["checkpoint","race_start","finish","traffic_spawn"]:
+				last_error="This gameplay marker cannot be duplicated."
+				return []
+			found[id]=true
+	if found.size()!=chosen.size():
+		last_error="Some selected objects no longer exist."
+		return []
+	for category in ["props","markers","regions","roads"]:
+		var entries: Array=next[category]
+		var additions: Array=[]
+		var prefix: String={"props":"prop","markers":"marker","regions":"region","roads":"road"}[category]
+		var counter:=0
+		for entry in entries:
+			var name:=str(entry.get("id",""))
+			if name.begins_with(prefix+"-") and name.trim_prefix(prefix+"-").is_valid_int():
+				counter=maxi(counter,int(name.trim_prefix(prefix+"-"))+1)
+		for entry in entries:
+			var id:=str(entry.get("id",""))
+			if not chosen.has(id):continue
+			if operation=="delete":
+				if entry.has("replaces"):entry.hidden=true
+				continue
+			var target: Dictionary=entry
+			if operation=="duplicate":
+				target=entry.duplicate(true)
+				target.id=prefix+"-"+str(counter)
+				counter+=1
+				target.name=str(entry.get("name",prefix))+" copy"
+				target.erase("replaces")
+				target.erase("hidden")
+				additions.append(target)
+				result.append(str(target.id))
+			else:
+				result.append(id)
+			if category=="props" and str(target.get("type",""))=="sidewalk":
+				var points: Array[Vector2]=Sidewalks.world_points(target)
+				var translated: Array[Vector2]=[]
+				for point in points:translated.append(point+delta)
+				Sidewalks.write_world_points(target,translated)
+			elif target.has("points"):
+				for point in target.points:
+					point.x=float(point.x)+delta.x
+					point.y=float(point.y)+delta.y
+			else:
+				target.x=float(target.x)+delta.x
+				target.y=float(target.y)+delta.y
+		if operation=="delete":
+			var kept: Array=[]
+			for entry in entries:
+				if chosen.has(str(entry.get("id",""))) and not entry.has("replaces"):continue
+				kept.append(entry)
+			next[category]=kept
+		elif operation=="duplicate":
+			for item in additions:next[category].append(item)
+	if not _commit(next):
+		return []
+	return result
+
+
 func duplicate_entity(identity: String) -> String:
 	for category in ["roads","regions","props","markers","races"]:
 		for item in doc.get(category,[]):
