@@ -187,7 +187,7 @@ func _draw_drag_outline() -> void:
 	var half:=Vector2(instance.size[0],instance.size[1])*PPM*.5
 	var line:=PackedVector2Array([Vector2(-half.x,-half.y),Vector2(half.x,-half.y),half,Vector2(-half.x,half.y),Vector2(-half.x,-half.y)])
 	drag_outline.draw_set_transform(Vector2(drag_preview.to),float(instance.angle))
-	drag_outline.draw_polyline(line,Color("#8effbf"),2/maxf(.003,zoom_level),true)
+	drag_outline.draw_polyline(line,Color("#ff6868") if bool(drag_preview.get("invalid",false)) else Color("#8effbf"),2/maxf(.003,zoom_level),true)
 	drag_outline.draw_set_transform(Vector2.ZERO)
 
 func update_prop_drag(preview: Dictionary) -> void:
