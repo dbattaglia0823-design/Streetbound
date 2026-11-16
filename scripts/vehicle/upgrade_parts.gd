@@ -4,16 +4,15 @@ extends RefCounted
 ## All parts have fixed rolled stats, not random unbounded modifiers.
 const PATH := "res://data/upgrade_parts.json"
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
-const SLOTS := ["engine","ecu","intake","exhaust","suspension","tires","brakes","transmission","turbo","nitrous"]
+const SLOTS := ["engine","turbo","transmission","tires","suspension","nitrous"]
 const RARITIES := ["Common","Uncommon","Rare","Epic","Legendary"]
 const FIELD_LABELS := {
 	"engine_power_kw":"POWER","engine_torque_nm":"TORQUE",
-	"redline_rpm":"REDLINE","mass_kg":"WEIGHT",
+	"redline_rpm":"REDLINE",
 	"cornering_stiffness":"CORNERING","rear_grip_balance":"REAR GRIP",
 	"yaw_damping":"STABILITY","max_steer_degrees":"STEERING ANGLE",
 	"steering_response":"TURN-IN","countersteer_assist":"COUNTERSTEER",
 	"tire_grip":"TIRE GRIP","handbrake_drive_grip":"SLIDE TRACTION",
-	"brake_force_n":"BRAKES","handbrake_force_n":"HANDBRAKE",
 	"shift_duration":"SHIFT TIME","auto_shift_duration":"AUTO SHIFT",
 	"final_drive":"FINAL DRIVE",
 	"boost_max_psi":"TURBO BOOST (PSI)","boost_spool_seconds":"SPOOL TIME",
@@ -51,8 +50,6 @@ static func in_slot(slot: String) -> Array[Dictionary]:
 
 
 static func slot_name(slot: String) -> String:
-	if slot == "ecu":
-		return "ECU"
 	return slot.capitalize()
 
 
@@ -108,7 +105,6 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				"nitrous_recharge_seconds": value = clampf(
 					float(mods[raw_key]),6.0,45.0)
 				"boost_spool_seconds": value = clampf(value,0.10,2.0)
-				"mass_kg": value = clampf(value,650.0,5000.0)
 				"engine_power_kw": value = clampf(value,40.0,1800.0)
 				"engine_torque_nm": value = clampf(value,60.0,3000.0)
 				"redline_rpm": value = clampf(value,3500.0,14000.0)
@@ -120,21 +116,10 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				"max_steer_degrees": value = clampf(value,20.0,60.0)
 				"steering_response": value = clampf(value,4.0,30.0)
 				"handbrake_drive_grip": value = clampf(value,0.25,1.0)
-				"brake_force_n": value = clampf(value,6000.0,55000.0)
-				"handbrake_force_n": value = clampf(value,2000.0,16000.0)
 				"shift_duration": value = clampf(value,0.035,0.55)
 				"auto_shift_duration": value = clampf(value,0.03,0.35)
 				"final_drive": value = clampf(value,2.0,6.0)
 			config.set(key,value)
-		# Exhaust inventory changes the sound of the equipped engine as well
-		# as the vehicle stats, and restores cleanly when the part is removed.
-		if str(part.get("slot","")) == "exhaust":
-			var upgrade_fraction := maxf(0.0,
-				float(mods.get("engine_power_kw",0.0)))
-			config.audio_aggression = clampf(
-				config.audio_aggression+upgrade_fraction*7.0,0.0,1.4)
-			config.audio_exhaust_roughness = clampf(
-				config.audio_exhaust_roughness+upgrade_fraction*5.0,0.0,1.0)
 		if str(part.get("slot","")) == "turbo" and config.boost_max_psi > 0.05:
 			# A turbo kit on an N/A car gets true spool and induction audio.
 			# Stock turbo and supercharged cars retain their authored profile.
