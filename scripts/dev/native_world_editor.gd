@@ -1172,6 +1172,37 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name not in ["anchor","move_prop"]:
 		select_at(world_px)
 		return
+	# Modifiers edit selection; keep the old point-insertion gesture under
+	# Ctrl+Shift-click so Shift alone can add/remove selection.
+	if tool_name=="move_prop" and (Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL)):
+		if Input.is_key_pressed(KEY_SHIFT) and Input.is_key_pressed(KEY_CTRL):
+			var road_point:=_pick_source_road(world_px)
+			if not road_point.is_empty():
+				source_id=str(road_point.id)
+				authoring.insert_road_point(source_id,_snap_point(world_px/PPM))
+				_refresh_authoring()
+				return
+		var selected_hit: Dictionary=_pick_source_marker(world_px)
+		if selected_hit.is_empty():selected_hit=_pick_source_prop(world_px)
+		if selected_hit.is_empty():selected_hit=_pick_source_road(world_px)
+		if selected_hit.is_empty():selected_hit=_pick_source_region(world_px)
+		if selected_hit.is_empty():selected_hit=_pick_source_mountain(world_px)
+		if selected_hit.is_empty():selected_hit=_pick_race_handle(world_px)
+		if not selected_hit.is_empty():
+			_toggle_group_id(str(selected_hit.id),Input.is_key_pressed(KEY_CTRL))
+			return
+		_start_marquee(world_px);return
+	# Grab any selected item to translate the complete group together.
+	if tool_name=="move_prop" and selected_ids.size()>1:
+		var group_hit: Dictionary=_pick_source_prop(world_px)
+		if group_hit.is_empty():group_hit=_pick_source_marker(world_px)
+		if group_hit.is_empty():group_hit=_pick_source_road(world_px)
+		if group_hit.is_empty():group_hit=_pick_source_region(world_px)
+		if group_hit.is_empty():group_hit=_pick_source_mountain(world_px)
+		if group_hit.is_empty():group_hit=_pick_race_handle(world_px)
+		if not group_hit.is_empty() and selected_ids.has(str(group_hit.id)):
+			pending_drag={"kind":"group","grab":world_px,"to":world_px}
+			return
 	var race_handle:=_pick_race_handle(world_px)
 	if not race_handle.is_empty():
 		selected={};gizmos.set_selection({})
@@ -1211,9 +1242,13 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			_notice("Click an editable road control point.")
 		if hit.is_empty():
-			source_id="";source_anchor=-1;_update_selection({});_refresh_authoring()
+			if tool_name=="move_prop":
+				_start_marquee(world_px)
+			else:
+				source_id="";source_anchor=-1;_update_selection({});_refresh_authoring()
 			return
 	source_id = str(hit.id)
+	selected_ids=[source_id]
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = int(hit.get("index",-1))
@@ -1241,12 +1276,15 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		return
 	var drag := pending_drag.duplicate(true)
 	pending_drag.clear()
+	gizmos.group_drag_delta=Vector2.ZERO
 	var ok := false
 	var destination_m: Vector2 = world_px/PPM
 	if world_px.distance_to(drag.get("grab",drag.get("from",world_px)))<3.0/maxf(.003,editor_camera.zoom.x):
 		_refresh_authoring()
 		return
-	if str(drag.kind)=="sidewalk_point":
+	if str(drag.kind)=="group":
+		ok=GroupEdit.move(authoring,selected_ids,_group_delta(world_px,Vector2(drag.grab)))
+	elif str(drag.kind)=="sidewalk_point":
 		ok=authoring.move_sidewalk_point(str(drag.id),int(drag.index),
 			_snap_point(destination_m),Sidewalks.SNAP_RADIUS_M,
 			not Input.is_physical_key_pressed(KEY_ALT))
@@ -1591,8 +1629,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				if not draft_points.is_empty() or not pending_drag.is_empty():
+				if not draft_points.is_empty() or not pending_drag.is_empty() or marquee_active:
 					_cancel_gesture()
+				elif not selected_ids.is_empty():
+					_set_group_selection([])
 				else:
 					close_editor()
 				_consume_input()
@@ -1630,7 +1670,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_apply_draft();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
 				_duplicate_selected();_consume_input();return
-			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and not source_id.is_empty():
+			if active and key.ctrl_pressed and key.keycode==KEY_A:
+				_select_visible();_consume_input();return
+			if active and key.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN] and (not source_id.is_empty() or selected_ids.size()>1):
 				_nudge_selected({KEY_LEFT:Vector2.LEFT,KEY_RIGHT:Vector2.RIGHT,KEY_UP:Vector2.UP,KEY_DOWN:Vector2.DOWN}[key.keycode],key.shift_pressed)
 				_consume_input();return
 			if active and key.keycode==KEY_F:
@@ -1721,17 +1763,23 @@ func _input(event: InputEvent) -> void:
 		if event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE] or (event.button_index==MOUSE_BUTTON_LEFT and (tool_name=="pan" or _space_pan)):
 			_right_drag=false
 			_space_pan=false
-		if event.button_index==MOUSE_BUTTON_LEFT and not pending_drag.is_empty():
+		if event.button_index==MOUSE_BUTTON_LEFT and marquee_active:
+			_finish_marquee(_event_world_position(event.position))
+			_consume_input()
+		elif event.button_index==MOUSE_BUTTON_LEFT and not pending_drag.is_empty():
 			_finish_source_drag(_event_world_position(event.position))
 			_consume_input()
 	elif event is InputEventMouseMotion:
-		if not pending_drag.is_empty():
+		if marquee_active:
+			_update_marquee(_event_world_position(event.position))
+			_consume_input()
+		elif not pending_drag.is_empty():
 			_update_drag_preview(_event_world_position(event.position))
 			_consume_input()
 		elif _right_drag:
 			editor_camera.global_position-=event.relative/editor_camera.zoom
 			_consume_input()
-	elif event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE and not pending_drag.is_empty():
+	elif event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE and (not pending_drag.is_empty() or marquee_active):
 		_cancel_gesture();_consume_input()
 
 func _notification(what: int) -> void:
@@ -1745,11 +1793,20 @@ func _notification(what: int) -> void:
 			get_tree().quit()
 	if what==NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_right_drag=false
+		marquee_active=false
+		if is_instance_valid(gizmos):
+			gizmos.marquee_active=false
+			gizmos.group_drag_delta=Vector2.ZERO
+			gizmos.queue_redraw()
 		if not pending_drag.is_empty():
 			pending_drag.clear()
 			_refresh_authoring()
 
 func _update_drag_preview(at: Vector2) -> void:
+	if pending_drag.kind=="group":
+		gizmos.group_drag_delta=_group_delta(at,Vector2(pending_drag.grab))*PPM
+		gizmos.queue_redraw()
+		return
 	if pending_drag.kind=="prop":
 		var snapped:=_snap_building_transform(authoring.prop_at_id(str(pending_drag.id)),_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM))
 		pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
@@ -2154,7 +2211,8 @@ func _finish_shape() -> void:
 	_notice("Created "+identity+". Select/Edit to move it; Save to Game when ready.")
 
 func _cancel_gesture() -> void:
-	pending_drag.clear();draft_points.clear();_right_drag=false
+	pending_drag.clear();draft_points.clear();_right_drag=false;marquee_active=false
+	gizmos.marquee_active=false;gizmos.group_drag_delta=Vector2.ZERO
 	_refresh_authoring();_notice("Unfinished edit canceled. Committed edits are unchanged.")
 
 func _pick_source_road(at: Vector2) -> Dictionary:
