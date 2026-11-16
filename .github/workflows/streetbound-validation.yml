@@ -111,6 +111,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/races_waypoints_test.gd 2>&1 | tee /tmp/races-waypoints-463.log
           grep -q 'RACES AND WAYPOINTS: PASS' /tmp/races-waypoints-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/races-waypoints-463.log
+      - name: Verify editable race starting grid, player teleport and physical AI lineup (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_start_grid_test.gd 2>&1 | tee /tmp/race-start-grid.log
+          grep -q 'RACE START GRID: PASS' /tmp/race-start-grid.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-start-grid.log
       - name: Verify native race setup, production bake and pause-only race quitting
         run: |
           set -o pipefail
