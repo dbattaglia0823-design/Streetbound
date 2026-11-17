@@ -1100,8 +1100,13 @@ assert not bad_walls,f"Boundary blocks vehicle centerline: {bad_walls[:5]}"
 assert all(land(p["position"]) for p in POIS)
 assert all(distance(NODES[r["start"]],r["points"][0])<.01 and distance(NODES[r["end"]],r["points"][-1])<.01 for r in ROADS)
 length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
+# Keep native dealership stock and placement edits inside the shipped playable
+# archive. Runtime exports need not contain the developer-only editor source.
+dealer_source = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
+authored_dealers = json.loads(dealer_source.read_text(encoding="utf-8")).get("dealerships", []) if dealer_source.exists() else []
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
           editor_warnings=EDITOR_WARNINGS,
+          editor_dealerships=authored_dealers,
           editor_source_road_count=EDITOR_SOURCE_ROAD_COUNT,
           editor_source_poi_count=len(POIS),
           original_extent=[BASE_WIDTH,BASE_HEIGHT],
