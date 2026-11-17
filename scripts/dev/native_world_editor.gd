@@ -2682,10 +2682,10 @@ func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 			if not hit.is_empty() and not road_building_snap.clear_of_roads(trial,size,candidate_angle):continue
 			var alignment_bonus:=4.0 if bool(option.edge) else 0.0
 			var road_bonus:=3.0 if not hit.is_empty() else 0.0
-			# Prefer matching the neighboring facade without drifting off the
-			# road-facing pose. Raw cursor candidates may be closer to the
-			# pointer but can violate the established curb alignment.
-			var road_pose_penalty:=2.0*trial.distance_to(start) if not hit.is_empty() else 0.0
+			# Preserve the curb setback, while allowing free movement along
+			# the road to align with an adjacent wall. The raw pointer may be
+			# closer but should never pull the building toward the roadway.
+			var road_pose_penalty:=2.0*absf((trial-start).dot(Vector2(hit.outward))) if not hit.is_empty() else 0.0
 			var score:=trial.distance_to(at)-alignment_bonus-road_bonus+road_pose_penalty
 			if score<best:
 				best=score
