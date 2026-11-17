@@ -160,7 +160,7 @@ func refresh_markers() -> void:
 			var target_screen: Vector2 = canvas_transform * target.global_position
 			if is_on_screen(target_screen,size_px):
 				continue
-			var rival := group_name != "traffic_vehicle"
+			var rival: bool = str(group_name) != "traffic_vehicle"
 			matches.append({
 				"position":edge_position(player_screen,target_screen,size_px),
 				"direction":(target_screen-player_screen).normalized(),
