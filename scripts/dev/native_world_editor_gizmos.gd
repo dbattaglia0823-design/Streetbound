@@ -25,6 +25,8 @@ var network_is_draft:=false
 var preview_junctions: Array=[]
 var selected: Dictionary = {}
 var draft_doc: Dictionary = {}
+var dealership_records: Array[Dictionary] = []
+var focused_dealer_id := ""
 var draft_initial: Dictionary = {}
 var drag_preview: Dictionary = {}
 var selected_source_id := ""
@@ -493,6 +495,41 @@ func _draw_draft() -> void:
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
 			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
 			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
+	# Forecourt footprints use the same local road-facing frame as the real
+	# pavement. They are preview-only: collision and driving stay baked.
+	if layer_flags.get("scenery",true):
+		for dealer in dealership_records:
+			var id := str(dealer.get("id",""))
+			var center := Vector2.ZERO
+			var angle := 0.0
+			var setback := 36.0
+			var current: Dictionary = {}
+			if is_instance_valid(world.dealerships):
+				current=world.dealerships.get_site(id)
+			if dealer.has("x") and dealer.has("y"):
+				center=Vector2(float(dealer.x),float(dealer.y))
+				var nearby: Dictionary=world.nearest_road_at(center*PPM,110.0)
+				if not nearby.is_empty():
+					var outward: Vector2=center-Vector2(nearby.closest_point_px)/PPM
+					setback=outward.length()
+					if setback>.01:angle=outward.angle()-PI*.5
+			elif not current.is_empty():
+				center=Vector2(float(current.center_m[0]),float(current.center_m[1]))
+				angle=float(current.rotation)
+				setback=float(current.setback_m)
+			else:
+				var near: Array=dealer.get("near_m",[0,0])
+				center=Vector2(float(near[0]),float(near[1]))
+			var width: float=float(dealer.get("lot_width_m",32.0))
+			var depth: float=float(dealer.get("lot_depth_m",setback-14.5))
+			var focused:=id==focused_dealer_id
+			draw_set_transform(center*PPM,angle,Vector2.ONE)
+			var shape:=Rect2(Vector2(-width*.5,-9.5-depth)*PPM,Vector2(width,depth)*PPM)
+			draw_rect(shape,Color(.93,.68,.24,.19 if focused else .075),true)
+			draw_rect(shape,Color("#f8c875") if focused else Color("#779eb5"),false,5.0 if focused else 2.0,true)
+			draw_circle(Vector2(0,-17)*PPM,8.0/maxf(.003,zoom_level),
+				Color("#f8c875") if focused else Color("#87bdce"))
+			draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 	# Asset artwork remains visible through preview_scenery, but only the
 	# selected source prop gets an editor bounding box or center handle.
 	for prop in draft_doc.get("props",[]):
