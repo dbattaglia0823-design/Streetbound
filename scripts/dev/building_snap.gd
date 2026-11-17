@@ -1,81 +1,67 @@
 extends RefCounted
-## Snap parallel building footprints edge-to-edge without changing rotation.
-const CLEARANCE_M:=0.02
-const MAX_CORRECTION_M:=3.0
+## Exact building edge and corner snapping in world metres. Authoring permits
+## intentional overlaps; snapping never performs collision separation.
 const EDGE_SNAP_RADIUS_M:=3.5
+const CORNER_ALIGN_RADIUS_M:=1.5
 
-static func position(at: Vector2,size: Vector2,angle: float,neighbors: Array,tolerance:=2.0,clearance:=0.0) -> Vector2:
-	var best:=tolerance
-	var result:=at
+static func _consider(at: Vector2,candidate: Vector2,tolerance: float,
+		alignment: bool,best: Dictionary) -> Dictionary:
+	var distance: float=at.distance_to(candidate)
+	if distance>tolerance+0.000001:return best
+	# Prefer an exact corner/centre join to a slightly closer edge-only join
+	# only when the two corrections are very similar.
+	var score: float=distance-(0.12 if alignment else 0.0)
+	if score<float(best.get("score",INF)):
+		return {"position":candidate,"score":score,"distance":distance}
+	return best
+
+## Returns an exact snapped position, not rounded to the editor's metre grid.
+## Empty means no nearby edge or corner; callers may then use ordinary grid snap.
+static func match(at: Vector2,size: Vector2,angle: float,neighbors: Array,
+		tolerance: float=EDGE_SNAP_RADIUS_M) -> Dictionary:
+	var best: Dictionary={}
+	var own_half: Vector2=size*.5
 	for other in neighbors:
-		var turn: float=wrapf(angle-float(other.angle),-PI,PI)
-		if absf(sin(turn*2))>.01:continue
+		var center: Vector2=other.p
+		var remote_size: Vector2=other.size
+		var remote_angle: float=float(other.angle)
+		var remote_half: Vector2=remote_size*.5
+		# Rotate-correct corner anchors also work for dissimilar roof angles.
+		for own_x in [-1.0,1.0]:
+			for own_y in [-1.0,1.0]:
+				var own_corner:=Vector2(own_half.x*own_x,own_half.y*own_y).rotated(angle)
+				for other_x in [-1.0,1.0]:
+					for other_y in [-1.0,1.0]:
+						var remote_corner:=Vector2(remote_half.x*other_x,remote_half.y*other_y).rotated(remote_angle)
+						var candidate: Vector2=center+remote_corner-own_corner
+						best=_consider(at,candidate,tolerance,true,best)
+		# A parallel pair can share a wall without requiring their corners to
+		# match. Include two-axis centre/corner anchors as precise alternatives.
+		var turn: float=wrapf(angle-remote_angle,-PI,PI)
+		if absf(sin(turn*2.0))>.01:continue
 		var own: Vector2=size if absf(cos(turn))>.5 else Vector2(size.y,size.x)
-		var half: Vector2=(own+Vector2(other.size))*.5+Vector2.ONE*clearance
-		var local: Vector2=(at-Vector2(other.p)).rotated(-float(other.angle))
+		var half: Vector2=(own+remote_size)*.5
+		var local: Vector2=(at-center).rotated(-remote_angle)
 		for axis in 2:
-			var across:=1-axis
-			if absf(local[across])>half[across]-.05:continue
-			for side in [-1,1]:
-				var candidate:=local;candidate[axis]=side*half[axis]
-				var align: float=(Vector2(other.size)[across]-own[across])*.5
-				for offset in [0.0,align,-align]:
-					if absf(candidate[across]-offset)<.5:candidate[across]=offset;break
-				var distance:=candidate.distance_to(local)
-				if distance<best:
-					best=distance;result=Vector2(other.p)+candidate.rotated(float(other.angle))
-	return result
+			var across: int=1-axis
+			for side in [-1.0,1.0]:
+				var face: float=side*half[axis]
+				# The closest point on the wall is allowed to slide along it.
+				# Do not pull to a corner when farther than the corner radius.
+				var plain: Vector2=local
+				plain[axis]=face
+				if absf(local[across])<=half[across]+tolerance:
+					best=_consider(at,center+plain.rotated(remote_angle),tolerance,false,best)
+				var centre_offset: float=(remote_size[across]-own[across])*.5
+				for anchor in [0.0,centre_offset,-centre_offset,
+						half[across],-half[across]]:
+					if absf(local[across]-anchor)>CORNER_ALIGN_RADIUS_M:continue
+					var aligned: Vector2=plain
+					aligned[across]=anchor
+					best=_consider(at,center+aligned.rotated(remote_angle),tolerance,true,best)
+	return best
 
-
-## Separating-axis test for rotated rectangular building footprints, in metres.
-## The clearance extends BOTH touching walls by the specified total gap;
-## nearest grid coordinates are not assumed to be safe.
-static func separation(at: Vector2,size: Vector2,angle: float,other: Dictionary,
-		clearance: float=CLEARANCE_M) -> Vector2:
-	var other_center: Vector2=other.p
-	var other_size: Vector2=other.size
-	var other_angle: float=float(other.angle)
-	var heading:=Vector2.RIGHT.rotated(angle)
-	var side:=heading.orthogonal()
-	var remote_heading:=Vector2.RIGHT.rotated(other_angle)
-	var remote_side:=remote_heading.orthogonal()
-	var between:=at-other_center
-	var best:=INF
-	var displacement:=Vector2.ZERO
-	for axis in [heading,side,remote_heading,remote_side]:
-		var own_span: float=absf(axis.dot(heading))*size.x*.5+absf(axis.dot(side))*size.y*.5
-		var other_span: float=absf(axis.dot(remote_heading))*other_size.x*.5+absf(axis.dot(remote_side))*other_size.y*.5
-		var signed: float=axis.dot(between)
-		var overlap: float=own_span+other_span+clearance-absf(signed)
-		if overlap<=0.00001:return Vector2.ZERO
-		if overlap<best:
-			best=overlap
-			displacement=axis*(overlap+0.0005)*(1.0 if signed>=0.0 else -1.0)
-	return displacement
-
-static func has_clearance(at: Vector2,size: Vector2,angle: float,neighbors: Array,
-		clearance: float=CLEARANCE_M) -> bool:
-	for other in neighbors:
-		var reach: float=(size.length()+Vector2(other.size).length())*.5+clearance
-		if at.distance_squared_to(Vector2(other.p))>reach*reach:continue
-		if separation(at,size,angle,other,clearance)!=Vector2.ZERO:return false
-	return true
-
-## Repeated minimum translations fix small grid-induced overlaps. Reject
-## overcrowded locations instead of shoving buildings several metres away.
-static func resolve(at: Vector2,size: Vector2,angle: float,neighbors: Array,
-		limit: float=MAX_CORRECTION_M) -> Dictionary:
-	var adjusted:=at
-	for iteration in 12:
-		var changed:=false
-		for other in neighbors:
-			var reach: float=(size.length()+Vector2(other.size).length())*.5+CLEARANCE_M
-			if adjusted.distance_squared_to(Vector2(other.p))>reach*reach:continue
-			var correction:=separation(adjusted,size,angle,other)
-			if correction==Vector2.ZERO:continue
-			adjusted+=correction
-			if adjusted.distance_to(at)>limit:
-				return {"valid":false,"position":at}
-			changed=true
-		if not changed:return {"valid":true,"position":adjusted}
-	return {"valid":false,"position":at}
+static func position(at: Vector2,size: Vector2,angle: float,neighbors: Array,
+		tolerance: float=EDGE_SNAP_RADIUS_M,clearance: float=0.0) -> Vector2:
+	var found: Dictionary=match(at,size,angle,neighbors,tolerance)
+	return Vector2(found.position) if not found.is_empty() else at
