@@ -1,6 +1,14 @@
 """Validate editor races before they enter the playable world archive."""
 import math
 import re
+import json
+from functools import lru_cache
+from pathlib import Path
+
+@lru_cache(maxsize=1)
+def vehicle_ids():
+    catalog=Path(__file__).resolve().parents[1] / 'data' / 'player_vehicle_catalog.json'
+    return frozenset(str(car['id']) for car in json.loads(catalog.read_text(encoding='utf-8'))['vehicles'])
 
 def authored_races(doc,width,height):
     races=doc.get('races',[])
@@ -56,5 +64,16 @@ def authored_races(doc,width,height):
             entry.update({'player_start':starts[0],'enemy_starts':starts[1:],'formation':formation})
         elif 'formation' in race:
             entry['formation']=formation
+        pool=race.get('opponent_pool',[])
+        if not isinstance(pool,list) or len(pool)>128 or any(
+            not isinstance(car,str) or car not in vehicle_ids() for car in pool
+        ) or len(pool)!=len(set(pool)):
+            raise ValueError('Race opponent pool must contain unique IDs from the current vehicle catalog')
+        entry['opponent_pool']=pool
+        for key,maximum in [('reward_cash',1000000),('reward_player_xp',100000),('reward_car_xp',100000)]:
+            amount=race.get(key,0)
+            if type(amount) is not int or not 0<=amount<=maximum:
+                raise ValueError('Invalid race reward: '+key)
+            entry[key]=amount
         result.append(entry)
     return result
