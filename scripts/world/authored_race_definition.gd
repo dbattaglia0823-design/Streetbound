@@ -20,6 +20,11 @@ static func valid_rewards_and_opponents(race: Dictionary) -> bool:
 static func valid(race: Dictionary,width: float,height: float) -> bool:
 	if not str(race.get("id","")).begins_with("race-") or str(race.get("name","")).strip_edges().is_empty() or str(race.get("name","")).length()>80:return false
 	if race.get("mode","") not in ["sprint","circuit"]:return false
+	var kind: String=str(race.get("race_kind",""))
+	if not kind.is_empty():
+		if kind not in ["point_to_point","circuit","time_trial"]:return false
+		if (kind=="circuit")!=(str(race.mode)=="circuit"):return false
+		if kind=="time_trial" and not race.get("enemy_starts",[]).is_empty():return false
 	var points= race.get("points")
 	if not points is Array or points.size()<(3 if race.mode=="circuit" else 2) or points.size()>100:return false
 	for i in points.size():
