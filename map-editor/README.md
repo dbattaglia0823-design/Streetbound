@@ -145,13 +145,16 @@ or rebake is required to see the updated bridges.
   copied when duplicating. **Artwork front** chooses bottom, right, top or left
   for models drawn with a different entrance direction. Existing assets align
   when moved near a road; editing a map does not reorient every building.
-  **Building edges: on** snaps placed and dragged buildings to nearby parallel
-  wall edges (within 2 m), including rotated blocks and existing city buildings.
-  Road alignment runs first, then compatible walls snap together into blocks.
-  Nearby curved-street buildings can share an alignment within 8 degrees;
-  automatic snaps keep their footprints clear of adjoining road surfaces.
-  Hold **Alt** to bypass both snaps temporarily. Disable **Face nearby road**
-  for that asset and **Building edges** for fully free placement.
+  **Building edges: on** snaps nearby building walls and corners to their
+  exact world-space edges (up to 3.5 m), including differently rotated roofs,
+  scaled footprints, and existing city buildings. Parallel facades can align
+  their centres, leading corners or trailing corners. Edge/corner snapping
+  overrides the one-metre grid and does not insert artificial wall gaps.
+  Buildings can overlap on purpose when placed, dragged, resized, rotated,
+  duplicated or moved together; the editor no longer rejects overlapping
+  building footprints or pushes them apart. Road-facing alignment still keeps
+  buildings outside road surfaces. Hold **Alt** to bypass both snaps temporarily,
+  or turn off **Face nearby road** and **Building edges** for free placement.
   **Draw sidewalk** in Tool Settings accepts path points like roads: set the
   width (0.8–12 m), click points, then Enter/Finish. Escape cancels; Undo removes
   the whole path. Finished sidewalks can be selected, moved, rotated, resized,

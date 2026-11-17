@@ -57,9 +57,9 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
-	e.grid_button.tooltip_text="Align general placement to 1 m coordinates. Buildings override the grid when necessary to preserve wall clearance."
+	e.grid_button.tooltip_text="Align free placement to 1 m coordinates. Building edge and corner snaps always take precedence over the grid."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
-	e.building_snap_button.tooltip_text="Snap neighboring walls almost flush (2 cm safety tolerance), independent of the 1 m grid. Collision overlaps remain blocked. Alt bypasses snapping."
+	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	e._btn("Dealership areas & stock",settings,e._open_dealership_editor)
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3

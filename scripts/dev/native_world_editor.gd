@@ -836,51 +836,21 @@ func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
 		return
 	_group_action("duplicate" if duplicate else "move",delta)
 
-func _group_buildings_clear(ids: Array[String],moving: bool=false) -> bool:
-	# Moving a group preserves separation among its original members.
-	# Only check against the outside world; do not strand older touching
-	# blocks by requiring newly introduced clearance within the group.
-	var selected: Dictionary={}
-	if moving:
-		for id in ids:selected[id]=true
-	for id in ids:
-		var prop: Dictionary=authoring.prop_at_id(id)
-		if prop.is_empty() or not RoadBuildingSnap.supports(prop):continue
-		var pos:=Vector2(float(prop.x),float(prop.y))
-		var near: Array=[]
-		for neighbor in _building_snap_neighbors(prop,pos):
-			if moving and selected.has(str(neighbor.get("id",""))):continue
-			near.append(neighbor)
-		if not BuildingSnap.has_clearance(pos,gizmos._prop_size(prop)/PPM,
-				deg_to_rad(float(prop.get("rotation",0.0))),near):
-			return false
-	return true
-
 func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 	if _editing_locked() or not source_ready or multi_selection.is_empty():return false
-	var count:=multi_selection.size()
-	var offsets: Array[Vector2]=[Vector2.ZERO]
-	if operation=="duplicate":
-		# The usual 12 m copy offset can put a full-size facade onto an
-		# original. Try minimal group translations without altering formation.
-		offsets.append_array([Vector2(.5,.5),Vector2(1,1),Vector2(2,2),Vector2(3,3)])
-	for correction in offsets:
-		var revision_before: int=authoring.edit_revision
-		var affected: Array[String]=authoring.batch_entities(multi_selection,delta+correction,operation)
-		if authoring.edit_revision==revision_before:
-			_notice(authoring.last_error)
-			return false
-		if operation!="delete" and not _group_buildings_clear(affected,operation=="move"):
-			authoring.undo()
-			authoring.future.clear()
-			continue
-		_set_multi([] if operation=="delete" else affected)
-		_refresh_authoring()
-		_set_multi([] if operation=="delete" else affected)
-		_notice("%d objects %s in one undo step."%[count,operation])
-		return true
-	_notice("Selected buildings would overlap. Move the group to a clearer area.")
-	return false
+	var count: int=multi_selection.size()
+	# Groups may overlap intentionally. Never reject or auto-separate buildings.
+	var revision_before: int=authoring.edit_revision
+	var affected: Array[String]=authoring.batch_entities(multi_selection,delta,operation)
+	# A successful deletion returns no new IDs; its revision still advances.
+	if authoring.edit_revision==revision_before:
+		_notice(authoring.last_error)
+		return false
+	_set_multi([] if operation=="delete" else affected)
+	_refresh_authoring()
+	_set_multi([] if operation=="delete" else affected)
+	_notice("%d objects %s in one undo step."%[count,operation])
+	return true
 
 func _open_dealership_editor() -> void:
 	dealer_editor.open()
@@ -1016,12 +986,6 @@ func _discard_draft() -> void:
 func _resize_selected(factor: float) -> void:
 	if _editing_locked() or not source_ready or source_id.is_empty():
 		return
-	var proposed: Dictionary=authoring.prop_at_id(source_id).duplicate(true)
-	if not proposed.is_empty():
-		proposed.scale=clampf(float(proposed.get("scale",1.0))*factor,.25,5.0)
-		if not _building_transform_clear(proposed,Vector2(float(proposed.x),float(proposed.y))):
-			_notice("Resize would overlap a neighboring building.")
-			return
 	if authoring.resize_prop(source_id,factor):
 		_refresh_authoring()
 		_notice("Asset size and draft collision updated. Save to Game when ready.")
@@ -1072,12 +1036,6 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if not source_ready or source_id.is_empty():
 		return
-	var proposed: Dictionary=authoring.prop_at_id(source_id).duplicate(true)
-	if not proposed.is_empty():
-		proposed.rotation=wrapf(float(proposed.get("rotation",0.0))+degrees,-180.0,180.0)
-		if not _building_transform_clear(proposed,Vector2(float(proposed.x),float(proposed.y))):
-			_notice("Rotation would overlap a neighboring building.")
-			return
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
 		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
@@ -1359,16 +1317,8 @@ func _source_click(world_px: Vector2) -> void:
 		if id != "":
 			var prop: Dictionary=authoring.prop_at_id(id)
 			var snapped:=_snap_building_transform(prop,Vector2(prop.x,prop.y))
-			if not bool(snapped.valid):
-				# The new object was the most recent undoable edit. Reject it
-				# without leaving a redo entry that could resurrect an overlap.
-				authoring.undo()
-				authoring.future.clear()
-				source_id=""
-				_refresh_authoring()
-				_notice("Cannot place building here: move it farther from nearby buildings.")
-				return
 			# Fold automatic snapping into the placement's existing undo step.
+			# Overlapping buildings are valid authored placements.
 			prop.x=snapped.position.x;prop.y=snapped.position.y;prop.rotation=snapped.rotation
 			source_id = id
 			source_anchor = -1
@@ -1487,10 +1437,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		else:
 			var snapped:=_snap_building_transform(item,
 				(Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM)
-			if bool(snapped.valid):
-				ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
-			else:
-				authoring.last_error="Building overlaps another asset. Try a clearer position."
+			ok=authoring.edit_entity(str(drag.id),{"rotation":snapped.rotation},snapped.position)
 	elif str(drag.kind)=="race_grid":
 		ok=authoring.set_race_grid_slot(str(drag.id),int(drag.index),
 			_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
@@ -2238,18 +2185,7 @@ func _commit_inspector(field: String="name") -> void:
 			# Disabling this preference never moves or rotates the asset.
 			if field!="roadFacing" or bool(values[field]):
 				var snapped:=_snap_building_transform(adjusted,destination)
-				if not bool(snapped.valid):
-					_notice("Cannot move building here: the footprint would overlap.")
-					_refresh_inspector()
-					return
 				destination=snapped.position;values["rotation"]=snapped.rotation
-	if record.category=="props" and field in ["rotation","scale","scaleX","scaleY"]:
-		var proposed: Dictionary=record.item.duplicate(true)
-		proposed.merge(values,true)
-		if not _building_transform_clear(proposed,destination):
-			_notice("Building footprint would overlap after this change.")
-			_refresh_inspector()
-			return
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
@@ -2327,11 +2263,6 @@ func _reset_asset_size() -> void:
 	if _editing_locked() or not source_ready:return
 	var record:=_selected_record()
 	if record.is_empty() or record.category!="props":return
-	var proposed: Dictionary=record.item.duplicate(true)
-	proposed.scale=1.0;proposed.scaleX=1.0;proposed.scaleY=1.0
-	if not _building_transform_clear(proposed,_record_position(record)):
-		_notice("Original size would overlap a neighboring building.")
-		return
 	if authoring.edit_entity(source_id,{"scale":1.0,"scaleX":1.0,"scaleY":1.0},_record_position(record)):
 		_refresh_authoring();_notice("Original asset size restored. Position, rotation and artwork are preserved.")
 
@@ -2345,12 +2276,7 @@ func _duplicate_selected() -> void:
 	var duplicate: Dictionary=authoring.prop_at_id(id)
 	if not duplicate.is_empty() and RoadBuildingSnap.supports(duplicate):
 		var snapped:=_snap_building_transform(duplicate,Vector2(float(duplicate.x),float(duplicate.y)))
-		if not bool(snapped.valid):
-			authoring.undo()
-			authoring.future.clear()
-			_notice("No clear space to duplicate this building; move it first.")
-			return
-		# Preserve the duplicate's single undo step.
+		# Preserve the duplicate's single undo step, even when overlapping.
 		duplicate.x=snapped.position.x
 		duplicate.y=snapped.position.y
 		duplicate.rotation=snapped.rotation
@@ -2369,9 +2295,6 @@ func _nudge_selected(direction: Vector2,large: bool=false) -> void:
 	var values: Dictionary={}
 	if record.category=="props":
 		var snapped:=_snap_building_transform(record.item,destination)
-		if not bool(snapped.valid):
-			_notice("Building cannot be nudged into another building.")
-			return
 		destination=snapped.position;values["rotation"]=snapped.rotation
 	if authoring.edit_entity(source_id,values,destination,source_anchor):_refresh_authoring()
 	else:_notice(authoring.last_error)
@@ -2730,11 +2653,6 @@ func _pick_race_handle(at: Vector2) -> Dictionary:
 		if p.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):return {"id":source_id,"kind":"race_point","index":i,"from":p}
 	return {}
 
-func _building_transform_clear(prop: Dictionary,at: Vector2) -> bool:
-	if not RoadBuildingSnap.supports(prop):return true
-	return BuildingSnap.has_clearance(at,gizmos._prop_size(prop)/PPM,
-		deg_to_rad(float(prop.get("rotation",0.0))),_building_snap_neighbors(prop,at))
-
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 	return _snap_building_transform(prop,at).position
 
@@ -2768,74 +2686,59 @@ func _building_snap_neighbors(prop: Dictionary,at: Vector2) -> Array:
 
 func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 	var base_angle: float=float(prop.get("rotation",0.0))
-	var grid_position:=_snap_point(at)
+	var grid_position: Vector2=_snap_point(at)
 	var fallback: Dictionary={"position":grid_position,"rotation":base_angle,"valid":true}
-	if not RoadBuildingSnap.supports(prop) or Input.is_physical_key_pressed(KEY_ALT):
-		return fallback
+	if not RoadBuildingSnap.supports(prop):return fallback
+	# Alt is an exact, unsnapped move even if grid mode is enabled.
+	if Input.is_physical_key_pressed(KEY_ALT):
+		return {"position":at,"rotation":base_angle,"valid":true}
 	var size: Vector2=gizmos._prop_size(prop)/PPM
-	# Grid snapping is only a candidate, never permission to overlap.
-	var neighbors: Array=_building_snap_neighbors(prop,at)
 	var hit: Dictionary={}
 	if RoadBuildingSnap.enabled(prop):
 		_ensure_road_building_index()
 		hit=road_building_snap.snap(prop,at,size)
-	var position: Vector2=hit.get("position",grid_position)
-	var angle: float=float(hit.get("angle",deg_to_rad(base_angle)))
-	var angles: Array[float]=[angle]
-	if building_snap_enabled and not hit.is_empty():
+	var road_position: Vector2=Vector2(hit.get("position",at))
+	var road_angle: float=float(hit.get("angle",deg_to_rad(base_angle)))
+	var neighbors: Array=_building_snap_neighbors(prop,at) if building_snap_enabled else []
+	var angles: Array[float]=[road_angle]
+	if building_snap_enabled:
 		for other in neighbors:
-			if Vector2(other.p).distance_to(position)>(size.length()+Vector2(other.size).length())*.5+4:continue
-			var turn:=wrapf(angle-float(other.angle),-PI*.25,PI*.25)
+			var reach: float=(size.length()+Vector2(other.size).length())*.5+BuildingSnap.EDGE_SNAP_RADIUS_M
+			if Vector2(other.p).distance_to(at)>reach:continue
+			var turn: float=wrapf(road_angle-float(other.angle),-PI*.25,PI*.25)
 			if absf(turn)<.0001 or absf(turn)>deg_to_rad(8):continue
-			var candidate:=angle-turn
+			var neighbor_angle: float=road_angle-turn
 			var seen:=false
-			for existing in angles:
-				if absf(candidate-existing)<.002:seen=true;break
-			if not seen:angles.append(candidate)
+			for known in angles:
+				if absf(neighbor_angle-known)<.002:seen=true;break
+			if not seen:angles.append(neighbor_angle)
 			if angles.size()>=6:break
+	# Exact edge/corner coordinates beat the global metre grid. Score the
+	# pointer and road-aligned anchor, favouring a consistent curb setback
+	# when Face Nearby Road is enabled.
 	var winner: Dictionary={}
 	var best:=INF
 	for candidate_angle in angles:
-		var start: Vector2=position if candidate_angle==angle or hit.is_empty() else road_building_snap.pose(hit,size,candidate_angle)
-		var candidates: Array[Dictionary]=[]
-		if building_snap_enabled:
-			# Road-facing snap may already have pulled the pointer several
-			# metres from the neighboring facade. Try both the road-aligned
-			# pose and the raw pointer before judging wall-to-wall snapping.
-			var anchors: Array[Vector2]=[start,at]
-			for anchor in anchors:
-				var aligned:=BuildingSnap.position(anchor,size,candidate_angle,neighbors,
-					BuildingSnap.EDGE_SNAP_RADIUS_M,BuildingSnap.CLEARANCE_M)
-				if aligned.distance_to(anchor)>.001:
-					candidates.append({"position":aligned,"edge":true})
-		candidates.append({"position":start,"edge":false})
-		for option in candidates:
-			var original_candidate: Vector2=option.position
-			var fixed: Dictionary=BuildingSnap.resolve(original_candidate,size,candidate_angle,neighbors)
-			if not bool(fixed.valid):continue
-			var trial: Vector2=fixed.position
+		var aligned_road: Vector2=road_position
+		if not hit.is_empty() and not is_equal_approx(candidate_angle,road_angle):
+			aligned_road=road_building_snap.pose(hit,size,candidate_angle)
+		for anchor in [at,aligned_road]:
+			var snap: Dictionary=BuildingSnap.match(anchor,size,candidate_angle,neighbors)
+			if snap.is_empty():continue
+			var trial: Vector2=snap.position
 			if not authoring._in_bounds(trial):continue
 			if not hit.is_empty() and not road_building_snap.clear_of_roads(trial,size,candidate_angle):continue
-			var alignment_bonus:=4.0 if bool(option.edge) else 0.0
-			var road_bonus:=3.0 if not hit.is_empty() else 0.0
-			# Preserve the curb setback, while allowing free movement along
-			# the road to align with an adjacent wall. The raw pointer may be
-			# closer but should never pull the building toward the roadway.
-			var road_pose_penalty:=2.0*absf((trial-start).dot(Vector2(hit.outward))) if not hit.is_empty() else 0.0
-			var score:=trial.distance_to(at)-alignment_bonus-road_bonus+road_pose_penalty
+			var road_penalty: float=0.0
+			if not hit.is_empty():
+				road_penalty=2.0*absf((trial-aligned_road).dot(Vector2(hit.outward)))
+			var score: float=trial.distance_to(at)+road_penalty+absf(candidate_angle-road_angle)*.5
 			if score<best:
 				best=score
 				winner={"position":trial,"rotation":rad_to_deg(candidate_angle),"valid":true}
 	if not winner.is_empty():return winner
-	# A grid point can be unsafe even when the unrounded mouse position is
-	# clear. Try that exact position instead of forcing a collision.
-	if snap_m>0:
-		var raw: Dictionary=BuildingSnap.resolve(at,size,deg_to_rad(base_angle),neighbors,1.0)
-		if bool(raw.valid) and authoring._in_bounds(Vector2(raw.position)) and \
-				(hit.is_empty() or road_building_snap.clear_of_roads(Vector2(raw.position),size,deg_to_rad(base_angle))):
-			return {"position":raw.position,"rotation":base_angle,"valid":true}
-	# Caller must reject the placement or drag, rather than save an overlap.
-	return {"position":grid_position,"rotation":base_angle,"valid":false}
+	if not hit.is_empty() and authoring._in_bounds(road_position):
+		return {"position":road_position,"rotation":rad_to_deg(road_angle),"valid":true}
+	return fallback
 
 func _consume_input() -> void:
 	var viewport:=get_viewport()
