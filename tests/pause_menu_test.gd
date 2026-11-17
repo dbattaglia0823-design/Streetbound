@@ -99,6 +99,32 @@ func _run() -> void:
 		map_hud.mini_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
 	check("full_atlas_remains_rectangular",
 		map_hud.full_view.clip_children == CanvasItem.CLIP_CHILDREN_DISABLED)
+	check("widescreen_stretch_expands_to_viewport",
+		str(ProjectSettings.get_setting("display/window/stretch/aspect"))=="expand")
+	var display: OptionButton=pause.display_mode_select
+	check("settings_expose_three_display_modes",
+		display.item_count==3 and display.visible and
+		str(display.get_item_metadata(0))=="windowed" and
+		str(display.get_item_metadata(1))=="borderless" and
+		str(display.get_item_metadata(2))=="fullscreen")
+	display.select(1);display.item_selected.emit(1)
+	check("borderless_mode_is_applied_to_shared_settings",
+		str(pause.settings_store.get_setting("display_mode"))=="borderless" and
+		display.selected==1)
+	display.select(2);display.item_selected.emit(2)
+	var video_config:=ConfigFile.new()
+	check("fullscreen_mode_persisted",
+		str(pause.settings_store.get_setting("display_mode"))=="fullscreen" and
+		video_config.load(pause.settings_store.path)==OK and
+		str(video_config.get_value("settings","display_mode",""))=="fullscreen")
+	pause._set_settings_tab("controls")
+	check("display_options_hidden_on_controls_tab",
+		not display.visible and not pause.display_mode_label.visible)
+	pause._set_settings_tab("general")
+	check("display_options_return_on_general_tab",display.visible and pause.display_mode_label.visible)
+	display.select(0);display.item_selected.emit(0)
+	check("windowed_mode_restored",
+		str(pause.settings_store.get_setting("display_mode"))=="windowed" and display.selected==0)
 	var stored := ConfigFile.new()
 	check("circle_preference_saved_to_config",
 		stored.load(pause.settings_store.path) == OK and
