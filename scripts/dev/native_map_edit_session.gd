@@ -448,6 +448,9 @@ func change_race_points(identity: String,index: int,remove: bool) -> bool:
 		if str(race.id)!=identity:continue
 		index=clampi(index,0,race.points.size()-1)
 		if remove:
+			if index==0 or (race.mode=="sprint" and index==race.points.size()-1):
+				last_error="Start and finish are fixed gates. Select an intermediate checkpoint to remove."
+				return false
 			if race.points.size()<=(3 if race.mode=="circuit" else 2):last_error="Keep the race's start, finish and required checkpoints.";return false
 			race.points.remove_at(index)
 		else:
