@@ -1040,8 +1040,11 @@ func _resize_selected_region(scale: Vector2) -> void:
 func _resize_region_by_percentage(direction: float) -> void:
 	# Expand and Shrink read the current input on every click, not a fixed step.
 	var percent: float=inspector_terrain_percent.value
-	if not is_finite(percent) or percent<=0.0 or percent>=100.0:
-		_notice("Enter a terrain resize percentage greater than 0 and less than 100.")
+	if not is_finite(percent) or percent<=0.0:
+		_notice("Enter a positive terrain resize percentage.")
+		return
+	if direction<0.0 and percent>=100.0:
+		_notice("Shrinking by 100% or more would erase the terrain. Enter a lower percentage.")
 		return
 	var factor:=1.0+direction*percent/100.0
 	_resize_selected_region(Vector2(factor,factor))
