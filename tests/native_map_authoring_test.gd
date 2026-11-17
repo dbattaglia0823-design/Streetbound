@@ -36,6 +36,39 @@ func _run() -> void:
 			"0000000000000000000000000000000000000000000000000000000000000000") and
 		backend.phase=="")
 	backend.queue_free()
+	# Dealerships are editable source objects, but legacy shops do not
+	# appear in the saved overrides until someone changes them.
+	var dealer_session = Session.new()
+	var DealerConfig = preload("res://scripts/world/dealership_config.gd")
+	var Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+	check("dealer_editor_loads_source",dealer_session.load_source())
+	check("all_curated_dealers_appear_without_source_overrides",
+		dealer_session.dealership_list().size()==10 and
+		dealer_session.doc.get("dealerships",[]).is_empty())
+	var sample_vehicle: Dictionary = Catalog.all()[0]
+	var sample_id := str(sample_vehicle.id)
+	check("dealer_stock_overrides_are_undoable",
+		dealer_session.update_dealership("budget",{
+			"inventory_mode":"manual","inventory":[sample_id],
+			"lot_width_m":40.0,"lot_depth_m":20.0}) and
+		DealerConfig.available_inventory(dealer_session.dealership_at_id("budget")).size()==1 and
+		DealerConfig.sells(dealer_session.dealership_at_id("budget"),sample_id) and
+		dealer_session.undo() and
+		dealer_session.dealership_at_id("budget").get("inventory_mode","automatic")=="automatic")
+	check("new_dealerships_support_placement_and_undo",
+		dealer_session.add_dealership(Vector2(3050,2570))=="custom-dealer-1" and
+		dealer_session.dealership_list().size()==11 and
+		dealer_session.undo() and dealer_session.dealership_list().size()==10)
+	check("invalid_dealership_geometry_is_rejected",
+		not dealer_session.update_dealership("budget",{"lot_width_m":200.0}) and
+		dealer_session.dealership_at_id("budget").get("lot_width_m",32.0)==32.0)
+	var new_vehicle: Dictionary = sample_vehicle.duplicate(true)
+	new_vehicle.id="test-new-catalog-car"
+	new_vehicle.dealership_id="budget"
+	Catalog.all().append(new_vehicle)
+	check("automatic_stock_tracks_new_catalog_cars",
+		DealerConfig.sells(dealer_session.dealership_at_id("budget"),str(new_vehicle.id)))
+	Catalog.all().erase(new_vehicle)
 	var original_hash: String = session.baseline_hash
 	var origin_road: Dictionary = session.road_at_id("road-0")
 	check("stable_source_road_id",not origin_road.is_empty())
