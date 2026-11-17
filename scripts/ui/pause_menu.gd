@@ -327,6 +327,7 @@ func _build_settings_tabs() -> void:
 	display_mode_select.name="DisplayModeSelect"
 	display_mode_select.position=Vector2(390,354)
 	display_mode_select.size=Vector2(189,36)
+	_button_skin(display_mode_select)
 	display_mode_select.tooltip_text="Windowed, borderless maximized window, or exclusive fullscreen"
 	for item in [["Windowed","windowed"],["Borderless Window","borderless"],["Fullscreen","fullscreen"]]:
 		display_mode_select.add_item(item[0])
