@@ -60,6 +60,7 @@ static func build(e) -> void:
 	e.grid_button.tooltip_text="Align general placement to 1 m coordinates. Buildings override the grid when necessary to preserve wall clearance."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap neighboring walls almost flush (2 cm safety tolerance), independent of the 1 m grid. Collision overlaps remain blocked. Alt bypasses snapping."
+	e._btn("Dealership areas & stock",settings,e._open_dealership_editor)
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
