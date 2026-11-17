@@ -21,29 +21,7 @@ func check(name: String, ok: bool, info: Variant = "") -> void:
 func run() -> void:
 	var wanted: Array[String] = Pending.read_requested_models()
 	var profiles: Array[Dictionary] = Pending.all()
-	# The original request text was never committed to the repository. CI
-	# checkouts therefore have no streetbound_vehicle_list.txt. When available,
-	# still validate the source list itself. Otherwise validate the committed
-	# snapshot's independently recorded counts against the prepared profiles.
-	var has_source_list: bool = FileAccess.file_exists(Pending.SOURCE_LIST)
-	if has_source_list:
-		check("source_list_has_at_least_baseline_models",wanted.size() >= 223,wanted.size())
-	else:
-		var snapshot: Variant = JSON.parse_string(FileAccess.get_file_as_string(Pending.PATH))
-		var counts_valid: bool = false
-		var counts: Array[int] = []
-		if snapshot is Dictionary:
-			var source_count: int = int(snapshot.get("source_entry_count",0))
-			var exact_count: int = int(snapshot.get("existing_exact_count",0))
-			var prepared_count: int = int(snapshot.get("prepared_count",0))
-			var aliases: Variant = snapshot.get("existing_aliases",{})
-			var alias_count: int = aliases.size() if aliases is Dictionary else -1
-			counts=[source_count,exact_count,alias_count,prepared_count]
-			counts_valid=source_count>=223 and exact_count>0 and alias_count>=0 and \
-				prepared_count==profiles.size() and \
-				source_count==exact_count+alias_count+prepared_count
-		check("committed_audio_snapshot_accounts_for_missing_request_list",counts_valid,counts)
-		print("Original requested vehicle text is not checked in; using the validated committed audio snapshot.")
+	check("source_list_has_at_least_baseline_models",wanted.size() >= 223,wanted.size())
 	check("154_future_models_have_prepared_profiles",
 		profiles.size() == 154,profiles.size())
 	var existing: Dictionary = {}
