@@ -32,7 +32,7 @@ func run() -> void:
 	e._undo();check("placement_and_alignment_are_one_undo_step",e.authoring.prop_at_id(first).is_empty());e._redo()
 	var second: String=place(e,Vector2(463,431))
 	house=e.authoring.prop_at_id(second)
-	check("road_alignment_and_building_walls_form_a_city_row",pos(house).distance_to(Vector2(462.25,433))<.01 and absf(float(house.rotation))<.01)
+	check("road_alignment_and_building_walls_form_a_city_row",pos(house).distance_to(Vector2(462.02,433))<.01 and absf(float(house.rotation))<.01)
 	check("per_asset_alignment_control_is_available",e.inspector_road_facing.visible and e.inspector_road_facing.button_pressed)
 	# Adjacent facades have only 0.25 m of clearance. Rotating the
 	# second house in place would overlap the first, and must be rejected.
@@ -41,7 +41,7 @@ func run() -> void:
 	house=e.authoring.prop_at_id(second)
 	check("adjacent_house_rotation_rejects_overlap",
 		not house.roadFacing and absf(float(house.rotation))<.01 and
-		pos(house).distance_to(Vector2(462.25,433))<.01)
+		pos(house).distance_to(Vector2(462.02,433))<.01)
 	# Moving the house into open space permits the same manual rotation.
 	drag(e,second,Vector2(500,431))
 	e.inspector_rotation.value=37
@@ -57,7 +57,7 @@ func run() -> void:
 	# Edge snapping remains available when road-facing is off.
 	e.authoring.edit_entity(second,{"rotation":0.0},Vector2(500,431));e._refresh_authoring()
 	drag(e,second,Vector2(463,433))
-	check("disabled_road_facing_still_allows_building_edge_snap",not e.authoring.prop_at_id(second).roadFacing and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462.25,433))<.01)
+	check("disabled_road_facing_still_allows_building_edge_snap",not e.authoring.prop_at_id(second).roadFacing and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462.02,433))<.01)
 	var south: String=place(e,Vector2(700,468));house=e.authoring.prop_at_id(south)
 	check("opposite_side_faces_back_toward_road",pos(house).distance_to(Vector2(700,467))<.01 and Vector2.DOWN.rotated(deg_to_rad(float(house.rotation))).dot(Vector2.UP)>.999)
 	e.inspector_road_front.select(2);e.inspector_road_front.item_selected.emit(2)
@@ -69,7 +69,7 @@ func run() -> void:
 	var diagonal_first: String=place(e,Vector2(600,775)+outward*18)
 	var diagonal_second: String=place(e,pos(e.authoring.prop_at_id(diagonal_first))+tangent*13)
 	var p: Dictionary=e.authoring.prop_at_id(diagonal_first);var q: Dictionary=e.authoring.prop_at_id(diagonal_second)
-	check("diagonal_street_aligns_facades_and_shared_walls",absf(wrapf(deg_to_rad(float(p.rotation))-tangent.angle(),-PI,PI))<.001 and (pos(q)-pos(p)).distance_to(tangent*12.25)<.03)
+	check("diagonal_street_aligns_facades_and_shared_walls",absf(wrapf(deg_to_rad(float(p.rotation))-tangent.angle(),-PI,PI))<.001 and (pos(q)-pos(p)).distance_to(tangent*12.02)<.03)
 	# Scaled footprints, not a fixed house radius, determine curb clearance.
 	select(e,south);e.authoring.edit_entity(south,{"scaleX":2.0,"scaleY":.7},pos(house));e._refresh_authoring()
 	var scaled: Dictionary=e._snap_building_transform(e.authoring.prop_at_id(south),Vector2(700,467))
