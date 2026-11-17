@@ -161,6 +161,20 @@ static func build(e) -> void:
 	for pair in [[e.inspector_rotation,"rotation"],[e.inspector_scale,"scale"],[e.inspector_scale_x,"scaleX"],[e.inspector_scale_y,"scaleY"]]:
 		var field_name: String=pair[1]
 		pair[0].value_changed.connect(func(_value: float)->void:e._commit_inspector(field_name))
+	# Terrain size edits change the underlying polygon, not just a display scale.
+	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
+	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
+	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,24000,10)
+	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,24000,10)
+	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
+		spin.step=0.5
+	e.inspector_terrain_width.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("x"))
+	e.inspector_terrain_height.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("y"))
+	var terrain_buttons:=HBoxContainer.new();e.terrain_transforms.add_child(terrain_buttons)
+	e._btn("Shrink 10%",terrain_buttons,e._resize_selected_region.bind(Vector2(0.9,0.9)))
+	e._btn("Expand 10%",terrain_buttons,e._resize_selected_region.bind(Vector2(1.1,1.1)))
+	var terrain_help:=heading(e.terrain_transforms,"Drag the terrain interior to move it. Change width or height to reshape its whole footprint.")
+	terrain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.point_picker=OptionButton.new();inspector.add_child(e.point_picker)
 	e.point_picker.item_selected.connect(e._select_point)
 	e.remove_point_button=e._btn("Remove selected road point",inspector,e._remove_point)
