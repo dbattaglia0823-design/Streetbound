@@ -76,7 +76,7 @@ func _run() -> void:
 	check("every_car_has_a_named_real_model_year_and_trim",valid)
 	check("vehicle_ids_unchanged_and_unique",ids.size()==98)
 	check("source_checked_and_representative_trims_distinguished",
-		direct_sources>=31 and estimated_specs>=1 and \
+		direct_sources>=34 and estimated_specs>=1 and \
 		direct_sources+estimated_specs==98,[direct_sources,estimated_specs])
 	check("prices_are_explicit_about_original_vs_estimated_market_basis",
 		price_bases.size()==6 and \
@@ -90,11 +90,11 @@ func _run() -> void:
 	check("factory_forward_gear_counts_reach_real_driving_config",all_gears)
 	check("ev_and_hybrid_sound_identity_follows_reference_powertrain",all_hybrids)
 	var expected := {
-		"acura-integra-types":[320,"FWD",52600],
+		"acura-integra-types":[320,"FWD",52900],
 		"acura-nsx":[600,"AWD",171495],
 		"cadillac-ct5-v-blackwing":[668,"RWD",95595],
 		"cadillac-celestiq":[655,"AWD",340000],
-		"chevrolet-corvette-zr1x":[1250,"AWD",207395],
+		"chevrolet-corvette-zr1x":[1250,"AWD",209700],
 		"ferrari-f40":[478,"RWD",3000000],
 		"bugatti-eb110":[560,"AWD",1900000],
 		"bugatti-tourbillon":[1775,"AWD",4200000]
@@ -109,6 +109,19 @@ func _run() -> void:
 			int(v.price_usd)==int(values[2])
 	check("major_added_and_historical_vehicle_errors_are_corrected",
 		priority_corrections)
+	var integra: Dictionary = Catalog.find_by_id("acura-integra")
+	var q3: Dictionary = Catalog.find_by_id("audi-q3")
+	var vanquish: Dictionary = Catalog.find_by_id("aston-martin-vanquish")
+	var m2: Dictionary = Catalog.find_by_id("bmw-m2")
+	check("acura_2025_march_msrs_and_6mt_curb_mass_correct",
+		int(integra.price_usd)==38000 and \
+		is_equal_approx(float(integra.mass_kg),1394.0) and \
+		str(integra.reference_trim).contains("Technology"))
+	check("manufacturer_crosschecked_trims_reach_real_physics",
+		int(q3.torque_nm)==340 and int(q3.mass_kg)==1776 and \
+		int(vanquish.mass_kg)==1910 and int(m2.mass_kg)==1730 and \
+		int(m2.price_usd)==64195 and \
+		str(vanquish.reference_mass_basis)=="manufacturer_eu_unladen")
 	var batur: VehicleConfig = Catalog.make_configuration(
 		Catalog.find_by_id("bentley-batur"))
 	var mulsanne: VehicleConfig = Catalog.make_configuration(

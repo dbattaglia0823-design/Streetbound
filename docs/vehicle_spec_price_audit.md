@@ -17,9 +17,9 @@ drivetrain and price; the reference trim and gearbox; price basis; mass and
 torque exceptions; and any directly consulted manufacturer/secondary source.
 The catalog itself carries the same reference fields.
 
-**Evidence boundary:** 31 vehicle records are marked
+**Evidence boundary:** 34 vehicle records are marked
 `spec_confidence: source_checked` and contain a directly consulted
-manufacturer or automotive reference URL. The other **67 are marked
+manufacturer or automotive reference URL. The other **64 are marked
 `representative_trim`**, with model-specific approximations but **not
 individually source-verified**. Do not present all 98 as officially verified.
 This is an exhaustive *catalog audit and correction pass*, not an exhaustive
@@ -29,8 +29,8 @@ VIN/options-level verification or live appraisal.
 
 | `price_basis` | Number | Interpretation |
 | --- | ---: | --- |
-| `msrp_usd` | 15 | Published approximate/base U.S. MSRP for selected year/trim |
-| `msrp_estimate_usd` | 33 | Estimated U.S. MSRP for a representative trim/year |
+| `msrp_usd` | 16 | Published approximate/base U.S. MSRP for selected year/trim |
+| `msrp_estimate_usd` | 32 | Estimated U.S. MSRP for a representative trim/year |
 | `used_estimate_usd` | 30 | Illustrative 2026 U.S. used-market estimate |
 | `international_used_estimate_usd` | 3 | Overseas used value expressed in USD (e.g. MiTo, Giulietta, Brera), **not** a U.S. listing |
 | `collector_estimate_usd` | 7 | Illustrative collector/auction market estimate, not an active quote |
@@ -46,10 +46,10 @@ use separate economy tuning rather than overwriting audited market references.
 
 | Vehicle/trim | Previously | Audited reference |
 | --- | --- | --- |
-| 2025 Acura Integra Type S | 237 hp, RWD, 1,050 kg | **320 hp, FWD**, 1,460 kg, $52,600 published launch MSRP |
+| 2025 Acura Integra Type S | 237 hp, RWD, 1,050 kg | **320 hp, FWD**, 1,460 kg, $52,900 March 2025 published MSRP |
 | 2025 Cadillac CT5-V Blackwing | 288 hp, 350 Nm, $55k | **668 hp, 893 Nm**, RWD, $95,595 base MSRP |
 | 2026 Cadillac Celestiq | 288 hp, RWD, $55k | **655 hp, dual-motor AWD**, ~$340k starting-price estimate, EV audio |
-| 2026 Chevrolet Corvette ZR1X | RWD, $315k | **AWD hybrid**, 1,250 hp, $207,395 announced 2026 MSRP including destination |
+| 2026 Chevrolet Corvette ZR1X | RWD, $315k | **AWD hybrid**, 1,250 hp, $209,700 Chevrolet January 2026 published MSRP including destination |
 | 1987 Ferrari F40 | 932 hp / 1,640 kg | **478 hp, ~1,235 kg**, period factory specifications |
 | 1994 Bugatti EB110 GT | 1,274 hp / 1,980 kg | **560 hp / 1,620 kg**, 3.5 L quad-turbo V12 |
 | 2026 Bugatti Tourbillon | 1,274 hp, $250k | **1,800 metric PS (~1,775 mechanical hp)** combined V16 hybrid, ~$4.2m estimated foreign-launch conversion |
@@ -103,7 +103,7 @@ from a different model year, optional package or exact VIN.
 
 ## Selected primary and secondary technical references
 
-Direct source URLs for all 31 cross-checked entries are retained in the
+Direct source URLs for all 34 cross-checked entries are retained in the
 machine-readable CSV and JSON. Representative high-signal sources include:
 
 - [2025 Acura Integra / Type S fact sheet](https://www.acura.com/-/media/Files/Vehicles/INTEGRA/2025/Type-S/Acura_2025_Integra_Type-S_Fact_Sheet.pdf?cache-busting=1.1.1)
@@ -148,7 +148,7 @@ playable vehicle IDs**, not unimplemented ideas on the future list.
 
 ## Further independent work
 
-The 67 representative (not directly checked) trims and every price labeled
+The 64 representative (not directly checked) trims and every price labeled
 `*_estimate_usd` require a separate year/trim-specific source comparison
 or actual vehicle listing to claim exact real-world accuracy. Those rows
 are openly marked in the CSV rather than silently counted as verified.
@@ -156,3 +156,32 @@ are openly marked in the CSV rather than silently counted as verified.
 **Power units:** For Bugatti Tourbillon, manufacturer-stated 1,800 metric PS translates to approximately 1,775 U.S. mechanical horsepower; the in-game imperial HP display uses 1,775. 1 PS = 0.98632007 mechanical hp.
 
 **2024 price cross-checks:** Acura TLX Technology FWD $45,000 MSRP excluding destination (<https://hondanews.com/en-US/releases/release-ce25b2bdc6167d48c9de61f4f905a9f8-2024-acura-tlx-tlx-type-s-pricing-epa-ratings>); Alfa Romeo Stelvio Sprint AWD $47,950 MSRP excluding destination (<https://www.cars.com/research/alfa_romeo-stelvio-2024/specs/439865/>).
+
+## Follow-up source verification — November 16, 2026
+
+This second verification pass corrected **six records** against more precise
+year/trim references. Three previously unreferenced vehicles are now
+`source_checked`; their *estimated* in-game prices remain labeled as
+estimates unless an MSRP was published.
+
+| Vehicle | Previous audit | Updated reference |
+| --- | --- | --- |
+| 2025 Acura Integra A-Spec w/Technology 6MT | 1,435 kg; $37,400 | **1,394 kg** (3,073 lb); **$38,000** U.S. MSRP excluding destination; precise trim name |
+| 2025 Acura Integra Type S | $52,600 initial fact-sheet price | **$52,900**, Acura's March 2025 updated MSRP excluding destination |
+| 2026 Chevrolet Corvette ZR1X 1LZ Coupe | $207,395 August 2025 launch price | **$209,700**, Chevrolet's published January 2026 starting MSRP including destination |
+| 2025 Aston Martin Vanquish | 1,774 kg representative mass | **1,910 kg EU certified unladen** and manufacturer dimensions; 824 bhp and 1,000 Nm verified |
+| 2024 Audi Q3 45 TFSI quattro | 350 Nm; 1,760 kg | **340 Nm** (251 lb-ft); **1,776 kg** (3,916 lb) for the referenced U.S. 45 TFSI trim |
+| 2024 BMW M2 6MT | 1,755 kg; $65,500 estimated MSRP | **1,730 kg** (3,814 lb); **$64,195** published 2024 U.S. price; 453 hp, 550 Nm, RWD, 6MT |
+
+Manufacturer and automotive sources supporting this follow-up:
+
+- [Acura 2025 model fact sheet and curb weights](https://www.acura.com/-/media/Files/Vehicles/INTEGRA/2025/Acura_2025_Integra_Fact_Sheet.pdf)
+- [Acura's March 2025 Integra MSRP update](https://acuranews.com/en-US/releases/2025-acura-integra-pricing-epa-ratings)
+- [Chevrolet's January 2026 ZR1X MSRP and published performance](https://news.chevrolet.com/newsroom.detail.html/Pages/news/us/en/2026/jan/0113-zr1x.html)
+- [Aston Martin's Vanquish factory dimensions and unladen weight](https://www.astonmartin.com/en-us/models/vanquish)
+- [Edmunds 2024 Audi Q3 45 TFSI technical details](https://www.edmunds.com/audi/q3/2024/features-specs/)
+- [Car and Driver 2024 BMW M2 Coupe specs and MSRP](https://www.caranddriver.com/bmw/m2/specs/2024/bmw_m2_bmw-m2_2024)
+
+**Remaining limitation:** 64 representative entries and all prices explicitly
+labeled `*_estimate_usd` still need individual primary-source or live-market
+verification before the entire roster can be called fully accurate.
