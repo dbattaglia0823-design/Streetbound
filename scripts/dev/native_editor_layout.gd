@@ -136,6 +136,11 @@ static func build(e) -> void:
 	e._btn("Spawn",zoom_controls,e._recenter).custom_minimum_size.x=52
 	e.inspector_panel=e._panel(Vector2.ZERO,Vector2.ZERO);e.inspector_panel.name="SelectedObjectInspector"
 	var inspector:=scroll_column(e.inspector_panel)
+	# Do not let an inspector row force the entire sidebar beyond the edge
+	# of the display. Keep oversized content reachable via horizontal scroll.
+	var inspector_scroll: ScrollContainer=inspector.get_parent() as ScrollContainer
+	inspector_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	inspector_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	heading(inspector,"WORLD LAYERS")
 	var layers:=GridContainer.new();layers.columns=2;inspector.add_child(layers)
 	for item in [["Terrain","terrain"],["Roads","roads"],["Scenery","scenery"],["Markers","markers"],["Grid","grid"]]:
