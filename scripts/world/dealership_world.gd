@@ -24,6 +24,10 @@ static func v(raw: Array) -> Vector2:
 func _ready() -> void:
 	name = "MorrowDealerships"
 	var authored := DealerConfig.document()
+	# Exported builds may not include the editor JSON; the rebaker keeps the
+	# same overrides in the shipped world.
+	if not authored.has("dealerships") and world.data.has("editor_dealerships"):
+		authored = {"dealerships":world.data.editor_dealerships}
 	if not is_instance_valid(world):
 		push_error("Dealership locations unavailable")
 		return
@@ -130,11 +134,8 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 ## placements rather than silently moving a store to an unrelated road.
 func _explicit_site(spec: Dictionary) -> Dictionary:
 	var center:=Vector2(float(spec.x),float(spec.y))
-	var hint_road:=str(spec.get("road_name",""))
-	var samples:=_road_samples(hint_road,center)
-	# A custom shop can use any road, not only the ten curated road names.
-	if samples.is_empty() and hint_road!="":
-		samples=_road_samples("",center)
+	# Moving an existing shop can also choose a different road.
+	var samples:=_road_samples("",center)
 	for sample in samples:
 		var direction: Vector2=sample.direction
 		var normal:=direction.orthogonal()
