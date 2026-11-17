@@ -113,19 +113,25 @@ or rebake is required to see the updated bridges.
   Save reports disconnected roads and manual building overlaps as warnings;
   it keeps explicit placements and their collision instead of discarding the
   whole transaction. Invalid source geometry still rolls the transaction back.
-- **Set up races** opens native sprint/circuit time-trial setup. Enter a name,
-  choose the format and lap count, then click a start, checkpoints and finish
-  and press Enter. Circuits close at the start. Gate radius, start-circle
-  radius and optional time limit are editable; zero disables the time limit.
-  Saved races appear in the Objects list and race selector. Select a race to
-  drag numbered checkpoint handles, edit their coordinates, add/remove
-  checkpoints, redraw the route, duplicate or delete the event. All edits
-  support Undo/Redo. Circuits need at least three points; sprints need two.
-  **Save to Game** on Morrow Coast bakes these definitions into the playable
-  archive. Reload/Test Drive to see race-start circles and map flags. Drive
-  to the start, stop facing the route and press F. Races require every gate
-  in order and complete as time trials without economy rewards. New custom
-  maps retain their race definitions as editor documents.
+- **Street races & routes** opens native sprint/circuit route editing. Give
+  the race a name, choose **Race vs AI** (1–6 opponents) or **Time trial (solo)**
+  (zero opponents), and select sprint or circuit, lap count, start-circle
+  radius, checkpoint-gate radius and optional time limit (zero disables it).
+  Click existing roads in order for the **start, intermediate checkpoints and
+  finish**, then press Enter. Placement snaps to the road centerline; clicks
+  away from any authored road are rejected. Circuits loop back to their start.
+  To edit a placed event, click its start marker or select it in Objects/the
+  race selector. Drag a checkpoint onto a road, or choose a numbered gate and
+  **Place checkpoint on road** to insert an additional waypoint in order. Use
+  **Move checkpoint earlier/later** to reorder intermediate gates. Start and
+  sprint finish are preserved when deleting/reordering checkpoints; reposition
+  them by dragging. Grid controls allow individual player/AI start placements
+  or auto-arranged formations; switching to Time trial removes all AI starts.
+  Edits are undoable. **Save to Game** bakes the race and grid into the playable
+  Morrow Coast archive. Reload/Test Drive to see race starts and markers; drive
+  into the start circle facing the route and press F. You must cross every
+  checkpoint in order. Both formats are practice events without economy
+  rewards. Custom maps retain their races in editor documents.
   Existing races no longer cancel for leaving their racing line. Actual
   position jumps still invalidate built-in reward races. During a countdown
   or run, Pause shows **Quit Race**; it clears rivals and race state and

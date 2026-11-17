@@ -448,12 +448,56 @@ func change_race_points(identity: String,index: int,remove: bool) -> bool:
 		if str(race.id)!=identity:continue
 		index=clampi(index,0,race.points.size()-1)
 		if remove:
+			if index==0 or (race.mode=="sprint" and index==race.points.size()-1):
+				last_error="Start and finish are fixed gates. Select an intermediate checkpoint to remove."
+				return false
 			if race.points.size()<=(3 if race.mode=="circuit" else 2):last_error="Keep the race's start, finish and required checkpoints.";return false
 			race.points.remove_at(index)
 		else:
 			var a: Dictionary=race.points[mini(index,race.points.size()-2)];var b: Dictionary=race.points[mini(index+1,race.points.size()-1)]
 			race.points.insert(mini(index+1,race.points.size()-1),{"x":(a.x+b.x)*.5,"y":(a.y+b.y)*.5})
 		return _commit(next)
+	return false
+
+## Insert a gate at the exact map location. Preserve sprint finish as the last
+## point; circuits can insert after the last checkpoint before looping home.
+## Returns the new point index, or -1 on validation failure.
+func insert_race_checkpoint(identity: String,point_m: Vector2,after_index: int=-1) -> int:
+	if not point_m.is_finite():
+		last_error="Choose a finite checkpoint location on the road."
+		return -1
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		if race.points.size()>=100:
+			last_error="A race can have at most 100 route points."
+			return -1
+		var last_slot: int=race.points.size()-1 if race.mode=="sprint" else race.points.size()
+		var insert_at: int=clampi(after_index+1,1,last_slot) if after_index>=0 else last_slot
+		race.points.insert(insert_at,{"x":point_m.x,"y":point_m.y})
+		if not _commit(next):
+			last_error="Checkpoint must be on the map and at least 5 m from adjacent gates."
+			return -1
+		return insert_at
+	last_error="Select a saved race first."
+	return -1
+
+## Reorder gates without changing a sprint's start or finish. Circuits keep
+## index zero as their start/finish line.
+func reorder_race_checkpoint(identity: String,index: int,direction: int) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		var last_movable: int=race.points.size()-2 if race.mode=="sprint" else race.points.size()-1
+		var target: int=index+direction
+		if index<1 or index>last_movable or target<1 or target>last_movable or absi(direction)!=1:
+			last_error="Only intermediate checkpoints can change order."
+			return false
+		var point: Dictionary=race.points[index]
+		race.points[index]=race.points[target]
+		race.points[target]=point
+		return _commit(next)
+	last_error="Select a saved race first."
 	return false
 
 func _same_network(first: Dictionary, second: Dictionary) -> bool:
