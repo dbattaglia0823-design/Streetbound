@@ -161,6 +161,31 @@ static func build(e) -> void:
 	for pair in [[e.inspector_rotation,"rotation"],[e.inspector_scale,"scale"],[e.inspector_scale_x,"scaleX"],[e.inspector_scale_y,"scaleY"]]:
 		var field_name: String=pair[1]
 		pair[0].value_changed.connect(func(_value: float)->void:e._commit_inspector(field_name))
+	# Terrain size edits change the underlying polygon, not just a display scale.
+	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
+	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
+	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,24000,10)
+	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,24000,10)
+	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
+		spin.step=0.5
+	e.inspector_terrain_width.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("x"))
+	e.inspector_terrain_height.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("y"))
+	# A single editable percentage drives both actions, with the input centered.
+	var terrain_buttons:=HBoxContainer.new();e.terrain_transforms.add_child(terrain_buttons)
+	e.terrain_shrink_button=e._btn("Shrink",terrain_buttons,e._resize_region_by_percentage.bind(-1.0))
+	e.inspector_terrain_percent=SpinBox.new()
+	e.inspector_terrain_percent.min_value=0.1
+	e.inspector_terrain_percent.max_value=500.0
+	e.inspector_terrain_percent.step=0.1
+	e.inspector_terrain_percent.value=10.0
+	e.inspector_terrain_percent.suffix="%"
+	e.inspector_terrain_percent.tooltip_text="Percentage to resize the terrain; shrinking requires less than 100%"
+	e.inspector_terrain_percent.custom_minimum_size.x=88
+	e.inspector_terrain_percent.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	terrain_buttons.add_child(e.inspector_terrain_percent)
+	e.terrain_expand_button=e._btn("Expand",terrain_buttons,e._resize_region_by_percentage.bind(1.0))
+	var terrain_help:=heading(e.terrain_transforms,"Drag the terrain interior to move it. Enter a percentage above, then Shrink or Expand; or edit width and height directly.")
+	terrain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.point_picker=OptionButton.new();inspector.add_child(e.point_picker)
 	e.point_picker.item_selected.connect(e._select_point)
 	e.remove_point_button=e._btn("Remove selected road point",inspector,e._remove_point)
