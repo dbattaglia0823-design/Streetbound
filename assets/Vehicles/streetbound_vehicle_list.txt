@@ -104,11 +104,7 @@ Ferrari-
   F40
   F50
   Enzo
-  458 Italia
   488 GTB
-  F8 Tributo
-  Roma
-  296 GTB
   Purosangue
 
 Ford-
@@ -221,7 +217,6 @@ Nissan-
   Altima SR
   Maxima
   Z
-  Z Nismo
   GT-R
   GT-R Nismo
   Frontier
@@ -241,10 +236,6 @@ Porsche-
   356
 
 Rolls-Royce-
-  Silver Shadow
-  Silver Spirit
-  Silver Seraph
-  Corniche
   Phantom
   Ghost
   Wraith
