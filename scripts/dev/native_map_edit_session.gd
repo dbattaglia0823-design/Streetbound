@@ -8,6 +8,7 @@ const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
 const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
+const DealershipConfig=preload("res://scripts/world/dealership_config.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
 const MAX_DRAG_M := 350.0
@@ -116,6 +117,38 @@ func _valid_source(value: Dictionary) -> bool:
 				if item.has("barrier") and not item.barrier is bool:return false
 				if bool(item.get("barrier",false)) and (str(item.get("biome","")) not in ["mountain","rock"] or float(item.get("elevation",0))<5):return false
 			elif not _in_bounds(Vector2(float(item.get("x",-1)),float(item.get("y",-1))),value):return false
+	var dealers: Variant = value.get("dealerships", [])
+	if not dealers is Array or dealers.size() > DealershipConfig.MAX_SHOPS:
+		return false
+	for dealer in dealers:
+		if not dealer is Dictionary:
+			return false
+		var id := str(dealer.get("id", ""))
+		if id.is_empty() or used.has("dealer:" + id) or id.length() > 80:
+			return false
+		used["dealer:" + id] = true
+		if dealer.has("x") != dealer.has("y"):
+			return false
+		if dealer.has("x") and not _in_bounds(Vector2(float(dealer.x),float(dealer.y)),value):
+			return false
+		if dealer.has("lot_width_m") and (float(dealer.lot_width_m)<18.0 or float(dealer.lot_width_m)>70.0):
+			return false
+		if dealer.has("lot_depth_m") and (float(dealer.lot_depth_m)<14.0 or float(dealer.lot_depth_m)>60.0):
+			return false
+		if dealer.has("inventory_mode") and str(dealer.inventory_mode) not in ["automatic","manual"]:
+			return false
+		if dealer.has("inventory"):
+			if not dealer.inventory is Array or dealer.inventory.size()>1000:
+				return false
+			var inventory_seen: Dictionary = {}
+			for vehicle_id in dealer.inventory:
+				if not vehicle_id is String or vehicle_id.is_empty() or vehicle_id.length()>100 or inventory_seen.has(vehicle_id):
+					return false
+				inventory_seen[vehicle_id]=true
+		if id.begins_with("custom-dealer-"):
+			if str(dealer.get("name","")).strip_edges().is_empty() or \
+					str(dealer.get("texture","")).find("res://assets/Map Building Assets/Buildings/Dealerships/")!=0:
+				return false
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
@@ -131,6 +164,72 @@ func _valid_source(value: Dictionary) -> bool:
 					Rect2(Vector2.ZERO,Vector2(width,height))):
 				return false
 	return true
+
+
+## Curated shops are virtual until edited. Keeping default locations out of
+## the source means a stock change cannot accidentally move a legacy shop.
+func dealership_list() -> Array[Dictionary]:
+	return DealershipConfig.combined(doc)
+
+func dealership_at_id(identity: String) -> Dictionary:
+	for dealer in dealership_list():
+		if str(dealer.get("id", "")) == identity:
+			return dealer
+	return {}
+
+func update_dealership(identity: String, fields: Dictionary) -> bool:
+	if dealership_at_id(identity).is_empty():
+		last_error = "Unknown dealership."
+		return false
+	var next: Dictionary = doc.duplicate(true)
+	if not next.has("dealerships"):
+		next["dealerships"] = []
+	var target: Dictionary = {}
+	for dealer in next.dealerships:
+		if str(dealer.id)==identity:
+			target=dealer
+			break
+	if target.is_empty():
+		target={"id":identity}
+		next.dealerships.append(target)
+	for field in fields:
+		if field not in ["name","tier","region","texture","x","y","lot_width_m","lot_depth_m","inventory_mode","inventory"]:
+			last_error = "Unsupported dealership property."
+			return false
+		target[field]=fields[field]
+	return _commit(next)
+
+func add_dealership(position_m: Vector2) -> String:
+	if not _in_bounds(position_m):
+		last_error = "Dealership placement is outside the map."
+		return ""
+	var next: Dictionary = doc.duplicate(true)
+	if not next.has("dealerships"):
+		next["dealerships"]=[]
+	if DealershipConfig.combined(next).size()>=DealershipConfig.MAX_SHOPS:
+		last_error = "The map has reached its dealership limit."
+		return ""
+	var number:=1
+	while not dealership_at_id("custom-dealer-%d"%number).is_empty():
+		number+=1
+	var id: String="custom-dealer-%d"%number
+	var template: Dictionary=DealershipConfig.defaults()[3]
+	next.dealerships.append({"id":id,"name":"New dealership %d"%number,
+		"tier":"CUSTOM SHOWROOM","region":"Custom location",
+		"texture":str(template.texture),"x":position_m.x,"y":position_m.y,
+		"lot_width_m":32.0,"lot_depth_m":20.0,
+		"inventory_mode":"manual","inventory":[]})
+	return id if _commit(next) else ""
+
+func delete_dealership(identity: String) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for index in next.get("dealerships",[]).size():
+		if str(next.dealerships[index].id)!=identity:
+			continue
+		next.dealerships.remove_at(index)
+		return _commit(next)
+	last_error="No saved overrides to remove."
+	return false
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 	var record: Dictionary = source if not source.is_empty() else doc
