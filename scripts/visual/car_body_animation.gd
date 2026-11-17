@@ -1,4 +1,5 @@
 extends Node2D
+const CrashEffects=preload("res://scripts/visual/crash_effects.gd")
 ## Lightweight visual handling response. The old independent four-corner
 ## suspension/curb springs were removed: in a top-down view they separated the
 ## rear tires from the calibrated fenders without improving actual handling.
@@ -44,6 +45,8 @@ func sync_body_rest_pose() -> void:
 
 
 func _on_impact(strength: float) -> void:
+	# Gentle parking-speed taps should not create crash shake either.
+	if strength < CrashEffects.MIN_TRAVEL_SPEED_MPS:return
 	_impact = maxf(_impact,clampf(strength/16.0,0.0,1.0))
 
 
