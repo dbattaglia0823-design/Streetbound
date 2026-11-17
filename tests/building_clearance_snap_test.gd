@@ -95,7 +95,8 @@ func _run() -> void:
 	e._finish_source_drag(at(first_prop)*20.0)
 	check("dragging_building_over_another_is_allowed",
 		at(e.authoring.prop_at_id(second)).distance_to(at(first_prop))<2.0)
-	e._set_multi([second])
+	var chosen: Array[String]=[second]
+	e._set_multi(chosen)
 	check("group_move_can_overlap_buildings",e._group_action("move",Vector2(1,0)))
 	e._set_multi([])
 	e.source_id=second;e._refresh_authoring()
