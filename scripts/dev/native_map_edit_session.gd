@@ -942,8 +942,8 @@ func resize_region(identity: String, scale_x: float, scale_y: float) -> bool:
 		var low:=Vector2(INF,INF)
 		var high:=Vector2(-INF,-INF)
 		for point in points:
-			var at:=Vector2(float(point.x),float(point.y))
-			low=low.min(at);high=high.max(at)
+			var position:=Vector2(float(point.x),float(point.y))
+			low=low.min(position);high=high.max(position)
 		var size: Vector2=(high-low)*Vector2(scale_x,scale_y)
 		if size.x<2.0 or size.y<2.0:
 			last_error="Terrain must remain at least 2 metres wide and tall."
@@ -952,12 +952,12 @@ func resize_region(identity: String, scale_x: float, scale_y: float) -> bool:
 		var outline:=PackedVector2Array()
 		for point in points:
 			var before:=Vector2(float(point.x),float(point.y))
-			var at: Vector2=center+(before-center)*Vector2(scale_x,scale_y)
-			if not _in_bounds(at):
+			var resized: Vector2=center+(before-center)*Vector2(scale_x,scale_y)
+			if not _in_bounds(resized):
 				last_error="Resized terrain would extend outside the map."
 				return false
-			point.x=at.x;point.y=at.y
-			outline.append(at)
+			point.x=resized.x;point.y=resized.y
+			outline.append(resized)
 		var twice_area:=0.0
 		for i in outline.size():
 			twice_area+=outline[i].cross(outline[(i+1)%outline.size()])
