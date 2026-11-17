@@ -312,6 +312,11 @@ func place_at(position_m: Vector2) -> void:
 	if not bool(editor.world.can_place_at(position_m*PPM,15.0,1.0).clear):
 		editor._notice("The dealership building overlaps existing scenery or a road.")
 		return
+	var outward: Vector2=(position_m-Vector2(nearest.closest_point_px)/PPM).normalized()
+	var parking: Vector2=position_m-outward*17.0
+	if not bool(editor.world.can_place_at(parking*PPM,4.0,0.0).clear):
+		editor._notice("The dealership parking area is obstructed. Choose a clearer roadside location.")
+		return
 	var ok := false
 	if placing_new:
 		var id: String = str(editor.authoring.add_dealership(position_m))
