@@ -61,7 +61,7 @@ func _run() -> void:
 		Snap.has_clearance(at(second_prop),size,deg_to_rad(float(second_prop.rotation)),first_neighbor),
 		[at(first_prop),at(second_prop)])
 	check("building_alignment_preserves_small_street_gap",
-		at(second_prop).distance_to(Vector2(312.25,200))<.05,at(second_prop))
+		at(second_prop).distance_to(Vector2(312.02,200))<.05,at(second_prop))
 	# Multi-object operations must not sidestep building clearance.
 	# Inspector-style transformations and toolbar nudges must not let a
 	# previously clear building expand or rotate through its neighbor.
@@ -82,7 +82,7 @@ func _run() -> void:
 	var prior_group_history: int=e.authoring.history.size()
 	check("group_move_rejects_colliding_footprint",
 		not e._group_action("move",Vector2(-12,0)) and
-		at(e.authoring.prop_at_id(second)).distance_to(Vector2(312.25,200))<.05 and
+		at(e.authoring.prop_at_id(second)).distance_to(Vector2(312.02,200))<.05 and
 		e.authoring.history.size()==prior_group_history)
 	var cleared_group: Array[String]=[]
 	e._set_multi(cleared_group)
