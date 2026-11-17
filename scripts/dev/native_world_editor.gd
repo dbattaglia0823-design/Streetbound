@@ -137,6 +137,9 @@ var split_road_button: Button
 var reconnect_road_button: Button
 var connection_label: Label
 var asset_dimensions_label: Label
+var terrain_transforms: VBoxContainer
+var inspector_terrain_width: SpinBox
+var inspector_terrain_height: SpinBox
 var entity_search: LineEdit
 var entity_list: ItemList
 var _entity_revision:=-1
@@ -718,7 +721,7 @@ func _set_multi(ids: Array[String]) -> void:
 			details.text="%d OBJECTS SELECTED\nDrag a selected object to move all.\nCtrl+D duplicate · Delete remove · Shift+drag add/remove."%multi_selection.size()
 
 func _selection_hit(at: Vector2) -> String:
-	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_region(at),_pick_source_road(at)]:
+	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
 		var id:=str(hit.get("id",""))
 		if not id.is_empty():return id
 	return ""
@@ -1020,6 +1023,34 @@ func _resize_selected(factor: float) -> void:
 		_refresh_authoring()
 		_notice("Asset size and draft collision updated. Save to Game when ready.")
 
+
+func _resize_selected_region(scale: Vector2) -> void:
+	if _editing_locked() or not source_ready or source_id.is_empty():return
+	if _selected_record().get("category","")!="regions":return
+	if authoring.resize_region(source_id,scale.x,scale.y):
+		_refresh_authoring()
+		_notice("Terrain resized. Save to Game when ready; Undo restores its previous footprint.")
+	else:
+		_notice(authoring.last_error)
+		_refresh_inspector()
+
+func _region_bounds(region: Dictionary) -> Rect2:
+	var points: Array=region.get("points",[])
+	if points.is_empty():return Rect2()
+	var first:=Vector2(float(points[0].x),float(points[0].y))
+	var result:=Rect2(first,Vector2.ZERO)
+	for point in points:result=result.expand(Vector2(float(point.x),float(point.y)))
+	return result
+
+func _commit_terrain_size(axis: String) -> void:
+	if _updating_inspector or _editing_locked() or not source_ready:return
+	var record:=_selected_record()
+	if record.get("category","")!="regions":return
+	var dimensions: Vector2=_region_bounds(record.item).size
+	var current: float=dimensions.x if axis=="x" else dimensions.y
+	var desired: float=inspector_terrain_width.value if axis=="x" else inspector_terrain_height.value
+	if current<=0.0 or desired<=0.0:return
+	_resize_selected_region(Vector2(desired/current,1.0) if axis=="x" else Vector2(1.0,desired/current))
 
 func _rotate_selected(degrees: float) -> void:
 	if _editing_locked():
@@ -2113,6 +2144,8 @@ func _refresh_inspector() -> void:
 	var record:=_selected_record();var exists:=not record.is_empty()
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
+	terrain_transforms.visible=exists and record.category=="regions"
+	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
 	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
@@ -2130,6 +2163,10 @@ func _refresh_inspector() -> void:
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
+		if record.category=="regions":
+			var region_size: Vector2=_region_bounds(item).size
+			inspector_terrain_width.value=region_size.x
+			inspector_terrain_height.value=region_size.y
 		if record.category=="props":
 			var size: Vector2=gizmos._prop_size(item)/PPM
 			asset_dimensions_label.text="Footprint: %.2f × %.2f m"%[size.x,size.y]
@@ -2424,7 +2461,7 @@ func _update_source_details() -> void:
 					details.text="MOUNTAIN BARRIER / %s\n%s\nHeight %.0fm · blocks vehicles\nDrag the rock face to move it."%[source_id,str(item.get("name","")),float(item.elevation)]
 					return
 				details.text="%s / %s\n%s\n\nDrag its %s to move. New objects can be deleted; Undo restores edits."%[
-					category.to_upper(),source_id,str(item.get("name","")),"edge" if category=="regions" else "center"]
+					category.to_upper(),source_id,str(item.get("name","")),"interior" if category=="regions" else "center"]
 				return
 
 func _finish_shape() -> void:
@@ -2477,13 +2514,23 @@ func _pick_source_marker(at: Vector2) -> Dictionary:
 	return {}
 
 func _pick_source_region(at: Vector2) -> Dictionary:
-	if not layer_flags.terrain:return {}
-	for item in authoring.doc.get("regions",[]):
-		for i in item.points.size():
-			var a: Dictionary=item.points[i]
-			var b: Dictionary=item.points[(i+1)%item.points.size()]
-			if Geometry2D.get_closest_point_to_segment(at,Vector2(a.x,a.y)*PPM,Vector2(b.x,b.y)*PPM).distance_to(at)<8/maxf(.003,editor_camera.zoom.x):
-				return {"kind":"region","id":str(item.id),"from":at}
+	if not source_ready or not layer_flags.terrain:return {}
+	# Last-authored terrain is on top. Pick the filled interior as well as
+	# its boundary so no precise edge click is required for whole-piece drags.
+	for index in range(authoring.doc.regions.size()-1,-1,-1):
+		var item: Dictionary=authoring.doc.regions[index]
+		var polygon:=PackedVector2Array()
+		for vertex in item.points:
+			polygon.append(Vector2(float(vertex.x),float(vertex.y))*PPM)
+		if polygon.size()<3:continue
+		var inside:=Geometry2D.is_point_in_polygon(at,polygon)
+		var near_edge:=false
+		for i in polygon.size():
+			if Geometry2D.get_closest_point_to_segment(at,polygon[i],
+					polygon[(i+1)%polygon.size()]).distance_to(at)<8/maxf(.003,editor_camera.zoom.x):
+				near_edge=true
+				break
+		if inside or near_edge:return {"kind":"region","id":str(item.id),"from":at}
 	return {}
 
 func _pick_source_mountain(at: Vector2) -> Dictionary:
