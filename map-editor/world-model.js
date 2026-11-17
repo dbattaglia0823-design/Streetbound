@@ -160,9 +160,9 @@ export function normalizeWorld(raw){
       const pool=r.opponent_pool??[];
       if(!Array.isArray(pool)||pool.length>128||pool.some(id=>typeof id!=='string'||!idOk(id))||new Set(pool).size!==pool.length)
         throw new TypeError('Invalid race opponent vehicle IDs');
-      entry.opponent_pool=[...pool];
+      if(r.opponent_pool!==undefined)entry.opponent_pool=[...pool];
       for(const [key,max] of [['reward_cash',1000000],['reward_player_xp',100000],['reward_car_xp',100000]])
-        entry[key]=integer(r[key]??0,0,max,key);
+        if(r[key]!==undefined)entry[key]=integer(r[key],0,max,key);
       if(r.formation!==undefined)entry.formation=oneOf(r.formation,['single_file','side_by_side','staggered'],'race grid formation');
       const pose=s=>{
         if(!s||typeof s!=='object')throw new TypeError('Invalid race grid slot');
