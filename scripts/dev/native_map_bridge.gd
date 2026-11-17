@@ -88,7 +88,10 @@ func _python_typed_source(raw: Dictionary) -> Dictionary:
 			var replace_info: Dictionary = prop.replaces
 			replace_info["seed"] = int(replace_info.get("seed",0))
 	for race in doc.get("races",[]):
-		if race is Dictionary:race["laps"]=int(race.get("laps",1))
+		if race is Dictionary:
+			race["laps"]=int(race.get("laps",1))
+			for reward in ["reward_cash","reward_player_xp","reward_car_xp"]:
+				if race.has(reward):race[reward]=int(race[reward])
 	for art in doc.get("assets",[]):
 		if not art is Dictionary:
 			continue
