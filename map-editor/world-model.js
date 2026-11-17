@@ -157,6 +157,12 @@ export function normalizeWorld(raw){
       // Preserve native-editor grid and event configuration on browser import/export.
       const entry={id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),
         checkpoint_radius:real(r.checkpoint_radius??16,4,60,'checkpoint radius'),start_radius:real(r.start_radius??8,3,30,'race start radius'),time_limit:real(r.time_limit??0,0,7200,'race time limit')};
+      if(r.race_kind!==undefined){
+        entry.race_kind=oneOf(r.race_kind,['point_to_point','circuit','time_trial'],'race type');
+        if((entry.race_kind==='circuit')!==(mode==='circuit')||
+           (entry.race_kind==='time_trial'&&(r.enemy_starts??[]).length))
+          throw new TypeError('Race type does not match its route or rivals');
+      }
       const pool=r.opponent_pool??[];
       if(!Array.isArray(pool)||pool.length>128||pool.some(id=>typeof id!=='string'||!idOk(id))||new Set(pool).size!==pool.length)
         throw new TypeError('Invalid race opponent vehicle IDs');
