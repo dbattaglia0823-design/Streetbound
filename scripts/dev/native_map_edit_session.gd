@@ -372,11 +372,14 @@ static func shift_race_grid(race: Dictionary,delta: Vector2) -> void:
 		slot.y=float(slot.y)+delta.y
 
 func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String="") -> String:
-	var race:=settings.duplicate(true)
+	# Preserve unrelated editor configuration (enemy pool and rewards) when
+	# someone adjusts the route, name, laps or grid in the compact sidebar.
+	var prior: Dictionary=race_at_id(identity) if not identity.is_empty() else {}
+	var race: Dictionary=prior.duplicate(true)
+	race.merge(settings,true)
 	race.id=next_id("races","race") if identity.is_empty() else identity
 	race.points=[]
 	for p in points_m:race.points.append({"x":p.x,"y":p.y})
-	var prior: Dictionary=race_at_id(identity) if not identity.is_empty() else {}
 	var default_count: int=prior.get("enemy_starts",[]).size()
 	var count: int=int(race.get("opponent_count",default_count))
 	var formation: String=str(race.get("formation",prior.get("formation","single_file")))
