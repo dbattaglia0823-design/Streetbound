@@ -147,6 +147,10 @@ func _explicit_site(spec: Dictionary) -> Dictionary:
 			continue
 		if not bool(world.can_place_at(center*PPM,15.0,1.0).clear):
 			continue
+		var outward: Vector2=normal*(1.0 if perpendicular>=0.0 else -1.0)
+		var parking: Vector2=center-outward*17.0
+		if not bool(world.can_place_at(parking*PPM,4.0,0.0).clear):
+			continue
 		var occupied:=false
 		for other in sites:
 			if v(other.center_m).distance_to(center)<95.0:
