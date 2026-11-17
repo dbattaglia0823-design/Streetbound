@@ -1,6 +1,10 @@
 class_name VehicleController2D
 extends CharacterBody2D
 signal impacted(strength: float)
+## World-space collision details for speed-dependent crash visuals.
+signal crash_contact(closing_speed_mps: float, contact_point_px: Vector2,
+	surface_normal: Vector2, pre_impact_velocity_mps: Vector2)
+signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
 @export var config: VehicleConfig
@@ -76,6 +80,7 @@ func reset_vehicle() -> void:
 	reversing = false
 	transmission.reset(config)
 	reset_physics_interpolation()
+	vehicle_reset.emit()
 
 func on_upgrade_config_changed(_previous_capacity: float = 0.0) -> void:
 	# Parts can be installed mid-drive. Do not reset the vehicle or top up
@@ -328,6 +333,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	if collision:
 		var normal := collision.get_normal()
 		var impact_speed := -linear_velocity.dot(normal)
+		var pre_impact_velocity: Vector2 = linear_velocity
 		if impact_speed > 0.0:
 			var other: Object = collision.get_collider()
 			var is_traffic := false
@@ -362,12 +368,14 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 						other.receive_impact(-normal * minf(impact_speed, 22.0) *
 							PIXELS_PER_METER * 1.25 * weight_factor)
 					impacted.emit(impact_speed)
+					crash_contact.emit(impact_speed,collision.get_position(),normal,pre_impact_velocity)
 			else:
 				# Buildings and barriers stay hard, with the original response.
 				linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
 				linear_velocity *= 0.88
 				yaw_rate *= 0.4
 				impacted.emit(impact_speed)
+				crash_contact.emit(impact_speed,collision.get_position(),normal,pre_impact_velocity)
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
 		linear_velocity = Vector2.ZERO

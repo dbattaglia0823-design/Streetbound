@@ -297,6 +297,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-safety.log
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-safety.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-safety.log
+      - name: Verify speed-gated collision sparks, debris and world-space crash flashes (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/crash_effects_test.gd 2>&1 | tee /tmp/crash-effects-463.log
+          grep -q 'CRASH EFFECTS: PASS' /tmp/crash-effects-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/crash-effects-463.log
       - name: Verify traffic curve detection and safe offscreen stuck cleanup
         run: |
           set -o pipefail
@@ -515,6 +521,12 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot441-high-output.log
       - name: Test driving forces, brakes, drift, resets and collisions
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_test.gd -- output=test_results_ci.json
+      - name: Verify speed-gated collision sparks, debris and world-space crash flashes (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/crash_effects_test.gd 2>&1 | tee /tmp/crash-effects-441.log
+          grep -q 'CRASH EFFECTS: PASS' /tmp/crash-effects-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/crash-effects-441.log
       - name: Verify racing handling and steering tuning
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_tune_test.gd
       - name: Verify all 154 future car audio profiles, five new engine layouts, hybrid, rotary and true EV sounds
