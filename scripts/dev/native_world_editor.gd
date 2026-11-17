@@ -804,7 +804,7 @@ func _end_marquee(at: Vector2) -> void:
 		# The live city's buildings are often generated props, not entries in
 		# the editable source document. Adopt only actual rectangle hits.
 		var baked: Array[String]=[]
-		_select_baked_with_marquee(bounds,baked)
+		if ids.size()<MultiSelect.LIMIT:_select_baked_with_marquee(bounds,baked)
 		for id in baked:
 			if marquee_additive and ids.has(id):ids.erase(id)
 			elif not ids.has(id):ids.append(id)
