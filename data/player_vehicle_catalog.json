@@ -4245,7 +4245,7 @@
       "width_m": 2.051,
       "wheelbase_m": 2.74,
       "mass_kg": 1995,
-      "power_kw": 1342.3,
+      "power_kw": 1323.6,
       "torque_nm": 900,
       "brake_force_n": 29000,
       "tire_grip": 1.33,
@@ -4277,7 +4277,8 @@
       "reference_gear_count": 8,
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combustion_engine_only",
-      "reference_mass_basis": "manufacturer_under_1995_kg"
+      "reference_mass_basis": "manufacturer_under_1995_kg",
+      "reference_power_units": "1,800 metric PS = approximately 1,775 mechanical horsepower for imperial HP display"
     },
     {
       "id": "cadillac-ct5-v-blackwing",

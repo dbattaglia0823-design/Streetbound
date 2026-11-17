@@ -97,7 +97,7 @@ func _run() -> void:
 		"chevrolet-corvette-zr1x":[1250,"AWD",207395],
 		"ferrari-f40":[478,"RWD",3000000],
 		"bugatti-eb110":[560,"AWD",1900000],
-		"bugatti-tourbillon":[1800,"AWD",4200000]
+		"bugatti-tourbillon":[1775,"AWD",4200000]
 	}
 	var priority_corrections := true
 	for id in expected:

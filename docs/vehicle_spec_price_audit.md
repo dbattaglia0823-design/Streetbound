@@ -52,7 +52,7 @@ use separate economy tuning rather than overwriting audited market references.
 | 2026 Chevrolet Corvette ZR1X | RWD, $315k | **AWD hybrid**, 1,250 hp, $207,395 announced 2026 MSRP including destination |
 | 1987 Ferrari F40 | 932 hp / 1,640 kg | **478 hp, ~1,235 kg**, period factory specifications |
 | 1994 Bugatti EB110 GT | 1,274 hp / 1,980 kg | **560 hp / 1,620 kg**, 3.5 L quad-turbo V12 |
-| 2026 Bugatti Tourbillon | 1,274 hp, $250k | **1,800 hp** combined V16 hybrid, ~$4.2m estimated foreign-launch conversion |
+| 2026 Bugatti Tourbillon | 1,274 hp, $250k | **1,800 metric PS (~1,775 mechanical hp)** combined V16 hybrid, ~$4.2m estimated foreign-launch conversion |
 | Bugatti W16 Mistral | $250k, 1,274 hp | **1,578 mechanical hp / 1,600 PS**, ~$5.5m estimated conversion |
 | 2021 Bentley Bacalar | $250k, RWD | **650 hp, W12 AWD**, limited-series estimated converted-launch pricing |
 | 2023 Bentley Batur | $250k, RWD | **730 hp, W12 AWD**, limited-series estimated converted-launch pricing |
@@ -138,3 +138,5 @@ The 69 representative (not directly checked) trims and every price labeled
 `*_estimate_usd` require a separate year/trim-specific source comparison
 or actual vehicle listing to claim exact real-world accuracy. Those rows
 are openly marked in the CSV rather than silently counted as verified.
+
+**Power units:** For Bugatti Tourbillon, manufacturer-stated 1,800 metric PS translates to approximately 1,775 U.S. mechanical horsepower; the in-game imperial HP display uses 1,775. 1 PS = 0.98632007 mechanical hp.
