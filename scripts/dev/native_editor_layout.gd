@@ -46,7 +46,7 @@ static func build(e) -> void:
 	toolbar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	toolbar.offset_left=10;toolbar.offset_right=-10;toolbar.offset_top=74;toolbar.offset_bottom=131
 	var tools:=HBoxContainer.new();tools.add_theme_constant_override("separation",7);toolbar.add_child(tools)
-	for item in [["Select / Edit  V","move_prop"],["Draw road  R","draw_road"],
+	for item in [["Select / Edit  V","move_prop"],["Box select  B","select_box"],["Draw road  R","draw_road"],
 		["Terrain region  T","draw_terrain"],["Scenery  P","place:house"],
 		["Game marker  M","place_marker"],["Pan view  H","pan"]]:
 		var button: Button=e._btn(item[0],tools,e._choose_tool.bind(item[1]))
@@ -59,7 +59,7 @@ static func build(e) -> void:
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
 	e.grid_button.tooltip_text="Align general placement to 1 m coordinates. Buildings override the grid when necessary to preserve wall clearance."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
-	e.building_snap_button.tooltip_text="Align parallel building walls with a 0.25 m clearance. Auto-correct small grid overlaps; show a red drag outline when there is no safe nearby position. Alt bypasses snapping."
+	e.building_snap_button.tooltip_text="Snap neighboring walls almost flush (2 cm safety tolerance), independent of the 1 m grid. Collision overlaps remain blocked. Alt bypasses snapping."
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
@@ -101,7 +101,7 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"Drag blank space: box-select.\nShift+click/drag: add or remove.\nDrag selected: move group.\nAlt+drag or Ctrl+D: duplicate.\nDel remove; Ctrl+A select all.\nCtrl+Z/Y undo/redo; Esc clear.\nSpace/right drag pan; wheel zoom.")
+	var help:=heading(settings,"Select/Edit: drag empty space; Box Select (B): drag anywhere.\nShift+click/drag: add or remove.\nDrag selected: move group.\nAlt+drag or Ctrl+D: duplicate.\nDel remove; Ctrl+A select all.\nCtrl+Z/Y undo/redo; Esc clear.\nSpace/right drag pan; wheel zoom.")
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
