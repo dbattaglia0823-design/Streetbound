@@ -50,8 +50,8 @@ func _ready() -> void:
 	name=str(definition.id);race_title=str(definition.name)
 	start_radius_m=float(definition.get("start_radius",8))
 	var kind: String=str(definition.get("race_kind","circuit" if definition.mode=="circuit" else ("time_trial" if definition.get("enemy_starts",[]).is_empty() else "point_to_point")))
-	race_type=({"circuit":"Circuit","point_to_point":"Point to Point","time_trial":"Time Trial"}.get(kind,"Street Race")+
-		(" · SOLO" if definition.get("enemy_starts",[]).is_empty() else " · %d AI Rivals"%definition.enemy_starts.size())
+	var type_label: String=str({"circuit":"Circuit","point_to_point":"Point to Point","time_trial":"Time Trial"}.get(kind,"Street Race"))
+	race_type=type_label+(" · SOLO" if definition.get("enemy_starts",[]).is_empty() else " · %d AI Rivals"%definition.enemy_starts.size())
 	for p in definition.points:checkpoints.append(Vector2(p.x,p.y))
 	start_m=checkpoints[0];finish_m=start_m if definition.mode=="circuit" else checkpoints[-1]
 	heading=(checkpoints[1]-start_m).normalized()
