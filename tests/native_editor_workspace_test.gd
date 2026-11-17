@@ -50,6 +50,9 @@ func run() -> void:
 	var coarse_and_fine:=true
 	for spin in transform_fields:
 		all_have_arrow_targets=all_have_arrow_targets and spin.has_node("TransformArrowHitArea")
+		# Without a selected object, the inspector is intentionally read-only.
+		# Test the arrow behavior with editability enabled explicitly.
+		spin.editable=true
 		spin.value=2.25
 		arrows_script.nudge(spin,MOUSE_BUTTON_LEFT,true)
 		coarse_and_fine=coarse_and_fine and is_equal_approx(spin.value,3.25)
