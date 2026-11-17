@@ -1,7 +1,8 @@
 extends RefCounted
 ## Snap parallel building footprints edge-to-edge without changing rotation.
-const CLEARANCE_M:=0.25
+const CLEARANCE_M:=0.02
 const MAX_CORRECTION_M:=3.0
+const EDGE_SNAP_RADIUS_M:=3.5
 
 static func position(at: Vector2,size: Vector2,angle: float,neighbors: Array,tolerance:=2.0,clearance:=0.0) -> Vector2:
 	var best:=tolerance

@@ -720,6 +720,44 @@ func _selection_hit(at: Vector2) -> String:
 		if not id.is_empty():return id
 	return ""
 
+func _canvas_pointer_available(screen_at: Vector2) -> bool:
+	if not active or not source_ready or not is_instance_valid(editor_camera):
+		return false
+	# Do not steal clicks from the header, toolbars, inspector or minimap.
+	if not canvas_rect.has_point(screen_at):return false
+	if is_instance_valid(minimap) and minimap.is_visible_in_tree() and minimap.get_global_rect().has_point(screen_at):
+		return false
+	return true
+
+func _start_canvas_selection(at: Vector2,additive: bool=false) -> void:
+	if tool_name=="select_box" or additive:
+		_begin_marquee(at,additive)
+		return
+	var hit:=_selection_hit(at)
+	if multi_selection.size()>1 and multi_selection.has(hit):
+		group_moving=true
+		group_move_start=at
+		return
+	# Do not invoke source/baked picking until we know whether this is a
+	# click or a drag. It previously swallowed blank-space marquee starts.
+	if hit.is_empty():
+		_begin_marquee(at,false)
+		return
+	_source_click(at)
+	if not source_id.is_empty():
+		_set_multi([source_id])
+
+func _select_baked_with_marquee(area: Rect2,ids: Array[String]) -> void:
+	if map_switcher.custom or not bool(layer_flags.get("scenery",true)):return
+	var garage=preload("res://scripts/world/garage_geometry.gd")
+	for index in MultiSelect.baked_indices_in_rect(world.data,area):
+		var item: Dictionary=world.data.props[index]
+		if Scenery.editor_hidden.has(Scenery.editor_key(item)) or garage.is_player_garage(item):continue
+		var id: String=_ensure_editable_runtime_prop(item)
+		if not id.is_empty() and not ids.has(id):
+			ids.append(id)
+			if ids.size()>=MultiSelect.LIMIT:break
+
 func _begin_marquee(at: Vector2,additive: bool) -> void:
 	marquee_tracking=true
 	marquee_start=at
@@ -733,10 +771,29 @@ func _update_marquee(at: Vector2) -> void:
 func _end_marquee(at: Vector2) -> void:
 	marquee_tracking=false
 	gizmos.marquee_active=false
-	var ids: Array[String]=multi_selection.duplicate() if marquee_additive else []
+	var ids: Array[String]=[]
+	if marquee_additive:ids=multi_selection.duplicate()
 	if marquee_start.distance_to(at)<6.0/maxf(.003,editor_camera.zoom.x):
-		if marquee_additive:
+		if not marquee_additive:
+			# A short click still selects/adopts one asset. The dedicated
+			# Box Select tool never turns this into an object drag.
+			if tool_name=="select_box":
+				var clicked:=_selection_hit(at)
+				if clicked.is_empty() and not map_switcher.custom:
+					var nearest: Dictionary=_nearest_prop(at)
+					if nearest.get("kind","")=="prop":
+						clicked=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
+				if not clicked.is_empty():ids.append(clicked)
+			else:
+				_source_click(at)
+				pending_drag.clear()
+				if not source_id.is_empty():ids.append(source_id)
+		else:
 			var hit:=_selection_hit(at)
+			if hit.is_empty() and not map_switcher.custom:
+				var nearest: Dictionary=_nearest_prop(at)
+				if nearest.get("kind","")=="prop":
+					hit=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
 			if not hit.is_empty():
 				if ids.has(hit):ids.erase(hit)
 				else:ids.append(hit)
@@ -745,16 +802,20 @@ func _end_marquee(at: Vector2) -> void:
 		for id in MultiSelect.within_rect(authoring.doc,bounds,layer_flags):
 			if marquee_additive and ids.has(id):ids.erase(id)
 			elif not ids.has(id):ids.append(id)
+		# The live city's buildings are often generated props, not entries in
+		# the editable source document. Adopt only actual rectangle hits.
+		var baked: Array[String]=[]
+		if ids.size()<MultiSelect.LIMIT:_select_baked_with_marquee(bounds,baked)
+		for id in baked:
+			if marquee_additive and ids.has(id):ids.erase(id)
+			elif not ids.has(id):ids.append(id)
+	source_id=ids[0] if ids.size()==1 else ""
+	source_anchor=-1
+	selected={}
 	_set_multi(ids)
-	if ids.size()==1:
-		source_id=ids[0]
-		_refresh_authoring()
-	elif ids.is_empty():
-		source_id=""
-		_update_selection({})
-	else:
-		_refresh_authoring()
-		_set_multi(ids)
+	_refresh_authoring()
+	if ids.size()>1:_set_multi(ids)
+	elif ids.is_empty():_update_selection({})
 
 func _end_group_move(at: Vector2,duplicate: bool=false) -> void:
 	group_moving=false
@@ -818,8 +879,11 @@ func _choose_tool(mode: String) -> void:
 	if not source_ready and mode != "inspect":
 		_notice("Source unavailable. The map can still be inspected.")
 		return
+	# Box Select is a selection subtool, not a reason to discard the
+	# selected group. Switching back to V must allow an immediate group drag.
+	var keep_selection: bool=tool_name in ["move_prop","select_box"] and mode in ["move_prop","select_box"]
 	tool_name = mode
-	_set_multi([])
+	if not keep_selection:_set_multi([])
 	marquee_tracking=false
 	group_moving=false
 	if is_instance_valid(gizmos):
@@ -830,15 +894,16 @@ func _choose_tool(mode: String) -> void:
 		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
-	if mode not in ["move_prop","anchor","race_grid"]:source_id = ""
+	if mode not in ["move_prop","select_box","anchor","race_grid"]:source_id = ""
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
-	mode_label.text={"place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
+	mode_label.text={"select_box":"BOX SELECT","place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
 		"place_marker":"GAME MARKER","race_grid":"RACE START GRID","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
-	_notice({"move_prop":"Drag roads or objects to move. Drag a selected road handle to reshape; Shift-click to add a point.",
+	_notice({"move_prop":"Drag empty space to select several objects, or drag a selection to move it. Use Box Select to start on any object.",
+		"select_box":"Drag a rectangle anywhere to select buildings, roads and scenery. Shift+drag adds or removes.",
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
 		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
@@ -1693,6 +1758,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var shortcut := ""
 				match key.physical_keycode:
 					KEY_V: shortcut = "move_prop"
+					KEY_B: shortcut = "select_box"
 					KEY_R: shortcut = "draw_road"
 					KEY_T: shortcut = "draw_terrain"
 					KEY_P: shortcut = "place:house"
@@ -1744,17 +1810,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			var hit_position: Vector2 = _event_world_position(mouse.position)
 			if mouse.pressed:
-				if tool_name=="move_prop" and source_ready and mouse.shift_pressed:
-					_begin_marquee(hit_position,true);_consume_input();return
-				if tool_name=="move_prop" and multi_selection.size()>1 and multi_selection.has(_selection_hit(hit_position)):
-					group_moving=true;group_move_start=hit_position;_consume_input();return
+				if tool_name in ["move_prop","select_box"]:
+					if _canvas_pointer_available(mouse.position):
+						_start_canvas_selection(hit_position,mouse.shift_pressed)
+					_consume_input()
+					return
 				_source_click(hit_position)
-				if tool_name=="move_prop" and source_id.is_empty() and selected.is_empty() and pending_drag.is_empty():
-					_begin_marquee(hit_position,false)
-				elif tool_name=="move_prop" and not source_id.is_empty():
-					_set_multi([source_id])
-				else:
-					_set_multi([])
 				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_race"]:_finish_shape()
 			elif marquee_tracking:
 				_end_marquee(hit_position)
@@ -1827,6 +1888,16 @@ func _restore_recovery() -> void:
 # used to leave a drag stuck, because _unhandled_input never saw the release.
 func _input(event: InputEvent) -> void:
 	if not active:return
+	# _input runs before GUI consumption. Marquee must begin here; relying on
+	# _unhandled_input dropped left presses over parts of the editor canvas.
+	if event is InputEventMouseButton and event.pressed:
+		var mouse:=event as InputEventMouseButton
+		if mouse.button_index==MOUSE_BUTTON_LEFT and tool_name in ["move_prop","select_box"] and \
+				not _editing_locked() and _canvas_pointer_available(mouse.position) and \
+				not _space_pan and not Input.is_key_pressed(KEY_SPACE):
+			_start_canvas_selection(_event_world_position(mouse.position),mouse.shift_pressed)
+			_consume_input()
+			return
 	if event is InputEventMouseButton and not event.pressed:
 		if event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE] or (event.button_index==MOUSE_BUTTON_LEFT and (tool_name=="pan" or _space_pan)):
 			_right_drag=false
@@ -2592,9 +2663,15 @@ func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 		var start: Vector2=position if candidate_angle==angle or hit.is_empty() else road_building_snap.pose(hit,size,candidate_angle)
 		var candidates: Array[Dictionary]=[]
 		if building_snap_enabled:
-			var aligned:=BuildingSnap.position(start,size,candidate_angle,neighbors,2.0,BuildingSnap.CLEARANCE_M)
-			if aligned.distance_to(start)>.001:
-				candidates.append({"position":aligned,"edge":true})
+			# Road-facing snap may already have pulled the pointer several
+			# metres from the neighboring facade. Try both the road-aligned
+			# pose and the raw pointer before judging wall-to-wall snapping.
+			var anchors: Array[Vector2]=[start,at]
+			for anchor in anchors:
+				var aligned:=BuildingSnap.position(anchor,size,candidate_angle,neighbors,
+					BuildingSnap.EDGE_SNAP_RADIUS_M,BuildingSnap.CLEARANCE_M)
+				if aligned.distance_to(anchor)>.001:
+					candidates.append({"position":aligned,"edge":true})
 		candidates.append({"position":start,"edge":false})
 		for option in candidates:
 			var original_candidate: Vector2=option.position
@@ -2603,9 +2680,13 @@ func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 			var trial: Vector2=fixed.position
 			if not authoring._in_bounds(trial):continue
 			if not hit.is_empty() and not road_building_snap.clear_of_roads(trial,size,candidate_angle):continue
-			var alignment_bonus:=2.25 if bool(option.edge) else 0.0
+			var alignment_bonus:=4.0 if bool(option.edge) else 0.0
 			var road_bonus:=3.0 if not hit.is_empty() else 0.0
-			var score:=trial.distance_to(at)-alignment_bonus-road_bonus
+			# Preserve the curb setback, while allowing free movement along
+			# the road to align with an adjacent wall. The raw pointer may be
+			# closer but should never pull the building toward the roadway.
+			var road_pose_penalty:=2.0*absf((trial-start).dot(Vector2(hit.outward))) if not hit.is_empty() else 0.0
+			var score:=trial.distance_to(at)-alignment_bonus-road_bonus+road_pose_penalty
 			if score<best:
 				best=score
 				winner={"position":trial,"rotation":rad_to_deg(candidate_angle),"valid":true}
