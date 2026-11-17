@@ -76,11 +76,13 @@ func begin_route(e,id: String="") -> void:
 func begin_checkpoint(e) -> void:
 	if e._editing_locked() or not e.source_ready:return
 	var identity: String=e.source_id
+	var after_gate: int=e.source_anchor
 	if e.authoring.race_at_id(identity).is_empty():
 		e._notice("Select a saved street race before adding checkpoints.")
 		return
 	e._choose_tool("race_checkpoint")
 	e.source_id=identity
+	e.source_anchor=after_gate
 	e._refresh_authoring()
 	e._notice("Click a road to insert the next checkpoint after the selected gate. Press Esc when finished.")
 
