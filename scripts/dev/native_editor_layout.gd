@@ -101,7 +101,7 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"Select/Edit: drag empty space; Box Select (B): drag anywhere.\nShift+click/drag: add or remove.\nDrag selected: move group.\nAlt+drag or Ctrl+D: duplicate.\nDel remove; Ctrl+A select all.\nCtrl+Z/Y undo/redo; Esc clear.\nSpace/right drag pan; wheel zoom.")
+	var help:=heading(settings,"V: drag blank space.\nB: box-select anywhere.\nShift: add/remove.\nV: drag group to move.\nCtrl+D: duplicate; Del: remove.\nCtrl+Z/Y: undo/redo.\nSpace/right drag: pan.")
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
