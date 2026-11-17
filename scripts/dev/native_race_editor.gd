@@ -20,7 +20,7 @@ var updating:=false
 var list_stamp:=-1
 var slots_stamp:=""
 func build(e,parent: Node) -> void:
-	e._btn("Set up races",parent,func():begin_route(e))
+	e._btn("Street races & routes",parent,func():begin_route(e))
 	panel=VBoxContainer.new();parent.add_child(panel)
 	var heading:=Label.new();heading.text="RACE SETUP";panel.add_child(heading)
 	race_list=OptionButton.new();panel.add_child(race_list)
