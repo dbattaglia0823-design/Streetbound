@@ -901,12 +901,12 @@ func _choose_tool(mode: String) -> void:
 		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
-	if mode not in ["move_prop","select_box","anchor","race_grid"]:source_id = ""
+	if mode not in ["move_prop","select_box","anchor","race_grid","race_checkpoint"]:source_id = ""
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
 	mode_label.text={"select_box":"BOX SELECT","place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
-		"place_marker":"GAME MARKER","place_dealership":"PLACE DEALERSHIP","race_grid":"RACE START GRID","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
+		"place_marker":"GAME MARKER","place_dealership":"PLACE DEALERSHIP","race_grid":"RACE START GRID","race_checkpoint":"ADD RACE CHECKPOINT","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag empty space to select several objects, or drag a selection to move it. Use Box Select to start on any object.",
@@ -914,7 +914,8 @@ func _choose_tool(mode: String) -> void:
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
 		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
-		"draw_race":"Click a start, checkpoints and finish. Enter creates the race. Circuit routes close at their start.",
+		"draw_race":"Click the road for start, checkpoints and finish, in order. Enter saves; a circuit loops back to start.",
+		"race_checkpoint":"Click on a road to insert a checkpoint after the selected gate. Esc returns to Select/Edit.",
 		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.",
@@ -1226,6 +1227,18 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name=="place_dealership":
 		dealer_editor.place_at(_snap_point(world_px/PPM))
 		return
+	if tool_name=="race_checkpoint":
+		var snapped_checkpoint: Vector2=_road_draw_point(world_px/PPM,true,true)
+		if not snapped_checkpoint.is_finite():
+			_notice("Checkpoint must be on an authored road. Zoom in and click the road surface.")
+			return
+		var added: int=authoring.insert_race_checkpoint(source_id,snapped_checkpoint,source_anchor)
+		if added>=0:
+			source_anchor=added
+			_refresh_authoring()
+			_notice("Checkpoint %d placed on road. Click the next road gate or press Esc."%added)
+		else:_notice(authoring.last_error)
+		return
 	if tool_name=="race_grid":
 		var grid_handle:=_pick_race_grid_handle(world_px)
 		if not grid_handle.is_empty():
@@ -1242,7 +1255,10 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name=="place_circle_road":
 		road_shapes.place(self,_snap_point(world_px/PPM));return
 	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
-		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
+		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race",tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
+		if tool_name=="draw_race" and not point.is_finite():
+			_notice("Race start, checkpoints and finish must be placed on a road.")
+			return
 		var connection: Dictionary={}
 		if tool_name=="draw_sidewalk":
 			connection=Sidewalks.snap(authoring.doc.props,point,Sidewalks.SNAP_RADIUS_M)
@@ -1254,6 +1270,8 @@ func _source_click(world_px: Vector2) -> void:
 		if tool_name=="draw_sidewalk":
 			_notice("%d path points. %sFinish / Enter to keep every connected branch; Esc cancels."%
 				[draft_points.size(),"Snapped to a sidewalk. " if not connection.is_empty() else ""])
+		elif tool_name=="draw_race":
+			_notice("%d race route points on roads. FINISH / Enter saves; Esc cancels."%draft_points.size())
 		else:
 			_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
 		return
@@ -1322,6 +1340,14 @@ func _source_click(world_px: Vector2) -> void:
 		select_at(world_px)
 		return
 	var race_handle:=_pick_race_handle(world_px)
+	if race_handle.is_empty() and tool_name=="move_prop":
+		var race_id: String=_pick_any_race_start(world_px)
+		if not race_id.is_empty():
+			source_id=race_id;source_anchor=-1
+			selected={};gizmos.set_selection({})
+			_refresh_authoring()
+			_notice("Race selected. Drag checkpoints or edit race type, opponent count and route in Tool Settings.")
+			return
 	if not race_handle.is_empty():
 		selected={};gizmos.set_selection({})
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
@@ -1422,7 +1448,10 @@ func _finish_source_drag(world_px: Vector2) -> void:
 	elif str(drag.kind)=="race_grid":
 		ok=authoring.set_race_grid_slot(str(drag.id),int(drag.index),
 			_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM))
-	elif str(drag.kind)=="race_point":ok=authoring.move_race_point(str(drag.id),int(drag.index),_road_draw_point(destination_m,true))
+	elif str(drag.kind)=="race_point":
+		var snapped_gate: Vector2=_road_draw_point(destination_m,true,true)
+		if snapped_gate.is_finite():ok=authoring.move_race_point(str(drag.id),int(drag.index),snapped_gate)
+		else:authoring.last_error="Drag the checkpoint onto an authored road."
 	elif str(drag.kind) in ["road_move","region","marker"]:
 		ok=authoring.move_shape({"road_move":"roads","region":"regions","marker":"markers"}[str(drag.kind)],
 			str(drag.id),(world_px-Vector2(drag.grab))/PPM,snap_m)
@@ -1746,7 +1775,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				if tool_name=="race_grid":
+				if tool_name in ["race_grid","race_checkpoint"]:
 					if not pending_drag.is_empty():_cancel_gesture()
 					else:_choose_tool("move_prop")
 					_consume_input()
@@ -1977,7 +2006,9 @@ func _update_drag_preview(at: Vector2) -> void:
 		pending_drag.to=Vector2(pending_drag.from)+_snap_point((at-Vector2(pending_drag.grab))/PPM)*PPM
 	elif pending_drag.kind=="race_grid":
 		pending_drag.to=_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)*PPM
-	elif pending_drag.kind=="race_point":pending_drag.to=_road_draw_point(at/PPM,true)*PPM
+	elif pending_drag.kind=="race_point":
+		var target: Vector2=_road_draw_point(at/PPM,true,true)
+		pending_drag.to=(target*PPM if target.is_finite() else Vector2(pending_drag.from))
 	elif pending_drag.kind=="sidewalk_point":
 		var proposed:=_snap_point(at/PPM)
 		if not Input.is_physical_key_pressed(KEY_ALT):
@@ -2090,7 +2121,7 @@ func _refresh_inspector() -> void:
 	reconnect_road_button.visible=split_road_button.visible
 	connection_label.visible=split_road_button.visible
 	var race_selected: bool=exists and record.category=="races"
-	add_point_button.text="Add checkpoint" if race_selected else "Add road point"
+	add_point_button.text="Place checkpoint on road" if race_selected else "Add road point"
 	remove_point_button.text="Remove checkpoint" if race_selected else "Remove selected road point"
 	point_picker.clear()
 	if exists:
@@ -2108,6 +2139,8 @@ func _refresh_inspector() -> void:
 			inspector_road_front.disabled=not RoadBuildingSnap.enabled(item)
 			for i in inspector_road_front.item_count:
 				if int(inspector_road_front.get_item_metadata(i))==int(item.get("roadFront",90)):inspector_road_front.select(i);break
+		if race_selected and source_anchor<0:
+			inspector_x.editable=false;inspector_y.editable=false
 		if record.category in ["roads","races"]:
 			point_picker.add_item("Whole race (center)" if race_selected else "Whole road (center)")
 			for i in item.points.size():
@@ -2132,6 +2165,17 @@ func _commit_inspector(field: String="name") -> void:
 	var destination:=_record_position(record)
 	if field=="x":destination.x=inspector_x.value
 	if field=="y":destination.y=inspector_y.value
+	if record.category=="races" and field in ["x","y"]:
+		if source_anchor<0:
+			_notice("Select an individual start, checkpoint or finish gate to move it.")
+			_refresh_inspector()
+			return
+		var snapped_coordinate: Vector2=_road_draw_point(destination,true,true)
+		if not snapped_coordinate.is_finite():
+			_notice("Checkpoint coordinates must be on an existing road.")
+			_refresh_inspector()
+			return
+		destination=snapped_coordinate
 	if record.category=="props":
 		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y}
 		if controls.has(field):values[field]=controls[field].value
@@ -2328,7 +2372,7 @@ func _apply_landmark_layer() -> void:
 func _snap_point(point: Vector2) -> Vector2:
 	return point.snapped(Vector2.ONE*snap_m) if snap_m>0 else point
 
-func _road_draw_point(point: Vector2,any_surface: bool=false) -> Vector2:
+func _road_draw_point(point: Vector2,any_surface: bool=false,require_road: bool=false) -> Vector2:
 	var best:=INF
 	var result:=_snap_point(point)
 	for road in authoring.doc.get("roads",[]):
@@ -2337,16 +2381,18 @@ func _road_draw_point(point: Vector2,any_surface: bool=false) -> Vector2:
 		if not circle.is_empty():
 			var candidate:=EditSession.RoadShapes.closest_on_circle(circle,point)
 			var distance:=point.distance_to(candidate)
-			if distance<maxf(float(road.width)*.5+1.0,8/(editor_camera.zoom.x*PPM)) and distance<best:
+			var radius: float=minf(25.0,maxf(9.0,float(road.width)*.5+4.0)) if require_road else maxf(float(road.width)*.5+1.0,8/(editor_camera.zoom.x*PPM))
+			if distance<radius and distance<best:
 				best=distance;result=candidate
 			continue
 		var path:=_source_road_path(road)
 		for i in range(1,path.size()):
 			var candidate:=Geometry2D.get_closest_point_to_segment(point,path[i-1],path[i])
 			var distance:=point.distance_to(candidate)
-			if distance<maxf(float(road.width)*.5+1.0,8/(editor_camera.zoom.x*PPM)) and distance<best:
+			var radius: float=minf(25.0,maxf(9.0,float(road.width)*.5+4.0)) if require_road else maxf(float(road.width)*.5+1.0,8/(editor_camera.zoom.x*PPM))
+			if distance<radius and distance<best:
 				best=distance;result=candidate
-	return result
+	return Vector2.INF if require_road and best==INF else result
 
 func _update_source_details() -> void:
 	if not source_ready:return
@@ -2554,8 +2600,7 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 func _add_point() -> void:
 	if _editing_locked() or not source_ready:return
 	if not authoring.race_at_id(source_id).is_empty():
-		if authoring.change_race_points(source_id,maxi(0,source_anchor),false):_refresh_authoring()
-		else:_notice(authoring.last_error)
+		race_editor.begin_checkpoint(self)
 		return
 	var road: Dictionary=authoring.road_at_id(source_id)
 	if road.is_empty():return
@@ -2601,6 +2646,18 @@ func _pick_race_grid_handle(at: Vector2) -> Dictionary:
 			nearest=distance
 			picked_slot={"kind":"race_grid","id":source_id,"index":i-1,"from":p}
 	return picked_slot
+
+func _pick_any_race_start(at: Vector2) -> String:
+	if not source_ready or not layer_flags.markers:return ""
+	var nearest: float=12.0/maxf(.003,editor_camera.zoom.x)
+	var identity: String=""
+	for race in authoring.doc.get("races",[]):
+		if race.get("points",[]).is_empty():continue
+		var start: Dictionary=race.points[0]
+		var distance: float=Vector2(float(start.x),float(start.y)).distance_to(at/PPM)*PPM
+		if distance<nearest:
+			nearest=distance;identity=str(race.id)
+	return identity
 
 func _pick_race_handle(at: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.markers:return {}
