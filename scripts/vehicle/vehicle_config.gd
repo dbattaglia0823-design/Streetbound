@@ -49,6 +49,9 @@ enum Drivetrain { FWD, RWD, AWD }
 @export var wheelbase_m: float = 2.65
 @export_range(0.3, 0.7) var front_weight: float = 0.43
 @export var tire_grip: float = 1.15
+## Additional asphalt-only traction for launches; fades out by ~100 km/h.
+## Drag compounds can improve drive grip without adding cornering grip.
+@export var launch_grip_bonus: float = 0.0
 @export var cornering_stiffness: float = 68000.0
 @export var rear_cornering_stiffness_ratio: float = 1.0
 @export var rear_grip_balance: float = 1.12

@@ -1,6 +1,5 @@
 extends CanvasLayer
 ## In-game, anywhere-accessible six-slot quick swap overlay.
-## The full eight-slot garage remains available for less common categories.
 ## This view uses real owned parts and changes live stats in place: no car
 ## respawn, lost momentum, gear reset or teleport during a hot swap.
 const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
@@ -417,12 +416,13 @@ func _refresh_picker() -> void:
 			preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			preview.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			preview.add_theme_font_size_override("font_size",12)
-			var source := "FUTURE RACE REWARD" if not \
+			var source := "FUTURE EVENT REWARD" if not \
 				bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
 			preview.text = "%s  /  %s\n%s  ·  %s" % [
 				str(template.name),str(template.rarity),Parts.summary(template),
 				source]
-			preview.tooltip_text = "Part not owned. %s" % source
+			preview.tooltip_text = "Part not owned. %s. %s. Planned event pools: %s" % [
+				source,str(template.get("role","")),str(template.get("reward_sources",[]))]
 			preview.disabled = true
 			_style_button(preview,false)
 			picker_parts.add_child(preview)

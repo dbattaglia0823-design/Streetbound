@@ -41,7 +41,8 @@ func _run() -> void:
 		{"uid":"up-101","template":"engine-street-common"},
 		{"uid":"up-102","template":"engine-street-rare"},
 		{"uid":"up-103","template":"turbo-balanced-common"},
-		{"uid":"up-104","template":"nitrous-sprint-common"}
+		{"uid":"up-104","template":"nitrous-sprint-common"},
+		{"uid":"up-105","template":"engine-lightweight-common"}
 	]
 	quick.economy = test_economy
 	# Use a deterministic starter car; no real save is changed.
@@ -69,9 +70,9 @@ func _run() -> void:
 		elif button.name.begins_with("Unowned_"):
 			unowned_buttons += 1
 			all_unowned_disabled = all_unowned_disabled and button.disabled
-	check("picker_lists_all_15_variants_and_owned_parts",
-		quick.picker.visible and quick.picker_parts.get_child_count() == 15 and
-		owned_buttons == 2 and unowned_buttons == 13 and all_unowned_disabled)
+	check("picker_lists_all_20_variants_and_owned_parts",
+		quick.picker.visible and quick.picker_parts.get_child_count() == 20 and
+		owned_buttons == 3 and unowned_buttons == 17 and all_unowned_disabled)
 	quick._install_uid("up-101")
 	check("first_part_installs_from_overlay",
 		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "up-101" and
@@ -87,6 +88,16 @@ func _run() -> void:
 		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "" and
 		is_equal_approx(car.config.engine_power_kw,before_power),
 		[before_power,car.config.engine_power_kw])
+	# Lightweight Engine proves the new mass stat reaches live car physics.
+	quick._open_slot("engine")
+	var stock_mass := car.config.mass_kg
+	quick._install_uid("up-105")
+	check("lightweight_engine_hot_swap_reduces_actual_vehicle_mass",
+		car.config.mass_kg < stock_mass and
+		test_economy.equipped_uid(Ownership.STARTER_ID,"engine") == "up-105")
+	quick._unequip_selected()
+	check("lightweight_engine_unequip_restores_stock_mass",
+		is_equal_approx(car.config.mass_kg,stock_mass))
 	# Turbo kits must work on stock naturally aspirated cars. Swapping the
 	# whole slot in-game must affect boost physics and restore the stock voice.
 	quick._open_slot("turbo")
@@ -107,7 +118,7 @@ func _run() -> void:
 	quick._open_slot("nitrous")
 	quick._install_uid("up-104")
 	check("nitrous_picker_shows_all_future_reward_variants",
-		quick.picker_parts.get_child_count()==15)
+		quick.picker_parts.get_child_count()==20)
 	check("nitrous_slot_installs_real_tank",
 		car.config.nitrous_capacity_seconds > 1.0 and
 		car.config.nitrous_torque_fraction > 0.0 and
