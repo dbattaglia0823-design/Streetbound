@@ -128,11 +128,11 @@ func run() -> void:
 		hud.telemetry.text.contains("TORQUE ") and \
 		hud.telemetry.text.contains(" lb-ft") and \
 		hud.telemetry.text.contains("WEIGHT "))
-	var na: Dictionary = Catalog.find_by_id("ford-fiesta")
+	var na: Dictionary = Catalog.find_by_id("ford-mustang")
 	check("ordinary_stock_engine_has_no_turbo_calibration",
 		float(na.get("boost_max_psi",0.0)) == 0.0)
 	# The new RS3 starter has a turbo. Switch explicitly to the naturally
-	# aspirated Fiesta before asserting the LOAD-only instrument state.
+	# aspirated 2024 Mustang GT before asserting LOAD-only instruments.
 	check("naturally_aspirated_reference_car_equips",Catalog.select(car,na))
 	hud.on_vehicle_selected(na)
 	hud._process(0.0)

@@ -26,7 +26,7 @@ func run() -> void:
 		var induction := str(entry.get("audio_induction",""))
 		families[family] = true
 		complete = complete and Synth.family_supported(family) and \
-			induction in ["naturally_aspirated","turbo","supercharger"] and \
+			induction in ["naturally_aspirated","turbo","supercharger","electric"] and \
 			float(entry.get("audio_aggression",-1.0)) >= 0.0 and \
 			float(entry.get("audio_aggression",100.0)) <= 1.4 and \
 			float(entry.get("audio_flutter",-1.0)) >= 0.0 and \
@@ -36,7 +36,7 @@ func run() -> void:
 	check("all_playable_cars_have_valid_sound_profile",
 		entries.size() >= 89 and complete,entries.size())
 	check("engine_layout_profiles_are_individually_distinct",
-		families.size() == 11 and families.has("i5"),families.keys())
+		families.size() == 13 and families.has("i5") and families.has("electric") and families.has("v16"),families.keys())
 	var v8 := Synth.engine_loop("v8_cross",2,0.9,0.7)
 	var v12 := Synth.engine_loop("v12",2,0.9,0.2)
 	var i4 := Synth.engine_loop("i4",2,0.7,0.3)

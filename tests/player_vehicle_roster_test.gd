@@ -17,7 +17,7 @@ func check(title: String, valid: bool, details: Variant = "") -> void:
 
 func run() -> void:
 	var vehicles: Array[Dictionary] = Catalog.all()
-	check("all_playable_vehicle_assets_cataloged", vehicles.size() >= 89, vehicles.size())
+	check("all_98_playable_vehicle_assets_cataloged", vehicles.size() == 98, vehicles.size())
 	var ids := {}
 	var brands := {}
 	var all_resources := true

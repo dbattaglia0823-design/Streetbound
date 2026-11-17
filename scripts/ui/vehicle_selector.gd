@@ -123,9 +123,10 @@ func _create_card(entry: Dictionary) -> void:
 	button.name = "Car_" + str(entry.id).replace("-", "_")
 	button.custom_minimum_size = Vector2(210, 224)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = "%s  |  %.0f kg  |  %.0f kW  |  %s" % [
-		str(entry.display_name), float(entry.mass_kg), float(entry.power_kw),
-		str(entry.drivetrain)]
+	button.tooltip_text = "%s  |  %.0f kg  |  %.0f HP  |  %s\n%s  |  %s" % [
+		str(entry.display_name),float(entry.mass_kg),
+		float(entry.power_kw)*1.34102,str(entry.drivetrain),
+		Catalog.reference_label(entry),str(entry.get("reference_transmission",""))]
 	button.pressed.connect(_choose.bind(entry))
 	grid.add_child(button)
 	var photo := TextureRect.new()
