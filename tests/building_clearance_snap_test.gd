@@ -98,7 +98,8 @@ func _run() -> void:
 	var chosen: Array[String]=[second]
 	e._set_multi(chosen)
 	check("group_move_can_overlap_buildings",e._group_action("move",Vector2(1,0)))
-	e._set_multi([])
+	var cleared: Array[String]=[]
+	e._set_multi(cleared)
 	e.source_id=second;e._refresh_authoring()
 	var previous_count: int=e.authoring.doc.props.size()
 	e._duplicate_selected()
