@@ -64,20 +64,20 @@ func run() -> void:
 	check("same_frame_contacts_do_not_spam_effects",int(fx.get("emitted_bursts"))==first_burst)
 	# Moving the car must not drag the burst away from the wall.
 	car.position+=Vector2(100,0)
-	fx._process(0.02)
+	fx.call("_process",0.02)
 	check("crash_particles_remain_at_world_contact",
 		Vector2(fx.get("particles")[0].point).distance_to(origin)<20.0)
 	var art: Node=car.get_node("Art")
-	art._on_impact(5.0)
+	art.call("_on_impact",5.0)
 	check("low_speed_impact_has_no_body_shake",float(art.get("_impact"))==0.0)
-	art._on_impact(15.0)
+	art.call("_on_impact",15.0)
 	check("high_speed_impact_still_jolts_body",float(art.get("_impact"))>0.0)
 	for i in 100:
-		fx._process(0.05)
+		fx.call("_process",0.05)
 	check("effects_fade_without_leaks",fx.get("particles").is_empty() and fx.get("flashes").is_empty())
 	# Multiple hard crashes cannot grow the draw list without bound.
 	for i in 12:
-		fx._process(.21)
+		fx.call("_process",.21)
 		car.crash_contact.emit(24.0,origin,Vector2.LEFT,Vector2.RIGHT*32.0)
 	check("repeated_impacts_stay_within_particle_and_flash_limits",
 		fx.get("particles").size()<=Fx.MAX_PARTICLES and
