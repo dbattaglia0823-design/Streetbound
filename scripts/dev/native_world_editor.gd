@@ -834,8 +834,10 @@ func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 	if _editing_locked() or not source_ready or multi_selection.is_empty():return false
 	var count: int=multi_selection.size()
 	# Groups may overlap intentionally. Never reject or auto-separate buildings.
+	var revision_before: int=authoring.edit_revision
 	var affected: Array[String]=authoring.batch_entities(multi_selection,delta,operation)
-	if affected.is_empty():
+	# A successful deletion returns no new IDs; its revision still advances.
+	if authoring.edit_revision==revision_before:
 		_notice(authoring.last_error)
 		return false
 	_set_multi([] if operation=="delete" else affected)
