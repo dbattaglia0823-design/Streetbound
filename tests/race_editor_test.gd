@@ -21,7 +21,8 @@ func run() -> void:
 	e._choose_tool("move_prop");e.source_id=id;e.source_anchor=1;e._refresh_authoring()
 	check("race_has_checkpoint_picker_and_settings",e.point_picker.visible and not e.split_road_button.visible and form.panel.visible and e.point_picker.item_count==4)
 	var nearest_road: Dictionary=e.authoring.doc.roads[0]
-	var road_at: Vector2=Vector2(float(nearest_road.points[0].x),float(nearest_road.points[0].y))
+	var sample_path: Array[Vector2]=e._source_road_path(nearest_road)
+	var road_at: Vector2=sample_path[sample_path.size()/2]
 	var snapped: Vector2=e._road_draw_point(road_at+Vector2(2,3),true,true)
 	check("race_checkpoints_snap_to_real_roads",snapped.is_finite() and snapped.distance_to(road_at)<20)
 	check("race_rejects_off_road_gate_clicks",not e._road_draw_point(Vector2(1,1),true,true).is_finite())
@@ -44,8 +45,9 @@ func run() -> void:
 	check("race_can_switch_back_to_solo",e.authoring.race_at_id(id).get("enemy_starts",[]).size()==0)
 	e.source_anchor=1;e._refresh_authoring()
 	var old: Dictionary=e.authoring.race_at_id(id).duplicate(true)
-	e.inspector_x.value=float(old.points[1].x)+2
-	check("checkpoint_coordinates_move_one_gate",e.authoring.race_at_id(id).points[0]==old.points[0] and is_equal_approx(float(e.authoring.race_at_id(id).points[1].x),float(old.points[1].x)+2))
+	e.inspector_x.value=0
+	check("checkpoint_coordinates_reject_off_road_edits",e.authoring.race_at_id(id).points==old.points)
+	check("race_point_edit_is_undoable",e.authoring.move_race_point(id,1,Vector2(float(old.points[1].x)+2,float(old.points[1].y))))
 	e._undo()
 	var copy: String=e.authoring.duplicate_entity(id)
 	check("race_duplicate_and_delete_are_supported",not copy.is_empty() and e.authoring.delete_entity(copy) and e.authoring.doc.races.size()==1)
