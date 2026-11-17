@@ -121,6 +121,7 @@ func open() -> void:
 		return
 	placing_new = false
 	_refresh_dealers()
+	_show_selection()
 	dialog.popup_centered(Vector2i(920,680))
 
 func open_for(identity: String) -> void:
