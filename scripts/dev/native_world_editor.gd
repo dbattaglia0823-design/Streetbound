@@ -14,6 +14,7 @@ const TrafficPreview=preload("res://scripts/dev/native_traffic_preview.gd")
 const Overview=preload("res://scripts/dev/editor_world_overview.gd")
 const RenderTiles=preload("res://scripts/dev/editor_render_tiles.gd")
 const Layout=preload("res://scripts/dev/native_editor_layout.gd")
+const DealerEditor=preload("res://scripts/dev/native_dealership_editor.gd")
 const BridgePreview=preload("res://scripts/dev/native_bridge_preview.gd")
 const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
 const MountainArt=preload("res://scripts/world/coast_mountain_barriers.gd")
@@ -81,6 +82,7 @@ const MapSwitcher=preload("res://scripts/dev/native_map_switcher.gd")
 var map_switcher=MapSwitcher.new()
 const RaceEditor=preload("res://scripts/dev/native_race_editor.gd")
 var race_editor=RaceEditor.new()
+var dealer_editor=DealerEditor.new()
 const RoadShapeTools=preload("res://scripts/dev/native_road_shape_tools.gd")
 var road_shapes=RoadShapeTools.new()
 const BuildingSnap=preload("res://scripts/dev/building_snap.gd")
@@ -181,6 +183,7 @@ func _ready() -> void:
 	_build_authoring_ui()
 	_build_asset_browser()
 	authoring = EditSession.new()
+	dealer_editor.build(self)
 	bridge = Node.new()
 	bridge.set_script(LocalBridge)
 	bridge.completed.connect(_on_apply_completed)
@@ -873,6 +876,10 @@ func _group_action(operation: String,delta: Vector2=Vector2.ZERO) -> bool:
 	_notice("Selected buildings would overlap. Move the group to a clearer area.")
 	return false
 
+func _open_dealership_editor() -> void:
+	dealer_editor.open()
+
+
 func _choose_tool(mode: String) -> void:
 	if _editing_locked():
 		return
@@ -899,7 +906,7 @@ func _choose_tool(mode: String) -> void:
 	gizmos.set_selection({})
 	source_anchor = -1
 	mode_label.text={"select_box":"BOX SELECT","place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
-		"place_marker":"GAME MARKER","race_grid":"RACE START GRID","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
+		"place_marker":"GAME MARKER","place_dealership":"PLACE DEALERSHIP","race_grid":"RACE START GRID","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
 	_notice({"move_prop":"Drag empty space to select several objects, or drag a selection to move it. Use Box Select to start on any object.",
@@ -911,6 +918,7 @@ func _choose_tool(mode: String) -> void:
 		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.",
+		"place_dealership":"Click a clear lot center at least 35 m from a road.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
 		"anchor":"Drag road or sidewalk anchors to reshape; Alt-drag detaches connected path branches."}.get(mode,"Choose artwork, then click the map to place it."))
 	_refresh_authoring()
@@ -939,6 +947,7 @@ func _refresh_authoring() -> void:
 	_refresh_inspector()
 	_refresh_entity_list()
 	if source_ready:
+		gizmos.dealership_records=authoring.dealership_list() if not map_switcher.custom else []
 		gizmos.road_width_scale=float(world.data.get("road_width_scale",1.0))/float(authoring.doc.get("morrowRoadWidthScale",1.0))
 		# Only committed road edits trigger topology work, never pointer motion.
 		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
@@ -1214,6 +1223,9 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
+	if tool_name=="place_dealership":
+		dealer_editor.place_at(_snap_point(world_px/PPM))
+		return
 	if tool_name=="race_grid":
 		var grid_handle:=_pick_race_grid_handle(world_px)
 		if not grid_handle.is_empty():
@@ -1301,6 +1313,11 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			_notice(authoring.last_error)
 		return
+	if tool_name=="move_prop" and not map_switcher.custom:
+		var dealer_id:=dealer_editor.pick(world_px)
+		if not dealer_id.is_empty():
+			dealer_editor.open_for(dealer_id)
+			return
 	if tool_name not in ["anchor","move_prop"]:
 		select_at(world_px)
 		return
