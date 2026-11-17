@@ -19,6 +19,29 @@ Zooming out retains the entire map's real terrain, roads and scenery in a
 cached 4096-pixel overview. Close views switch to collision-free detail tiles
 only after all requested tiles are ready. The tile budget never blanks the map.
 
+**Dealership areas and vehicle inventory (native Morrow Coast editor):** In the
+left Tool Settings panel, select **Dealership areas & stock**. Choose one of
+the ten existing dealerships or **Place new dealership**, then **Move selected
+on map** to click its new location. Place the building center on clear land
+at least 35 metres from a road, leaving room for the drive-in lot and paved
+entrance. The map overlays the editable forecourt; the selected shop and
+parking/browse bay are highlighted. Edit the dealership name, tier, artwork,
+center coordinates, lot width and lot depth in the manager. Default shops
+keep their existing automatic roadside placement until you explicitly move
+them; changes to inventory alone never relocate them. The currently supported
+playable deployment is Morrow Coast.
+
+Inventory can use **Automatic** (every car whose catalog `dealership_id`
+matches this shop, including newly added models) or **Custom** (Ctrl-click
+the vehicle catalog list to select vehicle IDs). The selector loads the
+latest `data/player_vehicle_catalog.json`; no copied car prices or stats
+are stored. In the running game, both shop listings and purchase validation
+use the same resolved catalog, and the outlined forecourt remains the actual
+drivable pavement / slow-speed interaction area. **Save to Game**, then
+**Reload World** to use the changed dealerships. Authoring overrides are
+saved with the World Forge source and included in baked Morrow Coast export
+data; Undo/Redo/Discard protect them like other map edits.
+
 **Automatic bridges:** Roads crossing rivers, lakes or ocean gain a raised deck,
 shadows and guardrails automatically. Bridge width follows road width and the
 rails leave the driving lanes and intersection mouths clear. Road and terrain
