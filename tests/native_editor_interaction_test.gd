@@ -102,6 +102,37 @@ func run() -> void:
 	var ids: Dictionary={}
 	for region in session.doc.regions:ids[str(region.id)]=true
 	check("terrain_uses_unique_ids_material_and_required_metadata",ids.size()==session.doc.regions.size() and session.doc.regions[-1].biome=="forest" and session.doc.regions[-1].has("elevation"))
+	var terrain_id: String=str(session.doc.regions[-1].id)
+	var original_region: Dictionary=session.doc.regions[-1].duplicate(true)
+	var inside:=Vector2(365,330)*20.0
+	check("placed_terrain_selectable_from_interior",
+		editor._pick_source_region(inside).get("id","")==terrain_id)
+	editor._choose_tool("move_prop")
+	editor.source_id=terrain_id
+	editor._refresh_authoring()
+	check("terrain_size_inspector_is_shown",
+		editor.terrain_transforms.visible and
+		absf(editor.inspector_terrain_width.value-80.0)<.01 and
+		absf(editor.inspector_terrain_height.value-50.0)<.01)
+	var terrain_history: int=session.history.size()
+	editor._resize_selected_region(Vector2(1.2,0.8))
+	var changed_region: Dictionary={}
+	for region in session.doc.regions:
+		if str(region.id)==terrain_id:changed_region=region;break
+	check("terrain_resizes_both_axes_and_tracks_undo",
+		session.history.size()==terrain_history+1 and
+		absf(editor._region_bounds(changed_region).size.x-96.0)<.01 and
+		absf(editor._region_bounds(changed_region).size.y-40.0)<.01)
+	check("terrain_resize_rejects_out_of_bounds_without_mutating",
+		not session.resize_region(terrain_id,999.0,999.0) and
+		JSON.stringify(changed_region)==JSON.stringify(session.doc.regions[-1]))
+	check("terrain_resize_undo_restores_vertices",
+		session.undo() and JSON.stringify(session.doc.regions[-1].points)==JSON.stringify(original_region.points))
+	check("terrain_move_preserves_shape",
+		session.move_shape("regions",terrain_id,Vector2(12,7)) and
+		absf(float(session.doc.regions[-1].points[0].x)-float(original_region.points[0].x)-12.0)<.01)
+	session.undo()
+	editor._refresh_authoring()
 	editor._choose_tool("place_marker");editor.marker_kind.select(1)
 	editor._source_click(Vector2(3500,3500)*20)
 	check("marker_tool_respects_marker_type",session.doc.markers[-1].type=="race_start")
