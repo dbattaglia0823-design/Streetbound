@@ -1,6 +1,7 @@
 extends RefCounted
 ## Per-race routes and starting slots share native world-editor undo and saved data.
 const Grid=preload("res://scripts/world/race_start_grid.gd")
+const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 var panel: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
@@ -19,6 +20,28 @@ var grid_race_id:=""
 var updating:=false
 var list_stamp:=-1
 var slots_stamp:=""
+# The compact sidebar is for route work; this separate window edits one
+# placed race as a transaction, without committing partial form changes.
+var edit_button: Button
+var dialog: AcceptDialog
+var dialog_race_id:=""
+var dialog_name: LineEdit
+var dialog_type: OptionButton
+var dialog_laps: SpinBox
+var dialog_radius: SpinBox
+var dialog_start_radius: SpinBox
+var dialog_time_limit: SpinBox
+var dialog_opponents: SpinBox
+var dialog_formation: OptionButton
+var dialog_cash: SpinBox
+var dialog_driver_xp: SpinBox
+var dialog_car_xp: SpinBox
+var pool_search: LineEdit
+var pool_list: ItemList
+var pool_summary: Label
+var dialog_message: Label
+var selected_pool: Array[String]=[]
+var pool_syncing:=false
 func build(e,parent: Node) -> void:
 	e._btn("Street races & routes",parent,func():begin_route(e))
 	panel=VBoxContainer.new();parent.add_child(panel)
@@ -29,6 +52,8 @@ func build(e,parent: Node) -> void:
 		var id:=str(race_list.get_item_metadata(index))
 		if id.is_empty():begin_route(e);return
 		e._choose_tool("move_prop");e.source_id=id;e.source_anchor=-1;e._refresh_authoring())
+	edit_button=e._btn("Edit Race...",panel,func():open_selected(e))
+	edit_button.tooltip_text="Open the full editor for the selected placed race, enemy vehicle pool, race format and rewards."
 	title=LineEdit.new();title.placeholder_text="Race name";title.text="New race";title.max_length=80;panel.add_child(title)
 	mode=e._options(panel,"Route format",["sprint","circuit"])
 	competition=e._options(panel,"Race type",["ai_race","time_trial"])
@@ -63,6 +88,7 @@ func build(e,parent: Node) -> void:
 	grid_slot.item_selected.connect(func(_index):_sync_rotation(e))
 	slot_rotation.value_changed.connect(func(_value):commit_grid_rotation(e))
 	panel.visible=false
+	_build_dialog(e)
 func settings(e) -> Dictionary:
 	return {"name":title.text.strip_edges(),"mode":e._option_value(mode),"laps":int(laps.value) if e._option_value(mode)=="circuit" else 1,
 		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value,
@@ -156,6 +182,7 @@ func update(e) -> void:
 	if panel==null or not e.source_ready:return
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
 	panel.visible=e.tool_name in ["draw_race","race_grid","race_checkpoint"] or not selected.is_empty()
+	edit_button.disabled=selected.is_empty() or e._editing_locked()
 	updating=true
 	var stamp: int=hash(e.authoring.doc.get("races",[]))
 	if stamp!=list_stamp:
@@ -200,3 +227,196 @@ func finish(e) -> String:
 	var id: String=e.authoring.save_race(e.draft_points,settings(e),editing_id)
 	if not id.is_empty():editing_id=""
 	return id
+
+
+func _form_label(parent: Node, text_value: String) -> Label:
+	var label:=Label.new()
+	label.text=text_value
+	label.add_theme_font_size_override("font_size",12)
+	parent.add_child(label)
+	return label
+
+func _form_column(parent: Node, width: float) -> VBoxContainer:
+	var column:=VBoxContainer.new()
+	column.custom_minimum_size.x=width
+	column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation",6)
+	parent.add_child(column)
+	return column
+
+func _build_dialog(e) -> void:
+	dialog=AcceptDialog.new()
+	dialog.name="EditRaceDialog"
+	dialog.title="Edit Race — Settings, Enemies & Rewards"
+	dialog.ok_button_text="Cancel"
+	dialog.min_size=Vector2i(940,660)
+	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	e.add_child(dialog)
+	var body:=VBoxContainer.new()
+	body.custom_minimum_size=Vector2(910,590)
+	dialog.add_child(body)
+	var columns:=HBoxContainer.new()
+	columns.add_theme_constant_override("separation",13)
+	columns.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	body.add_child(columns)
+	var basics:=_form_column(columns,260)
+	_form_label(basics,"RACE SETTINGS")
+	dialog_name=LineEdit.new();dialog_name.max_length=80
+	dialog_name.placeholder_text="Race name";basics.add_child(dialog_name)
+	_form_label(basics,"Race type")
+	dialog_type=OptionButton.new()
+	for pair in [["Point to point","point_to_point"],["Circuit","circuit"],["Time trial (solo)","time_trial"]]:
+		dialog_type.add_item(pair[0])
+		dialog_type.set_item_metadata(dialog_type.item_count-1,pair[1])
+	basics.add_child(dialog_type)
+	dialog_type.item_selected.connect(func(_index: int)->void:_update_dialog_type())
+	dialog_laps=e._number(basics,"Laps (circuit)",1,20,1);dialog_laps.step=1
+	dialog_opponents=e._number(basics,"AI opponents (0-6)",0,Grid.MAX_RIVALS,2);dialog_opponents.step=1
+	_form_label(basics,"Starting grid")
+	dialog_formation=e._options(basics,"Formation",Grid.FORMATIONS)
+	dialog_radius=e._number(basics,"Checkpoint radius m",4,60,16)
+	dialog_start_radius=e._number(basics,"Start circle m",3,30,8)
+	dialog_time_limit=e._number(basics,"Time limit sec (0=off)",0,7200,0)
+	var route_note:=_form_label(basics,"Routes and checkpoint positions are edited on the map. Circuits need at least three gates.")
+	route_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var enemies:=_form_column(columns,335)
+	_form_label(enemies,"POSSIBLE ENEMY VEHICLES")
+	pool_search=LineEdit.new()
+	pool_search.placeholder_text="Search the live vehicle catalog..."
+	pool_search.text_changed.connect(func(_value: String)->void:_refresh_pool())
+	enemies.add_child(pool_search)
+	pool_list=ItemList.new()
+	pool_list.select_mode=ItemList.SELECT_MULTI
+	pool_list.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	pool_list.custom_minimum_size.y=365
+	enemies.add_child(pool_list)
+	pool_list.multi_selected.connect(_pool_selected)
+	var pool_actions:=HBoxContainer.new();enemies.add_child(pool_actions)
+	e._btn("All shown",pool_actions,_select_visible_pool)
+	e._btn("Clear pool",pool_actions,_clear_pool)
+	pool_summary=_form_label(enemies,"No models selected — match the player's car")
+	var pool_hint:=_form_label(enemies,"Ctrl-click to add/remove models. Enemy vehicles are drawn from this pool each race; their stats and artwork use the current car catalog.")
+	pool_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var awards:=_form_column(columns,230)
+	_form_label(awards,"REWARDS ON WIN")
+	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=100
+	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=50
+	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=50
+	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
+	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var foot:=HBoxContainer.new();body.add_child(foot)
+	dialog_message=_form_label(foot,"")
+	dialog_message.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	e._btn("Save Race Settings",foot,func():_save_dialog(e))
+
+func _update_dialog_type() -> void:
+	var kind:=str(dialog_type.get_selected_metadata())
+	var solo:=kind=="time_trial"
+	dialog_laps.editable=kind=="circuit"
+	dialog_opponents.editable=not solo
+	dialog_formation.disabled=solo
+	pool_list.mouse_filter=Control.MOUSE_FILTER_IGNORE if solo else Control.MOUSE_FILTER_STOP
+	pool_summary.text="Solo time trial — no enemy cars" if solo else ("%d available vehicle models"%selected_pool.size() if not selected_pool.is_empty() else "No pool — opponents copy player car")
+
+func open_selected(e) -> void:
+	open_for(e,e.source_id)
+
+func open_for(e,id: String) -> void:
+	if not e.source_ready or e._editing_locked():return
+	var race: Dictionary=e.authoring.race_at_id(id)
+	if race.is_empty():
+		e._notice("Place or select a race before opening Edit Race.")
+		return
+	dialog_race_id=id
+	dialog_name.text=str(race.name)
+	var rival_count: int=race.get("enemy_starts",[]).size()
+	dialog_type.select(1 if str(race.mode)=="circuit" else (2 if rival_count==0 else 0))
+	dialog_laps.value=float(race.get("laps",1))
+	dialog_opponents.value=float(rival_count)
+	for i in dialog_formation.item_count:
+		if str(dialog_formation.get_item_metadata(i))==str(race.get("formation","single_file")):
+			dialog_formation.select(i)
+			break
+	dialog_radius.value=float(race.get("checkpoint_radius",16))
+	dialog_start_radius.value=float(race.get("start_radius",8))
+	dialog_time_limit.value=float(race.get("time_limit",0))
+	dialog_cash.value=float(race.get("reward_cash",0))
+	dialog_driver_xp.value=float(race.get("reward_player_xp",0))
+	dialog_car_xp.value=float(race.get("reward_car_xp",0))
+	selected_pool.clear()
+	for vehicle_id in race.get("opponent_pool",[]):
+		selected_pool.append(str(vehicle_id))
+	pool_search.clear()
+	dialog_message.text=""
+	_refresh_pool()
+	_update_dialog_type()
+	dialog.popup_centered()
+
+func _refresh_pool() -> void:
+	if not is_instance_valid(pool_list):return
+	pool_syncing=true
+	pool_list.clear()
+	var query:=pool_search.text.to_lower().strip_edges()
+	for vehicle in Catalog.all():
+		var id:=str(vehicle.get("id",""))
+		var label_text:=str(vehicle.get("display_name",id))
+		if not query.is_empty() and not (label_text+" "+id).to_lower().contains(query):
+			continue
+		pool_list.add_item(label_text)
+		var index:=pool_list.item_count-1
+		pool_list.set_item_metadata(index,id)
+		if selected_pool.has(id):pool_list.select(index,false)
+	pool_syncing=false
+	_update_dialog_type()
+
+func _pool_selected(index: int,is_selected: bool) -> void:
+	if pool_syncing:return
+	var id:=str(pool_list.get_item_metadata(index))
+	if is_selected and not selected_pool.has(id):selected_pool.append(id)
+	elif not is_selected:selected_pool.erase(id)
+	_update_dialog_type()
+
+func _select_visible_pool() -> void:
+	if str(dialog_type.get_selected_metadata())=="time_trial":return
+	for i in pool_list.item_count:
+		var id:=str(pool_list.get_item_metadata(i))
+		if not selected_pool.has(id):selected_pool.append(id)
+	_refresh_pool()
+
+func _clear_pool() -> void:
+	selected_pool.clear()
+	_refresh_pool()
+
+func _save_dialog(e) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	var race: Dictionary=e.authoring.race_at_id(dialog_race_id)
+	if race.is_empty():
+		dialog_message.text="Race no longer exists. Select another race."
+		return
+	var kind:=str(dialog_type.get_selected_metadata())
+	if kind=="circuit" and race.points.size()<3:
+		dialog_message.text="Add a checkpoint on the road before switching to Circuit."
+		return
+	var options: Dictionary={
+		"name":dialog_name.text.strip_edges(),
+		"mode":"circuit" if kind=="circuit" else "sprint",
+		"laps":int(dialog_laps.value) if kind=="circuit" else 1,
+		"checkpoint_radius":dialog_radius.value,
+		"start_radius":dialog_start_radius.value,
+		"time_limit":dialog_time_limit.value,
+		"opponent_count":0 if kind=="time_trial" else int(dialog_opponents.value),
+		"formation":str(dialog_formation.get_selected_metadata()),
+		"opponent_pool":selected_pool.duplicate(),
+		"reward_cash":int(dialog_cash.value),
+		"reward_player_xp":int(dialog_driver_xp.value),
+		"reward_car_xp":int(dialog_car_xp.value)}
+	var points: Array[Vector2]=[]
+	for p in race.points:points.append(Vector2(float(p.x),float(p.y)))
+	if e.authoring.save_race(points,options,dialog_race_id).is_empty():
+		dialog_message.text="Cannot save: "+e.authoring.last_error
+		return
+	e.source_id=dialog_race_id
+	e.source_anchor=-1
+	e._refresh_authoring()
+	dialog.hide()
+	e._notice("Race settings saved. Undo restores the previous setup; Save to Game applies it.")
