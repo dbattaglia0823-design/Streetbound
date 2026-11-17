@@ -878,8 +878,11 @@ func _choose_tool(mode: String) -> void:
 	if not source_ready and mode != "inspect":
 		_notice("Source unavailable. The map can still be inspected.")
 		return
+	# Box Select is a selection subtool, not a reason to discard the
+	# selected group. Switching back to V must allow an immediate group drag.
+	var keep_selection: bool=tool_name in ["move_prop","select_box"] and mode in ["move_prop","select_box"]
 	tool_name = mode
-	_set_multi([])
+	if not keep_selection:_set_multi([])
 	marquee_tracking=false
 	group_moving=false
 	if is_instance_valid(gizmos):
@@ -890,7 +893,7 @@ func _choose_tool(mode: String) -> void:
 		gizmos.source_anchor_mode = mode == "anchor"
 		gizmos.set_pending_shape(draft_points,mode)
 	pending_drag.clear()
-	if mode not in ["move_prop","anchor","race_grid"]:source_id = ""
+	if mode not in ["move_prop","select_box","anchor","race_grid"]:source_id = ""
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
