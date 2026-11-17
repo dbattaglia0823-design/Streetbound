@@ -21,7 +21,7 @@ func run() -> void:
 	e._choose_tool("move_prop");e.source_id=id;e.source_anchor=1;e._refresh_authoring()
 	check("race_has_checkpoint_picker_and_settings",e.point_picker.visible and not e.split_road_button.visible and form.panel.visible and e.point_picker.item_count==4)
 	var nearest_road: Dictionary=e.authoring.doc.roads[0]
-	var sample_path: Array[Vector2]=e._source_road_path(nearest_road)
+	var sample_path: PackedVector2Array=e._source_road_path(nearest_road)
 	var road_at: Vector2=sample_path[sample_path.size()/2]
 	var snapped: Vector2=e._road_draw_point(road_at+Vector2(2,3),true,true)
 	check("race_checkpoints_snap_to_real_roads",snapped.is_finite() and snapped.distance_to(road_at)<20)
