@@ -175,11 +175,11 @@ static func build(e) -> void:
 	e.terrain_shrink_button=e._btn("Shrink",terrain_buttons,e._resize_region_by_percentage.bind(-1.0))
 	e.inspector_terrain_percent=SpinBox.new()
 	e.inspector_terrain_percent.min_value=0.1
-	e.inspector_terrain_percent.max_value=99.9
+	e.inspector_terrain_percent.max_value=500.0
 	e.inspector_terrain_percent.step=0.1
 	e.inspector_terrain_percent.value=10.0
 	e.inspector_terrain_percent.suffix="%"
-	e.inspector_terrain_percent.tooltip_text="Percentage to expand or shrink the entire terrain piece"
+	e.inspector_terrain_percent.tooltip_text="Percentage to resize the terrain; shrinking requires less than 100%"
 	e.inspector_terrain_percent.custom_minimum_size.x=88
 	e.inspector_terrain_percent.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	terrain_buttons.add_child(e.inspector_terrain_percent)
