@@ -80,7 +80,7 @@ func run() -> void:
 	e._refresh_inspector()
 	check("settings_inspector_and_map_have_separate_space",e.settings_panel.get_rect().end.x<=e.canvas_rect.position.x and e.canvas_rect.end.x<=e.inspector_panel.position.x and e.canvas_bar.get_rect().end.y<=e.canvas_rect.position.y)
 	check("editor_actions_are_accessible_with_horizontal_scroll",
-		e.canvas_bar.get_node_or_null("CanvasEditActionsScroll") is ScrollContainer and
+		e.canvas_bar.find_child("CanvasEditActionsScroll",true,false) is ScrollContainer and
 		e.inspector_panel.size.x>=330.0 and
 		e.canvas_rect.end.x<=e.inspector_panel.position.x)
 	check("all_editor_panels_stay_within_viewport",
