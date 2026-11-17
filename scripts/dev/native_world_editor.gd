@@ -774,10 +774,19 @@ func _end_marquee(at: Vector2) -> void:
 	var ids: Array[String]=multi_selection.duplicate() if marquee_additive else []
 	if marquee_start.distance_to(at)<6.0/maxf(.003,editor_camera.zoom.x):
 		if not marquee_additive:
-			# A short click still selects/adopts an individual baked asset.
-			_source_click(at)
-			pending_drag.clear()
-			if not source_id.is_empty():ids=[source_id]
+			# A short click still selects/adopts one asset. The dedicated
+			# Box Select tool never turns this into an object drag.
+			if tool_name=="select_box":
+				var clicked:=_selection_hit(at)
+				if clicked.is_empty() and not map_switcher.custom:
+					var nearest: Dictionary=_nearest_prop(at)
+					if nearest.get("kind","")=="prop":
+						clicked=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
+				if not clicked.is_empty():ids.append(clicked)
+			else:
+				_source_click(at)
+				pending_drag.clear()
+				if not source_id.is_empty():ids.append(source_id)
 		else:
 			var hit:=_selection_hit(at)
 			if hit.is_empty() and not map_switcher.custom:
@@ -1745,6 +1754,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var shortcut := ""
 				match key.physical_keycode:
 					KEY_V: shortcut = "move_prop"
+					KEY_B: shortcut = "select_box"
 					KEY_R: shortcut = "draw_road"
 					KEY_T: shortcut = "draw_terrain"
 					KEY_P: shortcut = "place:house"
@@ -2649,9 +2659,15 @@ func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 		var start: Vector2=position if candidate_angle==angle or hit.is_empty() else road_building_snap.pose(hit,size,candidate_angle)
 		var candidates: Array[Dictionary]=[]
 		if building_snap_enabled:
-			var aligned:=BuildingSnap.position(start,size,candidate_angle,neighbors,2.0,BuildingSnap.CLEARANCE_M)
-			if aligned.distance_to(start)>.001:
-				candidates.append({"position":aligned,"edge":true})
+			# Road-facing snap may already have pulled the pointer several
+			# metres from the neighboring facade. Try both the road-aligned
+			# pose and the raw pointer before judging wall-to-wall snapping.
+			var anchors: Array[Vector2]=[start,at]
+			for anchor in anchors:
+				var aligned:=BuildingSnap.position(anchor,size,candidate_angle,neighbors,
+					BuildingSnap.EDGE_SNAP_RADIUS_M,BuildingSnap.CLEARANCE_M)
+				if aligned.distance_to(anchor)>.001:
+					candidates.append({"position":aligned,"edge":true})
 		candidates.append({"position":start,"edge":false})
 		for option in candidates:
 			var original_candidate: Vector2=option.position
@@ -2660,7 +2676,7 @@ func _snap_building_transform(prop: Dictionary,at: Vector2) -> Dictionary:
 			var trial: Vector2=fixed.position
 			if not authoring._in_bounds(trial):continue
 			if not hit.is_empty() and not road_building_snap.clear_of_roads(trial,size,candidate_angle):continue
-			var alignment_bonus:=2.25 if bool(option.edge) else 0.0
+			var alignment_bonus:=4.0 if bool(option.edge) else 0.0
 			var road_bonus:=3.0 if not hit.is_empty() else 0.0
 			var score:=trial.distance_to(at)-alignment_bonus-road_bonus
 			if score<best:
