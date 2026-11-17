@@ -132,6 +132,20 @@ forward gear counts, and locks in key high-profile corrections. Existing
 roster, dealership, ownership and audio tests continue to validate the
 same save and purchase flows on Godot 4.4.1 and 4.6.3.
 
+## Future-requested vehicle list is not a playable catalog
+
+`assets/Vehicles/streetbound_vehicle_list.txt` contains **259 model
+requests**: 212 grouped by manufacturer and 47 subsequent year-specific or
+one-off requests. Some overlap with the 98 playable catalog. Another
+`data/pending_vehicle_audio_profiles.json` holds **154 future/pending audio
+profiles**, not 154 additional purchasable cars. Neither source provides
+complete price/trim/year-specific production data for a playable model. The
+audio request parser now reads the actual source location and both sections;
+previously it read zero models from a retired path. The future request list
+is not silently turned into playable cars or invented dealership prices.
+The exhaustive real-world **pricing and spec audit covers the 98 actual
+playable vehicle IDs**, not unimplemented ideas on the future list.
+
 ## Further independent work
 
 The 69 representative (not directly checked) trims and every price labeled
