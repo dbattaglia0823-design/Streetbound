@@ -34,7 +34,11 @@ static func match(at: Vector2,size: Vector2,angle: float,neighbors: Array,
 					for other_y in [-1.0,1.0]:
 						var remote_corner:=Vector2(remote_half.x*other_x,remote_half.y*other_y).rotated(remote_angle)
 						var candidate: Vector2=center+remote_corner-own_corner
-						best=_consider(at,candidate,tolerance,true,best)
+						# Coincident/internal corners are not exterior joins. Leave
+						# overlapping footprints exactly where the author placed them.
+						var min_extent: float=minf(minf(size.x,size.y),minf(remote_size.x,remote_size.y))
+						if candidate.distance_to(center)>=min_extent*.8:
+							best=_consider(at,candidate,tolerance,true,best)
 		# A parallel pair can share a wall without requiring their corners to
 		# match. Include two-axis centre/corner anchors as precise alternatives.
 		var turn: float=wrapf(angle-remote_angle,-PI,PI)
