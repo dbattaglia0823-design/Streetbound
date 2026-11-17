@@ -4,6 +4,7 @@ extends CanvasLayer
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const DealerConfig = preload("res://scripts/world/dealership_config.gd")
 const PPM := 20.0
 var manager: Node2D
 var player: VehicleController2D
@@ -178,10 +179,7 @@ func _rebuild_cards() -> void:
 			grid.remove_child(previous_panel)
 		previous_panel.queue_free()
 	cards.clear()
-	var stock: Array[Dictionary] = []
-	for entry in Catalog.all():
-		if str(entry.get("dealership_id","")) == str(_active_shop.get("id","")):
-			stock.append(entry)
+	var stock: Array[Dictionary] = DealerConfig.available_inventory(_active_shop)
 	stock.sort_custom(_stock_price_less)
 	for entry in stock:
 		_add_card(entry)
@@ -273,7 +271,7 @@ func _purchase(id: String) -> void:
 		not manager.can_browse(_active_shop):
 		return
 	var entry := Catalog.find_by_id(id)
-	if entry.is_empty() or str(entry.dealership_id) != str(_active_shop.id):
+	if entry.is_empty() or not DealerConfig.sells(_active_shop,id):
 		return
 	var result := economy.purchase(id)
 	match result:
