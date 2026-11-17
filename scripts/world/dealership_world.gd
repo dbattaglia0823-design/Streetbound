@@ -108,8 +108,13 @@ func _find_clear_site(spec: Dictionary) -> Dictionary:
 		var normal := tangent.orthogonal()
 		var toward_hint := (near-road_point).dot(normal)
 		var preferred_side := 1.0 if toward_hint >= 0.0 else -1.0
+		# Keep legacy storefronts close to the road. Larger setbacks
+		# are only needed when a map author explicitly extends the lot.
+		var setbacks: Array[float]=[34.0,42.0,52.0]
+		if float(spec.get("lot_depth_m",0.0))>37.5:
+			setbacks.append_array([66.0,86.0])
 		for side in [preferred_side, -preferred_side]:
-			for setback in [34.0,42.0,52.0,66.0,86.0]:
+			for setback in setbacks:
 				if float(spec.get("lot_depth_m",setback-14.5))>setback-14.5:continue
 				attempts += 1
 				var outward: Vector2 = normal * float(side)
