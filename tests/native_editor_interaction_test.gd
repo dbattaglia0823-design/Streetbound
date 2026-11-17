@@ -146,6 +146,20 @@ func run() -> void:
 		absf(editor._region_bounds(session.doc.regions[-1]).size.y-43.75)<0.01)
 	session.undo()
 	editor._refresh_authoring()
+	editor.inspector_terrain_percent.value=100.0
+	editor.terrain_expand_button.pressed.emit()
+	check("terrain_expand_supports_full_hundred_percent",
+		absf(editor._region_bounds(session.doc.regions[-1]).size.x-160.0)<0.01 and
+		absf(editor._region_bounds(session.doc.regions[-1]).size.y-100.0)<0.01)
+	session.undo()
+	editor._refresh_authoring()
+	var before_invalid_shrink: int=session.history.size()
+	editor.terrain_shrink_button.pressed.emit()
+	check("terrain_shrink_prevents_collapsing_polygon",
+		session.history.size()==before_invalid_shrink and
+		JSON.stringify(session.doc.regions[-1].points)==JSON.stringify(original_region.points))
+	editor.inspector_terrain_percent.value=12.5
+	editor._refresh_authoring()
 	check("resize_percentage_persists_between_edits",
 		is_equal_approx(editor.inspector_terrain_percent.value,12.5))
 	check("terrain_move_preserves_shape",
