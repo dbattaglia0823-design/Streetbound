@@ -313,7 +313,7 @@ func place_at(position_m: Vector2) -> void:
 		return
 	var ok := false
 	if placing_new:
-		var id := editor.authoring.add_dealership(position_m)
+		var id: String = str(editor.authoring.add_dealership(position_m))
 		ok = not id.is_empty()
 		if ok:
 			selected_id = id
