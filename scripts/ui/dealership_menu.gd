@@ -76,7 +76,7 @@ func _ready() -> void:
 	count_label.add_theme_font_size_override("font_size",13)
 	finance.add_child(count_label)
 	var note := Label.new()
-	note.text = "Cars sorted by price: lowest to highest. Purchases go to your Laurel Motor House garage."
+	note.text = "Prices use trim-specific MSRP or labeled used/collector estimates. Purchases go to Laurel Motor House."
 	note.add_theme_font_size_override("font_size",13)
 	vertical.add_child(note)
 	search = LineEdit.new()
@@ -190,7 +190,7 @@ func _rebuild_cards() -> void:
 func _add_card(entry: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "Stock_" + str(entry.id).replace("-","_")
-	panel.custom_minimum_size = Vector2(256,320)
+	panel.custom_minimum_size = Vector2(256,356)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("14272b")
@@ -215,11 +215,18 @@ func _add_card(entry: Dictionary) -> void:
 	name.add_theme_font_size_override("font_size",17)
 	name.clip_text = true
 	column.add_child(name)
+	var reference := Label.new()
+	reference.name = "ReferenceTrim"
+	reference.text = Catalog.reference_label(entry)
+	reference.add_theme_font_size_override("font_size",11)
+	reference.add_theme_color_override("font_color",Color("a6c0b6"))
+	reference.clip_text = true
+	column.add_child(reference)
 	var specs := Label.new()
-	specs.text = "%.0f hp  /  %.0f lb-ft  /  %s\n%.0f lb  /  %s  /  GRIP %.2f" % [
+	specs.text = "%.0f HP  /  %.0f LB-FT  /  %s\n%.0f LB  /  %s  /  GRIP %.2f" % [
 		float(entry.power_kw)*1.34102, float(entry.torque_nm)*0.73756,
 		str(entry.drivetrain),float(entry.mass_kg)*2.20462,
-		str(entry.kind).to_upper(),float(entry.tire_grip)]
+		str(entry.reference_transmission),float(entry.tire_grip)]
 	specs.add_theme_font_size_override("font_size",12)
 	specs.add_theme_color_override("font_color",Color("c0ccc9"))
 	column.add_child(specs)
@@ -228,6 +235,12 @@ func _add_card(entry: Dictionary) -> void:
 	price.add_theme_font_size_override("font_size",19)
 	price.add_theme_color_override("font_color",Color("ecd29b"))
 	column.add_child(price)
+	var price_basis := Label.new()
+	price_basis.name = "PriceBasis"
+	price_basis.text = Catalog.price_basis_label(entry)
+	price_basis.add_theme_font_size_override("font_size",11)
+	price_basis.add_theme_color_override("font_color",Color("adb9b4"))
+	column.add_child(price_basis)
 	var requirement := Label.new()
 	requirement.name = "RequiredLevel"
 	requirement.text = "DRIVER LV %d REQUIRED" % int(entry.get("required_player_level",1))
@@ -239,8 +252,14 @@ func _add_card(entry: Dictionary) -> void:
 	action.custom_minimum_size.y = 35
 	action.pressed.connect(_purchase.bind(str(entry.id)))
 	column.add_child(action)
+	panel.tooltip_text = "%s\n%s\n%s" % [
+		Catalog.reference_label(entry),
+		str(entry.get("reference_price_note","")),
+		"Factory source: "+str(entry.get("source_spec_url","")) if
+			not str(entry.get("source_spec_url","")).is_empty() else
+			"Representative trim figures pending individual source check"]
 	if bool(entry.source_model_unverified):
-		panel.tooltip_text = "Model name awaiting image verification"
+		panel.tooltip_text += "\nArtwork association remains provisional"
 	cards.append({"panel":panel,"picture":picture,"entry":entry,"action":action})
 
 

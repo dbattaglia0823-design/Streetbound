@@ -209,6 +209,19 @@ func run() -> void:
 	check("budget_shop_opens_paused_with_its_stock",
 		menu.overlay.visible and paused and menu.cards.size() == counted.budget,
 		menu.cards.size())
+	var reference_labels := true
+	for item in menu.cards:
+		var card: Control = item.panel
+		var entry: Dictionary = item.entry
+		var trim: Label = card.find_child("ReferenceTrim",true,false) as Label
+		var basis: Label = card.find_child("PriceBasis",true,false) as Label
+		reference_labels = reference_labels and trim != null and basis != null
+		if trim != null and basis != null:
+			reference_labels = reference_labels and \
+				trim.text == Catalog.reference_label(entry) and \
+				basis.text == Catalog.price_basis_label(entry) and \
+				card.tooltip_text.contains(str(entry.get("reference_price_note","")))
+	check("dealer_cards_show_year_trim_and_honest_price_basis",reference_labels)
 	var first_display_order := true
 	for i in menu.cards.size():
 		first_display_order = first_display_order and menu.grid.get_child(i) == menu.cards[i].panel

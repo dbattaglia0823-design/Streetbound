@@ -7,6 +7,20 @@ const PendingAudio = preload("res://scripts/audio/pending_vehicle_audio.gd")
 const AppearanceProfileScript = preload("res://scripts/vehicle/vehicle_appearance_profile.gd")
 const CATALOG_PATH := "res://data/player_vehicle_catalog.json"
 const PPM := 20.0
+## Physically modeled gearbox ratios are class-based approximations. The
+## number of forward speeds matches the specific catalog trim, but these
+## ratios are not asserted to be exact OEM gear and final-drive tables.
+const GEAR_PROFILES := {
+	1: [1.0],
+	4: [2.84,1.57,1.00,0.69],
+	5: [3.30,1.94,1.31,1.00,0.76],
+	6: [3.32,2.11,1.52,1.18,0.97,0.74],
+	7: [3.92,2.51,1.85,1.45,1.16,0.93,0.77],
+	8: [4.24,2.70,1.98,1.53,1.22,1.00,0.82,0.67],
+	9: [4.73,3.00,2.15,1.71,1.32,1.00,0.84,0.71,0.60],
+	10: [4.70,2.99,2.15,1.77,1.52,1.27,1.00,0.85,0.68,0.64]
+}
+
 static var _vehicles: Array[Dictionary] = []
 
 
@@ -28,6 +42,23 @@ static func find_by_id(id: String) -> Dictionary:
 		if str(entry.id) == id:
 			return entry
 	return {}
+
+
+static func price_basis_label(entry: Dictionary) -> String:
+	match str(entry.get("price_basis","")):
+		"msrp_usd": return "BASE MSRP"
+		"msrp_estimate_usd": return "EST. MSRP"
+		"used_estimate_usd": return "EST. USED"
+		"international_used_estimate_usd": return "EST. IMPORT/USED"
+		"collector_estimate_usd": return "EST. COLLECTOR"
+		"converted_launch_estimate_usd": return "EST. CONVERTED"
+	return "GAME PRICE"
+
+
+static func reference_label(entry: Dictionary) -> String:
+	return "%d  /  %s" % [
+		int(entry.get("reference_year",0)),
+		str(entry.get("reference_trim",entry.get("model","")))]
 
 
 static func alpha_bounds(image: Image) -> Rect2i:
@@ -60,6 +91,12 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.mass_kg = float(entry.mass_kg)
 	config.engine_torque_nm = float(entry.torque_nm)
 	config.engine_power_kw = float(entry.power_kw)
+	var gear_count := int(entry.get("reference_gear_count",6))
+	if GEAR_PROFILES.has(gear_count):
+		config.gear_ratios = PackedFloat32Array(GEAR_PROFILES[gear_count])
+		if gear_count == 1:
+			# EV reduction drive rather than a fictitious six-speed gearbox.
+			config.final_drive = 9.5
 	config.boost_max_psi = maxf(0.0,float(entry.get("boost_max_psi",0.0)))
 	config.audio_sample_id = str(entry.get("id",""))
 	config.audio_family = str(entry.get("audio_family","v8_cross"))
@@ -74,6 +111,7 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.audio_lope = clampf(float(entry.get("audio_lope",0.1)),0.0,1.0)
 	config.audio_overrun = clampf(float(entry.get("audio_overrun",0.35)),0.0,1.0)
 	config.audio_turbo_presence = clampf(float(entry.get("audio_turbo_presence",0.0)),0.0,1.5)
+	config.audio_hybrid_assist = clampf(float(entry.get("audio_hybrid_assist",0.0)),0.0,1.0)
 	config.wheelbase_m = float(entry.wheelbase_m)
 	config.brake_force_n = float(entry.brake_force_n)
 	config.tire_grip = float(entry.tire_grip)
@@ -88,7 +126,6 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 			config.high_speed_steer_degrees = 7.0
 			config.rear_grip_balance = 1.06
 			config.yaw_damping = 1.6
-			config.engine_torque_nm *= 1.05
 		"compact":
 			config.max_steer_degrees = 38.0
 			config.high_speed_steer_degrees = 11.0
