@@ -147,7 +147,14 @@ func run() -> void:
 		if str(shop.id) in ["junk","budget","used"]:
 			sites_in_expected_regions = sites_in_expected_regions and \
 				(position.x<2300 or position.y>3450)
-		accessible = accessible and site_position(shop,"road_m").distance_to(parking)<55.0
+		# Legacy showrooms should retain short road access; authored,
+		# extended lots can have longer paved driveways.
+		var approach_limit: float=90.0 if shop.has("x") or shop.has("lot_depth_m") else 55.0
+		var approach_distance: float=road_point.distance_to(parking)
+		var approach_ok:=approach_distance<approach_limit
+		check("dealer_road_approach_distance_"+str(shop.id),approach_ok,
+			"%.1f / %.1f m"%[approach_distance,approach_limit])
+		accessible = accessible and approach_ok
 		mapped = mapped and world.data.pois.any(func(p: Dictionary) -> bool:
 			return str(p.get("name","")) == str(shop.name) and \
 				str(p.get("category","")).contains("DEALERSHIP"))
