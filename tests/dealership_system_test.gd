@@ -3,6 +3,8 @@ extends SceneTree
 ## map POIs and ownership-gated garage access.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
+const DealerConfig = preload("res://scripts/world/dealership_config.gd")
+const Pavement = preload("res://scripts/world/dealership_pavement.gd")
 const PPM := 20.0
 var failures: Array[String] = []
 
@@ -41,6 +43,20 @@ func run() -> void:
 		if counted.has(shop_id):
 			counted[shop_id] = int(counted[shop_id]) + 1
 		valid_prices = valid_prices and int(item.get("price_usd",0)) >= 4500
+	var example: Dictionary=DealerConfig.defaults()[0]
+	var manual: Dictionary=example.duplicate(true)
+	manual["inventory_mode"]="manual"
+	manual["inventory"]=[str(all_cars[0].id)]
+	check("dealership_manual_inventory_uses_live_catalog",
+		DealerConfig.available_inventory(manual).size()==1 and
+		DealerConfig.sells(manual,str(all_cars[0].id)))
+	check("dealership_inventory_rejects_unknown_vehicle_ids",
+		not DealerConfig.sells(manual,"not-a-real-car"))
+	var example_lot: Dictionary={"setback_m":55.0,"lot_width_m":44.0,
+		"lot_depth_m":24.0}
+	check("drive_in_area_can_be_resized",
+		Pavement.lot_rect(example_lot).size==Vector2(44,24) and
+		Pavement.entrance_polygon(example_lot).size()==4)
 	check("all_10_buildings_have_images", all_building_images)
 	check("all_cars_have_valid_prices", all_cars.size() >= 89 and valid_prices)
 	check("all_playable_cars_have_exactly_one_dealership",exact_stock)
@@ -131,7 +147,14 @@ func run() -> void:
 		if str(shop.id) in ["junk","budget","used"]:
 			sites_in_expected_regions = sites_in_expected_regions and \
 				(position.x<2300 or position.y>3450)
-		accessible = accessible and site_position(shop,"road_m").distance_to(parking)<55.0
+		# Legacy showrooms should retain short road access; authored,
+		# extended lots can have longer paved driveways.
+		var approach_limit: float=90.0 if shop.has("x") or shop.has("lot_depth_m") else 55.0
+		var approach_distance: float=road_point.distance_to(parking)
+		var approach_ok:=approach_distance<approach_limit
+		check("dealer_road_approach_distance_"+str(shop.id),approach_ok,
+			"%.1f / %.1f m"%[approach_distance,approach_limit])
+		accessible = accessible and approach_ok
 		mapped = mapped and world.data.pois.any(func(p: Dictionary) -> bool:
 			return str(p.get("name","")) == str(shop.name) and \
 				str(p.get("category","")).contains("DEALERSHIP"))

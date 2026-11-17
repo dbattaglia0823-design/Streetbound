@@ -60,3 +60,26 @@ static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array
 				found.append(str(item.get("id","")))
 				if found.size()>=LIMIT:return found
 	return found
+
+
+## The live Morrow Coast starts with many generated (not yet authored) props.
+## A marquee must be able to select these as well as already-authored assets.
+## Return indices rather than editing the source during pointer motion.
+static func baked_indices_in_rect(data: Dictionary,area: Rect2,limit: int=64) -> Array[int]:
+	var hits: Array[int]=[]
+	var props: Array=data.get("props",[])
+	for i in props.size():
+		var item: Dictionary=props[i]
+		if item.has("poi") or item.has("authoring_id"):continue
+		var coords: Array=item.get("p",[])
+		var dimensions: Array=item.get("size",[])
+		if coords.size()!=2 or dimensions.size()!=2:continue
+		var center:=Vector2(float(coords[0]),float(coords[1]))
+		var half:=Vector2(float(dimensions[0]),float(dimensions[1]))*.5
+		var angle: float=float(item.get("angle",0.0))
+		var extents:=Vector2(absf(half.x*cos(angle))+absf(half.y*sin(angle)),
+			absf(half.x*sin(angle))+absf(half.y*cos(angle)))
+		if area.intersects(Rect2(center-extents,extents*2),true):
+			hits.append(i)
+			if hits.size()>=limit:break
+	return hits

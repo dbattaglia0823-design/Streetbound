@@ -8,6 +8,7 @@ const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
 const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
+const DealershipConfig=preload("res://scripts/world/dealership_config.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
 const MAX_DRAG_M := 350.0
@@ -116,6 +117,38 @@ func _valid_source(value: Dictionary) -> bool:
 				if item.has("barrier") and not item.barrier is bool:return false
 				if bool(item.get("barrier",false)) and (str(item.get("biome","")) not in ["mountain","rock"] or float(item.get("elevation",0))<5):return false
 			elif not _in_bounds(Vector2(float(item.get("x",-1)),float(item.get("y",-1))),value):return false
+	var dealers: Variant = value.get("dealerships", [])
+	if not dealers is Array or dealers.size() > DealershipConfig.MAX_SHOPS:
+		return false
+	for dealer in dealers:
+		if not dealer is Dictionary:
+			return false
+		var id := str(dealer.get("id", ""))
+		if id.is_empty() or used.has("dealer:" + id) or id.length() > 80:
+			return false
+		used["dealer:" + id] = true
+		if dealer.has("x") != dealer.has("y"):
+			return false
+		if dealer.has("x") and not _in_bounds(Vector2(float(dealer.x),float(dealer.y)),value):
+			return false
+		if dealer.has("lot_width_m") and (float(dealer.lot_width_m)<18.0 or float(dealer.lot_width_m)>70.0):
+			return false
+		if dealer.has("lot_depth_m") and (float(dealer.lot_depth_m)<14.0 or float(dealer.lot_depth_m)>60.0):
+			return false
+		if dealer.has("inventory_mode") and str(dealer.inventory_mode) not in ["automatic","manual"]:
+			return false
+		if dealer.has("inventory"):
+			if not dealer.inventory is Array or dealer.inventory.size()>1000:
+				return false
+			var inventory_seen: Dictionary = {}
+			for vehicle_id in dealer.inventory:
+				if not vehicle_id is String or vehicle_id.is_empty() or vehicle_id.length()>100 or inventory_seen.has(vehicle_id):
+					return false
+				inventory_seen[vehicle_id]=true
+		if id.begins_with("custom-dealer-"):
+			if str(dealer.get("name","")).strip_edges().is_empty() or \
+					str(dealer.get("texture","")).find("res://assets/Map Building Assets/Buildings/Dealerships/")!=0:
+				return false
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
@@ -131,6 +164,72 @@ func _valid_source(value: Dictionary) -> bool:
 					Rect2(Vector2.ZERO,Vector2(width,height))):
 				return false
 	return true
+
+
+## Curated shops are virtual until edited. Keeping default locations out of
+## the source means a stock change cannot accidentally move a legacy shop.
+func dealership_list() -> Array[Dictionary]:
+	return DealershipConfig.combined(doc)
+
+func dealership_at_id(identity: String) -> Dictionary:
+	for dealer in dealership_list():
+		if str(dealer.get("id", "")) == identity:
+			return dealer
+	return {}
+
+func update_dealership(identity: String, fields: Dictionary) -> bool:
+	if dealership_at_id(identity).is_empty():
+		last_error = "Unknown dealership."
+		return false
+	var next: Dictionary = doc.duplicate(true)
+	if not next.has("dealerships"):
+		next["dealerships"] = []
+	var target: Dictionary = {}
+	for dealer in next.dealerships:
+		if str(dealer.id)==identity:
+			target=dealer
+			break
+	if target.is_empty():
+		target={"id":identity}
+		next.dealerships.append(target)
+	for field in fields:
+		if field not in ["name","tier","region","texture","x","y","lot_width_m","lot_depth_m","inventory_mode","inventory"]:
+			last_error = "Unsupported dealership property."
+			return false
+		target[field]=fields[field]
+	return _commit(next)
+
+func add_dealership(position_m: Vector2) -> String:
+	if not _in_bounds(position_m):
+		last_error = "Dealership placement is outside the map."
+		return ""
+	var next: Dictionary = doc.duplicate(true)
+	if not next.has("dealerships"):
+		next["dealerships"]=[]
+	if DealershipConfig.combined(next).size()>=DealershipConfig.MAX_SHOPS:
+		last_error = "The map has reached its dealership limit."
+		return ""
+	var number:=1
+	while not dealership_at_id("custom-dealer-%d"%number).is_empty():
+		number+=1
+	var id: String="custom-dealer-%d"%number
+	var template: Dictionary=DealershipConfig.defaults()[3]
+	next.dealerships.append({"id":id,"name":"New dealership %d"%number,
+		"tier":"CUSTOM SHOWROOM","region":"Custom location",
+		"texture":str(template.texture),"x":position_m.x,"y":position_m.y,
+		"lot_width_m":32.0,"lot_depth_m":20.0,
+		"inventory_mode":"manual","inventory":[]})
+	return id if _commit(next) else ""
+
+func delete_dealership(identity: String) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for index in next.get("dealerships",[]).size():
+		if str(next.dealerships[index].id)!=identity:
+			continue
+		next.dealerships.remove_at(index)
+		return _commit(next)
+	last_error="No saved overrides to remove."
+	return false
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 	var record: Dictionary = source if not source.is_empty() else doc
@@ -349,12 +448,56 @@ func change_race_points(identity: String,index: int,remove: bool) -> bool:
 		if str(race.id)!=identity:continue
 		index=clampi(index,0,race.points.size()-1)
 		if remove:
+			if index==0 or (race.mode=="sprint" and index==race.points.size()-1):
+				last_error="Start and finish are fixed gates. Select an intermediate checkpoint to remove."
+				return false
 			if race.points.size()<=(3 if race.mode=="circuit" else 2):last_error="Keep the race's start, finish and required checkpoints.";return false
 			race.points.remove_at(index)
 		else:
 			var a: Dictionary=race.points[mini(index,race.points.size()-2)];var b: Dictionary=race.points[mini(index+1,race.points.size()-1)]
 			race.points.insert(mini(index+1,race.points.size()-1),{"x":(a.x+b.x)*.5,"y":(a.y+b.y)*.5})
 		return _commit(next)
+	return false
+
+## Insert a gate at the exact map location. Preserve sprint finish as the last
+## point; circuits can insert after the last checkpoint before looping home.
+## Returns the new point index, or -1 on validation failure.
+func insert_race_checkpoint(identity: String,point_m: Vector2,after_index: int=-1) -> int:
+	if not point_m.is_finite():
+		last_error="Choose a finite checkpoint location on the road."
+		return -1
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		if race.points.size()>=100:
+			last_error="A race can have at most 100 route points."
+			return -1
+		var last_slot: int=race.points.size()-1 if race.mode=="sprint" else race.points.size()
+		var insert_at: int=clampi(after_index+1,1,last_slot) if after_index>=0 else last_slot
+		race.points.insert(insert_at,{"x":point_m.x,"y":point_m.y})
+		if not _commit(next):
+			last_error="Checkpoint must be on the map and at least 5 m from adjacent gates."
+			return -1
+		return insert_at
+	last_error="Select a saved race first."
+	return -1
+
+## Reorder gates without changing a sprint's start or finish. Circuits keep
+## index zero as their start/finish line.
+func reorder_race_checkpoint(identity: String,index: int,direction: int) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		var last_movable: int=race.points.size()-2 if race.mode=="sprint" else race.points.size()-1
+		var target: int=index+direction
+		if index<1 or index>last_movable or target<1 or target>last_movable or absi(direction)!=1:
+			last_error="Only intermediate checkpoints can change order."
+			return false
+		var point: Dictionary=race.points[index]
+		race.points[index]=race.points[target]
+		race.points[target]=point
+		return _commit(next)
+	last_error="Select a saved race first."
 	return false
 
 func _same_network(first: Dictionary, second: Dictionary) -> bool:

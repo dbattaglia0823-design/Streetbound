@@ -238,7 +238,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var drive_grip := lerpf(1.0,config.handbrake_drive_grip,
 		rear_sliding * rear_drive_share)
 	var traction_capacity := Powertrain.traction_force_n(
-		config,traction_load,surface_grip,drive_grip,surface)
+		config,traction_load,surface_grip,drive_grip,surface,speed)
 	traction_limit_n = traction_capacity
 	# Overwhelming a tire actually makes the wheel spin, even before a
 	# handbrake/drift starts. Visual wheel animation and grip recovery now

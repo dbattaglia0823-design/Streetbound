@@ -178,6 +178,38 @@ export function normalizeWorld(raw){
       ids.add(checked.id);return checked;
     });
   }
+  // Preserve native-map dealership edits in browser Map Builder round-trips.
+  // Dealer records are source overrides, never duplicated vehicle definitions.
+  if(raw.dealerships!==undefined){
+    if(!Array.isArray(raw.dealerships)||raw.dealerships.length>64)throw new RangeError('Invalid dealership count');
+    const dealerIds=new Set();
+    result.dealerships=raw.dealerships.map(value=>{
+      if(!value||typeof value!=='object'||!idOk(value.id)||dealerIds.has(value.id))
+        throw new TypeError('Invalid or duplicate dealership ID');
+      dealerIds.add(value.id);
+      const record={id:value.id};
+      for(const key of ['name','tier','region','texture']){
+        if(value[key]!==undefined){
+          if(typeof value[key]!=='string'||value[key].length>180)throw new TypeError('Invalid dealership '+key);
+          record[key]=value[key];
+        }
+      }
+      if((value.x===undefined)!==(value.y===undefined))throw new TypeError('Dealership position needs x and y');
+      if(value.x!==undefined){record.x=real(value.x,0,width,'dealership x');record.y=real(value.y,0,height,'dealership y');}
+      if(value.lot_width_m!==undefined)record.lot_width_m=real(value.lot_width_m,18,70,'dealer lot width');
+      if(value.lot_depth_m!==undefined)record.lot_depth_m=real(value.lot_depth_m,14,60,'dealer lot depth');
+      if(value.inventory_mode!==undefined)
+        record.inventory_mode=oneOf(value.inventory_mode,['automatic','manual'],'dealer inventory mode');
+      if(value.inventory!==undefined){
+        if(!Array.isArray(value.inventory)||value.inventory.length>1000||
+            value.inventory.some(id=>typeof id!=='string'||!id.length||id.length>100)||
+            new Set(value.inventory).size!==value.inventory.length)
+          throw new TypeError('Invalid dealership vehicle IDs');
+        record.inventory=value.inventory.slice();
+      }
+      return record;
+    });
+  }
   for(const prop of result.props)if(!assetOk(result,prop))throw new TypeError('Unknown or incompatible scenery artwork: '+prop.assetId);
   return result;
 }

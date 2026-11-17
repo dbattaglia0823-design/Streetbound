@@ -11,18 +11,29 @@ var site: Dictionary = {}
 ## are metres in the site's local (road-facing -Y) reference frame.
 static func lot_rect(site_data: Dictionary) -> Rect2:
 	var setback: float = float(site_data.get("setback_m", 36.0))
-	return Rect2(Vector2(-16.0, -setback + 5.0),
-		Vector2(32.0, setback - 14.5))
+	var width: float = float(site_data.get("lot_width_m", 32.0))
+	var depth: float = float(site_data.get("lot_depth_m", setback - 14.5))
+	return Rect2(Vector2(-width * .5, -9.5 - depth), Vector2(width, depth))
 
 
 static func entrance_polygon(site_data: Dictionary) -> PackedVector2Array:
 	var setback: float = float(site_data.get("setback_m", 36.0))
+	var back: float = lot_rect(site_data).position.y
+	var half_mouth: float = minf(7.0, float(site_data.get("lot_width_m",32.0)) * .23)
 	return PackedVector2Array([
-		Vector2(-6.0, -setback - 3.0),
-		Vector2(6.0, -setback - 3.0),
-		Vector2(7.5, -setback + 9.0),
-		Vector2(-7.5, -setback + 9.0)
+		Vector2(-half_mouth, -setback - 3.0),
+		Vector2(half_mouth, -setback - 3.0),
+		Vector2(half_mouth * 1.25, back + 9.0),
+		Vector2(-half_mouth * 1.25, back + 9.0)
 	])
+
+
+static func contains_lot(site_data: Dictionary, position_px: Vector2) -> bool:
+	var center_raw: Array=site_data.get("center_m",[])
+	if center_raw.size()!=2:return false
+	var center:=Vector2(float(center_raw[0]),float(center_raw[1]))
+	var local: Vector2=(position_px/PPM-center).rotated(-float(site_data.get("rotation",0.0)))
+	return lot_rect(site_data).has_point(local)
 
 
 static func contains_pavement(site_data: Dictionary, position_px: Vector2) -> bool:

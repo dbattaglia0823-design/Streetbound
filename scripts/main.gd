@@ -6,6 +6,7 @@ const TrafficFlowScript = preload("res://scripts/world/traffic_flow.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
+const VehicleAwarenessScript = preload("res://scripts/ui/offscreen_vehicle_awareness.gd")
 const VehicleSelectorScript = preload("res://scripts/ui/vehicle_selector.gd")
 const PlayerGarageScript = preload("res://scripts/world/player_garage.gd")
 const DealerWorldScript = preload("res://scripts/world/dealership_world.gd")
@@ -37,6 +38,7 @@ var street_race: Node2D
 var extra_races: Array[Node2D]=[]
 var progression_hud: CanvasLayer
 var quick_upgrades: CanvasLayer
+var offscreen_vehicle_awareness: Control
 var local_split_screen
 var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
@@ -59,10 +61,11 @@ func _ready() -> void:
 	add_child(vehicle)
 	vehicle.add_to_group("player_vehicle")
 	ground.vehicle = vehicle
+	var traffic: Node2D = null
 	if not proving_ground:
 		# Traffic uses the same baked Morrow road curves/intersections as roads
 		# and the map editor. It has no influence on the player's handling.
-		var traffic := Node2D.new()
+		traffic = Node2D.new()
 		traffic.name = "AmbientTraffic"
 		traffic.set_script(TrafficFlowScript)
 		traffic.world = ground
@@ -160,6 +163,13 @@ func _ready() -> void:
 		get_window().title = "Streetbound | Morrow Coast"
 	add_child(hud)
 	if not proving_ground:
+		offscreen_vehicle_awareness = Control.new()
+		offscreen_vehicle_awareness.set_script(VehicleAwarenessScript)
+		offscreen_vehicle_awareness.set("player",vehicle)
+		offscreen_vehicle_awareness.set("camera",camera)
+		offscreen_vehicle_awareness.set("traffic",traffic)
+		hud.add_child(offscreen_vehicle_awareness)
+	if not proving_ground:
 		progression_hud = CanvasLayer.new()
 		progression_hud.set_script(ProgressHudScript)
 		progression_hud.economy = vehicle_ownership
@@ -219,6 +229,7 @@ func _ready() -> void:
 	local_split_screen.set_script(LocalSplitScript)
 	local_split_screen.player_one = vehicle
 	local_split_screen.world = ground
+	local_split_screen.traffic = traffic
 	local_split_screen.inventory = vehicle_ownership
 	local_split_screen.main_camera = camera
 	var hidden: Array[CanvasLayer] = []

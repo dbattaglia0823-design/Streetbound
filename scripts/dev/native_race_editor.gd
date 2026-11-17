@@ -5,6 +5,7 @@ var panel: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
 var mode: OptionButton
+var competition: OptionButton
 var laps: SpinBox
 var radius: SpinBox
 var start_radius: SpinBox
@@ -19,7 +20,7 @@ var updating:=false
 var list_stamp:=-1
 var slots_stamp:=""
 func build(e,parent: Node) -> void:
-	e._btn("Set up races",parent,func():begin_route(e))
+	e._btn("Street races & routes",parent,func():begin_route(e))
 	panel=VBoxContainer.new();parent.add_child(panel)
 	var heading:=Label.new();heading.text="RACE SETUP";panel.add_child(heading)
 	race_list=OptionButton.new();panel.add_child(race_list)
@@ -29,13 +30,16 @@ func build(e,parent: Node) -> void:
 		if id.is_empty():begin_route(e);return
 		e._choose_tool("move_prop");e.source_id=id;e.source_anchor=-1;e._refresh_authoring())
 	title=LineEdit.new();title.placeholder_text="Race name";title.text="New race";title.max_length=80;panel.add_child(title)
-	mode=e._options(panel,"Format",["sprint","circuit"])
+	mode=e._options(panel,"Route format",["sprint","circuit"])
+	competition=e._options(panel,"Race type",["ai_race","time_trial"])
+	competition.set_item_text(0,"Race vs AI")
+	competition.set_item_text(1,"Time trial (solo)")
 	laps=e._number(panel,"Laps",1,20,1)
 	radius=e._number(panel,"Gate radius m",4,60,16)
 	start_radius=e._number(panel,"Start circle m",3,30,8)
 	time_limit=e._number(panel,"Limit sec (0=none)",0,7200,0)
 	var grid_label:=Label.new();grid_label.text="STARTING GRID";panel.add_child(grid_label)
-	opponents=e._number(panel,"AI racers",0,Grid.MAX_RIVALS,2)
+	opponents=e._number(panel,"AI opponents",1,Grid.MAX_RIVALS,2)
 	opponents.step=1
 	formation=e._options(panel,"Formation",Grid.FORMATIONS)
 	grid_slot=OptionButton.new();grid_slot.tooltip_text="Select the player or a specific AI grid slot to move.";panel.add_child(grid_slot)
@@ -43,13 +47,17 @@ func build(e,parent: Node) -> void:
 	slot_rotation.step=1
 	e._btn("Place grid slot on map",panel,func():begin_grid(e)).tooltip_text="Click the map to place the chosen player or AI starting position. Drag an existing grid marker to move it."
 	e._btn("Auto-arrange grid",panel,func():auto_grid(e)).tooltip_text="Reset all positions to the selected formation behind/alongside the route start."
+	e._btn("Add checkpoint on road",panel,func():begin_checkpoint(e)).tooltip_text="Select a gate then click a road to insert the next checkpoint in that order. A sprint keeps its finish last."
+	e._btn("Move checkpoint earlier",panel,func():shift_checkpoint(e,-1))
+	e._btn("Move checkpoint later",panel,func():shift_checkpoint(e,1))
 	e._btn("Redraw race route",panel,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
 	var help:=Label.new();help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	help.text="Click start, checkpoints, then finish. Enter saves. Select race, choose a grid slot, then Place on map. Drag slots to adjust."
+	help.text="Click roads in route order: start, checkpoints, finish. Enter saves. Select a saved race to drag gates or place more checkpoints. Set AI opponents to race, or choose Time trial for a solo run."
 	help.add_theme_font_size_override("font_size",11);panel.add_child(help)
 	title.text_submitted.connect(func(_value):commit_settings(e))
 	title.focus_exited.connect(func():commit_settings(e))
 	mode.item_selected.connect(func(_index):commit_settings(e))
+	competition.item_selected.connect(func(_index):change_competition(e))
 	formation.item_selected.connect(func(_index):commit_settings(e))
 	for spin in [laps,radius,start_radius,time_limit,opponents]:spin.value_changed.connect(func(_value):commit_settings(e))
 	grid_slot.item_selected.connect(func(_index):_sync_rotation(e))
@@ -58,12 +66,40 @@ func build(e,parent: Node) -> void:
 func settings(e) -> Dictionary:
 	return {"name":title.text.strip_edges(),"mode":e._option_value(mode),"laps":int(laps.value) if e._option_value(mode)=="circuit" else 1,
 		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value,
-		"opponent_count":int(opponents.value),"formation":e._option_value(formation)}
+		"opponent_count":0 if e._option_value(competition)=="time_trial" else maxi(1,int(opponents.value)),
+		"formation":e._option_value(formation)}
 func minimum_points(e) -> int:return 3 if e._option_value(mode)=="circuit" else 2
 func begin_route(e,id: String="") -> void:
 	if e._editing_locked() or not e.source_ready:return
 	e._choose_tool("draw_race");editing_id=id
-	e._notice("Click start, checkpoints and finish; Enter saves the route. Set AI grid positions afterward.")
+	e._notice("Click the actual roads in order: START, checkpoints, FINISH. Press Enter to save. Checkpoints snap to road centerlines.")
+func begin_checkpoint(e) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	var identity: String=e.source_id
+	var after_gate: int=e.source_anchor
+	if e.authoring.race_at_id(identity).is_empty():
+		e._notice("Select a saved street race before adding checkpoints.")
+		return
+	e._choose_tool("race_checkpoint")
+	e.source_id=identity
+	e.source_anchor=after_gate
+	e._refresh_authoring()
+	e._notice("Click a road to insert the next checkpoint after the selected gate. Press Esc when finished.")
+
+func shift_checkpoint(e,direction: int) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	if e.authoring.reorder_race_checkpoint(e.source_id,e.source_anchor,direction):
+		e.source_anchor+=direction
+		e._refresh_authoring()
+	else:e._notice(e.authoring.last_error)
+
+func change_competition(e) -> void:
+	if updating:return
+	var has_ai: bool=e._option_value(competition)=="ai_race"
+	opponents.editable=has_ai
+	if has_ai and opponents.value<1:opponents.value=2
+	commit_settings(e)
+
 func selected_slot() -> int:
 	if grid_slot.item_count==0 or grid_slot.selected<0:return -1
 	return int(grid_slot.get_item_metadata(grid_slot.selected))
@@ -119,7 +155,7 @@ func auto_grid(e) -> void:
 func update(e) -> void:
 	if panel==null or not e.source_ready:return
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
-	panel.visible=e.tool_name in ["draw_race","race_grid"] or not selected.is_empty()
+	panel.visible=e.tool_name in ["draw_race","race_grid","race_checkpoint"] or not selected.is_empty()
 	updating=true
 	var stamp: int=hash(e.authoring.doc.get("races",[]))
 	if stamp!=list_stamp:
@@ -130,7 +166,9 @@ func update(e) -> void:
 		mode.select(1 if selected.mode=="circuit" else 0)
 		laps.value=float(selected.get("laps",1));radius.value=float(selected.get("checkpoint_radius",16))
 		start_radius.value=float(selected.get("start_radius",8));time_limit.value=float(selected.get("time_limit",0))
-		opponents.value=float(selected.get("enemy_starts",[]).size())
+		var rival_count: int=selected.get("enemy_starts",[]).size()
+		competition.select(1 if rival_count==0 else 0)
+		opponents.value=float(maxi(1,rival_count))
 		for i in formation.item_count:
 			if str(formation.get_item_metadata(i))==str(selected.get("formation","single_file")):formation.select(i);break
 		for i in race_list.item_count:
@@ -146,6 +184,7 @@ func update(e) -> void:
 		var slot: Dictionary=Grid.player_slot(selected) if slot_index==-1 else selected.enemy_starts[clampi(slot_index,0,maxi(0,selected.enemy_starts.size()-1))]
 		slot_rotation.value=float(slot.get("rotation",0))
 	laps.editable=e._option_value(mode)=="circuit"
+	opponents.editable=e._option_value(competition)=="ai_race"
 	updating=false
 func commit_settings(e) -> void:
 	if updating or not e.source_ready or e._editing_locked():return

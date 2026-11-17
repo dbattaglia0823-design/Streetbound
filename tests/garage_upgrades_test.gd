@@ -22,7 +22,7 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 
 func run() -> void:
 	check("only_six_current_upgrade_types",Parts.SLOTS.size() == 6)
-	check("ninety_current_part_variants_loaded",Parts.all().size() == 90)
+	check("one_hundred_twenty_part_variants_loaded",Parts.all().size() == 120)
 	var complete := true
 	for slot in Parts.SLOTS:
 		for rarity in Parts.RARITIES:
@@ -30,8 +30,8 @@ func run() -> void:
 			for part in Parts.in_slot(slot):
 				if str(part.rarity) == rarity:
 					variants += 1
-			complete = complete and variants == 3
-	check("every_part_type_has_three_variants_per_rarity",complete)
+			complete = complete and variants == 4
+	check("every_part_type_has_four_variants_per_rarity",complete)
 	var economy := Ownership.new(false)
 	check("fresh_ownership_has_no_upgrade_loot",
 		economy.upgrade_inventory.is_empty() and economy.upgrade_loadouts.is_empty())

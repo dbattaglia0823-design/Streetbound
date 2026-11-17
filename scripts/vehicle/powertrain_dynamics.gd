@@ -54,9 +54,15 @@ static func high_output_fraction(config: VehicleConfig) -> float:
 
 static func traction_force_n(config: VehicleConfig, driven_load_n: float,
 		road_grip: float, longitudinal_grip: float = 1.0,
-		road_name: String = "ASPHALT") -> float:
+		road_name: String = "ASPHALT", speed_mps: float = 0.0) -> float:
 	var standard := maxf(0.0, driven_load_n * config.tire_grip *
 		road_grip * longitudinal_grip)
+	# Drag compound advantage applies only to forward drive traction on
+	# asphalt and fades with road speed. Steering/lateral grip, braking and
+	# grass traction still use tire_grip without this launch bonus.
+	if road_name == "ASPHALT" and road_grip >= 0.985:
+		var launch_fraction := clampf(1.0 - absf(speed_mps) / 28.0, 0.0, 1.0)
+		standard *= 1.0 + clampf(config.launch_grip_bonus,0.0,0.35) * launch_fraction
 	var output := high_output_fraction(config)
 	# The F1 extreme performance envelope models a prepared, high-load
 	# drag tire in the LONGITUDINAL direction. It does not give more
