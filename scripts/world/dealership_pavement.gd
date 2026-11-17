@@ -28,6 +28,14 @@ static func entrance_polygon(site_data: Dictionary) -> PackedVector2Array:
 	])
 
 
+static func contains_lot(site_data: Dictionary, position_px: Vector2) -> bool:
+	var center_raw: Array=site_data.get("center_m",[])
+	if center_raw.size()!=2:return false
+	var center:=Vector2(float(center_raw[0]),float(center_raw[1]))
+	var local: Vector2=(position_px/PPM-center).rotated(-float(site_data.get("rotation",0.0)))
+	return lot_rect(site_data).has_point(local)
+
+
 static func contains_pavement(site_data: Dictionary, position_px: Vector2) -> bool:
 	var center_raw: Array = site_data.get("center_m", [])
 	if center_raw.size() != 2:
