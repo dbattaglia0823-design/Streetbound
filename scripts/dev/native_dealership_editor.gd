@@ -174,8 +174,10 @@ func _refresh_fields() -> void:
 	_syncing = true
 	var dealer := _source()
 	var exists := not dealer.is_empty()
-	for control in [name_edit,tier_edit,x_spin,y_spin,width_spin,depth_spin,stock_mode,stock_search,stock,style]:
-		control.editable = exists if control is LineEdit or control is SpinBox else true
+	for control in [name_edit,tier_edit,x_spin,y_spin,width_spin,depth_spin,stock_search]:
+		control.editable = exists
+	stock_mode.disabled = not exists
+	style.disabled = not exists
 	name_edit.text = str(dealer.get("name",""))
 	tier_edit.text = str(dealer.get("tier",""))
 	var at := _position(dealer) if exists else Vector2.ZERO
