@@ -34,6 +34,8 @@ func run() -> void:
 	var gate_before: Dictionary=e.authoring.race_at_id(id).duplicate(true)
 	check("race_start_cannot_be_deleted",not e.authoring.change_race_points(id,0,true) and gate_before==e.authoring.race_at_id(id))
 	check("cannot_reorder_race_start",not e.authoring.reorder_race_checkpoint(id,0,1))
+	check("race_checkpoint_order_can_change",e.authoring.reorder_race_checkpoint(id,1,1) and e.authoring.race_at_id(id).points[1]==gate_before.points[2])
+	e._undo()
 	form.competition.select(1);form.change_competition(e)
 	check("time_trial_removes_all_AI_opponents",e.authoring.race_at_id(id).get("enemy_starts",[]).is_empty())
 	form.competition.select(0);form.change_competition(e);form.opponents.value=4
