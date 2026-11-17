@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "notes": "Six-slot Quick Upgrades catalog. Existing kept template IDs and current race-drop eligibility are preserved. Removed ECU, Intake, Exhaust, and Brakes templates are obsolete; old saves skip them during loading. New variants, turbo and nitrous remain catalog-only (race_drop_enabled=false) pending a separate rewards rework.",
+  "version": 4,
+  "notes": "120 six-slot part templates (four specialties per slot at each of five rarity tiers). Retained template IDs support old saves. 30 original race-drop templates remain obtainable; the other 90 are preview-only until event reward integration. reward_sources tags and an optional event-type drop filter prepare future rotating, event-specific reward tables without activating rotations.",
   "slots": [
     "engine",
     "turbo",
@@ -24,9 +24,14 @@
       "specialty": "Street",
       "name": "Common Forged Engine",
       "modifiers": {
-        "engine_power_kw": 0.025,
-        "engine_torque_nm": 0.026
-      }
+        "engine_power_kw": 0.0306,
+        "engine_torque_nm": 0.0306
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Balanced horsepower and torque"
     },
     {
       "id": "suspension-grip-common",
@@ -35,10 +40,15 @@
       "specialty": "Grip",
       "name": "Common Track Coilovers Grip",
       "modifiers": {
-        "cornering_stiffness": 0.038,
-        "rear_grip_balance": 0.028,
-        "yaw_damping": 0.012
-      }
+        "cornering_stiffness": 0.0666,
+        "rear_grip_balance": 0.036,
+        "yaw_damping": 0.0126
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest corner stiffness and planted rear axle"
     },
     {
       "id": "suspension-drift-common",
@@ -47,11 +57,15 @@
       "specialty": "Drift",
       "name": "Common Drift Coilovers Drift",
       "modifiers": {
-        "rear_grip_balance": -0.043,
-        "max_steer_degrees": 0.037,
-        "steering_response": 0.04,
-        "countersteer_assist": 0.027
-      }
+        "rear_grip_balance": -0.0756,
+        "max_steer_degrees": 0.0576,
+        "steering_response": 0.0612,
+        "countersteer_assist": 0.0504
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Steering angle and easy breakaway for controlled slides"
     },
     {
       "id": "tires-grip-common",
@@ -60,10 +74,15 @@
       "specialty": "Grip",
       "name": "Common Circuit Compound Grip",
       "modifiers": {
-        "tire_grip": 0.047,
-        "rear_grip_balance": 0.024,
-        "cornering_stiffness": 0.014
-      }
+        "tire_grip": 0.0756,
+        "rear_grip_balance": 0.0378,
+        "cornering_stiffness": 0.0216
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest all-speed lateral grip and cornering"
     },
     {
       "id": "tires-drift-common",
@@ -72,11 +91,15 @@
       "specialty": "Drift",
       "name": "Common Drift Compound Drift",
       "modifiers": {
-        "tire_grip": 0.01,
-        "rear_grip_balance": -0.045,
-        "handbrake_drive_grip": 0.028,
-        "countersteer_assist": 0.028
-      }
+        "tire_grip": 0.0162,
+        "rear_grip_balance": -0.0756,
+        "handbrake_drive_grip": 0.0468,
+        "countersteer_assist": 0.0468
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Easier sliding, control and countersteering"
     },
     {
       "id": "transmission-street-common",
@@ -85,10 +108,15 @@
       "specialty": "Street",
       "name": "Common Quick-Shift Gearset",
       "modifiers": {
-        "shift_duration": -0.049,
-        "auto_shift_duration": -0.045,
-        "final_drive": 0.01
-      }
+        "shift_duration": -0.1116,
+        "auto_shift_duration": -0.1008,
+        "final_drive": 0.0054
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Shortest gear-change interruptions, mild short gearing"
     },
     {
       "id": "engine-street-uncommon",
@@ -97,9 +125,14 @@
       "specialty": "Street",
       "name": "Uncommon Forged Engine",
       "modifiers": {
-        "engine_power_kw": 0.04125,
-        "engine_torque_nm": 0.0429
-      }
+        "engine_power_kw": 0.04165,
+        "engine_torque_nm": 0.04165
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Balanced horsepower and torque"
     },
     {
       "id": "suspension-grip-uncommon",
@@ -108,10 +141,15 @@
       "specialty": "Grip",
       "name": "Uncommon Track Coilovers Grip",
       "modifiers": {
-        "cornering_stiffness": 0.0627,
-        "rear_grip_balance": 0.0462,
-        "yaw_damping": 0.0198
-      }
+        "cornering_stiffness": 0.09065,
+        "rear_grip_balance": 0.049,
+        "yaw_damping": 0.01715
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest corner stiffness and planted rear axle"
     },
     {
       "id": "suspension-drift-uncommon",
@@ -120,11 +158,15 @@
       "specialty": "Drift",
       "name": "Uncommon Drift Coilovers Drift",
       "modifiers": {
-        "rear_grip_balance": -0.07095,
-        "max_steer_degrees": 0.06105,
-        "steering_response": 0.066,
-        "countersteer_assist": 0.04455
-      }
+        "rear_grip_balance": -0.1029,
+        "max_steer_degrees": 0.0784,
+        "steering_response": 0.0833,
+        "countersteer_assist": 0.0686
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Steering angle and easy breakaway for controlled slides"
     },
     {
       "id": "tires-grip-uncommon",
@@ -133,10 +175,15 @@
       "specialty": "Grip",
       "name": "Uncommon Circuit Compound Grip",
       "modifiers": {
-        "tire_grip": 0.07755,
-        "rear_grip_balance": 0.0396,
-        "cornering_stiffness": 0.0231
-      }
+        "tire_grip": 0.1029,
+        "rear_grip_balance": 0.05145,
+        "cornering_stiffness": 0.0294
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest all-speed lateral grip and cornering"
     },
     {
       "id": "tires-drift-uncommon",
@@ -145,11 +192,15 @@
       "specialty": "Drift",
       "name": "Uncommon Drift Compound Drift",
       "modifiers": {
-        "tire_grip": 0.0165,
-        "rear_grip_balance": -0.07425,
-        "handbrake_drive_grip": 0.0462,
-        "countersteer_assist": 0.0462
-      }
+        "tire_grip": 0.02205,
+        "rear_grip_balance": -0.1029,
+        "handbrake_drive_grip": 0.0637,
+        "countersteer_assist": 0.0637
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Easier sliding, control and countersteering"
     },
     {
       "id": "transmission-street-uncommon",
@@ -158,10 +209,15 @@
       "specialty": "Street",
       "name": "Uncommon Quick-Shift Gearset",
       "modifiers": {
-        "shift_duration": -0.08085,
-        "auto_shift_duration": -0.07425,
-        "final_drive": 0.0165
-      }
+        "shift_duration": -0.1519,
+        "auto_shift_duration": -0.1372,
+        "final_drive": 0.00735
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Shortest gear-change interruptions, mild short gearing"
     },
     {
       "id": "engine-street-rare",
@@ -170,9 +226,14 @@
       "specialty": "Street",
       "name": "Rare Forged Engine",
       "modifiers": {
-        "engine_power_kw": 0.0625,
-        "engine_torque_nm": 0.065
-      }
+        "engine_power_kw": 0.05525,
+        "engine_torque_nm": 0.05525
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Balanced horsepower and torque"
     },
     {
       "id": "suspension-grip-rare",
@@ -181,10 +242,15 @@
       "specialty": "Grip",
       "name": "Rare Track Coilovers Grip",
       "modifiers": {
-        "cornering_stiffness": 0.095,
-        "rear_grip_balance": 0.07,
-        "yaw_damping": 0.03
-      }
+        "cornering_stiffness": 0.12025,
+        "rear_grip_balance": 0.065,
+        "yaw_damping": 0.02275
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest corner stiffness and planted rear axle"
     },
     {
       "id": "suspension-drift-rare",
@@ -193,11 +259,15 @@
       "specialty": "Drift",
       "name": "Rare Drift Coilovers Drift",
       "modifiers": {
-        "rear_grip_balance": -0.1075,
-        "max_steer_degrees": 0.0925,
-        "steering_response": 0.1,
-        "countersteer_assist": 0.0675
-      }
+        "rear_grip_balance": -0.1365,
+        "max_steer_degrees": 0.104,
+        "steering_response": 0.1105,
+        "countersteer_assist": 0.091
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Steering angle and easy breakaway for controlled slides"
     },
     {
       "id": "tires-grip-rare",
@@ -206,10 +276,15 @@
       "specialty": "Grip",
       "name": "Rare Circuit Compound Grip",
       "modifiers": {
-        "tire_grip": 0.1175,
-        "rear_grip_balance": 0.06,
-        "cornering_stiffness": 0.035
-      }
+        "tire_grip": 0.1365,
+        "rear_grip_balance": 0.06825,
+        "cornering_stiffness": 0.039
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest all-speed lateral grip and cornering"
     },
     {
       "id": "tires-drift-rare",
@@ -218,11 +293,15 @@
       "specialty": "Drift",
       "name": "Rare Drift Compound Drift",
       "modifiers": {
-        "tire_grip": 0.025,
-        "rear_grip_balance": -0.1125,
-        "handbrake_drive_grip": 0.07,
-        "countersteer_assist": 0.07
-      }
+        "tire_grip": 0.02925,
+        "rear_grip_balance": -0.1365,
+        "handbrake_drive_grip": 0.0845,
+        "countersteer_assist": 0.0845
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Easier sliding, control and countersteering"
     },
     {
       "id": "transmission-street-rare",
@@ -231,10 +310,15 @@
       "specialty": "Street",
       "name": "Rare Quick-Shift Gearset",
       "modifiers": {
-        "shift_duration": -0.1225,
-        "auto_shift_duration": -0.1125,
-        "final_drive": 0.025
-      }
+        "shift_duration": -0.2015,
+        "auto_shift_duration": -0.182,
+        "final_drive": 0.00975
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Shortest gear-change interruptions, mild short gearing"
     },
     {
       "id": "engine-street-epic",
@@ -243,9 +327,14 @@
       "specialty": "Street",
       "name": "Epic Forged Engine",
       "modifiers": {
-        "engine_power_kw": 0.08875,
-        "engine_torque_nm": 0.0923
-      }
+        "engine_power_kw": 0.06885,
+        "engine_torque_nm": 0.06885
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Balanced horsepower and torque"
     },
     {
       "id": "suspension-grip-epic",
@@ -254,10 +343,15 @@
       "specialty": "Grip",
       "name": "Epic Track Coilovers Grip",
       "modifiers": {
-        "cornering_stiffness": 0.1349,
-        "rear_grip_balance": 0.0994,
-        "yaw_damping": 0.0426
-      }
+        "cornering_stiffness": 0.14985,
+        "rear_grip_balance": 0.081,
+        "yaw_damping": 0.02835
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest corner stiffness and planted rear axle"
     },
     {
       "id": "suspension-drift-epic",
@@ -266,11 +360,15 @@
       "specialty": "Drift",
       "name": "Epic Drift Coilovers Drift",
       "modifiers": {
-        "rear_grip_balance": -0.15265,
-        "max_steer_degrees": 0.13135,
-        "steering_response": 0.142,
-        "countersteer_assist": 0.09585
-      }
+        "rear_grip_balance": -0.1701,
+        "max_steer_degrees": 0.1296,
+        "steering_response": 0.1377,
+        "countersteer_assist": 0.1134
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Steering angle and easy breakaway for controlled slides"
     },
     {
       "id": "tires-grip-epic",
@@ -279,10 +377,15 @@
       "specialty": "Grip",
       "name": "Epic Circuit Compound Grip",
       "modifiers": {
-        "tire_grip": 0.16685,
-        "rear_grip_balance": 0.0852,
-        "cornering_stiffness": 0.0497
-      }
+        "tire_grip": 0.1701,
+        "rear_grip_balance": 0.08505,
+        "cornering_stiffness": 0.0486
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest all-speed lateral grip and cornering"
     },
     {
       "id": "tires-drift-epic",
@@ -291,11 +394,15 @@
       "specialty": "Drift",
       "name": "Epic Drift Compound Drift",
       "modifiers": {
-        "tire_grip": 0.0355,
-        "rear_grip_balance": -0.15975,
-        "handbrake_drive_grip": 0.0994,
-        "countersteer_assist": 0.0994
-      }
+        "tire_grip": 0.03645,
+        "rear_grip_balance": -0.1701,
+        "handbrake_drive_grip": 0.1053,
+        "countersteer_assist": 0.1053
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Easier sliding, control and countersteering"
     },
     {
       "id": "transmission-street-epic",
@@ -304,10 +411,15 @@
       "specialty": "Street",
       "name": "Epic Quick-Shift Gearset",
       "modifiers": {
-        "shift_duration": -0.17395,
-        "auto_shift_duration": -0.15975,
-        "final_drive": 0.0355
-      }
+        "shift_duration": -0.2511,
+        "auto_shift_duration": -0.2268,
+        "final_drive": 0.01215
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Shortest gear-change interruptions, mild short gearing"
     },
     {
       "id": "engine-street-legendary",
@@ -316,9 +428,14 @@
       "specialty": "Street",
       "name": "Legendary Forged Engine",
       "modifiers": {
-        "engine_power_kw": 0.12,
-        "engine_torque_nm": 0.1248
-      }
+        "engine_power_kw": 0.085,
+        "engine_torque_nm": 0.085
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Balanced horsepower and torque"
     },
     {
       "id": "suspension-grip-legendary",
@@ -327,10 +444,15 @@
       "specialty": "Grip",
       "name": "Legendary Track Coilovers Grip",
       "modifiers": {
-        "cornering_stiffness": 0.1824,
-        "rear_grip_balance": 0.1344,
-        "yaw_damping": 0.0576
-      }
+        "cornering_stiffness": 0.185,
+        "rear_grip_balance": 0.1,
+        "yaw_damping": 0.035
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest corner stiffness and planted rear axle"
     },
     {
       "id": "suspension-drift-legendary",
@@ -339,11 +461,15 @@
       "specialty": "Drift",
       "name": "Legendary Drift Coilovers Drift",
       "modifiers": {
-        "rear_grip_balance": -0.2064,
-        "max_steer_degrees": 0.1776,
-        "steering_response": 0.192,
-        "countersteer_assist": 0.1296
-      }
+        "rear_grip_balance": -0.21,
+        "max_steer_degrees": 0.16,
+        "steering_response": 0.17,
+        "countersteer_assist": 0.14
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Steering angle and easy breakaway for controlled slides"
     },
     {
       "id": "tires-grip-legendary",
@@ -352,10 +478,15 @@
       "specialty": "Grip",
       "name": "Legendary Circuit Compound Grip",
       "modifiers": {
-        "tire_grip": 0.2256,
-        "rear_grip_balance": 0.1152,
-        "cornering_stiffness": 0.0672
-      }
+        "tire_grip": 0.21,
+        "rear_grip_balance": 0.105,
+        "cornering_stiffness": 0.06
+      },
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "role": "Highest all-speed lateral grip and cornering"
     },
     {
       "id": "tires-drift-legendary",
@@ -364,11 +495,15 @@
       "specialty": "Drift",
       "name": "Legendary Drift Compound Drift",
       "modifiers": {
-        "tire_grip": 0.048,
-        "rear_grip_balance": -0.216,
-        "handbrake_drive_grip": 0.1344,
-        "countersteer_assist": 0.1344
-      }
+        "tire_grip": 0.045,
+        "rear_grip_balance": -0.21,
+        "handbrake_drive_grip": 0.13,
+        "countersteer_assist": 0.13
+      },
+      "reward_sources": [
+        "drift"
+      ],
+      "role": "Easier sliding, control and countersteering"
     },
     {
       "id": "transmission-street-legendary",
@@ -377,10 +512,15 @@
       "specialty": "Street",
       "name": "Legendary Quick-Shift Gearset",
       "modifiers": {
-        "shift_duration": -0.2352,
-        "auto_shift_duration": -0.216,
-        "final_drive": 0.048
-      }
+        "shift_duration": -0.31,
+        "auto_shift_duration": -0.28,
+        "final_drive": 0.015
+      },
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Shortest gear-change interruptions, mild short gearing"
     },
     {
       "id": "engine-torque-common",
@@ -389,11 +529,16 @@
       "specialty": "Torque",
       "name": "Common Low-End Torque Engine",
       "modifiers": {
-        "engine_torque_nm": 0.036,
-        "engine_power_kw": 0.013,
-        "redline_rpm": -0.003
+        "engine_torque_nm": 0.04752,
+        "engine_power_kw": 0.0162,
+        "redline_rpm": -0.00432
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Strongest low and midrange pull at a redline cost"
     },
     {
       "id": "engine-high-rpm-common",
@@ -402,11 +547,16 @@
       "specialty": "High RPM",
       "name": "Common High-RPM Engine",
       "modifiers": {
-        "engine_power_kw": 0.029,
-        "redline_rpm": 0.025,
-        "engine_torque_nm": -0.006
+        "engine_power_kw": 0.04176,
+        "redline_rpm": 0.027,
+        "engine_torque_nm": -0.00792
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest rated power and redline; sacrifices low-end torque"
     },
     {
       "id": "suspension-balanced-common",
@@ -415,12 +565,16 @@
       "specialty": "Balanced",
       "name": "Common Balanced Street Coilovers",
       "modifiers": {
-        "cornering_stiffness": 0.028,
-        "rear_grip_balance": 0.012,
-        "yaw_damping": 0.012,
-        "steering_response": 0.012
+        "cornering_stiffness": 0.0396,
+        "rear_grip_balance": 0.0216,
+        "yaw_damping": 0.0378,
+        "steering_response": 0.0216
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip, stronger stability and predictable steering"
     },
     {
       "id": "tires-allround-common",
@@ -429,11 +583,16 @@
       "specialty": "All-Round",
       "name": "Common All-Round Tire Compound",
       "modifiers": {
-        "tire_grip": 0.033,
-        "rear_grip_balance": 0.008,
-        "handbrake_drive_grip": 0.007
+        "tire_grip": 0.0486,
+        "rear_grip_balance": 0.0198,
+        "handbrake_drive_grip": 0.0252,
+        "yaw_damping": 0.0396
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip but steadier mixed-surface street handling"
     },
     {
       "id": "transmission-launch-common",
@@ -442,11 +601,16 @@
       "specialty": "Launch",
       "name": "Common Launch Gearset",
       "modifiers": {
-        "final_drive": 0.021,
-        "shift_duration": -0.021,
-        "auto_shift_duration": -0.017
+        "final_drive": 0.0576,
+        "shift_duration": -0.0288,
+        "auto_shift_duration": -0.0234
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Short final gearing for maximum early acceleration; limits speed"
     },
     {
       "id": "transmission-top-speed-common",
@@ -455,11 +619,16 @@
       "specialty": "Top Speed",
       "name": "Common Top-Speed Gearset",
       "modifiers": {
-        "final_drive": -0.02,
-        "shift_duration": -0.018,
-        "auto_shift_duration": -0.015
+        "final_drive": -0.0396,
+        "shift_duration": -0.027,
+        "auto_shift_duration": -0.0216
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Tall gearing raises gear-limited speed at an acceleration cost"
     },
     {
       "id": "turbo-quick-spool-common",
@@ -468,12 +637,17 @@
       "specialty": "Spool",
       "name": "Common Quick-Spool Turbo",
       "modifiers": {
-        "boost_max_psi": 3.4,
-        "boost_spool_seconds": -0.1,
-        "engine_power_kw": 0.013,
-        "engine_torque_nm": 0.017
+        "boost_max_psi": 1.8,
+        "boost_spool_seconds": -0.1368,
+        "engine_power_kw": 0.01692,
+        "engine_torque_nm": 0.02052
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "technical"
+      ],
+      "role": "Fastest turbo response with smaller top-end output"
     },
     {
       "id": "turbo-balanced-common",
@@ -482,12 +656,17 @@
       "specialty": "Balanced",
       "name": "Common Balanced Turbo",
       "modifiers": {
-        "boost_max_psi": 4,
-        "boost_spool_seconds": -0.05,
-        "engine_power_kw": 0.024,
-        "engine_torque_nm": 0.021
+        "boost_max_psi": 2.52,
+        "boost_spool_seconds": -0.0648,
+        "engine_power_kw": 0.0252,
+        "engine_torque_nm": 0.0252
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate spool speed and strong all-round output"
     },
     {
       "id": "turbo-peak-boost-common",
@@ -496,12 +675,17 @@
       "specialty": "Peak",
       "name": "Common Peak-Boost Turbo",
       "modifiers": {
-        "boost_max_psi": 4.7,
-        "boost_spool_seconds": 0.055,
-        "engine_power_kw": 0.037,
-        "engine_torque_nm": 0.028
+        "boost_max_psi": 3.24,
+        "boost_spool_seconds": 0.0684,
+        "engine_power_kw": 0.0396,
+        "engine_torque_nm": 0.03168
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest sustained top-end power, slowest spool"
     },
     {
       "id": "nitrous-sprint-common",
@@ -510,11 +694,16 @@
       "specialty": "Sprint",
       "name": "Common Sprint Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.075,
-        "nitrous_capacity_seconds": 1.63,
-        "nitrous_recharge_seconds": 19.2
+        "nitrous_torque_fraction": 0.072,
+        "nitrous_capacity_seconds": 1.7,
+        "nitrous_recharge_seconds": 26
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Largest instantaneous torque burst; slow recharge"
     },
     {
       "id": "nitrous-balanced-common",
@@ -523,11 +712,16 @@
       "specialty": "Balanced",
       "name": "Common Balanced Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.06,
-        "nitrous_capacity_seconds": 2.3,
-        "nitrous_recharge_seconds": 17
+        "nitrous_torque_fraction": 0.0576,
+        "nitrous_capacity_seconds": 2.4,
+        "nitrous_recharge_seconds": 23
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate torque, capacity, and recharge"
     },
     {
       "id": "nitrous-endurance-common",
@@ -536,11 +730,16 @@
       "specialty": "Endurance",
       "name": "Common Endurance Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.042,
-        "nitrous_capacity_seconds": 3.7,
-        "nitrous_recharge_seconds": 13.8
+        "nitrous_torque_fraction": 0.0414,
+        "nitrous_capacity_seconds": 3.6,
+        "nitrous_recharge_seconds": 18
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "endurance"
+      ],
+      "role": "Longest sustained use; least instant torque"
     },
     {
       "id": "engine-torque-uncommon",
@@ -549,11 +748,16 @@
       "specialty": "Torque",
       "name": "Uncommon Low-End Torque Engine",
       "modifiers": {
-        "engine_torque_nm": 0.0482,
-        "engine_power_kw": 0.0174,
-        "redline_rpm": -0.004
+        "engine_torque_nm": 0.06468,
+        "engine_power_kw": 0.02205,
+        "redline_rpm": -0.00588
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Strongest low and midrange pull at a redline cost"
     },
     {
       "id": "engine-high-rpm-uncommon",
@@ -562,11 +766,16 @@
       "specialty": "High RPM",
       "name": "Uncommon High-RPM Engine",
       "modifiers": {
-        "engine_power_kw": 0.0389,
-        "redline_rpm": 0.0335,
-        "engine_torque_nm": -0.008
+        "engine_power_kw": 0.05684,
+        "redline_rpm": 0.03675,
+        "engine_torque_nm": -0.01078
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest rated power and redline; sacrifices low-end torque"
     },
     {
       "id": "suspension-balanced-uncommon",
@@ -575,12 +784,16 @@
       "specialty": "Balanced",
       "name": "Uncommon Balanced Street Coilovers",
       "modifiers": {
-        "cornering_stiffness": 0.0375,
-        "rear_grip_balance": 0.0161,
-        "yaw_damping": 0.0161,
-        "steering_response": 0.0161
+        "cornering_stiffness": 0.0539,
+        "rear_grip_balance": 0.0294,
+        "yaw_damping": 0.05145,
+        "steering_response": 0.0294
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip, stronger stability and predictable steering"
     },
     {
       "id": "tires-allround-uncommon",
@@ -589,11 +802,16 @@
       "specialty": "All-Round",
       "name": "Uncommon All-Round Tire Compound",
       "modifiers": {
-        "tire_grip": 0.0442,
-        "rear_grip_balance": 0.0107,
-        "handbrake_drive_grip": 0.0094
+        "tire_grip": 0.06615,
+        "rear_grip_balance": 0.02695,
+        "handbrake_drive_grip": 0.0343,
+        "yaw_damping": 0.0539
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip but steadier mixed-surface street handling"
     },
     {
       "id": "transmission-launch-uncommon",
@@ -602,11 +820,16 @@
       "specialty": "Launch",
       "name": "Uncommon Launch Gearset",
       "modifiers": {
-        "final_drive": 0.0281,
-        "shift_duration": -0.0281,
-        "auto_shift_duration": -0.0228
+        "final_drive": 0.0784,
+        "shift_duration": -0.0392,
+        "auto_shift_duration": -0.03185
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Short final gearing for maximum early acceleration; limits speed"
     },
     {
       "id": "transmission-top-speed-uncommon",
@@ -615,11 +838,16 @@
       "specialty": "Top Speed",
       "name": "Uncommon Top-Speed Gearset",
       "modifiers": {
-        "final_drive": -0.0268,
-        "shift_duration": -0.0241,
-        "auto_shift_duration": -0.0201
+        "final_drive": -0.0539,
+        "shift_duration": -0.03675,
+        "auto_shift_duration": -0.0294
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Tall gearing raises gear-limited speed at an acceleration cost"
     },
     {
       "id": "turbo-quick-spool-uncommon",
@@ -628,12 +856,17 @@
       "specialty": "Spool",
       "name": "Uncommon Quick-Spool Turbo",
       "modifiers": {
-        "boost_max_psi": 4.556,
-        "boost_spool_seconds": -0.134,
-        "engine_power_kw": 0.0174,
-        "engine_torque_nm": 0.0228
+        "boost_max_psi": 2.45,
+        "boost_spool_seconds": -0.1862,
+        "engine_power_kw": 0.02303,
+        "engine_torque_nm": 0.02793
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "technical"
+      ],
+      "role": "Fastest turbo response with smaller top-end output"
     },
     {
       "id": "turbo-balanced-uncommon",
@@ -642,12 +875,17 @@
       "specialty": "Balanced",
       "name": "Uncommon Balanced Turbo",
       "modifiers": {
-        "boost_max_psi": 5.36,
-        "boost_spool_seconds": -0.067,
-        "engine_power_kw": 0.0322,
-        "engine_torque_nm": 0.0281
+        "boost_max_psi": 3.43,
+        "boost_spool_seconds": -0.0882,
+        "engine_power_kw": 0.0343,
+        "engine_torque_nm": 0.0343
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate spool speed and strong all-round output"
     },
     {
       "id": "turbo-peak-boost-uncommon",
@@ -656,12 +894,17 @@
       "specialty": "Peak",
       "name": "Uncommon Peak-Boost Turbo",
       "modifiers": {
-        "boost_max_psi": 6.298,
-        "boost_spool_seconds": 0.0737,
-        "engine_power_kw": 0.0496,
-        "engine_torque_nm": 0.0375
+        "boost_max_psi": 4.41,
+        "boost_spool_seconds": 0.0931,
+        "engine_power_kw": 0.0539,
+        "engine_torque_nm": 0.04312
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest sustained top-end power, slowest spool"
     },
     {
       "id": "nitrous-sprint-uncommon",
@@ -670,11 +913,16 @@
       "specialty": "Sprint",
       "name": "Uncommon Sprint Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.1005,
-        "nitrous_capacity_seconds": 1.7252,
-        "nitrous_recharge_seconds": 19.608
+        "nitrous_torque_fraction": 0.098,
+        "nitrous_capacity_seconds": 1.825,
+        "nitrous_recharge_seconds": 25
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Largest instantaneous torque burst; slow recharge"
     },
     {
       "id": "nitrous-balanced-uncommon",
@@ -683,11 +931,16 @@
       "specialty": "Balanced",
       "name": "Uncommon Balanced Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.0804,
-        "nitrous_capacity_seconds": 2.47,
-        "nitrous_recharge_seconds": 17.34
+        "nitrous_torque_fraction": 0.0784,
+        "nitrous_capacity_seconds": 2.65,
+        "nitrous_recharge_seconds": 21.75
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate torque, capacity, and recharge"
     },
     {
       "id": "nitrous-endurance-uncommon",
@@ -696,11 +949,16 @@
       "specialty": "Endurance",
       "name": "Uncommon Endurance Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.0563,
-        "nitrous_capacity_seconds": 4.006,
-        "nitrous_recharge_seconds": 14.072
+        "nitrous_torque_fraction": 0.05635,
+        "nitrous_capacity_seconds": 4.05,
+        "nitrous_recharge_seconds": 17
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "endurance"
+      ],
+      "role": "Longest sustained use; least instant torque"
     },
     {
       "id": "engine-torque-rare",
@@ -709,11 +967,16 @@
       "specialty": "Torque",
       "name": "Rare Low-End Torque Engine",
       "modifiers": {
-        "engine_torque_nm": 0.0637,
-        "engine_power_kw": 0.023,
-        "redline_rpm": -0.0053
+        "engine_torque_nm": 0.0858,
+        "engine_power_kw": 0.02925,
+        "redline_rpm": -0.0078
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Strongest low and midrange pull at a redline cost"
     },
     {
       "id": "engine-high-rpm-rare",
@@ -722,11 +985,16 @@
       "specialty": "High RPM",
       "name": "Rare High-RPM Engine",
       "modifiers": {
-        "engine_power_kw": 0.0513,
-        "redline_rpm": 0.0443,
-        "engine_torque_nm": -0.0106
+        "engine_power_kw": 0.0754,
+        "redline_rpm": 0.04875,
+        "engine_torque_nm": -0.0143
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest rated power and redline; sacrifices low-end torque"
     },
     {
       "id": "suspension-balanced-rare",
@@ -735,12 +1003,16 @@
       "specialty": "Balanced",
       "name": "Rare Balanced Street Coilovers",
       "modifiers": {
-        "cornering_stiffness": 0.0496,
-        "rear_grip_balance": 0.0212,
-        "yaw_damping": 0.0212,
-        "steering_response": 0.0212
+        "cornering_stiffness": 0.0715,
+        "rear_grip_balance": 0.039,
+        "yaw_damping": 0.06825,
+        "steering_response": 0.039
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip, stronger stability and predictable steering"
     },
     {
       "id": "tires-allround-rare",
@@ -749,11 +1021,16 @@
       "specialty": "All-Round",
       "name": "Rare All-Round Tire Compound",
       "modifiers": {
-        "tire_grip": 0.0584,
-        "rear_grip_balance": 0.0142,
-        "handbrake_drive_grip": 0.0124
+        "tire_grip": 0.08775,
+        "rear_grip_balance": 0.03575,
+        "handbrake_drive_grip": 0.0455,
+        "yaw_damping": 0.0715
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip but steadier mixed-surface street handling"
     },
     {
       "id": "transmission-launch-rare",
@@ -762,11 +1039,16 @@
       "specialty": "Launch",
       "name": "Rare Launch Gearset",
       "modifiers": {
-        "final_drive": 0.0372,
-        "shift_duration": -0.0372,
-        "auto_shift_duration": -0.0301
+        "final_drive": 0.104,
+        "shift_duration": -0.052,
+        "auto_shift_duration": -0.04225
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Short final gearing for maximum early acceleration; limits speed"
     },
     {
       "id": "transmission-top-speed-rare",
@@ -775,11 +1057,16 @@
       "specialty": "Top Speed",
       "name": "Rare Top-Speed Gearset",
       "modifiers": {
-        "final_drive": -0.0354,
-        "shift_duration": -0.0319,
-        "auto_shift_duration": -0.0265
+        "final_drive": -0.0715,
+        "shift_duration": -0.04875,
+        "auto_shift_duration": -0.039
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Tall gearing raises gear-limited speed at an acceleration cost"
     },
     {
       "id": "turbo-quick-spool-rare",
@@ -788,12 +1075,17 @@
       "specialty": "Spool",
       "name": "Rare Quick-Spool Turbo",
       "modifiers": {
-        "boost_max_psi": 6.018,
-        "boost_spool_seconds": -0.177,
-        "engine_power_kw": 0.023,
-        "engine_torque_nm": 0.0301
+        "boost_max_psi": 3.25,
+        "boost_spool_seconds": -0.247,
+        "engine_power_kw": 0.03055,
+        "engine_torque_nm": 0.03705
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "technical"
+      ],
+      "role": "Fastest turbo response with smaller top-end output"
     },
     {
       "id": "turbo-balanced-rare",
@@ -802,12 +1094,17 @@
       "specialty": "Balanced",
       "name": "Rare Balanced Turbo",
       "modifiers": {
-        "boost_max_psi": 7.08,
-        "boost_spool_seconds": -0.0885,
-        "engine_power_kw": 0.0425,
-        "engine_torque_nm": 0.0372
+        "boost_max_psi": 4.55,
+        "boost_spool_seconds": -0.117,
+        "engine_power_kw": 0.0455,
+        "engine_torque_nm": 0.0455
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate spool speed and strong all-round output"
     },
     {
       "id": "turbo-peak-boost-rare",
@@ -816,12 +1113,17 @@
       "specialty": "Peak",
       "name": "Rare Peak-Boost Turbo",
       "modifiers": {
-        "boost_max_psi": 8.319,
-        "boost_spool_seconds": 0.0974,
-        "engine_power_kw": 0.0655,
-        "engine_torque_nm": 0.0496
+        "boost_max_psi": 5.85,
+        "boost_spool_seconds": 0.1235,
+        "engine_power_kw": 0.0715,
+        "engine_torque_nm": 0.0572
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest sustained top-end power, slowest spool"
     },
     {
       "id": "nitrous-sprint-rare",
@@ -830,11 +1132,16 @@
       "specialty": "Sprint",
       "name": "Rare Sprint Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.1328,
-        "nitrous_capacity_seconds": 1.8456,
-        "nitrous_recharge_seconds": 20.124
+        "nitrous_torque_fraction": 0.13,
+        "nitrous_capacity_seconds": 1.95,
+        "nitrous_recharge_seconds": 24
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Largest instantaneous torque burst; slow recharge"
     },
     {
       "id": "nitrous-balanced-rare",
@@ -843,11 +1150,16 @@
       "specialty": "Balanced",
       "name": "Rare Balanced Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.1062,
-        "nitrous_capacity_seconds": 2.685,
-        "nitrous_recharge_seconds": 17.77
+        "nitrous_torque_fraction": 0.104,
+        "nitrous_capacity_seconds": 2.9,
+        "nitrous_recharge_seconds": 20.5
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate torque, capacity, and recharge"
     },
     {
       "id": "nitrous-endurance-rare",
@@ -856,11 +1168,16 @@
       "specialty": "Endurance",
       "name": "Rare Endurance Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.0743,
-        "nitrous_capacity_seconds": 4.393,
-        "nitrous_recharge_seconds": 14.416
+        "nitrous_torque_fraction": 0.07475,
+        "nitrous_capacity_seconds": 4.5,
+        "nitrous_recharge_seconds": 16
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "endurance"
+      ],
+      "role": "Longest sustained use; least instant torque"
     },
     {
       "id": "engine-torque-epic",
@@ -869,11 +1186,16 @@
       "specialty": "Torque",
       "name": "Epic Low-End Torque Engine",
       "modifiers": {
-        "engine_torque_nm": 0.0778,
-        "engine_power_kw": 0.0281,
-        "redline_rpm": -0.0065
+        "engine_torque_nm": 0.10692,
+        "engine_power_kw": 0.03645,
+        "redline_rpm": -0.00972
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Strongest low and midrange pull at a redline cost"
     },
     {
       "id": "engine-high-rpm-epic",
@@ -882,11 +1204,16 @@
       "specialty": "High RPM",
       "name": "Epic High-RPM Engine",
       "modifiers": {
-        "engine_power_kw": 0.0626,
-        "redline_rpm": 0.054,
-        "engine_torque_nm": -0.013
+        "engine_power_kw": 0.09396,
+        "redline_rpm": 0.06075,
+        "engine_torque_nm": -0.01782
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest rated power and redline; sacrifices low-end torque"
     },
     {
       "id": "suspension-balanced-epic",
@@ -895,12 +1222,16 @@
       "specialty": "Balanced",
       "name": "Epic Balanced Street Coilovers",
       "modifiers": {
-        "cornering_stiffness": 0.0605,
-        "rear_grip_balance": 0.0259,
-        "yaw_damping": 0.0259,
-        "steering_response": 0.0259
+        "cornering_stiffness": 0.0891,
+        "rear_grip_balance": 0.0486,
+        "yaw_damping": 0.08505,
+        "steering_response": 0.0486
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip, stronger stability and predictable steering"
     },
     {
       "id": "tires-allround-epic",
@@ -909,11 +1240,16 @@
       "specialty": "All-Round",
       "name": "Epic All-Round Tire Compound",
       "modifiers": {
-        "tire_grip": 0.0713,
-        "rear_grip_balance": 0.0173,
-        "handbrake_drive_grip": 0.0151
+        "tire_grip": 0.10935,
+        "rear_grip_balance": 0.04455,
+        "handbrake_drive_grip": 0.0567,
+        "yaw_damping": 0.0891
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip but steadier mixed-surface street handling"
     },
     {
       "id": "transmission-launch-epic",
@@ -922,11 +1258,16 @@
       "specialty": "Launch",
       "name": "Epic Launch Gearset",
       "modifiers": {
-        "final_drive": 0.0454,
-        "shift_duration": -0.0454,
-        "auto_shift_duration": -0.0367
+        "final_drive": 0.1296,
+        "shift_duration": -0.0648,
+        "auto_shift_duration": -0.05265
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Short final gearing for maximum early acceleration; limits speed"
     },
     {
       "id": "transmission-top-speed-epic",
@@ -935,11 +1276,16 @@
       "specialty": "Top Speed",
       "name": "Epic Top-Speed Gearset",
       "modifiers": {
-        "final_drive": -0.0432,
-        "shift_duration": -0.0389,
-        "auto_shift_duration": -0.0324
+        "final_drive": -0.0891,
+        "shift_duration": -0.06075,
+        "auto_shift_duration": -0.0486
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Tall gearing raises gear-limited speed at an acceleration cost"
     },
     {
       "id": "turbo-quick-spool-epic",
@@ -948,12 +1294,17 @@
       "specialty": "Spool",
       "name": "Epic Quick-Spool Turbo",
       "modifiers": {
-        "boost_max_psi": 7.344,
-        "boost_spool_seconds": -0.216,
-        "engine_power_kw": 0.0281,
-        "engine_torque_nm": 0.0367
+        "boost_max_psi": 4.05,
+        "boost_spool_seconds": -0.3078,
+        "engine_power_kw": 0.03807,
+        "engine_torque_nm": 0.04617
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "technical"
+      ],
+      "role": "Fastest turbo response with smaller top-end output"
     },
     {
       "id": "turbo-balanced-epic",
@@ -962,12 +1313,17 @@
       "specialty": "Balanced",
       "name": "Epic Balanced Turbo",
       "modifiers": {
-        "boost_max_psi": 8.64,
-        "boost_spool_seconds": -0.108,
-        "engine_power_kw": 0.0518,
-        "engine_torque_nm": 0.0454
+        "boost_max_psi": 5.67,
+        "boost_spool_seconds": -0.1458,
+        "engine_power_kw": 0.0567,
+        "engine_torque_nm": 0.0567
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate spool speed and strong all-round output"
     },
     {
       "id": "turbo-peak-boost-epic",
@@ -976,12 +1332,17 @@
       "specialty": "Peak",
       "name": "Epic Peak-Boost Turbo",
       "modifiers": {
-        "boost_max_psi": 10.152,
-        "boost_spool_seconds": 0.1188,
-        "engine_power_kw": 0.0799,
-        "engine_torque_nm": 0.0605
+        "boost_max_psi": 7.29,
+        "boost_spool_seconds": 0.1539,
+        "engine_power_kw": 0.0891,
+        "engine_torque_nm": 0.07128
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest sustained top-end power, slowest spool"
     },
     {
       "id": "nitrous-sprint-epic",
@@ -991,10 +1352,15 @@
       "name": "Epic Sprint Nitrous Kit",
       "modifiers": {
         "nitrous_torque_fraction": 0.162,
-        "nitrous_capacity_seconds": 1.9548,
-        "nitrous_recharge_seconds": 20.592
+        "nitrous_capacity_seconds": 2.075,
+        "nitrous_recharge_seconds": 23
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Largest instantaneous torque burst; slow recharge"
     },
     {
       "id": "nitrous-balanced-epic",
@@ -1004,10 +1370,15 @@
       "name": "Epic Balanced Nitrous Kit",
       "modifiers": {
         "nitrous_torque_fraction": 0.1296,
-        "nitrous_capacity_seconds": 2.88,
-        "nitrous_recharge_seconds": 18.16
+        "nitrous_capacity_seconds": 3.15,
+        "nitrous_recharge_seconds": 19.25
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate torque, capacity, and recharge"
     },
     {
       "id": "nitrous-endurance-epic",
@@ -1016,11 +1387,16 @@
       "specialty": "Endurance",
       "name": "Epic Endurance Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.0907,
-        "nitrous_capacity_seconds": 4.744,
-        "nitrous_recharge_seconds": 14.728
+        "nitrous_torque_fraction": 0.09315,
+        "nitrous_capacity_seconds": 4.95,
+        "nitrous_recharge_seconds": 15
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "endurance"
+      ],
+      "role": "Longest sustained use; least instant torque"
     },
     {
       "id": "engine-torque-legendary",
@@ -1029,11 +1405,16 @@
       "specialty": "Torque",
       "name": "Legendary Low-End Torque Engine",
       "modifiers": {
-        "engine_torque_nm": 0.0954,
-        "engine_power_kw": 0.0344,
-        "redline_rpm": -0.0079
+        "engine_torque_nm": 0.132,
+        "engine_power_kw": 0.045,
+        "redline_rpm": -0.012
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Strongest low and midrange pull at a redline cost"
     },
     {
       "id": "engine-high-rpm-legendary",
@@ -1042,11 +1423,16 @@
       "specialty": "High RPM",
       "name": "Legendary High-RPM Engine",
       "modifiers": {
-        "engine_power_kw": 0.0769,
-        "redline_rpm": 0.0663,
-        "engine_torque_nm": -0.0159
+        "engine_power_kw": 0.116,
+        "redline_rpm": 0.075,
+        "engine_torque_nm": -0.022
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest rated power and redline; sacrifices low-end torque"
     },
     {
       "id": "suspension-balanced-legendary",
@@ -1055,12 +1441,16 @@
       "specialty": "Balanced",
       "name": "Legendary Balanced Street Coilovers",
       "modifiers": {
-        "cornering_stiffness": 0.0742,
-        "rear_grip_balance": 0.0318,
-        "yaw_damping": 0.0318,
-        "steering_response": 0.0318
+        "cornering_stiffness": 0.11,
+        "rear_grip_balance": 0.06,
+        "yaw_damping": 0.105,
+        "steering_response": 0.06
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip, stronger stability and predictable steering"
     },
     {
       "id": "tires-allround-legendary",
@@ -1069,11 +1459,16 @@
       "specialty": "All-Round",
       "name": "Legendary All-Round Tire Compound",
       "modifiers": {
-        "tire_grip": 0.0875,
-        "rear_grip_balance": 0.0212,
-        "handbrake_drive_grip": 0.0186
+        "tire_grip": 0.135,
+        "rear_grip_balance": 0.055,
+        "handbrake_drive_grip": 0.07,
+        "yaw_damping": 0.11
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street"
+      ],
+      "role": "Lower peak grip but steadier mixed-surface street handling"
     },
     {
       "id": "transmission-launch-legendary",
@@ -1082,11 +1477,16 @@
       "specialty": "Launch",
       "name": "Legendary Launch Gearset",
       "modifiers": {
-        "final_drive": 0.0557,
-        "shift_duration": -0.0556,
-        "auto_shift_duration": -0.045
+        "final_drive": 0.16,
+        "shift_duration": -0.08,
+        "auto_shift_duration": -0.065
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Short final gearing for maximum early acceleration; limits speed"
     },
     {
       "id": "transmission-top-speed-legendary",
@@ -1095,11 +1495,16 @@
       "specialty": "Top Speed",
       "name": "Legendary Top-Speed Gearset",
       "modifiers": {
-        "final_drive": -0.053,
-        "shift_duration": -0.0477,
-        "auto_shift_duration": -0.0397
+        "final_drive": -0.11,
+        "shift_duration": -0.075,
+        "auto_shift_duration": -0.06
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Tall gearing raises gear-limited speed at an acceleration cost"
     },
     {
       "id": "turbo-quick-spool-legendary",
@@ -1108,12 +1513,17 @@
       "specialty": "Spool",
       "name": "Legendary Quick-Spool Turbo",
       "modifiers": {
-        "boost_max_psi": 9.01,
-        "boost_spool_seconds": -0.265,
-        "engine_power_kw": 0.0344,
-        "engine_torque_nm": 0.0451
+        "boost_max_psi": 5,
+        "boost_spool_seconds": -0.38,
+        "engine_power_kw": 0.047,
+        "engine_torque_nm": 0.057
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "technical"
+      ],
+      "role": "Fastest turbo response with smaller top-end output"
     },
     {
       "id": "turbo-balanced-legendary",
@@ -1122,12 +1532,17 @@
       "specialty": "Balanced",
       "name": "Legendary Balanced Turbo",
       "modifiers": {
-        "boost_max_psi": 10.6,
-        "boost_spool_seconds": -0.1325,
-        "engine_power_kw": 0.0636,
-        "engine_torque_nm": 0.0557
+        "boost_max_psi": 7,
+        "boost_spool_seconds": -0.18,
+        "engine_power_kw": 0.07,
+        "engine_torque_nm": 0.07
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate spool speed and strong all-round output"
     },
     {
       "id": "turbo-peak-boost-legendary",
@@ -1136,12 +1551,17 @@
       "specialty": "Peak",
       "name": "Legendary Peak-Boost Turbo",
       "modifiers": {
-        "boost_max_psi": 12.455,
-        "boost_spool_seconds": 0.1458,
-        "engine_power_kw": 0.0981,
-        "engine_torque_nm": 0.0742
+        "boost_max_psi": 9,
+        "boost_spool_seconds": 0.19,
+        "engine_power_kw": 0.11,
+        "engine_torque_nm": 0.088
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "sprint"
+      ],
+      "role": "Highest sustained top-end power, slowest spool"
     },
     {
       "id": "nitrous-sprint-legendary",
@@ -1150,11 +1570,16 @@
       "specialty": "Sprint",
       "name": "Legendary Sprint Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.1987,
-        "nitrous_capacity_seconds": 2.092,
-        "nitrous_recharge_seconds": 21.18
+        "nitrous_torque_fraction": 0.2,
+        "nitrous_capacity_seconds": 2.2,
+        "nitrous_recharge_seconds": 22
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "role": "Largest instantaneous torque burst; slow recharge"
     },
     {
       "id": "nitrous-balanced-legendary",
@@ -1163,11 +1588,16 @@
       "specialty": "Balanced",
       "name": "Legendary Balanced Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.159,
-        "nitrous_capacity_seconds": 3.125,
-        "nitrous_recharge_seconds": 18.65
+        "nitrous_torque_fraction": 0.16,
+        "nitrous_capacity_seconds": 3.4,
+        "nitrous_recharge_seconds": 18
       },
-      "race_drop_enabled": false
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "street",
+        "circuit"
+      ],
+      "role": "Moderate torque, capacity, and recharge"
     },
     {
       "id": "nitrous-endurance-legendary",
@@ -1176,10 +1606,575 @@
       "specialty": "Endurance",
       "name": "Legendary Endurance Nitrous Kit",
       "modifiers": {
-        "nitrous_torque_fraction": 0.1113,
-        "nitrous_capacity_seconds": 5.185,
-        "nitrous_recharge_seconds": 15.12
+        "nitrous_torque_fraction": 0.115,
+        "nitrous_capacity_seconds": 5.4,
+        "nitrous_recharge_seconds": 14
       },
+      "race_drop_enabled": false,
+      "reward_sources": [
+        "highway",
+        "endurance"
+      ],
+      "role": "Longest sustained use; least instant torque"
+    },
+    {
+      "id": "engine-lightweight-common",
+      "slot": "engine",
+      "rarity": "Common",
+      "specialty": "Lightweight",
+      "name": "Common Lightweight Engine",
+      "modifiers": {
+        "engine_power_kw": 0.018,
+        "engine_torque_nm": 0.01296,
+        "mass_kg": -0.02628
+      },
+      "role": "Weight reduction with moderate power for nimble cars",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-lightweight-uncommon",
+      "slot": "engine",
+      "rarity": "Uncommon",
+      "specialty": "Lightweight",
+      "name": "Uncommon Lightweight Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0245,
+        "engine_torque_nm": 0.01764,
+        "mass_kg": -0.03577
+      },
+      "role": "Weight reduction with moderate power for nimble cars",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-lightweight-rare",
+      "slot": "engine",
+      "rarity": "Rare",
+      "specialty": "Lightweight",
+      "name": "Rare Lightweight Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0325,
+        "engine_torque_nm": 0.0234,
+        "mass_kg": -0.04745
+      },
+      "role": "Weight reduction with moderate power for nimble cars",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-lightweight-epic",
+      "slot": "engine",
+      "rarity": "Epic",
+      "specialty": "Lightweight",
+      "name": "Epic Lightweight Engine",
+      "modifiers": {
+        "engine_power_kw": 0.0405,
+        "engine_torque_nm": 0.02916,
+        "mass_kg": -0.05913
+      },
+      "role": "Weight reduction with moderate power for nimble cars",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "engine-lightweight-legendary",
+      "slot": "engine",
+      "rarity": "Legendary",
+      "specialty": "Lightweight",
+      "name": "Legendary Lightweight Engine",
+      "modifiers": {
+        "engine_power_kw": 0.05,
+        "engine_torque_nm": 0.036,
+        "mass_kg": -0.073
+      },
+      "role": "Weight reduction with moderate power for nimble cars",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-midrange-common",
+      "slot": "turbo",
+      "rarity": "Common",
+      "specialty": "Midrange",
+      "name": "Common Midrange Turbo",
+      "modifiers": {
+        "boost_max_psi": 2.16,
+        "boost_spool_seconds": -0.0288,
+        "engine_power_kw": 0.02088,
+        "engine_torque_nm": 0.04032
+      },
+      "role": "Highest engine torque with moderate spool and top-end",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-midrange-uncommon",
+      "slot": "turbo",
+      "rarity": "Uncommon",
+      "specialty": "Midrange",
+      "name": "Uncommon Midrange Turbo",
+      "modifiers": {
+        "boost_max_psi": 2.94,
+        "boost_spool_seconds": -0.0392,
+        "engine_power_kw": 0.02842,
+        "engine_torque_nm": 0.05488
+      },
+      "role": "Highest engine torque with moderate spool and top-end",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-midrange-rare",
+      "slot": "turbo",
+      "rarity": "Rare",
+      "specialty": "Midrange",
+      "name": "Rare Midrange Turbo",
+      "modifiers": {
+        "boost_max_psi": 3.9,
+        "boost_spool_seconds": -0.052,
+        "engine_power_kw": 0.0377,
+        "engine_torque_nm": 0.0728
+      },
+      "role": "Highest engine torque with moderate spool and top-end",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-midrange-epic",
+      "slot": "turbo",
+      "rarity": "Epic",
+      "specialty": "Midrange",
+      "name": "Epic Midrange Turbo",
+      "modifiers": {
+        "boost_max_psi": 4.86,
+        "boost_spool_seconds": -0.0648,
+        "engine_power_kw": 0.04698,
+        "engine_torque_nm": 0.09072
+      },
+      "role": "Highest engine torque with moderate spool and top-end",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "turbo-midrange-legendary",
+      "slot": "turbo",
+      "rarity": "Legendary",
+      "specialty": "Midrange",
+      "name": "Legendary Midrange Turbo",
+      "modifiers": {
+        "boost_max_psi": 6,
+        "boost_spool_seconds": -0.08,
+        "engine_power_kw": 0.058,
+        "engine_torque_nm": 0.112
+      },
+      "role": "Highest engine torque with moderate spool and top-end",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-track-common",
+      "slot": "transmission",
+      "rarity": "Common",
+      "specialty": "Track",
+      "name": "Common Track Gearset",
+      "modifiers": {
+        "shift_duration": -0.0648,
+        "auto_shift_duration": -0.0576,
+        "final_drive": 0.0144
+      },
+      "role": "Moderate shift and gearing improvement for frequent corners",
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-track-uncommon",
+      "slot": "transmission",
+      "rarity": "Uncommon",
+      "specialty": "Track",
+      "name": "Uncommon Track Gearset",
+      "modifiers": {
+        "shift_duration": -0.0882,
+        "auto_shift_duration": -0.0784,
+        "final_drive": 0.0196
+      },
+      "role": "Moderate shift and gearing improvement for frequent corners",
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-track-rare",
+      "slot": "transmission",
+      "rarity": "Rare",
+      "specialty": "Track",
+      "name": "Rare Track Gearset",
+      "modifiers": {
+        "shift_duration": -0.117,
+        "auto_shift_duration": -0.104,
+        "final_drive": 0.026
+      },
+      "role": "Moderate shift and gearing improvement for frequent corners",
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-track-epic",
+      "slot": "transmission",
+      "rarity": "Epic",
+      "specialty": "Track",
+      "name": "Epic Track Gearset",
+      "modifiers": {
+        "shift_duration": -0.1458,
+        "auto_shift_duration": -0.1296,
+        "final_drive": 0.0324
+      },
+      "role": "Moderate shift and gearing improvement for frequent corners",
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "transmission-track-legendary",
+      "slot": "transmission",
+      "rarity": "Legendary",
+      "specialty": "Track",
+      "name": "Legendary Track Gearset",
+      "modifiers": {
+        "shift_duration": -0.18,
+        "auto_shift_duration": -0.16,
+        "final_drive": 0.04
+      },
+      "role": "Moderate shift and gearing improvement for frequent corners",
+      "reward_sources": [
+        "circuit",
+        "technical"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-drag-common",
+      "slot": "tires",
+      "rarity": "Common",
+      "specialty": "Drag",
+      "name": "Common Drag Radial Compound",
+      "modifiers": {
+        "tire_grip": 0.0396,
+        "rear_grip_balance": -0.0198,
+        "cornering_stiffness": -0.0216,
+        "launch_grip_bonus": 0.0936
+      },
+      "role": "Best asphalt launch traction with weaker turning response",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-drag-uncommon",
+      "slot": "tires",
+      "rarity": "Uncommon",
+      "specialty": "Drag",
+      "name": "Uncommon Drag Radial Compound",
+      "modifiers": {
+        "tire_grip": 0.0539,
+        "rear_grip_balance": -0.02695,
+        "cornering_stiffness": -0.0294,
+        "launch_grip_bonus": 0.1274
+      },
+      "role": "Best asphalt launch traction with weaker turning response",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-drag-rare",
+      "slot": "tires",
+      "rarity": "Rare",
+      "specialty": "Drag",
+      "name": "Rare Drag Radial Compound",
+      "modifiers": {
+        "tire_grip": 0.0715,
+        "rear_grip_balance": -0.03575,
+        "cornering_stiffness": -0.039,
+        "launch_grip_bonus": 0.169
+      },
+      "role": "Best asphalt launch traction with weaker turning response",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-drag-epic",
+      "slot": "tires",
+      "rarity": "Epic",
+      "specialty": "Drag",
+      "name": "Epic Drag Radial Compound",
+      "modifiers": {
+        "tire_grip": 0.0891,
+        "rear_grip_balance": -0.04455,
+        "cornering_stiffness": -0.0486,
+        "launch_grip_bonus": 0.2106
+      },
+      "role": "Best asphalt launch traction with weaker turning response",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "tires-drag-legendary",
+      "slot": "tires",
+      "rarity": "Legendary",
+      "specialty": "Drag",
+      "name": "Legendary Drag Radial Compound",
+      "modifiers": {
+        "tire_grip": 0.11,
+        "rear_grip_balance": -0.055,
+        "cornering_stiffness": -0.06,
+        "launch_grip_bonus": 0.26
+      },
+      "role": "Best asphalt launch traction with weaker turning response",
+      "reward_sources": [
+        "drag",
+        "sprint"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-precision-common",
+      "slot": "suspension",
+      "rarity": "Common",
+      "specialty": "Precision",
+      "name": "Common Precision Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0432,
+        "rear_grip_balance": -0.0054,
+        "yaw_damping": -0.018,
+        "max_steer_degrees": 0.0306,
+        "steering_response": 0.072
+      },
+      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-precision-uncommon",
+      "slot": "suspension",
+      "rarity": "Uncommon",
+      "specialty": "Precision",
+      "name": "Uncommon Precision Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0588,
+        "rear_grip_balance": -0.00735,
+        "yaw_damping": -0.0245,
+        "max_steer_degrees": 0.04165,
+        "steering_response": 0.098
+      },
+      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-precision-rare",
+      "slot": "suspension",
+      "rarity": "Rare",
+      "specialty": "Precision",
+      "name": "Rare Precision Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.078,
+        "rear_grip_balance": -0.00975,
+        "yaw_damping": -0.0325,
+        "max_steer_degrees": 0.05525,
+        "steering_response": 0.13
+      },
+      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-precision-epic",
+      "slot": "suspension",
+      "rarity": "Epic",
+      "specialty": "Precision",
+      "name": "Epic Precision Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.0972,
+        "rear_grip_balance": -0.01215,
+        "yaw_damping": -0.0405,
+        "max_steer_degrees": 0.06885,
+        "steering_response": 0.162
+      },
+      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "suspension-precision-legendary",
+      "slot": "suspension",
+      "rarity": "Legendary",
+      "specialty": "Precision",
+      "name": "Legendary Precision Coilovers",
+      "modifiers": {
+        "cornering_stiffness": 0.12,
+        "rear_grip_balance": -0.015,
+        "yaw_damping": -0.05,
+        "max_steer_degrees": 0.085,
+        "steering_response": 0.2
+      },
+      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-rapid-refill-common",
+      "slot": "nitrous",
+      "rarity": "Common",
+      "specialty": "Rapid Refill",
+      "name": "Common Rapid-Refill Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0504,
+        "nitrous_capacity_seconds": 1.8,
+        "nitrous_recharge_seconds": 12
+      },
+      "role": "Fastest recharge, smaller bursts for repeated corners",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-rapid-refill-uncommon",
+      "slot": "nitrous",
+      "rarity": "Uncommon",
+      "specialty": "Rapid Refill",
+      "name": "Uncommon Rapid-Refill Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.0686,
+        "nitrous_capacity_seconds": 2.05,
+        "nitrous_recharge_seconds": 11
+      },
+      "role": "Fastest recharge, smaller bursts for repeated corners",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-rapid-refill-rare",
+      "slot": "nitrous",
+      "rarity": "Rare",
+      "specialty": "Rapid Refill",
+      "name": "Rare Rapid-Refill Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.091,
+        "nitrous_capacity_seconds": 2.3,
+        "nitrous_recharge_seconds": 10
+      },
+      "role": "Fastest recharge, smaller bursts for repeated corners",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-rapid-refill-epic",
+      "slot": "nitrous",
+      "rarity": "Epic",
+      "specialty": "Rapid Refill",
+      "name": "Epic Rapid-Refill Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.1134,
+        "nitrous_capacity_seconds": 2.55,
+        "nitrous_recharge_seconds": 9
+      },
+      "role": "Fastest recharge, smaller bursts for repeated corners",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
+      "race_drop_enabled": false
+    },
+    {
+      "id": "nitrous-rapid-refill-legendary",
+      "slot": "nitrous",
+      "rarity": "Legendary",
+      "specialty": "Rapid Refill",
+      "name": "Legendary Rapid-Refill Nitrous Kit",
+      "modifiers": {
+        "nitrous_torque_fraction": 0.14,
+        "nitrous_capacity_seconds": 2.8,
+        "nitrous_recharge_seconds": 8
+      },
+      "role": "Fastest recharge, smaller bursts for repeated corners",
+      "reward_sources": [
+        "technical",
+        "circuit"
+      ],
       "race_drop_enabled": false
     }
   ]

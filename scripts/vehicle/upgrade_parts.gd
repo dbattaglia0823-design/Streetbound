@@ -6,13 +6,16 @@ const PATH := "res://data/upgrade_parts.json"
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
 const SLOTS := ["engine","turbo","transmission","tires","suspension","nitrous"]
 const RARITIES := ["Common","Uncommon","Rare","Epic","Legendary"]
+## Tags are future event types, not active rotation rules.
+const EVENT_TYPES := ["street","circuit","drag","drift","highway","sprint","technical","endurance"]
 const FIELD_LABELS := {
 	"engine_power_kw":"POWER","engine_torque_nm":"TORQUE",
-	"redline_rpm":"REDLINE",
+	"redline_rpm":"REDLINE","mass_kg":"WEIGHT",
 	"cornering_stiffness":"CORNERING","rear_grip_balance":"REAR GRIP",
 	"yaw_damping":"STABILITY","max_steer_degrees":"STEERING ANGLE",
 	"steering_response":"TURN-IN","countersteer_assist":"COUNTERSTEER",
 	"tire_grip":"TIRE GRIP","handbrake_drive_grip":"SLIDE TRACTION",
+	"launch_grip_bonus":"LAUNCH GRIP",
 	"shift_duration":"SHIFT TIME","auto_shift_duration":"AUTO SHIFT",
 	"final_drive":"FINAL DRIVE",
 	"boost_max_psi":"TURBO BOOST (PSI)","boost_spool_seconds":"SPOOL TIME",
@@ -104,10 +107,13 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 					float(base)+float(mods[raw_key]),0.0,12.0)
 				"nitrous_recharge_seconds": value = clampf(
 					float(mods[raw_key]),6.0,45.0)
+				"launch_grip_bonus": value = clampf(
+					float(base)+float(mods[raw_key]),0.0,0.35)
 				"boost_spool_seconds": value = clampf(value,0.10,2.0)
 				"engine_power_kw": value = clampf(value,40.0,1800.0)
 				"engine_torque_nm": value = clampf(value,60.0,3000.0)
 				"redline_rpm": value = clampf(value,3500.0,14000.0)
+				"mass_kg": value = clampf(value,650.0,5000.0)
 				"tire_grip": value = clampf(value,0.5,3.0)
 				"rear_grip_balance": value = clampf(value,0.55,1.8)
 				"cornering_stiffness": value = clampf(value,30000.0,250000.0)
@@ -132,7 +138,14 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				config.audio_induction = "turbo"
 
 
-static func reward_template(race_id: String, car_level: int) -> Dictionary:
+static func reward_template(race_id: String, car_level: int,
+		event_type: String = "") -> Dictionary:
+	# Empty event_type preserves all existing races and their drop pools.
+	# A future event rotation system can pass its typed event category.
+	# Filter before rolling a template, and never fall back to an unrelated
+	# reward when a requested event has no enabled parts.
+	if not event_type.is_empty() and not EVENT_TYPES.has(event_type):
+		return {}
 	# Deterministic local race loot: a completed unique race rolls one part.
 	# Late-game rarity is genuinely scarce and cannot drop far ahead of
 	# the car's achievable installation tier.
@@ -156,8 +169,10 @@ static func reward_template(race_id: String, car_level: int) -> Dictionary:
 	var rarity := str(RARITIES[rarity_index])
 	var eligible: Array[Dictionary] = []
 	for part in all().values():
+		var sources: Array = part.get("reward_sources",[])
 		if str(part.rarity) == rarity and \
-				bool(part.get("race_drop_enabled",true)):
+				bool(part.get("race_drop_enabled",true)) and \
+				(event_type.is_empty() or sources.has(event_type)):
 			eligible.append(part)
 	if eligible.is_empty():
 		return {}
