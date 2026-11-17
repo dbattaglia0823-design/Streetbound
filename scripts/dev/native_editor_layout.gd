@@ -170,10 +170,21 @@ static func build(e) -> void:
 		spin.step=0.5
 	e.inspector_terrain_width.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("x"))
 	e.inspector_terrain_height.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("y"))
+	# A single editable percentage drives both actions, with the input centered.
 	var terrain_buttons:=HBoxContainer.new();e.terrain_transforms.add_child(terrain_buttons)
-	e._btn("Shrink 10%",terrain_buttons,e._resize_selected_region.bind(Vector2(0.9,0.9)))
-	e._btn("Expand 10%",terrain_buttons,e._resize_selected_region.bind(Vector2(1.1,1.1)))
-	var terrain_help:=heading(e.terrain_transforms,"Drag the terrain interior to move it. Change width or height to reshape its whole footprint.")
+	e.terrain_shrink_button=e._btn("Shrink",terrain_buttons,e._resize_region_by_percentage.bind(-1.0))
+	e.inspector_terrain_percent=SpinBox.new()
+	e.inspector_terrain_percent.min_value=0.1
+	e.inspector_terrain_percent.max_value=99.9
+	e.inspector_terrain_percent.step=0.1
+	e.inspector_terrain_percent.value=10.0
+	e.inspector_terrain_percent.suffix="%"
+	e.inspector_terrain_percent.tooltip_text="Percentage to expand or shrink the entire terrain piece"
+	e.inspector_terrain_percent.custom_minimum_size.x=88
+	e.inspector_terrain_percent.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	terrain_buttons.add_child(e.inspector_terrain_percent)
+	e.terrain_expand_button=e._btn("Expand",terrain_buttons,e._resize_region_by_percentage.bind(1.0))
+	var terrain_help:=heading(e.terrain_transforms,"Drag the terrain interior to move it. Enter a percentage above, then Shrink or Expand; or edit width and height directly.")
 	terrain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.point_picker=OptionButton.new();inspector.add_child(e.point_picker)
 	e.point_picker.item_selected.connect(e._select_point)
