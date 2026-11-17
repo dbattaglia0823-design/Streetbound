@@ -107,18 +107,33 @@ static func build(e) -> void:
 	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
-	e._btn("Undo",bar,e._undo).custom_minimum_size.x=48
-	e._btn("Redo",bar,e._redo).custom_minimum_size.x=48
-	e._btn("Select all",bar,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
-	e._btn("Duplicate",bar,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
-	e.finish_button=e._btn("Finish  Enter",bar,e._finish_shape);e.finish_button.custom_minimum_size.x=80
-	e.cancel_button=e._btn("Cancel",bar,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
-	var spacer:=Control.new();spacer.size_flags_horizontal=Control.SIZE_EXPAND_FILL;bar.add_child(spacer)
-	e._btn("−",bar,e._zoom_button.bind(1.0/1.35)).custom_minimum_size.x=30
-	e.zoom_label=heading(bar,"35%")
-	e._btn("+",bar,e._zoom_button.bind(1.35)).custom_minimum_size.x=30
-	e._btn("Fit",bar,e._fit_map).custom_minimum_size.x=36
-	e._btn("Spawn",bar,e._recenter).custom_minimum_size.x=52
+	# Keep map zoom/fit actions visible even in a narrow window. Only the
+	# longer edit-action row scrolls, rather than drawing underneath inspector.
+	var action_scroll:=ScrollContainer.new()
+	action_scroll.name="CanvasEditActionsScroll"
+	action_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	action_scroll.custom_minimum_size=Vector2(0,44)
+	action_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	action_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	action_scroll.follow_focus=true
+	bar.add_child(action_scroll)
+	var actions:=HBoxContainer.new()
+	actions.add_theme_constant_override("separation",5)
+	action_scroll.add_child(actions)
+	e._btn("Undo",actions,e._undo).custom_minimum_size.x=48
+	e._btn("Redo",actions,e._redo).custom_minimum_size.x=48
+	e._btn("Select all",actions,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
+	e._btn("Duplicate",actions,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
+	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
+	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
+	var zoom_controls:=HBoxContainer.new()
+	zoom_controls.add_theme_constant_override("separation",4)
+	bar.add_child(zoom_controls)
+	e._btn("−",zoom_controls,e._zoom_button.bind(1.0/1.35)).custom_minimum_size.x=30
+	e.zoom_label=heading(zoom_controls,"35%")
+	e._btn("+",zoom_controls,e._zoom_button.bind(1.35)).custom_minimum_size.x=30
+	e._btn("Fit",zoom_controls,e._fit_map).custom_minimum_size.x=36
+	e._btn("Spawn",zoom_controls,e._recenter).custom_minimum_size.x=52
 	e.inspector_panel=e._panel(Vector2.ZERO,Vector2.ZERO);e.inspector_panel.name="SelectedObjectInspector"
 	var inspector:=scroll_column(e.inspector_panel)
 	heading(inspector,"WORLD LAYERS")
@@ -219,10 +234,15 @@ static func build(e) -> void:
 
 static func resize(e) -> void:
 	var size: Vector2=e.get_viewport().get_visible_rect().size
-	var left:=244.0;var right:=258.0
-	if size.x<1150:left=220;right=232
+	# The inspector's Shrink | percentage | Expand row requires 310+ px
+	# including panel margins. It must never be truncated by a 258px sidebar.
+	var left:=244.0
+	var right:=346.0
+	if size.x<1150:
+		left=208.0;right=330.0
+	var canvas_width: float=maxf(1.0,size.x-left-right-40.0)
 	e.settings_panel.position=Vector2(10,139);e.settings_panel.size=Vector2(left,size.y-200)
 	e.inspector_panel.position=Vector2(size.x-right-10,139);e.inspector_panel.size=Vector2(right,size.y-200)
-	e.canvas_bar.position=Vector2(left+20,139);e.canvas_bar.size=Vector2(size.x-left-right-40,48)
-	e.canvas_rect=Rect2(Vector2(left+20,195),Vector2(size.x-left-right-40,size.y-256))
+	e.canvas_bar.position=Vector2(left+20,139);e.canvas_bar.size=Vector2(canvas_width,58)
+	e.canvas_rect=Rect2(Vector2(left+20,205),Vector2(canvas_width,size.y-266))
 	e.minimap.position=e.canvas_rect.end-Vector2(200,140);e.minimap.size=Vector2(190,130)
