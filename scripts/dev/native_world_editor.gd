@@ -140,6 +140,9 @@ var asset_dimensions_label: Label
 var terrain_transforms: VBoxContainer
 var inspector_terrain_width: SpinBox
 var inspector_terrain_height: SpinBox
+var inspector_terrain_percent: SpinBox
+var terrain_shrink_button: Button
+var terrain_expand_button: Button
 var entity_search: LineEdit
 var entity_list: ItemList
 var _entity_revision:=-1
@@ -1033,6 +1036,15 @@ func _resize_selected_region(scale: Vector2) -> void:
 	else:
 		_notice(authoring.last_error)
 		_refresh_inspector()
+
+func _resize_region_by_percentage(direction: float) -> void:
+	# Expand and Shrink read the current input on every click, not a fixed step.
+	var percent: float=inspector_terrain_percent.value
+	if not is_finite(percent) or percent<=0.0 or percent>=100.0:
+		_notice("Enter a terrain resize percentage greater than 0 and less than 100.")
+		return
+	var factor:=1.0+direction*percent/100.0
+	_resize_selected_region(Vector2(factor,factor))
 
 func _region_bounds(region: Dictionary) -> Rect2:
 	var points: Array=region.get("points",[])
