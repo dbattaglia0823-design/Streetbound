@@ -4,12 +4,14 @@ extends CanvasLayer
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const SplitCamera = preload("res://scripts/camera/local_split_camera.gd")
+const VehicleAwarenessScript = preload("res://scripts/ui/offscreen_vehicle_awareness.gd")
 const MOVEMENT := ["throttle","brake","left","right","handbrake","nitrous"]
 const COMMANDS := ["reset","shift_up","shift_down","transmission"]
 
 var player_one: VehicleController2D
 var player_two: VehicleController2D
 var world: Node2D
+var traffic: Node
 var inventory: RefCounted
 var main_camera: Camera2D
 var hidden_layers: Array[CanvasLayer] = []
@@ -211,6 +213,12 @@ func _build_views() -> void:
 		var hud_layer := CanvasLayer.new()
 		hud_layer.layer = 5
 		viewport.add_child(hud_layer)
+		var awareness := Control.new()
+		awareness.set_script(VehicleAwarenessScript)
+		awareness.set("player",players[i])
+		awareness.set("camera",camera)
+		awareness.set("traffic",traffic)
+		hud_layer.add_child(awareness)
 		var header := PanelContainer.new()
 		header.name = "Player%dDashboard" % (i+1)
 		header.position = Vector2(12,12)

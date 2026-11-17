@@ -351,6 +351,12 @@ jobs:
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd 2>&1 | tee /tmp/godot463-traffic-size.log
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-size.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-traffic-size.log
+      - name: Verify directional off-screen vehicle warnings and split-camera views (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/offscreen-vehicle-awareness-463.log
+          grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/offscreen-vehicle-awareness-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/offscreen-vehicle-awareness-463.log
       - name: Verify 120 balanced four-specialization upgrades, race pools and turbo/nitrous (4.6.3)
         run: |
           set -o pipefail
@@ -563,6 +569,12 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+      - name: Verify directional off-screen vehicle warnings and split-camera views (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/offscreen-vehicle-awareness-441.log
+          grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/offscreen-vehicle-awareness-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/offscreen-vehicle-awareness-441.log
       - name: Verify 120 balanced four-specialization upgrades, race pools and turbo/nitrous (4.4.1)
         run: |
           set -o pipefail
