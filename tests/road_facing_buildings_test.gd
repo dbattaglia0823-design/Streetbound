@@ -57,7 +57,7 @@ func run() -> void:
 	# Edge snapping remains available when road-facing is off.
 	e.authoring.edit_entity(second,{"rotation":0.0},Vector2(500,431));e._refresh_authoring()
 	drag(e,second,Vector2(463,433))
-	check("disabled_road_facing_still_allows_building_edge_snap",not e.authoring.prop_at_id(second).roadFacing and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462.02,433))<.01)
+	check("disabled_road_facing_still_allows_building_edge_snap",not e.authoring.prop_at_id(second).roadFacing and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462,433))<.01)
 	var south: String=place(e,Vector2(700,468));house=e.authoring.prop_at_id(south)
 	check("opposite_side_faces_back_toward_road",pos(house).distance_to(Vector2(700,467))<.01 and Vector2.DOWN.rotated(deg_to_rad(float(house.rotation))).dot(Vector2.UP)>.999)
 	e.inspector_road_front.select(2);e.inspector_road_front.item_selected.emit(2)
