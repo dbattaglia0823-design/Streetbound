@@ -17,9 +17,9 @@ drivetrain and price; the reference trim and gearbox; price basis; mass and
 torque exceptions; and any directly consulted manufacturer/secondary source.
 The catalog itself carries the same reference fields.
 
-**Evidence boundary:** 29 vehicle records are marked
+**Evidence boundary:** 31 vehicle records are marked
 `spec_confidence: source_checked` and contain a directly consulted
-manufacturer or automotive reference URL. The other **69 are marked
+manufacturer or automotive reference URL. The other **67 are marked
 `representative_trim`**, with model-specific approximations but **not
 individually source-verified**. Do not present all 98 as officially verified.
 This is an exhaustive *catalog audit and correction pass*, not an exhaustive
@@ -103,7 +103,7 @@ from a different model year, optional package or exact VIN.
 
 ## Selected primary and secondary technical references
 
-Direct source URLs for all 29 cross-checked entries are retained in the
+Direct source URLs for all 31 cross-checked entries are retained in the
 machine-readable CSV and JSON. Representative high-signal sources include:
 
 - [2025 Acura Integra / Type S fact sheet](https://www.acura.com/-/media/Files/Vehicles/INTEGRA/2025/Type-S/Acura_2025_Integra_Type-S_Fact_Sheet.pdf?cache-busting=1.1.1)
@@ -148,9 +148,11 @@ playable vehicle IDs**, not unimplemented ideas on the future list.
 
 ## Further independent work
 
-The 69 representative (not directly checked) trims and every price labeled
+The 67 representative (not directly checked) trims and every price labeled
 `*_estimate_usd` require a separate year/trim-specific source comparison
 or actual vehicle listing to claim exact real-world accuracy. Those rows
 are openly marked in the CSV rather than silently counted as verified.
 
 **Power units:** For Bugatti Tourbillon, manufacturer-stated 1,800 metric PS translates to approximately 1,775 U.S. mechanical horsepower; the in-game imperial HP display uses 1,775. 1 PS = 0.98632007 mechanical hp.
+
+**2024 price cross-checks:** Acura TLX Technology FWD $45,000 MSRP excluding destination (<https://hondanews.com/en-US/releases/release-ce25b2bdc6167d48c9de61f4f905a9f8-2024-acura-tlx-tlx-type-s-pricing-epa-ratings>); Alfa Romeo Stelvio Sprint AWD $47,950 MSRP excluding destination (<https://www.cars.com/research/alfa_romeo-stelvio-2024/specs/439865/>).
