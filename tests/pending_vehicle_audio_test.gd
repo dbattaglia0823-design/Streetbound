@@ -21,7 +21,12 @@ func check(name: String, ok: bool, info: Variant = "") -> void:
 func run() -> void:
 	var wanted: Array[String] = Pending.read_requested_models()
 	var profiles: Array[Dictionary] = Pending.all()
-	check("source_list_has_at_least_baseline_models",wanted.size() >= 223,wanted.size())
+	check("manufacturer_list_and_future_additions_remain_readable",
+		wanted.size()>=259 and
+		wanted.has("Acura Integra") and
+		wanted.has("Bugatti Tourbillon") and
+		wanted.has("2025 Ford Mustang GTD") and
+		wanted.has("Zenvo TSR-S"),wanted.size())
 	check("154_future_models_have_prepared_profiles",
 		profiles.size() == 154,profiles.size())
 	var existing: Dictionary = {}

@@ -58,9 +58,9 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
-	e.grid_button.tooltip_text="Align general placement to 1 m coordinates. Buildings override the grid when necessary to preserve wall clearance."
+	e.grid_button.tooltip_text="Align free placement to 1 m coordinates. Building edge and corner snaps always take precedence over the grid."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
-	e.building_snap_button.tooltip_text="Snap neighboring walls almost flush (2 cm safety tolerance), independent of the 1 m grid. Collision overlaps remain blocked. Alt bypasses snapping."
+	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	e._btn("Dealership areas & stock",settings,e._open_dealership_editor)
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
@@ -162,6 +162,31 @@ static func build(e) -> void:
 	for pair in [[e.inspector_rotation,"rotation"],[e.inspector_scale,"scale"],[e.inspector_scale_x,"scaleX"],[e.inspector_scale_y,"scaleY"]]:
 		var field_name: String=pair[1]
 		pair[0].value_changed.connect(func(_value: float)->void:e._commit_inspector(field_name))
+	# Terrain size edits change the underlying polygon, not just a display scale.
+	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
+	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
+	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,24000,10)
+	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,24000,10)
+	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
+		spin.step=0.5
+	e.inspector_terrain_width.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("x"))
+	e.inspector_terrain_height.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("y"))
+	# A single editable percentage drives both actions, with the input centered.
+	var terrain_buttons:=HBoxContainer.new();e.terrain_transforms.add_child(terrain_buttons)
+	e.terrain_shrink_button=e._btn("Shrink",terrain_buttons,e._resize_region_by_percentage.bind(-1.0))
+	e.inspector_terrain_percent=SpinBox.new()
+	e.inspector_terrain_percent.min_value=0.1
+	e.inspector_terrain_percent.max_value=500.0
+	e.inspector_terrain_percent.step=0.1
+	e.inspector_terrain_percent.value=10.0
+	e.inspector_terrain_percent.suffix="%"
+	e.inspector_terrain_percent.tooltip_text="Percentage to resize the terrain; shrinking requires less than 100%"
+	e.inspector_terrain_percent.custom_minimum_size.x=88
+	e.inspector_terrain_percent.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	terrain_buttons.add_child(e.inspector_terrain_percent)
+	e.terrain_expand_button=e._btn("Expand",terrain_buttons,e._resize_region_by_percentage.bind(1.0))
+	var terrain_help:=heading(e.terrain_transforms,"Drag the terrain interior to move it. Enter a percentage above, then Shrink or Expand; or edit width and height directly.")
+	terrain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.point_picker=OptionButton.new();inspector.add_child(e.point_picker)
 	e.point_picker.item_selected.connect(e._select_point)
 	e.remove_point_button=e._btn("Remove selected road point",inspector,e._remove_point)

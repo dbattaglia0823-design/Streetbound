@@ -458,7 +458,7 @@ func _draw_draft() -> void:
 				draw_circle(at,radius,Color("#ffc26a"))
 				draw_circle(at,radius*0.33,Color("#5a3827"))
 	for region in draft_doc.get("regions",[]):
-		if custom_terrain:continue
+		if custom_terrain and str(region.get("id",""))!=selected_source_id:continue
 		if not layer_flags.get("terrain",true):continue
 		var original_region: Dictionary = {}
 		for earlier in draft_initial.get("regions",[]):
@@ -466,7 +466,7 @@ func _draw_draft() -> void:
 				original_region = earlier
 				break
 		if not original_region.is_empty() and \
-			JSON.stringify(region) == JSON.stringify(original_region) and str(region.id)!=str(drag_preview.get("id","")):
+			JSON.stringify(region) == JSON.stringify(original_region) and str(region.id)!=str(drag_preview.get("id","")) and str(region.id)!=selected_source_id:
 			continue
 		var vertices := PackedVector2Array()
 		for point in region.get("points",[]):
@@ -481,9 +481,11 @@ func _draw_draft() -> void:
 				"beach":color=Color("#d7c89b")
 				"forest":color=Color("#658768")
 				"mountain","rock":color=Color("#8b9992")
-			if not MountainGeometry.solid(region):draw_colored_polygon(vertices,Color(color.r,color.g,color.b,0.68))
+			if not MountainGeometry.solid(region) and not custom_terrain:draw_colored_polygon(vertices,Color(color.r,color.g,color.b,0.68))
 			vertices.append(vertices[0])
-			draw_polyline(vertices,Color("#ffb653"),4,true)
+			var focused: bool=str(region.get("id",""))==selected_source_id
+			draw_polyline(vertices,Color("#ffe3a3") if focused else Color("#ffb653"),
+				(3.5 if focused else 2.0)/maxf(.003,zoom_level),true)
 	for marker in draft_doc.get("markers",[]):
 		if not layer_flags.get("markers",true):continue
 		var unchanged := false

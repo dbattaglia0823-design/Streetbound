@@ -4,7 +4,7 @@ extends RefCounted
 ## race opponents, or physics roster. Names and IDs are sourced directly from
 ## streetbound_vehicle_list.txt. Vehicle models and trims may be ambiguous.
 const PATH := "res://data/pending_vehicle_audio_profiles.json"
-const SOURCE_LIST := "res://streetbound_vehicle_list.txt"
+const SOURCE_LIST := "res://assets/Vehicles/streetbound_vehicle_list.txt"
 const Synth = preload("res://scripts/audio/engine_sound_synthesis.gd")
 static var _profiles: Array[Dictionary] = []
 static var _by_id: Dictionary = {}
@@ -83,22 +83,35 @@ static func make_preview_configuration(id: String) -> VehicleConfig:
 
 
 static func read_requested_models() -> Array[String]:
-	# Each indented list row is one requested model. Ignore the prose/style
-	# instructions at the start. Preserve Unicode model names and spelling.
+	# The curated roster now lives with vehicle assets. Parse both the
+	# manufacturer-section entries and the year-labeled future additions;
+	# neither list grants gameplay inventory or prices by itself.
 	var names: Array[String] = []
+	if not FileAccess.file_exists(SOURCE_LIST):
+		push_warning("Future vehicle request list missing: "+SOURCE_LIST)
+		return names
 	var make := ""
-	var started := false
+	var mode := 0 # 0 = instructions, 1 = manufacturer list, 2 = future additions
 	var lines: PackedStringArray = FileAccess.get_file_as_string(
 		SOURCE_LIST).split("\n")
 	for raw in lines:
 		var line := raw.strip_edges()
-		if line == "Acura":
-			started = true
-		if not started or line.is_empty():
+		if line.begins_with("STREETBOUND") and line.contains("VEHICLE LIST"):
+			mode = 1
 			continue
-		if raw.begins_with("  "):
-			if not make.is_empty():
+		if line.begins_with("Additional vehicles for future"):
+			mode = 2
+			continue
+		if line.is_empty() or line.begins_with("=") or mode == 0:
+			continue
+		if mode == 1:
+			if line.ends_with("-") and not raw.begins_with("  "):
+				make = line.substr(0,line.length()-1).strip_edges()
+			elif raw.begins_with("  ") and not make.is_empty():
 				names.append(make+" "+line)
-		else:
-			make = line
+		elif mode == 2:
+			# Entries are already full names, normally prefixed by a model year.
+			# Keep original spelling, including unverified one-off requests.
+			if line.begins_with("Zenvo") or line.substr(0,1).is_valid_int():
+				names.append(line)
 	return names
