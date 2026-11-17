@@ -13,6 +13,11 @@ const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd"
 const PauseDashboard = preload("res://scripts/ui/pause_dashboard.gd")
 @onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
+const DISPLAY_MODES := ["windowed","borderless","fullscreen"]
+# Keep windowed bounds across title/game scene changes and live mode switches.
+static var last_windowed_position := Vector2i.ZERO
+static var last_windowed_size := Vector2i(1280,800)
+static var has_windowed_rect := false
 
 var vehicle_audio
 var driving_camera
@@ -30,6 +35,8 @@ var background: ColorRect
 var settings_tab := "general"
 var general_tab_button: Button
 var controls_tab_button: Button
+var display_mode_label: Label
+var display_mode_select: OptionButton
 var controls_page: Control
 var bindings_list: VBoxContainer
 var binding_rows: Dictionary = {}
@@ -67,7 +74,8 @@ func _ready() -> void:
 		"sound": true,
 		"volume": 80.0,
 		"camera_follow": false,
-		"minimap_shape": "square"
+		"minimap_shape": "square",
+		"display_mode": "windowed"
 	})
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
@@ -311,6 +319,20 @@ func _build_settings_tabs() -> void:
 	reset_bindings_button.pressed.connect(_restore_binding_defaults)
 	_button_skin(reset_bindings_button)
 	controls_page.add_child(reset_bindings_button)
+	# Available on both title screen and gameplay via the shared Settings UI.
+	display_mode_label = _settings_label(settings_screen,
+		"Display mode",Vector2(206,353),Vector2(181,38),13)
+	display_mode_label.name="DisplayModeLabel"
+	display_mode_select = OptionButton.new()
+	display_mode_select.name="DisplayModeSelect"
+	display_mode_select.position=Vector2(390,354)
+	display_mode_select.size=Vector2(189,36)
+	display_mode_select.tooltip_text="Windowed, borderless maximized window, or exclusive fullscreen"
+	for item in [["Windowed","windowed"],["Borderless Window","borderless"],["Fullscreen","fullscreen"]]:
+		display_mode_select.add_item(item[0])
+		display_mode_select.set_item_metadata(display_mode_select.item_count-1,item[1])
+	display_mode_select.item_selected.connect(_select_display_mode)
+	settings_screen.add_child(display_mode_select)
 	_set_settings_tab("general")
 
 
@@ -326,6 +348,8 @@ func _set_settings_tab(tab: String) -> void:
 		if is_instance_valid(element):
 			element.visible = general
 	controls_page.visible = not general
+	display_mode_label.visible = general
+	display_mode_select.visible = general
 	_button_skin(general_tab_button,general)
 	_button_skin(controls_tab_button,not general)
 	var back: Button = settings_screen.controls.get("back")
@@ -672,11 +696,53 @@ func _apply_saved_settings() -> void:
 	if is_instance_valid(driving_camera):
 		driving_camera.follow_heading = bool(settings_store.get_setting("camera_follow"))
 	_apply_minimap_shape()
+	_apply_display_mode()
 
 func _apply_minimap_shape() -> void:
 	var map_hud: Node = get_tree().get_first_node_in_group("streetbound_world_map_hud")
 	if is_instance_valid(map_hud) and map_hud.has_method("set_minimap_shape"):
 		map_hud.call("set_minimap_shape", str(settings_store.get_setting("minimap_shape")))
+
+
+func _selected_display_mode() -> String:
+	var value: String=str(settings_store.get_setting("display_mode"))
+	return value if value in DISPLAY_MODES else "windowed"
+
+
+func _select_display_mode(index: int) -> void:
+	if not is_instance_valid(display_mode_select):return
+	var choice: String=str(display_mode_select.get_item_metadata(index))
+	if choice not in DISPLAY_MODES:return
+	settings_store.set_setting("display_mode",choice)
+	_apply_display_mode()
+	_sync_settings()
+
+
+func _apply_display_mode() -> void:
+	# Do not attempt desktop mode changes in headless tests or web exports.
+	if DisplayServer.get_name()=="headless" or OS.has_feature("web"):return
+	var mode: String=_selected_display_mode()
+	var current: DisplayServer.WindowMode=DisplayServer.window_get_mode()
+	var borderless: bool=DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS)
+	if current==DisplayServer.WINDOW_MODE_WINDOWED and not borderless:
+		last_windowed_size=DisplayServer.window_get_size()
+		last_windowed_position=DisplayServer.window_get_position()
+		has_windowed_rect=true
+	match mode:
+		"windowed":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS,false)
+			if has_windowed_rect:
+				DisplayServer.window_set_size(last_windowed_size)
+				DisplayServer.window_set_position(last_windowed_position)
+		"borderless":
+			# Maximize a borderless OS window, not an exclusive display mode.
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS,true)
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
+		"fullscreen":
+			DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS,false)
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
 
 func _sync_settings() -> void:
@@ -686,6 +752,12 @@ func _sync_settings() -> void:
 		sound = not vehicle_audio.muted
 	if is_instance_valid(driving_camera):
 		camera_follow = driving_camera.follow_heading
+	if is_instance_valid(display_mode_select):
+		var active_mode: String=_selected_display_mode()
+		for i in display_mode_select.item_count:
+			if str(display_mode_select.get_item_metadata(i))==active_mode:
+				display_mode_select.select(i)
+				break
 	settings_screen.set_data({"settings": {
 		"sound": sound,
 		"volume": float(settings_store.get_setting("volume")),
