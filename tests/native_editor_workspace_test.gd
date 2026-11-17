@@ -41,6 +41,43 @@ func run() -> void:
 	for i in 6:await process_frame
 	var e=scene.native_world_editor
 	check("browser_style_workspace_opens",e.active and e.source_ready and e.mode_buttons.size()>=8 and e.mode_buttons.has("select_box") and e.mode_buttons.has("move_prop"))
+	# Transform spinner arrows must be coarse on left click and precise on
+	# right click, while keeping fractional text entry and disabled controls.
+	var arrows_script=preload("res://scripts/dev/native_transform_arrows.gd")
+	var transform_fields: Array[SpinBox]=[e.inspector_x,e.inspector_y,e.inspector_rotation,
+		e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]
+	var all_have_arrow_targets:=true
+	var coarse_and_fine:=true
+	for spin in transform_fields:
+		all_have_arrow_targets=all_have_arrow_targets and spin.has_node("TransformArrowHitArea")
+		# Without a selected object, the inspector is intentionally read-only.
+		# Test the arrow behavior with editability enabled explicitly.
+		spin.editable=true
+		spin.value=2.25
+		arrows_script.nudge(spin,MOUSE_BUTTON_LEFT,true)
+		coarse_and_fine=coarse_and_fine and is_equal_approx(spin.value,3.25)
+		arrows_script.nudge(spin,MOUSE_BUTTON_RIGHT,false)
+		coarse_and_fine=coarse_and_fine and is_equal_approx(spin.value,3.15)
+	check("all_transform_fields_have_mouse_arrow_targets",all_have_arrow_targets)
+	check("left_arrow_one_right_arrow_point_one_for_position_size_and_rotation",coarse_and_fine)
+	var x_spin: SpinBox=e.inspector_x
+	var hit: Control=x_spin.get_node("TransformArrowHitArea") as Control
+	x_spin.value=100.0
+	var pointer_up:=InputEventMouseButton.new()
+	pointer_up.button_index=MOUSE_BUTTON_LEFT;pointer_up.pressed=true
+	pointer_up.position=Vector2(5,hit.size.y*.25)
+	hit.gui_input.emit(pointer_up)
+	check("arrow_ui_left_click_increases_position_by_one",is_equal_approx(x_spin.value,101.0))
+	var pointer_down:=InputEventMouseButton.new()
+	pointer_down.button_index=MOUSE_BUTTON_RIGHT;pointer_down.pressed=true
+	pointer_down.position=Vector2(5,hit.size.y*.75)
+	hit.gui_input.emit(pointer_down)
+	check("arrow_ui_right_click_decreases_position_by_point_one",is_equal_approx(x_spin.value,100.9))
+	x_spin.editable=false
+	arrows_script.nudge(x_spin,MOUSE_BUTTON_LEFT,true)
+	check("read_only_transform_arrow_does_not_change_value",is_equal_approx(x_spin.value,100.9))
+	x_spin.editable=true
+	e._refresh_inspector()
 	check("settings_inspector_and_map_have_separate_space",e.settings_panel.get_rect().end.x<=e.canvas_rect.position.x and e.canvas_rect.end.x<=e.inspector_panel.position.x and e.canvas_bar.get_rect().end.y<=e.canvas_rect.position.y)
 	check("library_is_integrated_with_tool_settings",e.asset_dock.get_parent().get_parent().get_parent()==e.settings_panel)
 	for tool in ["draw_road","draw_terrain","place:house","place_marker","pan","move_prop"]:

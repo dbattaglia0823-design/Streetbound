@@ -1,6 +1,7 @@
 extends RefCounted
 ## The browser builder's workspace, using native controls and the live world.
 const MiniMap=preload("res://scripts/dev/native_editor_minimap.gd")
+const TransformArrows=preload("res://scripts/dev/native_transform_arrows.gd")
 const INK=Color("#eaf0f7")
 const MUTED=Color("#94a7bd")
 
@@ -139,7 +140,7 @@ static func build(e) -> void:
 	var xy:=HBoxContainer.new();inspector.add_child(xy)
 	e.inspector_x=e._number(xy,"X m",0,100000,0);e.inspector_x.custom_minimum_size.x=100
 	e.inspector_y=e._number(xy,"Y m",0,100000,0);e.inspector_y.custom_minimum_size.x=100
-	for spin in [e.inspector_x,e.inspector_y]:spin.step=.001
+	for spin in [e.inspector_x,e.inspector_y]:TransformArrows.attach(spin)
 	e.inspector_x.value_changed.connect(func(_value: float)->void:e._commit_inspector("x"))
 	e.inspector_y.value_changed.connect(func(_value: float)->void:e._commit_inspector("y"))
 	e.prop_transforms=VBoxContainer.new();inspector.add_child(e.prop_transforms)
@@ -155,7 +156,7 @@ static func build(e) -> void:
 	e.inspector_scale=e._number(e.prop_transforms,"Scale",0.2,5,1);e.inspector_scale.step=.05
 	e.inspector_scale_x=e._number(e.prop_transforms,"X size multiplier",0.2,5,1);e.inspector_scale_x.step=.05
 	e.inspector_scale_y=e._number(e.prop_transforms,"Y size multiplier",0.2,5,1);e.inspector_scale_y.step=.05
-	for spin in [e.inspector_rotation,e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]:spin.step=.001
+	for spin in [e.inspector_rotation,e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]:TransformArrows.attach(spin)
 	e.asset_dimensions_label=heading(e.prop_transforms,"")
 	e._btn("Reset asset size",e.prop_transforms,e._reset_asset_size)
 	for pair in [[e.inspector_rotation,"rotation"],[e.inspector_scale,"scale"],[e.inspector_scale_x,"scaleX"],[e.inspector_scale_y,"scaleY"]]:
