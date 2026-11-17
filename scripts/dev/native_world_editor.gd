@@ -771,7 +771,8 @@ func _update_marquee(at: Vector2) -> void:
 func _end_marquee(at: Vector2) -> void:
 	marquee_tracking=false
 	gizmos.marquee_active=false
-	var ids: Array[String]=multi_selection.duplicate() if marquee_additive else []
+	var ids: Array[String]=[]
+	if marquee_additive:ids=multi_selection.duplicate()
 	if marquee_start.distance_to(at)<6.0/maxf(.003,editor_camera.zoom.x):
 		if not marquee_additive:
 			# A short click still selects/adopts one asset. The dedicated
