@@ -61,8 +61,8 @@ use separate economy tuning rather than overwriting audited market references.
 | 2015 Dodge Dart / 2005 Dodge Neon | RWD | **FWD** |
 | 2024 BMW M8 Competition | RWD | **AWD** |
 
-In total the before/after CSV records 82 horsepower changes, 73 torque
-changes, 92 mass changes, 16 drivetrain changes, 63 geometry changes and
+In total the before/after CSV records 84 displayed-horsepower changes, 73 torque
+changes, 91 mass changes, 16 drivetrain changes, 63 geometry changes and
 92 purchase-price changes. Unchanged numbers may still differ slightly
 from a different model year, optional package or exact VIN.
 
