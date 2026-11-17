@@ -40,7 +40,7 @@ func run() -> void:
 	var scene: Node=load("res://scenes/world_editor.tscn").instantiate();root.add_child(scene)
 	for i in 6:await process_frame
 	var e=scene.native_world_editor
-	check("browser_style_workspace_opens",e.active and e.source_ready and e.mode_buttons.size()==7)
+	check("browser_style_workspace_opens",e.active and e.source_ready and e.mode_buttons.size()>=8 and e.mode_buttons.has("select_box") and e.mode_buttons.has("move_prop"))
 	check("settings_inspector_and_map_have_separate_space",e.settings_panel.get_rect().end.x<=e.canvas_rect.position.x and e.canvas_rect.end.x<=e.inspector_panel.position.x and e.canvas_bar.get_rect().end.y<=e.canvas_rect.position.y)
 	check("library_is_integrated_with_tool_settings",e.asset_dock.get_parent().get_parent().get_parent()==e.settings_panel)
 	for tool in ["draw_road","draw_terrain","place:house","place_marker","pan","move_prop"]:
