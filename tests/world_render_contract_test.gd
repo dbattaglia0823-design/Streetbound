@@ -137,5 +137,12 @@ func run() -> void:
 	check("F7_returns_after_atlas_closes",world.performance_panel.visible)
 	check("all_chunk_construction_succeeded",world.failed_chunks.is_empty())
 	check("cache_reuse_still_works",world.cached_chunk_reuses>0,world.cached_chunk_reuses)
-	print("WORLD RENDER CONTRACT: ","PASS" if failures.is_empty() else "FAIL "+str(failures))
-	quit(0 if failures.is_empty() else 1)
+	var passed := failures.is_empty()
+	print("WORLD RENDER CONTRACT: ","PASS" if passed else "FAIL "+str(failures))
+	# This scene now hosts vehicle-warning CanvasItems with transient drawing
+	# resources. Free the full world before process shutdown so fonts/canvas
+	# references are not retained by a live main scene at engine exit.
+	game.queue_free()
+	await process_frame
+	await process_frame
+	quit(0 if passed else 1)
