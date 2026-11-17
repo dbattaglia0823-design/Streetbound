@@ -69,11 +69,11 @@ def authored_races(doc,width,height):
             not isinstance(car,str) or car not in vehicle_ids() for car in pool
         ) or len(pool)!=len(set(pool)):
             raise ValueError('Race opponent pool must contain unique IDs from the current vehicle catalog')
-        entry['opponent_pool']=pool
+        if 'opponent_pool' in race:entry['opponent_pool']=pool
         for key,maximum in [('reward_cash',1000000),('reward_player_xp',100000),('reward_car_xp',100000)]:
             amount=race.get(key,0)
             if type(amount) is not int or not 0<=amount<=maximum:
                 raise ValueError('Invalid race reward: '+key)
-            entry[key]=amount
+            if key in race:entry[key]=amount
         result.append(entry)
     return result
