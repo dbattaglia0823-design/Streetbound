@@ -165,16 +165,18 @@ func run() -> void:
 	audio._process(0.1)
 	check("supercharger_only_generates_blower_whine",
 		audio._induction == "supercharger" and audio.turbo.playing)
+	# The retired Exhaust slot is gone. The active Turbo slot is the
+	# upgrade-driven induction sound/performance path in the six-slot system.
 	var boosted_sound: VehicleConfig = Catalog.make_configuration(m3)
 	var upgraded: VehicleConfig = Catalog.make_configuration(m3)
-	var exhaust: Dictionary = Parts.get_part("exhaust-street-rare")
-	var parts: Array[Dictionary] = [exhaust]
+	var turbo_part: Dictionary = Parts.get_part("turbo-quick-spool-rare")
+	var parts: Array[Dictionary] = [turbo_part]
 	Parts.apply_to_config(upgraded,parts)
-	check("exhaust_upgrade_changes_sound_and_performance",
-		upgraded.audio_aggression > boosted_sound.audio_aggression and
-		upgraded.audio_exhaust_roughness > boosted_sound.audio_exhaust_roughness and
+	check("turbo_upgrade_changes_boost_power_and_audio",
+		upgraded.boost_max_psi > boosted_sound.boost_max_psi and
+		upgraded.audio_turbo_presence > boosted_sound.audio_turbo_presence and
 		upgraded.engine_power_kw > boosted_sound.engine_power_kw)
-	check("exhaust_upgrade_does_not_add_fake_turbo",
+	check("turbo_upgrade_keeps_existing_induction_profile",
 		upgraded.audio_induction == boosted_sound.audio_induction)
 	# Returning to stock should restore exact original profile values.
 	check("fresh_car_configuration_restores_original_sound",

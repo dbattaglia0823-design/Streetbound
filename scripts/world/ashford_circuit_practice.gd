@@ -8,6 +8,7 @@ const StatusStripScript = preload("res://scripts/ui/race_status_strip.gd")
 const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const ROAD_NAME := "Ashford Grand Circuit"
 const StartArea=preload("res://scripts/world/race_start_area.gd")
+const Grid=preload("res://scripts/world/race_start_grid.gd")
 var race_title:="Ashford Circuit"
 var race_type:="Circuit · Time Trial"
 var start_radius_m:=8.0
@@ -131,7 +132,7 @@ func can_stage() -> bool:
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
-	StartArea.settle_for_countdown(player)
+	Grid.teleport(player,Grid.pose(start_m,heading))
 	state = "countdown"
 	countdown = 3.0
 	elapsed = 0.0

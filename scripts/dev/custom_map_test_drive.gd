@@ -5,6 +5,7 @@ const World = preload("res://scripts/dev/custom_map_drive_world.gd")
 const Vehicle = preload("res://scenes/vehicle.tscn")
 const Camera = preload("res://scripts/camera/driving_camera.gd")
 const Audio = preload("res://scripts/audio/vehicle_audio.gd")
+const AuthoredRace=preload("res://scripts/world/authored_race.gd")
 
 var source_file := ""
 var player: VehicleController2D
@@ -39,6 +40,14 @@ func _ready() -> void:
 	player.z_index = 8
 	add_child(player)
 	player.add_to_group("player_vehicle")
+	# Custom-map Test Drive uses the same saved grid/AI setup as a playable
+	# baked race, without loading career payouts or the original world.
+	for definition in doc.get("races",[]):
+		var race:=AuthoredRace.new()
+		race.definition=definition
+		race.world=world
+		race.player=player
+		world.add_child(race)
 
 	var camera := Camera.new()
 	camera.target = player
@@ -73,7 +82,7 @@ func _build_hud(map_name: String) -> void:
 	speed_label = Label.new()
 	row.add_child(speed_label)
 	var help := Label.new()
-	help.text = "R reset  ·  F6 / Esc return"
+	help.text = "F near race: stage grid  ·  R reset  ·  F6 / Esc return"
 	row.add_child(help)
 	var button := Button.new()
 	button.text = "Return to Map Editor  F6"

@@ -223,6 +223,29 @@ func _draw_races() -> void:
 			var label: String=(str(race.name)+" / START") if i==0 else ("FINISH" if race.mode=="sprint" and i==line.size()-1 else str(i))
 			draw_string(ThemeDB.fallback_font,Vector2(10,4),label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#defdf5"))
 			draw_set_transform(Vector2.ZERO)
+		# Race grids are not generic gameplay markers; they belong to the
+		# currently selected race and are never rendered as stale asset boxes.
+		if focused and not runtime_playtest:
+			var slot_list: Array=[]
+			var player_slot: Dictionary=race.get("player_start",{})
+			if player_slot.is_empty():player_slot=preload("res://scripts/world/race_start_grid.gd").default_player(race.points)
+			slot_list.append(player_slot)
+			slot_list.append_array(race.get("enemy_starts",[]))
+			for i in slot_list.size():
+				var slot: Dictionary=slot_list[i]
+				var point_m:=Vector2(float(slot.x),float(slot.y))
+				var world_px:=point_m*PPM
+				if str(drag_preview.get("kind",""))=="race_grid" and str(drag_preview.get("id",""))==str(race.id) and int(drag_preview.get("index",-99))==i-1:
+					world_px=Vector2(drag_preview.get("to",world_px))
+				var forward:=Vector2.UP.rotated(deg_to_rad(float(slot.get("rotation",0))))
+				var tint:=Color("#7ff0ff") if i==0 else Color("#ffbf63")
+				var radius:=8.0/maxf(.003,zoom_level)
+				draw_circle(world_px,radius*.95,Color("#162735"))
+				draw_arc(world_px,radius,0,TAU,32,tint,2.5/maxf(.003,zoom_level),true)
+				draw_line(world_px,world_px+forward*radius*1.9,tint,2.5/maxf(.003,zoom_level),true)
+				draw_set_transform(world_px,0,Vector2.ONE/maxf(.003,zoom_level))
+				draw_string(ThemeDB.fallback_font,Vector2(13,5),"PLAYER" if i==0 else "AI %d"%i,HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
+				draw_set_transform(Vector2.ZERO)
 
 
 func _prop_size(prop: Dictionary) -> Vector2:

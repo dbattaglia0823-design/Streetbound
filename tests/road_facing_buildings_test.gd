@@ -34,9 +34,21 @@ func run() -> void:
 	house=e.authoring.prop_at_id(second)
 	check("road_alignment_and_building_walls_form_a_city_row",pos(house).distance_to(Vector2(462.25,433))<.01 and absf(float(house.rotation))<.01)
 	check("per_asset_alignment_control_is_available",e.inspector_road_facing.visible and e.inspector_road_facing.button_pressed)
-	e.inspector_road_facing.button_pressed=false;e.inspector_rotation.value=37
-	drag(e,second,Vector2(500,431));house=e.authoring.prop_at_id(second)
-	check("disabled_asset_retains_manual_rotation_and_position",not house.roadFacing and absf(float(house.rotation)-37)<.01 and pos(house).distance_to(Vector2(500,431))<.01)
+	# Adjacent facades have only 0.25 m of clearance. Rotating the
+	# second house in place would overlap the first, and must be rejected.
+	e.inspector_road_facing.button_pressed=false
+	e.inspector_rotation.value=37
+	house=e.authoring.prop_at_id(second)
+	check("adjacent_house_rotation_rejects_overlap",
+		not house.roadFacing and absf(float(house.rotation))<.01 and
+		pos(house).distance_to(Vector2(462.25,433))<.01)
+	# Moving the house into open space permits the same manual rotation.
+	drag(e,second,Vector2(500,431))
+	e.inspector_rotation.value=37
+	house=e.authoring.prop_at_id(second)
+	check("disabled_asset_retains_manual_rotation_and_position",
+		not house.roadFacing and absf(float(house.rotation)-37)<.01 and
+		pos(house).distance_to(Vector2(500,431))<.01)
 	check("disabling_one_asset_keeps_others_enabled",Snap.enabled(e.authoring.prop_at_id(first)))
 	e.inspector_road_facing.button_pressed=true
 	check("enabling_near_road_aligns_in_one_edit",Snap.enabled(e.authoring.prop_at_id(second)) and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(500,433))<.01 and absf(float(e.authoring.prop_at_id(second).rotation))<.01)

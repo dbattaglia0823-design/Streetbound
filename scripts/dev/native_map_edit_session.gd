@@ -5,6 +5,7 @@ extends RefCounted
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
+const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const MAX_ROADS := 180
@@ -263,13 +264,29 @@ func race_at_id(identity: String) -> Dictionary:
 		if str(race.id)==identity:return race
 	return {}
 
+static func shift_race_grid(race: Dictionary,delta: Vector2) -> void:
+	if race.has("player_start") and race.player_start is Dictionary:
+		race.player_start.x=float(race.player_start.x)+delta.x
+		race.player_start.y=float(race.player_start.y)+delta.y
+	for slot in race.get("enemy_starts",[]):
+		slot.x=float(slot.x)+delta.x
+		slot.y=float(slot.y)+delta.y
+
 func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String="") -> String:
 	var race:=settings.duplicate(true)
 	race.id=next_id("races","race") if identity.is_empty() else identity
 	race.points=[]
 	for p in points_m:race.points.append({"x":p.x,"y":p.y})
+	var prior: Dictionary=race_at_id(identity) if not identity.is_empty() else {}
+	var default_count: int=prior.get("enemy_starts",[]).size()
+	var count: int=int(race.get("opponent_count",default_count))
+	var formation: String=str(race.get("formation",prior.get("formation","single_file")))
+	race.erase("opponent_count")
+	if settings.has("opponent_count") or prior.has("player_start"):
+		if race.points.size()>=2 and count>=0 and count<=RaceGrid.MAX_RIVALS and formation in RaceGrid.FORMATIONS:
+			race.merge(RaceGrid.layout(race.points,count,formation,prior),true)
 	if not RaceDefinition.valid(race,float(doc.world.width),float(doc.world.height)):
-		last_error="Use a named sprint with 2+ points or a circuit with 3+ points. Keep checkpoints at least 5 m apart.";return ""
+		last_error="Check race checkpoints, grid spacing, starts inside the map and up to six AI rivals.";return ""
 	var next:=doc.duplicate(true)
 	if not next.has("races"):next["races"]=[]
 	var replaced:=false
@@ -277,6 +294,46 @@ func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String=""
 		if str(next.races[i].id)==str(race.id):next.races[i]=race;replaced=true;break
 	if not replaced:next.races.append(race)
 	return str(race.id) if _commit(next) else ""
+
+## Update the designated player's or rival's race-specific starting slot.
+## Index -1 is the player; indices 0..5 are AI starting places.
+func set_race_grid_slot(identity: String,index: int,position_m: Vector2,rotation_degrees: float=NAN) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		var previous: Dictionary=race.get("player_start",{})
+		if previous.is_empty():
+			previous=RaceGrid.default_player(race.points)
+			race["player_start"]=previous
+			if not race.has("enemy_starts"):race["enemy_starts"]=[]
+		var target: Dictionary={}
+		if index==-1:target=race.player_start
+		elif index>=0 and index<race.get("enemy_starts",[]).size():target=race.enemy_starts[index]
+		else:
+			last_error="Choose a valid player or AI grid slot."
+			return false
+		target.x=position_m.x;target.y=position_m.y
+		if is_finite(rotation_degrees):target.rotation=rotation_degrees
+		if not RaceDefinition.valid(race,float(next.world.width),float(next.world.height)):
+			last_error="Grid positions must fit the map and leave room between vehicles."
+			return false
+		return _commit(next)
+	last_error="Race is no longer available."
+	return false
+
+func reset_race_grid(identity: String,formation: String) -> bool:
+	var next: Dictionary=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		var count: int=race.get("enemy_starts",[]).size()
+		var replacement: Dictionary=RaceGrid.layout(race.points,count,formation)
+		race.merge(replacement,true)
+		if not RaceDefinition.valid(race,float(next.world.width),float(next.world.height)):
+			last_error="Grid would fall outside the map or overlap; choose another layout."
+			return false
+		return _commit(next)
+	last_error="Select a race first."
+	return false
 
 func move_race_point(identity: String,index: int,destination: Vector2) -> bool:
 	var next:=doc.duplicate(true)
@@ -715,6 +772,7 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 				for p in target.points:ends.append(RoadShapes.point(p))
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
+		if category=="races":shift_race_grid(target,delta)
 		if category=="roads":
 			for road in next.roads:
 				if str(road.id)==identity or not _same_network(target,road) or bool(road.get("independentEnds",false)):continue
@@ -1058,6 +1116,7 @@ func duplicate_entity(identity: String) -> String:
 			copy.erase("replaces");copy.erase("hidden")
 			if copy.has("points"):
 				for p in copy.points:p.x=float(p.x)+12;p.y=float(p.y)+12
+				if category=="races":shift_race_grid(copy,Vector2(12,12))
 			else:copy.x=float(copy.x)+12;copy.y=float(copy.y)+12
 			var next:=doc.duplicate(true);next[category].append(copy)
 			return id if _commit(next) else ""
