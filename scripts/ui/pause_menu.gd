@@ -722,12 +722,17 @@ func _apply_display_mode() -> void:
 	# Do not attempt desktop mode changes in headless tests or web exports.
 	if DisplayServer.get_name()=="headless" or OS.has_feature("web"):return
 	var mode: String=_selected_display_mode()
-	var current: DisplayServer.WindowMode=DisplayServer.window_get_mode()
+	var current: int=DisplayServer.window_get_mode()
 	var borderless: bool=DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS)
 	if current==DisplayServer.WINDOW_MODE_WINDOWED and not borderless:
 		last_windowed_size=DisplayServer.window_get_size()
 		last_windowed_position=DisplayServer.window_get_position()
 		has_windowed_rect=true
+	# Applying the same preference when changing scenes must not interrupt a
+	# window that the player has manually resized or maximized.
+	if mode=="windowed" and current in [DisplayServer.WINDOW_MODE_WINDOWED,DisplayServer.WINDOW_MODE_MAXIMIZED] and not borderless:return
+	if mode=="borderless" and current==DisplayServer.WINDOW_MODE_MAXIMIZED and borderless:return
+	if mode=="fullscreen" and current==DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:return
 	match mode:
 		"windowed":
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
