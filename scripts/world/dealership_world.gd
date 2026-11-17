@@ -222,9 +222,8 @@ func can_browse(site: Dictionary) -> bool:
 		return false
 	# The browsing trigger belongs inside the outlined forecourt bay,
 	# not on the roadside shoulder or an invisible radius on nearby grass.
-	return Pavement.contains_pavement(site, player.global_position) and \
-		player.global_position.distance_to(v(site.parking_m)*PPM) <= \
-		PARK_RADIUS_M*PPM and InteractionSpeed.allowed(player.linear_velocity.length())
+	return Pavement.contains_lot(site, player.global_position) and \
+		InteractionSpeed.allowed(player.linear_velocity.length())
 
 
 func nearby_shop() -> Dictionary:
