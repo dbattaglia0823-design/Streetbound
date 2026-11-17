@@ -10,7 +10,7 @@ static func _consider(at: Vector2,candidate: Vector2,tolerance: float,
 	if distance>tolerance+0.000001:return best
 	# Prefer an exact corner/centre join to a slightly closer edge-only join
 	# only when the two corrections are very similar.
-	var score: float=distance-(0.12 if alignment else 0.0)
+	var score: float=distance-(0.9 if alignment else 0.0)
 	if score<float(best.get("score",INF)):
 		return {"position":candidate,"score":score,"distance":distance}
 	return best
