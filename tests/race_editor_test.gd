@@ -38,10 +38,15 @@ func run() -> void:
 	var history_before: int=e.authoring.history.size()
 	form._save_dialog(e)
 	var configured: Dictionary=e.authoring.race_at_id(id)
-	check("edit_race_saves_pool_enemy_count_and_revenue",
-		e.authoring.history.size()==history_before+1 and configured.enemy_starts.size()==3 and
-		configured.opponent_pool.has("audi-rs3") and configured.opponent_pool.has("acura-integra") and
-		int(configured.reward_cash)==12500 and int(configured.reward_player_xp)==275 and int(configured.reward_car_xp)==150)
+	var saved_ok: bool=e.authoring.history.size()==history_before+1 and configured.enemy_starts.size()==3 and \
+		configured.get("opponent_pool",[]).has("audi-rs3") and configured.get("opponent_pool",[]).has("acura-integra") and \
+		int(configured.get("reward_cash",0))==12500 and int(configured.get("reward_player_xp",0))==275 and int(configured.get("reward_car_xp",0))==150
+	if not saved_ok:
+		print("RACE SAVE AUDIT: history ",history_before,"=>",e.authoring.history.size(),
+			" rivals=",configured.get("enemy_starts",[]).size()," pool=",configured.get("opponent_pool",[]),
+			" payout=",configured.get("reward_cash",-1),"/",configured.get("reward_player_xp",-1),"/",
+			configured.get("reward_car_xp",-1)," error=",form.dialog_message.text)
+	check("edit_race_saves_pool_enemy_count_and_revenue",saved_ok)
 	e._undo()
 	check("race_edit_settings_are_undoable",not e.authoring.race_at_id(id).has("opponent_pool") or e.authoring.race_at_id(id).get("opponent_pool",[]).is_empty())
 	e._redo()
