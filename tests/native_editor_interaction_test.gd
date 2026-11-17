@@ -128,6 +128,26 @@ func run() -> void:
 		JSON.stringify(changed_region)==JSON.stringify(session.doc.regions[-1]))
 	check("terrain_resize_undo_restores_vertices",
 		session.undo() and JSON.stringify(session.doc.regions[-1].points)==JSON.stringify(original_region.points))
+	check("terrain_resize_percent_control_starts_at_ten",
+		is_equal_approx(editor.inspector_terrain_percent.value,10.0))
+	editor.inspector_terrain_percent.value=25.0
+	var percent_history: int=session.history.size()
+	editor.terrain_expand_button.pressed.emit()
+	check("terrain_expand_button_uses_entered_percentage",
+		session.history.size()==percent_history+1 and
+		absf(editor._region_bounds(session.doc.regions[-1]).size.x-100.0)<0.01 and
+		absf(editor._region_bounds(session.doc.regions[-1]).size.y-62.5)<0.01)
+	session.undo()
+	editor._refresh_authoring()
+	editor.inspector_terrain_percent.value=12.5
+	editor.terrain_shrink_button.pressed.emit()
+	check("terrain_shrink_button_uses_changed_percentage",
+		absf(editor._region_bounds(session.doc.regions[-1]).size.x-70.0)<0.01 and
+		absf(editor._region_bounds(session.doc.regions[-1]).size.y-43.75)<0.01)
+	session.undo()
+	editor._refresh_authoring()
+	check("resize_percentage_persists_between_edits",
+		is_equal_approx(editor.inspector_terrain_percent.value,12.5))
 	check("terrain_move_preserves_shape",
 		session.move_shape("regions",terrain_id,Vector2(12,7)) and
 		absf(float(session.doc.regions[-1].points[0].x)-float(original_region.points[0].x)-12.0)<.01)
