@@ -300,9 +300,9 @@ func _build_dialog(e) -> void:
 	pool_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var awards:=_form_column(columns,230)
 	_form_label(awards,"REWARDS ON WIN")
-	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=100
-	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=50
-	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=50
+	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=1
+	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=1
+	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=1
 	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
 	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var foot:=HBoxContainer.new();body.add_child(foot)
