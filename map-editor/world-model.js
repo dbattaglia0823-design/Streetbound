@@ -154,8 +154,27 @@ export function normalizeWorld(raw){
       const mode=oneOf(r.mode,['sprint','circuit'],'race format');
       const points=polygon(r.points,width,height,mode==='circuit'?3:2,100,'race');
       if(points.some((p,i)=>i>0&&distance(p,points[i-1])<5))throw new RangeError('Race checkpoints must be at least 5 m apart');
-      return {id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),
+      // Preserve native-editor grid and event configuration on browser import/export.
+      const entry={id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),
         checkpoint_radius:real(r.checkpoint_radius??16,4,60,'checkpoint radius'),start_radius:real(r.start_radius??8,3,30,'race start radius'),time_limit:real(r.time_limit??0,0,7200,'race time limit')};
+      const pool=r.opponent_pool??[];
+      if(!Array.isArray(pool)||pool.length>128||pool.some(id=>typeof id!=='string'||!idOk(id))||new Set(pool).size!==pool.length)
+        throw new TypeError('Invalid race opponent vehicle IDs');
+      entry.opponent_pool=[...pool];
+      for(const [key,max] of [['reward_cash',1000000],['reward_player_xp',100000],['reward_car_xp',100000]])
+        entry[key]=integer(r[key]??0,0,max,key);
+      if(r.formation!==undefined)entry.formation=oneOf(r.formation,['single_file','side_by_side','staggered'],'race grid formation');
+      const pose=s=>{
+        if(!s||typeof s!=='object')throw new TypeError('Invalid race grid slot');
+        return {...point(s,width,height),rotation:real(s.rotation,-360,360,'grid angle')};
+      };
+      if(r.player_start!==undefined)entry.player_start=pose(r.player_start);
+      if(r.enemy_starts!==undefined){
+        if(!Array.isArray(r.enemy_starts)||r.enemy_starts.length>6||r.enemy_starts.length&&!entry.player_start)
+          throw new TypeError('Invalid race starting grid');
+        entry.enemy_starts=r.enemy_starts.map(pose);
+      }
+      return entry;
     });
   }
   const allAssets=raw.assets??[];
