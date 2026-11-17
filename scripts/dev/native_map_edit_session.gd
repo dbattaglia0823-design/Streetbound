@@ -926,6 +926,48 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 							point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y;break
 	return _commit(next)
 
+## Resize a terrain region's stored vertices around its current footprint center.
+## Width and height can be changed independently; source geometry stays editable.
+func resize_region(identity: String, scale_x: float, scale_y: float) -> bool:
+	if not is_finite(scale_x) or not is_finite(scale_y) or scale_x<=0.0 or scale_y<=0.0:
+		last_error="Terrain resize factors must be positive, finite numbers."
+		return false
+	var next: Dictionary=doc.duplicate(true)
+	for region in next.get("regions",[]):
+		if str(region.get("id",""))!=identity:continue
+		var points: Array=region.get("points",[])
+		if points.size()<3:
+			last_error="Terrain needs at least three vertices."
+			return false
+		var low:=Vector2(INF,INF)
+		var high:=Vector2(-INF,-INF)
+		for point in points:
+			var at:=Vector2(float(point.x),float(point.y))
+			low=low.min(at);high=high.max(at)
+		var size: Vector2=(high-low)*Vector2(scale_x,scale_y)
+		if size.x<2.0 or size.y<2.0:
+			last_error="Terrain must remain at least 2 metres wide and tall."
+			return false
+		var center: Vector2=(low+high)*0.5
+		var outline:=PackedVector2Array()
+		for point in points:
+			var before:=Vector2(float(point.x),float(point.y))
+			var at: Vector2=center+(before-center)*Vector2(scale_x,scale_y)
+			if not _in_bounds(at):
+				last_error="Resized terrain would extend outside the map."
+				return false
+			point.x=at.x;point.y=at.y
+			outline.append(at)
+		var twice_area:=0.0
+		for i in outline.size():
+			twice_area+=outline[i].cross(outline[(i+1)%outline.size()])
+		if absf(twice_area)<50.0 or Geometry2D.triangulate_polygon(outline).is_empty():
+			last_error="Terrain must retain a non-crossing area of at least 25 square metres."
+			return false
+		return _commit(next)
+	last_error="Select an editable terrain region first."
+	return false
+
 static func road_path(road: Dictionary) -> PackedVector2Array:
 	var anchors: Array=road.get("points",[])
 	var circle:=RoadShapes.circle(anchors)
