@@ -120,6 +120,7 @@ func _ready() -> void:
 		for definition in ground.data.get("editor_races",[]):
 			var event:=Node2D.new();event.set_script(AuthoredRaceScript)
 			event.definition=definition;event.world=ground;event.player=vehicle;event.network=traffic.network
+			event.economy=vehicle_ownership
 			ground.add_child(event);extra_races.append(event)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
