@@ -34,7 +34,7 @@ func run() -> void:
 	house=e.authoring.prop_at_id(second)
 	check("road_alignment_and_building_walls_form_a_city_row",pos(house).distance_to(Vector2(462.02,433))<.01 and absf(float(house.rotation))<.01)
 	check("per_asset_alignment_control_is_available",e.inspector_road_facing.visible and e.inspector_road_facing.button_pressed)
-	# Adjacent facades have only 0.25 m of clearance. Rotating the
+	# Adjacent facades are nearly flush, with only 0.02 m of clearance. Rotating the
 	# second house in place would overlap the first, and must be rejected.
 	e.inspector_road_facing.button_pressed=false
 	e.inspector_rotation.value=37
