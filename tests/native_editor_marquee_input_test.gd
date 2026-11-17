@@ -74,6 +74,10 @@ func _run() -> void:
 	check("box_select_can_begin_on_existing_building",drag_box(e,spot_a,finish))
 	check("box_select_from_building_selects_entire_rectangle",
 		e.multi_selection.has(a) and e.multi_selection.has(b) and not e.multi_selection.has(c),e.multi_selection)
+	e._choose_tool("move_prop")
+	check("switch_to_move_tool_preserves_group_for_drag",
+		e.multi_selection.has(a) and e.multi_selection.has(b) and e.gizmos.group_selected_lookup.has(b))
+	e._choose_tool("select_box")
 	click(e,spot_a,true)
 	check("shift_click_removes_one_member",not e.multi_selection.has(a) and e.multi_selection.has(b))
 	click(e,spot_a,true)
