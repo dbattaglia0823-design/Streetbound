@@ -94,7 +94,7 @@ func settings(e) -> Dictionary:
 		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value,
 		"opponent_count":0 if e._option_value(competition)=="time_trial" else maxi(1,int(opponents.value)),
 		"formation":e._option_value(formation),
-		"race_kind":"time_trial" if e._option_value(competition)=="time_trial" else ("circuit" if e._option_value(mode)=="circuit" else "point_to_point")}
+		"race_kind":"circuit" if e._option_value(mode)=="circuit" else ("time_trial" if e._option_value(competition)=="time_trial" else "point_to_point")}
 func minimum_points(e) -> int:return 3 if e._option_value(mode)=="circuit" else 2
 func begin_route(e,id: String="") -> void:
 	if e._editing_locked() or not e.source_ready:return
