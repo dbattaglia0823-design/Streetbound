@@ -1,0 +1,76 @@
+name: Handbrake and parked steering physics
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/vehicle/vehicle_controller.gd'
+      - 'tests/handbrake_input_conflict_test.gd'
+      - 'tests/handbrake_input_conflict_test.gd.uid'
+      - '.github/workflows/handbrake-physics.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/vehicle/vehicle_controller.gd'
+      - 'tests/handbrake_input_conflict_test.gd'
+      - 'tests/handbrake_input_conflict_test.gd.uid'
+      - '.github/workflows/handbrake-physics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vehicle-physics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1', '4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Godot resource IDs
+        run: python3 tests/resource_uid_test.py
+      - name: Install Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Import real project scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/handbrake-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/handbrake-import.log
+      - name: Regression - parking brakes, stationary steering and pedal conflicts
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_input_conflict_test.gd 2>&1 | tee /tmp/handbrake-input-test.log
+          grep -q 'HANDBRAKE INPUT PHYSICS: PASS' /tmp/handbrake-input-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/handbrake-input-test.log
+      - name: Regression - handbrake drifting and tire recovery
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 155s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_recovery_test.gd 2>&1 | tee /tmp/handbrake-recovery-test.log
+          grep -q 'HANDBRAKE RECOVERY TESTS: PASS' /tmp/handbrake-recovery-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/handbrake-recovery-test.log
+      - name: Regression - normal reverse braking and vehicle handling
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 155s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_test.gd -- output=handbrake-driving-${{ matrix.godot }}.json 2>&1 | tee /tmp/handbrake-driving-test.log
+          grep -q 'DRIVING TESTS: PASS' /tmp/handbrake-driving-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/handbrake-driving-test.log
+      - name: Upload physics regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: handbrake-physics-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/handbrake-input-test.log
+            /tmp/handbrake-recovery-test.log
+            /tmp/handbrake-driving-test.log
+          if-no-files-found: warn
+          retention-days: 21
