@@ -79,6 +79,18 @@ func run() -> void:
 	x_spin.editable=true
 	e._refresh_inspector()
 	check("settings_inspector_and_map_have_separate_space",e.settings_panel.get_rect().end.x<=e.canvas_rect.position.x and e.canvas_rect.end.x<=e.inspector_panel.position.x and e.canvas_bar.get_rect().end.y<=e.canvas_rect.position.y)
+	check("editor_actions_are_accessible_with_horizontal_scroll",
+		e.canvas_bar.find_child("CanvasEditActionsScroll",true,false) is ScrollContainer and
+		e.inspector_panel.size.x>=330.0 and
+		e.canvas_rect.end.x<=e.inspector_panel.position.x)
+	check("all_editor_panels_stay_within_viewport",
+		e.inspector_panel.get_rect().end.x<=get_root().get_visible_rect().size.x+0.01 and
+		e.settings_panel.get_rect().position.x>=0.0,
+		{"inspector_end":e.inspector_panel.get_rect().end.x,
+		 "inspector_width":e.inspector_panel.size.x,
+		 "inspector_min":e.inspector_panel.get_combined_minimum_size(),
+		 "viewport_width":get_root().get_visible_rect().size.x,
+		 "inspector_scroll_min":e.inspector_panel.get_child(0).get_combined_minimum_size()})
 	check("library_is_integrated_with_tool_settings",e.asset_dock.get_parent().get_parent().get_parent()==e.settings_panel)
 	for tool in ["draw_road","draw_terrain","place:house","place_marker","pan","move_prop"]:
 		e._choose_tool(tool)

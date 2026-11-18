@@ -57,12 +57,16 @@ func _run() -> void:
 	var finish: Vector2=rect.position+rect.size*Vector2(.67,.7)
 	var spot_a: Vector2=rect.position+rect.size*Vector2(.35,.40)
 	var spot_b: Vector2=rect.position+rect.size*Vector2(.55,.58)
-	var spot_c: Vector2=rect.position+rect.size*Vector2(.81,.8)
+	# Keep the control sample within the visible, newly sized map canvas.
+	# It still lies outside the marquee (which ends at .67, .70).
+	var spot_c: Vector2=rect.position+rect.size*Vector2(.74,.75)
 	var a: String=e.authoring.add_prop("house",screen_to_m(e,spot_a))
 	var b: String=e.authoring.add_prop("house",screen_to_m(e,spot_b))
 	var c: String=e.authoring.add_prop("house",screen_to_m(e,spot_c))
 	e._refresh_authoring()
-	check("map_has_three_editable_assets",not a.is_empty() and not b.is_empty() and not c.is_empty())
+	check("map_has_three_editable_assets",not a.is_empty() and not b.is_empty() and not c.is_empty(),
+		{"ids":[a,b,c],"positions":[screen_to_m(e,spot_a),screen_to_m(e,spot_b),screen_to_m(e,spot_c)],
+		 "canvas":e.canvas_rect,"error":e.authoring.last_error})
 	check("marquee_starts_inside_canvas_not_sidebar",e._canvas_pointer_available(begin) and
 		not e._canvas_pointer_available(e.settings_panel.position+Vector2(20,20)))
 	check("select_edit_direct_mouse_press_draws_box",drag_box(e,begin,finish))
