@@ -12,6 +12,7 @@ var height: SpinBox
 var base: OptionButton
 var publish_button: Button
 var restore_button: Button
+var import_published_button: Button
 var publication_status: Label
 var publish_dialog: ConfirmationDialog
 var restore_dialog: ConfirmationDialog
@@ -51,6 +52,8 @@ func build_publish_ui(e,parent: Node) -> void:
 	parent.add_child(publication_status)
 	publish_button=e._btn("Build Game World...",parent,func():_show_publish(e))
 	publish_button.tooltip_text="Package the selected saved custom map as the main playable world. Test Drive remains a sandbox."
+	import_published_button=e._btn("Open Published Source...",parent,func():_open_published_source(e))
+	import_published_button.tooltip_text="Restore the compiled game's editable source snapshot into your map library without overwriting different local edits."
 	restore_button=e._btn("Restore Morrow Coast...",parent,func():_show_restore(e))
 	restore_button.tooltip_text="Set Morrow Coast as the active game without deleting your published map or editing source."
 	publish_dialog=ConfirmationDialog.new()
@@ -74,7 +77,34 @@ func _refresh_publication_ui() -> void:
 	var active: Dictionary=WorldPublication.current()
 	publication_status.text="PLAY loads: "+str(active.name)+("\nCustom map ready to publish." if custom else "\nSelect a saved custom map to publish.")
 	publish_button.disabled=not custom
+	import_published_button.disabled=not bool(active.get("published",false))
 	restore_button.disabled=not bool(active.get("published",false))
+
+func _open_published_source(e) -> void:
+	var current: Dictionary=WorldPublication.current()
+	if not bool(current.get("published",false)):
+		e._notice("No published custom game world is available.")
+		return
+	if not ready_to_switch(e):return
+	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(str(current.source)))
+	var probe:=Session.new()
+	if not parsed is Dictionary or not probe._valid_source(parsed):
+		e._notice("Published source snapshot could not be opened. The current map was kept.")
+		return
+	var requested: String=str(current.id)
+	var existing: Dictionary=Library.load_map(requested)
+	if not existing.is_empty() and probe._fingerprint(existing)!=probe._fingerprint(parsed):
+		# Never overwrite the player's newer local draft while importing an
+		# older published version from the project source snapshot.
+		requested="published-copy-%d.world.json"%Time.get_ticks_usec()
+		e._notice("Saved another copy because the local map had newer edits.")
+	if existing.is_empty() or requested!=str(current.id):
+		if Library.save(parsed,requested).is_empty():
+			e._notice("Unable to import published source into the writable map library.")
+			return
+	activate(e,parsed,requested)
+	reload_list()
+	e._notice("Loaded editable source for published game world "+str(parsed.get("name","Custom Map"))+".")
 
 func _show_publish(e) -> void:
 	if not custom:
