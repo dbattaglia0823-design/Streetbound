@@ -19,6 +19,7 @@ var throttle_limit := 0.90
 var cruise_speed_mps := 180.0
 var last_station_px := 0.0
 var _projection_initialized := false
+var _projection_reset := false
 var navigation: RefCounted
 var loop_route := false
 var traffic_planner: RefCounted
@@ -40,6 +41,7 @@ func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
 		stations.append(stations[i - 1] + route[i - 1].distance_to(route[i]))
 	last_station_px = 0.0
 	_projection_initialized = false
+	_projection_reset = false
 	active = false
 	if is_instance_valid(car):
 		car.command = Vector4.ZERO
@@ -135,11 +137,15 @@ func _nearest_station(point: Vector2) -> float:
 				delta <= PROJECTION_FORWARD_M * PPM and error < local_error:
 			local_error = error
 			local_station = candidate
+	_projection_reset = false
 	# A figure-eight/crossing can lie exactly on two disjoint stations.
 	# Prefer the section consistent with the car's previous progress, but
 	# use the global closest path when the vehicle is physically far away.
 	if local_error <= pow(PROJECTION_RECOVERY_M * PPM, 2.0):
 		return local_station
+	# A displaced car may need to rejoin a previous road section. Reset
+	# progress rather than pinning future projections to an unreachable leg.
+	_projection_reset = _projection_initialized
 	return global_station
 
 
@@ -173,7 +179,7 @@ func _physics_process(dt: float) -> void:
 	var station_px := _nearest_station(position_px)
 	# Preserve local progress for route projections, including lap wrap.
 	# Actual race checkpoint timing continues to use the race director.
-	last_station_px = station_px if loop_route else maxf(last_station_px, station_px)
+	last_station_px = station_px if loop_route or _projection_reset else maxf(last_station_px, station_px)
 	_projection_initialized = true
 	var lookahead_m := clampf(12.0 + speed * 0.65, 12.0, 65.0)
 	var target_station := station_px + lookahead_m * PPM
