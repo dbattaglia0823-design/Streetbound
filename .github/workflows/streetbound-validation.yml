@@ -376,7 +376,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/offscreen-vehicle-awareness-463.log
           grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/offscreen-vehicle-awareness-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/offscreen-vehicle-awareness-463.log
-      - name: Audit all 98 cars, reference trims, prices and modeled drivetrains (4.6.3)
+      - name: Verify all 50 new vehicle assets, specs, prices, dealerships and drivetrains (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/new_vehicle_additions_test.gd 2>&1 | tee /tmp/streetbound-new-vehicles-463.log
+          grep -q 'NEW VEHICLE ADDITIONS: PASS' /tmp/streetbound-new-vehicles-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-new-vehicles-463.log
+      - name: Audit all 148 cars, reference trims, prices and modeled drivetrains (4.6.3)
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_realworld_audit_test.gd 2>&1 | tee /tmp/vehicle-spec-audit-463.log
@@ -616,7 +622,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/offscreen-vehicle-awareness-441.log
           grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/offscreen-vehicle-awareness-441.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/offscreen-vehicle-awareness-441.log
-      - name: Audit all 98 cars, reference trims, prices and modeled drivetrains (4.4.1)
+      - name: Verify all 50 new vehicle assets, specs, prices, dealerships and drivetrains (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/new_vehicle_additions_test.gd 2>&1 | tee /tmp/streetbound-new-vehicles-441.log
+          grep -q 'NEW VEHICLE ADDITIONS: PASS' /tmp/streetbound-new-vehicles-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-new-vehicles-441.log
+      - name: Audit all 148 cars, reference trims, prices and modeled drivetrains (4.4.1)
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_realworld_audit_test.gd 2>&1 | tee /tmp/vehicle-spec-audit-441.log
@@ -642,9 +654,9 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/dealership_system_test.gd
       - name: Verify drive-in Laurel garage, parked-only selection and physical bay collision
         run: timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/drive_in_garage_test.gd
-      - name: Verify 88 playable vehicles, selected dimensions, wheel rig and garage grid
+      - name: Verify 148 playable vehicles, selected dimensions, wheel rig and garage grid
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/player_vehicle_roster_test.gd
-      - name: Audit 88 vehicle alpha silhouettes, wheel positions and artwork transparency
+      - name: Audit 148 vehicle alpha silhouettes, wheel positions and artwork transparency
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_art_geometry_audit_test.gd
       - name: Verify fast automatic gear shifts and immediate safe reverse/Drive transition
         run: timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_shift_response_test.gd
