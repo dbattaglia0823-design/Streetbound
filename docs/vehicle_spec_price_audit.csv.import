@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://caro571mpc7dq"
+
+[deps]
+
+files=["res://docs/vehicle_spec_price_audit.brand.translation", "res://docs/vehicle_spec_price_audit.display.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.spec.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.price.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.source.translation", "res://docs/vehicle_spec_price_audit.source.translation"]
+
+source_file="res://docs/vehicle_spec_price_audit.csv"
+dest_files=["res://docs/vehicle_spec_price_audit.brand.translation", "res://docs/vehicle_spec_price_audit.display.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.spec.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.old.translation", "res://docs/vehicle_spec_price_audit.new.translation", "res://docs/vehicle_spec_price_audit.price.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.reference.translation", "res://docs/vehicle_spec_price_audit.source.translation", "res://docs/vehicle_spec_price_audit.source.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

@@ -54,10 +54,10 @@ Bentley-
   Batur
 
 BMW-
-  M2
-  M3
-  M4
-  M8
+  M2 Competition
+  M3 Competition
+  M4 Competition
+  M8 Competition
   X3
   X5
   Z4
