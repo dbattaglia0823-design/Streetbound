@@ -27,6 +27,8 @@ def validate_markers(markers,races,dealers,width,height):
                 raise ValueError('Invalid marker position')
         info=marker.get('properties',{})
         if not isinstance(info,dict):raise ValueError('Marker properties must be an object')
+        if not isinstance(info.get('description',''),str) or len(info.get('description',''))>500:
+            raise ValueError('Invalid marker help text')
         for key,collection in (('race_id',races),('required_race',races),('dealer_id',dealers)):
             target=info.get(key,'')
             if not isinstance(target,str) or len(target)>100 or target and target not in collection:
