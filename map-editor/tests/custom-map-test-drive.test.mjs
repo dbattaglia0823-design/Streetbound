@@ -35,7 +35,7 @@ test('F6 and the return button restore the selected map without modifying career
   assert.match(game,/func _add_test_drive_return_button\(\)/);
   assert.match(game,/KEY_F6/);
   assert.match(game,/set_meta\("streetbound_editor_resume_map",test_drive_file\)/);
-  assert.match(game,/OwnershipScript\.new\(not custom_test_drive\)/);
+  assert.match(game,/vehicle_ownership\.persist_enabled=false/);
   assert.match(standalone,/func _resume_custom_map\(file: String\)/);
   assert.match(standalone,/map_switcher\.activate\(native_world_editor,doc,file\)/);
   assert.doesNotMatch(builder,/worlds\/morrow-coast\.world\.json[\s\S]*write_text/);
