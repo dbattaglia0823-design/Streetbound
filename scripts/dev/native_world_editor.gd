@@ -81,7 +81,9 @@ var tool_name := "move_prop"
 const MapSwitcher=preload("res://scripts/dev/native_map_switcher.gd")
 var map_switcher=MapSwitcher.new()
 const RaceEditor=preload("res://scripts/dev/native_race_editor.gd")
+const MarkerEditor=preload("res://scripts/dev/native_marker_editor.gd")
 var race_editor=RaceEditor.new()
+var marker_editor=MarkerEditor.new()
 var dealer_editor=DealerEditor.new()
 const RoadShapeTools=preload("res://scripts/dev/native_road_shape_tools.gd")
 var road_shapes=RoadShapeTools.new()
@@ -497,7 +499,8 @@ func _update_context_panels() -> void:
 	road_shapes.update(self)
 	race_editor.update(self)
 	terrain_settings.visible=tool_name=="draw_terrain" or record.get("category","")=="regions"
-	marker_settings.visible=tool_name=="place_marker"
+	marker_settings.visible=tool_name=="place_marker" or record.get("category","")=="markers"
+	marker_editor.update(self)
 	asset_dock.visible=tool_name.begins_with("place:")
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
@@ -1289,6 +1292,7 @@ func _source_click(world_px: Vector2) -> void:
 		source_id = authoring.add_marker(_snap_point(world_px/PPM),_option_value(marker_kind))
 		_refresh_authoring()
 		_notice("Game marker added to unsaved draft." if not source_id.is_empty() else authoring.last_error)
+		if not source_id.is_empty():marker_editor.open_for(self,source_id)
 		return
 	if tool_name.begins_with("place:"):
 		var kind := tool_name.substr(6)
