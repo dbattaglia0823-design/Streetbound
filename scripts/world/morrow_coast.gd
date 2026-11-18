@@ -11,11 +11,12 @@ const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.g
 const AutomaticBridges=preload("res://scripts/world/automatic_road_bridges.gd")
 const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
+const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const PPM := 20.0
 var data: Dictionary
-# A private, temporary dev-only compiled archive; production still loads the
-# checked-in world. This is set before add_child() on Test Drive startup.
+# Override is set before add_child(): either an isolated Test Drive in
+# user:// or the checked-in published custom world in res://.
 var archive_override_path: String=""
 var _custom_terrain_polygons: Array[PackedVector2Array]=[]
 var player_garage_prop: Dictionary = {}
@@ -68,21 +69,35 @@ var debug_label: Label
 var _debug_clock := 0.0
 
 func _ready() -> void:
-	var path: String="res://worlds/morrow-coast.world.json"
+	var path: String=WorldPublication.MORROW
+	var testing: bool=false
+	var published: bool=false
 	if not archive_override_path.is_empty():
-		if not (OS.has_feature("debug") or OS.has_feature("editor")) or \
-				not archive_override_path.begins_with("user://streetbound-maps/"):
-			push_error("Invalid Test Drive archive override")
+		testing=(OS.has_feature("debug") or OS.has_feature("editor")) and \
+			archive_override_path.begins_with("user://streetbound-maps/")
+		published=WorldPublication.is_published_archive_path(archive_override_path)
+		if not testing and not published:
+			push_error("Refused a world archive outside the production and Test Drive allowlists")
 			return
 		path=archive_override_path
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
 	data=parsed if parsed is Dictionary else {}
-	if not archive_override_path.is_empty() and not bool(data.get("editor_custom_test_drive",false)):
-		push_error("Test Drive refused a non-custom world archive")
+	if testing and not bool(data.get("editor_custom_test_drive",false)):
+		push_error("Test Drive refused an archive without its Test Drive marker")
 		return
+	if published and not bool(data.get("editor_published_world",false)):
+		# A broken production package must not blank the game or borrow a
+		# corrupt custom archive. Fall back to the intact original map.
+		push_warning("Published map lacks its production marker; restoring Morrow Coast for this session")
+		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
+		published=false
 	archive_audit=RenderHealth.audit(data)
+	if not archive_audit.compatible and published:
+		push_warning("Published world failed validation; falling back to Morrow Coast: %s"%str(archive_audit.errors))
+		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
+		archive_audit=RenderHealth.audit(data)
 	if not archive_audit.compatible:
-		push_error("Morrow Coast archive rejected: %s"%[str(archive_audit.errors)])
+		push_error("World archive rejected: %s"%[str(archive_audit.errors)])
 		set_performance_debug(true)
 		return
 	# Road geometry, junction curvature, sidewalk placement and physical
@@ -179,7 +194,7 @@ func _ready() -> void:
 				if not _apron_grid.has(key):
 					_apron_grid[key] = []
 				_apron_grid[key].append(prop)
-	if bool(data.get("editor_custom_test_drive",false)):
+	if bool(data.get("editor_custom_test_drive",false)) or bool(data.get("editor_published_world",false)):
 		for region in data.terrain:
 			var shape:=PackedVector2Array()
 			for raw in region.points:shape.append(Vector2(float(raw[0]),float(raw[1])))
@@ -543,7 +558,7 @@ func surface_at(position_px: Vector2) -> Dictionary:
 	var chunk_key := "%d,%d" % [floori(point.x/chunk_m),floori(point.y/chunk_m)]
 	if _sand_polygons.has(chunk_key) and Geometry2D.is_point_in_polygon(point,_sand_polygons[chunk_key]):
 		return {"name":"SAND","grip":0.60}
-	if bool(data.get("editor_custom_test_drive",false)):
+	if bool(data.get("editor_custom_test_drive",false)) or bool(data.get("editor_published_world",false)):
 		# Most recently painted region wins; paved roads and junctions were
 		# already checked above. Preserve custom water/loose-surface handling.
 		for i in range(_custom_terrain_polygons.size()-1,-1,-1):
