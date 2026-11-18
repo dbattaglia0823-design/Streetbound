@@ -137,8 +137,17 @@ func _spawn_rivals() -> bool:
 		driver.set_script(RivalDriver)
 		add_child(driver)
 		driver.call("setup_navigation",enemy,navigation)
-		driver.set("reaction_seconds",.35+float(i)*.14)
-		driver.set("throttle_limit",.94)
+		# Difficulty alters legal AI input and reaction, never physics,
+		# grip, engine power or vehicle speed beyond the same car stats.
+		var difficulty: String=str(definition.get("difficulty","amateur"))
+		var profile: Dictionary={
+			"rookie":{"reaction":.95,"throttle":.78},
+			"amateur":{"reaction":.55,"throttle":.87},
+			"pro":{"reaction":.35,"throttle":.94},
+			"elite":{"reaction":.20,"throttle":1.0}
+		}.get(difficulty,{"reaction":.55,"throttle":.87})
+		driver.set("reaction_seconds",float(profile.reaction)+float(i)*.1)
+		driver.set("throttle_limit",float(profile.throttle))
 		rivals.append(enemy)
 		rival_drivers.append(driver)
 		rival_progress.append({"next":1,"lap":1,"armed":true,
