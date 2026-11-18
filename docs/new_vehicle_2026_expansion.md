@@ -46,14 +46,14 @@ Power is rounded from the catalog's kW representation; mass in kg. The underlyin
 | Koenigsegg Regera | 2018 | 1500 | 1,590 | RWD | $2,900,000 | Est. collector |
 | Lamborghini Essenza SCV12 | 2021 | 819 | 1,378 | RWD | $3,500,000 | Est. MSRP |
 | Lamborghini Sesto Elemento | 2012 | 562 | 999 | AWD | $3,000,000 | Est. collector |
-| Lotus Evija | 2025 | 2012 | 1,680 | AWD | $2,600,000 | Est. foreign launch |
+| Lotus Evija | 2025 | 2012 | 1,894 | AWD | $2,600,000 | Est. foreign launch |
 | Maserati MC20 | 2023 | 621 | 1,500 | RWD | $245,000 | Est. used |
 | McLaren 12C | 2012 | 592 | 1,434 | RWD | $90,000 | Est. used |
 | McLaren 570S | 2018 | 562 | 1,422 | RWD | $143,000 | Est. used |
 | McLaren 650S | 2015 | 641 | 1,468 | RWD | $137,000 | Est. used |
 | McLaren 720S | 2020 | 710 | 1,419 | RWD | $201,000 | Est. used |
 | McLaren 750S | 2025 | 740 | 1,389 | RWD | $349,000 | MSRP |
-| McLaren F1 GT | 1997 | 627 | 1,120 | RWD | $40,000,000 | Game only |
+| McLaren F1 GT | 1997 | 618 | 1,120 | RWD | $40,000,000 | Game only |
 | McLaren F1 | 1995 | 627 | 1,140 | RWD | $22,000,000 | Est. collector |
 | McLaren P1 | 2015 | 903 | 1,490 | RWD | $2,350,000 | Est. collector |
 | McLaren Senna | 2019 | 789 | 1,374 | RWD | $2,500,000 | Est. collector |
@@ -88,6 +88,8 @@ Power is rounded from the catalog's kW representation; mass in kg. The underlyin
 - [Hyundai N Vision 74 concept information](https://www.hyundai.com/worldwide/en/newsroom/detail/0000000089)
 - [Nissan GT-R LM unique road prototype](https://www.nissan-global.com/EN/HERITAGE_COLLECTION/181_nismo_gt-r_lm_road_car.html)
 - [Aston Martin Valkyrie AMR Pro factory reference](https://www.astonmartin.com/en/models/valkyrie-amr-pro)
+- [Lotus production Evija kerb weight and specification](https://www.lotuscars.com/en/press/models/evija)
+- [1997 McLaren F1 GT model-specific specifications](https://www.automobile-catalog.com/make/mclaren/f1/f1_gt/1997.html)
 - [Koenigsegg Regera factory direct-drive reduction](https://www.koenigsegg.com/koenigsegg-direct-drive)
 - [Zenvo TSR-S 1177 bhp twin-supercharged V8](https://zenvoautomotive.prezly.com/zenvo-reveals-latest-commission-tsr-s-hypercar)
 
