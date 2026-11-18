@@ -255,6 +255,7 @@ def make_archive(doc):
                 chunks=dict(chunks),road_crossings=crossings,relief_faces=[],
                 mountain_rails=[],editor_markers=markers,
                 editor_races=doc.get("races",[]),editor_dealerships=doc.get("dealerships",[]),
+                editor_game_markers=markers,editor_world_id=Path(doc.get("_source_filename","custom-map.world.json")).name,
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
@@ -267,6 +268,7 @@ def build_file(source_path, output_path):
     if not source.is_file() or source.stat().st_size>MAX_SOURCE_BYTES:
         raise ValueError("Missing or oversized saved custom map")
     doc=json.loads(source.read_text(encoding="utf-8"))
+    doc["_source_filename"]=source.name
     result=make_archive(doc)
     destination.parent.mkdir(parents=True,exist_ok=True)
     temporary=destination.with_suffix(destination.suffix+".tmp")
