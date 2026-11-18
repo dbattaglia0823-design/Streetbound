@@ -142,17 +142,19 @@ def publish(source, root, backup_dir):
     doc["_source_filename"] = source.name
     compiled = make_archive(doc)
     dependencies = _production_checks(doc,compiled,root)
-    digest = hashlib.sha256(raw).hexdigest()[:20]
-    filename = "world-"+digest+".world.json"
-    source_name = "source-"+digest+".world.json"
-    archive_rel = OUTPUT_DIR+"/"+filename
-    source_rel = OUTPUT_DIR+"/"+source_name
     compiled["editor_custom_world"] = True
     compiled["editor_custom_test_drive"] = False
     compiled["editor_published_world"] = True
     compiled["editor_source_sha256"] = hashlib.sha256(raw).hexdigest()
     compiled["editor_required_assets"] = dependencies
     binary = _json_bytes(compiled)
+    # The package ID includes compiler output, not only source text: an
+    # upgraded baker may produce different junctions from the same map.
+    digest = hashlib.sha256(binary).hexdigest()[:20]
+    filename = "world-"+digest+".world.json"
+    source_name = "source-"+digest+".world.json"
+    archive_rel = OUTPUT_DIR+"/"+filename
+    source_rel = OUTPUT_DIR+"/"+source_name
     # Check the exact bytes being packaged, not just the Python object.
     if json.loads(binary.decode("utf-8"))["editor_races"] != compiled["editor_races"]:
         raise ValueError("Packaged event list did not survive JSON serialization")
