@@ -4,12 +4,15 @@ extends Control
 ## camera canvas transform, so zoom, follow rotation and split views work.
 ## This is an informational HUD only: it never modifies vehicle movement.
 const PPM := 20.0
-const MAX_RANGE_M := 91.44  # 300 feet, the maximum warning distance
+const MAX_RANGE_M := 500.0  # detect closing traffic up to 500 metres away
 const MIN_RANGE_M := 8.0
 const MIN_CLOSING_MPS := 1.25
 const MPS_TO_MPH := 2.2369362920544
 const MIN_PLAYER_SPEED_MPH := 40.0
-const FORWARD_DOT := 0.24
+## A 240-degree forward/side sweep: up to 120 degrees left or right.
+## Still rejects the directly rearward 120-degree sector, so cars moving
+## away behind the player do not occupy the small edge-warning HUD.
+const FORWARD_DOT := -0.5
 const MAX_MARKERS := 3
 const REFRESH_SECONDS := 0.10
 const VISIBLE_MARGIN_PX := 45.0
