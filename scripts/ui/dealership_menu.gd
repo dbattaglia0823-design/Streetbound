@@ -76,7 +76,7 @@ func _ready() -> void:
 	count_label.add_theme_font_size_override("font_size",13)
 	finance.add_child(count_label)
 	var note := Label.new()
-	note.text = "Prices use trim-specific MSRP or labeled used/collector estimates. Purchases go to Laurel Motor House."
+	note.text = "Prices use labeled MSRP/market estimates or clearly identified game-only values. Purchases go to Laurel Motor House."
 	note.add_theme_font_size_override("font_size",13)
 	vertical.add_child(note)
 	search = LineEdit.new()
@@ -258,6 +258,8 @@ func _add_card(entry: Dictionary) -> void:
 		"Factory source: "+str(entry.get("source_spec_url","")) if
 			not str(entry.get("source_spec_url","")).is_empty() else
 			"Representative trim figures pending individual source check"]
+	if not str(entry.get("source_price_url","")).is_empty():
+		panel.tooltip_text += "\nPricing reference: " + str(entry.source_price_url)
 	if bool(entry.source_model_unverified):
 		panel.tooltip_text += "\nArtwork association remains provisional"
 	cards.append({"panel":panel,"picture":picture,"entry":entry,"action":action})
