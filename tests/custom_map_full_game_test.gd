@@ -1,0 +1,85 @@
+extends SceneTree
+## An authored map must launch the REAL driving scene: same streamed junctions,
+## AI lane network, audio, HUD, map, car menu and vehicle physics as Morrow Coast.
+const Library=preload("res://scripts/dev/native_map_library.gd")
+var failures: Array[String]=[]
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+func check(name: String,ok: bool,detail: Variant="") -> void:
+	print("%s %s %s"%["PASS" if ok else "FAIL",name,str(detail)])
+	if not ok:failures.append(name)
+
+func road(id: int,name: String,coords: Array) -> Dictionary:
+	var points: Array=[]
+	for p in coords:points.append({"x":p[0],"y":p[1]})
+	return {"id":"road-%d"%id,"name":name,"roadClass":"city",
+		"surface":"asphalt","width":12,"lanes":2,"points":points}
+
+func _run() -> void:
+	var folder: String="user://streetbound-maps/full-game-test-%d"%Time.get_ticks_usec()
+	OS.set_environment("STREETBOUND_MAP_LIBRARY",folder)
+	var doc: Dictionary=Library.create("Full Game Custom Test",1200,1000,"grass")
+	doc["roads"]=[
+		road(0,"East West",[[100,500],[1100,500]]),
+		road(1,"North South",[[500,100],[500,900]]),
+		road(2,"T Branch",[[840,500],[840,780]])]
+	doc["markers"]=[{"id":"marker-0","type":"player_spawn","x":480,"y":500,"rotation":90.0}]
+	doc["props"]=[{"id":"prop-house","name":"House","type":"house","assetId":"game-house",
+		"x":280,"y":280,"scale":1.0,"rotation":0.0}]
+	doc["races"]=[{"id":"race-0","name":"Map Race","mode":"sprint","laps":1,
+		"points":[{"x":200,"y":500},{"x":800,"y":500}],"enemy_starts":[]}]
+	var file: String=Library.save(doc,"full-test.world.json")
+	check("custom_map_saved_without_touching_main_world",not file.is_empty())
+	var source_path: String=Library.folder().path_join(file)
+	var archive: String=Library.folder().path_join(file+".test-drive.stream.json")
+	var process_output: Array=[]
+	var result: int=OS.execute("python3",PackedStringArray([
+		ProjectSettings.globalize_path("res://tools/build_custom_test_world.py"),
+		"--source",ProjectSettings.globalize_path(source_path),
+		"--output",ProjectSettings.globalize_path(archive)]),process_output,true)
+	check("temporary_full_game_archive_baked",result==0 and FileAccess.file_exists(archive),process_output)
+	if result!=0:
+		print("FULL GAME CUSTOM TEST DRIVE: FAIL");quit(1);return
+	get_tree().set_meta("streetbound_test_drive_archive",archive)
+	get_tree().set_meta("streetbound_test_drive_map",file)
+	var main: Node=load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	for i in 16:await process_frame
+	var world: Node=main.ground
+	check("uses_real_morrow_coast_gameplay_world",bool(main.custom_test_drive) and
+		world.initialization_complete and world.data.get("editor_custom_test_drive",false))
+	check("production_baked_intersections_exist",world.data.junctions.size()>=2 and
+		world._junction_polygons.size()==world.data.junctions.size())
+	var visual_junctions:=false
+	for chunk in world.chunks.values():
+		if not chunk.junction_list.is_empty():visual_junctions=true;break
+	check("streamed_world_contains_real_intersection_render_batches",visual_junctions)
+	var ambient: Node=world.get_node_or_null("AmbientTraffic")
+	check("uses_real_traffic_with_connected_junction_lane_graph",
+		is_instance_valid(ambient) and ambient.network.edges.size()>0 and
+		ambient.network.source_road_count==doc.roads.size())
+	check("uses_full_game_hud_and_pause_settings",
+		is_instance_valid(main.pause_menu) and is_instance_valid(main.progression_hud)
+		and get_first_node_in_group("streetbound_world_map_hud")!=null)
+	check("uses_full_vehicle_system_and_camera",is_instance_valid(main.vehicle) and
+		main.vehicle.surface_provider==world and is_instance_valid(main.local_split_screen))
+	check("custom_map_races_use_normal_authored_gameplay_system",
+		main.extra_races.size()==1 and main.extra_races[0].get("definition").name=="Map Race")
+	check("no_morrow_only_dealers_or_fixed_track_races_spawn",
+		main.drag_race==null and main.street_race==null and main.circuit_race==null and
+		main.dealership_world==null)
+	check("test_driver_cannot_modify_real_player_progression",
+		not main.vehicle_ownership.persist_enabled)
+	check("test_drive_has_clear_return_to_builder",
+		main.has_node("TestDriveReturn/ReturnToMapEditor"))
+	main.queue_free()
+	await process_frame
+	for key in ["streetbound_test_drive_archive","streetbound_test_drive_map"]:
+		if get_tree().has_meta(key):get_tree().remove_meta(key)
+	for p in [source_path,archive]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(folder))
+	print("FULL GAME CUSTOM TEST DRIVE: ","PASS" if failures.is_empty() else "FAIL "+str(failures))
+	quit(0 if failures.is_empty() else 1)
