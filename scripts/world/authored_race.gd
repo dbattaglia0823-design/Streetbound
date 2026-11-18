@@ -213,9 +213,9 @@ func _award_finish() -> String:
 		EventRules.event_key(world_id,str(definition.id)))
 	if str(awarded.get("result",""))!="completed":
 		return "REWARDS NOT SAVED: "+str(awarded.get("result","unknown"))
-	return ("FIRST WIN  " if bool(awarded.get("first_win",false)) else "REWARDS  ")+
-		OwnershipModel.dollars(int(awarded.get("cash",0)))+
-		" / %d DRIVER XP / %d CAR XP"%[int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]
+	var prefix: String="FIRST WIN  " if bool(awarded.get("first_win",false)) else "REWARDS  "
+	return prefix+OwnershipModel.dollars(int(awarded.get("cash",0)))+" / %d DRIVER XP / %d CAR XP"%[
+		int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]
 
 func _finish_message() -> String:
 	if rivals.is_empty():
