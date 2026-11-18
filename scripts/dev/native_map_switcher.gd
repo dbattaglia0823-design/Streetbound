@@ -126,7 +126,7 @@ func _publish(e,restore_default: bool) -> void:
 	if result!=0:
 		e._notice("Game world was NOT changed: "+str(output).left(280))
 		return
-	var detail: Variant=JSON.parse_string(str(output).strip_edges())
+	var detail: Variant=JSON.parse_string(str(output[0]).strip_edges()) if not output.is_empty() else {}
 	if restore_default:
 		e._notice("Morrow Coast is the active game world. Published maps and backups were preserved.")
 	else:
