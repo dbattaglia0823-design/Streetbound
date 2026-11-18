@@ -209,13 +209,25 @@ def make_archive(doc):
                     for field in ("barrier","elevation"):
                         if field in t:entry[field]=t[field]
                     chunks[f"{x},{y}"]["terrain"].append(entry)
-    walls=[
-        [[0,0],[width,0]],[[width,0],[width,height]],
-        [[width,height],[0,height]],[[0,height],[0,0]]
-    ]
-    for i,(a,b) in enumerate(walls):
-        mid=[(a[0]+b[0])*.5,(a[1]+b[1])*.5]
-        chunks[f"{int(mid[0]//CHUNK)},{int(mid[1]//CHUNK)}"]["walls"].append(i)
+    # Streaming disables collision on chunks outside the active player ring.
+    # Long boundary walls assigned to their midpoint chunk would disappear
+    # near the map's corners. Divide every edge by chunk instead.
+    walls=[]
+    corners=[[0,0],[width,0],[width,height],[0,height]]
+    for a,b in zip(corners,corners[1:]+corners[:1]):
+        length=distance(a,b)
+        steps=max(1,math.ceil(length/CHUNK))
+        for step in range(steps):
+            u=step/steps
+            v=(step+1)/steps
+            start=[a[k]+(b[k]-a[k])*u for k in range(2)]
+            finish=[a[k]+(b[k]-a[k])*v for k in range(2)]
+            mid=[(start[k]+finish[k])*.5 for k in range(2)]
+            index=len(walls)
+            walls.append([start,finish])
+            x=min(math.ceil(width/CHUNK)-1,max(0,int(mid[0]//CHUNK)))
+            y=min(math.ceil(height/CHUNK)-1,max(0,int(mid[1]//CHUNK)))
+            chunks[f"{x},{y}"]["walls"].append(index)
     # Preserve all original source marker payloads; translate only the common
     # POI fields used by the normal atlas.
     pois=[]
