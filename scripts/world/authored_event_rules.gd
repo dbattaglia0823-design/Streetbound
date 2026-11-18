@@ -35,7 +35,9 @@ static func valid_graph(races: Array) -> bool:
 	var events: Dictionary={}
 	for event in races:
 		if not event is Dictionary or not valid_event(event):return false
-		events[str(event.id)]=event
+		var id: String=str(event.get("id",""))
+		if not id.begins_with("race-") or events.has(id):return false
+		events[id]=event
 	var visited: Dictionary={}
 	for id in events:
 		if not _walk(id,events,visited):return false
