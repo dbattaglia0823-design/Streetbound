@@ -7,6 +7,10 @@ const HALF_BODY_M := 1.2
 const EDGE_MARGIN_M := 0.30
 const PASS_OFFSETS := [-4.5, 4.5, -5.5, 5.5, -3.5, 3.5]
 const SCAN_INTERVAL := 0.12
+# Include fast rivals approaching from behind before changing lanes.
+const REAR_SCAN_M := 75.0
+const REAR_CLEARANCE_M := 12.0
+const REAR_TTC_SECONDS := 3.0
 var car: VehicleController2D
 var world: Node2D
 var traffic: Node
@@ -84,7 +88,7 @@ func _obstacle(position_m: Vector2, velocity_mps: Vector2,
 		return {}
 	var other_station: float = navigation.call("station_at", position_m)
 	var ahead := other_station - station_m
-	if ahead < -35.0 or ahead > horizon_m:
+	if ahead < -REAR_SCAN_M or ahead > horizon_m:
 		return {}
 	var center := _course_point(other_station)
 	var tangent := _course_direction(other_station)
@@ -153,6 +157,19 @@ func _lane_clear(candidate: float, obstacles: Array[Dictionary],
 			float(other.get("lateral_speed_mps", 0.0)) * time
 		var difference := absf(candidate - expected_lateral)
 		if difference >= _separation(other):
+			continue
+		# A lane that is currently empty alongside the racer may still be
+		# unsafe if a faster competitor will arrive during the lane change.
+		# Only check the destination corridor; a car in another lane was
+		# already excluded by the lateral separation test above.
+		if ahead <= 0.0:
+			var rear_gap := -ahead
+			if rear_gap < REAR_CLEARANCE_M:
+				return false
+			var closing_from_rear := float(other.speed_mps) - speed_mps
+			if closing_from_rear > 0.25 and \
+					(rear_gap - REAR_CLEARANCE_M) / closing_from_rear < REAR_TTC_SECONDS:
+				return false
 			continue
 		var closing := speed_mps - float(other.speed_mps)
 		# Adjacent cars, faster cars approaching from behind, and oncoming
