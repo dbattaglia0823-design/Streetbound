@@ -67,7 +67,9 @@ func run() -> void:
 			float(v.get("power_kw",0)) > 70.0 and \
 			float(v.get("wheelbase_m",0)) > 2.0 and \
 			int(v.get("price_usd",0)) >= 4500 and Synth.family_supported(
-				str(v.get("audio_family","")))
+				str(v.get("audio_family",""))) and \
+			str(v.get("audio_induction","")) in [
+				"naturally_aspirated","turbo","supercharger","electric"]
 		textures[sprite] = true
 		dealer_routing = dealer_routing and dealers.has(str(v.get("dealership_id","")))
 		var shop: Dictionary = dealers.get(str(v.get("dealership_id","")),{})
@@ -114,6 +116,11 @@ func run() -> void:
 	var atom: Dictionary = Catalog.find_by_id("ariel-atom-500")
 	var civic: Dictionary = Catalog.find_by_id("honda-civic-type-r")
 	var gemera: Dictionary = Catalog.find_by_id("koenigsegg-gemera")
+	var regera: Dictionary = Catalog.find_by_id("koenigsegg-regera")
+	var regera_config := Catalog.make_configuration(regera)
+	check("regera_hybrid_direct_drive_is_not_ev_reduction",
+		regera_config.gear_ratios.size() == 1 and
+		is_equal_approx(regera_config.final_drive,2.73))
 	check("specific_2026_price_and_factory_spec_fixtures",
 		int(mclaren.get("price_usd",0)) == 143000 and \
 		float(atom.get("mass_kg",0)) < 600.0 and \
