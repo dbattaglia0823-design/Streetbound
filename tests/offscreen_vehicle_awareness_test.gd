@@ -44,7 +44,7 @@ func _run() -> void:
 			Vector2(0,PPM*60),Vector2.ZERO).is_empty())
 	check("distant_unrelated_traffic_is_filtered",
 		Awareness.approach_info(from,player_velocity,forward,
-			Vector2(0,-PPM*650),Vector2.ZERO).is_empty())
+			Vector2(0,-PPM*185.0),Vector2.ZERO).is_empty())
 	check("stationary_player_has_no_traffic_indicators",
 		Awareness.approach_info(from,Vector2.ZERO,forward,ahead,
 			Vector2(0,20)).is_empty())
@@ -53,26 +53,47 @@ func _run() -> void:
 		Awareness.player_is_fast_enough(Vector2(0,40.1/Awareness.MPS_TO_MPH)) and \
 		Awareness.approach_info(from,Vector2(0,-39.9/Awareness.MPS_TO_MPH),
 			forward,ahead,Vector2.ZERO).is_empty())
-	check("traffic_detector_reaches_500_metres_exactly",
-		is_equal_approx(Awareness.MAX_RANGE_M,500.0) and \
-		not Awareness.approach_info(from,player_velocity,forward,
-			Vector2(0,-PPM*499.0),Vector2.ZERO).is_empty() and \
-		not Awareness.approach_info(from,player_velocity,forward,
-			Vector2(0,-PPM*500.0),Vector2.ZERO).is_empty() and \
-		Awareness.approach_info(from,player_velocity,forward,
-			Vector2(0,-PPM*501.0),Vector2.ZERO).is_empty())
+	# Range is interpolated from 300 ft just above 40 mph to 600 ft at
+	# 100 mph, with no benefit from exceeding 100 mph.
+	var slow_speed := Vector2.UP * (40.1/Awareness.MPS_TO_MPH)
+	var medium_speed := Vector2.UP * (70.0/Awareness.MPS_TO_MPH)
+	var fast_speed := Vector2.UP * (100.0/Awareness.MPS_TO_MPH)
+	var extreme_speed := Vector2.UP * (140.0/Awareness.MPS_TO_MPH)
+	check("adaptive_range_starts_near_300_feet_and_scales_with_speed",
+		is_equal_approx(Awareness.MIN_SPEED_RANGE_M,91.44) and
+		absf(Awareness.detection_range_m(slow_speed)-91.5924)<0.1 and
+		absf(Awareness.detection_range_m(medium_speed)-137.16)<0.05 and
+		absf(Awareness.detection_range_m(fast_speed)-182.88)<0.05)
+	check("adaptive_range_never_exceeds_600_feet",
+		is_equal_approx(Awareness.MAX_RANGE_M,182.88) and
+		absf(Awareness.detection_range_m(extreme_speed)-182.88)<0.01)
+	check("just_over_40_mph_detects_only_short_range",
+		not Awareness.approach_info(from,slow_speed,forward,
+			Vector2.UP*PPM*90.0,Vector2.ZERO).is_empty() and
+		Awareness.approach_info(from,slow_speed,forward,
+			Vector2.UP*PPM*95.0,Vector2.ZERO).is_empty())
+	check("70_mph_sees_450_feet_but_not_farther",
+		not Awareness.approach_info(from,medium_speed,forward,
+			Vector2.UP*PPM*135.0,Vector2.ZERO).is_empty() and
+		Awareness.approach_info(from,medium_speed,forward,
+			Vector2.UP*PPM*140.0,Vector2.ZERO).is_empty())
+	check("100_mph_reaches_600_feet_and_not_beyond",
+		not Awareness.approach_info(from,fast_speed,forward,
+			Vector2.UP*PPM*182.0,Vector2.ZERO).is_empty() and
+		Awareness.approach_info(from,fast_speed,forward,
+			Vector2.UP*PPM*184.0,Vector2.ZERO).is_empty())
 	# Broader awareness must see side traffic that is actually closing,
 	# without warning for directly rearward or receding vehicles.
-	var right_approach := Vector2.RIGHT * PPM * 350.0
+	var right_approach := Vector2.RIGHT * PPM * 110.0
 	check("closing_cross_traffic_detected_at_90_degrees",
 		not Awareness.approach_info(from,player_velocity,forward,
 			right_approach,Vector2.LEFT * 22.0).is_empty())
-	var rear_quarter := forward.rotated(deg_to_rad(110.0)) * PPM * 350.0
-	check("wider_240_degree_cone_sees_rear_side_approach",
-		is_equal_approx(Awareness.FORWARD_DOT,-0.5) and \
+	var rear_quarter := forward.rotated(deg_to_rad(130.0)) * PPM * 110.0
+	check("wider_270_degree_cone_sees_rear_side_approach",
+		is_equal_approx(Awareness.FORWARD_DOT,-0.7071067811865476) and \
 		not Awareness.approach_info(from,player_velocity,forward,
-			rear_quarter,-rear_quarter.normalized() * 28.0).is_empty())
-	var excluded_rear := forward.rotated(deg_to_rad(130.0)) * PPM * 350.0
+			rear_quarter,-rear_quarter.normalized() * 35.0).is_empty())
+	var excluded_rear := forward.rotated(deg_to_rad(150.0)) * PPM * 110.0
 	check("directly_rearward_traffic_outside_wide_cone",
 		Awareness.approach_info(from,player_velocity,forward,
 			excluded_rear,-excluded_rear.normalized() * 35.0).is_empty())
@@ -82,7 +103,7 @@ func _run() -> void:
 	check("distance_is_labeled_in_feet_without_vehicle_type",
 		Awareness.distance_caption(60.0)=="197 FT" and \
 		Awareness.distance_caption(60.0,true)=="197 FT" and \
-		Awareness.distance_caption(500.0)=="1640 FT")
+		Awareness.distance_caption(182.88)=="600 FT")
 	check("on_screen_and_near_edge_suppressed",
 		Awareness.is_on_screen(Vector2(500,250),Vector2(1000,600)) and \
 		Awareness.is_on_screen(Vector2(-20,250),Vector2(1000,600)) and \
@@ -163,20 +184,34 @@ func _run() -> void:
 	indicator._process(1.0 / 60.0)
 	check("passing_40_mph_rechecks_traffic_without_delay",
 		_has_target(indicator,car))
-	car.global_position = player.global_position + front*PPM*480.0
+	# At ~72 mph the dynamic range is about 458 ft, not the 600 ft cap.
+	car.global_position = player.global_position + front*PPM*130.0
 	indicator.call("refresh_markers")
-	check("distant_480m_traffic_still_gets_warning",
+	check("medium_speed_warns_for_traffic_in_dynamic_range",
 		_has_target(indicator,car))
-	# A tracked actor crossing the new 500 m boundary should disappear on
-	# the next render frame, without waiting for the discovery timer.
-	car.global_position = player.global_position + front*PPM*510.0
+	# The HUD must discard existing markers as soon as a slowing vehicle's
+	# range shrinks, without waiting for the 100 ms discovery timer.
+	player.linear_velocity = front*(55.0/Awareness.MPS_TO_MPH)
 	indicator.set("_clock",0.08)
 	indicator._process(1.0 / 60.0)
-	check("tracked_traffic_above_500m_clears_without_delay",
+	check("slowing_reduces_range_on_next_render_frame",
+		not _has_target(indicator,car))
+	# At 100 mph, traffic approaching from within 600 ft is visible.
+	player.linear_velocity = front*(100.0/Awareness.MPS_TO_MPH)
+	car.global_position = player.global_position + front*PPM*180.0
+	indicator.call("refresh_markers")
+	check("fast_speed_acquires_traffic_at_590_feet",
+		_has_target(indicator,car))
+	# The absolute 600 ft limit still removes targets in between scans.
+	car.global_position = player.global_position + front*PPM*185.0
+	indicator.set("_clock",0.08)
+	indicator._process(1.0 / 60.0)
+	check("tracked_traffic_above_600_feet_clears_without_delay",
 		not _has_target(indicator,car))
 	indicator.call("refresh_markers")
-	check("traffic_over_500m_is_not_reacquired",
+	check("traffic_over_600_feet_is_not_reacquired",
 		not _has_target(indicator,car))
+	player.linear_velocity = front*32.0
 	car.global_position = player.global_position + front*PPM*6.0
 	indicator.call("refresh_markers")
 	check("visible_cars_do_not_receive_extra_edge_warning",
