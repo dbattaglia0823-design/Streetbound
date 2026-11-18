@@ -3,6 +3,11 @@ extends Node
 ## commands; VehicleController2D supplies all acceleration, torque, gear shifts,
 ## grip, braking, drag, collision and surface physics. No distance-based boosts.
 const PPM := 20.0
+# Only consider nearby route progress at a crossing; fall back to a full
+# projection after a teleport or substantial off-route recovery.
+const PROJECTION_BACKTRACK_M := 24.0
+const PROJECTION_FORWARD_M := 95.0
+const PROJECTION_RECOVERY_M := 24.0
 const TrafficPassingScript = preload("res://scripts/world/race_traffic_overtaking.gd")
 var car: VehicleController2D
 var route := PackedVector2Array()
@@ -13,6 +18,7 @@ var reaction_remaining := 0.0
 var throttle_limit := 0.90
 var cruise_speed_mps := 180.0
 var last_station_px := 0.0
+var _projection_initialized := false
 var navigation: RefCounted
 var loop_route := false
 var traffic_planner: RefCounted
@@ -33,6 +39,7 @@ func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
 	for i in range(1, route.size()):
 		stations.append(stations[i - 1] + route[i - 1].distance_to(route[i]))
 	last_station_px = 0.0
+	_projection_initialized = false
 	active = false
 	if is_instance_valid(car):
 		car.command = Vector4.ZERO
@@ -78,28 +85,62 @@ func stop() -> void:
 func _point_at(distance_px: float) -> Vector2:
 	if route.size() < 2:
 		return Vector2.ZERO
-	var total: float=stations[stations.size()-1]
-	var d := fposmod(distance_px,total) if loop_route and total>0 else clampf(distance_px,0.0,total)
-	for i in range(1, stations.size()):
-		if d <= stations[i]:
-			var span := maxf(0.01, stations[i] - stations[i - 1])
-			return route[i - 1].lerp(route[i], (d - stations[i - 1]) / span)
-	return route[route.size() - 1]
+	var total: float = stations[stations.size() - 1]
+	if total <= 0.0:
+		return route[0]
+	var d := fposmod(distance_px, total) if loop_route else clampf(
+		distance_px, 0.0, total)
+	# Long, densely sampled race lines are evaluated many times per physics
+	# frame. Binary search avoids scanning the entire route for each sample.
+	var low := 0
+	var high := stations.size() - 1
+	while high - low > 1:
+		var mid := (low + high) / 2
+		if stations[mid] <= d:
+			low = mid
+		else:
+			high = mid
+	var span := maxf(0.01, stations[high] - stations[low])
+	return route[low].lerp(route[high], (d - stations[low]) / span)
 
 
 func _nearest_station(point: Vector2) -> float:
-	var closest := INF
-	var station := 0.0
+	var global_error := INF
+	var global_station := 0.0
+	var local_error := INF
+	var local_station := 0.0
+	var total := stations[stations.size() - 1]
+	var reference := fposmod(last_station_px, total) if loop_route and total > 0.0 else last_station_px
 	for i in range(1, route.size()):
 		var section := route[i] - route[i - 1]
+		var section_length_squared := section.length_squared()
+		if section_length_squared < 0.01:
+			continue
 		var fraction := clampf((point - route[i - 1]).dot(section) /
-			maxf(section.length_squared(), 0.01), 0.0, 1.0)
+			section_length_squared, 0.0, 1.0)
 		var projected := route[i - 1] + section * fraction
 		var error := point.distance_squared_to(projected)
-		if error < closest:
-			closest = error
-			station = stations[i - 1] + section.length() * fraction
-	return station
+		var candidate := lerpf(stations[i - 1], stations[i], fraction)
+		if error < global_error:
+			global_error = error
+			global_station = candidate
+		if not _projection_initialized:
+			continue
+		var delta := candidate - reference
+		if loop_route and total > 0.0:
+			# The end/start junction of a lap is adjacent in progress even
+			# though the station values differ by the entire lap length.
+			delta = wrapf(delta, -total * 0.5, total * 0.5)
+		if delta >= -PROJECTION_BACKTRACK_M * PPM and \
+				delta <= PROJECTION_FORWARD_M * PPM and error < local_error:
+			local_error = error
+			local_station = candidate
+	# A figure-eight/crossing can lie exactly on two disjoint stations.
+	# Prefer the section consistent with the car's previous progress, but
+	# use the global closest path when the vehicle is physically far away.
+	if local_error <= pow(PROJECTION_RECOVERY_M * PPM, 2.0):
+		return local_station
+	return global_station
 
 
 func _corner_speed(station_px: float) -> float:
@@ -130,8 +171,10 @@ func _physics_process(dt: float) -> void:
 	var speed := car.linear_velocity.length()
 	var position_px := car.global_position
 	var station_px := _nearest_station(position_px)
-	# Keep checkpoint progress monotonic after a collision or wide corner.
-	last_station_px = maxf(last_station_px, station_px)
+	# Preserve local progress for route projections, including lap wrap.
+	# Actual race checkpoint timing continues to use the race director.
+	last_station_px = station_px if loop_route else maxf(last_station_px, station_px)
+	_projection_initialized = true
 	var lookahead_m := clampf(12.0 + speed * 0.65, 12.0, 65.0)
 	var target_station := station_px + lookahead_m * PPM
 	var target := _point_at(target_station)
