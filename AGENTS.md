@@ -21,3 +21,7 @@ Streetbound is an existing Godot driving game. Work from **this repository's cur
 - After **verified** changes, update the appropriate project-specific page and [docs/HANDOFF.md](docs/HANDOFF.md). Shared generalizable knowledge belongs in the toolkit, not a copy of game internals.
 
 Existing documentation and gameplay take precedence over these routing conventions where more specific.
+
+## Locally installed skills
+
+Use the specific skill under `.agents/skills/` only when relevant. See [docs/SHARED_SKILLS.md](docs/SHARED_SKILLS.md) for source/version and update instructions. These are optional snapshots; do not load all of them by default.
