@@ -4,15 +4,17 @@ extends Control
 ## camera canvas transform, so zoom, follow rotation and split views work.
 ## This is an informational HUD only: it never modifies vehicle movement.
 const PPM := 20.0
-const MAX_RANGE_M := 500.0  # detect closing traffic up to 500 metres away
+const MAX_RANGE_M := 182.88  # 600 ft hard cap at 100 mph and faster
+const MIN_SPEED_RANGE_M := 91.44  # 300 ft just above 40 mph
+const FULL_RANGE_SPEED_MPH := 100.0
 const MIN_RANGE_M := 8.0
 const MIN_CLOSING_MPS := 1.25
 const MPS_TO_MPH := 2.2369362920544
 const MIN_PLAYER_SPEED_MPH := 40.0
-## A 240-degree forward/side sweep: up to 120 degrees left or right.
-## Still rejects the directly rearward 120-degree sector, so cars moving
-## away behind the player do not occupy the small edge-warning HUD.
-const FORWARD_DOT := -0.5
+## A 270-degree forward/side sweep: up to 135 degrees left or right.
+## Exclude only the 90-degree sector directly behind the driver. The closing
+## speed check still rejects traffic heading away, even in the widened area.
+const FORWARD_DOT := -0.7071067811865476
 const MAX_MARKERS := 3
 const REFRESH_SECONDS := 0.10
 const VISIBLE_MARGIN_PX := 45.0
@@ -44,6 +46,16 @@ static func player_is_fast_enough(velocity_mps: Vector2) -> bool:
 	return velocity_mps.length() * MPS_TO_MPH > MIN_PLAYER_SPEED_MPH
 
 
+static func detection_range_m(player_velocity_mps: Vector2) -> float:
+	# At just above 40 mph warn within 300 ft; grow linearly to 600 ft at
+	# 100 mph, and never exceed the 600 ft cap. The separate speed gate
+	# prevents any warning at 40 mph or below.
+	var speed_mph := player_velocity_mps.length() * MPS_TO_MPH
+	var fraction := clampf((speed_mph - MIN_PLAYER_SPEED_MPH) /
+		(FULL_RANGE_SPEED_MPH - MIN_PLAYER_SPEED_MPH), 0.0, 1.0)
+	return lerpf(MIN_SPEED_RANGE_M, MAX_RANGE_M, fraction)
+
+
 static func approach_info(player_position: Vector2, player_velocity: Vector2,
 		forward: Vector2, other_position: Vector2,
 		other_velocity: Vector2) -> Dictionary:
@@ -51,7 +63,7 @@ static func approach_info(player_position: Vector2, player_velocity: Vector2,
 		return {}
 	var delta := other_position - player_position
 	var distance_m := delta.length() / PPM
-	if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
+	if distance_m < MIN_RANGE_M or distance_m > detection_range_m(player_velocity):
 		return {}
 	var direction := delta.normalized()
 	if direction.dot(forward.normalized()) < FORWARD_DOT:
@@ -225,20 +237,27 @@ func _update_live_markers() -> void:
 	var size_px := view.get_visible_rect().size
 	var canvas_transform := view.get_canvas_transform()
 	var player_screen: Vector2 = canvas_transform * player.global_position
+	var forward := Vector2.UP.rotated(player.global_rotation)
+	if player.linear_velocity.length_squared() >= 9.0:
+		forward = player.linear_velocity.normalized()
 	var updated: Array[Dictionary] = []
 	for entry in markers:
 		var target: Node2D = entry.get("target") as Node2D
 		if not is_instance_valid(target) or target.is_queued_for_deletion() or \
 				not target.is_visible_in_tree():
 			continue
-		var distance_m := player.global_position.distance_to(target.global_position) / PPM
-		if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
+		# Check the speed-dependent range, heading and actual closing rate on
+		# every rendered frame, not only during the 100 ms discovery scan.
+		var info := approach_info(player.global_position, player.linear_velocity,
+			forward, target.global_position, _traffic_velocity(target))
+		if info.is_empty():
 			continue
 		var target_screen: Vector2 = canvas_transform * target.global_position
 		if is_on_screen(target_screen,size_px):
 			continue
 		var live_entry: Dictionary = entry.duplicate()
-		live_entry.distance_m = distance_m
+		live_entry.distance_m = float(info.distance_m)
+		live_entry.closing_mps = float(info.closing_mps)
 		live_entry.direction = (target_screen-player_screen).normalized()
 		var at := edge_position(player_screen,target_screen,size_px)
 		for placed in updated:
