@@ -239,7 +239,7 @@ def make_archive(doc):
                 chunk_size=CHUNK,surface_cell=CELL,spawn=spawn,
                 nodes=nodes,roads=roads,segments=segments,props=props,pois=pois,
                 districts=[],terrain=terrain,walls=walls,junctions=junctions,bridges=[],
-                road_connections=sorted(connections),surface_index=dict(grid),
+                road_connections=[list(pair) for pair in sorted(connections)],surface_index=dict(grid),
                 chunks=dict(chunks),road_crossings=crossings,relief_faces=[],
                 mountain_rails=[],editor_markers=markers,
                 editor_races=doc.get("races",[]),editor_dealerships=doc.get("dealerships",[]),
