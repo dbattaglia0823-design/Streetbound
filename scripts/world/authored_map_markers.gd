@@ -236,10 +236,18 @@ func _travel_to(marker: Dictionary) -> void:
 	if not _safe_destination(marker):return
 	var target:=_point(marker)*PPM
 	# Real streaming and camera follow are retained, including traffic.
+	# VehicleController2D uses its own metre/second dynamics rather
+	# than RigidBody2D.angular_velocity. Reset every velocity component
+	# so the car cannot carry pre-teleport drift into its new street.
 	player.global_position=target
 	player.rotation=deg_to_rad(float(marker.get("rotation",0)))
 	player.linear_velocity=Vector2.ZERO
-	player.angular_velocity=0.0
+	player.velocity=Vector2.ZERO
+	player.yaw_rate=0.0
+	player.longitudinal_speed=0.0
+	player.lateral_speed=0.0
+	player.slip_angle=0.0
+	player.reset_physics_interpolation()
 	world.stream_at(target)
 	_close_travel()
 
