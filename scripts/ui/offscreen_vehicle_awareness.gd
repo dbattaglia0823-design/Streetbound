@@ -9,10 +9,10 @@ const MIN_RANGE_M := 8.0
 const MIN_CLOSING_MPS := 1.25
 const FORWARD_DOT := 0.24
 const MAX_MARKERS := 3
-const REFRESH_SECONDS := 0.12
+const REFRESH_SECONDS := 0.10
 const VISIBLE_MARGIN_PX := 45.0
-const EDGE_MARGIN := Vector2(70.0, 76.0)
-const CHIP_WIDTH := 108.0
+const EDGE_MARGIN := Vector2(58.0, 76.0)
+const CHIP_WIDTH := 92.0
 const CHIP_HEIGHT := 27.0
 const INK := Color("#e8f0e9")
 const ROAD := Color("#ffa85e")
@@ -82,9 +82,9 @@ static func edge_position(from_screen: Vector2, toward_screen: Vector2,
 		clampf(origin.y+delta.y*maxf(0.0,scale),low.y,high.y))
 
 
-static func distance_caption(distance_m: float, rival: bool = false) -> String:
-	var feet := roundi(maxf(0.0,distance_m)*3.28084 / 5.0)*5
-	return "%s %d FT" % ["RIVAL" if rival else "CAR",feet]
+static func distance_caption(distance_m: float, _rival: bool = false) -> String:
+	# Show only the distance, rounded to individual feet for live updates.
+	return "%d FT" % roundi(maxf(0.0,distance_m)*3.28084)
 
 
 func _process(dt: float) -> void:
@@ -94,10 +94,15 @@ func _process(dt: float) -> void:
 			queue_redraw()
 		return
 	_clock -= dt
-	if _clock > 0.0:
-		return
-	_clock = REFRESH_SECONDS
-	refresh_markers()
+	if _clock <= 0.0:
+		# Discover nearby targets periodically, avoiding an expensive full
+		# scene-group/traffic-velocity scan every rendered frame.
+		_clock = REFRESH_SECONDS
+		refresh_markers()
+	else:
+		# Current targets, bearings and distances update every frame, even
+		# between discovery scans, with no 100 ms readout pause.
+		_update_live_markers()
 
 
 func _traffic_velocity(node: Node2D) -> Vector2:
@@ -185,6 +190,49 @@ func refresh_markers() -> void:
 	queue_redraw()
 
 
+func _update_live_markers() -> void:
+	if markers.is_empty():
+		return
+	if not is_instance_valid(player) or not is_instance_valid(camera) or \
+			not player.is_inside_tree():
+		markers.clear()
+		queue_redraw()
+		return
+	var view: Viewport = camera.get_viewport()
+	if view == null or view != get_viewport() or not camera.is_current():
+		markers.clear()
+		queue_redraw()
+		return
+	var size_px := view.get_visible_rect().size
+	var canvas_transform := view.get_canvas_transform()
+	var player_screen: Vector2 = canvas_transform * player.global_position
+	var updated: Array[Dictionary] = []
+	for entry in markers:
+		var target: Node2D = entry.get("target") as Node2D
+		if not is_instance_valid(target) or target.is_queued_for_deletion() or \
+				not target.is_visible_in_tree():
+			continue
+		var distance_m := player.global_position.distance_to(target.global_position) / PPM
+		if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
+			continue
+		var target_screen: Vector2 = canvas_transform * target.global_position
+		if is_on_screen(target_screen,size_px):
+			continue
+		var live_entry: Dictionary = entry.duplicate()
+		live_entry.distance_m = distance_m
+		live_entry.direction = (target_screen-player_screen).normalized()
+		var at := edge_position(player_screen,target_screen,size_px)
+		for placed in updated:
+			if at.distance_to(placed.position) < 48.0:
+				at.y = clampf(at.y + (48.0 if at.y < size_px.y*0.5 else -48.0),
+					minf(EDGE_MARGIN.y,size_px.y*0.25),
+					maxf(size_px.y*0.75,size_px.y-EDGE_MARGIN.y))
+		live_entry.position = at
+		updated.append(live_entry)
+	markers = updated
+	queue_redraw()
+
+
 func _draw() -> void:
 	if markers.is_empty() or get_tree().paused:
 		return
@@ -199,7 +247,7 @@ func _draw() -> void:
 			Vector2(CHIP_WIDTH,CHIP_HEIGHT))
 		draw_rect(bounds,Color(0.032,0.047,0.056,0.88),true)
 		draw_rect(bounds,color.darkened(0.3),false,1.2)
-		var tip := position + Vector2(-40.0,0.0)
+		var tip := position + Vector2(-32.0,0.0)
 		var angle: float = (entry.direction as Vector2).angle() + PI*0.5
 		var triangle := PackedVector2Array([
 			tip+Vector2(0.0,-7.0).rotated(angle),
@@ -208,5 +256,5 @@ func _draw() -> void:
 		draw_colored_polygon(triangle,color)
 		var caption := distance_caption(
 			float(entry.distance_m),bool(entry.rival))
-		draw_string(font,position + Vector2(-25.0,4.0),
-			caption,HORIZONTAL_ALIGNMENT_LEFT,78.0,11,INK)
+		draw_string(font,position + Vector2(-17.0,4.0),
+			caption,HORIZONTAL_ALIGNMENT_LEFT,58.0,11,INK)
