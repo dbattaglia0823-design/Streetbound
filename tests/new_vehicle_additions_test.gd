@@ -58,14 +58,14 @@ func run() -> void:
 		var sprite := str(v.get("texture",""))
 		var basis := str(v.get("price_basis",""))
 		var confidence := str(v.get("spec_confidence",""))
-		valid = valid and not textures.has(sprite) and sprite.ends_with(".png") and \\
-			sprite.begins_with("res://assets/Vehicles/") and FileAccess.file_exists(sprite) and \\
-			not bool(v.get("source_model_unverified",true)) and \\
-			Catalog.find_by_id(id).get("texture","") == sprite and \\
-			int(v.get("reference_year",0)) >= 1960 and \\
-			float(v.get("mass_kg",0)) > 450.0 and \\
-			float(v.get("power_kw",0)) > 70.0 and \\
-			float(v.get("wheelbase_m",0)) > 2.0 and \\
+		valid = valid and not textures.has(sprite) and sprite.ends_with(".png") and \
+			sprite.begins_with("res://assets/Vehicles/") and FileAccess.file_exists(sprite) and \
+			not bool(v.get("source_model_unverified",true)) and \
+			Catalog.find_by_id(id).get("texture","") == sprite and \
+			int(v.get("reference_year",0)) >= 1960 and \
+			float(v.get("mass_kg",0)) > 450.0 and \
+			float(v.get("power_kw",0)) > 70.0 and \
+			float(v.get("wheelbase_m",0)) > 2.0 and \
 			int(v.get("price_usd",0)) >= 4500 and Synth.family_supported(
 				str(v.get("audio_family","")))
 		textures[sprite] = true
@@ -74,32 +74,32 @@ func run() -> void:
 		if not shop.is_empty():
 			dealer_routing = dealer_routing and DealerConfig.sells(shop,id)
 		var cfg: VehicleConfig = Catalog.make_configuration(v)
-		derived_physics = derived_physics and \\
-			is_equal_approx(cfg.engine_power_kw,float(v.power_kw)) and \\
-			is_equal_approx(cfg.engine_torque_nm,float(v.torque_nm)) and \\
-			is_equal_approx(cfg.mass_kg,float(v.mass_kg)) and \\
-			cfg.gear_ratios.size() == int(v.get("reference_gear_count",0)) and \\
-			cfg.audio_family == str(v.get("audio_family","")) and \\
+		derived_physics = derived_physics and \
+			is_equal_approx(cfg.engine_power_kw,float(v.power_kw)) and \
+			is_equal_approx(cfg.engine_torque_nm,float(v.torque_nm)) and \
+			is_equal_approx(cfg.mass_kg,float(v.mass_kg)) and \
+			cfg.gear_ratios.size() == int(v.get("reference_gear_count",0)) and \
+			cfg.audio_family == str(v.get("audio_family","")) and \
 			cfg.audio_sample_id == id
 		if str(v.get("reference_powertrain","")) == "electric":
-			derived_physics = derived_physics and cfg.gear_ratios.size() == 1 and \\
+			derived_physics = derived_physics and cfg.gear_ratios.size() == 1 and \
 				cfg.audio_induction == "electric"
 		if str(v.get("reference_powertrain","")) == "hybrid":
 			derived_physics = derived_physics and cfg.audio_hybrid_assist >= 0.99
 		if basis == "fictional_game_value_usd":
 			fictional_prices += 1
-			price_provenance = price_provenance and \\
-				Catalog.price_basis_label(v).contains("NO MARKET SALE") and \\
+			price_provenance = price_provenance and \
+				Catalog.price_basis_label(v).contains("NO MARKET SALE") and \
 				str(v.get("reference_price_note","")).contains("fictional")
 		elif basis in ["msrp_usd","msrp_estimate_usd","used_estimate_usd",
 				"collector_estimate_usd","converted_launch_estimate_usd"]:
-			price_provenance = price_provenance and \\
+			price_provenance = price_provenance and \
 				str(v.get("reference_price_note","")).length() > 30
 		else:
 			price_provenance = false
 		if confidence == "source_checked":
 			source_backed += 1
-			price_provenance = price_provenance and \\
+			price_provenance = price_provenance and \
 				str(v.get("source_spec_url","")).begins_with("https://")
 		else:
 			price_provenance = price_provenance and confidence == "representative_trim"
@@ -115,10 +115,10 @@ func run() -> void:
 	var civic: Dictionary = Catalog.find_by_id("honda-civic-type-r")
 	var gemera: Dictionary = Catalog.find_by_id("koenigsegg-gemera")
 	check("specific_2026_price_and_factory_spec_fixtures",
-		int(mclaren.get("price_usd",0)) == 143000 and \\
-		float(atom.get("mass_kg",0)) < 600.0 and \\
-		int(civic.get("price_usd",0)) == 45895 and \\
-		int(gemera.get("reference_gear_count",0)) == 9 and \\
+		int(mclaren.get("price_usd",0)) == 143000 and \
+		float(atom.get("mass_kg",0)) < 600.0 and \
+		int(civic.get("price_usd",0)) == 45895 and \
+		int(gemera.get("reference_gear_count",0)) == 9 and \
 		int(gemera.get("mass_kg",0)) == 2022)
 	print("NEW VEHICLE ADDITIONS: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
