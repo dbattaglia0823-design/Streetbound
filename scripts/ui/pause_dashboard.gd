@@ -599,7 +599,7 @@ func _event_card(race: Node) -> void:
 	if not definition.is_empty():
 		var wallet: Object=economy
 		var world_id: String=str(race.get("world_id"))
-		var wins:=wallet.completed_event_count(EventRules.event_key(world_id,str(definition.id))) if wallet!=null else 0
+		var wins: int=int(wallet.completed_event_count(EventRules.event_key(world_id,str(definition.id)))) if wallet!=null else 0
 		var restriction: String=str(race.call("_lock_reason")) if race.has_method("_lock_reason") else ""
 		rewards="LOCKED" if not restriction.is_empty() else "COMPLETED" if wins>0 and not bool(definition.get("repeatable",true)) else "CASH + XP"
 		note="WIN %d"%wins if restriction.is_empty() else "SEE REQUIREMENTS"
