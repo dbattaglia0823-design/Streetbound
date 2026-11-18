@@ -27,11 +27,11 @@ func _run() -> void:
 	var from := Vector2.ZERO
 	var forward := Vector2.UP
 	var player_velocity := Vector2(0,-32)
-	var ahead := Vector2(0,-PPM*145.0)
+	var ahead := Vector2(0,-PPM*75.0)
 	var approaching := Awareness.approach_info(
 		from,player_velocity,forward,ahead,Vector2(0,-14))
 	check("forward_slow_vehicle_triggers_with_correct_meters",
-		is_equal_approx(float(approaching.get("distance_m",0.0)),145.0) and \
+		is_equal_approx(float(approaching.get("distance_m",0.0)),75.0) and \
 		float(approaching.get("closing_mps",0.0)) > 17.9)
 	check("same_speed_traffic_does_not_spam_indicator",
 		Awareness.approach_info(from,player_velocity,forward,ahead,
@@ -45,12 +45,23 @@ func _run() -> void:
 	check("distant_unrelated_traffic_is_filtered",
 		Awareness.approach_info(from,player_velocity,forward,
 			Vector2(0,-PPM*300),Vector2.ZERO).is_empty())
-	check("approaching_oncoming_vehicle_detected_when_stationary",
-		not Awareness.approach_info(from,Vector2.ZERO,forward,ahead,
+	check("stationary_player_has_no_traffic_indicators",
+		Awareness.approach_info(from,Vector2.ZERO,forward,ahead,
 			Vector2(0,20)).is_empty())
-	check("distance_is_labeled_in_feet",
-		Awareness.distance_caption(100.0)=="CAR 330 FT" and \
-		Awareness.distance_caption(100.0,true)=="RIVAL 330 FT")
+	check("traffic_indicators_require_speed_above_40_mph",
+		not Awareness.player_is_fast_enough(Vector2(0,39.9/Awareness.MPS_TO_MPH)) and \
+		Awareness.player_is_fast_enough(Vector2(0,40.1/Awareness.MPS_TO_MPH)) and \
+		Awareness.approach_info(from,Vector2(0,-39.9/Awareness.MPS_TO_MPH),
+			forward,ahead,Vector2.ZERO).is_empty())
+	check("traffic_indicators_stop_beyond_300_feet",
+		is_equal_approx(Awareness.MAX_RANGE_M,91.44) and \
+		Awareness.approach_info(from,player_velocity,forward,
+			Vector2(0,-PPM*93.0),Vector2.ZERO).is_empty() and \
+		not Awareness.approach_info(from,player_velocity,forward,
+			Vector2(0,-PPM*89.0),Vector2.ZERO).is_empty())
+	check("distance_is_labeled_in_feet_without_vehicle_type",
+		Awareness.distance_caption(60.0)=="197 FT" and \
+		Awareness.distance_caption(60.0,true)=="197 FT")
 	check("on_screen_and_near_edge_suppressed",
 		Awareness.is_on_screen(Vector2(500,250),Vector2(1000,600)) and \
 		Awareness.is_on_screen(Vector2(-20,250),Vector2(1000,600)) and \
@@ -95,7 +106,7 @@ func _run() -> void:
 	car.name = "OffscreenFixtureCar"
 	car.add_to_group("traffic_vehicle")
 	game.add_child(car)
-	car.global_position = player.global_position + front*PPM*160.0
+	car.global_position = player.global_position + front*PPM*85.0
 	var canvas_transform := camera.get_viewport().get_canvas_transform()
 	var out_of_view: Vector2 = canvas_transform*car.global_position
 	check("fixture_is_actually_outside_current_camera_bounds",
@@ -110,17 +121,37 @@ func _run() -> void:
 			fixture_marker = candidate
 	check("traffic_marker_has_screen_bearing_and_distance",
 		not fixture_marker.is_empty() and \
-		float(fixture_marker.get("distance_m",0.0))>150.0 and \
+		float(fixture_marker.get("distance_m",0.0))>80.0 and \
 		(fixture_marker.get("direction",Vector2.ZERO) as Vector2).length()>0.9)
+	# Refresh the existing target's distance between discovery ticks.
+	car.global_position = player.global_position + front*PPM*80.0
+	indicator.set("_clock",0.08)
+	indicator._process(1.0 / 60.0)
+	var updated_distance := -1.0
+	for candidate in indicator.get("markers"):
+		if candidate.get("target") == car:
+			updated_distance = float(candidate.get("distance_m",-1.0))
+	check("distance_updates_each_frame_without_waiting_for_scan",
+		absf(updated_distance - 80.0) < 0.1)
+	# Warnings disappear immediately below the 40 mph cutoff.
+	player.linear_velocity = front*(39.0/Awareness.MPS_TO_MPH)
+	indicator._process(1.0 / 60.0)
+	check("slowing_below_40_mph_clears_existing_warning",
+		(indicator.get("markers") as Array).is_empty())
+	player.linear_velocity = front*32.0
+	car.global_position = player.global_position + front*PPM*95.0
+	indicator.call("refresh_markers")
+	check("live_traffic_over_300_feet_does_not_show",
+		not _has_target(indicator,car))
 	car.global_position = player.global_position + front*PPM*6.0
 	indicator.call("refresh_markers")
 	check("visible_cars_do_not_receive_extra_edge_warning",
 		not _has_target(indicator,car))
-	car.global_position = player.global_position - front*PPM*160.0
+	car.global_position = player.global_position - front*PPM*85.0
 	indicator.call("refresh_markers")
 	check("traffic_behind_driver_is_not_highlighted",
 		not _has_target(indicator,car))
-	car.global_position = player.global_position + front*PPM*160.0
+	car.global_position = player.global_position + front*PPM*85.0
 	car.remove_from_group("traffic_vehicle")
 	car.add_to_group("race_opponent")
 	indicator.call("refresh_markers")
