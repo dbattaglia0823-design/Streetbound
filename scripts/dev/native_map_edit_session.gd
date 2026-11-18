@@ -5,6 +5,7 @@ extends RefCounted
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
@@ -82,7 +83,7 @@ func _valid_source(value: Dictionary) -> bool:
 	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
-	if not value.get("races",[]) is Array or value.get("races",[]).size()>64:return false
+	if not value.get("races",[]) is Array or value.get("races",[]).size()>64 or not EventRules.valid_graph(value.get("races",[])):return false
 	for race in value.get("races",[]):
 		if not race is Dictionary or not RaceDefinition.valid(race,width,height) or used.has(str(race.id)):return false
 		used[str(race.id)]=true
