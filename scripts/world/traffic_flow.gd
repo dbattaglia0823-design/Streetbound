@@ -40,6 +40,7 @@ var show_routes := false
 # ambient spawns ahead on the active route while all traffic uses the same
 # collision, intersections and directional lane rules as free roam.
 var street_race_active := false
+var authored_spawn_sources: Array[Dictionary]=[]
 var street_race_navigation: RefCounted
 var street_race_edges: Array[int] = []
 var _pre_race_enabled := true
@@ -72,6 +73,15 @@ func _ready() -> void:
 	network = Network.new()
 	if world != null:
 		network.build(world.data)
+		for source in world.data.get("editor_game_markers",[]):
+			if not source is Dictionary or str(source.get("type",""))!="traffic_spawn":continue
+			var props: Dictionary=source.get("properties",{})
+			if not bool(props.get("enabled",true)):continue
+			var at:=Vector2(float(source.get("x",0)),float(source.get("y",0)))*PPM
+			var possible: Array[int]=network.nearby_edges(at,85.0)
+			if possible.is_empty():continue
+			authored_spawn_sources.append({"point":at,"edges":possible,
+				"weight":clampi(int(props.get("traffic_weight",3)),1,10)})
 	z_index = 1
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
@@ -109,6 +119,27 @@ func _spawn_one() -> bool:
 	var ids: Array[int] = network.nearby_edges(player.global_position,400.0)
 	if ids.is_empty():
 		return false
+	# Custom traffic-spawn markers bias the normal off-screen lane spawner
+	# toward authored neighborhoods. Cars still obey the full lane network,
+	# visibility, collision clearance and 75–390m player distance rules.
+	if not street_race_active and not authored_spawn_sources.is_empty() and random.randf()<.72:
+		var choices: Array[Dictionary]=[]
+		var total_weight:=0
+		for source in authored_spawn_sources:
+			var away: float=(source.point as Vector2).distance_to(player.global_position)/PPM
+			if away>=65.0 and away<=420.0:
+				choices.append(source)
+				total_weight+=int(source.weight)
+		if total_weight>0:
+			var draw:=random.randi_range(0,total_weight-1)
+			for source in choices:
+				draw-=int(source.weight)
+				if draw<0:
+					var localized: Array[int]=[]
+					for edge_id in source.edges:
+						if ids.has(edge_id):localized.append(edge_id)
+					if not localized.is_empty():ids=localized
+					break
 	var preferred: Array[int] = []
 	if street_race_active:
 		for id in street_race_edges:
