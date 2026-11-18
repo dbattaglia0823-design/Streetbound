@@ -90,6 +90,7 @@ static func build(e) -> void:
 	e.terrain_settings.add_child(mountain_help)
 	e.marker_settings=column(e.tool_options);heading(e.marker_settings,"GAME MARKER")
 	e.marker_kind=e._options(e.marker_settings,"Marker type",["player_spawn","garage","dealership","mission","fast_travel","traffic_spawn","fuel","checkpoint","race_start","finish","custom"])
+	e.marker_editor.build(e,e.marker_settings)
 	e.asset_dock=PanelContainer.new();e.asset_dock.name="NativeAssetBrowser"
 	e.asset_dock.add_theme_stylebox_override("panel",StyleBoxEmpty.new());settings.add_child(e.asset_dock)
 	var assets:=column(e.asset_dock);heading(assets,"SCENERY LIBRARY")
