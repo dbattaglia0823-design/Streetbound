@@ -6,6 +6,7 @@ const PendingAudio = preload("res://scripts/audio/pending_vehicle_audio.gd")
 # Explicit dependency so Godot cold-start parsing never needs the global class cache.
 const AppearanceProfileScript = preload("res://scripts/vehicle/vehicle_appearance_profile.gd")
 const CATALOG_PATH := "res://data/player_vehicle_catalog.json"
+const ADDITIONS_PATH := "res://data/player_vehicle_additions.json"
 const PPM := 20.0
 ## Physically modeled gearbox ratios are class-based approximations. The
 ## number of forward speeds matches the specific catalog trim, but these
@@ -27,12 +28,28 @@ static var _vehicles: Array[Dictionary] = []
 static func all() -> Array[Dictionary]:
 	if not _vehicles.is_empty():
 		return _vehicles
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CATALOG_PATH))
-	if not parsed is Dictionary:
-		push_error("Player vehicle catalog missing or malformed")
-		return _vehicles
-	for value in parsed.get("vehicles", []):
-		if value is Dictionary:
+	# Keep original IDs stable for saves. Newly imported sprites extend, never
+	# replace, the original 98-car roster.
+	var ids := {}
+	for path in [CATALOG_PATH, ADDITIONS_PATH]:
+		if not FileAccess.file_exists(path):
+			push_error("Player vehicle catalog missing: " + path)
+			_vehicles.clear()
+			return _vehicles
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not parsed is Dictionary or not parsed.get("vehicles", []) is Array:
+			push_error("Player vehicle catalog malformed: " + path)
+			_vehicles.clear()
+			return _vehicles
+		for value in parsed.get("vehicles", []):
+			if not value is Dictionary:
+				continue
+			var id := str(value.get("id", ""))
+			if id.is_empty() or ids.has(id):
+				push_error("Duplicate or empty player vehicle ID: " + id)
+				_vehicles.clear()
+				return _vehicles
+			ids[id] = true
 			_vehicles.append(value)
 	return _vehicles
 
@@ -47,6 +64,7 @@ static func find_by_id(id: String) -> Dictionary:
 static func price_basis_label(entry: Dictionary) -> String:
 	match str(entry.get("price_basis","")):
 		"msrp_usd": return "BASE MSRP"
+		"fictional_game_value_usd": return "GAME VALUE (NO MARKET SALE)"
 		"msrp_estimate_usd": return "EST. MSRP"
 		"used_estimate_usd": return "EST. USED"
 		"international_used_estimate_usd": return "EST. IMPORT/USED"
