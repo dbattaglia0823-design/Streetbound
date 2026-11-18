@@ -18,6 +18,57 @@ func run() -> void:
 	e._finish_shape()
 	var id: String=e.source_id;var race: Dictionary=e.authoring.race_at_id(id)
 	check("editor_creates_named_circuit_with_laps",not race.is_empty() and race.name=="Laurel Editor Circuit" and race.mode=="circuit" and int(race.laps)==3)
+	check("race_setup_opens_automatically_after_placement",form.dialog_race_id==id and form.dialog.visible)
+	form.dialog_type.select(1)
+	form.dialog_opponents.value=3
+	form.dialog_cash.value=12500
+	form.dialog_driver_xp.value=275
+	form.dialog_car_xp.value=150
+	form.pool_search.text="Audi RS3";form._refresh_pool()
+	var audi_found:=false
+	for i in form.pool_list.item_count:
+		if str(form.pool_list.get_item_metadata(i))=="audi-rs3":
+			form._pool_selected(i,true);audi_found=true;break
+	form.pool_search.text="Acura Integra";form._refresh_pool()
+	var acura_found:=false
+	for i in form.pool_list.item_count:
+		if str(form.pool_list.get_item_metadata(i))=="acura-integra":
+			form._pool_selected(i,true);acura_found=true;break
+	check("race_pool_search_keeps_selection_across_filters",audi_found and acura_found and form.selected_pool.size()==2)
+	var history_before: int=e.authoring.history.size()
+	form._save_dialog(e)
+	var configured: Dictionary=e.authoring.race_at_id(id)
+	var saved_ok: bool=e.authoring.history.size()==history_before+1 and configured.enemy_starts.size()==3 and \
+		configured.get("opponent_pool",[]).has("audi-rs3") and configured.get("opponent_pool",[]).has("acura-integra") and \
+		int(configured.get("reward_cash",0))==12500 and int(configured.get("reward_player_xp",0))==275 and int(configured.get("reward_car_xp",0))==150
+	if not saved_ok:
+		print("RACE SAVE AUDIT: history ",history_before,"=>",e.authoring.history.size(),
+			" rivals=",configured.get("enemy_starts",[]).size()," pool=",configured.get("opponent_pool",[]),
+			" payout=",configured.get("reward_cash",-1),"/",configured.get("reward_player_xp",-1),"/",
+			configured.get("reward_car_xp",-1)," error=",form.dialog_message.text)
+	check("edit_race_saves_pool_enemy_count_and_revenue",saved_ok)
+	e._undo()
+	check("race_edit_settings_are_undoable",not e.authoring.race_at_id(id).has("opponent_pool") or e.authoring.race_at_id(id).get("opponent_pool",[]).is_empty())
+	e._redo()
+	form.open_for(e,id)
+	form.dialog_type.select(2)
+	form._save_dialog(e)
+	check("race_type_time_trial_has_zero_ai",e.authoring.race_at_id(id).enemy_starts.is_empty())
+	form.open_for(e,id)
+	form.dialog_type.select(1)
+	form.dialog_opponents.value=3
+	form._save_dialog(e)
+	check("race_type_circuit_restores_ai",e.authoring.race_at_id(id).enemy_starts.size()==3)
+	form.open_for(e,id)
+	form.dialog_type.select(0)
+	form._save_dialog(e)
+	check("race_type_point_to_point_is_sprint",e.authoring.race_at_id(id).mode=="sprint")
+	form.open_for(e,id)
+	form.dialog_type.select(1)
+	form._save_dialog(e)
+	check("race_type_circuit_reloads_and_keeps_rewards",
+		e.authoring.race_at_id(id).mode=="circuit" and int(e.authoring.race_at_id(id).reward_cash)==12500)
+	check("edit_race_button_available_after_placement",not form.edit_button.disabled)
 	e._choose_tool("move_prop");e.source_id=id;e.source_anchor=1;e._refresh_authoring()
 	check("race_has_checkpoint_picker_and_settings",e.point_picker.visible and not e.split_road_button.visible and form.panel.visible and e.point_picker.item_count==4)
 	var nearest_road: Dictionary=e.authoring.doc.roads[0]

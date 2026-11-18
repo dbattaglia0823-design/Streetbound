@@ -4,6 +4,7 @@ const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const Definition=preload("res://scripts/world/authored_race_definition.gd")
 const Authored=preload("res://scripts/world/authored_race.gd")
+const Ownership=preload("res://scripts/vehicle/vehicle_ownership.gd")
 var failures: Array[String]=[]
 func _initialize() -> void:call_deferred("_run")
 func check(label: String,ok: bool,detail: Variant="") -> void:
@@ -31,7 +32,33 @@ func _run() -> void:
 	var legacy: Dictionary=race.duplicate(true)
 	legacy.erase("player_start");legacy.erase("enemy_starts");legacy.erase("formation")
 	check("old_time_trial_without_grid_still_loads",Definition.valid(legacy,5000,6000))
-
+	race["opponent_pool"]=["audi-rs3","acura-integra"]
+	race["reward_cash"]=2500
+	race["reward_player_xp"]=300
+	race["reward_car_xp"]=200
+	check("race_pool_and_rewards_validate_with_catalog",Definition.valid(race,5000,6000))
+	var invalid_pool: Dictionary=race.duplicate(true)
+	invalid_pool.opponent_pool.append("not-a-catalog-model")
+	check("unknown_rival_model_rejected",not Definition.valid(invalid_pool,5000,6000))
+	var invalid_reward: Dictionary=race.duplicate(true)
+	invalid_reward.reward_cash=1000001
+	check("excessive_race_payout_rejected",not Definition.valid(invalid_reward,5000,6000))
+	var economy: Variant=Ownership.new(false)
+	var funds_before: int=economy.balance
+	var award: Dictionary=economy.record_authored_race("authored-unit-test-1",42.0,race)
+	check("authored_race_awards_cash_and_both_xp_tracks",
+		award.get("result","")=="completed" and economy.balance==funds_before+2500 and
+		economy.player_xp==300 and int(economy.car_xp.get(economy.active_id,0))==200)
+	check("authored_race_cannot_pay_duplicate_run",
+		economy.record_authored_race("authored-unit-test-1",42.0,race).get("result","")=="invalid_or_duplicate" and
+		economy.balance==funds_before+2500)
+	var invalid_awards: Dictionary=race.duplicate(true)
+	invalid_awards.reward_cash=-1
+	check("invalid_authored_reward_never_pays",
+		economy.record_authored_race("authored-unit-test-2",42.0,invalid_awards).get("result","")=="invalid_reward" and
+		economy.balance==funds_before+2500)
+	check("authored_reward_rejects_unfinished_timers",
+		economy.record_authored_race("authored-unit-test-3",0.0,race).get("result","")=="invalid_or_duplicate")
 	var session: Variant=Session.new()
 	check("authoring_source_loaded",session.load_source())
 	var route: Array[Vector2]=[Vector2(2400,3200),Vector2(2460,3200),Vector2(2520,3200)]
@@ -71,6 +98,7 @@ func _run() -> void:
 	event.world=game.ground
 	event.player=car
 	event.definition=race.duplicate(true)
+	event.economy=economy
 	game.ground.add_child(event)
 	event.set_physics_process(false)
 	# Stage five metres away, then require teleportation to the saved slot.
@@ -85,6 +113,12 @@ func _run() -> void:
 		car.linear_velocity.is_zero_approx() and car.velocity.is_zero_approx() and
 		Vector2.UP.rotated(car.rotation).dot(Vector2.RIGHT)>.99)
 	check("ai_cars_spawn_in_every_configured_slot",event.rivals.size()==3)
+	var models_valid: bool=event.rivals.size()==3
+	if models_valid:
+		var sampled: Array[String]=[]
+		for ai in event.rivals:sampled.append(str(ai.config.audio_sample_id))
+		models_valid=sampled[0]!=sampled[1] and sampled.all(func(model):return race.opponent_pool.has(model))
+	check("ai_rivals_use_catalog_pool_and_actual_vehicle_configs",models_valid)
 	var positioned: bool=event.rivals.size()==3
 	if positioned:
 		for i in event.rivals.size():

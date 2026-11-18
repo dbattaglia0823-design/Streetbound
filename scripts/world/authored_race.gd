@@ -11,9 +11,13 @@ const Planner=preload("res://scripts/world/road_route_planner.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const VehicleScene=preload("res://scenes/vehicle.tscn")
 const RivalDriver=preload("res://scripts/world/race_ai_driver.gd")
+const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const OwnershipModel=preload("res://scripts/vehicle/vehicle_ownership.gd")
 var definition: Dictionary={}
 var world: Node2D
 var player: VehicleController2D
+var economy: OwnershipModel
+var _run_id:=""
 var network: RefCounted
 var state:="idle"
 var available:=false
@@ -45,7 +49,9 @@ func _ready() -> void:
 	if not Definition.valid(definition,float(world.data.size[0]),float(world.data.size[1])):return
 	name=str(definition.id);race_title=str(definition.name)
 	start_radius_m=float(definition.get("start_radius",8))
-	race_type=("Circuit" if definition.mode=="circuit" else "Sprint")+" · "+("Time Trial" if definition.get("enemy_starts",[]).is_empty() else "%d AI Rivals"%definition.enemy_starts.size())
+	var kind: String=str(definition.get("race_kind","circuit" if definition.mode=="circuit" else ("time_trial" if definition.get("enemy_starts",[]).is_empty() else "point_to_point")))
+	var type_label: String=str({"circuit":"Circuit","point_to_point":"Point to Point","time_trial":"Time Trial"}.get(kind,"Street Race"))
+	race_type=type_label+(" · SOLO" if definition.get("enemy_starts",[]).is_empty() else " · %d AI Rivals"%definition.enemy_starts.size())
 	for p in definition.points:checkpoints.append(Vector2(p.x,p.y))
 	start_m=checkpoints[0];finish_m=start_m if definition.mode=="circuit" else checkpoints[-1]
 	heading=(checkpoints[1]-start_m).normalized()
@@ -59,8 +65,8 @@ func _ready() -> void:
 		"distance_m":float(navigation.get("length_m"))*float(definition.get("laps",1)),
 		"route":navigation.get("points_m"),"closed":definition.mode=="circuit",
 		"lap":definition.mode=="circuit",
-		"entry":"FREE","rewards":"PRACTICE",
-		"description":"Grid start against AI; finish every checkpoint. No career payouts." if not definition.get("enemy_starts",[]).is_empty() else "Complete the mapped checkpoints in order. Time trial with no payouts."
+		"entry":"FREE","rewards":_reward_summary(),
+		"description":"Finish every checkpoint in order. Win against the AI to claim rewards." if not definition.get("enemy_starts",[]).is_empty() else "Complete the mapped checkpoints to claim time trial rewards."
 	})
 	available=true;z_index=6;add_to_group("streetbound_race");_refresh();queue_redraw()
 func _exit_tree() -> void:
@@ -74,12 +80,16 @@ func start_race() -> bool:
 	if not _spawn_rivals():return false
 	Grid.teleport(player,Grid.player_slot(definition))
 	_grid_start_m=player.global_position/PPM
+	_run_id="authored-%s-%s-%d"%[str(definition.id),str(economy.active_id) if is_instance_valid(economy) else "guest",Time.get_ticks_usec()]
 	state="countdown";countdown=3;elapsed=0;next_checkpoint=1;lap=1;result="";_gate_armed=true
 	_previous_m=player.global_position/PPM;player.add_to_group("race_participant");_refresh();return true
 
 func _spawn_rivals() -> bool:
 	_clear_rivals()
 	if definition.get("enemy_starts",[]).is_empty():return true
+	# Shuffle once per race; cycle only when more rivals than catalog choices.
+	var pool: Array=definition.get("opponent_pool",[]).duplicate()
+	pool.shuffle()
 	for i in definition.enemy_starts.size():
 		var enemy: VehicleController2D=VehicleScene.instantiate() as VehicleController2D
 		if enemy==null:
@@ -95,18 +105,27 @@ func _spawn_rivals() -> bool:
 		enemy.add_to_group("race_opponent")
 		enemy.add_to_group("race_participant")
 		add_child(enemy)
+		var catalog_vehicle: Dictionary=Catalog.find_by_id(str(pool[i%pool.size()])) if not pool.is_empty() else {}
+		if not catalog_vehicle.is_empty():
+			# Match the chosen catalog model's actual physics, visual, and collision size.
+			if not Catalog.select(enemy,catalog_vehicle):
+				_clear_rivals()
+				enemy.queue_free()
+				return false
+		else:
+			# Unconfigured legacy races still clone the player's vehicle.
+			var player_wheels:=player.get_node_or_null("Art/Wheels")
+			var enemy_wheels:=enemy.get_node_or_null("Art/Wheels")
+			if player_wheels!=null and enemy_wheels!=null:
+				var appearance: Resource=player_wheels.get("appearance") as Resource
+				if appearance!=null:enemy_wheels.call("apply_appearance",appearance.duplicate(true))
+			var source_shape:=player.get_node_or_null("CollisionShape2D") as CollisionShape2D
+			var target_shape:=enemy.get_node_or_null("CollisionShape2D") as CollisionShape2D
+			if source_shape!=null and target_shape!=null and source_shape.shape!=null:
+				target_shape.shape=source_shape.shape.duplicate(true)
+			var sprite:=enemy.get_node_or_null("Art/Sprite") as Sprite2D
+			if sprite!=null:sprite.modulate=Color.from_hsv(fmod(0.6+float(i)*.17,1.0),.34,1.0)
 		Grid.teleport(enemy,definition.enemy_starts[i])
-		var player_wheels:=player.get_node_or_null("Art/Wheels")
-		var enemy_wheels:=enemy.get_node_or_null("Art/Wheels")
-		if player_wheels!=null and enemy_wheels!=null:
-			var appearance: Resource=player_wheels.get("appearance") as Resource
-			if appearance!=null:enemy_wheels.call("apply_appearance",appearance.duplicate(true))
-		var source_shape:=player.get_node_or_null("CollisionShape2D") as CollisionShape2D
-		var target_shape:=enemy.get_node_or_null("CollisionShape2D") as CollisionShape2D
-		if source_shape!=null and target_shape!=null and source_shape.shape!=null:
-			target_shape.shape=source_shape.shape.duplicate(true)
-		var sprite:=enemy.get_node_or_null("Art/Sprite") as Sprite2D
-		if sprite!=null:sprite.modulate=Color.from_hsv(fmod(0.6+float(i)*.17,1.0),.34,1.0)
 		var driver:=Node.new()
 		driver.name="MapRaceAIDriver%d"%(i+1)
 		driver.set_script(RivalDriver)
@@ -157,15 +176,33 @@ func _update_rivals() -> void:
 			progress.armed=false
 		progress.previous=at
 
+func _reward_summary() -> String:
+	var parts: Array[String]=[]
+	if int(definition.get("reward_cash",0))>0:
+		parts.append(OwnershipModel.dollars(int(definition.reward_cash)))
+	if int(definition.get("reward_player_xp",0))>0:
+		parts.append("%d DRIVER XP"%int(definition.reward_player_xp))
+	if int(definition.get("reward_car_xp",0))>0:
+		parts.append("%d CAR XP"%int(definition.reward_car_xp))
+	return " / ".join(parts) if not parts.is_empty() else "PRACTICE"
+
+func _award_finish() -> String:
+	if _reward_summary()=="PRACTICE":return "PRACTICE / NO REWARDS"
+	if not is_instance_valid(economy):return "REWARDS UNAVAILABLE"
+	var awarded: Dictionary=economy.record_authored_race(_run_id,elapsed,definition)
+	if str(awarded.get("result",""))!="completed":
+		return "REWARDS NOT SAVED: "+str(awarded.get("result","unknown"))
+	return "REWARDS  "+_reward_summary()
+
 func _finish_message() -> String:
 	if rivals.is_empty():
-		return "%s / %.2f SECONDS\nTIME TRIAL COMPLETE / NO REWARDS"%[race_title,elapsed]
+		return "%s / %.2f SECONDS\nTIME TRIAL COMPLETE / %s"%[race_title,elapsed,_award_finish()]
 	var fastest:=INF
 	for progress in rival_progress:
 		if float(progress.finished)>=0:fastest=minf(fastest,float(progress.finished))
 	if fastest<=elapsed:
 		return "RIVAL WINS / %.2fs  ·  YOU %.2fs\nGRID PRACTICE / NO REWARDS"%[fastest,elapsed]
-	return "YOU WIN / %.2fs  ·  RIVALS %s\nGRID PRACTICE / NO REWARDS"%[elapsed,"DNF" if fastest==INF else "%.2fs"%fastest]
+	return "YOU WIN / %.2fs  ·  RIVALS %s\n%s"%[elapsed,"DNF" if fastest==INF else "%.2fs"%fastest,_award_finish()]
 
 func _prepare_guidance() -> void:
 	if network==null:return

@@ -348,6 +348,37 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		"part":earned_part,"part_uid":"up-%d" % prior_serial if not earned_part.is_empty() else ""}
 
 
+## Atomic, once-per-completed-run payouts for authored races. 
+func record_authored_race(run_id: String, elapsed_seconds: float, awards: Dictionary) -> Dictionary:
+	if run_id.length()<8 or run_id.length()>150 or _claimed_races.has(run_id) or \
+			not is_finite(elapsed_seconds) or elapsed_seconds<0.1 or elapsed_seconds>7200.0 or not owns(active_id):
+		return {"result":"invalid_or_duplicate"}
+	for spec in [["reward_cash",1000000],["reward_player_xp",100000],["reward_car_xp",100000]]:
+		var amount: Variant=awards.get(spec[0],0)
+		if typeof(amount) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(amount)) or \
+				float(amount)!=floorf(float(amount)) or float(amount)<0 or float(amount)>spec[1]:
+			return {"result":"invalid_reward"}
+	var cash:=int(awards.get("reward_cash",0))
+	var driver_xp:=int(awards.get("reward_player_xp",0))
+	var vehicle_xp:=int(awards.get("reward_car_xp",0))
+	var previous_balance:=balance
+	var previous_player_xp:=player_xp
+	var previous_car_xp:=int(car_xp.get(active_id,0))
+	var previous_claims: Array[String]=_claimed_races.duplicate()
+	balance+=cash
+	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
+	car_xp[active_id]=mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),previous_car_xp+vehicle_xp)
+	_claimed_races.append(run_id)
+	if _claimed_races.size()>50:_claimed_races.pop_front()
+	if not save():
+		balance=previous_balance
+		player_xp=previous_player_xp
+		car_xp[active_id]=previous_car_xp
+		_claimed_races=previous_claims
+		return {"result":"save_failed"}
+	changed.emit()
+	return {"result":"completed","cash":cash,"player_xp":driver_xp,"car_xp":vehicle_xp}
+
 func credit(amount: int) -> bool:
 	if amount <= 0:
 		return false
