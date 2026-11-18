@@ -25,6 +25,19 @@ func _run() -> void:
 	m.collision(3.0)
 	m.collision(5.0)
 	verify("debounces_repeated_collision_contacts", m.collision_events==1)
+	var repeated_contact := Metrics.new()
+	for index in 100:
+		repeated_contact.sample(0.1,Vector2.ZERO,0.0,
+			Vector4(0.8,0,0,0),"ASPHALT")
+		repeated_contact.collision()
+	verify("continuous_wall_contact_is_one_collision_episode",
+		repeated_contact.collision_events==1)
+	for index in 9:
+		repeated_contact.sample(0.1,Vector2.ZERO,0.0,
+			Vector4.ZERO,"ASPHALT")
+	repeated_contact.collision()
+	verify("new_contact_after_separation_is_new_collision",
+		repeated_contact.collision_events==2)
 	m.sample(0.2,Vector2(40,0),0.3,Vector4(0.0,1,0,0),"ASPHALT")
 	verify("braking_is_not_counted_as_a_stall", m.stall_events==0)
 	for i in 30:
