@@ -1105,7 +1105,11 @@ length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 dealer_source = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
 authored_source = json.loads(dealer_source.read_text(encoding="utf-8")) if dealer_source.exists() else {}
 authored_dealers = authored_source.get("dealerships", [])
-authored_game_markers = authored_source.get("markers", [])
+from authored_markers import validate_markers
+from authored_races import authored_races
+authored_game_markers = validate_markers(authored_source.get("markers", []),
+    authored_races(authored_source,WIDTH,HEIGHT) if authored_source else [],
+    authored_dealers,WIDTH,HEIGHT)
 data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",units="metres",pixels_per_metre=20,
           editor_warnings=EDITOR_WARNINGS,
           editor_dealerships=authored_dealers,
