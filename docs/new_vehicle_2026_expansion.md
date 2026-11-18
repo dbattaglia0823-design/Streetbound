@@ -17,7 +17,7 @@ Prices are expressed as **USD**. The game uses the catalog `price_usd` as an in-
 
 Four new cars use game-only values: **Hyundai N Vision 74**, **Koenigsegg CCGT**, **McLaren F1 GT**, and **Nissan NISMO GT-R LM Road Car**. Buying or selling an original example of these is not a normal retail transaction; the simulated price exists only to make every sprite playable and collectible.
 
-**Spec confidence:** 22 records contain a selected linked manufacturer/automotive reference; 28 are representative model-year/trim estimates pending more detailed individual verification. Each car has source and price-basis metadata. Those counts do not mean that all prices are verified live sales. Dimensions, curb-versus-dry mass, real-world peak power, and combined hybrid system power should not be assumed directly comparable across unrelated manufacturers.
+**Spec confidence:** 23 records contain a selected linked manufacturer/automotive reference; 27 are representative model-year/trim estimates pending more detailed individual verification. Each car has source and price-basis metadata. Those counts do not mean that all prices are verified live sales. Dimensions, curb-versus-dry mass, real-world peak power, and combined hybrid system power should not be assumed directly comparable across unrelated manufacturers.
 
 ## Reference vehicles and modeled game prices
 
@@ -88,6 +88,8 @@ Power is rounded from the catalog's kW representation; mass in kg. The underlyin
 - [Hyundai N Vision 74 concept information](https://www.hyundai.com/worldwide/en/newsroom/detail/0000000089)
 - [Nissan GT-R LM unique road prototype](https://www.nissan-global.com/EN/HERITAGE_COLLECTION/181_nismo_gt-r_lm_road_car.html)
 - [Aston Martin Valkyrie AMR Pro factory reference](https://www.astonmartin.com/en/models/valkyrie-amr-pro)
+- [Koenigsegg Regera factory direct-drive reduction](https://www.koenigsegg.com/koenigsegg-direct-drive)
+- [Zenvo TSR-S 1177 bhp twin-supercharged V8](https://zenvoautomotive.prezly.com/zenvo-reveals-latest-commission-tsr-s-hypercar)
 
 For additional per-model links, see `source_spec_url` and `source_price_url` on each entry. Manufacturer specifications apply only to the selected trim/year/fuel; the 2023 Jesko Attack entry, for example, uses its **E85** power rating. The Gemera is the HV8/Dark Matter variant rather than the earlier three-cylinder prototype. Honda's 2025 Civic Type R `$45,895` is MSRP **before** the $1,150 destination charge.
 
