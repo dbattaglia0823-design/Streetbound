@@ -139,6 +139,9 @@ func _run() -> void:
 	check("slowing_below_40_mph_clears_existing_warning",
 		(indicator.get("markers") as Array).is_empty())
 	player.linear_velocity = front*32.0
+	indicator._process(1.0 / 60.0)
+	check("passing_40_mph_rechecks_traffic_without_delay",
+		_has_target(indicator,car))
 	car.global_position = player.global_position + front*PPM*95.0
 	indicator.call("refresh_markers")
 	check("live_traffic_over_300_feet_does_not_show",
