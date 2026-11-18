@@ -82,4 +82,9 @@ func _resume_custom_map(file: String) -> void:
 	native_world_editor.editor_camera.global_position = where
 	native_world_editor._update_view(true)
 	native_world_editor.map_switcher.reload_list()
-	native_world_editor._notice("Returned from Test Drive. Continue editing "+str(doc.name)+".")
+	var reason: String=str(get_tree().get_meta("streetbound_test_drive_error",""))
+	if not reason.is_empty():
+		get_tree().remove_meta("streetbound_test_drive_error")
+		native_world_editor._notice("Test Drive could not start: "+reason)
+	else:
+		native_world_editor._notice("Returned from full-game Test Drive. Continue editing "+str(doc.name)+".")

@@ -14,6 +14,10 @@ const RenderHealth = preload("res://scripts/world/world_render_health.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const PPM := 20.0
 var data: Dictionary
+# A private, temporary dev-only compiled archive; production still loads the
+# checked-in world. This is set before add_child() on Test Drive startup.
+var archive_override_path: String=""
+var _custom_terrain_polygons: Array[PackedVector2Array]=[]
 var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
 var chunk_m := 192.0
@@ -64,8 +68,18 @@ var debug_label: Label
 var _debug_clock := 0.0
 
 func _ready() -> void:
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
+	var path: String="res://worlds/morrow-coast.world.json"
+	if not archive_override_path.is_empty():
+		if not (OS.has_feature("debug") or OS.has_feature("editor")) or \
+				not archive_override_path.begins_with("user://streetbound-maps/"):
+			push_error("Invalid Test Drive archive override")
+			return
+		path=archive_override_path
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	data=parsed if parsed is Dictionary else {}
+	if not archive_override_path.is_empty() and not bool(data.get("editor_custom_test_drive",false)):
+		push_error("Test Drive refused a non-custom world archive")
+		return
 	archive_audit=RenderHealth.audit(data)
 	if not archive_audit.compatible:
 		push_error("Morrow Coast archive rejected: %s"%[str(archive_audit.errors)])
@@ -165,6 +179,11 @@ func _ready() -> void:
 				if not _apron_grid.has(key):
 					_apron_grid[key] = []
 				_apron_grid[key].append(prop)
+	if bool(data.get("editor_custom_test_drive",false)):
+		for region in data.terrain:
+			var shape:=PackedVector2Array()
+			for raw in region.points:shape.append(Vector2(float(raw[0]),float(raw[1])))
+			_custom_terrain_polygons.append(shape)
 	for i in data.junctions.size():
 		var j: Dictionary = data.junctions[i]
 		var polygon := PackedVector2Array()
@@ -524,6 +543,17 @@ func surface_at(position_px: Vector2) -> Dictionary:
 	var chunk_key := "%d,%d" % [floori(point.x/chunk_m),floori(point.y/chunk_m)]
 	if _sand_polygons.has(chunk_key) and Geometry2D.is_point_in_polygon(point,_sand_polygons[chunk_key]):
 		return {"name":"SAND","grip":0.60}
+	if bool(data.get("editor_custom_test_drive",false)):
+		# Most recently painted region wins; paved roads and junctions were
+		# already checked above. Preserve custom water/loose-surface handling.
+		for i in range(_custom_terrain_polygons.size()-1,-1,-1):
+			if Geometry2D.is_point_in_polygon(point,_custom_terrain_polygons[i]):
+				match str(data.terrain[i].kind):
+					"lake","ocean":return {"name":"WATER","grip":0.20}
+					"beach","desert":return {"name":"SAND","grip":0.60}
+					"mountain","rock":return {"name":"GRAVEL","grip":0.75}
+					"city":return {"name":"ASPHALT","grip":0.93}
+				break
 	return {"name":"GRASS","grip":0.68}
 
 ## Lightweight wheel-contact elevation for visuals. The paved sidewalk is
@@ -545,7 +575,8 @@ func curb_height_at(position_px: Vector2) -> float:
 func location_at(position_px: Vector2) -> Dictionary:
 	var p := position_px/PPM
 	var best := INF
-	var result := {"name":"MORROW COAST","subtitle":"The long way home"}
+	var result := {"name":str(data.get("name","MORROW COAST")).to_upper(),
+		"subtitle":"Custom Test Drive" if bool(data.get("editor_custom_test_drive",false)) else "The long way home"}
 	for district in data.districts:
 		var score := p.distance_to(Vector2(float(district.p[0]),float(district.p[1])))/float(district.radius)
 		if score<best:

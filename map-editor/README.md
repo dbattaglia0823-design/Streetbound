@@ -184,11 +184,19 @@ terrain coverage, support terrain polygons right to the edge, and draw land
 over water in authored order. Water uses a cached shoreline distance field for
 shallow/deep coloration, island shorelines, animated ripples and subtle foam.
 Custom maps support **Test Drive (F6)** directly from the native map builder.
-The editor saves the selected custom map before opening an isolated driving
-scene with Streetbound's normal vehicle physics, authored roads, terrain and
-placed scenery/collision. Use **Return to Map Editor**, F6 or Esc to reopen
-that same saved map and continue editing. Custom playtests do not load career,
-traffic, or race rewards, and never replace the Morrow Coast archive.
+The editor saves the selected custom map, compiles its real production-style
+road/junction geometry into a temporary `user://` streamed archive, then
+launches the **same main game scene** used by Morrow Coast. This includes
+curved intersections, lane markings, stop/yield controls, active traffic,
+streamed world collision, driving HUD, minimap/atlas, vehicle selection,
+audio, effects, settings, and mapped races/eligible dealerships. Only
+Morrow-specific races and default showroom locations are omitted when no
+matching content exists on the custom map. Python 3 is needed locally for
+the same junction baker used by the regular world build. No source world
+or playable Morrow Coast archive is overwritten; the playtest uses a separate
+in-memory economy, so it does not update career balances, XP or ownership.
+Use **Return to Map Editor** or **F6** to return to the same authored map
+and camera view. **Esc** now opens the full normal pause/settings menu.
 The standalone editor reloads the rebuilt world automatically and retains the
 camera position. In the free-roam editor, use **Reload World** after saving.
 Traffic lane guides regenerate in the background when roads move, bend, change

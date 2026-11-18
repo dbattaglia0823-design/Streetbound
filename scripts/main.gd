@@ -44,16 +44,32 @@ var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
+var custom_test_drive:=false
+var test_drive_file: String=""
 
 func _ready() -> void:
+	# Custom-map Test Drive is a real gameplay launch, not a separate mini-game.
+	# The editor compiled its map to a user:// streamed archive before entry.
+	custom_test_drive=not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")) and \
+		get_tree().has_meta("streetbound_test_drive_archive")
+	test_drive_file=str(get_tree().get_meta("streetbound_test_drive_map","")) if custom_test_drive else ""
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
+	if custom_test_drive:
+		ground.archive_override_path=str(get_tree().get_meta("streetbound_test_drive_archive"))
 	add_child(ground)
 	if not proving_ground and not ground.initialization_complete:
-		# Do not start traffic/garages against incomplete spatial indices.
+		# Do not run a broken/partial Test Drive as Morrow Coast.
+		if custom_test_drive:
+			get_tree().set_meta("streetbound_test_drive_error","Custom map failed gameplay world validation.")
+			call_deferred("_return_from_test_drive")
+			return
 		ground.set_performance_debug(true)
 		return
 	if not proving_ground:
+		# Read the player's real owned car, tuning and progression for parity,
+		# then turn off writes before any Test Drive gameplay can earn/spend.
 		vehicle_ownership = OwnershipScript.new()
+		if custom_test_drive:vehicle_ownership.persist_enabled=false
 	vehicle = VehicleScene.instantiate()
 	vehicle.position = Vector2(0, 500) if proving_ground else ground.spawn_position()
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()
@@ -73,55 +89,50 @@ func _ready() -> void:
 		ground.add_child(traffic)
 		# World roads/traffic stay below the player in the 2D draw stack.
 		vehicle.z_index = 8
-		# The existing Laurel Motor House building is a real drive-in garage.
-		player_garage = Node2D.new()
-		player_garage.set_script(PlayerGarageScript)
-		player_garage.world = ground
-		player_garage.player = vehicle
-		ground.add_child(player_garage)
-		# Curated storefronts reuse the existing dealer-building PNGs and roads.
-		dealership_world = Node2D.new()
-		dealership_world.set_script(DealerWorldScript)
-		dealership_world.world = ground
-		dealership_world.player = vehicle
-		ground.dealerships = dealership_world
-		ground.add_child(dealership_world)
-		# Timed quarter-mile racing awards XP to the driver and ONLY the
-		# vehicle equipped when the race begins.
-		drag_race = Node2D.new()
-		drag_race.set_script(DragRaceScript)
-		drag_race.world = ground
-		drag_race.player = vehicle
-		drag_race.economy = vehicle_ownership
-		ground.add_child(drag_race)
-		# A real closed-course practice lap exercises curvature-based braking
-		# guidance before additional circuit race formats and AI are added.
-		circuit_race = Node2D.new()
-		circuit_race.set_script(CircuitPracticeScript)
-		circuit_race.world = ground
-		circuit_race.player = vehicle
-		ground.add_child(circuit_race)
-		# Prototype a street sprint from legal connected ambient-traffic
-		# directions. Racing-line guidance uses the same directed lane graph.
-		street_race = Node2D.new()
-		street_race.set_script(StreetSprintScript)
-		street_race.world = ground
-		street_race.player = vehicle
-		street_race.network = traffic.get("network") as RefCounted
-		street_race.traffic = traffic
-		ground.add_child(street_race)
-		for resource in ["juniper_ascent","coastline_dash","harvest_run","parkway_express"]:
+		# Morrow-only facilities are not spawned off the edges of a custom map.
+		# The vehicle menu remains usable anywhere in Test Drive.
+		if not custom_test_drive:
+			player_garage = Node2D.new()
+			player_garage.set_script(PlayerGarageScript)
+			player_garage.world = ground
+			player_garage.player = vehicle
+			ground.add_child(player_garage)
+		if not custom_test_drive or not ground.data.get("editor_dealerships",[]).is_empty():
+			dealership_world = Node2D.new()
+			dealership_world.set_script(DealerWorldScript)
+			dealership_world.world = ground
+			dealership_world.player = vehicle
+			ground.dealerships = dealership_world
+			ground.add_child(dealership_world)
+		# Named Morrow Coast events are only valid on their original circuit
+		# and drag-strip locations; custom maps load their own placed races.
+		if not custom_test_drive:
+			drag_race = Node2D.new()
+			drag_race.set_script(DragRaceScript)
+			drag_race.world=ground;drag_race.player=vehicle;drag_race.economy=vehicle_ownership
+			ground.add_child(drag_race)
+			circuit_race = Node2D.new()
+			circuit_race.set_script(CircuitPracticeScript)
+			circuit_race.world=ground;circuit_race.player=vehicle
+			ground.add_child(circuit_race)
+			street_race = Node2D.new()
+			street_race.set_script(StreetSprintScript)
+			street_race.world=ground;street_race.player=vehicle;street_race.network=traffic.network;street_race.traffic=traffic
+			ground.add_child(street_race)
+			for resource in ["juniper_ascent","coastline_dash","harvest_run","parkway_express"]:
+				var event:=Node2D.new()
+				event.set_script(StreetSprintScript)
+				event.definition=load("res://resources/races/"+resource+".tres")
+				event.world=ground;event.player=vehicle;event.network=traffic.network;event.traffic=traffic
+				ground.add_child(event)
+				extra_races.append(event)
+		for definition in ground.data.get("editor_races",[]):
 			var event:=Node2D.new()
-			event.set_script(StreetSprintScript)
-			event.definition=load("res://resources/races/"+resource+".tres")
-			event.world=ground;event.player=vehicle;event.network=traffic.network;event.traffic=traffic
+			event.set_script(AuthoredRaceScript)
+			event.definition=definition;event.world=ground;event.player=vehicle
+			event.network=traffic.network;event.economy=vehicle_ownership
 			ground.add_child(event)
 			extra_races.append(event)
-		for definition in ground.data.get("editor_races",[]):
-			var event:=Node2D.new();event.set_script(AuthoredRaceScript)
-			event.definition=definition;event.world=ground;event.player=vehicle;event.network=traffic.network
-			event.economy=vehicle_ownership
-			ground.add_child(event);extra_races.append(event)
 	var dust := Node2D.new()
 	dust.name = "DrivingDust"
 	dust.set_script(DustScript)
@@ -136,7 +147,7 @@ func _ready() -> void:
 	# On Morrow Coast, the spawn is a parking lot roughly 42m from its
 	# garage building and 46m from the nearest houses. Show that neighborhood
 	# before accelerating, then return to normal driver-controlled zoom.
-	camera.startup_neighborhood_view = not proving_ground
+	camera.startup_neighborhood_view = not proving_ground and not custom_test_drive
 	add_child(camera)
 	camera.add_to_group("player_camera")
 	var speed_layer := CanvasLayer.new()
@@ -160,8 +171,8 @@ func _ready() -> void:
 	hud.camera = camera
 	hud.race = drag_race
 	if not proving_ground:
-		hud.environment_title = "MORROW COAST    /    OPEN ROAD"
-		get_window().title = "Streetbound | Morrow Coast"
+		hud.environment_title = ("TEST DRIVE    /    "+str(ground.data.get("name","CUSTOM MAP")).to_upper()) if custom_test_drive else "MORROW COAST    /    OPEN ROAD"
+		get_window().title = "Streetbound | Test Drive" if custom_test_drive else "Streetbound | Morrow Coast"
 	add_child(hud)
 	if not proving_ground:
 		offscreen_vehicle_awareness = Control.new()
@@ -217,7 +228,7 @@ func _ready() -> void:
 		pause_menu.quick_upgrades = quick_upgrades
 		if is_instance_valid(pause_menu.dashboard):
 			pause_menu.dashboard.upgrades = quick_upgrades
-	if not proving_ground:
+	if not proving_ground and is_instance_valid(dealership_world):
 		dealership_menu = CanvasLayer.new()
 		dealership_menu.set_script(DealerMenuScript)
 		dealership_menu.manager = dealership_world
@@ -247,11 +258,16 @@ func _ready() -> void:
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
 	pause_menu.main_menu_requested.connect(_return_to_main_menu)
-	pause_menu.map_editor_requested.connect(_open_native_map_editor)
+	if custom_test_drive:
+		pause_menu.map_editor_requested.connect(_return_from_test_drive)
+		pause_menu.exit_requested.connect(_return_from_test_drive)
+		pause_menu.allow_quit=false
+	else:
+		pause_menu.map_editor_requested.connect(_open_native_map_editor)
 	# This is a developer-only transition workspace. It renders the EXISTING
 	# Morrow Coast scene and visualizes the traffic network already built by
 	# the game. Release players cannot open it, and it never writes map files.
-	if not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")):
+	if not proving_ground and not custom_test_drive and (OS.has_feature("debug") or OS.has_feature("editor")):
 		native_world_editor = CanvasLayer.new()
 		native_world_editor.set_script(NativeWorldEditorScript)
 		native_world_editor.world = ground
@@ -263,7 +279,9 @@ func _ready() -> void:
 		add_child(native_world_editor)
 	# The title screen supplies one explicit launch target. Tests that
 	# instantiate main.tscn directly still start in normal single-player.
-	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor))
+	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or custom_test_drive)
+	if custom_test_drive:
+		_add_test_drive_return_button()
 	if not pending_launch_mode.is_empty():
 		call_deferred("_apply_title_launch_mode")
 
@@ -300,6 +318,9 @@ func _begin_native_map_editor() -> void:
 
 
 func _return_to_main_menu() -> void:
+	if custom_test_drive:
+		_return_from_test_drive()
+		return
 	# Restore the single player state, including its camera and HUD, before
 	# destroying the gameplay scene. Career data stays in the normal save.
 	if is_instance_valid(local_split_screen) and local_split_screen.active:
@@ -321,3 +342,49 @@ func _toggle_local_split_screen() -> void:
 		pause_menu.resume_game()
 	else:
 		pause_menu.show_split_screen_error(local_split_screen.warning)
+
+
+func _add_test_drive_return_button() -> void:
+	# The full main HUD, menus and map remain active. Only this developer
+	# shortcut distinguishes a temporary map playtest from normal gameplay.
+	var layer_node:=CanvasLayer.new()
+	layer_node.name="TestDriveReturn"
+	layer_node.layer=4
+	add_child(layer_node)
+	var button:=Button.new()
+	button.name="ReturnToMapEditor"
+	button.text="Return to Map Editor   F6"
+	# Keep the return control away from the active top-right minimap and
+	# from the left-side speed and upgrade HUD.
+	button.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	button.position=Vector2(-125,12)
+	button.size=Vector2(250,38)
+	button.pressed.connect(_return_from_test_drive)
+	layer_node.add_child(button)
+
+
+func _input(event: InputEvent) -> void:
+	# F6 normally opens tooling; while test driving it always returns to the
+	# authoring session. Escape retains the normal pause/settings behavior.
+	if not custom_test_drive or not event is InputEventKey:return
+	var key: InputEventKey=event
+	if key.pressed and not key.echo and (key.keycode==KEY_F6 or key.physical_keycode==KEY_F6):
+		get_viewport().set_input_as_handled()
+		call_deferred("_return_from_test_drive")
+
+
+func _return_from_test_drive() -> void:
+	if not custom_test_drive:return
+	custom_test_drive=false
+	if is_instance_valid(pause_menu):
+		pause_menu.resume_game()
+	if is_instance_valid(local_split_screen) and local_split_screen.active:
+		local_split_screen.stop_split()
+	get_tree().paused=false
+	if not test_drive_file.is_empty():
+		get_tree().set_meta("streetbound_editor_resume_map",test_drive_file)
+	# The original map builder saved its camera before launching Test Drive.
+	# Never write the temporary world into the production source archive.
+	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map"]:
+		if get_tree().has_meta(marker):get_tree().remove_meta(marker)
+	get_tree().change_scene_to_file("res://scenes/world_editor.tscn")

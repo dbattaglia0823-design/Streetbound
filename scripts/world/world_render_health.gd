@@ -14,8 +14,14 @@ static func audit(data: Dictionary) -> Dictionary:
 	if not errors.is_empty():
 		report.status="INCOMPATIBLE ARCHIVE"
 		return report
-	if data.roads.is_empty() or data.segments.is_empty() or data.props.is_empty():
+	# A custom Test Drive can intentionally start on blank terrain. Production
+	# Morrow Coast still requires populated geometry; both use the same chunks.
+	var custom: bool=bool(data.get("editor_custom_test_drive",false))
+	if (data.roads.is_empty() or data.segments.is_empty() or data.props.is_empty()) and not custom:
 		errors.append("Source road/scenery arrays are empty")
+		return report
+	if custom and (data.roads.is_empty()!=data.segments.is_empty()):
+		errors.append("Custom roads and sampled segments disagree")
 		return report
 	var size := float(data.chunk_size)
 	for key in data.chunks:
