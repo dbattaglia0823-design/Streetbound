@@ -2413,9 +2413,13 @@ func _finish_shape() -> void:
 	elif tool_name=="draw_race":identity=race_editor.finish(self)
 	if identity.is_empty():_notice(authoring.last_error);return
 	source_id=identity;source_anchor=-1;draft_points.clear()
-	if tool_name=="draw_race":tool_name="move_prop";mode_label.text="SELECT / EDIT";_update_active_tool_style()
+	var placed_race: bool=tool_name=="draw_race"
+	if placed_race:tool_name="move_prop";mode_label.text="SELECT / EDIT";_update_active_tool_style()
 	_refresh_authoring()
 	_notice("Created "+identity+". Select/Edit to move it; Save to Game when ready.")
+	# Open the full setup immediately after placing a new race, as well as
+	# from Edit Race on any subsequently selected race.
+	if placed_race:race_editor.open_for(self,identity)
 
 func _cancel_gesture() -> void:
 	pending_drag.clear();draft_points.clear();_right_drag=false

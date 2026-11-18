@@ -114,6 +114,12 @@ func run() -> void:
 		editor.terrain_transforms.visible and
 		absf(editor.inspector_terrain_width.value-80.0)<.01 and
 		absf(editor.inspector_terrain_height.value-50.0)<.01)
+	await process_frame
+	check("terrain_expand_control_not_clipped_by_inspector",
+		editor.terrain_expand_button.get_global_rect().end.x<=
+		editor.inspector_panel.get_global_rect().end.x-5.0 and
+		editor.terrain_shrink_button.get_global_rect().position.x>=
+		editor.inspector_panel.get_global_rect().position.x+5.0)
 	var terrain_history: int=session.history.size()
 	editor._resize_selected_region(Vector2(1.2,0.8))
 	var changed_region: Dictionary={}
