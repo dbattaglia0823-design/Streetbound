@@ -33,7 +33,7 @@ The dedicated GitHub Actions workflow `.github/workflows/ai-driving-benchmark.ym
 - **Run time / lap time:** simulated seconds from AI release to a valid finish; `null` on DNF. `lap_times_s` contains one value only for completed circuit laps.
 - **Steering corrections:** left/right command sign flips where both directions exceed the 0.22 deadband, excluding neutral wheel centering.
 - **Off-road time:** seconds while the vehicle's actual physics surface is not `ASPHALT`. `offroad_fraction` makes different-length runs comparable.
-- **Collisions:** real `crash_contact` signal events from the physics controller, with a 150-ms duplicate-contact filter.
+- **Collisions:** distinct physical-contact episodes from the vehicle's real `crash_contact` signal. Continuous contact with a wall or stopped vehicle counts as one episode; a new collision requires at least 0.75 seconds without contact callbacks.
 - **Stuck detection:** sustained demand of over 25% throttle at under 1.2 m/s for at least 2.5 seconds. Ordinary braking and legitimate stops do not count.
 - **Stuck recovery:** after such a stall, the car physically moves at least 4 m from its stall point at 3 m/s or faster. `unresolved_stuck_events = stuck_events - stuck_recoveries`.
 - **Additional diagnostics:** completed route progress, maximum cross-track deviation, peak speed, world distance and wall-clock execution duration.
