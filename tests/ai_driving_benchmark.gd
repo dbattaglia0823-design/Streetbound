@@ -139,7 +139,7 @@ func _run_case(main: Node, world: Node, layout: Dictionary,
 	car.velocity = Vector2.ZERO
 	car.reset_physics_interpolation()
 
-	var metrics: RefCounted = Metrics.new()
+	var metrics := Metrics.new()
 	car.crash_contact.connect(func(_speed: float, _point: Vector2,
 			_normal: Vector2, _before: Vector2) -> void:
 		metrics.collision())
@@ -160,7 +160,8 @@ func _run_case(main: Node, world: Node, layout: Dictionary,
 		obstacle_shape.shape = disk
 		obstacle.add_child(obstacle_shape)
 		main.add_child(obstacle)
-		obstacle.global_position = navigation.call("point_at", 48.0) * PPM
+		var obstacle_at: Vector2 = navigation.call("point_at", 48.0)
+		obstacle.global_position = obstacle_at * PPM
 
 	var timestep := 1.0 / float(Engine.physics_ticks_per_second)
 	var max_frames := ceili(float(layout["time_limit_s"]) / timestep)
@@ -194,11 +195,11 @@ func _run_case(main: Node, world: Node, layout: Dictionary,
 			var end_distance: float = (car.global_position / PPM).distance_to(
 				start_m if closed else route[route.size() - 1])
 			if closed:
-				completed = forward_travel_m >= length_m - 10.0 and
-					end_distance <= 15.0 and car.linear_velocity.dot(forward) > 0.5
+				completed = (forward_travel_m >= length_m - 10.0 and
+					end_distance <= 15.0 and car.linear_velocity.dot(forward) > 0.5)
 			else:
-				completed = forward_travel_m >= length_m * 0.90 and
-					station >= length_m - 18.0 and end_distance <= 20.0
+				completed = (forward_travel_m >= length_m * 0.90 and
+					station >= length_m - 18.0 and end_distance <= 20.0)
 			if completed:
 				break
 			# Detect a car that has irretrievably left the playable track.
@@ -230,7 +231,7 @@ func _run_case(main: Node, world: Node, layout: Dictionary,
 		" recoveries=", record["stuck_recoveries"])
 	driver.queue_free()
 	car.queue_free()
-	if is_instance_valid(obstacle):
+	if obstacle != null and is_instance_valid(obstacle):
 		obstacle.queue_free()
 	await physics_frame
 	return record
