@@ -13,10 +13,12 @@ const VehicleScene=preload("res://scenes/vehicle.tscn")
 const RivalDriver=preload("res://scripts/world/race_ai_driver.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const OwnershipModel=preload("res://scripts/vehicle/vehicle_ownership.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 var definition: Dictionary={}
 var world: Node2D
 var player: VehicleController2D
 var economy: OwnershipModel
+var world_id: String="morrow-coast"
 var _run_id:=""
 var network: RefCounted
 var state:="idle"
@@ -48,6 +50,7 @@ func _ready() -> void:
 	if not is_instance_valid(world) or not is_instance_valid(player):return
 	if not Definition.valid(definition,float(world.data.size[0]),float(world.data.size[1])):return
 	name=str(definition.id);race_title=str(definition.name)
+	world_id=str(world.data.get("editor_world_id","morrow-coast"))
 	start_radius_m=float(definition.get("start_radius",8))
 	var kind: String=str(definition.get("race_kind","circuit" if definition.mode=="circuit" else ("time_trial" if definition.get("enemy_starts",[]).is_empty() else "point_to_point")))
 	var type_label: String=str({"circuit":"Circuit","point_to_point":"Point to Point","time_trial":"Time Trial"}.get(kind,"Street Race"))
@@ -72,8 +75,11 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if is_instance_valid(player) and state in ["countdown","running"]:player.remove_from_group("race_participant")
 	_clear_rivals()
+func _lock_reason() -> String:
+	return EventRules.lock_reason(definition,economy,world_id)
+
 func can_stage() -> bool:
-	return available and state=="idle" and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
+	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:return false
 	_prepare_guidance()
@@ -184,15 +190,23 @@ func _reward_summary() -> String:
 		parts.append("%d DRIVER XP"%int(definition.reward_player_xp))
 	if int(definition.get("reward_car_xp",0))>0:
 		parts.append("%d CAR XP"%int(definition.reward_car_xp))
+	if int(definition.get("first_win_reward_cash",0))>0 or int(definition.get("first_win_reward_player_xp",0))>0 or int(definition.get("first_win_reward_car_xp",0))>0:
+		parts.append("FIRST WIN BONUS")
 	return " / ".join(parts) if not parts.is_empty() else "PRACTICE"
 
 func _award_finish() -> String:
-	if _reward_summary()=="PRACTICE":return "PRACTICE / NO REWARDS"
+	if _reward_summary()=="PRACTICE":
+		if is_instance_valid(economy):
+			economy.record_authored_race(_run_id,elapsed,definition,EventRules.event_key(world_id,str(definition.id)))
+		return "PRACTICE / NO REWARDS"
 	if not is_instance_valid(economy):return "REWARDS UNAVAILABLE"
-	var awarded: Dictionary=economy.record_authored_race(_run_id,elapsed,definition)
+	var awarded: Dictionary=economy.record_authored_race(_run_id,elapsed,definition,
+		EventRules.event_key(world_id,str(definition.id)))
 	if str(awarded.get("result",""))!="completed":
 		return "REWARDS NOT SAVED: "+str(awarded.get("result","unknown"))
-	return "REWARDS  "+_reward_summary()
+	return ("FIRST WIN  " if bool(awarded.get("first_win",false)) else "REWARDS  ")+
+		OwnershipModel.dollars(int(awarded.get("cash",0)))+
+		" / %d DRIVER XP / %d CAR XP"%[int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]
 
 func _finish_message() -> String:
 	if rivals.is_empty():
@@ -270,8 +284,9 @@ func _refresh() -> void:
 	if not is_instance_valid(status_strip):return
 	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length())
 	var message:=result
+	var restriction: String=_lock_reason()
 	match state:
-		"idle":message="%s / %s\n%s"%[race_title,race_type,"[ F ] START" if can_stage() else "SLOW TO 15 MPH / FACE ROUTE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else "ENTER START CIRCLE / FACE ROUTE"]
+		"idle":message="%s / %s\n%s"%[race_title,race_type,"LOCKED: "+restriction if not restriction.is_empty() else "[ F ] START" if can_stage() else "SLOW TO 15 MPH / FACE ROUTE" if not StartArea.can_stage_at_speed(player.linear_velocity.length()) else "ENTER START CIRCLE / FACE ROUTE"]
 		"countdown":message="%s\nSTART IN %d"%[race_title,maxi(1,ceili(countdown))]
 		"running":message="%s / %.2fs\nLAP %d/%d · NEXT %s · %d AI · Pause to quit"%[race_title,elapsed,lap,int(definition.get("laps",1)),"FINISH" if next_checkpoint==0 or (definition.mode=="sprint" and next_checkpoint==checkpoints.size()-1) else "CHECKPOINT %d"%next_checkpoint,rivals.size()]
 	status_strip.set_status(state,nearby,message)
