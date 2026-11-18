@@ -272,6 +272,8 @@ export function normalizeWorld(raw){
   for(const marker of result.markers){
     if(marker.type==='player_spawn')playerSpawns++;
     const info=marker.properties??{};
+    if(info.description!==undefined&&(typeof info.description!=='string'||info.description.length>500))
+      throw new TypeError('Invalid map marker description');
     for(const field of ['race_id','required_race']){
       if(info[field]!==undefined&&(
         typeof info[field]!=='string'||info[field].length>100||
