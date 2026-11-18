@@ -92,6 +92,14 @@ class ProductionWorldPublisher(unittest.TestCase):
         self.assertEqual(self.active(),before)
         self.assertEqual(set((self.root/"worlds"/"published").iterdir()),known_files)
 
+    def test_spawn_overlapping_building_rejected(self):
+        self.doc["props"][0]["x"]=160
+        self.doc["props"][0]["y"]=500
+        self._write()
+        with self.assertRaisesRegex(ValueError,"overlaps solid scenery"):
+            publish(self.source,self.root,self.backups)
+        self.assertFalse((self.root/"worlds"/"active-world.json").exists())
+
     def test_missing_spawn_or_road_rejected_without_writing_manifest(self):
         self.doc["markers"]=[]
         self._write()
