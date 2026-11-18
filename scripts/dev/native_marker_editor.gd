@@ -5,6 +5,7 @@ const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 var dialog: AcceptDialog
 var marker_id: String=""
 var name_input: LineEdit
+var description_input: LineEdit
 var type_input: OptionButton
 var enabled_input: CheckBox
 var radius_input: SpinBox
@@ -27,17 +28,26 @@ func build(e,panel: Node) -> void:
 	dialog.name="EditMarkerDialog"
 	dialog.title="Edit Game Marker"
 	dialog.ok_button_text="Cancel"
-	dialog.min_size=Vector2i(530,600)
+	dialog.min_size=Vector2i(540,650)
 	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	e.add_child(dialog)
+	var scroll:=ScrollContainer.new()
+	scroll.custom_minimum_size=Vector2(500,545)
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	dialog.add_child(scroll)
 	var form:=VBoxContainer.new()
-	form.custom_minimum_size=Vector2(490,535)
+	form.custom_minimum_size.x=485
 	form.add_theme_constant_override("separation",8)
-	dialog.add_child(form)
+	scroll.add_child(form)
 	_text_label(form,"MARKER NAME")
 	name_input=LineEdit.new()
 	name_input.max_length=120
 	form.add_child(name_input)
+	_text_label(form,"DESCRIPTION / HELP TEXT")
+	description_input=LineEdit.new()
+	description_input.max_length=500
+	description_input.placeholder_text="e.g. Downtown race hub, or a landmark description"
+	form.add_child(description_input)
 	type_input=e._options(form,"Marker type",Rules.TYPES)
 	enabled_input=CheckBox.new()
 	enabled_input.text="Enabled in gameplay"
@@ -91,6 +101,7 @@ func open_for(e,id: String) -> void:
 		return
 	marker_id=id
 	name_input.text=str(marker.get("name",""))
+	description_input.text=str(marker.get("properties",{}).get("description",""))
 	_select_value(type_input,str(marker.get("type","custom")))
 	var info: Dictionary=marker.get("properties",{})
 	enabled_input.button_pressed=bool(info.get("enabled",true))
@@ -110,6 +121,7 @@ func save(e) -> void:
 	if source.is_empty():return
 	var info: Dictionary=source.get("properties",{}).duplicate(true)
 	info["enabled"]=enabled_input.button_pressed
+	info["description"]=description_input.text.strip_edges()
 	info["radius_m"]=radius_input.value
 	info["traffic_weight"]=int(weight_input.value)
 	for pair in [[race_input,"race_id"],[required_input,"required_race"],[dealer_input,"dealer_id"]]:
