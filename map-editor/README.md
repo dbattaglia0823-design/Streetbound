@@ -219,7 +219,10 @@ separate from both **Save to Game (Ctrl+S)** and **Test Drive (F6)**.
    dealerships, waypoints, fast travel, actual vehicle physics and **persistent**
    career rewards. Custom Test Drive still runs in an isolated save sandbox.
    Default Morrow Coast races and fixed facilities are not spawned off-map.
-5. Click **Restore Morrow Coast...** to switch PLAY back without erasing the
+5. Click **Open Published Source...** to reimport the editable, checked-in
+   source into the map selector on another development machine. This does not
+   overwrite a different local draft with the same filename.
+6. Click **Restore Morrow Coast...** to switch PLAY back without erasing the
    published archives or your saved custom map.
 
 The publish command requires Python 3 (Windows: Python launcher `py -3`).
