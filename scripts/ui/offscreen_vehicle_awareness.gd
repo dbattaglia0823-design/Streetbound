@@ -4,9 +4,11 @@ extends Control
 ## camera canvas transform, so zoom, follow rotation and split views work.
 ## This is an informational HUD only: it never modifies vehicle movement.
 const PPM := 20.0
-const MAX_RANGE_M := 260.0
+const MAX_RANGE_M := 91.44  # 300 feet, the maximum warning distance
 const MIN_RANGE_M := 8.0
 const MIN_CLOSING_MPS := 1.25
+const MPS_TO_MPH := 2.2369362920544
+const MIN_PLAYER_SPEED_MPH := 40.0
 const FORWARD_DOT := 0.24
 const MAX_MARKERS := 3
 const REFRESH_SECONDS := 0.10
@@ -34,9 +36,16 @@ func _ready() -> void:
 	set_process(true)
 
 
+static func player_is_fast_enough(velocity_mps: Vector2) -> bool:
+	# The vehicle physics use meters/second, while the HUD shows mph.
+	return velocity_mps.length() * MPS_TO_MPH > MIN_PLAYER_SPEED_MPH
+
+
 static func approach_info(player_position: Vector2, player_velocity: Vector2,
 		forward: Vector2, other_position: Vector2,
 		other_velocity: Vector2) -> Dictionary:
+	if not player_is_fast_enough(player_velocity):
+		return {}
 	var delta := other_position - player_position
 	var distance_m := delta.length() / PPM
 	if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
@@ -88,7 +97,10 @@ static func distance_caption(distance_m: float, _rival: bool = false) -> String:
 
 
 func _process(dt: float) -> void:
-	if get_tree().paused:
+	# Stop warnings immediately when slowing to 40 mph or below instead of
+	# leaving a stale chip visible until the next traffic discovery scan.
+	if get_tree().paused or not is_instance_valid(player) or \
+			not player_is_fast_enough(player.linear_velocity):
 		if not markers.is_empty():
 			markers.clear()
 			queue_redraw()
@@ -127,7 +139,8 @@ func _traffic_velocity(node: Node2D) -> Vector2:
 func refresh_markers() -> void:
 	markers.clear()
 	if not is_instance_valid(player) or not is_instance_valid(camera) or \
-			get_tree().paused or not player.is_inside_tree():
+			get_tree().paused or not player.is_inside_tree() or \
+			not player_is_fast_enough(player.linear_velocity):
 		queue_redraw()
 		return
 	var view: Viewport = camera.get_viewport()
@@ -194,7 +207,8 @@ func _update_live_markers() -> void:
 	if markers.is_empty():
 		return
 	if not is_instance_valid(player) or not is_instance_valid(camera) or \
-			not player.is_inside_tree():
+			not player.is_inside_tree() or \
+			not player_is_fast_enough(player.linear_velocity):
 		markers.clear()
 		queue_redraw()
 		return
