@@ -2,12 +2,19 @@ extends RefCounted
 const Library=preload("res://scripts/dev/native_map_library.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const Terrain=preload("res://scripts/dev/custom_map_terrain.gd")
+const WorldPublication=preload("res://scripts/world/world_publication.gd")
+const PUBLISHER="res://tools/publish_custom_world.py"
 var selector: OptionButton
 var dialog: ConfirmationDialog
 var map_name: LineEdit
 var width: SpinBox
 var height: SpinBox
 var base: OptionButton
+var publish_button: Button
+var restore_button: Button
+var publication_status: Label
+var publish_dialog: ConfirmationDialog
+var restore_dialog: ConfirmationDialog
 var custom:=false
 var current_file:=""
 var original_session
@@ -32,6 +39,102 @@ func build(e,parent: Node) -> void:
 	height=e._number(fields,"Height m",600,24000,1800);height.step=100;height.value=1800
 	base=e._options(fields,"Base terrain",["grass","forest","beach","desert","ocean"])
 	dialog.confirmed.connect(func():create_map(e))
+## Publishing is separate from Save (draft source) and F6 (sandbox test).
+## This workflow writes a real res:// release world and a switchable manifest.
+func build_publish_ui(e,parent: Node) -> void:
+	parent.add_child(HSeparator.new())
+	var heading:=Label.new()
+	heading.text="GAME WORLD / PUBLISH"
+	parent.add_child(heading)
+	publication_status=Label.new()
+	publication_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(publication_status)
+	publish_button=e._btn("Build Game World...",parent,func():_show_publish(e))
+	publish_button.tooltip_text="Package the selected saved custom map as the main playable world. Test Drive remains a sandbox."
+	restore_button=e._btn("Restore Morrow Coast...",parent,func():_show_restore(e))
+	restore_button.tooltip_text="Set Morrow Coast as the active game without deleting your published map or editing source."
+	publish_dialog=ConfirmationDialog.new()
+	publish_dialog.title="Build selected map as main game world"
+	publish_dialog.ok_button_text="Validate & Publish"
+	publish_dialog.min_size=Vector2i(550,275)
+	publish_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	publish_dialog.confirmed.connect(func():_publish(e,false))
+	e.add_child(publish_dialog)
+	restore_dialog=ConfirmationDialog.new()
+	restore_dialog.title="Restore original Morrow Coast game world?"
+	restore_dialog.dialog_text="Set Morrow Coast as the active PLAY world. Your published map, source copy, and backups remain intact."
+	restore_dialog.ok_button_text="Restore Morrow Coast"
+	restore_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	restore_dialog.confirmed.connect(func():_publish(e,true))
+	e.add_child(restore_dialog)
+	_refresh_publication_ui()
+
+func _refresh_publication_ui() -> void:
+	if not is_instance_valid(publication_status):return
+	var active: Dictionary=WorldPublication.current()
+	publication_status.text="PLAY loads: "+str(active.name)+("\nCustom map ready to publish." if custom else "\nSelect a saved custom map to publish.")
+	publish_button.disabled=not custom
+	restore_button.disabled=not bool(active.get("published",false))
+
+func _show_publish(e) -> void:
+	if not custom:
+		e._notice("Select a custom map before publishing.")
+		return
+	if not _can_publish(e):return
+	publish_dialog.dialog_text="Publish '%s' as the real game world?\n\nThis will package saved roads, junctions, terrain, art references, races, markers, and dealerships. The compiler requires one drivable road and a Player Spawn on asphalt. It will back up the previous game selection. Your Morrow Coast world and career save remain untouched.\n\nAfter publishing, return to the title screen and select PLAY."%str(e.authoring.doc.get("name","Custom Map"))
+	publish_dialog.popup_centered()
+
+func _show_restore(e) -> void:
+	if e._editing_locked() or not e.draft_points.is_empty() or not e.pending_drag.is_empty():
+		e._notice("Finish or cancel your current edit before changing the game world.")
+		return
+	restore_dialog.popup_centered()
+
+func _can_publish(e) -> bool:
+	if not e.active or not custom or not e.source_ready:
+		e._notice("Open a saved custom map to publish it.")
+		return false
+	if e._editing_locked() or not e.draft_points.is_empty() or not e.pending_drag.is_empty() or \
+			(is_instance_valid(e.bridge) and e.bridge.phase!=""):
+		e._notice("Finish or cancel the current edit and save before publishing.")
+		return false
+	if not e.authoring._valid_source(e.authoring.doc):
+		e._notice("Map has invalid race dependencies, markers, or geometry. Fix them before publishing.")
+		return false
+	return true
+
+func _publish(e,restore_default: bool) -> void:
+	if not restore_default:
+		if not _can_publish(e) or not save_current(e):return
+	if not FileAccess.file_exists(PUBLISHER):
+		e._notice("Missing production publisher script. No game files were changed.")
+		return
+	var project: String=ProjectSettings.globalize_path("res://")
+	var backups: String=ProjectSettings.globalize_path(Library.folder().path_join("publish-backups"))
+	var args:=PackedStringArray([ProjectSettings.globalize_path(PUBLISHER),
+		"--project",project,"--backup-dir",backups])
+	if restore_default:
+		args.append("--restore")
+	else:
+		args.append_array(PackedStringArray([
+			"--source",ProjectSettings.globalize_path(Library.folder().path_join(current_file))]))
+	var program: String="py" if OS.get_name()=="Windows" else "python3"
+	if OS.get_name()=="Windows":args.insert(0,"-3")
+	var output: Array=[]
+	var result: int=OS.execute(program,args,output,true)
+	_refresh_publication_ui()
+	if result!=0:
+		e._notice("Game world was NOT changed: "+str(output).left(280))
+		return
+	var detail: Variant=JSON.parse_string(str(output).strip_edges())
+	if restore_default:
+		e._notice("Morrow Coast is the active game world. Published maps and backups were preserved.")
+	else:
+		var summary: Dictionary=detail if detail is Dictionary else {}
+		e._notice("Published %s to PLAY: %d roads, %d junctions, %d races. Return to the title menu to play it."%[
+			str(summary.get("name",e.authoring.doc.name)),int(summary.get("roads",0)),
+			int(summary.get("junctions",0)),int(summary.get("races",0))])
+
 func reload_list() -> void:
 	selector.clear();selector.add_item("Morrow Coast");selector.set_item_metadata(0,"")
 	for map in Library.list_maps():
@@ -65,6 +168,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	if not custom:
 		original_session=e.authoring;original_world=e.world.data;original_world_node=e.world
 	custom=true;current_file=file
+	_refresh_publication_ui()
 	e._apply_landmark_layer()
 	e.authoring=Session.new();e.authoring.doc=doc.duplicate(true);e.authoring.initial=doc.duplicate(true)
 	e.authoring.baseline_hash=e.authoring._fingerprint(doc);e.authoring.draft_baseline_hash=e.authoring.baseline_hash;e.authoring.edit_revision+=1
@@ -122,6 +226,7 @@ func update_view(e) -> void:
 func restore(e) -> void:
 	if not custom:return
 	e.world=original_world_node;e.gizmos.world=e.world;e.authoring=original_session;custom=false;current_file=""
+	_refresh_publication_ui()
 	e._apply_landmark_layer()
 	if is_instance_valid(custom_world):custom_world.free();custom_world=null
 	e.source_id="";e.source_anchor=-1;e.synced_preview_revision=-1;e._entity_revision=-1
