@@ -92,7 +92,8 @@ func _open_published_source(e) -> void:
 		e._notice("Published source snapshot could not be opened. The current map was kept.")
 		return
 	var requested: String=str(current.id)
-	var existing: Dictionary=Library.load_map(requested)
+	var existing: Dictionary=Library.load_map(requested) if FileAccess.file_exists(
+		Library.folder().path_join(requested)) else {}
 	if not existing.is_empty() and probe._fingerprint(existing)!=probe._fingerprint(parsed):
 		# Never overwrite the player's newer local draft while importing an
 		# older published version from the project source snapshot.
