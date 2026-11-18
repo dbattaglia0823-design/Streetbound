@@ -112,7 +112,7 @@ func _show_publish(e) -> void:
 		e._notice("Select a custom map before publishing.")
 		return
 	if not _can_publish(e):return
-	publish_dialog.dialog_text="Publish '%s' as the real game world?\n\nThis will package saved roads, junctions, terrain, art references, races, markers, and dealerships. The compiler requires one drivable road and a Player Spawn on asphalt. It will back up the previous game selection. Your Morrow Coast world and career save remain untouched.\n\nAfter publishing, return to the title screen and select PLAY."%str(e.authoring.doc.get("name","Custom Map"))
+	publish_dialog.dialog_text="Publish '%s' as the real game world?\n\nThis will package saved roads, junctions, terrain, art references, races, markers, and dealerships. The compiler requires one drivable road and a Player Spawn clear of solid scenery. It will back up the previous game selection. Your Morrow Coast world and career save remain untouched.\n\nAfter publishing, return to the title screen and select PLAY."%str(e.authoring.doc.get("name","Custom Map"))
 	publish_dialog.popup_centered()
 
 func _show_restore(e) -> void:
