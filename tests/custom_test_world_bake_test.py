@@ -67,6 +67,14 @@ class CustomTestWorldBaker(unittest.TestCase):
         self.assertFalse(data["props"])
         self.assertEqual(data["spawn"]["position"],[600.0,500.0])
         self.assertGreater(len(data["chunks"]),0)
+        # Every edge segment must be assigned to a resident chunk in its
+        # immediate area; a single midpoint wall would lose collision when
+        # the player drives toward distant corners.
+        self.assertGreater(len(data["walls"]),4)
+        self.assertTrue(all(0<=i<len(data["walls"]) for cell in data["chunks"].values()
+                            for i in cell["walls"]))
+        assigned={i for cell in data["chunks"].values() for i in cell["walls"]}
+        self.assertEqual(len(assigned),len(data["walls"]))
 
     def test_isolated_atomic_temp_archive(self):
         doc=source()
