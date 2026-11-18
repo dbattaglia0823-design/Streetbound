@@ -29,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Benchmark coverage (smoke = three cases, full = ten cases)'
+        description: 'Benchmark coverage (full = all ten real-physics cases, smoke = three quick cases)'
         type: choice
         required: true
         default: full
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 17
     env:
-      BENCH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'smoke' }}
+      BENCH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'full' }}
     steps:
       - uses: actions/checkout@v4
 
