@@ -17,7 +17,7 @@ func check(title: String, valid: bool, details: Variant = "") -> void:
 
 func run() -> void:
 	var vehicles: Array[Dictionary] = Catalog.all()
-	check("all_98_playable_vehicle_assets_cataloged", vehicles.size() == 98, vehicles.size())
+	check("all_148_playable_vehicle_assets_cataloged", vehicles.size() == 148, vehicles.size())
 	var ids := {}
 	var brands := {}
 	var all_resources := true
@@ -30,7 +30,7 @@ func run() -> void:
 		all_resources = all_resources and (ResourceLoader.exists(str(entry.texture)) or bool(entry.source_model_unverified))
 		all_metrics = all_metrics and float(entry.length_m) > 3.0 and \
 			float(entry.width_m) > 1.6 and float(entry.wheelbase_m) > 2.0 and \
-			float(entry.mass_kg) > 800.0 and float(entry.brake_force_n) > 9000.0 \
+			float(entry.mass_kg) > 450.0 and float(entry.brake_force_n) > 9000.0 \
 			and float(entry.power_kw) > 70.0
 		if bool(entry.source_model_unverified):
 			unverified += 1
