@@ -1,0 +1,8 @@
+{
+  "format": "streetbound.active-world",
+  "version": 1,
+  "mode": "morrow",
+  "id": "morrow-coast",
+  "name": "Morrow Coast",
+  "archive": "res://worlds/morrow-coast.world.json"
+}

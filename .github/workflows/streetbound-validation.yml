@@ -415,6 +415,16 @@ jobs:
             echo "Dashboard rendered incorrectly or lost telemetry in Godot 4.6.3" >&2
             exit 1
           fi
+      - name: Verify publishing a saved map into normal game world (Godot 4.6.3)
+        run: |
+          set -euo pipefail
+          python3 -B tests/publish_custom_world_test.py
+          cp worlds/active-world.json /tmp/streetbound-original-game-world.json
+          trap 'cp /tmp/streetbound-original-game-world.json worlds/active-world.json' EXIT
+          python3 -B tests/published_world_runtime_fixture.py
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/published_world_integration_test.gd 2>&1 | tee /tmp/streetbound-published-world.log
+          grep -q 'PUBLISHED WORLD GAMEPLAY: PASS' /tmp/streetbound-published-world.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-published-world.log
   physics-and-world:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

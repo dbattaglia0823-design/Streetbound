@@ -197,6 +197,53 @@ or playable Morrow Coast archive is overwritten; the playtest uses a separate
 in-memory economy, so it does not update career balances, XP or ownership.
 Use **Return to Map Editor** or **F6** to return to the same authored map
 and camera view. **Esc** now opens the full normal pause/settings menu.
+## Publish a custom map as the real game world
+
+The **Game World / Publish** section in the standalone Map Builder is
+separate from both **Save to Game (Ctrl+S)** and **Test Drive (F6)**.
+
+1. Create or select your custom map in the saved-map selector. Build roads,
+   scenery, events and interactions. Place **exactly one Player Spawn marker on a
+   drivable road**. Test it using F6 first.
+2. Click **Build Game World...** in the tool sidebar and confirm. The editor
+   saves the current map, validates its geometry and event/marker links, checks
+   that the player spawn sits on the road, verifies referenced in-project
+   artwork, and runs the production junction/streaming-world compiler.
+3. The publisher writes a versioned, **immutable compiled archive** and an
+   editable source snapshot into `worlds/published/`. Only after those files
+   exist does it switch `worlds/active-world.json` to the newly built map.
+   Previous selections are backed up under
+   `user://streetbound-maps/publish-backups/`.
+4. Return to the title screen and select **PLAY**. The published map is now the
+   normal game world with live traffic, your race progression, garages,
+   dealerships, waypoints, fast travel, actual vehicle physics and **persistent**
+   career rewards. Custom Test Drive still runs in an isolated save sandbox.
+   Default Morrow Coast races and fixed facilities are not spawned off-map.
+5. Click **Open Published Source...** to reimport the editable, checked-in
+   source into the map selector on another development machine. This does not
+   overwrite a different local draft with the same filename.
+6. Click **Restore Morrow Coast...** to switch PLAY back without erasing the
+   published archives or your saved custom map.
+
+The publish command requires Python 3 (Windows: Python launcher `py -3`).
+It writes into the **local development project**, not into an installed game's
+read-only executable. **Commit `worlds/active-world.json` and the referenced
+`worlds/published/*.world.json` files to Git before exporting/releasing** so the
+published world is included in the shipped build. Referenced custom scenery
+artwork must already live under `assets/` and must also be committed. Map
+source snapshots are packaged alongside the compiled world, but player saves,
+temporary Test Drive archives and Morrow Coast's original world data are never
+overwritten. Failure to validate/build leaves the active game-world selection
+unchanged; the game itself falls back to the original world if an active
+published archive is unreadable or fails its runtime audit.
+
+For scripted builds, the same operation is available from the repository root:
+
+```sh
+python tools/publish_custom_world.py --project . --source /path/to/saved-map.world.json --backup-dir /path/to/backups
+python tools/publish_custom_world.py --project . --restore --backup-dir /path/to/backups
+```
+
 The standalone editor reloads the rebuilt world automatically and retains the
 camera position. In the free-roam editor, use **Reload World** after saving.
 Traffic lane guides regenerate in the background when roads move, bend, change

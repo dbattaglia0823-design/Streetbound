@@ -27,13 +27,13 @@ func _ready() -> void:
 		push_error("Dealership locations unavailable")
 		return
 	var authored := DealerConfig.document()
-	if bool(world.data.get("editor_custom_test_drive",false)):
+	if bool(world.data.get("editor_custom_test_drive",false)) or bool(world.data.get("editor_published_world",false)):
 		# Do not spawn Morrow Coast's default dealers off the edges of a
 		# custom map; use only dealerships explicitly placed in this map.
 		authored={"dealerships":world.data.get("editor_dealerships",[])}
 	elif not authored.has("dealerships") and world.data.has("editor_dealerships"):
 		authored={"dealerships":world.data.editor_dealerships}
-	var definitions: Array=authored.get("dealerships",[]) if bool(world.data.get("editor_custom_test_drive",false)) else DealerConfig.combined(authored)
+	var definitions: Array=authored.get("dealerships",[]) if (bool(world.data.get("editor_custom_test_drive",false)) or bool(world.data.get("editor_published_world",false))) else DealerConfig.combined(authored)
 	for definition in definitions:
 		var spec: Dictionary = definition
 		var site := _find_clear_site(spec)

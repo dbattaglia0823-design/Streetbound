@@ -2,6 +2,7 @@ extends Node2D
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
+const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const TrafficFlowScript = preload("res://scripts/world/traffic_flow.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
@@ -47,6 +48,7 @@ var vehicle: VehicleController2D
 @export var proving_ground := false
 var ground: Node2D
 var custom_test_drive:=false
+var published_game_world:=false
 var test_drive_file: String=""
 
 func _ready() -> void:
@@ -58,7 +60,15 @@ func _ready() -> void:
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
 	if custom_test_drive:
 		ground.archive_override_path=str(get_tree().get_meta("streetbound_test_drive_archive"))
+	elif not proving_ground:
+		var active_world: Dictionary=WorldPublication.current()
+		if bool(active_world.get("published",false)):
+			ground.archive_override_path=str(active_world.archive)
 	add_child(ground)
+	# An invalid/missing compiled package gracefully loads the original
+	# Morrow Coast data without changing a player's progress or map assets.
+	published_game_world=not proving_ground and bool(ground.data.get("editor_published_world",false))
+	var custom_game_world: bool=custom_test_drive or published_game_world
 	if not proving_ground and not ground.initialization_complete:
 		# Do not run a broken/partial Test Drive as Morrow Coast.
 		if custom_test_drive:
@@ -93,13 +103,13 @@ func _ready() -> void:
 		vehicle.z_index = 8
 		# Morrow-only facilities are not spawned off the edges of a custom map.
 		# The vehicle menu remains usable anywhere in Test Drive.
-		if not custom_test_drive:
+		if not custom_game_world:
 			player_garage = Node2D.new()
 			player_garage.set_script(PlayerGarageScript)
 			player_garage.world = ground
 			player_garage.player = vehicle
 			ground.add_child(player_garage)
-		if not custom_test_drive or not ground.data.get("editor_dealerships",[]).is_empty():
+		if not custom_game_world or not ground.data.get("editor_dealerships",[]).is_empty():
 			dealership_world = Node2D.new()
 			dealership_world.set_script(DealerWorldScript)
 			dealership_world.world = ground
@@ -108,7 +118,7 @@ func _ready() -> void:
 			ground.add_child(dealership_world)
 		# Named Morrow Coast events are only valid on their original circuit
 		# and drag-strip locations; custom maps load their own placed races.
-		if not custom_test_drive:
+		if not custom_game_world:
 			drag_race = Node2D.new()
 			drag_race.set_script(DragRaceScript)
 			drag_race.world=ground;drag_race.player=vehicle;drag_race.economy=vehicle_ownership
@@ -149,7 +159,7 @@ func _ready() -> void:
 	# On Morrow Coast, the spawn is a parking lot roughly 42m from its
 	# garage building and 46m from the nearest houses. Show that neighborhood
 	# before accelerating, then return to normal driver-controlled zoom.
-	camera.startup_neighborhood_view = not proving_ground and not custom_test_drive
+	camera.startup_neighborhood_view = not proving_ground and not custom_game_world
 	add_child(camera)
 	camera.add_to_group("player_camera")
 	var speed_layer := CanvasLayer.new()
@@ -173,8 +183,9 @@ func _ready() -> void:
 	hud.camera = camera
 	hud.race = drag_race
 	if not proving_ground:
-		hud.environment_title = ("TEST DRIVE    /    "+str(ground.data.get("name","CUSTOM MAP")).to_upper()) if custom_test_drive else "MORROW COAST    /    OPEN ROAD"
-		get_window().title = "Streetbound | Test Drive" if custom_test_drive else "Streetbound | Morrow Coast"
+		var world_name: String=str(ground.data.get("name","Morrow Coast"))
+		hud.environment_title=("TEST DRIVE    /    "+world_name.to_upper()) if custom_test_drive else world_name.to_upper()+"    /    OPEN ROAD"
+		get_window().title="Streetbound | Test Drive" if custom_test_drive else "Streetbound | "+world_name
 	add_child(hud)
 	if not proving_ground:
 		offscreen_vehicle_awareness = Control.new()
@@ -286,7 +297,7 @@ func _ready() -> void:
 	# This is a developer-only transition workspace. It renders the EXISTING
 	# Morrow Coast scene and visualizes the traffic network already built by
 	# the game. Release players cannot open it, and it never writes map files.
-	if not proving_ground and not custom_test_drive and (OS.has_feature("debug") or OS.has_feature("editor")):
+	if not proving_ground and not custom_game_world and (OS.has_feature("debug") or OS.has_feature("editor")):
 		native_world_editor = CanvasLayer.new()
 		native_world_editor.set_script(NativeWorldEditorScript)
 		native_world_editor.world = ground

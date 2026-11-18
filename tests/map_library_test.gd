@@ -13,10 +13,19 @@ func run() -> void:
 	var scene=load("res://scenes/world_editor.tscn").instantiate();root.add_child(scene)
 	for i in 6:await process_frame
 	var e=scene.native_world_editor;var original=e.authoring;var switcher=e.map_switcher
+	check("publish_controls_exist_and_morrow_default_is_safe",
+		is_instance_valid(switcher.publish_button) and
+		switcher.publish_button.disabled and switcher.restore_button.disabled and
+		is_instance_valid(switcher.publication_status))
 	switcher.show_create(e)
 	check("new_map_opens_size_dialog",switcher.dialog.visible and switcher.width.min_value==600 and switcher.width.max_value==24000)
 	switcher.map_name.text="Lake district";switcher.width.value=1200;switcher.height.value=900;switcher.create_map(e);switcher.dialog.hide()
 	check("new_map_is_blank_and_correctly_sized",switcher.custom and e.authoring.doc.world.width==1200 and e.authoring.doc.world.height==900 and e.authoring.doc.roads.is_empty() and e.authoring.doc.regions.is_empty() and e.world.data.props.is_empty())
+	check("custom_map_publisher_unlocked_in_builder",not switcher.publish_button.disabled)
+	switcher._show_publish(e)
+	check("publishing_requires_explicit_confirmation",switcher.publish_dialog.visible and
+		switcher.publish_dialog.dialog_text.contains("Player Spawn"))
+	switcher.publish_dialog.hide()
 	var first: String=switcher.current_file
 	var lake_points: Array[Vector2]=[Vector2.ZERO,Vector2(1200,0),Vector2(1200,900),Vector2(0,900)]
 	var island_points: Array[Vector2]=[Vector2(450,300),Vector2(650,300),Vector2(650,500),Vector2(450,500)]
@@ -42,6 +51,7 @@ func run() -> void:
 	e._undo();check("terrain_deletion_supports_undo",e.authoring.doc.regions.size()==2)
 	switcher.select(e,0)
 	check("morrow_coast_returns_without_modification",not switcher.custom and e.authoring==original and not e.world.data.roads.is_empty() and FileAccess.get_sha256("res://worlds/morrow-coast.world.json")==map_hash)
+	check("publish_disables_when_no_custom_map_is_selected",switcher.publish_button.disabled)
 	for i in 5:await process_frame
 	check("new_header_does_not_overlap_toolbar",e.root_ui.get_node("BuilderHeader").get_rect().end.y<=e.root_ui.get_node("BuilderTools").position.y)
 	e._discard_draft();scene.queue_free();await process_frame;await process_frame
