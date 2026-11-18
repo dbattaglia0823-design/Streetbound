@@ -29,6 +29,9 @@ var world_id: String="morrow-coast"
 
 func _ready() -> void:
 	name="AuthoredMapMarkers"
+	# The location and fast-travel panels pause driving. Keep this
+	# controller listening for Esc so the panels can be dismissed.
+	process_mode=Node.PROCESS_MODE_ALWAYS
 	world_id=str(world.data.get("editor_world_id","morrow-coast"))
 	for entry in world.data.get("editor_markers",[]):
 		if not entry is Dictionary:continue
