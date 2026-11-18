@@ -23,3 +23,38 @@ test('Invalid race geometry and settings are rejected',()=>{
   }
   assert.throws(()=>normalizeWorld({...createWorld(),races:[race,race]}));
 });
+
+test('Career categories, unlock rules and first-win rewards survive source serialization',()=>{
+  const source={...createWorld(),races:[{...configured,category:'championship',difficulty:'elite',
+    required_player_level:25,required_car_level:12,repeatable:false,
+    prerequisite_races:[],required_vehicle_ids:['audi-rs3'],
+    first_win_reward_cash:125000,first_win_reward_player_xp:7000,first_win_reward_car_xp:2000}]};
+  const parsed=parseWorld(serializeWorld(source));
+  assert.deepEqual(parsed.races[0],source.races[0]);
+});
+test('Career rejects missing, cyclic, and self prerequisites',()=>{
+  const a={...race,id:'race-a',prerequisite_races:['race-b']};
+  const b={...race,id:'race-b',prerequisite_races:['race-a']};
+  assert.throws(()=>normalizeWorld({...createWorld(),races:[a,b]}),/cyclic/i);
+  assert.throws(()=>normalizeWorld({...createWorld(),races:[a]}),/missing/i);
+  assert.throws(()=>normalizeWorld({...createWorld(),races:[{...a,prerequisite_races:['race-a']}]}));
+});
+test('Mission, travel and dealership marker links round-trip; missing links are rejected',()=>{
+  const doc={...createWorld(),races:[race],dealerships:[{id:'dealer-1',name:'Downtown Motors'}],
+    markers:[{id:'marker-0',name:'Start',type:'player_spawn',x:100,y:100,rotation:0,properties:{}},
+      {id:'marker-1',name:'Mission Start',type:'mission',x:120,y:120,rotation:0,
+        properties:{race_id:'race-0',enabled:true,radius_m:12}},
+      {id:'marker-2',name:'Fast travel',type:'fast_travel',x:200,y:200,rotation:0,
+        properties:{required_race:'race-0'}},
+      {id:'marker-3',name:'Dealer',type:'dealership',x:300,y:300,rotation:0,
+        properties:{dealer_id:'dealer-1'}},
+      {id:'marker-4',name:'Traffic',type:'traffic_spawn',x:400,y:400,rotation:0,
+        properties:{traffic_weight:6}}]};
+  assert.deepEqual(parseWorld(serializeWorld(doc)).markers,doc.markers);
+  const invalid=structuredClone(doc);
+  invalid.markers[1].properties.race_id='race-nothing';
+  assert.throws(()=>normalizeWorld(invalid),/unknown race/i);
+  invalid.markers[1].properties.race_id='race-0';
+  invalid.markers[3].properties.dealer_id='dealer-nothing';
+  assert.throws(()=>normalizeWorld(invalid),/unknown dealership/i);
+});
