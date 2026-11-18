@@ -132,7 +132,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	handbrake = clampf(controls.w, 0.0, 1.0)
 	var steer_input := clampf(controls.z, -1.0, 1.0)
 	# Brake first, then require a deliberate hold at rest before engaging reverse.
-	if brake > 0.1 and throttle < 0.1 and absf(longitudinal_speed) < 0.8:
+	# Brake-only reverse is intentional, but holding the handbrake must
+	# never turn a parked car into a reversing car by itself.
+	if brake > 0.1 and throttle < 0.1 and handbrake < 0.1 and \
+			absf(longitudinal_speed) < 0.8:
 		reverse_hold += dt
 	else:
 		reverse_hold = 0.0
@@ -142,6 +145,13 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		reversing = false
 	var drive_input := brake if reversing else throttle
 	var stopping_input := throttle if reversing else brake
+	# Throttle + service brake + handbrake is not a valid rolling burnout:
+	# the service brake wins while the handbrake is also applied. This avoids
+	# opposing full engine torque against two brakes and creating fake motion.
+	# Gas + handbrake alone still supports controlled powered slides.
+	if handbrake > 0.1 and brake > 0.1:
+		drive_input = 0.0
+		stopping_input = brake
 	var speed := linear_velocity.length()
 	# Preserve tire slip after a moving rear-wheel lock. This is contact recovery,
 	# not a launch cooldown: lifting and higher surface grip help it settle.
@@ -291,8 +301,13 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		front_limit *= sqrt(maxf(0.35, 1.0 - drive_fraction * drive_fraction * 0.55))
 	if config.drivetrain != VehicleConfig.Drivetrain.FWD:
 		rear_limit *= sqrt(maxf(0.4, 1.0 - drive_fraction * drive_fraction * 0.5))
-	var front_force := clampf(-config.cornering_stiffness * front_slip, -front_limit, front_limit)
-	var rear_force := clampf(-config.cornering_stiffness * config.rear_cornering_stiffness_ratio * rear_slip, -rear_limit, rear_limit)
+	# A stationary wheel can turn in place but cannot create lateral tyre
+	# force or yaw without the body rolling. The old low-speed slip denominator
+	# produced a nonzero lateral impulse solely from steering at zero speed.
+	# Fade the bicycle tyre forces in only after real vehicle motion begins.
+	var rolling_contact := smoothstep(0.05, 2.0, speed)
+	var front_force := clampf(-config.cornering_stiffness * front_slip, -front_limit, front_limit) * rolling_contact
+	var rear_force := clampf(-config.cornering_stiffness * config.rear_cornering_stiffness_ratio * rear_slip, -rear_limit, rear_limit) * rolling_contact
 	var dynamic_blend := smoothstep(2.0, 7.0, absf(longitudinal_speed))
 	var inertia := mass * config.wheelbase_m * config.wheelbase_m * 0.3
 	var dynamic_yaw := yaw_rate + (front_force * front_arm - rear_force * rear_arm) / inertia * dt
@@ -317,6 +332,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		var desired_yaw := clampf(kinematic_yaw, -arcade_yaw_limit, arcade_yaw_limit)
 		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-12.0 * arcade * dt))
 	yaw_rate = clampf(yaw_rate, -3.0, 3.0)
+	# Static tyre friction arrests residual rotational inertia at rest. A
+	# handbrake and steering input are not a motor that can rotate the body.
+	if speed < 0.35 and absf(new_long) < 0.35:
+		yaw_rate = 0.0
 	var new_lateral := lateral_speed + (front_force + rear_force) / mass * dt
 	new_lateral = lerpf(lateral_speed * exp(-12.0 * grip * lerpf(1.0, 0.20, breakaway) * dt), new_lateral, maxf(dynamic_blend, breakaway))
 	if arcade > 0.0:
