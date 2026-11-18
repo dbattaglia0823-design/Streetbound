@@ -4,6 +4,7 @@ const Model = preload("res://scripts/world/coast_map_model.gd")
 const MapView = preload("res://scripts/world/coast_map_view.gd")
 const Waypoints=preload("res://scripts/world/player_waypoints.gd")
 const Activities=preload("res://scripts/world/map_activity_overlay.gd")
+const EnemyMarkers=preload("res://scripts/world/map_enemy_overlay.gd")
 const CircularMask=preload("res://assets/ui/minimap_circle_mask.gdshader")
 var world: Node2D
 var vehicle: VehicleController2D
@@ -92,6 +93,16 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	activities.map_view=node;activities.waypoints=waypoints;activities.races=races
 	activities.z_index=17
 	node.add_child(activities);node.activity_overlay=activities
+	if miniature:
+		# Draw hostile dots over the roads/routes, but below the player cursor.
+		# This is composited inside the same circular minimap mask.
+		var enemies := Node2D.new()
+		enemies.name = "MinimapEnemies"
+		enemies.set_script(EnemyMarkers)
+		enemies.set("map_view", node)
+		enemies.set("races", races)
+		enemies.z_index = 19
+		node.add_child(enemies)
 	return node
 
 func _ready() -> void:

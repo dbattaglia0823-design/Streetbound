@@ -23,6 +23,69 @@ func _run() -> void:
 	var atlas: Control=hud.full_view
 	var image: TextureRect=hud.mini_image
 	var offscreen: SubViewport=hud.mini_render
+	var enemy_layer: Node2D=mini.get_node_or_null("MinimapEnemies")
+	check("enemy_dots_are_in_the_live_masked_minimap",
+		enemy_layer!=null and enemy_layer.z_index>mini.race_overlay.z_index and
+		enemy_layer.z_index<mini.cursor.z_index and
+		atlas.get_node_or_null("MinimapEnemies")==null)
+	if enemy_layer!=null:
+		var EnemyMarkers=load("res://scripts/world/map_enemy_overlay.gd")
+		check("enemy_dots_are_small_red_circles",
+			enemy_layer.get_script()==EnemyMarkers and
+			is_equal_approx(EnemyMarkers.DOT_RADIUS,3.0) and
+			EnemyMarkers.DOT_COLOR.r>0.8 and
+			EnemyMarkers.DOT_COLOR.g<0.4)
+		check("no_enemy_dots_outside_races_or_roaming_encounters",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).is_empty())
+		# Roaming enemies use one group, without requiring a race or map changes.
+		var roaming:=Node2D.new()
+		roaming.name="RoamingEnemyMapFixture"
+		roaming.add_to_group("minimap_enemy")
+		scene.add_child(roaming)
+		roaming.global_position=scene.vehicle.global_position+Vector2(200,0)
+		hud._process(0.0)
+		mini._process(0.0)
+		var roaming_dots: PackedVector2Array=enemy_layer.call("visible_enemy_positions")
+		check("future_roaming_enemy_group_appears_without_a_race",
+			roaming_dots.size()==1)
+		if roaming_dots.size()==1:
+			var predicted: Vector2=EnemyMarkers.map_position(roaming.global_position,
+				mini.center_m,mini.pixels_per_m,mini.custom_minimum_size)
+			check("roaming_enemy_dot_uses_live_map_coordinates",
+				roaming_dots[0].distance_to(predicted)<0.01)
+		roaming.global_position+=Vector2(320,0)
+		var moved_dots: PackedVector2Array=enemy_layer.call("visible_enemy_positions")
+		check("enemy_dot_tracks_moving_vehicles",
+			moved_dots.size()==1 and moved_dots[0].distance_to(roaming_dots[0])>1.0)
+		# Race rivals must only appear during their own countdown/race, not
+		# while a previous race is idle or showing results.
+		var race: Node2D=scene.drag_race
+		var rival:=Node2D.new()
+		rival.name="RaceEnemyMapFixture"
+		rival.add_to_group("race_opponent")
+		race.add_child(rival)
+		rival.global_position=scene.vehicle.global_position+Vector2(0,200)
+		check("idle_race_does_not_show_opponent_dot",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).size()==1)
+		var original_state: String=str(race.get("state"))
+		race.set("state","countdown")
+		check("race_countdown_shows_red_opponent_dot",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).size()==2)
+		race.set("state","running")
+		check("active_race_keeps_opponent_dot",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).size()==2)
+		race.set("state","results")
+		check("finished_race_removes_opponent_dot",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).size()==1)
+		race.set("state",original_state)
+		rival.queue_free()
+		roaming.global_position=scene.vehicle.global_position+Vector2(9000,0)
+		check("enemy_dots_outside_map_are_hidden",
+			(enemy_layer.call("visible_enemy_positions") as PackedVector2Array).is_empty())
+		check("circular_enemy_dots_do_not_leak_into_corners",
+			not EnemyMarkers.within_map(Vector2(10,10),Vector2(244,244),"circle") and
+			EnemyMarkers.within_map(Vector2(122,122),Vector2(244,244),"circle"))
+		roaming.queue_free()
 	check("live_map_composited_into_correct_square_source",
 		mini.get_viewport()==offscreen and offscreen.size==Vector2i(244,244) and
 		image.texture==offscreen.get_texture() and
