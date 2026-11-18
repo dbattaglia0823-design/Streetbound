@@ -49,6 +49,21 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_input_conflict_test.gd 2>&1 | tee /tmp/handbrake-input-test.log
           grep -q 'HANDBRAKE INPUT PHYSICS: PASS' /tmp/handbrake-input-test.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/handbrake-input-test.log
+      - name: Diagnostic - verify historical full-throttle recovery on untouched main
+        shell: bash
+        run: |
+          set -o pipefail
+          cp scripts/vehicle/vehicle_controller.gd /tmp/vehicle-controller-candidate.gd
+          git fetch --no-tags --depth=1 origin main
+          git show FETCH_HEAD:scripts/vehicle/vehicle_controller.gd > scripts/vehicle/vehicle_controller.gd
+          set +e
+          timeout --signal=SIGINT --kill-after=5s 155s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_recovery_test.gd 2>&1 | tee /tmp/handbrake-recovery-main.log
+          BASELINE_EXIT=${PIPESTATUS[0]}
+          set -e
+          cp /tmp/vehicle-controller-candidate.gd scripts/vehicle/vehicle_controller.gd
+          echo "Unmodified main recovery exit code: $BASELINE_EXIT"
+          grep -E 'Recovery pedal|^FAIL |HANDBRAKE RECOVERY TESTS:' /tmp/handbrake-recovery-main.log || true
+          test -f scripts/vehicle/vehicle_controller.gd
       - name: Regression - handbrake drifting and tire recovery
         shell: bash
         run: |
