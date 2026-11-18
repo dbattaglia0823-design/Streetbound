@@ -11,6 +11,7 @@ static func valid(marker: Dictionary) -> bool:
 	if str(marker.get("name","")).length()>120:return false
 	var properties: Variant=marker.get("properties",{})
 	if not properties is Dictionary:return false
+	if properties.has("description") and (not properties.description is String or str(properties.description).length()>500):return false
 	for field in ["race_id","dealer_id","required_race"]:
 		if properties.has(field):
 			if not properties[field] is String or str(properties[field]).length()>100:return false
