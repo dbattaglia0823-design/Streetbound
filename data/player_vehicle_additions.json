@@ -980,7 +980,7 @@
       "length_m": 4.46,
       "width_m": 2,
       "wheelbase_m": 2.77,
-      "mass_kg": 1680,
+      "mass_kg": 1894,
       "power_kw": 1500.3,
       "torque_nm": 1704,
       "brake_force_n": 20700,
@@ -1014,7 +1014,7 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_kerb_2026"
     },
     {
       "id": "maserati-mc20",
@@ -1290,7 +1290,7 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "manufacturer_dry"
     },
     {
       "id": "mclaren-f1-gt",
@@ -1299,12 +1299,12 @@
       "display_name": "McLaren F1 GT",
       "source_model_unverified": false,
       "texture": "res://assets/Vehicles/McLaren/F1 GT.png",
-      "length_m": 4.93,
-      "width_m": 1.82,
+      "length_m": 4.928,
+      "width_m": 1.94,
       "wheelbase_m": 2.72,
       "mass_kg": 1120,
-      "power_kw": 467.6,
-      "torque_nm": 650,
+      "power_kw": 461,
+      "torque_nm": 651,
       "brake_force_n": 13800,
       "tire_grip": 1.41,
       "drivetrain": "RWD",
@@ -1328,7 +1328,7 @@
       "price_basis": "fictional_game_value_usd",
       "reference_price_note": "No established public sale price: this is an explicitly fictional gameplay value, NOT a real-market price. No production transaction or comparable market valuation is claimed.",
       "spec_confidence": "source_checked",
-      "source_spec_url": "https://www.hagerty.co.uk/valuation/tool/results/?b=Coupe&cc=6064&md=F1&mk=McLaren&sm=Base&y=1997",
+      "source_spec_url": "https://www.automobile-catalog.com/make/mclaren/f1/f1_gt/1997.html",
       "source_price_url": "",
       "reference_powertrain": "gas",
       "reference_transmission": "6MT/sequential (reference trim)",
@@ -1336,7 +1336,8 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "reference_power_units": "627 metric PS = ~618 mechanical hp"
     },
     {
       "id": "mclaren-f1",
@@ -1520,7 +1521,7 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combined_system",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "manufacturer_dry"
     },
     {
       "id": "mercedes-benz-evolution-ii",
