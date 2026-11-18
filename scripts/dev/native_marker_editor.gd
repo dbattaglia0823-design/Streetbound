@@ -15,6 +15,11 @@ var dealer_input: OptionButton
 var feedback: Label
 var edit_button: Button
 
+func _text_label(parent: Node,label_text: String) -> void:
+	var label:=Label.new()
+	label.text=label_text
+	parent.add_child(label)
+
 func build(e,panel: Node) -> void:
 	edit_button=e._btn("Edit Selected Marker...",panel,func():open_for(e,e.source_id))
 	edit_button.tooltip_text="Edit spawn, race/mission links, fast travel, traffic and access conditions."
@@ -29,7 +34,7 @@ func build(e,panel: Node) -> void:
 	form.custom_minimum_size=Vector2(490,535)
 	form.add_theme_constant_override("separation",8)
 	dialog.add_child(form)
-	e._label(form,"MARKER NAME")
+	_text_label(form,"MARKER NAME")
 	name_input=LineEdit.new()
 	name_input.max_length=120
 	form.add_child(name_input)
@@ -42,11 +47,11 @@ func build(e,panel: Node) -> void:
 	radius_input.step=1
 	weight_input=e._number(form,"Traffic spawn priority (1–10)",1,10,3)
 	weight_input.step=1
-	e._label(form,"Linked race / mission (optional for waypoint markers)")
+	_text_label(form,"Linked race / mission (optional for waypoint markers)")
 	race_input=OptionButton.new();form.add_child(race_input)
-	e._label(form,"Unlock after event victory (optional)")
+	_text_label(form,"Unlock after event victory (optional)")
 	required_input=OptionButton.new();form.add_child(required_input)
-	e._label(form,"Linked dealership (optional; requires its real forecourt)")
+	_text_label(form,"Linked dealership (optional; requires its real forecourt)")
 	dealer_input=OptionButton.new();form.add_child(dealer_input)
 	feedback=Label.new()
 	feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
