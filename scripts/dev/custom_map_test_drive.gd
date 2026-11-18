@@ -1,112 +1,53 @@
 extends Node2D
-## Playtest a saved custom map without loading career, traffic or Morrow Coast.
-const Library = preload("res://scripts/dev/native_map_library.gd")
-const World = preload("res://scripts/dev/custom_map_drive_world.gd")
-const Vehicle = preload("res://scenes/vehicle.tscn")
-const Camera = preload("res://scripts/camera/driving_camera.gd")
-const Audio = preload("res://scripts/audio/vehicle_audio.gd")
-const AuthoredRace=preload("res://scripts/world/authored_race.gd")
-
-var source_file := ""
-var player: VehicleController2D
-var speed_label: Label
-var returning := false
+## Development-only launcher. Custom Test Drive must use the SAME main.tscn
+## gameplay pipeline, not a hand-painted source-preview scene without junctions,
+## traffic, streamed road markings, career UI, or vehicle features.
+const Library=preload("res://scripts/dev/native_map_library.gd")
+const Session=preload("res://scripts/dev/native_map_edit_session.gd")
+const Builder="res://tools/build_custom_test_world.py"
 
 func _ready() -> void:
 	if not (OS.has_feature("debug") or OS.has_feature("editor")):
 		get_tree().call_deferred("change_scene_to_file","res://scenes/title_menu.tscn")
 		return
-	source_file = str(get_tree().get_meta("streetbound_test_drive_map",""))
-	if get_tree().has_meta("streetbound_test_drive_map"):
-		get_tree().remove_meta("streetbound_test_drive_map")
-	if source_file.is_empty() or source_file.get_file()!=source_file or not source_file.ends_with(".world.json"):
-		push_error("No valid custom map selected for Test Drive.")
-		get_tree().call_deferred("change_scene_to_file","res://scenes/world_editor.tscn")
+	var file: String=str(get_tree().get_meta("streetbound_test_drive_map",""))
+	if file.is_empty() or file.get_file()!=file or not file.ends_with(".world.json"):
+		_fail(file,"No valid custom map selected for Test Drive.")
 		return
-	var doc := Library.load_map(source_file)
-	var world := World.new()
-	if not world.configure(doc):
-		world.free()
-		get_tree().set_meta("streetbound_editor_resume_map",source_file)
-		push_error("Custom map Test Drive failed validation: "+source_file)
-		get_tree().call_deferred("change_scene_to_file","res://scenes/world_editor.tscn")
+	var source: Dictionary=Library.load_map(file)
+	if not bool(source.get("customMap",false)) or not Session.new()._valid_source(source):
+		_fail(file,"Save a valid custom map before Test Drive.")
 		return
-	add_child(world)
-	var start: Dictionary = world.test_spawn()
-	player = Vehicle.instantiate()
-	player.position = start.position
-	player.rotation = float(start.rotation)
-	player.surface_provider = world
-	player.z_index = 8
-	add_child(player)
-	player.add_to_group("player_vehicle")
-	# Custom-map Test Drive uses the same saved grid/AI setup as a playable
-	# baked race, without loading career payouts or the original world.
-	for definition in doc.get("races",[]):
-		var race:=AuthoredRace.new()
-		race.definition=definition
-		race.world=world
-		race.player=player
-		world.add_child(race)
-
-	var camera := Camera.new()
-	camera.target = player
-	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
-	add_child(camera)
-	camera.add_to_group("player_camera")
-	var audio := Audio.new()
-	audio.vehicle = player
-	add_child(audio)
-	_build_hud(str(doc.get("name","Custom map")))
-	get_window().title = "Streetbound | Test Drive: "+str(doc.get("name","Custom map"))
-
-func _build_hud(map_name: String) -> void:
-	var canvas := CanvasLayer.new()
-	canvas.layer = 15
-	add_child(canvas)
-	var header := PanelContainer.new()
-	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	header.offset_left = 16
-	header.offset_right = -16
-	header.offset_top = 16
-	header.offset_bottom = 70
-	header.mouse_filter = Control.MOUSE_FILTER_PASS
-	canvas.add_child(header)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation",18)
-	header.add_child(row)
-	var title := Label.new()
-	title.text = "TEST DRIVE  /  "+map_name.to_upper()
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(title)
-	speed_label = Label.new()
-	row.add_child(speed_label)
-	var help := Label.new()
-	help.text = "F near race: stage grid  ·  R reset  ·  F6 / Esc return"
-	row.add_child(help)
-	var button := Button.new()
-	button.text = "Return to Map Editor  F6"
-	button.pressed.connect(_return_to_editor)
-	row.add_child(button)
-
-func _process(_delta: float) -> void:
-	if is_instance_valid(player) and is_instance_valid(speed_label):
-		speed_label.text = "%d MPH  /  %s  /  G%d" % [
-			roundi(player.linear_velocity.length()*2.236936),
-			player.surface,player.transmission.gear]
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and \
-			(event.keycode in [KEY_F6,KEY_ESCAPE] or event.physical_keycode==KEY_F6):
-		_return_to_editor()
-		get_viewport().set_input_as_handled()
-
-func _return_to_editor() -> void:
-	if returning:
+	# These files stay in user://; the shipped Morrow Coast archive, source
+	# overlays and player career data are NEVER rebuilt or replaced.
+	var input_path: String=Library.folder().path_join(file)
+	var output_path: String=Library.folder().path_join(file+".test-drive.stream.json")
+	if not FileAccess.file_exists(Builder):
+		_fail(file,"The full Test Drive compiler is missing.")
 		return
-	returning = true
-	get_tree().set_meta("streetbound_editor_resume_map",source_file)
-	if not get_tree().has_meta("streetbound_editor_return_position") and is_instance_valid(player):
-		get_tree().set_meta("streetbound_editor_return_position",player.global_position)
-	get_tree().paused = false
-	get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
+	var python: String="py" if OS.get_name()=="Windows" else "python3"
+	var args: PackedStringArray=PackedStringArray([
+		ProjectSettings.globalize_path(Builder),"--source",
+		ProjectSettings.globalize_path(input_path),"--output",
+		ProjectSettings.globalize_path(output_path)])
+	if OS.get_name()=="Windows":args.insert(0,"-3")
+	# Never start on an archive from a prior saved revision if Python fails.
+	if FileAccess.file_exists(output_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(output_path))
+	var output: Array=[]
+	var exit_code: int=OS.execute(python,args,output,true)
+	if exit_code!=0 or not FileAccess.file_exists(output_path):
+		_fail(file,"Full Test Drive world build failed. %s"%str(output).left(260))
+		return
+	get_tree().set_meta("streetbound_test_drive_archive",output_path)
+	get_tree().call_deferred("change_scene_to_file","res://scenes/main.tscn")
+
+
+func _fail(file: String,reason: String) -> void:
+	push_error(reason)
+	get_tree().remove_meta("streetbound_test_drive_map")
+	if get_tree().has_meta("streetbound_test_drive_archive"):
+		get_tree().remove_meta("streetbound_test_drive_archive")
+	if not file.is_empty():get_tree().set_meta("streetbound_editor_resume_map",file)
+	get_tree().set_meta("streetbound_test_drive_error",reason)
+	get_tree().call_deferred("change_scene_to_file","res://scenes/world_editor.tscn")
