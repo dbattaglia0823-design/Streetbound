@@ -101,6 +101,8 @@ func _process(dt: float) -> void:
 	# leaving a stale chip visible until the next traffic discovery scan.
 	if get_tree().paused or not is_instance_valid(player) or \
 			not player_is_fast_enough(player.linear_velocity):
+		# Recheck traffic immediately upon returning above 40 mph or unpausing.
+		_clock = 0.0
 		if not markers.is_empty():
 			markers.clear()
 			queue_redraw()
