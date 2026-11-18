@@ -1,5 +1,5 @@
 extends SceneTree
-## Prevent another generic-spec copy/paste across any of the 98 playable
+## Prevent another generic-spec copy/paste across any of the 148 playable
 ## vehicles. Every real-world reference is tied to a named year and trim.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const VehicleCfg = preload("res://scripts/vehicle/vehicle_config.gd")
@@ -18,7 +18,7 @@ func check(label: String, passed: bool, detail: Variant = "") -> void:
 
 func _run() -> void:
 	var vehicles: Array[Dictionary] = Catalog.all()
-	check("ninety_eight_playable_vehicles_retained",vehicles.size()==98,vehicles.size())
+	check("one_hundred_forty_eight_playable_vehicles_retained",vehicles.size()==148,vehicles.size())
 	var valid := true
 	var proper_physics := true
 	var ids := {}
@@ -35,11 +35,11 @@ func _run() -> void:
 		var trim := str(v.get("reference_trim",""))
 		var basis := str(v.get("price_basis",""))
 		price_bases[basis] = true
-		valid = valid and year>=1980 and year<=2027 and trim.length()>=6 and \
+		valid = valid and year>=1960 and year<=2027 and trim.length()>=6 and \
 			str(v.get("reference_price_note","")).length()>20 and \
 			int(v.get("price_usd",0))>=4500 and \
 			float(v.get("power_kw",0.0))>70.0 and \
-			float(v.get("mass_kg",0.0))>800.0 and \
+			float(v.get("mass_kg",0.0))>450.0 and \
 			float(v.get("torque_nm",0.0))>100.0 and \
 			float(v.get("wheelbase_m",0.0))>2.0
 		var confidence := str(v.get("spec_confidence",""))
@@ -74,12 +74,12 @@ func _run() -> void:
 				cfg.audio_family=="electric" and \
 				cfg.audio_induction=="electric" and cfg.gear_ratios.size()==1
 	check("every_car_has_a_named_real_model_year_and_trim",valid)
-	check("vehicle_ids_unchanged_and_unique",ids.size()==98)
+	check("vehicle_ids_unchanged_and_unique",ids.size()==148)
 	check("source_checked_and_representative_trims_distinguished",
 		direct_sources>=34 and estimated_specs>=1 and \
-		direct_sources+estimated_specs==98,[direct_sources,estimated_specs])
+		direct_sources+estimated_specs==148,[direct_sources,estimated_specs])
 	check("prices_are_explicit_about_original_vs_estimated_market_basis",
-		price_bases.size()==6 and \
+		price_bases.size()==7 and \
 		Catalog.price_basis_label({"price_basis":"msrp_usd"})=="BASE MSRP" and \
 		Catalog.price_basis_label({"price_basis":"collector_estimate_usd"})=="EST. COLLECTOR" and \
 		Catalog.price_basis_label({"price_basis":"international_used_estimate_usd"})=="EST. IMPORT/USED")
