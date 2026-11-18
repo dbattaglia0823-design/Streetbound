@@ -23,15 +23,18 @@ static func v(raw: Array) -> Vector2:
 
 func _ready() -> void:
 	name = "MorrowDealerships"
-	var authored := DealerConfig.document()
-	# Exported builds may not include the editor JSON; the rebaker keeps the
-	# same overrides in the shipped world.
-	if not authored.has("dealerships") and world.data.has("editor_dealerships"):
-		authored = {"dealerships":world.data.editor_dealerships}
 	if not is_instance_valid(world):
 		push_error("Dealership locations unavailable")
 		return
-	for definition in DealerConfig.combined(authored):
+	var authored := DealerConfig.document()
+	if bool(world.data.get("editor_custom_test_drive",false)):
+		# Do not spawn Morrow Coast's default dealers off the edges of a
+		# custom map; use only dealerships explicitly placed in this map.
+		authored={"dealerships":world.data.get("editor_dealerships",[])}
+	elif not authored.has("dealerships") and world.data.has("editor_dealerships"):
+		authored={"dealerships":world.data.editor_dealerships}
+	var definitions: Array=authored.get("dealerships",[]) if bool(world.data.get("editor_custom_test_drive",false)) else DealerConfig.combined(authored)
+	for definition in definitions:
 		var spec: Dictionary = definition
 		var site := _find_clear_site(spec)
 		if site.is_empty():
