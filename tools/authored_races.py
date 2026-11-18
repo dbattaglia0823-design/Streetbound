@@ -88,16 +88,16 @@ def authored_races(doc,width,height):
                 raise ValueError('Invalid race progression: '+field)
             if field in race:entry[field]=amount
         for field in ('prerequisite_races','required_vehicle_ids'):
-            ids=race.get(field,[])
-            if not isinstance(ids,list) or len(ids)>(16 if field=='prerequisite_races' else 128) or (
-                any(not isinstance(value,str) for value in ids) or len(ids)!=len(set(ids))):
+            choices=race.get(field,[])
+            if not isinstance(choices,list) or len(choices)>(16 if field=='prerequisite_races' else 128) or (
+                any(not isinstance(value,str) for value in choices) or len(choices)!=len(set(choices))):
                 raise ValueError('Invalid '+field)
-            if field=='required_vehicle_ids' and any(value not in vehicle_ids() for value in ids):
+            if field=='required_vehicle_ids' and any(value not in vehicle_ids() for value in choices):
                 raise ValueError('Race references an unknown vehicle')
             if field=='prerequisite_races' and (
-                    race['id'] in ids or any(not value.startswith('race-') for value in ids)):
+                    race['id'] in choices or any(not value.startswith('race-') for value in choices)):
                 raise ValueError('Invalid race prerequisite')
-            if field in race:entry[field]=ids
+            if field in race:entry[field]=choices
         for field in ('category','difficulty','repeatable'):
             if field in race:entry[field]=race[field]
         pool=race.get('opponent_pool',[])
@@ -112,4 +112,19 @@ def authored_races(doc,width,height):
                 raise ValueError('Invalid race reward: '+key)
             if key in race:entry[key]=amount
         result.append(entry)
+    graph={race['id']:race for race in result}
+    for race in result:
+        for prerequisite in race.get('prerequisite_races',[]):
+            if prerequisite not in graph:
+                raise ValueError('Race prerequisite references unknown event: '+prerequisite)
+    visiting=set()
+    visited=set()
+    def visit(identity):
+        if identity in visiting:raise ValueError('Race prerequisites form a cycle')
+        if identity in visited:return
+        visiting.add(identity)
+        for prerequisite in graph[identity].get('prerequisite_races',[]):visit(prerequisite)
+        visiting.remove(identity)
+        visited.add(identity)
+    for identity in graph:visit(identity)
     return result
