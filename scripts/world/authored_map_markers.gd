@@ -169,6 +169,20 @@ func activate() -> void:
 			if race!=null and is_instance_valid(map_hud) and is_instance_valid(map_hud.waypoints):
 				map_hud.waypoints.set_destination(race.start_m,str(race.race_title))
 
+func _safe_destination(marker: Dictionary) -> bool:
+	var target: Vector2=_point(marker)*PPM
+	var road: Dictionary=world.nearest_road_at(target,10.0)
+	if road.is_empty() or str(world.surface_at(target).get("name",""))!="ASPHALT":return false
+	if float(road.get("distance_to_center_m",INF))>maxf(0,float(road.get("road_width_m",0))*.5-2.0):return false
+	var centre: Vector2=_point(marker)
+	for prop in world.data.get("props",[]):
+		if not bool(prop.get("solid",false)):continue
+		var p: Vector2=Vector2(float(prop.p[0]),float(prop.p[1]))
+		var extents: Vector2=Vector2(float(prop.size[0]),float(prop.size[1]))
+		var radius: float=maxf(float(prop.get("radius",0)),extents.length()*.5)
+		if centre.distance_to(p)<radius+3.0:return false
+	return true
+
 func _open_travel() -> void:
 	if _dialog_open or _is_busy() or player.linear_velocity.length()>1.0:return
 	for child in destinations.get_children():
@@ -179,10 +193,7 @@ func _open_travel() -> void:
 				str(marker.id)==str(_nearby.id):continue
 		# Use actual production asphalt and collision clearance: never
 		# teleport into ocean, scenery, barriers, or the edge of a map.
-		var target:=_point(marker)*PPM
-		if world.nearest_road_at(target,14.0).is_empty():continue
-		var safe: Dictionary=world.can_place_at(target,2.0,1.0)
-		if not bool(safe.get("clear",false)):continue
+		if not _safe_destination(marker):continue
 		var button:=Button.new()
 		button.text=str(marker.get("name","Travel Point"))
 		button.pressed.connect(_travel_to.bind(marker))
@@ -196,9 +207,8 @@ func _open_travel() -> void:
 func _travel_to(marker: Dictionary) -> void:
 	if not _dialog_open or not _enabled(marker):return
 	if player.linear_velocity.length()>1.0 or _is_busy():return
+	if not _safe_destination(marker):return
 	var target:=_point(marker)*PPM
-	if world.nearest_road_at(target,14.0).is_empty() or \
-			not bool(world.can_place_at(target,2.0,1.0).get("clear",false)):return
 	# Real streaming and camera follow are retained, including traffic.
 	player.global_position=target
 	player.rotation=deg_to_rad(float(marker.get("rotation",0)))
