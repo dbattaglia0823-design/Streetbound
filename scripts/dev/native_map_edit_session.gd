@@ -5,6 +5,8 @@ extends RefCounted
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
 const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
@@ -82,7 +84,7 @@ func _valid_source(value: Dictionary) -> bool:
 	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
-	if not value.get("races",[]) is Array or value.get("races",[]).size()>64:return false
+	if not value.get("races",[]) is Array or value.get("races",[]).size()>64 or not EventRules.valid_graph(value.get("races",[])):return false
 	for race in value.get("races",[]):
 		if not race is Dictionary or not RaceDefinition.valid(race,width,height) or used.has(str(race.id)):return false
 		used[str(race.id)]=true
@@ -149,6 +151,7 @@ func _valid_source(value: Dictionary) -> bool:
 			if str(dealer.get("name","")).strip_edges().is_empty() or \
 					str(dealer.get("texture","")).find("res://assets/Map Building Assets/Buildings/Dealerships/")!=0:
 				return false
+	if not MarkerRules.valid_links(value.markers,value.get("races",[]),value.get("dealerships",[])):return false
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
@@ -1142,8 +1145,7 @@ func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=
 
 
 func add_marker(position_m: Vector2, marker_kind: String = "checkpoint") -> String:
-	if not _in_bounds(position_m) or marker_kind not in [
-			"traffic_spawn","race_start","checkpoint","finish"]:
+	if not _in_bounds(position_m) or marker_kind not in MarkerRules.TYPES:
 		last_error = "Unsupported game marker or position."
 		return ""
 	var id := next_id("markers","marker")
@@ -1153,6 +1155,23 @@ func add_marker(position_m: Vector2, marker_kind: String = "checkpoint") -> Stri
 		"rotation":0.0,"properties":{}})
 	return id if _commit(draft) else ""
 
+
+func marker_at_id(identity: String) -> Dictionary:
+	for marker in doc.get("markers",[]):
+		if str(marker.get("id",""))==identity:return marker
+	return {}
+
+func update_marker(identity: String,details: Dictionary) -> bool:
+	var draft: Dictionary=doc.duplicate(true)
+	for marker in draft.get("markers",[]):
+		if str(marker.id)!=identity:continue
+		for field in ["name","type","rotation","properties"]:
+			if details.has(field):marker[field]=details[field]
+		if _commit(draft):return true
+		last_error="Invalid marker type, linked race/dealer, or duplicate player spawn."
+		return false
+	last_error="Select a placed game marker."
+	return false
 
 func source_road_id_for_runtime(index: int) -> String:
 	# The importer shifts only legacy IDs at the source_count boundary;

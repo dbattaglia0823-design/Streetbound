@@ -25,7 +25,18 @@ func _run() -> void:
 		road(0,"East West",[[100,500],[1100,500]]),
 		road(1,"North South",[[500,100],[500,900]]),
 		road(2,"T Branch",[[840,500],[840,780]])]
-	doc["markers"]=[{"id":"marker-0","type":"player_spawn","x":480,"y":500,"rotation":90.0}]
+	doc["markers"]=[
+		{"id":"marker-0","type":"player_spawn","name":"Spawn","x":480,"y":500,"rotation":90.0},
+		{"id":"marker-1","type":"mission","name":"Map Mission","x":480,"y":500,
+			"rotation":0.0,"properties":{"race_id":"race-0","radius_m":12}},
+		{"id":"marker-2","type":"fast_travel","name":"Station West","x":500,"y":500,
+			"rotation":0.0,"properties":{"radius_m":12}},
+		{"id":"marker-3","type":"fast_travel","name":"Station East","x":800,"y":500,
+			"rotation":0.0,"properties":{"radius_m":12}},
+		{"id":"marker-4","type":"traffic_spawn","name":"Traffic Start","x":620,"y":500,
+			"rotation":0.0,"properties":{"traffic_weight":8}},
+		{"id":"marker-5","type":"garage","name":"Test Garage","x":700,"y":500,
+			"rotation":0.0,"properties":{"radius_m":12}}]
 	doc["props"]=[{"id":"prop-house","name":"House","type":"house","assetId":"game-house",
 		"x":280,"y":280,"scale":1.0,"rotation":0.0}]
 	doc["races"]=[{"id":"race-0","name":"Map Race","mode":"sprint","laps":1,
@@ -72,6 +83,33 @@ func _run() -> void:
 		main.dealership_world==null)
 	check("test_driver_cannot_modify_real_player_progression",
 		not main.vehicle_ownership.persist_enabled)
+	var mark: Node=main.authored_map_markers
+	check("game_instantiates_all_authored_marker_types",
+		is_instance_valid(mark) and mark.markers.size()==6)
+	check("traffic_markers_drive_actual_lane_spawner",
+		ambient.authored_spawn_sources.size()>=1)
+	mark._nearby=mark.nearest_marker()
+	check("mission_marker_detects_nearby_race",str(mark._nearby.get("type",""))=="mission")
+	mark.activate()
+	check("mission_launches_actual_authored_race",
+		main.extra_races[0].state=="countdown" and main.vehicle.global_position.distance_to(Vector2(200,500)*20)<400)
+	main.extra_races[0].quit_race()
+	main.vehicle.global_position=Vector2(500,500)*20
+	main.vehicle.linear_velocity=Vector2.ZERO
+	mark._nearby=mark.nearest_marker()
+	check("nearby_fast_travel_station_detected",str(mark._nearby.get("type",""))=="fast_travel")
+	mark.activate()
+	check("fast_travel_opens_destination_picker",mark._dialog_open and mark.destinations.get_child_count()>=1)
+	if mark._dialog_open:
+		mark._travel_to(doc.markers[3])
+		check("fast_travel_moves_to_authored_drivable_destination",
+			main.vehicle.global_position.distance_to(Vector2(800,500)*20)<1 and not paused)
+	main.vehicle.global_position=Vector2(700,500)*20
+	mark._nearby=mark.nearest_marker()
+	mark._process(.3)
+	check("garage_marker_unlocks_actual_owned_car_selector",
+		mark._nearby.get("type","")=="garage" and main.get_node("VehicleSelector").remote_garage_allowed)
+
 	check("test_drive_has_clear_return_to_builder",
 		main.has_node("TestDriveReturn/ReturnToMapEditor"))
 	main.queue_free()

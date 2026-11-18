@@ -199,6 +199,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_library_test.gd 2>&1 | tee /tmp/map-library.log
           grep -q 'MAP LIBRARY: PASS' /tmp/map-library.log
           ! grep -E 'SCRIPT ERROR:|^FAIL ' /tmp/map-library.log
+      - name: Verify race career progression, first-win economics and functional marker links
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/authored_career_markers_test.gd 2>&1 | tee /tmp/authored-career-markers.log
+          grep -q 'AUTHORED CAREER & MARKERS: PASS' /tmp/authored-career-markers.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/authored-career-markers.log
       - name: Verify full-game custom Test Drive intersections, AI traffic, HUD and safe sandbox
         run: |
           set -o pipefail

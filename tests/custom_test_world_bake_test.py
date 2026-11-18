@@ -54,6 +54,32 @@ class CustomTestWorldBaker(unittest.TestCase):
             for field,kind in (("junctions","junctions"),("segments","segments"),("props","props")):
                 self.assertTrue(all(0<=i<len(archive[kind]) for i in cell[field]))
 
+    def test_career_and_gameplay_marker_data_survive_production_bake(self):
+        doc=source()
+        race=doc["races"][0]
+        race.update(category="challenge",difficulty="pro",repeatable=False,
+                    required_player_level=8,required_car_level=4,
+                    prerequisite_races=[],required_vehicle_ids=["audi-rs3"],
+                    first_win_reward_cash=2000,first_win_reward_player_xp=1000)
+        doc["markers"].append({
+            "id":"marker-1","name":"Street Mission","type":"mission","x":160,"y":500,
+            "rotation":0,"properties":{"race_id":"race-0","radius_m":10}})
+        doc["markers"].append({
+            "id":"marker-2","name":"Downtown Travel","type":"fast_travel","x":500,"y":500,
+            "rotation":0,"properties":{"required_race":"race-0"}})
+        doc["markers"].append({
+            "id":"marker-3","name":"Traffic","type":"traffic_spawn","x":500,"y":500,
+            "rotation":0,"properties":{"traffic_weight":8}})
+        compiled=make_archive(doc)
+        self.assertEqual(compiled["editor_races"][0]["first_win_reward_cash"],2000)
+        self.assertFalse(compiled["editor_races"][0]["repeatable"])
+        self.assertEqual(compiled["editor_game_markers"],doc["markers"])
+        self.assertEqual(len(compiled["editor_game_markers"]),4)
+        broken=source()
+        broken["markers"].append({"id":"marker-2","name":"Invalid","type":"mission",
+            "x":500,"y":500,"properties":{"race_id":"race-404"}})
+        with self.assertRaises(ValueError):make_archive(broken)
+
     def test_empty_map_remains_drivable_and_has_terrain_chunks(self):
         doc=source()
         doc["roads"]=[]

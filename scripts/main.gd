@@ -16,6 +16,7 @@ const DragRaceScript = preload("res://scripts/world/ashford_ai_race.gd")
 const CircuitPracticeScript = preload("res://scripts/world/ashford_circuit_practice.gd")
 const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.gd")
 const AuthoredRaceScript=preload("res://scripts/world/authored_race.gd")
+const AuthoredMarkersScript=preload("res://scripts/world/authored_map_markers.gd")
 const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
@@ -36,6 +37,7 @@ var drag_race: Node2D
 var circuit_race: Node2D
 var street_race: Node2D
 var extra_races: Array[Node2D]=[]
+var authored_map_markers: Node2D
 var progression_hud: CanvasLayer
 var quick_upgrades: CanvasLayer
 var offscreen_vehicle_awareness: Control
@@ -188,6 +190,7 @@ func _ready() -> void:
 		progression_hud.host = hud.progression_slot
 		add_child(progression_hud)
 		hud.show_unified_progression()
+	var world_hud_ref: CanvasLayer
 	if not proving_ground:
 		var world_hud := CanvasLayer.new()
 		world_hud.layer = 3
@@ -200,6 +203,7 @@ func _ready() -> void:
 		world_hud.races.append_array(extra_races)
 		world_hud.driving_hud = hud
 		add_child(world_hud)
+		world_hud_ref=world_hud
 	# CanvasLayer 20 is PROCESS_MODE_ALWAYS; menu controls work while paused.
 	pause_menu = PauseMenuScript.new()
 	pause_menu.name = "PauseMenu"
@@ -235,6 +239,21 @@ func _ready() -> void:
 		dealership_menu.player = vehicle
 		dealership_menu.economy = vehicle_ownership
 		add_child(dealership_menu)
+	if not proving_ground:
+		authored_map_markers=Node2D.new()
+		authored_map_markers.set_script(AuthoredMarkersScript)
+		authored_map_markers.world=ground
+		authored_map_markers.player=vehicle
+		authored_map_markers.economy=vehicle_ownership
+		authored_map_markers.selector=selector
+		authored_map_markers.dealer_menu=dealership_menu
+		authored_map_markers.quick_upgrades=quick_upgrades
+		authored_map_markers.traffic=traffic
+		authored_map_markers.map_hud=world_hud_ref
+		authored_map_markers.races=extra_races.duplicate()
+		for builtin_race in [drag_race,circuit_race,street_race]:
+			if is_instance_valid(builtin_race):authored_map_markers.races.append(builtin_race)
+		add_child(authored_map_markers)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
 	local_split_screen = CanvasLayer.new()

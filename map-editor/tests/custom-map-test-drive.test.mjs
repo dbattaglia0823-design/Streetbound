@@ -23,7 +23,7 @@ test('custom playtesting validates and compiles the saved map into normal game g
   assert.match(launcher,/change_scene_to_file","res:\/\/scenes\/main\.tscn"/);
   assert.match(builder,/from junction_bake import build_junctions/);
   assert.match(builder,/junctions,connections,crossings=build_junctions\(/);
-  assert.match(builder,/editor_races=doc\.get\("races"/);
+  assert.match(builder,/editor_races=baked_races/);
   assert.match(world,/archive_override_path/);
   assert.match(world,/editor_custom_test_drive/);
   assert.match(game,/ground = GroundScript\.new\(\) if proving_ground else CoastScript\.new\(\)/);

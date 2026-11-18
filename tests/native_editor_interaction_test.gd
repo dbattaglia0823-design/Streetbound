@@ -173,7 +173,16 @@ func run() -> void:
 		absf(float(session.doc.regions[-1].points[0].x)-float(original_region.points[0].x)-12.0)<.01)
 	session.undo()
 	editor._refresh_authoring()
-	editor._choose_tool("place_marker");editor.marker_kind.select(1)
+	editor._choose_tool("place_marker")
+	# Marker types are a user-editable menu, not fixed numeric positions.
+	# New career/location types must not invalidate existing race markers.
+	var race_kind_index: int=-1
+	for index in editor.marker_kind.item_count:
+		if str(editor.marker_kind.get_item_metadata(index))=="race_start":
+			race_kind_index=index
+			break
+	check("race_start_marker_kind_exists",race_kind_index>=0)
+	if race_kind_index>=0:editor.marker_kind.select(race_kind_index)
 	editor._source_click(Vector2(3500,3500)*20)
 	check("marker_tool_respects_marker_type",session.doc.markers[-1].type=="race_start")
 	editor._choose_tool("draw_road");editor._source_click(Vector2(2700,3200)*20)

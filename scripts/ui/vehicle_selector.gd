@@ -208,13 +208,20 @@ func _refresh_owned_cars() -> void:
 				inventory.highest_upgrade_rarity(str(entry.id)).to_upper()]
 
 
+var remote_garage_allowed:=false
+
 func _can_open_garage() -> bool:
 	# The developer proving ground has no Morrow Coast building.
-	return not is_instance_valid(garage) or garage.can_switch()
+	return remote_garage_allowed or not is_instance_valid(garage) or garage.can_switch()
 
 
 func _update_garage_access() -> void:
 	if overlay == null or overlay.visible or launch_button == null:
+		return
+	if remote_garage_allowed:
+		launch_button.visible=true
+		launch_button.disabled=false
+		launch_button.text="OPEN GARAGE  [ G ]"
 		return
 	if not is_instance_valid(garage):
 		launch_button.visible = true
@@ -267,7 +274,8 @@ func _choose(entry: Dictionary) -> void:
 		player.on_upgrade_config_changed(0.0)
 	var saved := ConfigFile.new()
 	saved.set_value("vehicle", "selected_id", str(entry.id))
-	saved.save("user://streetbound_selected_vehicle.cfg")
+	if not is_instance_valid(inventory) or inventory.persist_enabled:
+		saved.save("user://streetbound_selected_vehicle.cfg")
 	if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
 		driving_hud.on_vehicle_selected(entry)
 	close_menu()

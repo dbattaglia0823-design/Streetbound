@@ -6,6 +6,7 @@ signal changed
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const SAVE_PATH := "user://streetbound_vehicle_ownership.cfg"
 const OLD_SELECTION_PATH := "user://streetbound_selected_vehicle.cfg"
 const STARTER_ID := "audi-rs3"
@@ -18,6 +19,7 @@ var player_xp := 0
 var car_xp: Dictionary = {}
 var best_quarter_mile := 0.0
 var _claimed_races: Array[String] = []
+var completed_events: Dictionary = {}
 var upgrade_inventory: Array[Dictionary] = []
 var upgrade_loadouts: Dictionary = {}
 var next_part_uid := 1
@@ -55,6 +57,11 @@ func _init(enable_persistence: bool = true) -> void:
 		for token in file.get_value("progression","claimed_races",[]):
 			if str(token).length() >= 5 and _claimed_races.size() < 50:
 				_claimed_races.append(str(token))
+		var history: Variant=file.get_value("progression","completed_events",{})
+		if history is Dictionary:
+			for id in history:
+				if str(id).length()<=160 and int(history[id])>0:
+					completed_events[str(id)]=clampi(int(history[id]),1,100000)
 		_load_upgrades(file)
 		return
 	# Migration: previously all cars could be selected anywhere. Retain the
@@ -348,36 +355,59 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		"part":earned_part,"part_uid":"up-%d" % prior_serial if not earned_part.is_empty() else ""}
 
 
-## Atomic, once-per-completed-run payouts for authored races. 
-func record_authored_race(run_id: String, elapsed_seconds: float, awards: Dictionary) -> Dictionary:
+## Career completion is keyed by stable map+event ID, not by run token.
+## Each valid completed run may pay repeat rewards. First-win extras are
+## atomically committed exactly once, even across restart and retry.
+func completed_event_count(event_key: String) -> int:
+	return int(completed_events.get(event_key,0))
+
+func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictionary,
+		event_key: String="") -> Dictionary:
 	if run_id.length()<8 or run_id.length()>150 or _claimed_races.has(run_id) or \
 			not is_finite(elapsed_seconds) or elapsed_seconds<0.1 or elapsed_seconds>7200.0 or not owns(active_id):
 		return {"result":"invalid_or_duplicate"}
-	for spec in [["reward_cash",1000000],["reward_player_xp",100000],["reward_car_xp",100000]]:
-		var amount: Variant=awards.get(spec[0],0)
+	if not EventRules.valid_event(awards):
+		return {"result":"invalid_event"}
+	if event_key.is_empty():event_key="morrow-coast::"+str(awards.get("id","legacy"))
+	var reason: String=EventRules.lock_reason(awards,self,
+		event_key.get_slice("::",0)) if event_key.contains("::") else ""
+	if not reason.is_empty():return {"result":"locked","reason":reason}
+	var first_win:=completed_event_count(event_key)==0
+	var values: Array[int]=[]
+	for field in ["reward_cash","reward_player_xp","reward_car_xp"]:
+		var amount: Variant=awards.get(field,0)
+		var max_reward:=1000000 if field=="reward_cash" else 100000
 		if typeof(amount) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(amount)) or \
-				float(amount)!=floorf(float(amount)) or float(amount)<0 or float(amount)>spec[1]:
+				float(amount)!=floorf(float(amount)) or float(amount)<0 or float(amount)>max_reward:
 			return {"result":"invalid_reward"}
-	var cash:=int(awards.get("reward_cash",0))
-	var driver_xp:=int(awards.get("reward_player_xp",0))
-	var vehicle_xp:=int(awards.get("reward_car_xp",0))
+		var extra_field: String="first_win_"+field
+		var extra: Variant=awards.get(extra_field,0) if first_win else 0
+		var total:=int(amount)+int(extra)
+		values.append(total)
+	var cash:=values[0]
+	var driver_xp:=values[1]
+	var vehicle_xp:=values[2]
 	var previous_balance:=balance
 	var previous_player_xp:=player_xp
 	var previous_car_xp:=int(car_xp.get(active_id,0))
 	var previous_claims: Array[String]=_claimed_races.duplicate()
+	var previous_events: Dictionary=completed_events.duplicate()
 	balance+=cash
 	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
 	car_xp[active_id]=mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),previous_car_xp+vehicle_xp)
 	_claimed_races.append(run_id)
 	if _claimed_races.size()>50:_claimed_races.pop_front()
+	completed_events[event_key]=completed_event_count(event_key)+1
 	if not save():
 		balance=previous_balance
 		player_xp=previous_player_xp
 		car_xp[active_id]=previous_car_xp
 		_claimed_races=previous_claims
+		completed_events=previous_events
 		return {"result":"save_failed"}
 	changed.emit()
-	return {"result":"completed","cash":cash,"player_xp":driver_xp,"car_xp":vehicle_xp}
+	return {"result":"completed","cash":cash,"player_xp":driver_xp,
+		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key)}
 
 func credit(amount: int) -> bool:
 	if amount <= 0:
@@ -401,6 +431,7 @@ func save() -> bool:
 	file.set_value("progression","car_xp",car_xp)
 	file.set_value("progression","best_quarter_mile",best_quarter_mile)
 	file.set_value("progression","claimed_races",_claimed_races)
+	file.set_value("progression","completed_events",completed_events)
 	file.set_value("upgrades","inventory",upgrade_inventory)
 	file.set_value("upgrades","loadouts",upgrade_loadouts)
 	file.set_value("upgrades","next_uid",next_part_uid)

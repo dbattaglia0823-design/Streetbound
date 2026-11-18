@@ -2,6 +2,7 @@ extends RefCounted
 ## Per-race routes and starting slots share native world-editor undo and saved data.
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 var panel: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
@@ -42,6 +43,18 @@ var pool_summary: Label
 var dialog_message: Label
 var selected_pool: Array[String]=[]
 var pool_syncing:=false
+var career_category: OptionButton
+var career_difficulty: OptionButton
+var career_level: SpinBox
+var career_car_level: SpinBox
+var career_repeatable: CheckBox
+var career_first_cash: SpinBox
+var career_first_driver_xp: SpinBox
+var career_first_car_xp: SpinBox
+var career_require_cars: ItemList
+var career_prerequisites: ItemList
+var _career_car_ids: Array[String]=[]
+var _career_race_ids: Array[String]=[]
 func build(e,parent: Node) -> void:
 	e._btn("Street races & routes",parent,func():begin_route(e))
 	panel=VBoxContainer.new();parent.add_child(panel)
@@ -248,18 +261,24 @@ func _form_column(parent: Node, width: float) -> VBoxContainer:
 func _build_dialog(e) -> void:
 	dialog=AcceptDialog.new()
 	dialog.name="EditRaceDialog"
-	dialog.title="Edit Race — Settings, Enemies & Rewards"
+	dialog.title="Edit Race — Route, Opponents, Rewards & Career"
 	dialog.ok_button_text="Cancel"
-	dialog.min_size=Vector2i(940,660)
+	dialog.min_size=Vector2i(980,675)
 	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	e.add_child(dialog)
 	var body:=VBoxContainer.new()
-	body.custom_minimum_size=Vector2(910,590)
+	body.custom_minimum_size=Vector2(940,595)
 	dialog.add_child(body)
+	var tabs:=TabContainer.new()
+	tabs.name="RaceEditTabs"
+	tabs.custom_minimum_size=Vector2(940,550)
+	tabs.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	body.add_child(tabs)
 	var columns:=HBoxContainer.new()
+	columns.name="Race Setup"
 	columns.add_theme_constant_override("separation",13)
 	columns.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	body.add_child(columns)
+	tabs.add_child(columns)
 	var basics:=_form_column(columns,260)
 	_form_label(basics,"RACE SETTINGS")
 	dialog_name=LineEdit.new();dialog_name.max_length=80
@@ -305,6 +324,45 @@ func _build_dialog(e) -> void:
 	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=1
 	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
 	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var career:=HBoxContainer.new()
+	career.name="Career & Unlocks"
+	career.add_theme_constant_override("separation",20)
+	tabs.add_child(career)
+	var rules:=_form_column(career,345)
+	_form_label(rules,"CAREER PROGRESSION")
+	career_category=e._options(rules,"Event category",EventRules.CATEGORIES)
+	career_difficulty=e._options(rules,"Difficulty",EventRules.DIFFICULTIES)
+	career_level=e._number(rules,"Minimum driver level",1,100,1);career_level.step=1
+	career_car_level=e._number(rules,"Minimum car level",1,50,1);career_car_level.step=1
+	career_repeatable=CheckBox.new()
+	career_repeatable.text="Repeatable after first win"
+	career_repeatable.button_pressed=true
+	rules.add_child(career_repeatable)
+	_form_label(rules,"FIRST WIN BONUS (added to normal rewards)")
+	career_first_cash=e._number(rules,"Cash $",0,1000000,0);career_first_cash.step=1
+	career_first_driver_xp=e._number(rules,"Driver XP",0,100000,0);career_first_driver_xp.step=1
+	career_first_car_xp=e._number(rules,"Vehicle XP",0,100000,0);career_first_car_xp.step=1
+	var locks:=_form_column(career,540)
+	_form_label(locks,"REQUIRED PREVIOUS RACES (all must be won)")
+	career_prerequisites=ItemList.new()
+	career_prerequisites.select_mode=ItemList.SELECT_MULTI
+	career_prerequisites.custom_minimum_size.y=162
+	career_prerequisites.multi_selected.connect(func(index: int,chosen: bool)->void:
+		var id: String=str(career_prerequisites.get_item_metadata(index))
+		if chosen and not _career_race_ids.has(id):_career_race_ids.append(id)
+		elif not chosen:_career_race_ids.erase(id))
+	locks.add_child(career_prerequisites)
+	_form_label(locks,"ELIGIBLE PLAYER VEHICLES (none = all owned cars)")
+	career_require_cars=ItemList.new()
+	career_require_cars.select_mode=ItemList.SELECT_MULTI
+	career_require_cars.custom_minimum_size.y=208
+	career_require_cars.multi_selected.connect(func(index: int,chosen: bool)->void:
+		var id: String=str(career_require_cars.get_item_metadata(index))
+		if chosen and not _career_car_ids.has(id):_career_car_ids.append(id)
+		elif not chosen:_career_car_ids.erase(id))
+	locks.add_child(career_require_cars)
+	var note:=_form_label(locks,"Ctrl-click to select multiple. Prerequisite chains must be acyclic. First-win bonuses are paid only once; repeat rewards apply on every subsequent win.")
+	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var foot:=HBoxContainer.new();body.add_child(foot)
 	dialog_message=_form_label(foot,"")
 	dialog_message.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -345,6 +403,33 @@ func open_for(e,id: String) -> void:
 	dialog_cash.value=float(race.get("reward_cash",0))
 	dialog_driver_xp.value=float(race.get("reward_player_xp",0))
 	dialog_car_xp.value=float(race.get("reward_car_xp",0))
+	for i in career_category.item_count:
+		if str(career_category.get_item_metadata(i))==str(race.get("category","street")):career_category.select(i)
+	for i in career_difficulty.item_count:
+		if str(career_difficulty.get_item_metadata(i))==str(race.get("difficulty","rookie")):career_difficulty.select(i)
+	career_level.value=float(race.get("required_player_level",1))
+	career_car_level.value=float(race.get("required_car_level",1))
+	career_repeatable.button_pressed=bool(race.get("repeatable",true))
+	career_first_cash.value=float(race.get("first_win_reward_cash",0))
+	career_first_driver_xp.value=float(race.get("first_win_reward_player_xp",0))
+	career_first_car_xp.value=float(race.get("first_win_reward_car_xp",0))
+	_career_race_ids.clear()
+	for other in race.get("prerequisite_races",[]):_career_race_ids.append(str(other))
+	_career_car_ids.clear()
+	for car in race.get("required_vehicle_ids",[]):_career_car_ids.append(str(car))
+	career_prerequisites.clear()
+	for other in e.authoring.doc.get("races",[]):
+		if str(other.id)==id:continue
+		career_prerequisites.add_item(str(other.name)+"  ("+str(other.id)+")")
+		var index:=career_prerequisites.item_count-1
+		career_prerequisites.set_item_metadata(index,str(other.id))
+		if _career_race_ids.has(str(other.id)):career_prerequisites.select(index,false)
+	career_require_cars.clear()
+	for car in Catalog.all():
+		career_require_cars.add_item(str(car.get("display_name",car.id)))
+		var index:=career_require_cars.item_count-1
+		career_require_cars.set_item_metadata(index,str(car.id))
+		if _career_car_ids.has(str(car.id)):career_require_cars.select(index,false)
 	selected_pool.clear()
 	for vehicle_id in race.get("opponent_pool",[]):
 		selected_pool.append(str(vehicle_id))
@@ -412,11 +497,21 @@ func _save_dialog(e) -> void:
 		"opponent_pool":selected_pool.duplicate(),
 		"reward_cash":int(dialog_cash.value),
 		"reward_player_xp":int(dialog_driver_xp.value),
-		"reward_car_xp":int(dialog_car_xp.value)}
+		"reward_car_xp":int(dialog_car_xp.value),
+		"category":str(career_category.get_selected_metadata()),
+		"difficulty":str(career_difficulty.get_selected_metadata()),
+		"required_player_level":int(career_level.value),
+		"required_car_level":int(career_car_level.value),
+		"repeatable":career_repeatable.button_pressed,
+		"first_win_reward_cash":int(career_first_cash.value),
+		"first_win_reward_player_xp":int(career_first_driver_xp.value),
+		"first_win_reward_car_xp":int(career_first_car_xp.value),
+		"prerequisite_races":_career_race_ids.duplicate(),
+		"required_vehicle_ids":_career_car_ids.duplicate()}
 	var points: Array[Vector2]=[]
 	for p in race.points:points.append(Vector2(float(p.x),float(p.y)))
 	if e.authoring.save_race(points,options,dialog_race_id).is_empty():
-		dialog_message.text="Cannot save: "+e.authoring.last_error
+		dialog_message.text="Cannot save: "+e.authoring.last_error+" (check prerequisite chain)"
 		return
 	e.source_id=dialog_race_id
 	e.source_anchor=-1

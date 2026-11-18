@@ -216,6 +216,40 @@ the draft and recovery copy. Keep the editor open while saving. **Test Drive**
 opens Morrow Coast after saving or discarding its standalone edits, or saves
 and opens the selected custom map in isolated drive mode.
 
+## Career events and gameplay markers
+
+**Create a race:** In the native Map Builder select **Street races & routes**,
+place the start and checkpoints on connected roads, then press Enter. The
+**Edit Race** dialog opens with two tabs. In **Race Setup**, choose
+point-to-point, circuit, or time trial, opponent count/vehicle pool and repeat
+cash/driver XP/car XP rewards. In **Career & Unlocks**, choose category and
+difficulty, minimum driver/car level, eligible player vehicles, prior races
+that must be won, repeatability, and a one-time first-win bonus.
+Acyclic prerequisites and referenced IDs are checked before saving. Locked
+events still appear on the Events page with their restrictions; successful
+wins unlock downstream races and persist completion counts by map and race ID.
+The same race in a different named map does not share completion history.
+
+**Create a game marker:** Choose **Game marker**, select a kind and click
+the map. The **Edit Game Marker** dialog opens immediately. It can also be
+opened for a previously placed marker with **Edit Selected Marker**.
+Configure a label/description, interaction radius, availability, required
+race victory, and appropriate linked race or dealership. Only one player
+spawn may exist in each map. **Mission** markers start their linked race;
+**garage** markers access the real owned vehicle selector; **dealership**
+markers use the existing forecourt/slow-driving checks; **fast travel** is
+available between unlocked road-safe stations when stationary;
+**fuel/service** refills installed nitrous; **traffic spawn** markers bias
+real traffic spawning toward an authored neighborhood; custom and
+checkpoint markers show map information or route to linked events.
+
+For a staged world, first create the races and dealerships and *then* link
+markers to their IDs. Rename names freely, but keep the underlying IDs
+stable once the game ships because save progression is keyed to them.
+Test Drive runs the complete gameplay path but never updates career saves.
+Custom maps still require the separate production-world publishing workflow
+before they can replace Morrow Coast as the shipped default.
+
 ## Browser editor
 
 On Windows 11, open your local Streetbound checkout and double-click

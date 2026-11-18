@@ -71,6 +71,35 @@ def authored_races(doc,width,height):
             entry.update({'player_start':starts[0],'enemy_starts':starts[1:],'formation':formation})
         elif 'formation' in race:
             entry['formation']=formation
+        category=race.get('category','street')
+        difficulty=race.get('difficulty','rookie')
+        if category not in ('street','circuit','time_trial','championship','challenge'):
+            raise ValueError('Invalid race category')
+        if difficulty not in ('rookie','amateur','pro','elite'):
+            raise ValueError('Invalid race difficulty')
+        if type(race.get('repeatable',True)) is not bool:
+            raise ValueError('Race repeatability must be boolean')
+        for field,lowest,highest in (
+            ('required_player_level',1,100),('required_car_level',1,50),
+            ('first_win_reward_cash',0,1000000),('first_win_reward_player_xp',0,100000),
+            ('first_win_reward_car_xp',0,100000)):
+            amount=race.get(field,lowest)
+            if type(amount) is not int or not lowest<=amount<=highest:
+                raise ValueError('Invalid race progression: '+field)
+            if field in race:entry[field]=amount
+        for field in ('prerequisite_races','required_vehicle_ids'):
+            choices=race.get(field,[])
+            if not isinstance(choices,list) or len(choices)>(16 if field=='prerequisite_races' else 128) or (
+                any(not isinstance(value,str) for value in choices) or len(choices)!=len(set(choices))):
+                raise ValueError('Invalid '+field)
+            if field=='required_vehicle_ids' and any(value not in vehicle_ids() for value in choices):
+                raise ValueError('Race references an unknown vehicle')
+            if field=='prerequisite_races' and (
+                    race['id'] in choices or any(not value.startswith('race-') for value in choices)):
+                raise ValueError('Invalid race prerequisite')
+            if field in race:entry[field]=choices
+        for field in ('category','difficulty','repeatable'):
+            if field in race:entry[field]=race[field]
         pool=race.get('opponent_pool',[])
         if not isinstance(pool,list) or len(pool)>128 or any(
             not isinstance(car,str) or car not in vehicle_ids() for car in pool
@@ -83,4 +112,19 @@ def authored_races(doc,width,height):
                 raise ValueError('Invalid race reward: '+key)
             if key in race:entry[key]=amount
         result.append(entry)
+    graph={race['id']:race for race in result}
+    for race in result:
+        for prerequisite in race.get('prerequisite_races',[]):
+            if prerequisite not in graph:
+                raise ValueError('Race prerequisite references unknown event: '+prerequisite)
+    visiting=set()
+    visited=set()
+    def visit(identity):
+        if identity in visiting:raise ValueError('Race prerequisites form a cycle')
+        if identity in visited:return
+        visiting.add(identity)
+        for prerequisite in graph[identity].get('prerequisite_races',[]):visit(prerequisite)
+        visiting.remove(identity)
+        visited.add(identity)
+    for identity in graph:visit(identity)
     return result

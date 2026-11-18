@@ -13,6 +13,8 @@ from pathlib import Path
 import sys
 
 from junction_bake import build_junctions
+from authored_races import authored_races
+from authored_markers import validate_markers
 from morrow_editor_import import _authoring_props, CLASS_TO_KIND, PALETTES
 from road_shape_geometry import circle_path
 
@@ -166,7 +168,9 @@ def make_archive(doc):
             if key in raw:region[key]=raw[key]
         terrain.append(region)
     props=[p for p in _authoring_props(doc,width,height) if not p.get("hidden")]
-    markers=doc.get("markers",[])
+    baked_races=authored_races(doc,width,height)
+    dealers=doc.get("dealerships",[])
+    markers=validate_markers(doc.get("markers",[]),baked_races,dealers,width,height)
     marker_spawn=next((m for m in markers if m.get("type")=="player_spawn"),None)
     if marker_spawn:
         spawn=dict(position=[float(marker_spawn["x"]),float(marker_spawn["y"])],
@@ -254,7 +258,8 @@ def make_archive(doc):
                 road_connections=[list(pair) for pair in sorted(connections)],surface_index=dict(grid),
                 chunks=dict(chunks),road_crossings=crossings,relief_faces=[],
                 mountain_rails=[],editor_markers=markers,
-                editor_races=doc.get("races",[]),editor_dealerships=doc.get("dealerships",[]),
+                editor_races=baked_races,editor_dealerships=dealers,
+                editor_game_markers=markers,editor_world_id=Path(doc.get("_source_filename","custom-map.world.json")).name,
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
@@ -267,6 +272,7 @@ def build_file(source_path, output_path):
     if not source.is_file() or source.stat().st_size>MAX_SOURCE_BYTES:
         raise ValueError("Missing or oversized saved custom map")
     doc=json.loads(source.read_text(encoding="utf-8"))
+    doc["_source_filename"]=source.name
     result=make_archive(doc)
     destination.parent.mkdir(parents=True,exist_ok=True)
     temporary=destination.with_suffix(destination.suffix+".tmp")

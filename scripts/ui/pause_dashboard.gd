@@ -3,6 +3,7 @@ extends Control
 ## vehicle, saved progression, map and actual race nodes; no invented payouts.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const RouteGraphic = preload("res://scripts/ui/race_route_preview.gd")
 const DESIGN := Vector2(1440, 800)
 const CAR_BATCH_SIZE := 18
@@ -468,23 +469,30 @@ func _distance_to_event(race: Node) -> float:
 	var location: Vector2 = race.get("start_m")
 	return (location - vehicle.global_position / 20.0).length()
 
+func _event_definition(race: Node) -> Dictionary:
+	var value: Variant=race.get("definition")
+	return value if value is Dictionary else {}
+
 func _is_trial(race: Node) -> bool:
+	var details: Dictionary=_event_definition(race)
+	if not details.is_empty():
+		return str(details.get("category",""))=="time_trial" or str(details.get("race_kind",""))=="time_trial"
 	return "time trial" in str(race.get("race_type")).to_lower() or "circuit" in str(race.get("race_type")).to_lower()
 
 func _matches_filter(race: Node) -> bool:
 	match event_filter:
 		"races":
-			return not _is_trial(race)
+			return not _is_trial(race) and str(_event_definition(race).get("category","street")) not in ["challenge","championship"]
 		"trials":
 			return _is_trial(race)
 		"challenges":
-			return false # No authored challenge events yet.
+			return str(_event_definition(race).get("category","")) in ["challenge","championship"]
 	return true
 
 func _show_events() -> void:
 	filter_buttons.clear()
 	_heading("EVENTS", "Race, Earn, and Build Your Rep",
-		"Discover real races and time trials across Morrow Coast. Select an event to set GPS.")
+		"Discover races, trials and career challenges. Select an event to set GPS.")
 	var tabs := [["all", "All Events"], ["races", "Races"], ["trials", "Time Trials"], ["challenges", "Challenges"]]
 	for i in tabs.size():
 		var key: String = tabs[i][0]
@@ -570,7 +578,11 @@ func _event_card(race: Node) -> void:
 	thumb.call("set_course", _race_route(race), _is_trial(race))
 	var heading := str(race.get("race_title"))
 	_label(row, "EventName", heading, Rect2(233, 12, 332, 31), 20)
-	_label(row, "EventType", str(race.get("race_type")).to_upper(),
+	var definition: Dictionary=_event_definition(race)
+	var label_type: String=str(race.get("race_type")).to_upper()
+	if not definition.is_empty():
+		label_type=str(definition.get("category","street")).to_upper()+"  /  "+str(definition.get("difficulty","rookie")).to_upper()
+	_label(row, "EventType",label_type,
 		Rect2(233, 43, 321, 20), 12, LIME)
 	var navigator: RefCounted = race.get("navigation") as RefCounted
 	var length_m := 402.336 if navigator == null else float(navigator.get("length_m"))
@@ -583,9 +595,20 @@ func _event_card(race: Node) -> void:
 	var is_rewarded: bool = race.get_script().resource_path.ends_with("/ashford_drag_race.gd")
 	_label(row, "PayoutTitle", "REWARDS", Rect2(589, 30, 115, 19), 11, MUTED)
 	var rewards := "XP + CASH" if is_rewarded else "PRACTICE"
-	_label(row, "PayoutValue", rewards, Rect2(579, 56, 127, 28), 14, LIME)
-	_label(row, "PayoutExplanation", "VARIABLE" if is_rewarded else "NO PAYOUT",
-		Rect2(579, 87, 127, 20), 11, MUTED)
+	var note: String="VARIABLE" if is_rewarded else "NO PAYOUT"
+	if not definition.is_empty():
+		var wallet: Object=economy
+		var world_id: String=str(race.get("world_id"))
+		var wins: int=int(wallet.completed_event_count(EventRules.event_key(world_id,str(definition.id)))) if wallet!=null else 0
+		var restriction: String=str(race.call("_lock_reason")) if race.has_method("_lock_reason") else ""
+		rewards="LOCKED" if not restriction.is_empty() else "COMPLETED" if wins>0 and not bool(definition.get("repeatable",true)) else "CASH + XP"
+		note="WIN %d"%wins if restriction.is_empty() else "SEE REQUIREMENTS"
+		if not restriction.is_empty():
+			row.tooltip_text=restriction+" / "+row.tooltip_text
+		elif wins==0 and (int(definition.get("first_win_reward_cash",0))>0 or int(definition.get("first_win_reward_player_xp",0))>0):
+			note="FIRST WIN BONUS"
+	_label(row, "PayoutValue",rewards,Rect2(579, 56, 127, 28), 14, LIME)
+	_label(row, "PayoutExplanation",note,Rect2(579, 87, 127, 20), 11, MUTED)
 
 func _route_event(race: Node) -> void:
 	if not is_instance_valid(race) or not is_instance_valid(map_hud):
