@@ -157,7 +157,7 @@ func activate() -> void:
 					dealer_menu.open_menu()
 		"mission":
 			var race:=_linked_race(str(properties.get("race_id","")))
-			if race==null or not bool(race.get("available",false)):return
+			if race==null or not bool(race.get("available")):return
 			if race.has_method("_lock_reason") and not str(race.call("_lock_reason")).is_empty():return
 			world.stream_at(Grid.point(Grid.player_slot(race.definition))*PPM)
 			Grid.teleport(player,Grid.player_slot(race.definition))
