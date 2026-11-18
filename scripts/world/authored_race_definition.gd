@@ -2,6 +2,7 @@ extends RefCounted
 ## Metre-space authoring contract shared by editor and race runtime.
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const MAX_REWARD_CASH:=1000000
 const MAX_REWARD_XP:=100000
 static func valid_rewards_and_opponents(race: Dictionary) -> bool:
@@ -36,4 +37,4 @@ static func valid(race: Dictionary,width: float,height: float) -> bool:
 		var number= race.get(spec[0],{"laps":1,"checkpoint_radius":16,"start_radius":8,"time_limit":0}[spec[0]])
 		if not typeof(number) in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(number)) or float(number)<spec[1] or float(number)>spec[2]:return false
 	var laps: float=float(race.get("laps",1))
-	return laps==floorf(laps) and Grid.valid_grid(race,width,height) and valid_rewards_and_opponents(race)
+	return laps==floorf(laps) and Grid.valid_grid(race,width,height) and valid_rewards_and_opponents(race) and EventRules.valid_event(race)
