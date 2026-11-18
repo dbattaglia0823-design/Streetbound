@@ -1588,7 +1588,7 @@
       "kind": "sport",
       "price_usd": 200000,
       "dealership_id": "luxury",
-      "required_player_level": 42,
+      "required_player_level": 52,
       "audio_family": "i6",
       "audio_aggression": 0.74,
       "audio_induction": "naturally_aspirated",
