@@ -2,6 +2,7 @@ extends Control
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
 const GameplayScript = preload("res://scripts/main.gd")
+const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
 const FeaturedCar = preload("res://assets/Vehicles/McLaren/McLaren Orange Supercar Top View.png")
@@ -124,7 +125,7 @@ func _build_shell() -> void:
 	shell.add_child(sub)
 
 	# Do not invent persistent profile balances before a profile system exists.
-	var context := _label("MORROW COAST", 21, WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	var context := _label(str(WorldPublication.current().name).to_upper(), 21, WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	context.position = Vector2(1280, 44)
 	context.size = Vector2(244, 34)
 	shell.add_child(context)
@@ -253,7 +254,7 @@ func _refresh_buttons() -> void:
 	editor_button.disabled = not editor_mode
 	editor_button.tooltip_text = (
 		"Godot development builds only." if not editor_mode else
-		"Edit Morrow Coast in its standalone map editor.")
+		"Open the map builder to edit, test and publish a custom game world.")
 	if not editor_mode:
 		message.text = "Map Builder is available in development builds only."
 
