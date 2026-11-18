@@ -354,8 +354,10 @@ func _add_test_drive_return_button() -> void:
 	var button:=Button.new()
 	button.name="ReturnToMapEditor"
 	button.text="Return to Map Editor   F6"
-	button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	button.position=Vector2(-265,12)
+	# Keep the return control away from the active top-right minimap and
+	# from the left-side speed and upgrade HUD.
+	button.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	button.position=Vector2(-125,12)
 	button.size=Vector2(250,38)
 	button.pressed.connect(_return_from_test_drive)
 	layer_node.add_child(button)
