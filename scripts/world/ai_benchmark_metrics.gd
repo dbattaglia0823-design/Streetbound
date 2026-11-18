@@ -8,7 +8,7 @@ const STALL_THROTTLE := 0.25
 const STALL_SECONDS := 2.5
 const RECOVERY_SPEED_MPS := 3.0
 const RECOVERY_DISTANCE_M := 4.0
-const COLLISION_DEBOUNCE_S := 0.15
+const COLLISION_EPISODE_GAP_S := 0.75
 
 var elapsed_s := 0.0
 var distance_m := 0.0
@@ -24,7 +24,7 @@ var _steer_sign := 0
 var _stall_clock := 0.0
 var _in_stall := false
 var _stall_origin_px := Vector2.ZERO
-var _last_collision_s := -100.0
+var _last_contact_s := -100.0
 
 
 func sample(dt: float, position_px: Vector2, speed_mps: float,
@@ -70,12 +70,12 @@ func sample(dt: float, position_px: Vector2, speed_mps: float,
 
 
 func collision(_strength: float = 0.0) -> void:
-	# One physical contact can emit several signals/contacts in adjacent
-	# physics ticks. Count it as one collision event, not dozens.
-	if elapsed_s - _last_collision_s < COLLISION_DEBOUNCE_S:
-		return
-	_last_collision_s = elapsed_s
-	collision_events += 1
+	# A car stalled against a barrier can emit hundreds of callbacks. Count
+	# one continuous contact episode, resetting the gap on *every* callback;
+	# only a real pause in contact begins a new collision episode.
+	if elapsed_s - _last_contact_s > COLLISION_EPISODE_GAP_S:
+		collision_events += 1
+	_last_contact_s = elapsed_s
 
 
 func summary() -> Dictionary:
