@@ -113,8 +113,10 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	if GEAR_PROFILES.has(gear_count):
 		config.gear_ratios = PackedFloat32Array(GEAR_PROFILES[gear_count])
 		if gear_count == 1:
-			# EV reduction drive rather than a fictitious six-speed gearbox.
-			config.final_drive = 9.5
+			# EVs use a reduction gear; hybrid direct-drive cars such as the
+			# Koenigsegg Regera retain their real final reduction.
+			config.final_drive = 9.5 if str(entry.get("reference_powertrain","")) == "electric" else \
+				float(entry.get("reference_final_drive",config.final_drive))
 	config.boost_max_psi = maxf(0.0,float(entry.get("boost_max_psi",0.0)))
 	config.audio_sample_id = str(entry.get("id",""))
 	config.audio_family = str(entry.get("audio_family","v8_cross"))
