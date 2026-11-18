@@ -11,9 +11,9 @@ const FORWARD_DOT := 0.24
 const MAX_MARKERS := 3
 const REFRESH_SECONDS := 0.12
 const VISIBLE_MARGIN_PX := 45.0
-const EDGE_MARGIN := Vector2(94.0, 99.0)
-const CHIP_WIDTH := 144.0
-const CHIP_HEIGHT := 35.0
+const EDGE_MARGIN := Vector2(70.0, 76.0)
+const CHIP_WIDTH := 108.0
+const CHIP_HEIGHT := 27.0
 const INK := Color("#e8f0e9")
 const ROAD := Color("#ffa85e")
 const RIVAL := Color("#83cefd")
@@ -176,8 +176,8 @@ func refresh_markers() -> void:
 			break
 		var at: Vector2 = entry.position
 		for placed in markers:
-			if at.distance_to(placed.position) < 63.0:
-				at.y = clampf(at.y + (63.0 if at.y < size_px.y*0.5 else -63.0),
+			if at.distance_to(placed.position) < 48.0:
+				at.y = clampf(at.y + (48.0 if at.y < size_px.y*0.5 else -48.0),
 					minf(EDGE_MARGIN.y,size_px.y*0.25),
 					maxf(size_px.y*0.75,size_px.y-EDGE_MARGIN.y))
 		entry.position = at
@@ -199,14 +199,14 @@ func _draw() -> void:
 			Vector2(CHIP_WIDTH,CHIP_HEIGHT))
 		draw_rect(bounds,Color(0.032,0.047,0.056,0.88),true)
 		draw_rect(bounds,color.darkened(0.3),false,1.2)
-		var tip := position + Vector2(-46.0,0.0)
+		var tip := position + Vector2(-40.0,0.0)
 		var angle: float = (entry.direction as Vector2).angle() + PI*0.5
 		var triangle := PackedVector2Array([
-			tip+Vector2(0.0,-10.0).rotated(angle),
-			tip+Vector2(-7.0,8.0).rotated(angle),
-			tip+Vector2(7.0,8.0).rotated(angle)])
+			tip+Vector2(0.0,-7.0).rotated(angle),
+			tip+Vector2(-5.0,6.0).rotated(angle),
+			tip+Vector2(5.0,6.0).rotated(angle)])
 		draw_colored_polygon(triangle,color)
 		var caption := distance_caption(
 			float(entry.distance_m),bool(entry.rival))
-		draw_string(font,position + Vector2(-30.0,5.0),
-			caption,HORIZONTAL_ALIGNMENT_LEFT,99.0,13,INK)
+		draw_string(font,position + Vector2(-25.0,4.0),
+			caption,HORIZONTAL_ALIGNMENT_LEFT,78.0,11,INK)
