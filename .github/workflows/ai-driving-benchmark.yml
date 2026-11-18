@@ -38,6 +38,11 @@ on:
 permissions:
   contents: read
 
+# Benchmarking is CPU-heavy; keep only the newest run for a PR or branch.
+concurrency:
+  group: streetbound-ai-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ai-driving:
     runs-on: ubuntu-24.04
