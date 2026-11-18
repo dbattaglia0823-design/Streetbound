@@ -113,6 +113,10 @@ func open_for(e,id: String) -> void:
 
 func update(e) -> void:
 	if not is_instance_valid(edit_button):return
+	# Native world editor builds UI before the source session is initialized.
+	if not e.source_ready or e.authoring==null:
+		edit_button.disabled=true
+		return
 	edit_button.disabled=e.authoring.marker_at_id(e.source_id).is_empty() or e._editing_locked()
 
 func save(e) -> void:
