@@ -72,6 +72,8 @@ func run() -> void:
 				"naturally_aspirated","turbo","supercharger","electric"]
 		textures[sprite] = true
 		dealer_routing = dealer_routing and dealers.has(str(v.get("dealership_id","")))
+		if str(v.get("dealership_id","")) in ["exotic","luxury"]:
+			dealer_routing = dealer_routing and int(v.get("required_player_level",0)) >= 52
 		var shop: Dictionary = dealers.get(str(v.get("dealership_id","")),{})
 		if not shop.is_empty():
 			dealer_routing = dealer_routing and DealerConfig.sells(shop,id)
