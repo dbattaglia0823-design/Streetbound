@@ -16,7 +16,7 @@ static func audit(data: Dictionary) -> Dictionary:
 		return report
 	# A custom Test Drive can intentionally start on blank terrain. Production
 	# Morrow Coast still requires populated geometry; both use the same chunks.
-	var custom: bool=bool(data.get("editor_custom_test_drive",false))
+	var custom: bool=bool(data.get("editor_custom_test_drive",false)) or bool(data.get("editor_published_world",false))
 	if (data.roads.is_empty() or data.segments.is_empty() or data.props.is_empty()) and not custom:
 		errors.append("Source road/scenery arrays are empty")
 		return report
