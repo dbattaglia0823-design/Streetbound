@@ -97,8 +97,12 @@ def make_archive(doc):
         raise ValueError("Not a saved custom World Builder map")
     world = doc.get("world", {})
     width, height = world.get("width"), world.get("height")
-    if type(width) is not int or type(height) is not int or not 600 <= width <= 24000 or not 600 <= height <= 24000:
+    # Godot JSON.parse_string can serialize original integer dimensions as
+    # floating-point values. Accept only finite integral quantities.
+    if any(type(v) not in (int,float) or not math.isfinite(v) or
+           v!=int(v) or not 600<=v<=24000 for v in (width,height)):
         raise ValueError("Invalid custom world dimensions")
+    width,height=int(width),int(height)
     source_roads = doc.get("roads", [])
     if not isinstance(source_roads, list) or len(source_roads) > 180:
         raise ValueError("Invalid custom road list")
@@ -221,6 +225,13 @@ def make_archive(doc):
         pois.append(dict(name=str(marker.get("name",marker.get("type","Marker"))),
                          category=str(marker.get("type","MARKER")).upper(),
                          position=[float(marker["x"]),float(marker["y"])],road=-1))
+    for race in doc.get("races",[]):
+        if not race.get("points"):
+            continue
+        at=race["points"][0]
+        pois.append(dict(name=str(race.get("name","Street Race")),
+                         category="RACE",position=[float(at["x"]),float(at["y"])],
+                         road=-1))
     result=dict(format="streetbound.streamed-world",version=1,units="metres",
                 name=str(doc.get("name","Custom Test Drive")),pixels_per_metre=20,
                 editor_custom_test_drive=True,road_width_scale=1.10,
