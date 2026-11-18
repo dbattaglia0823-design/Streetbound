@@ -5,7 +5,7 @@ const GameplayScript = preload("res://scripts/main.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
-const FeaturedCar = preload("res://assets/Vehicles/McLaren/McLaren Orange Supercar Top View.png")
+const FeaturedCar = preload("res://assets/Vehicles/McLaren/570S.png")
 
 const DESIGN_SIZE := Vector2(1600.0, 900.0)
 const ACCENT := Color("#ff8733")
