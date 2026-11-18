@@ -311,6 +311,7 @@ Additional vehicles for future content/development:
 1966 Ford #2 GT40 MK II
 
 2021 Hennessey Venom F5
+2010 Hennessey Venom GT
 
 1997 Honda Civic Type R
 
@@ -323,13 +324,14 @@ Additional vehicles for future content/development:
 2008 Koenigsegg CCGT
 
 2020 Lamborghini Essenza SCV12
+Sesto Elemento
 
 2020 Lotus Evija
 
 2022 Maserati MC20
 
 2025 Mclaren W1
-19997 Mclaren F1 GT
+1997 Mclaren F1 GT
 
 1995 Nissan Nismo GT-R LM
 1969 Nissan Fairlady Z 432
@@ -338,8 +340,8 @@ Additional vehicles for future content/development:
 2010 Noble M600
 
 2016 Pagani Huayra BC Coupe
-2010 Zonda Cinque Roadster
-2009 Zonda R
+2010 Pagani Zonda Cinque Roadster
+2009 Pagani Zonda R
 
 1971 Plymouth Cuda 426 Hemi
 1968 Plymouth Barracuda Formula S
