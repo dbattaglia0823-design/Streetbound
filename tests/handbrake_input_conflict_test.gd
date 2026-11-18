@@ -23,6 +23,8 @@ func run() -> void:
 			fresh()
 			var origin := car.global_position
 			var heading := car.rotation
+			# Engage the handbrake first, then turn the wheels while parked.
+			await drive(0.3, Vector4(0, 0, 0, 1))
 			await drive(2.0, Vector4(0, 0, side, 1))
 			var drift_m := car.global_position.distance_to(origin) / 20.0
 			check(vehicle_id + "_parked_handbrake_steer_no_motion_" + str(side),
