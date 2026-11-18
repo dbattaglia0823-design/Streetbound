@@ -169,6 +169,25 @@ export function normalizeWorld(raw){
       if(r.opponent_pool!==undefined)entry.opponent_pool=[...pool];
       for(const [key,max] of [['reward_cash',1000000],['reward_player_xp',100000],['reward_car_xp',100000]])
         if(r[key]!==undefined)entry[key]=integer(r[key],0,max,key);
+      if(r.category!==undefined)entry.category=oneOf(r.category,['street','circuit','time_trial','championship','challenge'],'event category');
+      if(r.difficulty!==undefined)entry.difficulty=oneOf(r.difficulty,['rookie','amateur','pro','elite'],'event difficulty');
+      if(r.repeatable!==undefined){
+        if(typeof r.repeatable!=='boolean')throw new TypeError('Race repeatable must be boolean');
+        entry.repeatable=r.repeatable;
+      }
+      for(const [field,min,max] of [['required_player_level',1,100],['required_car_level',1,50],
+        ['first_win_reward_cash',0,1000000],['first_win_reward_player_xp',0,100000],
+        ['first_win_reward_car_xp',0,100000]]){
+        if(r[field]!==undefined)entry[field]=integer(r[field],min,max,field);
+      }
+      for(const field of ['prerequisite_races','required_vehicle_ids']){
+        if(r[field]===undefined)continue;
+        const items=r[field];
+        if(!Array.isArray(items)||items.length>(field==='prerequisite_races'?16:128)||
+          items.some(id=>typeof id!=='string'||!idOk(id))||new Set(items).size!==items.length||
+          (field==='prerequisite_races'&&items.includes(r.id)))throw new TypeError('Invalid '+field);
+        entry[field]=[...items];
+      }
       if(r.formation!==undefined)entry.formation=oneOf(r.formation,['single_file','side_by_side','staggered'],'race grid formation');
       const pose=s=>{
         if(!s||typeof s!=='object')throw new TypeError('Invalid race grid slot');
@@ -182,6 +201,18 @@ export function normalizeWorld(raw){
       }
       return entry;
     });
+  }
+  if(result.races){
+    const events=new Map(result.races.map(e=>[e.id,e]));
+    const visiting=new Set(),visited=new Set();
+    const walk=id=>{
+      if(!events.has(id)||visiting.has(id))throw new TypeError('Missing or cyclic race prerequisite: '+id);
+      if(visited.has(id))return;
+      visiting.add(id);
+      for(const required of events.get(id).prerequisite_races??[])walk(required);
+      visiting.delete(id);visited.add(id);
+    };
+    for(const event of result.races)walk(event.id);
   }
   const allAssets=raw.assets??[];
   if(!Array.isArray(allAssets)||allAssets.length>LIM.assets)throw new RangeError('Invalid sprite asset count');
@@ -235,6 +266,27 @@ export function normalizeWorld(raw){
       return record;
     });
   }
+  const raceIds=new Set((result.races??[]).map(e=>e.id));
+  const dealerIds=new Set((result.dealerships??[]).map(e=>e.id));
+  let playerSpawns=0;
+  for(const marker of result.markers){
+    if(marker.type==='player_spawn')playerSpawns++;
+    const info=marker.properties??{};
+    for(const field of ['race_id','required_race']){
+      if(info[field]!==undefined&&(
+        typeof info[field]!=='string'||info[field].length>100||
+        (info[field]!==''&&!raceIds.has(info[field]))))
+        throw new TypeError('Marker references unknown race: '+field);
+    }
+    if(info.dealer_id!==undefined&&(
+      typeof info.dealer_id!=='string'||info.dealer_id.length>100||
+      (info.dealer_id!==''&&!dealerIds.has(info.dealer_id))))
+      throw new TypeError('Marker references unknown dealership');
+    if(info.enabled!==undefined&&typeof info.enabled!=='boolean')throw new TypeError('Invalid marker enabled flag');
+    if(info.radius_m!==undefined)real(info.radius_m,4,50,'marker radius');
+    if(info.traffic_weight!==undefined)integer(info.traffic_weight,1,10,'traffic spawn priority');
+  }
+  if(playerSpawns>1)throw new TypeError('Only one player spawn marker is allowed');
   for(const prop of result.props)if(!assetOk(result,prop))throw new TypeError('Unknown or incompatible scenery artwork: '+prop.assetId);
   return result;
 }
