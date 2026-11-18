@@ -25,7 +25,7 @@ godot --headless --path . --fixed-fps 120 --script res://tests/ai_driving_benchm
 python3 tests/validate_ai_benchmark_report.py --mode full
 ```
 
-The dedicated GitHub Actions workflow `.github/workflows/ai-driving-benchmark.yml` runs the smoke matrix on relevant changes to main and pull requests. **Actions → Streetbound AI driving benchmark → Run workflow** runs the complete matrix. It uploads the JSON, CSV and benchmark console logs. A run does not fail CI solely because the current AI failed a route; the baseline must remain measurable even when it is weak.
+The dedicated GitHub Actions workflow `.github/workflows/ai-driving-benchmark.yml` runs **all ten cases automatically** on relevant changes to main and pull requests. **Actions → Streetbound AI driving benchmark → Run workflow** can run the full matrix again or choose the shorter smoke mode. It uploads JSON, CSV and benchmark console logs. A run does not fail CI solely because the current AI failed a route; the baseline must remain measurable even when it is weak.
 
 ## Metrics
 
