@@ -108,7 +108,17 @@ func _ready() -> void:
 	var world_route:=Node2D.new();world_route.set_script(Activities)
 	world_route.on_map=false;world_route.waypoints=waypoints;world_route.z_index=6
 	world.add_child(world_route)
-	mini=panel(Vector2(1100,24),Vector2(316,340))
+	mini=panel(Vector2.ZERO,Vector2(316,340))
+	# Anchor to the viewport's right edge so resizing/fullscreen keeps it
+	# in the upper-right corner rather than at a fixed screen coordinate.
+	mini.anchor_left=1.0
+	mini.anchor_right=1.0
+	mini.anchor_top=0.0
+	mini.anchor_bottom=0.0
+	mini.offset_left=-340.0
+	mini.offset_right=-24.0
+	mini.offset_top=24.0
+	mini.offset_bottom=364.0
 	mini_square_style=(mini.get_theme_stylebox("panel") as StyleBoxFlat).duplicate()
 	mini_round_style=mini_square_style.duplicate()
 	# Circular mode removes the full rectangular card backing so the
