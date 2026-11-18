@@ -147,9 +147,14 @@ func activate() -> void:
 		"garage":
 			if is_instance_valid(selector):selector.open_menu()
 		"dealership":
-			# The real forecourt/collision and parking speed rule remain
-			# authoritative; a map marker cannot bypass purchase access.
-			if is_instance_valid(dealer_menu):dealer_menu.open_menu()
+			# Never let a marker tied to one dealer open a different shop.
+			# The real forecourt/collision and parking speed rules remain
+			# authoritative; a marker cannot bypass purchase access.
+			if is_instance_valid(dealer_menu) and is_instance_valid(dealer_menu.manager):
+				var required: String=str(properties.get("dealer_id",""))
+				var closest: Dictionary=dealer_menu.manager.nearby_shop()
+				if required.is_empty() or str(closest.get("id",""))==required:
+					dealer_menu.open_menu()
 		"mission":
 			var race:=_linked_race(str(properties.get("race_id","")))
 			if race==null or not bool(race.get("available",false)):return
