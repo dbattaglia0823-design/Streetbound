@@ -591,7 +591,7 @@ func location_at(position_px: Vector2) -> Dictionary:
 	var p := position_px/PPM
 	var best := INF
 	var result := {"name":str(data.get("name","MORROW COAST")).to_upper(),
-		"subtitle":"Custom Test Drive" if bool(data.get("editor_custom_test_drive",false)) else "The long way home"}
+		"subtitle":"Custom Test Drive" if bool(data.get("editor_custom_test_drive",false)) else "Published Game World" if bool(data.get("editor_published_world",false)) else "The long way home"}
 	for district in data.districts:
 		var score := p.distance_to(Vector2(float(district.p[0]),float(district.p[1])))/float(district.radius)
 		if score<best:
