@@ -172,17 +172,15 @@ func _lane_clear(candidate: float, obstacles: Array[Dictionary],
 				return false
 			continue
 		var closing := speed_mps - float(other.speed_mps)
-		# Adjacent cars, faster cars approaching from behind, and oncoming
-		# vehicles must have enough real time/distance for a complete pass.
-		if ahead > -15.0 and ahead < intended_distance_m:
+		# Cars ahead (including oncoming traffic) must also leave enough
+		# time and space to complete the pass.
+		if ahead < intended_distance_m:
 			if ahead <= 9.0:
 				return false
 			if closing > 0.0 and ahead / maxf(closing, 0.1) < 7.5:
 				return false
 			if float(other.speed_mps) < -1.0 and ahead < 170.0:
 				return false
-		if ahead <= 0.0 and ahead > -18.0:
-			return false
 	return true
 
 
