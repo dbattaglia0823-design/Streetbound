@@ -76,6 +76,17 @@ def _production_checks(doc, archive, root):
             break
     if not on_road:
         raise ValueError("Player Spawn must sit on a drivable road with clearance")
+    for prop in archive.get("props", []):
+        if not bool(prop.get("solid", False)):
+            continue
+        px, py = prop["p"]
+        width, height = prop["size"]
+        angle = float(prop.get("angle", 0))
+        dx, dy = spawn[0]-px, spawn[1]-py
+        local_x = dx*math.cos(angle)+dy*math.sin(angle)
+        local_y = -dx*math.sin(angle)+dy*math.cos(angle)
+        if abs(local_x) <= width*.5+1.5 and abs(local_y) <= height*.5+1.5:
+            raise ValueError("Player Spawn overlaps solid scenery: "+str(prop.get("authoring_id", "")))
     # The production game does not import files from user:// at runtime.
     # The authoring converter validates asset categories/regions; verify the
     # resulting on-disk art dependencies, and preserve the source snapshot.
