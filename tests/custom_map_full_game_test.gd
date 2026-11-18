@@ -42,8 +42,8 @@ func _run() -> void:
 	check("temporary_full_game_archive_baked",result==0 and FileAccess.file_exists(archive),process_output)
 	if result!=0:
 		print("FULL GAME CUSTOM TEST DRIVE: FAIL");quit(1);return
-	get_tree().set_meta("streetbound_test_drive_archive",archive)
-	get_tree().set_meta("streetbound_test_drive_map",file)
+	set_meta("streetbound_test_drive_archive",archive)
+	set_meta("streetbound_test_drive_map",file)
 	var main: Node=load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	for i in 16:await process_frame
@@ -77,7 +77,7 @@ func _run() -> void:
 	main.queue_free()
 	await process_frame
 	for key in ["streetbound_test_drive_archive","streetbound_test_drive_map"]:
-		if get_tree().has_meta(key):get_tree().remove_meta(key)
+		if has_meta(key):remove_meta(key)
 	for p in [source_path,archive]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(folder))
