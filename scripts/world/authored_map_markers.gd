@@ -21,6 +21,7 @@ var prompt: Button
 var panel: PanelContainer
 var destinations: VBoxContainer
 var message: Label
+var dialog_title: Label
 var _nearby: Dictionary={}
 var _dialog_open:=false
 var _clock:=0.0
@@ -54,8 +55,8 @@ func _ready() -> void:
 	canvas.add_child(panel)
 	var box:=VBoxContainer.new()
 	panel.add_child(box)
-	var title:=Label.new();title.text="FAST TRAVEL / SELECT DESTINATION"
-	box.add_child(title)
+	dialog_title=Label.new();dialog_title.text="FAST TRAVEL / SELECT DESTINATION"
+	box.add_child(dialog_title)
 	message=Label.new()
 	message.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(message)
@@ -155,9 +156,13 @@ func activate() -> void:
 				var closest: Dictionary=dealer_menu.manager.nearby_shop()
 				if required.is_empty() or str(closest.get("id",""))==required:
 					dealer_menu.open_menu()
+				else:
+					_show_info(_nearby,"Drive into the linked dealership's real parking forecourt to browse its inventory.")
 		"mission":
 			var race:=_linked_race(str(properties.get("race_id","")))
-			if race==null or not bool(race.get("available")):return
+			if race==null or not bool(race.get("available")):
+				_show_info(_nearby,"No linked race is ready. Configure the mission's Race ID in the map builder.")
+				return
 			if race.has_method("_lock_reason") and not str(race.call("_lock_reason")).is_empty():return
 			world.stream_at(Grid.point(Grid.player_slot(race.definition))*PPM)
 			Grid.teleport(player,Grid.player_slot(race.definition))
@@ -173,6 +178,8 @@ func activate() -> void:
 			var race:=_linked_race(str(properties.get("race_id","")))
 			if race!=null and is_instance_valid(map_hud) and is_instance_valid(map_hud.waypoints):
 				map_hud.waypoints.set_destination(race.start_m,str(race.race_title))
+			else:
+				_show_info(_nearby,"This marker is available as a map landmark. Link a race to navigate to its start.")
 
 func _safe_destination(marker: Dictionary) -> bool:
 	var target: Vector2=_point(marker)*PPM
@@ -188,8 +195,19 @@ func _safe_destination(marker: Dictionary) -> bool:
 		if centre.distance_to(p)<radius+3.0:return false
 	return true
 
+func _show_info(marker: Dictionary,fallback: String) -> void:
+	if _dialog_open:return
+	for child in destinations.get_children():
+		destinations.remove_child(child);child.queue_free()
+	dialog_title.text=str(marker.get("name","MAP MARKER")).to_upper()
+	message.text=str(marker.get("properties",{}).get("description",fallback))
+	panel.visible=true
+	_dialog_open=true
+	get_tree().paused=true
+
 func _open_travel() -> void:
 	if _dialog_open or _is_busy() or player.linear_velocity.length()>1.0:return
+	dialog_title.text="FAST TRAVEL / SELECT DESTINATION"
 	for child in destinations.get_children():
 		destinations.remove_child(child);child.queue_free()
 	var total:=0
