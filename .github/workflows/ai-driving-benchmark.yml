@@ -1,0 +1,100 @@
+name: Streetbound AI driving benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ai-driving-benchmark.yml'
+      - 'tests/ai_driving_benchmark.gd'
+      - 'tests/ai_benchmark_metrics_test.gd'
+      - 'tests/validate_ai_benchmark_report.py'
+      - 'scripts/world/ai_benchmark_metrics.gd'
+      - 'scripts/world/race_ai_driver.gd'
+      - 'scripts/world/race_navigation.gd'
+      - 'scripts/world/race_traffic_overtaking.gd'
+      - 'scripts/world/race_line_builder.gd'
+      - 'scripts/vehicle/vehicle_controller.gd'
+  pull_request:
+    paths:
+      - '.github/workflows/ai-driving-benchmark.yml'
+      - 'tests/ai_driving_benchmark.gd'
+      - 'tests/ai_benchmark_metrics_test.gd'
+      - 'tests/validate_ai_benchmark_report.py'
+      - 'scripts/world/ai_benchmark_metrics.gd'
+      - 'scripts/world/race_ai_driver.gd'
+      - 'scripts/world/race_navigation.gd'
+      - 'scripts/world/race_traffic_overtaking.gd'
+      - 'scripts/world/race_line_builder.gd'
+      - 'scripts/vehicle/vehicle_controller.gd'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Benchmark coverage (full = all ten real-physics cases, smoke = three quick cases)'
+        type: choice
+        required: true
+        default: full
+        options: [smoke, full]
+
+permissions:
+  contents: read
+
+# Benchmarking is CPU-heavy; keep only the newest run for a PR or branch.
+concurrency:
+  group: streetbound-ai-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-driving:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    env:
+      BENCH_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'full' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check persistent Godot UIDs
+        run: python3 tests/resource_uid_test.py
+
+      - name: Install Godot 4.6.3
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+
+      - name: Cold import and check typed scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/ai-bench-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/ai-bench-import.log
+
+      - name: Verify telemetry math, collision counting and recovery rules
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/ai_benchmark_metrics_test.gd 2>&1 | tee /tmp/ai-bench-metrics.log
+          grep -q 'AI BENCHMARK METRICS: PASS' /tmp/ai-bench-metrics.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/ai-bench-metrics.log
+
+      - name: Drive real vehicles around real race routes
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 780s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/ai_driving_benchmark.gd -- --${BENCH_MODE} 2>&1 | tee /tmp/ai-benchmark.log
+          grep -q 'AI DRIVING BENCHMARK: PASS' /tmp/ai-benchmark.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/ai-benchmark.log
+
+      - name: Validate complete machine-readable reports
+        run: python3 tests/validate_ai_benchmark_report.py --mode "$BENCH_MODE"
+
+      - name: Upload AI benchmark CSV, JSON and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetbound-ai-driving-${{ github.run_id }}
+          path: |
+            .runtime/ai_benchmark/
+            /tmp/ai-bench-metrics.log
+            /tmp/ai-benchmark.log
+          if-no-files-found: warn
+          retention-days: 30
