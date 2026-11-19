@@ -529,6 +529,28 @@ function adoptRuntimeScenery(source){
   return null;
 }
 
+function guardrailWorldPoints(prop){
+  const radians=prop.rotation*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians);
+  const ax=prop.scale*(prop.scaleX??1),ay=prop.scale*(prop.scaleY??1);
+  return prop.guardrailPoints.map(([dx,dy])=>({
+    x:prop.x+dx*ax*cos-dy*ay*sin,
+    y:prop.y+dx*ax*sin+dy*ay*cos
+  }));
+}
+function moveGuardrailControlPoint(world,id,index,p){
+  const found=getEntity(world,id);
+  if(found?.type!=='props'||found.item.type!=='guardrail')
+    throw new TypeError('Select a guardrail path control point');
+  const prop=found.item,radians=-prop.rotation*Math.PI/180;
+  const dx=p.x-prop.x,dy=p.y-prop.y;
+  const localX=(dx*Math.cos(radians)-dy*Math.sin(radians))/(prop.scale*(prop.scaleX??1));
+  const localY=(dx*Math.sin(radians)+dy*Math.cos(radians))/(prop.scale*(prop.scaleY??1));
+  const points=prop.guardrailPoints.map(([x,y],i)=>i===index?[localX,localY]:[x,y]);
+  const xvals=points.map(([x])=>x),yvals=points.map(([,y])=>y);
+  const assetSize=[Math.max(...xvals)-Math.min(...xvals)+prop.guardrailWidth,
+    Math.max(...yvals)-Math.min(...yvals)+prop.guardrailWidth];
+  return updateEntity(world,id,{guardrailPoints:points,assetSize});
+}
 function hitTest(p){
   // Keep handle picking close to the visibly drawn handle, otherwise at a
   // zoomed-out map the oversized hit radius prevents dragging the road body.
@@ -549,6 +571,22 @@ function hitTest(p){
       if(isMountainBarrier(doc.regions[i])&&pointInPolygon(p,doc.regions[i].points))return {id:doc.regions[i].id,point:-1,kind:'entity'};
   }
   if($('show-scenery').checked){
+    // Guardrails are long paths, not single sprite objects: pick near the
+    // actual rail and prioritize the selected control handles.
+    const selectedRail=selection?getEntity(doc,selection.id):null;
+    if(selectedRail?.type==='props'&&selectedRail.item.type==='guardrail'){
+      const handles=guardrailWorldPoints(selectedRail.item);
+      for(let i=0;i<handles.length;i++)
+        if(distance(p,handles[i])<radius)
+          return {id:selectedRail.item.id,point:i,kind:'guardrail-handle'};
+    }
+    for(let i=doc.props.length-1;i>=0;i--){
+      const prop=doc.props[i];
+      if(prop.type!=='guardrail'||prop.hidden)continue;
+      const d=nearestOnPath(p,guardrailWorldPoints(prop)).distance;
+      if(d<Math.max(prop.guardrailWidth*.5,9/zoom))
+        return {id:prop.id,point:-1,kind:'entity'};
+    }
     const edited=pickEditableScenery(doc.props,p,{
       gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8)});
     if(edited)return {id:edited.id,point:-1,kind:'entity'};
@@ -586,7 +624,8 @@ function refreshInspector(){
     $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
-  $('selected-type').textContent={roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
+  $('selected-type').textContent=type==='props'&&item.type==='guardrail'?'GUARDRAIL':
+    {roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
   $('inspector-name').value=item.name;
   for(const x of ['road','region','prop','marker'])$('inspect-'+x).hidden=type!=={road:'roads',region:'regions',prop:'props',marker:'markers'}[x];
   const position=type==='props'||type==='markers';$('position-fields').hidden=!position;
@@ -620,6 +659,7 @@ function refreshInspector(){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
   }else if(type==='props'){
+    if(item.type==='guardrail')$('guardrail-width').value=item.guardrailWidth;
     $('inspect-prop-type').value=item.type;$('inspect-asset').value=item.assetId||'';
     $('inspect-scale').value=item.scale;$('inspect-rotation').value=item.rotation;
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
@@ -1060,7 +1100,10 @@ canvas.addEventListener('pointerdown',event=>{
     setSelection(hit?.id||null,hit?.point??-1);
     if(!hit)return;
     const found=getEntity(doc,hit.id);
-    if(hit.kind==='handle'){
+    if(hit.kind==='guardrail-handle'){
+      gesture={mode:'guardrail-control',before:doc,id:hit.id,index:hit.point};
+      canvas.setPointerCapture(event.pointerId);
+    }else if(hit.kind==='handle'){
       gesture={mode:'control',before:doc,id:hit.id,index:hit.point};
       canvas.setPointerCapture(event.pointerId);
     }else if(found&&['roads','regions'].includes(found.type)&&hit.kind==='entity'){
@@ -1084,6 +1127,9 @@ canvas.addEventListener('pointermove',event=>{
     else if(gesture.mode==='pan'){offsetX=gesture.startX+p.sx-gesture.sx;offsetY=gesture.startY+p.sy-gesture.sy;}
     else if(gesture.mode==='control'){
       try{doc=moveControlPoint(doc,gesture.id,gesture.index,worldPoint(p.x,p.y));}
+      catch(e){errorMessage(e);}
+    }else if(gesture.mode==='guardrail-control'){
+      try{doc=moveGuardrailControlPoint(doc,gesture.id,gesture.index,worldPoint(p.x,p.y));}
       catch(e){errorMessage(e);}
     }else if(gesture.mode==='shape'){
       try{doc=translateEntity(gesture.before,gesture.id,p.x-gesture.start.x,p.y-gesture.start.y);}
