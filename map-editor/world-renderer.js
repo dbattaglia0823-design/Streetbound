@@ -537,6 +537,17 @@ export function drawEditorOverlay(ctx,doc,{
         stroke(ctx,item.points,true);ctx.strokeStyle='#fdb979';ctx.lineWidth=3/zoom;ctx.stroke();
       }else if(type==='roads'){
         drawRoadStroke(ctx,sampleRoad(item.points,item.smooth,8),item.width+5/zoom,'#f8ae6350');
+      }else if(type==='props'&&['house','building','warehouse','garage','gas_station'].includes(item.type)&&projectArtwork(item)){
+        // Draw the same tight, offset opaque box used by browser picking.
+        // The full image canvas remains unchanged for drawing and physics.
+        const project=projectArtwork(item);
+        const bounds=projectVisibleImageBounds(project)||{x:0,y:0,width:1,height:1};
+        const sx=project.size[0]*item.scale*(item.scaleX??1);
+        const sy=project.size[1]*item.scale*(item.scaleY??1);
+        ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.rotation*Math.PI/180);
+        ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;
+        ctx.strokeRect((bounds.x-.5)*sx,(bounds.y-.5)*sy,bounds.width*sx,bounds.height*sy);
+        ctx.restore();
       }else{
         ctx.beginPath();ctx.arc(item.x,item.y,radius*2,0,Math.PI*2);
         ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;ctx.stroke();
