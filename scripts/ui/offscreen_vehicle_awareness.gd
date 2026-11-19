@@ -286,7 +286,9 @@ func _update_live_markers(dt: float = 0.0) -> void:
 		if distance_m > detection_range_m(player.linear_velocity):
 			continue
 		var target_screen: Vector2 = canvas_transform * target.global_position
-		var onscreen := is_on_screen(target_screen,size_px)
+		# Start the grace period on true viewport entry, not the 45px
+		# near-edge margin used to suppress acquisition of new warnings.
+		var onscreen := is_on_screen(target_screen,size_px,0.0)
 		var live_entry: Dictionary = entry.duplicate()
 		# Opponents can change group when a race starts or ends, even while
 		# the same object is being tracked across discovery passes.
