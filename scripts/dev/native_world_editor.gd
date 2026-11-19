@@ -1400,7 +1400,11 @@ func _source_click(world_px: Vector2) -> void:
 	pending_drag["grab"]=world_px
 	pending_drag["to"] = hit.from
 	if hit.kind=="sidewalk_point":
-		details.text="SIDEWALK BRANCH ANCHOR\\n%s\\nPoint %d\\n\\nDrag to reshape joined branches. Alt-drag detaches this point."%[source_id,source_anchor+1]
+		var picked_path: Dictionary=authoring.prop_at_id(source_id)
+		if str(picked_path.get("type",""))=="guardrail":
+			details.text="SOLID GUARDRAIL ANCHOR\n%s\nPoint %d\n\nDrag to reshape the hitbox."%[source_id,source_anchor+1]
+		else:
+			details.text="SIDEWALK BRANCH ANCHOR\\n%s\\nPoint %d\\n\\nDrag to reshape joined branches. Alt-drag detaches this point."%[source_id,source_anchor+1]
 	elif hit.kind=="road":
 		var road: Dictionary = authoring.road_at_id(source_id)
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
@@ -1998,9 +2002,16 @@ func _notification(what: int) -> void:
 
 func _update_drag_preview(at: Vector2) -> void:
 	if pending_drag.kind=="prop":
-		var snapped:=_snap_building_transform(authoring.prop_at_id(str(pending_drag.id)),(Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)
-		pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
-		pending_drag["invalid"]=not bool(snapped.valid)
+		var prop: Dictionary=authoring.prop_at_id(str(pending_drag.id))
+		if str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			# Paths move as geometry, not as buildings that snap to neighboring walls.
+			pending_drag.to=_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)*PPM
+			pending_drag.erase("rotation")
+			pending_drag["invalid"]=false
+		else:
+			var snapped:=_snap_building_transform(prop,(Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)
+			pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
+			pending_drag["invalid"]=not bool(snapped.valid)
 		gizmos.update_prop_drag(pending_drag)
 		return
 	elif pending_drag.kind in ["road_move","region","marker"]:
@@ -2012,7 +2023,8 @@ func _update_drag_preview(at: Vector2) -> void:
 		pending_drag.to=(target*PPM if target.is_finite() else Vector2(pending_drag.from))
 	elif pending_drag.kind=="sidewalk_point":
 		var proposed:=_snap_point(at/PPM)
-		if not Input.is_physical_key_pressed(KEY_ALT):
+		var selected_path: Dictionary=authoring.prop_at_id(str(pending_drag.id))
+		if str(selected_path.get("type",""))=="sidewalk" and not Input.is_physical_key_pressed(KEY_ALT):
 			var match_info:=Sidewalks.snap(authoring.doc.props,proposed,
 				Sidewalks.SNAP_RADIUS_M,str(pending_drag.id))
 			if not match_info.is_empty():proposed=match_info.point
