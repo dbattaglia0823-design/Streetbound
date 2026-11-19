@@ -194,7 +194,7 @@ def make_archive(doc):
             chunks[key]["segments"].append(index)
     for index,prop in enumerate(props):
         p=prop["p"]
-        radius=math.hypot(*prop["size"])*.5+2 if prop["kind"]=="sidewalk" else 0
+        radius=math.hypot(*prop["size"])*.5+2 if prop["kind"] in ("sidewalk","guardrail") else 0
         for key in cells((p[0]-radius,p[1]-radius,p[0]+radius,p[1]+radius),CHUNK):
             chunks[key]["props"].append(index)
     for i,junction in enumerate(junctions):
