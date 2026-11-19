@@ -8,6 +8,7 @@ on:
       - 'scripts/dev/native_world_editor_gizmos.gd'
       - 'scripts/dev/native_editor_multiselect.gd'
       - 'map-editor/world-selection.js'
+      - 'map-editor/morrow-runtime-preview.js'
       - 'map-editor/world-editor.js'
       - 'map-editor/world-renderer.js'
       - 'map-editor/tests/connected-building-selection.test.mjs'
