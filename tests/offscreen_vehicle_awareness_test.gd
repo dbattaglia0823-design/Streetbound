@@ -23,6 +23,13 @@ func _has_target(indicator: Control, target: Node2D) -> bool:
 	return false
 
 
+func _marker_for_target(indicator: Control, target: Node2D) -> Dictionary:
+	for marker in indicator.get("markers"):
+		if marker.get("target") == target:
+			return marker
+	return {}
+
+
 func _run() -> void:
 	var from := Vector2.ZERO
 	var forward := Vector2.UP
@@ -59,6 +66,13 @@ func _run() -> void:
 	var medium_speed := Vector2.UP * (70.0/Awareness.MPS_TO_MPH)
 	var fast_speed := Vector2.UP * (100.0/Awareness.MPS_TO_MPH)
 	var extreme_speed := Vector2.UP * (140.0/Awareness.MPS_TO_MPH)
+	check("onscreen_hold_scales_from_one_second_to_quarter_second",
+		is_equal_approx(Awareness.MAX_ONSCREEN_HOLD_S,1.0) and
+		is_equal_approx(Awareness.MIN_ONSCREEN_HOLD_S,0.25) and
+		is_equal_approx(Awareness.onscreen_hold_seconds(slow_speed),0.99875) and
+		is_equal_approx(Awareness.onscreen_hold_seconds(medium_speed),0.625) and
+		is_equal_approx(Awareness.onscreen_hold_seconds(fast_speed),0.25) and
+		is_equal_approx(Awareness.onscreen_hold_seconds(extreme_speed),0.25))
 	check("adaptive_range_starts_near_300_feet_and_scales_with_speed",
 		is_equal_approx(Awareness.MIN_SPEED_RANGE_M,91.44) and
 		absf(Awareness.detection_range_m(slow_speed)-91.5924)<0.1 and
@@ -175,6 +189,68 @@ func _run() -> void:
 			updated_distance = float(candidate.get("distance_m",-1.0))
 	check("distance_updates_each_frame_without_waiting_for_scan",
 		absf(updated_distance - 80.0) < 0.1)
+	# A previously detected offscreen target should keep its edge marker for
+	# a moment after entering the viewport, then fade out automatically.
+	var edge_before_entry: Vector2 = _marker_for_target(indicator,car).get(
+		"position",Vector2.ZERO)
+	car.global_position = player.global_position + front*PPM*12.0
+	var visible_target: Vector2 = camera.get_viewport().get_canvas_transform()*car.global_position
+	check("fixture_enters_camera_view_for_hold_test",
+		Awareness.is_on_screen(visible_target,
+			camera.get_viewport().get_visible_rect().size))
+	indicator.set("_clock",0.08)
+	indicator._process(1.0/60.0)
+	var held := _marker_for_target(indicator,car)
+	var expected_hold: float = Awareness.onscreen_hold_seconds(player.linear_velocity)
+	check("visible_car_keeps_edge_indicator_briefly",
+		not held.is_empty() and bool(held.get("onscreen_hold",false)) and
+		absf(float(held.get("hold_remaining_s",0.0))-expected_hold)<0.01 and
+		(held.get("position",Vector2.ZERO) as Vector2).distance_to(edge_before_entry)<0.01)
+	indicator.call("refresh_markers")
+	indicator.call("refresh_markers")
+	var after_scans := _marker_for_target(indicator,car)
+	check("discovery_scans_do_not_restart_hold_countdown",
+		bool(after_scans.get("onscreen_hold",false)) and
+		absf(float(after_scans.get("hold_remaining_s",0.0))-expected_hold)<0.01)
+	indicator._process(expected_hold*0.5)
+	var half_held := _marker_for_target(indicator,car)
+	check("visible_marker_fades_with_remaining_hold_time",
+		bool(half_held.get("onscreen_hold",false)) and
+		float(half_held.get("hold_remaining_s",0.0))<expected_hold*0.55 and
+		float(half_held.get("hold_remaining_s",0.0))>expected_hold*0.45)
+	indicator._process(expected_hold*0.55)
+	check("visible_marker_expires_in_under_one_second",
+		not _has_target(indicator,car))
+	indicator.call("refresh_markers")
+	check("expired_onscreen_marker_is_not_reacquired",
+		not _has_target(indicator,car))
+	# A vehicle that was already on screen is never assigned a new warning.
+	var already_visible := Node2D.new()
+	already_visible.add_to_group("traffic_vehicle")
+	game.add_child(already_visible)
+	already_visible.global_position = player.global_position + front*PPM*10.0
+	indicator.call("refresh_markers")
+	check("new_onscreen_traffic_gets_no_edge_chip",
+		not _has_target(indicator,already_visible))
+	already_visible.queue_free()
+	# If a previously seen car leaves view again, normal offscreen detection
+	# resumes rather than keeping or restarting an old onscreen timer.
+	car.global_position = player.global_position + front*PPM*80.0
+	indicator.call("refresh_markers")
+	check("offscreen_target_can_be_detected_again",
+		_has_target(indicator,car))
+	car.global_position = player.global_position + front*PPM*12.0
+	indicator._process(1.0/60.0)
+	player.linear_velocity = front*(100.0/Awareness.MPS_TO_MPH)
+	indicator._process(0.30)
+	check("acceleration_shortens_existing_onscreen_hold",
+		not _has_target(indicator,car))
+	# Re-arm the offscreen marker for existing 40 mph cut-off tests.
+	player.linear_velocity = front*32.0
+	car.global_position = player.global_position + front*PPM*80.0
+	indicator.call("refresh_markers")
+	check("rearmed_marker_is_active_before_cutoff",
+		_has_target(indicator,car))
 	# Warnings disappear immediately below the 40 mph cutoff.
 	player.linear_velocity = front*(39.0/Awareness.MPS_TO_MPH)
 	indicator._process(1.0 / 60.0)
