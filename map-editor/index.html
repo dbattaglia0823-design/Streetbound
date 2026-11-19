@@ -31,6 +31,7 @@
   <div class="tool-buttons" role="toolbar" aria-label="World editing tools">
       <button class="mode active" data-tool="select" aria-pressed="true"><span>↖</span><strong>Select / Edit</strong><kbd>V</kbd></button>
       <button class="mode" data-tool="road" aria-pressed="false"><span>〰</span><strong>Draw road</strong><kbd>R</kbd></button>
+      <button class="mode" data-tool="guardrail" aria-pressed="false"><span>━</span><strong>Guardrail</strong><kbd>G</kbd></button>
       <button class="mode" data-tool="terrain" aria-pressed="false"><span>⬡</span><strong>Terrain region</strong><kbd>T</kbd></button>
       <button class="mode" data-tool="prop" aria-pressed="false"><span>♣</span><strong>Scenery</strong><kbd>P</kbd></button>
       <button class="mode" data-tool="marker" aria-pressed="false"><span>◇</span><strong>Game marker</strong><kbd>M</kbd></button>
@@ -61,6 +62,7 @@
       <label class="check"><input id="road-markings" type="checkbox" checked> Lane lines / road edges</label>
       <label class="check"><input id="road-smart-snap" type="checkbox" checked> Snap and join compatible road ends (click the starting point to close a loop)</label>
       <p class="sidebar-tip compact-tip">Select an existing road to add or extend its control points from the Inspector. Shift-click the selected road to insert a point immediately.</p>
+      <div class="field"><label for="guardrail-width">Guardrail hitbox width (m)</label><input id="guardrail-width" type="number" min="0.35" max="2.5" step="0.05" value="0.65"></div>
     </div>
     <div class="settings-group">
       <h3>Terrain & biomes</h3>
