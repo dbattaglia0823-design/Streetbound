@@ -616,6 +616,9 @@ export function drawEditorOverlay(ctx,doc,{
     if(draft.type==='road'){
       drawRoadStroke(ctx,sampleRoad(pts,true,10),draft.width||34,'#ffcd854d');
       drawRoadStroke(ctx,sampleRoad(pts,true,10),Math.max(2,2/zoom),'#ffefcf');
+    }else if(draft.type==='guardrail'){
+      drawRoadStroke(ctx,pts,draft.width||.65,'#e0eaf2');
+      drawRoadStroke(ctx,pts,Math.max(.6,2/zoom),'#8cacc6');
     }else{
       stroke(ctx,pts,true);ctx.fillStyle='#f4ba6c44';ctx.fill();
       stroke(ctx,pts);ctx.strokeStyle='#ffe0ad';ctx.lineWidth=2/zoom;ctx.stroke();
