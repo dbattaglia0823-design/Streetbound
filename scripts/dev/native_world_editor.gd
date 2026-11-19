@@ -1218,6 +1218,19 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		var prop: Dictionary=authoring.doc.props[index]
 		if bool(prop.get("hidden",false)):
 			continue
+		if str(prop.get("type",""))=="guardrail":
+			# A long curved guardrail should only be selectable near its actual
+			# rail, not anywhere within its enormous axis-aligned bounding box.
+			var rail_points: Array[Vector2]=Sidewalks.world_points(prop)
+			var nearest:=INF
+			for n in range(1,rail_points.size()):
+				nearest=minf(nearest,at.distance_to(
+					Geometry2D.get_closest_point_to_segment(at,rail_points[n-1],rail_points[n])))
+			if nearest<best:
+				best=nearest
+				hit={"kind":"prop","id":str(prop.id),
+					"from":Vector2(float(prop.x),float(prop.y))*PPM}
+			continue
 		var center := Vector2(float(prop.x),float(prop.y))
 		var local := (at-center).rotated(-deg_to_rad(float(prop.get("rotation",0))))
 		var half: Vector2=gizmos._prop_size(prop)/PPM*.5
@@ -2404,7 +2417,11 @@ func _update_source_details() -> void:
 		return
 	var prop: Dictionary=authoring.prop_at_id(source_id)
 	if not prop.is_empty():
-		details.text=("SIDEWALK  /  %s\n%d path points · %.1fm wide\nSelect / Edit: drag point handles to branch or reshape.\nAlt-drag a handle to detach."%[source_id,prop.sidewalkPoints.size(),float(prop.sidewalkWidth)]) if str(prop.get("type",""))=="sidewalk" else "SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
+		if str(prop.get("type",""))=="guardrail":
+			details.text="GUARDRAIL  /  %s\n%d path points · %.2fm collision width\nDrawn as a solid barrier. Select/Edit to move anchors; Save to Game to bake."%[
+				source_id,(prop.get("guardrailPoints",[]) as Array).size(),float(prop.get("guardrailWidth",.65))]
+		else:
+			details.text=("SIDEWALK  /  %s\n%d path points · %.1fm wide\nSelect / Edit: drag point handles to branch or reshape.\nAlt-drag a handle to detach."%[source_id,prop.sidewalkPoints.size(),float(prop.sidewalkWidth)]) if str(prop.get("type",""))=="sidewalk" else "SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
 			source_id,str(prop.name),float(prop.x),float(prop.y),float(prop.get("rotation",0)),float(prop.get("scale",1))]
 		selected_preview.texture=gizmos._prop_texture(prop)
 		selected_preview.visible=selected_preview.texture!=null
