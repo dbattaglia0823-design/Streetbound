@@ -4,17 +4,23 @@ extends Control
 ## camera canvas transform, so zoom, follow rotation and split views work.
 ## This is an informational HUD only: it never modifies vehicle movement.
 const PPM := 20.0
-const MAX_RANGE_M := 500.0  # detect closing traffic up to 500 metres away
+const MAX_RANGE_M := 182.88  # 600 ft hard cap at 100 mph and faster
+const MIN_SPEED_RANGE_M := 91.44  # 300 ft just above 40 mph
+const FULL_RANGE_SPEED_MPH := 100.0
 const MIN_RANGE_M := 8.0
 const MIN_CLOSING_MPS := 1.25
 const MPS_TO_MPH := 2.2369362920544
 const MIN_PLAYER_SPEED_MPH := 40.0
-## A 240-degree forward/side sweep: up to 120 degrees left or right.
-## Still rejects the directly rearward 120-degree sector, so cars moving
-## away behind the player do not occupy the small edge-warning HUD.
-const FORWARD_DOT := -0.5
+## A 270-degree forward/side sweep: up to 135 degrees left or right.
+## Exclude only the 90-degree sector directly behind the driver. The closing
+## speed check still rejects traffic heading away, even in the widened area.
+const FORWARD_DOT := -0.7071067811865476
 const MAX_MARKERS := 3
 const REFRESH_SECONDS := 0.10
+# Once a tracked vehicle enters view, let its edge chip fade out smoothly.
+# Faster player speeds need a shorter reminder because the car passes sooner.
+const MAX_ONSCREEN_HOLD_S := 1.0
+const MIN_ONSCREEN_HOLD_S := 0.25
 const VISIBLE_MARGIN_PX := 45.0
 const EDGE_MARGIN := Vector2(58.0, 76.0)
 const CHIP_WIDTH := 92.0
@@ -44,6 +50,25 @@ static func player_is_fast_enough(velocity_mps: Vector2) -> bool:
 	return velocity_mps.length() * MPS_TO_MPH > MIN_PLAYER_SPEED_MPH
 
 
+static func detection_range_m(player_velocity_mps: Vector2) -> float:
+	# At just above 40 mph warn within 300 ft; grow linearly to 600 ft at
+	# 100 mph, and never exceed the 600 ft cap. The separate speed gate
+	# prevents any warning at 40 mph or below.
+	var speed_mph := player_velocity_mps.length() * MPS_TO_MPH
+	var fraction := clampf((speed_mph - MIN_PLAYER_SPEED_MPH) /
+		(FULL_RANGE_SPEED_MPH - MIN_PLAYER_SPEED_MPH), 0.0, 1.0)
+	return lerpf(MIN_SPEED_RANGE_M, MAX_RANGE_M, fraction)
+
+
+static func onscreen_hold_seconds(player_velocity_mps: Vector2) -> float:
+	# Same 40–100 mph envelope as detection distance: 1 second at 40 mph,
+	# 0.625 seconds at 70 mph, 0.25 seconds at 100 mph and beyond.
+	var speed_mph := player_velocity_mps.length() * MPS_TO_MPH
+	var fraction := clampf((speed_mph - MIN_PLAYER_SPEED_MPH) /
+		(FULL_RANGE_SPEED_MPH - MIN_PLAYER_SPEED_MPH), 0.0, 1.0)
+	return lerpf(MAX_ONSCREEN_HOLD_S, MIN_ONSCREEN_HOLD_S, fraction)
+
+
 static func approach_info(player_position: Vector2, player_velocity: Vector2,
 		forward: Vector2, other_position: Vector2,
 		other_velocity: Vector2) -> Dictionary:
@@ -51,7 +76,7 @@ static func approach_info(player_position: Vector2, player_velocity: Vector2,
 		return {}
 	var delta := other_position - player_position
 	var distance_m := delta.length() / PPM
-	if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
+	if distance_m < MIN_RANGE_M or distance_m > detection_range_m(player_velocity):
 		return {}
 	var direction := delta.normalized()
 	if direction.dot(forward.normalized()) < FORWARD_DOT:
@@ -110,16 +135,14 @@ func _process(dt: float) -> void:
 			markers.clear()
 			queue_redraw()
 		return
+	# Update active targets and countdowns every frame; a discovery scan must
+	# not reset the hold timer of an already-visible vehicle.
+	_update_live_markers(dt)
 	_clock -= dt
 	if _clock <= 0.0:
-		# Discover nearby targets periodically, avoiding an expensive full
-		# scene-group/traffic-velocity scan every rendered frame.
+		# Discover new traffic at 100 ms intervals, but retain live markers.
 		_clock = REFRESH_SECONDS
 		refresh_markers()
-	else:
-		# Current targets, bearings and distances update every frame, even
-		# between discovery scans, with no 100 ms readout pause.
-		_update_live_markers()
 
 
 func _traffic_velocity(node: Node2D) -> Vector2:
@@ -142,27 +165,36 @@ func _traffic_velocity(node: Node2D) -> Vector2:
 
 
 func refresh_markers() -> void:
-	markers.clear()
 	if not is_instance_valid(player) or not is_instance_valid(camera) or \
 			get_tree().paused or not player.is_inside_tree() or \
 			not player_is_fast_enough(player.linear_velocity):
+		markers.clear()
 		queue_redraw()
 		return
 	var view: Viewport = camera.get_viewport()
 	if view == null or view != get_viewport() or not camera.is_current():
+		markers.clear()
 		queue_redraw()
 		return
 	var size_px := view.get_visible_rect().size
 	if size_px.x < 220.0 or size_px.y < 180.0:
+		markers.clear()
 		queue_redraw()
 		return
+	# Preserve previously detected targets through refreshes, including ones
+	# now inside the view whose short fade-out has not yet expired.
+	_update_live_markers(0.0)
 	var canvas_transform := view.get_canvas_transform()
 	var player_screen: Vector2 = canvas_transform * player.global_position
 	var forward := Vector2.UP.rotated(player.global_rotation)
 	if player.linear_velocity.length_squared() >= 9.0:
 		forward = player.linear_velocity.normalized()
-	var matches: Array[Dictionary] = []
+	var matches: Array[Dictionary] = markers.duplicate()
 	var seen := {}
+	for previous in matches:
+		var tracked: Node2D = previous.get("target") as Node2D
+		if is_instance_valid(tracked):
+			seen[tracked.get_instance_id()] = true
 	for group_name in ["traffic_vehicle","race_opponent","local_multiplayer_vehicle"]:
 		for raw in get_tree().get_nodes_in_group(group_name):
 			if not raw is Node2D:
@@ -192,8 +224,15 @@ func refresh_markers() -> void:
 				"rival":rival,
 				"target":target
 			})
+	# Active offscreen hazards take priority over on-screen fading reminders
+	# when all three available marker slots are occupied.
 	matches.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		var a_holding := bool(a.get("onscreen_hold", false))
+		var b_holding := bool(b.get("onscreen_hold", false))
+		if a_holding != b_holding:
+			return not a_holding
 		return float(a.distance_m) < float(b.distance_m))
+	markers.clear()
 	for entry in matches:
 		if markers.size() >= MAX_MARKERS:
 			break
@@ -208,7 +247,7 @@ func refresh_markers() -> void:
 	queue_redraw()
 
 
-func _update_live_markers() -> void:
+func _update_live_markers(dt: float = 0.0) -> void:
 	if markers.is_empty():
 		return
 	if not is_instance_valid(player) or not is_instance_valid(camera) or \
@@ -225,28 +264,76 @@ func _update_live_markers() -> void:
 	var size_px := view.get_visible_rect().size
 	var canvas_transform := view.get_canvas_transform()
 	var player_screen: Vector2 = canvas_transform * player.global_position
+	var forward := Vector2.UP.rotated(player.global_rotation)
+	if player.linear_velocity.length_squared() >= 9.0:
+		forward = player.linear_velocity.normalized()
 	var updated: Array[Dictionary] = []
 	for entry in markers:
 		var target: Node2D = entry.get("target") as Node2D
 		if not is_instance_valid(target) or target.is_queued_for_deletion() or \
 				not target.is_visible_in_tree():
 			continue
-		var distance_m := player.global_position.distance_to(target.global_position) / PPM
-		if distance_m < MIN_RANGE_M or distance_m > MAX_RANGE_M:
+		# A race that ends can remove an opponent from its tracked group while
+		# the vehicle node still exists; do not preserve that stale warning.
+		if not (target.is_in_group("traffic_vehicle") or \
+				target.is_in_group("race_opponent") or \
+				target.is_in_group("local_multiplayer_vehicle")):
+			continue
+		var delta := target.global_position - player.global_position
+		var distance_m := delta.length() / PPM
+		# A car outside the speed-adaptive warning range is no longer nearby,
+		# even if it had started an on-screen transition.
+		if distance_m > detection_range_m(player.linear_velocity):
 			continue
 		var target_screen: Vector2 = canvas_transform * target.global_position
-		if is_on_screen(target_screen,size_px):
-			continue
+		# Start the grace period on true viewport entry, not the 45px
+		# near-edge margin used to suppress acquisition of new warnings.
+		var onscreen := is_on_screen(target_screen,size_px,0.0)
 		var live_entry: Dictionary = entry.duplicate()
+		# Opponents can change group when a race starts or ends, even while
+		# the same object is being tracked across discovery passes.
+		live_entry.rival = not target.is_in_group("traffic_vehicle")
 		live_entry.distance_m = distance_m
 		live_entry.direction = (target_screen-player_screen).normalized()
-		var at := edge_position(player_screen,target_screen,size_px)
-		for placed in updated:
-			if at.distance_to(placed.position) < 48.0:
-				at.y = clampf(at.y + (48.0 if at.y < size_px.y*0.5 else -48.0),
-					minf(EDGE_MARGIN.y,size_px.y*0.25),
-					maxf(size_px.y*0.75,size_px.y-EDGE_MARGIN.y))
-		live_entry.position = at
+		if onscreen:
+			# Only a previously tracked offscreen vehicle may start a hold.
+			# Keep the chip at the edge instead of covering the now-visible car.
+			if not bool(entry.get("onscreen_hold",false)):
+				var hold_seconds := onscreen_hold_seconds(player.linear_velocity)
+				live_entry.onscreen_hold = true
+				live_entry.hold_elapsed_s = 0.0
+				live_entry.hold_remaining_s = hold_seconds
+				live_entry.hold_total_s = hold_seconds
+			else:
+				# Measure time since entry, not since the last 100 ms scan.
+				# Acceleration shortens the allowed *total* duration; braking
+				# cannot increase an already-started hold.
+				var elapsed := float(entry.get("hold_elapsed_s",0.0)) + dt
+				var total := minf(float(entry.get("hold_total_s",1.0)),
+					onscreen_hold_seconds(player.linear_velocity))
+				live_entry.hold_elapsed_s = elapsed
+				live_entry.hold_total_s = total
+				live_entry.hold_remaining_s = total - elapsed
+			if float(live_entry.hold_remaining_s) <= 0.0:
+				continue
+		else:
+			# Once outside view again, restore ordinary closing-traffic rules.
+			var info := approach_info(player.global_position,
+				player.linear_velocity,forward,target.global_position,
+				_traffic_velocity(target))
+			if info.is_empty():
+				continue
+			live_entry.onscreen_hold = false
+			live_entry.hold_elapsed_s = 0.0
+			live_entry.hold_remaining_s = 0.0
+			live_entry.closing_mps = float(info.closing_mps)
+			var at := edge_position(player_screen,target_screen,size_px)
+			for placed in updated:
+				if at.distance_to(placed.position) < 48.0:
+					at.y = clampf(at.y + (48.0 if at.y < size_px.y*0.5 else -48.0),
+						minf(EDGE_MARGIN.y,size_px.y*0.25),
+						maxf(size_px.y*0.75,size_px.y-EDGE_MARGIN.y))
+			live_entry.position = at
 		updated.append(live_entry)
 	markers = updated
 	queue_redraw()
@@ -262,10 +349,17 @@ func _draw() -> void:
 		var color: Color = RIVAL if bool(entry.rival) else ROAD
 		if not near and not bool(entry.rival):
 			color = Color("#e6c29a")
+		var opacity := 1.0
+		if bool(entry.get("onscreen_hold",false)):
+			opacity = clampf(float(entry.get("hold_remaining_s",0.0)) /
+				maxf(float(entry.get("hold_total_s",1.0)),0.001),0.0,1.0)
+		color.a *= opacity
 		var bounds := Rect2(position - Vector2(CHIP_WIDTH*0.5,CHIP_HEIGHT*0.5),
 			Vector2(CHIP_WIDTH,CHIP_HEIGHT))
-		draw_rect(bounds,Color(0.032,0.047,0.056,0.88),true)
-		draw_rect(bounds,color.darkened(0.3),false,1.2)
+		var background := Color(0.032,0.047,0.056,0.88 * opacity)
+		var outline := color.darkened(0.3)
+		draw_rect(bounds,background,true)
+		draw_rect(bounds,outline,false,1.2)
 		var tip := position + Vector2(-32.0,0.0)
 		var angle: float = (entry.direction as Vector2).angle() + PI*0.5
 		var triangle := PackedVector2Array([
@@ -275,5 +369,7 @@ func _draw() -> void:
 		draw_colored_polygon(triangle,color)
 		var caption := distance_caption(
 			float(entry.distance_m),bool(entry.rival))
+		var ink := INK
+		ink.a *= opacity
 		draw_string(font,position + Vector2(-17.0,4.0),
-			caption,HORIZONTAL_ALIGNMENT_LEFT,58.0,11,INK)
+			caption,HORIZONTAL_ALIGNMENT_LEFT,58.0,11,ink)
