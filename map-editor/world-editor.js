@@ -1223,6 +1223,15 @@ document.addEventListener('keyup',event=>{if(event.code==='Space')panSpace=false
 window.addEventListener('blur',()=>{panSpace=false;if(gesture?.mode==='spray')finishSpray();});
 document.querySelectorAll('[data-tool]').forEach(button=>button.addEventListener('click',()=>setTool(button.dataset.tool)));
 $('finish-shape').addEventListener('click',finishDraft);$('cancel-shape').addEventListener('click',()=>cancelDraft());
+$('guardrail-width').addEventListener('change',event=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(tool==='select'&&found?.type==='props'&&found.item.type==='guardrail'){
+    const width=Number(event.target.value);
+    change(d=>updateEntity(d,found.item.id,{guardrailWidth:width}),
+      'Updated solid guardrail hitbox thickness.');
+    refreshInspector();
+  }
+});
 $('undo-world').addEventListener('click',undo);$('redo-world').addEventListener('click',redo);
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.3));
 $('zoom-out').addEventListener('click',()=>setZoom(zoom/1.3));
