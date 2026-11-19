@@ -1,0 +1,91 @@
+name: Map builder guardrail authoring
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/dev/native_editor_layout.gd'
+      - 'scripts/dev/native_world_editor.gd'
+      - 'scripts/dev/native_world_editor_gizmos.gd'
+      - 'scripts/dev/native_map_edit_session.gd'
+      - 'scripts/dev/sidewalk_topology.gd'
+      - 'scripts/world/guardrail_geometry.gd'
+      - 'scripts/world/coast_scenery.gd'
+      - 'scripts/world/coast_chunk.gd'
+      - 'tools/morrow_editor_import.py'
+      - 'tools/build_morrow_coast.py'
+      - 'tools/build_custom_test_world.py'
+      - 'tests/guardrail_authoring_test.gd'
+      - 'tests/guardrail_bake_test.py'
+      - 'map-editor/**'
+      - '.github/workflows/guardrail-authoring.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/dev/native_editor_layout.gd'
+      - 'scripts/dev/native_world_editor.gd'
+      - 'scripts/dev/native_world_editor_gizmos.gd'
+      - 'scripts/dev/native_map_edit_session.gd'
+      - 'scripts/dev/sidewalk_topology.gd'
+      - 'scripts/world/guardrail_geometry.gd'
+      - 'scripts/world/coast_scenery.gd'
+      - 'scripts/world/coast_chunk.gd'
+      - 'tools/morrow_editor_import.py'
+      - 'tools/build_morrow_coast.py'
+      - 'tools/build_custom_test_world.py'
+      - 'tests/guardrail_authoring_test.gd'
+      - 'tests/guardrail_bake_test.py'
+      - 'map-editor/**'
+      - '.github/workflows/guardrail-authoring.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardrail-authoring-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guardrail-physics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1', '4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify resource UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Validate authored guardrail production export
+        run: python3 tests/guardrail_bake_test.py
+      - name: Validate browser map builder guardrail schema
+        run: node --test map-editor/tests/guardrail-authoring.test.mjs
+      - name: Install Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Cold import Godot project and typed scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/guardrail-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/guardrail-import.log
+      - name: Check path placement and physical guardrail collision
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 105s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/guardrail_authoring_test.gd 2>&1 | tee /tmp/guardrail-test.log
+          grep -q 'GUARDRAIL AUTHORING: PASS' /tmp/guardrail-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/guardrail-test.log
+      - name: Upload guardrail test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streetbound-guardrails-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/guardrail-import.log
+            /tmp/guardrail-test.log
+          if-no-files-found: warn
+          retention-days: 21
