@@ -29,7 +29,7 @@ static func runtime_path_m(prop: Dictionary) -> PackedVector2Array:
 static func collision_shapes(body: StaticBody2D, world_points_m: PackedVector2Array,
 		width_m: float, origin_m: Vector2 = Vector2.ZERO,
 		chunk_bounds_m: Rect2 = Rect2(), editor_id: String = "") -> int:
-	if world_points_m.size()<2 or width_m<MIN_WIDTH_M or width_m>MAX_WIDTH_M:
+	if world_points_m.size()<2 or width_m<0.05 or width_m>12.5:
 		return 0
 	var created := 0
 	for segment in range(1,world_points_m.size()):
