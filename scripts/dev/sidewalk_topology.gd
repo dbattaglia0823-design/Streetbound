@@ -12,12 +12,20 @@ static func _scale(prop: Dictionary) -> Vector2:
 		factor * float(prop.get("scaleY", 1.0)))
 
 
+static func _points_key(prop: Dictionary) -> String:
+	return "guardrailPoints" if str(prop.get("type",""))=="guardrail" else "sidewalkPoints"
+
+
+static func _width_key(prop: Dictionary) -> String:
+	return "guardrailWidth" if str(prop.get("type",""))=="guardrail" else "sidewalkWidth"
+
+
 static func world_points(prop: Dictionary) -> Array[Vector2]:
 	var output: Array[Vector2] = []
 	var center := Vector2(float(prop.get("x", 0)), float(prop.get("y", 0)))
 	var angle := deg_to_rad(float(prop.get("rotation", 0)))
 	var axes := _scale(prop)
-	for raw in prop.get("sidewalkPoints", []):
+	for raw in prop.get(_points_key(prop), []):
 		output.append(center + (Vector2(float(raw[0]), float(raw[1])) * axes).rotated(angle))
 	return output
 
@@ -41,10 +49,10 @@ static func write_world_points(prop: Dictionary, points: Array[Vector2]) -> void
 			local_bounds = Rect2(p, Vector2.ZERO)
 		else:
 			local_bounds = local_bounds.expand(p)
-	var width := float(prop.get("sidewalkWidth", 3.0))
+	var width := float(prop.get(_width_key(prop), 3.0))
 	prop["x"] = center.x
 	prop["y"] = center.y
-	prop["sidewalkPoints"] = local
+	prop[_points_key(prop)] = local
 	prop["assetSize"] = [local_bounds.size.x + width, local_bounds.size.y + width]
 
 

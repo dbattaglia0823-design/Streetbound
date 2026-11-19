@@ -9,7 +9,7 @@ export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
-export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','industrial_prop','road_prop','ground_decal']);
+export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
@@ -87,6 +87,27 @@ function validEntity(item,type,w,h){
       entity.sidewalkWidth=real(item.sidewalkWidth,.8,12,'sidewalk width');
       if(!Array.isArray(item.sidewalkPoints)||item.sidewalkPoints.length<2||item.sidewalkPoints.length>100)throw new TypeError('Invalid sidewalk path');
       entity.sidewalkPoints=item.sidewalkPoints.map(p=>[real(p[0],-12000,12000,'sidewalk x'),real(p[1],-12000,12000,'sidewalk y')]);
+    }
+    if(entity.type==='guardrail'){
+      if(entity.assetId)throw new TypeError('Guardrails use continuous path geometry, not prop sprites');
+      if(!Array.isArray(item.assetSize)||item.assetSize.length!==2)throw new TypeError('Missing guardrail bounds');
+      entity.assetSize=item.assetSize.map(v=>real(v,.1,12000,'guardrail bounds'));
+      entity.guardrailWidth=real(item.guardrailWidth,.35,2.5,'guardrail collision width');
+      if(!Array.isArray(item.guardrailPoints)||item.guardrailPoints.length<2||item.guardrailPoints.length>100)
+        throw new TypeError('Guardrail requires 2–100 editable points');
+      entity.guardrailPoints=item.guardrailPoints.map(p=>{
+        if(!Array.isArray(p)||p.length!==2)throw new TypeError('Invalid guardrail control point');
+        return [real(p[0],-12000,12000,'rail x'),real(p[1],-12000,12000,'rail y')];
+      });
+      const ax=entity.scale*(entity.scaleX??1),ay=entity.scale*(entity.scaleY??1),angle=entity.rotation*Math.PI/180;
+      const cos=Math.cos(angle),sin=Math.sin(angle);
+      let prev=null;
+      for(const [x,y] of entity.guardrailPoints){
+        const pt={x:entity.x+x*ax*cos-y*ay*sin,y:entity.y+x*ax*sin+y*ay*cos};
+        if(pt.x<0||pt.x>w||pt.y<0||pt.y>h)throw new RangeError('Guardrail extends outside map');
+        if(prev&&Math.hypot(pt.x-prev.x,pt.y-prev.y)<.5)throw new RangeError('Guardrail points too close');
+        prev=pt;
+      }
     }
     if(projectAssetId(entity.assetId)){
       const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});

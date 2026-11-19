@@ -335,6 +335,23 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  if(prop.type==='guardrail'){
+    ctx.save();
+    ctx.translate(prop.x,prop.y);
+    ctx.rotate(prop.rotation*Math.PI/180);
+    ctx.scale(prop.scale*(prop.scaleX??1),prop.scale*(prop.scaleY??1));
+    const path=prop.guardrailPoints||[];
+    if(path.length>=2){
+      ctx.beginPath();
+      ctx.moveTo(path[0][0],path[0][1]);
+      for(const [x,y] of path.slice(1))ctx.lineTo(x,y);
+      ctx.lineCap='round';ctx.lineJoin='round';
+      ctx.lineWidth=prop.guardrailWidth+0.35;ctx.strokeStyle='#26323c';ctx.stroke();
+      ctx.lineWidth=prop.guardrailWidth;ctx.strokeStyle='#a9b9bf';ctx.stroke();
+      ctx.lineWidth=Math.max(0.12,prop.guardrailWidth*.2);ctx.strokeStyle='#e7ecee';ctx.stroke();
+    }
+    ctx.restore();return;
+  }
   if(prop.type==='sidewalk'){
     drawNative(ctx,{kind:'sidewalk',p:[prop.x,prop.y],size:prop.assetSize,
       angle:prop.rotation*Math.PI/180,sidewalk_points:prop.sidewalkPoints,
@@ -453,7 +470,9 @@ export function drawWorld(ctx,doc,options={}){
     if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
     for(const prop of doc.props){
       if(prop.hidden)continue;
-      if(visible({minX:prop.x-200,minY:prop.y-200,maxX:prop.x+200,maxY:prop.y+200},bounds))
+      const boundSize=prop.type==='guardrail'&&prop.assetSize
+        ?Math.max(...prop.assetSize)*prop.scale*Math.max(prop.scaleX??1,prop.scaleY??1)*.5+10:200;
+      if(visible({minX:prop.x-boundSize,minY:prop.y-boundSize,maxX:prop.x+boundSize,maxY:prop.y+boundSize},bounds))
         drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
     }
   }
@@ -495,6 +514,17 @@ export function drawEditorOverlay(ctx,doc,{
       const {item,type}=found;
       if(type==='regions'){
         stroke(ctx,item.points,true);ctx.strokeStyle='#fdb979';ctx.lineWidth=3/zoom;ctx.stroke();
+      }else if(type==='props'&&item.type==='guardrail'){
+        const a=item.rotation*Math.PI/180,cos=Math.cos(a),sin=Math.sin(a);
+        const sx=item.scale*(item.scaleX??1),sy=item.scale*(item.scaleY??1);
+        const points=item.guardrailPoints.map(([dx,dy])=>({
+          x:item.x+dx*sx*cos-dy*sy*sin,
+          y:item.y+dx*sx*sin+dy*sy*cos
+        }));
+        stroke(ctx,points);
+        ctx.strokeStyle='#b9def2';ctx.lineWidth=Math.max(2/zoom,1.0);ctx.stroke();
+        points.forEach((p,i)=>circle(ctx,p.x,p.y,radius+1/zoom,
+          i===selection.point?'#ffe6bd':'#527c91'));
       }else if(type==='roads'){
         drawRoadStroke(ctx,sampleRoad(item.points,item.smooth,8),item.width+5/zoom,'#f8ae6350');
       }else{
@@ -597,6 +627,9 @@ export function drawEditorOverlay(ctx,doc,{
     if(draft.type==='road'){
       drawRoadStroke(ctx,sampleRoad(pts,true,10),draft.width||34,'#ffcd854d');
       drawRoadStroke(ctx,sampleRoad(pts,true,10),Math.max(2,2/zoom),'#ffefcf');
+    }else if(draft.type==='guardrail'){
+      drawRoadStroke(ctx,pts,draft.width||.65,'#e0eaf2');
+      drawRoadStroke(ctx,pts,Math.max(.6,2/zoom),'#8cacc6');
     }else{
       stroke(ctx,pts,true);ctx.fillStyle='#f4ba6c44';ctx.fill();
       stroke(ctx,pts);ctx.strokeStyle='#ffe0ad';ctx.lineWidth=2/zoom;ctx.stroke();

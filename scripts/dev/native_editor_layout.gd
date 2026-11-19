@@ -65,6 +65,9 @@ static func build(e) -> void:
 	e.map_switcher.build_publish_ui(e,settings)
 	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
 	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
+	e._btn("Draw guardrail",settings,e._choose_tool.bind("draw_guardrail"))
+	e.guardrail_width=e._number(settings,"Rail width m",.35,2.5,.65)
+	e.guardrail_width.step=.05;e.guardrail_width.value=.65
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
 	e.race_editor.build(e,e.tool_options)
 	e.road_settings=column(e.tool_options);heading(e.road_settings,"ROAD DESIGNER")
