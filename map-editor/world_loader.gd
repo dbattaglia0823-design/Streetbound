@@ -554,6 +554,23 @@ func _draw_region(region: Dictionary) -> void:
         _line(outline,5.0,Color("#e5d5a8"))
 
 func _draw_prop(entry: Dictionary) -> void:
+    if str(entry.get("type","")) == "guardrail":
+        # Exported ZIPs work without requiring Streetbound's game scripts.
+        var center := Vector2(float(entry.get("x",0)),float(entry.get("y",0)))
+        var scale_value := float(entry.get("scale",1))
+        var axes := Vector2(float(entry.get("scaleX",1)),float(entry.get("scaleY",1))) * scale_value
+        var path := PackedVector2Array()
+        for point in entry.get("guardrailPoints",[]):
+            path.append(Vector2(float(point[0]),float(point[1])))
+        if path.size() < 2:
+            return
+        draw_set_transform(center,deg_to_rad(float(entry.get("rotation",0))),axes)
+        var width := float(entry.get("guardrailWidth",.65))
+        draw_polyline(path,Color("#25343d"),width+.35,true)
+        draw_polyline(path,Color("#b9c6cb"),width,true)
+        draw_polyline(path,Color("#eff0f0"),maxf(.10,width*.2),true)
+        draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+        return
     var position := Vector2(float(entry.get("x",0)),float(entry.get("y",0)))
     var scale_value: float = float(entry.get("scale",1))
     draw_set_transform(position,deg_to_rad(float(entry.get("rotation",0))),Vector2.ONE * scale_value)
@@ -654,6 +671,32 @@ func _build_blockers() -> void:
         _solid_body.add_child(collision)
     for item in world_data.get("props",[]):
         var kind: String = str(item.get("type",""))
+        if kind == "guardrail":
+            var center := Vector2(float(item.get("x",0)),float(item.get("y",0)))
+            var angle := deg_to_rad(float(item.get("rotation",0)))
+            var scale_value := float(item.get("scale",1))
+            var axes := Vector2(float(item.get("scaleX",1)),float(item.get("scaleY",1))) * scale_value
+            var width_m := float(item.get("guardrailWidth",.65))*maxf(axes.x,axes.y)
+            var points := PackedVector2Array()
+            for raw in item.get("guardrailPoints",[]):
+                points.append(center + (Vector2(float(raw[0]),float(raw[1]))*axes).rotated(angle))
+            for segment in range(1,points.size()):
+                var first: Vector2=points[segment-1]
+                var last: Vector2=points[segment]
+                var length_m:=first.distance_to(last)
+                if length_m < .1:continue
+                var divisions:=maxi(1,ceili(length_m/8.0))
+                for i in divisions:
+                    var a:=first.lerp(last,float(i)/float(divisions))
+                    var b:=first.lerp(last,float(i+1)/float(divisions))
+                    var rail:=RectangleShape2D.new()
+                    rail.size=Vector2(a.distance_to(b)+.04,width_m)
+                    var shape_node:=CollisionShape2D.new()
+                    shape_node.shape=rail
+                    shape_node.position=(a+b)*.5
+                    shape_node.rotation=(b-a).angle()
+                    _solid_body.add_child(shape_node)
+            continue
         if not kind in ["oak","pine","palm","rock","boulder","house","building","warehouse","garage","gas_station","barrier"]:
             continue
         var width: float = 35.0
