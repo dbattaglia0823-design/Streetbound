@@ -309,8 +309,11 @@ func _build_collisions() -> void:
 		if str(prop.kind)=="guardrail":
 			var path_m: PackedVector2Array=Guardrails.runtime_path_m(prop)
 			var bounds:=Rect2(origin_m,Vector2.ONE*world.chunk_m)
+			var rail_scale: Array=prop.get("guardrail_scale",[1.0,1.0])
+			var rail_width: float=float(prop.get("guardrail_width",.65))*maxf(
+				float(rail_scale[0]),float(rail_scale[1]))
 			var made: int=Guardrails.collision_shapes(body,path_m,
-				float(prop.get("guardrail_width",.65)),origin_m,bounds,
+				rail_width,origin_m,bounds,
 				str(prop.get("authoring_id","")))
 			collision_shape_count+=made-1
 			continue
