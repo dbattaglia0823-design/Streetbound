@@ -25,7 +25,24 @@ export function pointInRotatedFootprint(point,center,size,angle=0,padding=0){
     Math.abs(localY)<=size[1]/2+padding;
 }
 
-export function pickEditableScenery(props,point,{gameArt=false,tolerance=0}={}){
+/** A normalized opaque image rectangle accounts for the sprite's offset,
+ * rotation and aspect ratio. Narrow connected roofs do not select adjacent
+ * buildings through transparent image padding.
+ */
+export function pointInVisibleImageFootprint(point,center,size,angle,bounds,padding=0){
+  if(!bounds)return pointInRotatedFootprint(point,center,size,angle,padding);
+  if(!Number.isFinite(bounds.x)||!Number.isFinite(bounds.y)||
+      !Number.isFinite(bounds.width)||!Number.isFinite(bounds.height)||
+      bounds.width<=0||bounds.height<=0)return false;
+  const dx=point.x-center.x,dy=point.y-center.y;
+  const c=Math.cos(angle),s=Math.sin(angle);
+  const x=dx*c+dy*s,y=-dx*s+dy*c;
+  const left=(bounds.x-.5)*size[0],top=(bounds.y-.5)*size[1];
+  const right=left+bounds.width*size[0],bottom=top+bounds.height*size[1];
+  return x>=left-padding&&x<=right+padding&&y>=top-padding&&y<=bottom+padding;
+}
+
+export function pickEditableScenery(props,point,{gameArt=false,tolerance=0,visibleBoundsFor=null}={}){
   for(let i=props.length-1;i>=0;i--){
     const prop=props[i];
     if(prop.hidden)continue;
@@ -33,9 +50,14 @@ export function pickEditableScenery(props,point,{gameArt=false,tolerance=0}={}){
     const base=project?.size||prop.assetSize||(gameArt?BASE_SIZE:EDITOR_SIZE)[prop.type]||[12,12];
     const factor=(Number(prop.scale)||1)*
       (!project&&!gameArt&&['building','warehouse'].includes(prop.type)?1.2:1);
-    if(pointInRotatedFootprint(point,prop,
-      [base[0]*factor*(prop.scaleX??1),base[1]*factor*(prop.scaleY??1)],(Number(prop.rotation)||0)*Math.PI/180,
-      tolerance))return prop;
+    const size=[base[0]*factor*(prop.scaleX??1),base[1]*factor*(prop.scaleY??1)];
+    // Keep only sub-metre click tolerance for buildings: the old general
+    // 8 m padding made slim, adjacent facades impossible to select reliably.
+    const padding=['house','building','warehouse','garage','gas_station'].includes(prop.type)
+      ?Math.min(.45,Math.max(0,tolerance)):tolerance;
+    const angle=(Number(prop.rotation)||0)*Math.PI/180;
+    const visible=project&&visibleBoundsFor?visibleBoundsFor(project):null;
+    if(pointInVisibleImageFootprint(point,prop,size,angle,visible,padding))return prop;
   }
   return null;
 }
