@@ -277,8 +277,7 @@ func _update_live_markers(dt: float = 0.0) -> void:
 		var distance_m := delta.length() / PPM
 		# A car outside the speed-adaptive warning range is no longer nearby,
 		# even if it had started an on-screen transition.
-		if distance_m < MIN_RANGE_M or \
-				distance_m > detection_range_m(player.linear_velocity):
+		if distance_m > detection_range_m(player.linear_velocity):
 			continue
 		var target_screen: Vector2 = canvas_transform * target.global_position
 		var onscreen := is_on_screen(target_screen,size_px)
@@ -291,14 +290,19 @@ func _update_live_markers(dt: float = 0.0) -> void:
 			if not bool(entry.get("onscreen_hold",false)):
 				var hold_seconds := onscreen_hold_seconds(player.linear_velocity)
 				live_entry.onscreen_hold = true
+				live_entry.hold_elapsed_s = 0.0
 				live_entry.hold_remaining_s = hold_seconds
 				live_entry.hold_total_s = hold_seconds
 			else:
-				# Never restart the timer during a discovery scan. Increasing
-				# speed can shorten the hold; slowing cannot extend it.
-				live_entry.hold_remaining_s = minf(
-					float(entry.get("hold_remaining_s",0.0)) - dt,
+				# Measure time since entry, not since the last 100 ms scan.
+				# Acceleration shortens the allowed *total* duration; braking
+				# cannot increase an already-started hold.
+				var elapsed := float(entry.get("hold_elapsed_s",0.0)) + dt
+				var total := minf(float(entry.get("hold_total_s",1.0)),
 					onscreen_hold_seconds(player.linear_velocity))
+				live_entry.hold_elapsed_s = elapsed
+				live_entry.hold_total_s = total
+				live_entry.hold_remaining_s = total - elapsed
 			if float(live_entry.hold_remaining_s) <= 0.0:
 				continue
 		else:
@@ -309,6 +313,7 @@ func _update_live_markers(dt: float = 0.0) -> void:
 			if info.is_empty():
 				continue
 			live_entry.onscreen_hold = false
+			live_entry.hold_elapsed_s = 0.0
 			live_entry.hold_remaining_s = 0.0
 			live_entry.closing_mps = float(info.closing_mps)
 			var at := edge_position(player_screen,target_screen,size_px)
