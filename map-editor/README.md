@@ -56,6 +56,18 @@ or rebake is required to see the updated bridges.
 - **Draw Road**: choose class, surface, width in metres and lanes, then click
   successive points. **Finish / Enter** creates the road; double-click also
   finishes. Compatible nearby roads attract new points for clean joins.
+- **Draw Guardrail**: choose **Draw guardrail** in the native Tool Settings or
+  the browser **Guardrail (G)** toolbar, set collision width (0.35–2.5 m,
+  default 0.65 m), then click successive path points exactly as when drawing a
+  road. **Finish / Enter** or double-click creates a solid steel rail.
+  Guardrails are not driveable streets or navigable AI routes: they are
+  independent saved scenery paths. **Select / Edit** and drag individual
+  control points or move the entire path; browser mode also supports moving
+  control handles. Save to Game / Test Drive uses the same guardrail centerline
+  for the visible rail and for segmented **StaticBody2D hitboxes**. Each
+  streamed chunk owns only its local collision spans, including rails crossing
+  chunk boundaries. Undo/Redo, duplication, source export, and custom map
+  baking preserve the path. Existing sidewalks stay nonblocking.
 - **Road Shapes** in the left settings: select an open road, set **Bend m**,
   then **Curve left**, **Curve right** or **Straighten road**. Left/right is
   relative to the first-to-last control-point direction. The whole selected
