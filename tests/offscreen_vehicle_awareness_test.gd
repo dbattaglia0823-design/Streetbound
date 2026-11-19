@@ -197,7 +197,7 @@ func _run() -> void:
 	var visible_target: Vector2 = camera.get_viewport().get_canvas_transform()*car.global_position
 	check("fixture_enters_camera_view_for_hold_test",
 		Awareness.is_on_screen(visible_target,
-			camera.get_viewport().get_visible_rect().size))
+			camera.get_viewport().get_visible_rect().size,0.0))
 	indicator.set("_clock",0.08)
 	indicator._process(1.0/60.0)
 	var held := _marker_for_target(indicator,car)
