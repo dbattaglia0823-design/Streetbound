@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pickEditableScenery,pointInVisibleImageFootprint} from '../world-selection.js';
 import {projectVisibleImageBounds} from '../world-renderer.js';
+import {buildRuntimePreview,pickRuntimeProp} from '../morrow-runtime-preview.js';
+import {createWorld} from '../world-model.js';
 
 const connected=(id,x)=>({
   id,name:'Connected Building',type:'building',x,y:100,rotation:0,scale:1,
@@ -46,4 +48,16 @@ test('other props retain existing selection tolerance and headless rendering fai
   assert.equal(pickEditableScenery([tree],{x:105,y:100},
     {gameArt:true,tolerance:8}),tree);
   assert.equal(projectVisibleImageBounds({id:'none',src:'/test.png'}),null);
+});
+
+test('original baked buildings do not select empty land between neighboring facades',()=>{
+  const first={kind:'shop',p:[500,500],size:[12,17],angle:0,seed:1};
+  const second={kind:'shop',p:[516,500],size:[12,17],angle:0,seed:2};
+  const preview=buildRuntimePreview({format:'streetbound.streamed-world',version:1,
+    size:[1600,1200],roads:[],terrain:[],props:[first,second],junctions:[]});
+  const doc=createWorld({width:1600,height:1200});
+  assert.equal(pickRuntimeProp(preview,doc,{x:500,y:500},48),first);
+  assert.equal(pickRuntimeProp(preview,doc,{x:516,y:500},48),second);
+  assert.equal(pickRuntimeProp(preview,doc,{x:508,y:500},48),null,
+    'empty 4m gap between thin facades must not select either building');
 });
