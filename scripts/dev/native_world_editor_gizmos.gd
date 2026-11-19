@@ -8,6 +8,7 @@ const Roads=preload("res://scripts/world/coast_roads.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
+const BuildingSelection=preload("res://scripts/dev/building_selection_footprint.gd")
 const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
 const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
 const MountainPreview=preload("res://scripts/dev/native_mountain_preview.gd")
@@ -545,6 +546,9 @@ func _draw_draft() -> void:
 		var size := _prop_size(prop)
 		var angle := deg_to_rad(float(prop.get("rotation",0.0)))
 		var texture := _prop_texture(prop)
+		var selection_box:=Rect2(-size*0.5,size)
+		if BuildingSelection.is_building_kind(str(prop.get("type",""))):
+			selection_box=BuildingSelection.selection_rect(texture,size)
 		draw_set_transform(p,angle)
 		# The real coast_scenery renderer draws the game artwork.
 		if not is_instance_valid(preview_scenery):
@@ -553,7 +557,7 @@ func _draw_draft() -> void:
 			else:
 				draw_rect(Rect2(-size*0.5,size),Color(0.35,0.65,0.52,0.6),true)
 		var outline_color := Color("#8effbf")
-		draw_rect(Rect2(-size*0.5,size),outline_color,false,3.0,true)
+		draw_rect(selection_box,outline_color,false,3.0,true)
 		draw_set_transform(Vector2.ZERO)
 		draw_circle(p,4.0,outline_color)
 	# Walkway branch anchors remain independent source props. Draw selectable
