@@ -578,7 +578,7 @@ export function drawEditorOverlay(ctx,doc,{
         ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;
         ctx.strokeRect((bounds.x-.5)*sx,(bounds.y-.5)*sy,bounds.width*sx,bounds.height*sy);
         ctx.restore();
-      else{
+      }else{
         ctx.beginPath();ctx.arc(item.x,item.y,radius*2,0,Math.PI*2);
         ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;ctx.stroke();
       }
