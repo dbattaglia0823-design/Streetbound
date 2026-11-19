@@ -1012,11 +1012,11 @@ for i,s in enumerate(SEGMENTS):
     r=ROADS[s["road"]]; a,b=s["a"],s["b"];pad=r["width"]/2+5
     for key in keys_for((min(a[0],b[0])-pad,min(a[1],b[1])-pad,max(a[0],b[0])+pad,max(a[1],b[1])+pad),CHUNK): CHUNKS[key]["segments"].append(i)
 for i,p in enumerate(PROPS):
-    if p['kind']=='sidewalk':
+    if p['kind'] in ('sidewalk','guardrail'):
         # Include every crossed cell, not only a long path's midpoint.
         radius=math.hypot(*p['size'])/2+2
         for key in keys_for((p['p'][0]-radius,p['p'][1]-radius,p['p'][0]+radius,p['p'][1]+radius),CHUNK):
-            if key in CHUNKS:CHUNKS[key]['props'].append(i)
+            if key in CHUNKS or p['kind']=='guardrail':CHUNKS[key]['props'].append(i)
     else:
         CHUNKS[f"{int(p['p'][0]//CHUNK)},{int(p['p'][1]//CHUNK)}"]["props"].append(i)
 for i,face in enumerate(RELIEF_FACES):

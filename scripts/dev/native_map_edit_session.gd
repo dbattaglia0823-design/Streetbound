@@ -161,11 +161,18 @@ func _valid_source(value: Dictionary) -> bool:
 		if not _in_bounds(Vector2(float(prop.get("x",-1)),
 				float(prop.get("y",-1))),value):
 			return false
-		if str(prop.get("type",""))=="sidewalk":
+		var path_kind:=str(prop.get("type",""))
+		if path_kind in ["sidewalk","guardrail"]:
 			var path: Array[Vector2]=Sidewalks.world_points(prop)
-			if not Sidewalks.valid_points(path,float(prop.get("sidewalkWidth",0)),
-					Rect2(Vector2.ZERO,Vector2(width,height))):
-				return false
+			var path_width:=float(prop.get("guardrailWidth",0)) if path_kind=="guardrail" else float(prop.get("sidewalkWidth",0))
+			if path_kind=="sidewalk":
+				if not Sidewalks.valid_points(path,path_width,
+						Rect2(Vector2.ZERO,Vector2(width,height))):return false
+			else:
+				if path.size()<2 or path.size()>100 or path_width<.35 or path_width>2.5:return false
+				for i in path.size():
+					if not _in_bounds(path[i],value) or (i>0 and path[i].distance_to(path[i-1])<.5):
+						return false
 	return true
 
 
@@ -731,6 +738,29 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 		return ""
 	return id
 
+## Guardrails are independent, solid road-style polylines. They have no
+## traffic network connection, junction merging or sidewalk auto-snap.
+func add_guardrail(points_m: Array[Vector2],width_m: float=.65) -> String:
+	if points_m.size()<2 or points_m.size()>100 or width_m<.35 or width_m>2.5:
+		last_error="Guardrails need 2–100 points and width 0.35–2.5 m.";return ""
+	var bounds:=Rect2(points_m[0],Vector2.ZERO)
+	for i in points_m.size():
+		if not _in_bounds(points_m[i]) or not points_m[i].is_finite() or \
+				(i>0 and points_m[i].distance_to(points_m[i-1])<.5):
+			last_error="Keep guardrail points inside the map, at least 0.5 m apart.";return ""
+		bounds=bounds.expand(points_m[i])
+	var center:=bounds.get_center()
+	var points: Array=[]
+	for p in points_m:points.append([p.x-center.x,p.y-center.y])
+	var id:=_new_prop_id()
+	var next:=doc.duplicate(true)
+	next.props.append({"id":id,"name":"Guardrail","type":"guardrail","assetId":"",
+		"x":center.x,"y":center.y,"rotation":0,"scale":1,
+		"assetSize":[bounds.size.x+width_m,bounds.size.y+width_m],
+		"guardrailWidth":width_m,"guardrailPoints":points})
+	return id if _commit(next) else ""
+
+
 func add_sidewalk(points_m: Array[Vector2],width_m: float=3.0) -> String:
 	if points_m.size()<2 or points_m.size()>100 or width_m<.8 or width_m>12:
 		last_error="Sidewalks need 2–100 points and width 0.8–12 m.";return ""
@@ -757,14 +787,17 @@ func move_sidewalk_point(identity: String, index: int, target_m: Vector2,
 		snap_radius_m: float = Sidewalks.SNAP_RADIUS_M,
 		preserve_joint: bool = true) -> bool:
 	var current: Dictionary=prop_at_id(identity)
-	if str(current.get("type",""))!="sidewalk":
-		last_error="Select a sidewalk control point.";return false
+	var path_kind:=str(current.get("type",""))
+	if path_kind not in ["sidewalk","guardrail"]:
+		last_error="Select a path control point.";return false
+	if path_kind=="guardrail":
+		preserve_joint=false
 	var before: Array[Vector2]=Sidewalks.world_points(current)
 	if index<0 or index>=before.size() or not _in_bounds(target_m):
 		last_error="Sidewalk points must remain inside the map.";return false
 	var next:=doc.duplicate(true)
 	var proposed:=target_m
-	if preserve_joint and index in [0,before.size()-1]:
+	if preserve_joint and path_kind=="sidewalk" and index in [0,before.size()-1]:
 		var snap_to: Dictionary=Sidewalks.snap(next.props,target_m,snap_radius_m,identity)
 		if not snap_to.is_empty():
 			proposed=snap_to.point
@@ -800,13 +833,13 @@ func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0,
 	var draft: Dictionary = doc.duplicate(true)
 	for prop in draft.props:
 		if str(prop.id)==prop_id:
-			if str(prop.get("type",""))=="sidewalk":
+			if str(prop.get("type","")) in ["sidewalk","guardrail"]:
 				var previous: Array[Vector2]=Sidewalks.world_points(prop)
 				var shift:=destination_m-original
 				var moved: Array[Vector2]=[]
 				for p in previous:moved.append(p+shift)
 				Sidewalks.write_world_points(prop,moved)
-				if preserve_joint:
+				if preserve_joint and str(prop.get("type",""))=="sidewalk":
 					for other in draft.props:
 						if str(other.id)==prop_id or str(other.get("type",""))!="sidewalk" or bool(other.get("hidden",false)):
 							continue
@@ -1285,7 +1318,7 @@ func batch_entities(ids: Array[String], delta: Vector2, operation: String) -> Ar
 				result.append(str(target.id))
 			else:
 				result.append(id)
-			if category=="props" and str(target.get("type",""))=="sidewalk":
+			if category=="props" and str(target.get("type","")) in ["sidewalk","guardrail"]:
 				var points: Array[Vector2]=Sidewalks.world_points(target)
 				var translated: Array[Vector2]=[]
 				for point in points:translated.append(point+delta)

@@ -127,6 +127,7 @@ def _near_node(nodes, point, tolerance=3.0):
 # procedural world, never arbitrary runtime objects or client-provided flags.
 EDITOR_PROP_STYLES = {
     "sidewalk": ("sidewalk", (3.0,10.0),False),
+    "guardrail": ("guardrail", (0.65,10.0),False),
     "oak": ("tree", (7.0, 7.0), False),
     "pine": ("pine", (7.0, 7.0), False),
     "palm": ("palm", (6.5, 6.5), False),
@@ -226,7 +227,7 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
         if project_path is not None:
             base_size = asset_size
             solid = project_asset["collision"] == "solid"
-        elif (raw.get('replaces') or type_name=='sidewalk') and raw.get('assetSize') is not None:
+        elif (raw.get('replaces') or type_name in {'sidewalk','guardrail'}) and raw.get('assetSize') is not None:
             base_size=raw['assetSize']
             if not isinstance(base_size,list) or len(base_size)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=12000 for v in base_size):
                 raise ValueError('Invalid original scenery footprint')
@@ -257,6 +258,30 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                 if not isinstance(p,list) or len(p)!=2 or any(type(v) not in (int,float) or not math.isfinite(v) or abs(v)>12000 for v in p):raise ValueError('Invalid sidewalk point')
             if any(math.dist(a,b)<.5 for a,b in zip(path,path[1:])):raise ValueError('Sidewalk points are too close')
             entry.update(sidewalk_points=path,sidewalk_width=walk_width,sidewalk_scale=[scale*v for v in axes],radius=0)
+        if type_name=='guardrail':
+            path=raw.get('guardrailPoints',[])
+            width_m=raw.get('guardrailWidth',0.65)
+            if (type(width_m) not in (int,float) or not math.isfinite(width_m)
+                    or not .35 <= width_m <= 2.5
+                    or not isinstance(path,list) or not 2<=len(path)<=100):
+                raise ValueError('Invalid solid guardrail width or path')
+            transformed=[]
+            for p in path:
+                if (not isinstance(p,list) or len(p)!=2 or any(
+                        type(v) not in (int,float) or not math.isfinite(v)
+                        or abs(v)>12000 for v in p)):
+                    raise ValueError('Invalid guardrail control point')
+                dx,dy=p[0]*scale*axes[0],p[1]*scale*axes[1]
+                rx=x+dx*math.cos(math.radians(rotation))-dy*math.sin(math.radians(rotation))
+                ry=y+dx*math.sin(math.radians(rotation))+dy*math.cos(math.radians(rotation))
+                if not 0<=rx<=width or not 0<=ry<=height:
+                    raise ValueError('Guardrail extends beyond map bounds')
+                transformed.append((rx,ry))
+            if any(math.dist(a,b)<.5 for a,b in zip(transformed,transformed[1:])):
+                raise ValueError('Guardrail path points are too close')
+            entry.update(guardrail_points=path,guardrail_width=width_m,
+                         guardrail_scale=[scale*v for v in axes],
+                         radius=0,solid=False)
         if project_path is not None:
             entry["asset_path"]=project_path
             entry["asset_size"]=asset_size

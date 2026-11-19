@@ -299,7 +299,7 @@ function renderContextPanel(){
   const id=found?.item.id||'';
   const key=view==='selected'?view+':'+found.type:view;
   const titles={selected:found?.item.name||'Selected item',select:'Select / Edit',
-    road:'Draw road',terrain:'Terrain region',prop:'Place scenery',marker:'Place marker',
+    road:'Draw road',guardrail:'Draw guardrail',terrain:'Terrain region',prop:'Place scenery',marker:'Place marker',
     pan:'Pan view',layers:'World layers',objects:'Map objects',health:'Map health',world:'World settings'};
   $('context-title').textContent=titles[view]||'Properties';
   document.querySelectorAll('[data-context-view]').forEach(b=>{
@@ -317,6 +317,9 @@ function renderContextPanel(){
   const left=document.querySelector('.left-panel');
   if(view==='road'){
     put(left.querySelectorAll(':scope > .settings-group')[0]);
+  }else if(view==='guardrail'){
+    put(field('guardrail-width'));
+    explain('Click guardrail points like a road. Enter / Finish creates a solid, editable barrier with a physics hitbox.');
   }else if(view==='terrain'){
     put(left.querySelectorAll(':scope > .settings-group')[1]);
   }else if(view==='prop'){
@@ -382,7 +385,7 @@ function refreshHeader(){
     doc.regions.length+' regions · '+
     (gameAssets+authoringAdds).toLocaleString()+' scenery assets'+
     (runtimePreview?' ('+gameAssets.toLocaleString()+' baked)':'');
-  const canFinish=draft && draft.points.length>=(draft.type==='road'?2:3);
+  const canFinish=draft && draft.points.length>=(['road','guardrail'].includes(draft.type)?2:3);
   $('finish-shape').disabled=!canFinish;$('cancel-shape').disabled=!draft;
   $('delete-entity').disabled=!selection;
   $('undo-world').disabled=!undoStack.length;$('redo-world').disabled=!redoStack.length;
@@ -423,7 +426,7 @@ function afterHistory(message){
   refreshUI();status(message);
 }
 function setTool(next){
-  if(!['select','road','terrain','prop','marker','pan'].includes(next))return;
+  if(!['select','road','guardrail','terrain','prop','marker','pan'].includes(next))return;
   if(draft)cancelDraft(false);
   if(gesture?.mode==='spray')finishSpray(false);
   if(next!=='select')pointInsertMode=null;
@@ -434,6 +437,7 @@ function setTool(next){
   status({
     select:'Drag a road or terrain area to move it. Drag its control handles to reshape it. Alt-drag also moves the entire shape.',
     road:'Click to add road points. Click the first point again to close a loop, or press Enter to finish an open road. Nearby compatible endpoints snap together.',
+    guardrail:'Click points like a road to lay continuous solid guardrails. Press Enter/Finish to save the editable path.',
     terrain:'Click around a terrain area. Double-click or Enter to close the polygon.',
     prop:'Click for a single prop, or enable hold-and-drag to paint or erase scenery.',
     marker:'Click to place a gameplay marker.',
@@ -525,6 +529,28 @@ function adoptRuntimeScenery(source){
   return null;
 }
 
+function guardrailWorldPoints(prop){
+  const radians=prop.rotation*Math.PI/180,cos=Math.cos(radians),sin=Math.sin(radians);
+  const ax=prop.scale*(prop.scaleX??1),ay=prop.scale*(prop.scaleY??1);
+  return prop.guardrailPoints.map(([dx,dy])=>({
+    x:prop.x+dx*ax*cos-dy*ay*sin,
+    y:prop.y+dx*ax*sin+dy*ay*cos
+  }));
+}
+function moveGuardrailControlPoint(world,id,index,p){
+  const found=getEntity(world,id);
+  if(found?.type!=='props'||found.item.type!=='guardrail')
+    throw new TypeError('Select a guardrail path control point');
+  const prop=found.item,radians=-prop.rotation*Math.PI/180;
+  const dx=p.x-prop.x,dy=p.y-prop.y;
+  const localX=(dx*Math.cos(radians)-dy*Math.sin(radians))/(prop.scale*(prop.scaleX??1));
+  const localY=(dx*Math.sin(radians)+dy*Math.cos(radians))/(prop.scale*(prop.scaleY??1));
+  const points=prop.guardrailPoints.map(([x,y],i)=>i===index?[localX,localY]:[x,y]);
+  const xvals=points.map(([x])=>x),yvals=points.map(([,y])=>y);
+  const assetSize=[Math.max(...xvals)-Math.min(...xvals)+prop.guardrailWidth,
+    Math.max(...yvals)-Math.min(...yvals)+prop.guardrailWidth];
+  return updateEntity(world,id,{guardrailPoints:points,assetSize});
+}
 function hitTest(p){
   // Keep handle picking close to the visibly drawn handle, otherwise at a
   // zoomed-out map the oversized hit radius prevents dragging the road body.
@@ -545,6 +571,22 @@ function hitTest(p){
       if(isMountainBarrier(doc.regions[i])&&pointInPolygon(p,doc.regions[i].points))return {id:doc.regions[i].id,point:-1,kind:'entity'};
   }
   if($('show-scenery').checked){
+    // Guardrails are long paths, not single sprite objects: pick near the
+    // actual rail and prioritize the selected control handles.
+    const selectedRail=selection?getEntity(doc,selection.id):null;
+    if(selectedRail?.type==='props'&&selectedRail.item.type==='guardrail'){
+      const handles=guardrailWorldPoints(selectedRail.item);
+      for(let i=0;i<handles.length;i++)
+        if(distance(p,handles[i])<radius)
+          return {id:selectedRail.item.id,point:i,kind:'guardrail-handle'};
+    }
+    for(let i=doc.props.length-1;i>=0;i--){
+      const prop=doc.props[i];
+      if(prop.type!=='guardrail'||prop.hidden)continue;
+      const d=nearestOnPath(p,guardrailWorldPoints(prop)).distance;
+      if(d<Math.max(prop.guardrailWidth*.5,9/zoom))
+        return {id:prop.id,point:-1,kind:'entity'};
+    }
     const edited=pickEditableScenery(doc.props,p,{
       gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8),
       visibleBoundsFor:projectVisibleImageBounds});
@@ -583,7 +625,8 @@ function refreshInspector(){
     $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
-  $('selected-type').textContent={roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
+  $('selected-type').textContent=type==='props'&&item.type==='guardrail'?'GUARDRAIL':
+    {roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
   $('inspector-name').value=item.name;
   for(const x of ['road','region','prop','marker'])$('inspect-'+x).hidden=type!=={road:'roads',region:'regions',prop:'props',marker:'markers'}[x];
   const position=type==='props'||type==='markers';$('position-fields').hidden=!position;
@@ -617,6 +660,7 @@ function refreshInspector(){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
   }else if(type==='props'){
+    if(item.type==='guardrail')$('guardrail-width').value=item.guardrailWidth;
     $('inspect-prop-type').value=item.type;$('inspect-asset').value=item.assetId||'';
     $('inspect-scale').value=item.scale;$('inspect-rotation').value=item.rotation;
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
@@ -860,7 +904,7 @@ function cancelDraft(notify=true){
 function finishDraft(){
   if(!draft)return;
   const work=draft;
-  if(work.points.length<(work.type==='road'?2:3)){status('Add more points before finishing.');return;}
+  if(work.points.length<(['road','guardrail'].includes(work.type)?2:3)){status('Add more points before finishing.');return;}
   try{
     let applied=false;
     if(work.type==='road'){
@@ -882,6 +926,22 @@ function finishDraft(){
         }
         return working;
       },'Road added. Compatible touching road ends joined automatically.');
+    }else if(work.type==='guardrail'){
+      const width=Number($('guardrail-width').value);
+      if(!Number.isFinite(width)||width<.35||width>2.5)
+        throw new RangeError('Guardrail width must be between 0.35m and 2.5m');
+      const bounds={
+        minX:Math.min(...work.points.map(p=>p.x)),
+        maxX:Math.max(...work.points.map(p=>p.x)),
+        minY:Math.min(...work.points.map(p=>p.y)),
+        maxY:Math.max(...work.points.map(p=>p.y))};
+      const x=(bounds.minX+bounds.maxX)*.5,y=(bounds.minY+bounds.maxY)*.5;
+      const local=work.points.map(p=>[p.x-x,p.y-y]);
+      applied=change(d=>createEntity(d,'props',{
+        type:'guardrail',name:'Guardrail',x,y,scale:1,rotation:0,assetId:'',
+        assetSize:[bounds.maxX-bounds.minX+width,bounds.maxY-bounds.minY+width],
+        guardrailWidth:width,guardrailPoints:local
+      }),'Solid guardrail added. Its collision follows your control points.');
     }else{
       const biome=$('biome').value,elevation=Number($('elevation').value);
       const barrier=$('terrain-barrier').checked;
@@ -900,7 +960,7 @@ function addDraftPoint(p,detail){
   const closeRadius=clamp(15/zoom,8,28);
   const closesLoop=tool==='road'&&first&&distance(point,first)<=closeRadius;
   const where=closesLoop?{...first}:(snap?snap.point:point);
-  if(!draft)draft={type:tool,width:Number($('road-width').value),points:[]};
+  if(!draft)draft={type:tool,width:Number(tool==='guardrail'?$('guardrail-width').value:$('road-width').value),points:[]};
   if(draft.points.length && distance(draft.points.at(-1),where)<1) return;
   draft.points.push(where);
   if(closesLoop){finishDraft();return;}
@@ -974,7 +1034,7 @@ canvas.addEventListener('pointerdown',event=>{
   }
   if(p.x<0||p.y<0||p.x>doc.world.width||p.y>doc.world.height)return;
   canvas.focus({preventScroll:true});
-  if(tool==='road'||tool==='terrain'){addDraftPoint(p,event.detail);return;}
+  if(tool==='road'||tool==='guardrail'||tool==='terrain'){addDraftPoint(p,event.detail);return;}
   if(tool==='prop'){
     if($('scenery-paint').checked||$('scenery-erase').checked){beginSpray(event,p);return;}
     const type=$('prop-type').value;
@@ -1041,7 +1101,10 @@ canvas.addEventListener('pointerdown',event=>{
     setSelection(hit?.id||null,hit?.point??-1);
     if(!hit)return;
     const found=getEntity(doc,hit.id);
-    if(hit.kind==='handle'){
+    if(hit.kind==='guardrail-handle'){
+      gesture={mode:'guardrail-control',before:doc,id:hit.id,index:hit.point};
+      canvas.setPointerCapture(event.pointerId);
+    }else if(hit.kind==='handle'){
       gesture={mode:'control',before:doc,id:hit.id,index:hit.point};
       canvas.setPointerCapture(event.pointerId);
     }else if(found&&['roads','regions'].includes(found.type)&&hit.kind==='entity'){
@@ -1065,6 +1128,9 @@ canvas.addEventListener('pointermove',event=>{
     else if(gesture.mode==='pan'){offsetX=gesture.startX+p.sx-gesture.sx;offsetY=gesture.startY+p.sy-gesture.sy;}
     else if(gesture.mode==='control'){
       try{doc=moveControlPoint(doc,gesture.id,gesture.index,worldPoint(p.x,p.y));}
+      catch(e){errorMessage(e);}
+    }else if(gesture.mode==='guardrail-control'){
+      try{doc=moveGuardrailControlPoint(doc,gesture.id,gesture.index,worldPoint(p.x,p.y));}
       catch(e){errorMessage(e);}
     }else if(gesture.mode==='shape'){
       try{doc=translateEntity(gesture.before,gesture.id,p.x-gesture.start.x,p.y-gesture.start.y);}
@@ -1150,7 +1216,7 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Delete'&&selection){event.preventDefault();deleteSelected();return;}
   if(event.key==='+'||event.key==='='){setZoom(zoom*1.2);return;}
   if(event.key==='-'){setZoom(zoom/1.2);return;}
-  const tools={v:'select',r:'road',t:'terrain',p:'prop',m:'marker',h:'pan'};
+  const tools={v:'select',r:'road',g:'guardrail',t:'terrain',p:'prop',m:'marker',h:'pan'};
   const next=tools[event.key.toLowerCase()];
   if(next){event.preventDefault();setTool(next);}
 });
@@ -1158,6 +1224,15 @@ document.addEventListener('keyup',event=>{if(event.code==='Space')panSpace=false
 window.addEventListener('blur',()=>{panSpace=false;if(gesture?.mode==='spray')finishSpray();});
 document.querySelectorAll('[data-tool]').forEach(button=>button.addEventListener('click',()=>setTool(button.dataset.tool)));
 $('finish-shape').addEventListener('click',finishDraft);$('cancel-shape').addEventListener('click',()=>cancelDraft());
+$('guardrail-width').addEventListener('change',event=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(tool==='select'&&found?.type==='props'&&found.item.type==='guardrail'){
+    const width=Number(event.target.value);
+    change(d=>updateEntity(d,found.item.id,{guardrailWidth:width}),
+      'Updated solid guardrail hitbox thickness.');
+    refreshInspector();
+  }
+});
 $('undo-world').addEventListener('click',undo);$('redo-world').addEventListener('click',redo);
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.3));
 $('zoom-out').addEventListener('click',()=>setZoom(zoom/1.3));

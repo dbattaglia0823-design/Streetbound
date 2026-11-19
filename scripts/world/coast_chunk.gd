@@ -27,6 +27,7 @@ const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const Bridges=preload("res://scripts/world/coast_bridges.gd")
 const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
 const MountainArt=preload("res://scripts/world/coast_mountain_barriers.gd")
+const Guardrails=preload("res://scripts/world/guardrail_geometry.gd")
 var world: Node2D
 var cell := Vector2i.ZERO
 var content: Dictionary
@@ -168,8 +169,12 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		# and lane markings (z=2..4) near roadside lot entrances.
 		var paved_props: Array[Dictionary] = []
 		var above_road_props: Array[Dictionary] = []
+		var rail_props: Array[Dictionary] = []
 		for prop in prop_list:
 			if str(prop.kind)=="sidewalk":continue
+			if str(prop.kind)=="guardrail":
+				rail_props.append(prop)
+				continue
 			if str(prop.kind) in ["lot", "forecourt"]:
 				paved_props.append(prop)
 			else:
@@ -191,6 +196,21 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 			pavement.origin_m = origin_m
 			pavement.z_index = 1
 			add_child(pavement)
+		if not rail_props.is_empty():
+			# Clip continuous authored paths to their tile. Neighboring chunks
+			# share the same artwork without drawing the entire long path twice.
+			var rail_clip:=Control.new()
+			rail_clip.name="GuardrailClip"
+			rail_clip.clip_contents=true
+			rail_clip.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			rail_clip.z_index=6
+			rail_clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+			add_child(rail_clip)
+			var rail_art:=Node2D.new()
+			rail_art.set_script(Scenery)
+			rail_art.prop_list=rail_props
+			rail_art.origin_m=origin_m
+			rail_clip.add_child(rail_art)
 		if not above_road_props.is_empty():
 			var shadows := Node2D.new()
 			shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
@@ -275,7 +295,7 @@ func _build_collisions() -> void:
 	# Empty ocean/terrain cells should not allocate an invisible physics body.
 	var solids := 0
 	for prop in prop_list:
-		if bool(prop.solid):
+		if bool(prop.solid) or str(prop.kind)=="guardrail":
 			solids += 1
 	if solids == 0 and content.get("walls", []).is_empty() and content.get("mountains",[]).is_empty():
 		return
@@ -286,6 +306,17 @@ func _build_collisions() -> void:
 	body.collision_mask = 2
 	add_child(body)
 	for prop in prop_list:
+		if str(prop.kind)=="guardrail":
+			var path_m: PackedVector2Array=Guardrails.runtime_path_m(prop)
+			var bounds:=Rect2(origin_m,Vector2.ONE*world.chunk_m)
+			var rail_scale: Array=prop.get("guardrail_scale",[1.0,1.0])
+			var rail_width: float=float(prop.get("guardrail_width",.65))*maxf(
+				float(rail_scale[0]),float(rail_scale[1]))
+			var made: int=Guardrails.collision_shapes(body,path_m,
+				rail_width,origin_m,bounds,
+				str(prop.get("authoring_id","")))
+			collision_shape_count+=made-1
+			continue
 		if not prop.solid:
 			continue
 		var collider := CollisionShape2D.new()

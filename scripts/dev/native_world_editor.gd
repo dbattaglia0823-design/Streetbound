@@ -96,6 +96,7 @@ var _road_snap_context:=""
 var building_snap_enabled:=true
 var building_snap_button: Button
 var sidewalk_width: SpinBox
+var guardrail_width: SpinBox
 var source_id := ""
 var source_anchor := -1
 var pending_drag: Dictionary = {}
@@ -503,7 +504,7 @@ func _update_context_panels() -> void:
 	marker_settings.visible=tool_name=="place_marker" or record.get("category","")=="markers"
 	marker_editor.update(self)
 	asset_dock.visible=tool_name.begins_with("place:")
-	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk"] else 3)
+	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
 	if road_selected and tool_name!="draw_road":
@@ -885,7 +886,7 @@ func _choose_tool(mode: String) -> void:
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = -1
-	mode_label.text={"select_box":"BOX SELECT","place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
+	mode_label.text={"select_box":"BOX SELECT","place_circle_road":"CIRCULAR ROAD","draw_race":"RACE ROUTE","draw_sidewalk":"BRANCHING SIDEWALKS","draw_guardrail":"GUARDRAILS","move_prop":"SELECT / EDIT","draw_road":"DRAW ROAD","draw_terrain":"TERRAIN REGION",
 		"place_marker":"GAME MARKER","place_dealership":"PLACE DEALERSHIP","race_grid":"RACE START GRID","race_checkpoint":"ADD RACE CHECKPOINT","anchor":"ROAD / PATH POINTS","pan":"PAN VIEW"}.get(mode,"SCENERY")
 	_update_active_tool_style()
 	_update_context_panels()
@@ -894,6 +895,7 @@ func _choose_tool(mode: String) -> void:
 		"draw_road":"Click road points, then FINISH or Enter. Double-click also finishes. Escape cancels.",
 		"place_circle_road":"Set Radius, width and lanes, then click the center of your circular road. Select it afterwards to resize.",
 		"draw_sidewalk":"Set walk width, click points to draw paths. Tips snap to existing sidewalks, including their middles, for T/X branches. Finish or Enter saves; Select/Edit drags junction anchors.",
+		"draw_guardrail":"Set rail width, click path points like a road, then Finish/Enter. Solid rails block vehicles; Select/Edit or Road Points reshapes them.",
 		"draw_race":"Click the road for start, checkpoints and finish, in order. Enter saves; a circuit loops back to start.",
 		"race_checkpoint":"Click on a road to insert a checkpoint after the selected gate. Esc returns to Select/Edit.",
 		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
@@ -1192,7 +1194,7 @@ func _pick_sidewalk_anchor(world_px: Vector2) -> Dictionary:
 	var result: Dictionary={}
 	for raw in authoring.doc.props:
 		var prop: Dictionary=raw
-		if str(prop.get("type",""))!="sidewalk" or bool(prop.get("hidden",false)):
+		if str(prop.get("type","")) not in ["sidewalk","guardrail"] or bool(prop.get("hidden",false)):
 			continue
 		if tool_name!="anchor" and str(prop.id)!=source_id:
 			continue
@@ -1217,13 +1219,25 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		var prop: Dictionary=authoring.doc.props[index]
 		if bool(prop.get("hidden",false)):
 			continue
+		if str(prop.get("type",""))=="guardrail":
+			# A long curved guardrail should only be selectable near its actual
+			# rail, not anywhere within its enormous axis-aligned bounding box.
+			var rail_points: Array[Vector2]=Sidewalks.world_points(prop)
+			var nearest:=INF
+			for n in range(1,rail_points.size()):
+				nearest=minf(nearest,at.distance_to(
+					Geometry2D.get_closest_point_to_segment(at,rail_points[n-1],rail_points[n])))
+			if nearest<best:
+				best=nearest
+				hit={"kind":"prop","id":str(prop.id),
+					"from":Vector2(float(prop.x),float(prop.y))*PPM}
+			continue
 		var center := Vector2(float(prop.x),float(prop.y))
 		var local := (at-center).rotated(-deg_to_rad(float(prop.get("rotation",0))))
 		var half: Vector2=gizmos._prop_size(prop)/PPM*.5
 		var distance := Vector2(maxf(0,absf(local.x)-half.x),
 			maxf(0,absf(local.y)-half.y)).length()
-		# The asset footprint is authoritative for placement/physics, but
-		# selectable roof pixels exclude transparent PNG canvas margins.
+		# Preserve guardrail centerline picks above; only tighten sprite roofs.
 		if distance<best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
 			distance=BuildingSelection.hit_gap(at,center,
 				deg_to_rad(float(prop.get("rotation",0.0))),half*2.0,
@@ -1268,7 +1282,7 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	if tool_name=="place_circle_road":
 		road_shapes.place(self,_snap_point(world_px/PPM));return
-	if tool_name in ["draw_road","draw_sidewalk","draw_race"]:
+	if tool_name in ["draw_road","draw_sidewalk","draw_guardrail","draw_race"]:
 		var point:=_road_draw_point(world_px/PPM,tool_name=="draw_race",tool_name=="draw_race") if tool_name in ["draw_road","draw_race"] else _snap_point(world_px/PPM)
 		if tool_name=="draw_race" and not point.is_finite():
 			_notice("Race start, checkpoints and finish must be placed on a road.")
@@ -1284,6 +1298,8 @@ func _source_click(world_px: Vector2) -> void:
 		if tool_name=="draw_sidewalk":
 			_notice("%d path points. %sFinish / Enter to keep every connected branch; Esc cancels."%
 				[draft_points.size(),"Snapped to a sidewalk. " if not connection.is_empty() else ""])
+		elif tool_name=="draw_guardrail":
+			_notice("%d guardrail points. FINISH / Enter creates solid rails; Esc cancels."%draft_points.size())
 		elif tool_name=="draw_race":
 			_notice("%d race route points on roads. FINISH / Enter saves; Esc cancels."%draft_points.size())
 		else:
@@ -1403,7 +1419,11 @@ func _source_click(world_px: Vector2) -> void:
 	pending_drag["grab"]=world_px
 	pending_drag["to"] = hit.from
 	if hit.kind=="sidewalk_point":
-		details.text="SIDEWALK BRANCH ANCHOR\\n%s\\nPoint %d\\n\\nDrag to reshape joined branches. Alt-drag detaches this point."%[source_id,source_anchor+1]
+		var picked_path: Dictionary=authoring.prop_at_id(source_id)
+		if str(picked_path.get("type",""))=="guardrail":
+			details.text="SOLID GUARDRAIL ANCHOR\n%s\nPoint %d\n\nDrag to reshape the hitbox."%[source_id,source_anchor+1]
+		else:
+			details.text="SIDEWALK BRANCH ANCHOR\\n%s\\nPoint %d\\n\\nDrag to reshape joined branches. Alt-drag detaches this point."%[source_id,source_anchor+1]
 	elif hit.kind=="road":
 		var road: Dictionary = authoring.road_at_id(source_id)
 		details.text = "AUTHORING ROAD\n%s\nPoint %d of %d\n\nDrag this anchor. Other joined ends move together.\nJunctions / traffic stay baked until Apply." % [
@@ -1441,7 +1461,7 @@ func _finish_source_drag(world_px: Vector2) -> void:
 			ok=authoring._commit(temporary.doc)
 	elif str(drag.kind)=="prop":
 		var item: Dictionary=authoring.prop_at_id(str(drag.id))
-		if str(item.get("type",""))=="sidewalk":
+		if str(item.get("type","")) in ["sidewalk","guardrail"]:
 			ok=authoring.move_prop(str(drag.id),
 				_snap_point((Vector2(drag.from)+world_px-Vector2(drag.grab))/PPM),0.0,
 				not Input.is_physical_key_pressed(KEY_ALT))
@@ -1796,7 +1816,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					close_editor()
 				_consume_input()
 				return
-			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_race"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_guardrail","draw_race"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
 				_finish_shape()
 				_consume_input()
 				return
@@ -1866,7 +1886,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_consume_input()
 					return
 				_source_click(hit_position)
-				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_race"]:_finish_shape()
+				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_guardrail","draw_race"]:_finish_shape()
 			elif marquee_tracking:
 				_end_marquee(hit_position)
 			elif group_moving:
@@ -2001,9 +2021,16 @@ func _notification(what: int) -> void:
 
 func _update_drag_preview(at: Vector2) -> void:
 	if pending_drag.kind=="prop":
-		var snapped:=_snap_building_transform(authoring.prop_at_id(str(pending_drag.id)),(Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)
-		pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
-		pending_drag["invalid"]=not bool(snapped.valid)
+		var prop: Dictionary=authoring.prop_at_id(str(pending_drag.id))
+		if str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			# Paths move as geometry, not as buildings that snap to neighboring walls.
+			pending_drag.to=_snap_point((Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)*PPM
+			pending_drag.erase("rotation")
+			pending_drag["invalid"]=false
+		else:
+			var snapped:=_snap_building_transform(prop,(Vector2(pending_drag.from)+at-Vector2(pending_drag.grab))/PPM)
+			pending_drag.to=Vector2(snapped.position)*PPM;pending_drag["rotation"]=snapped.rotation
+			pending_drag["invalid"]=not bool(snapped.valid)
 		gizmos.update_prop_drag(pending_drag)
 		return
 	elif pending_drag.kind in ["road_move","region","marker"]:
@@ -2015,7 +2042,8 @@ func _update_drag_preview(at: Vector2) -> void:
 		pending_drag.to=(target*PPM if target.is_finite() else Vector2(pending_drag.from))
 	elif pending_drag.kind=="sidewalk_point":
 		var proposed:=_snap_point(at/PPM)
-		if not Input.is_physical_key_pressed(KEY_ALT):
+		var selected_path: Dictionary=authoring.prop_at_id(str(pending_drag.id))
+		if str(selected_path.get("type",""))=="sidewalk" and not Input.is_physical_key_pressed(KEY_ALT):
 			var match_info:=Sidewalks.snap(authoring.doc.props,proposed,
 				Sidewalks.SNAP_RADIUS_M,str(pending_drag.id))
 			if not match_info.is_empty():proposed=match_info.point
@@ -2395,7 +2423,11 @@ func _update_source_details() -> void:
 		return
 	var prop: Dictionary=authoring.prop_at_id(source_id)
 	if not prop.is_empty():
-		details.text=("SIDEWALK  /  %s\n%d path points · %.1fm wide\nSelect / Edit: drag point handles to branch or reshape.\nAlt-drag a handle to detach."%[source_id,prop.sidewalkPoints.size(),float(prop.sidewalkWidth)]) if str(prop.get("type",""))=="sidewalk" else "SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
+		if str(prop.get("type",""))=="guardrail":
+			details.text="GUARDRAIL  /  %s\n%d path points · %.2fm collision width\nDrawn as a solid barrier. Select/Edit to move anchors; Save to Game to bake."%[
+				source_id,(prop.get("guardrailPoints",[]) as Array).size(),float(prop.get("guardrailWidth",.65))]
+		else:
+			details.text=("SIDEWALK  /  %s\n%d path points · %.1fm wide\nSelect / Edit: drag point handles to branch or reshape.\nAlt-drag a handle to detach."%[source_id,prop.sidewalkPoints.size(),float(prop.sidewalkWidth)]) if str(prop.get("type",""))=="sidewalk" else "SCENERY  /  %s\n%s\nX %.1fm · Y %.1fm\nRotation %.0f° · Scale %.2f"%[
 			source_id,str(prop.name),float(prop.x),float(prop.y),float(prop.get("rotation",0)),float(prop.get("scale",1))]
 		selected_preview.texture=gizmos._prop_texture(prop)
 		selected_preview.visible=selected_preview.texture!=null
@@ -2421,6 +2453,7 @@ func _finish_shape() -> void:
 			"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)})
 	elif tool_name=="draw_terrain":identity=authoring.add_region(draft_points,_option_value(terrain_biome),terrain_barrier.button_pressed,terrain_elevation.value if terrain_barrier.button_pressed else 0)
 	elif tool_name=="draw_sidewalk":identity=authoring.add_sidewalk(draft_points,sidewalk_width.value)
+	elif tool_name=="draw_guardrail":identity=authoring.add_guardrail(draft_points,guardrail_width.value)
 	elif tool_name=="draw_race":identity=race_editor.finish(self)
 	if identity.is_empty():_notice(authoring.last_error);return
 	source_id=identity;source_anchor=-1;draft_points.clear()

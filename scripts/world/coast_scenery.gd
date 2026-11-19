@@ -35,9 +35,49 @@ func _draw() -> void:
 		for prop in walks:
 			_draw_sidewalk_layer(prop,layer_index)
 	for prop in prop_list:
-		if str(prop.get("kind",""))!="sidewalk":
+		if str(prop.get("kind",""))=="guardrail":
+			_draw_guardrail(prop)
+		elif str(prop.get("kind",""))!="sidewalk":
 			_draw_prop(prop)
 	draw_set_transform(Vector2.ZERO)
+
+
+func _draw_guardrail(prop: Dictionary) -> void:
+	# One thin, continuous metal barrier follows the exact authored spline.
+	# Renderer and physics share the same centerline and metre scale.
+	if not ignore_editor_mask and editor_hidden.has(editor_key(prop)):
+		return
+	if not suppressed_preview_id.is_empty() and str(prop.get("editor_source_id",""))==suppressed_preview_id:
+		return
+	var points := PackedVector2Array()
+	for raw in prop.get("guardrail_points",[]):
+		points.append(Vector2(float(raw[0]),float(raw[1]))*PPM)
+	if points.size()<2:
+		return
+	var center := point(prop.p)
+	var axes: Array=prop.get("guardrail_scale",[1.0,1.0])
+	var sx := float(axes[0])
+	var sy := float(axes[1])
+	draw_set_transform(center,float(prop.get("angle",0.0)),Vector2(sx,sy))
+	var width_px := float(prop.get("guardrail_width",.65))*PPM
+	# Rails read clearly over dark asphalt without looking like new roads.
+	draw_polyline(points,Color("#242d33"),width_px+7.0,true)
+	draw_polyline(points,Color("#a9b9bf"),width_px,true)
+	draw_polyline(points,Color("#e6ebeb"),maxf(2.0,width_px*.22),true)
+	for i in range(1,points.size()):
+		var first: Vector2=points[i-1]
+		var last: Vector2=points[i]
+		var delta:=last-first
+		var length_px:=delta.length()
+		if length_px<1.0:continue
+		var forward:=delta/length_px
+		var normal:=Vector2(-forward.y,forward.x)
+		for position_px in range(0,ceili(length_px),100):
+			var at:=first+forward*float(position_px)
+			draw_line(at-normal*width_px*.65,at+normal*width_px*.65,
+				Color("#4d656d"),4.0,true)
+	draw_set_transform(Vector2.ZERO)
+
 
 
 func _draw_sidewalk_layer(prop: Dictionary, layer_index: int) -> void:

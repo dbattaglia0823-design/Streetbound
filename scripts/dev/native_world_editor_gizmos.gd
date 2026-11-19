@@ -9,6 +9,7 @@ const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const BuildingSelection=preload("res://scripts/dev/building_selection_footprint.gd")
+const Guardrails=preload("res://scripts/world/guardrail_geometry.gd")
 const BridgeArt=preload("res://scripts/world/coast_bridges.gd")
 const MountainGeometry=preload("res://scripts/world/mountain_barrier_geometry.gd")
 const MountainPreview=preload("res://scripts/dev/native_mountain_preview.gd")
@@ -162,6 +163,10 @@ func _refresh_preview_scenery() -> void:
 			instance["sidewalk_points"]=prop.sidewalkPoints
 			instance["sidewalk_width"]=prop.sidewalkWidth
 			instance["sidewalk_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
+		elif kind=="guardrail":
+			instance["guardrail_points"]=prop.guardrailPoints
+			instance["guardrail_width"]=prop.guardrailWidth
+			instance["guardrail_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
 		instance["editor_source_id"]=str(prop.id)
 		preview_indices[str(prop.id)]=rendered.size();rendered.append(instance)
 	preview_scenery.prop_list = rendered
@@ -316,6 +321,13 @@ func _rebuild_preview_collisions() -> void:
 		if bool(prop.get("hidden",false)) or not _prop_modified(prop):
 			continue
 		var kind := str(prop.get("type",""))
+		if kind=="guardrail":
+			var path:=PackedVector2Array()
+			for point_m in Sidewalks.world_points(prop):path.append(point_m)
+			var width:=float(prop.get("guardrailWidth",.65))*float(prop.get("scale",1))
+			width*=maxf(float(prop.get("scaleX",1)),float(prop.get("scaleY",1)))
+			Guardrails.collision_shapes(preview_body,path,width,Vector2.ZERO,Rect2(),str(prop.id))
+			continue
 		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
 			"sign","parking","dock","planter","garden","field","forecourt",
 			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
@@ -570,7 +582,7 @@ func _draw_draft() -> void:
 			draw_circle(center,radius,Color("#61e7c9"))
 			draw_arc(center,radius*1.55,0,TAU,22,Color("#183b47"),2.0,true)
 		for prop in draft_doc.get("props",[]):
-			if str(prop.get("type",""))!="sidewalk" or bool(prop.get("hidden",false)):
+			if str(prop.get("type","")) not in ["sidewalk","guardrail"] or bool(prop.get("hidden",false)):
 				continue
 			if not source_anchor_mode and str(prop.id)!=selected_source_id:
 				continue
@@ -582,12 +594,12 @@ func _draw_draft() -> void:
 					p=Vector2(drag_preview.to)
 				points.append(p)
 			if points.size()>=2:
-				draw_polyline(points,Color("#67f4cc"),3.0,true)
+				draw_polyline(points,Color("#b5d4e8") if str(prop.get("type",""))=="guardrail" else Color("#67f4cc"),3.0,true)
 			for i in points.size():
 				if not _visible_point(points[i]):continue
 				var focused:=str(prop.id)==selected_source_id and selected_anchor_index==i
 				draw_circle(points[i],9.0 if focused else 5.5,
-					Color("#ffc16d") if focused else Color("#7df8da"))
+					Color("#ffc16d") if focused else (Color("#b5d4e8") if str(prop.get("type",""))=="guardrail" else Color("#7df8da")))
 
 	# Native draft sprites and collision footprints update before Save to Game.
 var show_junctions := true
@@ -723,7 +735,7 @@ func _draw() -> void:
 			path.append(item*PPM)
 			draw_circle(item*PPM,7,Color("#ffb653"))
 		if path.size() >= 2:
-			draw_polyline(path,Color("#ffb653"),4,true)
+			draw_polyline(path,Color("#c4d8e5") if pending_tool=="draw_guardrail" else Color("#ffb653"),4,true)
 		if pending_tool=="draw_race" and path.size()>=2:
 			for i in path.size():draw_arc(path[i],8/maxf(.003,zoom_level),0,TAU,24,Color("#4ee8dc"),2/maxf(.003,zoom_level),true)
 		if pending_tool == "draw_terrain" and path.size() >= 3:
