@@ -9,6 +9,7 @@ const Sidewalks = preload("res://scripts/dev/sidewalk_topology.gd")
 const LocalBridge = preload("res://scripts/dev/native_map_bridge.gd")
 const Scenery = preload("res://scripts/world/coast_scenery.gd")
 const Art = preload("res://scripts/world/coast_art.gd")
+const BuildingSelection=preload("res://scripts/dev/building_selection_footprint.gd")
 const Roads = preload("res://scripts/world/coast_roads.gd")
 const TrafficPreview=preload("res://scripts/dev/native_traffic_preview.gd")
 const Overview=preload("res://scripts/dev/editor_world_overview.gd")
@@ -1221,6 +1222,12 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		var half: Vector2=gizmos._prop_size(prop)/PPM*.5
 		var distance := Vector2(maxf(0,absf(local.x)-half.x),
 			maxf(0,absf(local.y)-half.y)).length()
+		# The asset footprint is authoritative for placement/physics, but
+		# selectable roof pixels exclude transparent PNG canvas margins.
+		if distance<best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
+			distance=BuildingSelection.hit_gap(at,center,
+				deg_to_rad(float(prop.get("rotation",0.0))),half*2.0,
+				gizmos._prop_texture(prop))
 		if distance < best:
 			best = distance
 			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
@@ -2506,6 +2513,14 @@ func _nearest_prop(p: Vector2) -> Dictionary:
 				var gap: float = Vector2(
 					maxf(0.0,absf(local.x)-half.x),
 					maxf(0.0,absf(local.y)-half.y)).length()
+				if gap < best and BuildingSelection.is_building_kind(str(item.get("kind",""))):
+					var texture: Texture2D=null
+					if item.has("asset_path"):
+						texture=Art.project_sprite(str(item.asset_path),item.get("asset_region",[]))
+					else:
+						texture=Art.sprite(str(item.kind),int(item.get("seed",0)))
+					gap=BuildingSelection.hit_gap(p/PPM,c,
+						float(item.get("angle",0.0)),half*2.0,texture)
 				if gap < best:
 					best = gap
 					nearest = {"kind":"prop","index":index,"distance":gap}
