@@ -514,6 +514,17 @@ export function drawEditorOverlay(ctx,doc,{
       const {item,type}=found;
       if(type==='regions'){
         stroke(ctx,item.points,true);ctx.strokeStyle='#fdb979';ctx.lineWidth=3/zoom;ctx.stroke();
+      }else if(type==='props'&&item.type==='guardrail'){
+        const a=item.rotation*Math.PI/180,cos=Math.cos(a),sin=Math.sin(a);
+        const sx=item.scale*(item.scaleX??1),sy=item.scale*(item.scaleY??1);
+        const points=item.guardrailPoints.map(([dx,dy])=>({
+          x:item.x+dx*sx*cos-dy*sy*sin,
+          y:item.y+dx*sx*sin+dy*sy*cos
+        }));
+        stroke(ctx,points);
+        ctx.strokeStyle='#b9def2';ctx.lineWidth=Math.max(2/zoom,1.0);ctx.stroke();
+        points.forEach((p,i)=>circle(ctx,p.x,p.y,radius+1/zoom,
+          i===selection.point?'#ffe6bd':'#527c91'));
       }else if(type==='roads'){
         drawRoadStroke(ctx,sampleRoad(item.points,item.smooth,8),item.width+5/zoom,'#f8ae6350');
       }else{
