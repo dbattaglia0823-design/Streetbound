@@ -299,7 +299,7 @@ function renderContextPanel(){
   const id=found?.item.id||'';
   const key=view==='selected'?view+':'+found.type:view;
   const titles={selected:found?.item.name||'Selected item',select:'Select / Edit',
-    road:'Draw road',terrain:'Terrain region',prop:'Place scenery',marker:'Place marker',
+    road:'Draw road',guardrail:'Draw guardrail',terrain:'Terrain region',prop:'Place scenery',marker:'Place marker',
     pan:'Pan view',layers:'World layers',objects:'Map objects',health:'Map health',world:'World settings'};
   $('context-title').textContent=titles[view]||'Properties';
   document.querySelectorAll('[data-context-view]').forEach(b=>{
@@ -317,6 +317,9 @@ function renderContextPanel(){
   const left=document.querySelector('.left-panel');
   if(view==='road'){
     put(left.querySelectorAll(':scope > .settings-group')[0]);
+  }else if(view==='guardrail'){
+    put(field('guardrail-width'));
+    explain('Click guardrail points like a road. Enter / Finish creates a solid, editable barrier with a physics hitbox.');
   }else if(view==='terrain'){
     put(left.querySelectorAll(':scope > .settings-group')[1]);
   }else if(view==='prop'){
@@ -382,7 +385,7 @@ function refreshHeader(){
     doc.regions.length+' regions · '+
     (gameAssets+authoringAdds).toLocaleString()+' scenery assets'+
     (runtimePreview?' ('+gameAssets.toLocaleString()+' baked)':'');
-  const canFinish=draft && draft.points.length>=(draft.type==='road'?2:3);
+  const canFinish=draft && draft.points.length>=(['road','guardrail'].includes(draft.type)?2:3);
   $('finish-shape').disabled=!canFinish;$('cancel-shape').disabled=!draft;
   $('delete-entity').disabled=!selection;
   $('undo-world').disabled=!undoStack.length;$('redo-world').disabled=!redoStack.length;
@@ -423,7 +426,7 @@ function afterHistory(message){
   refreshUI();status(message);
 }
 function setTool(next){
-  if(!['select','road','terrain','prop','marker','pan'].includes(next))return;
+  if(!['select','road','guardrail','terrain','prop','marker','pan'].includes(next))return;
   if(draft)cancelDraft(false);
   if(gesture?.mode==='spray')finishSpray(false);
   if(next!=='select')pointInsertMode=null;
@@ -434,6 +437,7 @@ function setTool(next){
   status({
     select:'Drag a road or terrain area to move it. Drag its control handles to reshape it. Alt-drag also moves the entire shape.',
     road:'Click to add road points. Click the first point again to close a loop, or press Enter to finish an open road. Nearby compatible endpoints snap together.',
+    guardrail:'Click points like a road to lay continuous solid guardrails. Press Enter/Finish to save the editable path.',
     terrain:'Click around a terrain area. Double-click or Enter to close the polygon.',
     prop:'Click for a single prop, or enable hold-and-drag to paint or erase scenery.',
     marker:'Click to place a gameplay marker.',
@@ -859,7 +863,7 @@ function cancelDraft(notify=true){
 function finishDraft(){
   if(!draft)return;
   const work=draft;
-  if(work.points.length<(work.type==='road'?2:3)){status('Add more points before finishing.');return;}
+  if(work.points.length<(['road','guardrail'].includes(work.type)?2:3)){status('Add more points before finishing.');return;}
   try{
     let applied=false;
     if(work.type==='road'){
@@ -881,6 +885,22 @@ function finishDraft(){
         }
         return working;
       },'Road added. Compatible touching road ends joined automatically.');
+    }else if(work.type==='guardrail'){
+      const width=Number($('guardrail-width').value);
+      if(!Number.isFinite(width)||width<.35||width>2.5)
+        throw new RangeError('Guardrail width must be between 0.35m and 2.5m');
+      const bounds={
+        minX:Math.min(...work.points.map(p=>p.x)),
+        maxX:Math.max(...work.points.map(p=>p.x)),
+        minY:Math.min(...work.points.map(p=>p.y)),
+        maxY:Math.max(...work.points.map(p=>p.y))};
+      const x=(bounds.minX+bounds.maxX)*.5,y=(bounds.minY+bounds.maxY)*.5;
+      const local=work.points.map(p=>[p.x-x,p.y-y]);
+      applied=change(d=>createEntity(d,'props',{
+        type:'guardrail',name:'Guardrail',x,y,scale:1,rotation:0,assetId:'',
+        assetSize:[bounds.maxX-bounds.minX+width,bounds.maxY-bounds.minY+width],
+        guardrailWidth:width,guardrailPoints:local
+      }),'Solid guardrail added. Its collision follows your control points.');
     }else{
       const biome=$('biome').value,elevation=Number($('elevation').value);
       const barrier=$('terrain-barrier').checked;
@@ -899,7 +919,7 @@ function addDraftPoint(p,detail){
   const closeRadius=clamp(15/zoom,8,28);
   const closesLoop=tool==='road'&&first&&distance(point,first)<=closeRadius;
   const where=closesLoop?{...first}:(snap?snap.point:point);
-  if(!draft)draft={type:tool,width:Number($('road-width').value),points:[]};
+  if(!draft)draft={type:tool,width:Number(tool==='guardrail'?$('guardrail-width').value:$('road-width').value),points:[]};
   if(draft.points.length && distance(draft.points.at(-1),where)<1) return;
   draft.points.push(where);
   if(closesLoop){finishDraft();return;}
@@ -973,7 +993,7 @@ canvas.addEventListener('pointerdown',event=>{
   }
   if(p.x<0||p.y<0||p.x>doc.world.width||p.y>doc.world.height)return;
   canvas.focus({preventScroll:true});
-  if(tool==='road'||tool==='terrain'){addDraftPoint(p,event.detail);return;}
+  if(tool==='road'||tool==='guardrail'||tool==='terrain'){addDraftPoint(p,event.detail);return;}
   if(tool==='prop'){
     if($('scenery-paint').checked||$('scenery-erase').checked){beginSpray(event,p);return;}
     const type=$('prop-type').value;
@@ -1149,7 +1169,7 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Delete'&&selection){event.preventDefault();deleteSelected();return;}
   if(event.key==='+'||event.key==='='){setZoom(zoom*1.2);return;}
   if(event.key==='-'){setZoom(zoom/1.2);return;}
-  const tools={v:'select',r:'road',t:'terrain',p:'prop',m:'marker',h:'pan'};
+  const tools={v:'select',r:'road',g:'guardrail',t:'terrain',p:'prop',m:'marker',h:'pan'};
   const next=tools[event.key.toLowerCase()];
   if(next){event.preventDefault();setTool(next);}
 });
