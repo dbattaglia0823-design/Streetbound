@@ -1,0 +1,63 @@
+name: Offscreen traffic awareness
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/ui/offscreen_vehicle_awareness.gd'
+      - 'tests/offscreen_vehicle_awareness_test.gd'
+      - '.github/workflows/offscreen-traffic-awareness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ui/offscreen_vehicle_awareness.gd'
+      - 'tests/offscreen_vehicle_awareness_test.gd'
+      - '.github/workflows/offscreen-traffic-awareness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offscreen-traffic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detector:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1', '4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate persistent Godot UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Install Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Import project assets and typed scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/traffic-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/traffic-import.log
+      - name: Verify 600 ft detection and speed-aware on-screen fade
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 125s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/traffic-awareness-test.log
+          grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/traffic-awareness-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/traffic-awareness-test.log
+      - name: Upload detector test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-awareness-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/traffic-import.log
+            /tmp/traffic-awareness-test.log
+          if-no-files-found: warn
+          retention-days: 21
