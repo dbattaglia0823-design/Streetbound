@@ -273,6 +273,12 @@ func _update_live_markers(dt: float = 0.0) -> void:
 		if not is_instance_valid(target) or target.is_queued_for_deletion() or \
 				not target.is_visible_in_tree():
 			continue
+		# A race that ends can remove an opponent from its tracked group while
+		# the vehicle node still exists; do not preserve that stale warning.
+		if not (target.is_in_group("traffic_vehicle") or \
+				target.is_in_group("race_opponent") or \
+				target.is_in_group("local_multiplayer_vehicle")):
+			continue
 		var delta := target.global_position - player.global_position
 		var distance_m := delta.length() / PPM
 		# A car outside the speed-adaptive warning range is no longer nearby,
@@ -282,6 +288,9 @@ func _update_live_markers(dt: float = 0.0) -> void:
 		var target_screen: Vector2 = canvas_transform * target.global_position
 		var onscreen := is_on_screen(target_screen,size_px)
 		var live_entry: Dictionary = entry.duplicate()
+		# Opponents can change group when a race starts or ends, even while
+		# the same object is being tracked across discovery passes.
+		live_entry.rival = not target.is_in_group("traffic_vehicle")
 		live_entry.distance_m = distance_m
 		live_entry.direction = (target_screen-player_screen).normalized()
 		if onscreen:
