@@ -14,6 +14,10 @@ on:
       - 'tests/axle_grip_allocation_test.gd.uid'
       - 'tests/racing_tune_test.gd'
       - 'tests/racing_tune_test.gd.uid'
+      - 'data/player_vehicle_catalog.json'
+      - 'data/player_vehicle_additions.json'
+      - 'tests/roster_weight_transfer_calibration_test.gd'
+      - 'tests/roster_weight_transfer_calibration_test.gd.uid'
       - '.github/workflows/race-drift-physics.yml'
   workflow_dispatch:
 
@@ -71,6 +75,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 180s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_input_conflict_test.gd 2>&1 | tee /tmp/race-drift-park.log
           grep -q 'HANDBRAKE INPUT PHYSICS: PASS' /tmp/race-drift-park.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-drift-park.log
+      - name: Verify all 148 vehicle load-transfer calibrations
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 150s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/roster_weight_transfer_calibration_test.gd 2>&1 | tee /tmp/roster-transfer-test.log
+          grep -q '148 VEHICLE AXLE CALIBRATION: PASS' /tmp/roster-transfer-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/roster-transfer-test.log
       - name: Validate existing 120 part upgrade catalog
         shell: bash
         run: |
@@ -88,6 +99,7 @@ jobs:
             /tmp/race-drift-bench.log
             /tmp/axle-grip-test.log
             /tmp/racing-tune-transfer-test.log
+            /tmp/roster-transfer-test.log
             /tmp/race-drift-park.log
             /tmp/race-drift-upgrades.log
           if-no-files-found: warn
