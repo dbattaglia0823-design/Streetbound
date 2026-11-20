@@ -615,7 +615,9 @@ func _refresh_multiplayer_page() -> void:
 	if not is_instance_valid(local_split_button):
 		return
 	local_split_button.text = "EXIT SPLIT-SCREEN" if split_screen_active else "LOCAL SPLIT-SCREEN"
-	multiplayer_feedback.text = ("Return to single-player driving." if split_screen_active
+	local_split_button.disabled = OnlineSession.active
+	multiplayer_feedback.text = ("Online friends session active. Leave via Main Menu." if OnlineSession.active
+		else "Return to single-player driving." if split_screen_active
 		else "Keyboard + controller, or two controllers.")
 
 
