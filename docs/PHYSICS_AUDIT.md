@@ -59,3 +59,7 @@ The parameters `center_of_gravity_height_m` and `brake_bias_front` are calibrati
 ### Tire-load sensitivity follow-up
 
 The original full-load longitudinal transfer caused an excessive braking-corner slip angle in `tests/racing_tune_test.gd` when lateral cornering force also grew linearly with each axle's load. Lateral tire force now responds sublinearly to normal-load changes (0.58 power) while longitudinal drive/braking contact remains load-sensitive. The high-speed brake-corner scenario is now exercised by the dedicated two-version race/drift workflow. This is a bounded arcade-friendly contact approximation, not a measured tire curve.
+
+### Braking-yaw envelope
+
+The existing arcade steering target can demand more turn rate than the combined front/rear lateral tire forces support while the service brake is held. During service-brake cornering, yaw is now bounded by the axle-force lateral acceleration budget divided by speed. Existing brake-turn upgrades still vary the limit within a controlled range; no yaw cap is applied for handbrake/rear-lock drifts, and normal non-braking cornering is untouched. The 120 Hz racing-braking test is a CI gate to prevent excessive slip under sustained braking.
