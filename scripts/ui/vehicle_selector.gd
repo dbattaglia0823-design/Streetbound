@@ -282,8 +282,8 @@ func _choose(entry: Dictionary) -> void:
 
 
 func restore_selection() -> void:
-	# Called after HUD initialization, so its stock tuning resources remain
-	# valid and the selected car replaces only the active runtime instance.
+	# Restore the catalog model first, then reapply legitimate owned upgrades.
+	# The HUD only displays the selected vehicle; it never modifies stats.
 	var selected_id := ""
 	if is_instance_valid(inventory):
 		selected_id = str(inventory.active_id)
@@ -298,7 +298,7 @@ func restore_selection() -> void:
 			inventory.apply_car_upgrades(player.config,selected_id)
 			player.on_upgrade_config_changed(0.0)
 		if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
-			driving_hud.on_vehicle_selected(entry, true)
+			driving_hud.on_vehicle_selected(entry)
 
 
 func _unhandled_input(event: InputEvent) -> void:
