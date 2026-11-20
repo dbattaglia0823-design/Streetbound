@@ -278,6 +278,8 @@ func _choose(entry: Dictionary) -> void:
 		saved.save("user://streetbound_selected_vehicle.cfg")
 	if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
 		driving_hud.on_vehicle_selected(entry)
+	if OnlineSession.active:
+		OnlineSession.set_local_car(str(entry.id))
 	close_menu()
 
 
