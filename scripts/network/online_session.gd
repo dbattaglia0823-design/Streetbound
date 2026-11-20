@@ -1,0 +1,302 @@
+extends Node
+## Persistent session transport. The host owns admission, roster and car IDs.
+## This is direct-IP ENet, not a cloud invite-code or NAT traversal service.
+signal session_accepted
+signal session_closed(reason: String)
+signal status_changed(message: String)
+signal roster_changed
+
+const DEFAULT_PORT := 28163
+const MAX_PLAYERS := 4
+const PROTOCOL_VERSION := 2
+const INVITE_PREFIX := "SB1-"
+const INVITE_TOKEN_HEX_LENGTH := 48
+const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+
+var hosting := false
+var joining := false
+var active := false
+var players: Dictionary = {}
+var world_ready_peers: Dictionary = {}
+var display_name := "Driver"
+var last_message := ""
+var invite_address := ""
+var invite_port := DEFAULT_PORT
+var lobby_locked := false
+var _invite_secret := ""
+var _joining_secret := ""
+var _peer: ENetMultiplayerPeer
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	multiplayer.connected_to_server.connect(_on_connected)
+	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+
+static func valid_port(port: int) -> bool:
+	return port >= 1024 and port <= 65535
+
+static func clean_name(value: String) -> String:
+	return value.strip_edges().replace("\n", " ").replace("\r", " ").substr(0, 24)
+
+static func valid_address(value: String) -> bool:
+	var value_clean := value.strip_edges()
+	if value_clean.is_empty() or value_clean.length() > 253:
+		return false
+	for forbidden in [" ", "\n", "\r", "\t", "/", "\\", "@", "#", "?", "&"]:
+		if value_clean.contains(forbidden):
+			return false
+	return true
+
+static func valid_secret(value: String) -> bool:
+	if value.length() != INVITE_TOKEN_HEX_LENGTH:
+		return false
+	for index in value.length():
+		if not "0123456789abcdef".contains(value.substr(index, 1)):
+			return false
+	return true
+
+static func encode_invite(address: String, port: int, secret: String) -> String:
+	if not valid_address(address) or not valid_port(port) or not valid_secret(secret):
+		return ""
+	var payload := JSON.stringify({
+		"host": address.strip_edges(), "port": port, "key": secret})
+	var encoded := Marshalls.utf8_to_base64(payload)
+	return INVITE_PREFIX + encoded.replace("+", "-").replace("/", "_").replace("=", "")
+
+static func decode_invite(value: String) -> Dictionary:
+	var code := value.strip_edges()
+	if not code.begins_with(INVITE_PREFIX) or code.length() > 600:
+		return {}
+	var payload := code.substr(INVITE_PREFIX.length())
+	if payload.is_empty():
+		return {}
+	for index in payload.length():
+		if not "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".contains(
+				payload.substr(index, 1)):
+			return {}
+	var padded := payload.replace("-", "+").replace("_", "/")
+	while padded.length() % 4 != 0:
+		padded += "="
+	var result: Variant = JSON.parse_string(Marshalls.base64_to_utf8(padded))
+	if not result is Dictionary:
+		return {}
+	var address := str(result.get("host", ""))
+	var port := int(result.get("port", 0))
+	var secret := str(result.get("key", ""))
+	if not valid_address(address) or not valid_port(port) or not valid_secret(secret):
+		return {}
+	return {"host": address, "port": port, "key": secret}
+
+func get_invite_code() -> String:
+	if not hosting:
+		return ""
+	return encode_invite(invite_address, invite_port, _invite_secret)
+
+func rotate_invite() -> String:
+	if not hosting:
+		return ""
+	_invite_secret = Crypto.new().generate_random_bytes(24).hex_encode()
+	_set_status("New invitation created. Older codes are no longer valid.")
+	return get_invite_code()
+
+func set_lobby_locked(value: bool) -> void:
+	if not hosting:
+		return
+	lobby_locked = value
+	_set_status("Lobby locked: new players cannot join." if value else
+		"Lobby unlocked: valid invitations can join.")
+
+func own_id() -> int:
+	return 1 if hosting else multiplayer.get_unique_id()
+
+func host_session(name_value: String, port: int = DEFAULT_PORT,
+		advertised_address: String = "127.0.0.1") -> bool:
+	leave_session()
+	if not valid_port(port) or clean_name(name_value).is_empty() or \
+			not valid_address(advertised_address):
+		_set_status("Enter a name, host address and UDP port between 1024 and 65535.")
+		return false
+	var transport := ENetMultiplayerPeer.new()
+	var error := transport.create_server(port, MAX_PLAYERS - 1)
+	if error != OK:
+		_set_status("Could not host: %s" % error_string(error))
+		return false
+	_peer = transport
+	multiplayer.multiplayer_peer = transport
+	display_name = clean_name(name_value)
+	hosting = true
+	active = true
+	invite_address = advertised_address.strip_edges()
+	invite_port = port
+	lobby_locked = false
+	_invite_secret = Crypto.new().generate_random_bytes(24).hex_encode()
+	players = {1: {"name": display_name, "car_id": ""}}
+	_set_status("Private lobby started on UDP %d. Copy an invite code for friends." % port)
+	roster_changed.emit()
+	return true
+
+func join_session(address: String, name_value: String, port: int = DEFAULT_PORT,
+		invite_secret: String = "") -> bool:
+	leave_session()
+	var target := address.strip_edges()
+	if not valid_address(target) or not valid_port(port) or \
+			clean_name(name_value).is_empty() or not valid_secret(invite_secret):
+		_set_status("A valid private lobby invitation is required.")
+		return false
+	var transport := ENetMultiplayerPeer.new()
+	var error := transport.create_client(target, port)
+	if error != OK:
+		_set_status("Could not connect: %s" % error_string(error))
+		return false
+	_peer = transport
+	display_name = clean_name(name_value)
+	_joining_secret = invite_secret
+	joining = true
+	multiplayer.multiplayer_peer = transport
+	_set_status("Connecting to %s:%d..." % [target, port])
+	return true
+
+func join_invite(code: String, name_value: String) -> bool:
+	var data := decode_invite(code)
+	if data.is_empty():
+		_set_status("Invalid invitation. Ask the host for a new lobby code.")
+		return false
+	return join_session(str(data.host), name_value, int(data.port), str(data.key))
+
+func leave_session(reason: String = "Left online session.") -> void:
+	var was_connected := active or joining
+	active = false
+	joining = false
+	hosting = false
+	players.clear()
+	world_ready_peers.clear()
+	invite_address = ""
+	_invite_secret = ""
+	_joining_secret = ""
+	lobby_locked = false
+	if _peer != null:
+		_peer.close()
+		_peer = null
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	if was_connected:
+		session_closed.emit(reason)
+		roster_changed.emit()
+
+func _set_status(message: String) -> void:
+	last_message = message
+	status_changed.emit(message)
+
+func _on_connected() -> void:
+	if joining:
+		_request_admission.rpc_id(1, PROTOCOL_VERSION, display_name, _joining_secret)
+
+func _on_connection_failed() -> void:
+	if joining:
+		leave_session("Connection failed. Check the host address, UDP port and firewall.")
+		_set_status("Connection failed. Check the host address, port and firewall.")
+
+func _on_server_disconnected() -> void:
+	if active or joining:
+		leave_session("Host disconnected.")
+		_set_status("Host disconnected.")
+
+func _on_peer_disconnected(peer_id: int) -> void:
+	if not hosting:
+		if peer_id == 1 and (active or joining):
+			_on_server_disconnected()
+		return
+	if players.erase(peer_id):
+		world_ready_peers.erase(peer_id)
+		_broadcast_roster()
+
+func _reject_peer(peer_id: int, reason: String) -> void:
+	_admission_denied.rpc_id(peer_id, reason)
+	# Give the reliable denial packet a chance to leave before disconnecting.
+	get_tree().create_timer(0.3).timeout.connect(func() -> void:
+		if hosting and not players.has(peer_id) and multiplayer.multiplayer_peer:
+			multiplayer.multiplayer_peer.disconnect_peer(peer_id)
+	)
+
+@rpc("any_peer", "reliable")
+func _request_admission(version: int, name_value: String, invite_secret: String) -> void:
+	if not hosting:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if version != PROTOCOL_VERSION:
+		_reject_peer(sender, "Game versions are incompatible.")
+		return
+	if lobby_locked or not valid_secret(invite_secret) or invite_secret != _invite_secret:
+		_reject_peer(sender, "Private lobby invite was rejected or expired.")
+		return
+	if players.size() >= MAX_PLAYERS:
+		_reject_peer(sender, "Session is full (4 players maximum).")
+		return
+	var sanitized := clean_name(name_value)
+	if sanitized.is_empty():
+		_reject_peer(sender, "Driver name is required.")
+		return
+	if players.has(sender):
+		return
+	players[sender] = {"name": sanitized, "car_id": ""}
+	_broadcast_roster()
+
+@rpc("authority", "reliable")
+func _admission_denied(reason: String) -> void:
+	if joining:
+		leave_session(reason)
+		_set_status(reason)
+
+@rpc("authority", "reliable")
+func _receive_roster(incoming: Dictionary) -> void:
+	if hosting or not (joining or active):
+		return
+	# Only the authority (peer 1) can replace this list.
+	var was_joining := joining
+	players = incoming.duplicate(true)
+	active = true
+	joining = false
+	roster_changed.emit()
+	if was_joining:
+		_set_status("Joined %s's session." % str(players.get(1, {}).get("name", "host")))
+		session_accepted.emit()
+
+func _broadcast_roster() -> void:
+	if not hosting:
+		return
+	roster_changed.emit()
+	for id in players:
+		if int(id) != 1:
+			_receive_roster.rpc_id(int(id), players)
+
+func mark_world_ready() -> void:
+	if active and not hosting:
+		_world_ready.rpc_id(1)
+
+@rpc("any_peer", "reliable")
+func _world_ready() -> void:
+	if not hosting:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if players.has(sender):
+		world_ready_peers[sender] = true
+
+func set_local_car(car_id: String) -> void:
+	if not active or Catalog.find_by_id(car_id).is_empty():
+		return
+	if hosting:
+		players[1]["car_id"] = car_id
+		_broadcast_roster()
+	else:
+		_request_car.rpc_id(1, car_id)
+
+@rpc("any_peer", "reliable")
+func _request_car(car_id: String) -> void:
+	if not hosting:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if not players.has(sender) or Catalog.find_by_id(car_id).is_empty():
+		return
+	players[sender]["car_id"] = car_id
+	_broadcast_roster()

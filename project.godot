@@ -26,3 +26,4 @@ common/physics_interpolation=true
 
 [autoload]
 Controls="*res://scripts/input/controls.gd"
+OnlineSession="*res://scripts/network/online_session.gd"

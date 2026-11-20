@@ -35,3 +35,23 @@ Clarified that the quick-upgrades delta application preserves runtime driving st
 ## 2026-11-20 — PR #172 CI follow-up
 
 Two Godot regression jobs (4.6.3 and 4.4.1) reported a script error during `tests/pause_menu_test.gd`: `world_map_hud.gd:307` read the deleted `driving_hud.waiting_action` property. Removed the obsolete F1 input-capture guard in world-map `_input`, while preserving the pause check; added map open/close and paused-state regression assertions to the existing pause-menu test. Car-specific racing/drift physics checks had passed. GitHub Actions must rerun on the updated commit; no unexecuted results are claimed.
+
+
+## 2026-11-20 — Friends-first online multiplayer foundation
+
+Added a review branch with Godot ENet direct-IP host/join UI, persistent admission/roster, host-driven guest physics, predicted local player and interpolated remote cars, nameplates, model identity broadcast, and online session teardown. The original solo career and local split-screen paths remain separate; no saved-profile migration.
+
+New smoke regression: \`tests/online_friend_session_test.gd\`, run in the Godot 4.6.3 validation workflow. This is a source/code milestone; no two-machine LAN/WAN, port forwarding, real latency or interactive network driving result is claimed. See \`docs/FRIENDS_MULTIPLAYER.md\` for operational caveats, security limitations and next steps.
+
+## 2026-11-20 — Online friend-session CI verification
+
+Godot 4.6.3 CI **run 44809030179** (PR #176) reported **success** for title/pause navigation, `tests/online_friend_session_test.gd` (host world/session lifecycle), and the real two-process ENet localhost probe `tests/online_friend_connection_probe.gd` (host admission, roster, world-ready, model identity, disconnect). The project's Godot 4.6.3 cold import and resource UID preflight were also successful on that run. These are CI regressions, not WAN/firewall, high-latency or interactive multi-person gameplay validation. PR remains a draft.
+
+
+## 2026-11-20 — PR #176: private invite-only friend lobbies
+
+Scope: \`scripts/network/online_session.gd\` now generates a 192-bit random per-host admission secret, embeds a reachable host endpoint/port plus secret in an \`SB1-\` invitation, requires valid admission before creating a roster member, rejects uninvited connections, and supports host lock/unlock and secret rotation. The title menu accepts a pasteable invitation; in-game host toolbar copies/rotates it. The existing peer-controlled free-roam world remains separate from offline play.
+
+CI fix: standalone Godot 4.4.1 script loading could not resolve the global \`OnlineSession\` identifier; the gameplay scripts now access the \`/root/OnlineSession\` node at runtime. Godot type inference from dynamic Node properties required explicit \`bool\`/\`int\` annotations. Test coverage now exercises invitation parsing/rotation and a real ENet forged-secret rejection process alongside legitimate host/guest peers.
+
+Verification boundary: this milestone requires a green latest-commit **Godot 4.6.3** job and **4.4.1** physics/world job before merging. Test results on earlier revisions do not certify the latest branch. A public relay, lobby discovery backend, automatic NAT traversal and real internet playtesting have **not** been provided; these are documented gaps, not completed features. See \`docs/FRIENDS_MULTIPLAYER.md\`.

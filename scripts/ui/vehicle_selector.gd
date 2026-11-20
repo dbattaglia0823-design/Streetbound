@@ -1,4 +1,5 @@
 extends CanvasLayer
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Drive-in garage selection. In Morrow Coast the player must park inside
 ## Laurel Motor House; proving ground keeps unrestricted testing access.
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
@@ -278,6 +279,8 @@ func _choose(entry: Dictionary) -> void:
 		saved.save("user://streetbound_selected_vehicle.cfg")
 	if is_instance_valid(driving_hud) and driving_hud.has_method("on_vehicle_selected"):
 		driving_hud.on_vehicle_selected(entry)
+	if online_session.active:
+		online_session.set_local_car(str(entry.id))
 	close_menu()
 
 

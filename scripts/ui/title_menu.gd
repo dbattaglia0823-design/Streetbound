@@ -1,4 +1,5 @@
 extends Control
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
 const GameplayScript = preload("res://scripts/main.gd")
@@ -16,6 +17,12 @@ var shell: Control
 var card: PanelContainer
 var main_page: VBoxContainer
 var multiplayer_page: VBoxContainer
+var friends_page: VBoxContainer
+var friend_name: LineEdit
+var friend_address: LineEdit
+var friend_port: LineEdit
+var friend_code: LineEdit
+var friend_message: Label
 var settings_adapter: CanvasLayer
 var message: Label
 var multiplayer_message: Label
@@ -35,6 +42,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
 	_refresh_buttons()
+	online_session.status_changed.connect(_online_status)
+	online_session.session_accepted.connect(_online_joined)
 	actions["single_player"].grab_focus()
 
 func _panel_style(color: Color, border: Color, radius: int = 14) -> StyleBoxFlat:
@@ -138,8 +147,8 @@ func _build_shell() -> void:
 	card = PanelContainer.new()
 	card.name = "MainMenuPanel"
 	card.position = Vector2(47, 233)
-	card.size = Vector2(544, 553)
-	card.custom_minimum_size = Vector2(544, 553)
+	card.size = Vector2(544, 600)
+	card.custom_minimum_size = Vector2(544, 600)
 	var panel := _panel_style(Color(0.025, 0.040, 0.055, 0.89),
 		Color(0.51, 0.61, 0.67, 0.48), 17)
 	panel.set_content_margin_all(24)
@@ -149,6 +158,7 @@ func _build_shell() -> void:
 	shell.add_child(card)
 	_build_main_page()
 	_build_multiplayer_page()
+	_build_friends_page()
 	_show_main_menu(false)
 
 	var note := _label("STREETBOUND  /  EARLY ACCESS", 13, Color("#9aaaba"),
@@ -188,7 +198,7 @@ func _build_multiplayer_page() -> void:
 	multiplayer_page.add_child(intro)
 	_add_action(multiplayer_page, "local_multiplayer", "LOCAL MULTIPLAYER", "◈", true)
 	_add_action(multiplayer_page, "online_multiplayer",
-		"ONLINE MULTIPLAYER  —  COMING SOON", "◌", false, true)
+		"PLAY WITH FRIENDS (ONLINE)", "◈")
 	_add_action(multiplayer_page, "back", "BACK", "‹")
 	multiplayer_message = _label(
 		"Local split-screen: keyboard + controller, or two controllers.",
@@ -196,6 +206,66 @@ func _build_multiplayer_page() -> void:
 	multiplayer_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	multiplayer_message.custom_minimum_size.y = 90
 	multiplayer_page.add_child(multiplayer_message)
+
+func _friend_field(placeholder: String, default_text: String) -> LineEdit:
+	var field := LineEdit.new()
+	field.placeholder_text = placeholder
+	field.text = default_text
+	field.custom_minimum_size = Vector2(492, 44)
+	field.add_theme_font_size_override("font_size", 19)
+	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	friends_page.add_child(field)
+	return field
+
+func _build_friends_page() -> void:
+	friends_page = VBoxContainer.new()
+	friends_page.name = "FriendsPage"
+	friends_page.add_theme_constant_override("separation", 9)
+	card.add_child(friends_page)
+	var heading := _label("PLAY WITH FRIENDS", 27, WHITE)
+	heading.custom_minimum_size.y = 45
+	friends_page.add_child(heading)
+	var info := _label("Host with a reachable address or join using a private invitation.", 15, MUTED)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.custom_minimum_size.y = 36
+	friends_page.add_child(info)
+	friend_name = _friend_field("Driver name", "Driver")
+	friend_name.max_length = 24
+	friend_address = _friend_field("Your reachable IP / hostname (for invite)", "127.0.0.1")
+	friend_port = _friend_field("Host UDP port", str(online_session.DEFAULT_PORT))
+	friend_code = _friend_field("Paste a friend's invitation here", "")
+	friend_code.max_length = 600
+	for action in [
+		["host_friend_session", "HOST FRIEND SESSION"],
+		["join_friend_session", "JOIN FRIEND SESSION"],
+		["friends_back", "BACK"]
+	]:
+		_add_action(friends_page, str(action[0]), str(action[1]), "›")
+		var button := actions[str(action[0])] as Button
+		button.custom_minimum_size = Vector2(492, 51)
+	friend_message = _label("Invite codes work over LAN, or via a reachable WAN address with UDP forwarding.", 14, MUTED)
+	friend_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	friend_message.custom_minimum_size.y = 55
+	friends_page.add_child(friend_message)
+
+func _online_status(status: String) -> void:
+	if is_instance_valid(friend_message):
+		friend_message.text = status
+
+func _online_joined() -> void:
+	if is_inside_tree() and friends_page.visible and get_tree().current_scene == self:
+		_start_game("online")
+
+func _start_friends(host: bool) -> void:
+	if host:
+		if not friend_port.text.is_valid_int():
+			friend_message.text = "Enter a valid UDP port."
+			return
+		var port := int(friend_port.text)
+		if online_session.host_session(friend_name.text, port, friend_address.text):
+			_start_game("online")
+	else:
+		online_session.join_invite(friend_code.text, friend_name.text)
 
 func _add_action(parent: VBoxContainer, id: String, title: String,
 		symbol: String, primary: bool = false, unavailable: bool = false) -> void:
@@ -261,20 +331,34 @@ func _refresh_buttons() -> void:
 func _show_main_menu(restore_focus: bool = true) -> void:
 	main_page.visible = true
 	multiplayer_page.visible = false
+	friends_page.visible = false
 	if restore_focus:
 		actions["multiplayer"].grab_focus()
 
 func _show_multiplayer() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = true
+	friends_page.visible = false
 	multiplayer_message.text = (
 		"Local split-screen: keyboard + controller, or two controllers.")
 	actions["local_multiplayer"].grab_focus()
 
+func _show_friends() -> void:
+	main_page.visible = false
+	multiplayer_page.visible = false
+	friends_page.visible = true
+	friend_message.text = "Private invitations are required. The host must still be reachable by UDP."
+	actions["host_friend_session"].grab_focus()
+
 func _unhandled_input(event: InputEvent) -> void:
-	if multiplayer_page.visible and not get_tree().paused and 			event.is_action_pressed("ui_cancel"):
-		_show_main_menu()
-		get_viewport().set_input_as_handled()
+	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
+		if friends_page.visible:
+			online_session.leave_session()
+			_show_multiplayer()
+			get_viewport().set_input_as_handled()
+		elif multiplayer_page.visible:
+			_show_main_menu()
+			get_viewport().set_input_as_handled()
 
 func _activate(mode: String) -> void:
 	match mode:
@@ -288,7 +372,14 @@ func _activate(mode: String) -> void:
 		"back":
 			_show_main_menu()
 		"online_multiplayer":
-			multiplayer_message.text = "Online multiplayer is coming soon."
+			_show_friends()
+		"friends_back":
+			online_session.leave_session()
+			_show_multiplayer()
+		"host_friend_session":
+			_start_friends(true)
+		"join_friend_session":
+			_start_friends(false)
 		"local_multiplayer":
 			if Input.get_connected_joypads().is_empty():
 				multiplayer_message.text = (
@@ -308,10 +399,13 @@ func _activate(mode: String) -> void:
 			_start_game(mode)
 
 func _start_game(mode: String) -> void:
-	GameplayScript.pending_launch_mode = "" if mode == "single_player" else mode
+	GameplayScript.pending_launch_mode = mode if mode == "multiplayer" else ""
 	get_tree().paused = false
 	var outcome := get_tree().change_scene_to_file("res://scenes/main.tscn")
 	if outcome != OK:
 		GameplayScript.pending_launch_mode = ""
-		var feedback := multiplayer_message if mode == "multiplayer" else message
+		if mode == "online":
+			online_session.leave_session()
+		var feedback := friend_message if mode == "online" else \
+			multiplayer_message if mode == "multiplayer" else message
 		feedback.text = "Could not open the gameplay scene."
