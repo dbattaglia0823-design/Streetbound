@@ -47,13 +47,21 @@ func _run() -> void:
 			network != null and network.name == "OnlineWorld" and
 			network.local_vehicle == game.vehicle)
 		if network != null:
+			game.pause_menu.pause_game()
+			check("online_menu_does_not_freeze_host_or_drive_through_ui",
+				not paused and game.vehicle.external_input and
+				network.is_physics_processing() and
+				game.vehicle.command == Vector4.ZERO)
+			game.pause_menu.resume_game()
+			check("online_resume_restores_local_player_input",
+				not game.vehicle.external_input)
 			check("online_world_uses_no_duplicate_local_vehicle",
 				network.peer_cars.is_empty() and not game.vehicle.external_input)
 			# Inject an admitted peer into the roster. In production only the
 			# server's admission RPC can make this change.
 			OnlineSession.players[2] = {"name": "Friend", "car_id": ""}
 			network._sync_peers()
-			var remote: VehicleController2D = network.peer_cars.get(2)
+			var remote: VehicleController2D = network.peer_cars.get(2) as VehicleController2D
 			check("friend_is_real_vehicle_in_same_world",
 				remote != null and remote.surface_provider == game.ground and
 				remote.external_input and remote.is_physics_processing())
