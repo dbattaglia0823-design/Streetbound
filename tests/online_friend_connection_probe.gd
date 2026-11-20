@@ -27,7 +27,7 @@ func _poll_for(predicate: Callable) -> bool:
 
 func _run() -> void:
 	var args := OS.get_cmdline_user_args()
-	if args.is_empty() or not str(args[0]) in ["host", "guest"]:
+	if args.is_empty() or not str(args[0]) in ["host", "guest", "intruder"]:
 		push_error("Usage: -- host or -- guest")
 		quit(1)
 		return
@@ -76,7 +76,7 @@ func _run() -> void:
 		session.leave_session()
 		if FileAccess.file_exists(INVITE_FILE):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(INVITE_FILE))
-	else:
+	elif role == "guest":
 		check("invalid_or_missing_invite_is_rejected_locally",
 			not session.join_invite("wrong", "Guest") and
 			not session.join_session("127.0.0.1", "Guest", PORT))
@@ -102,7 +102,25 @@ func _run() -> void:
 			var host_car_seen: bool = await _poll_for(func() -> bool:
 				return str(session.players[1].get("car_id","")) != "")
 			check("guest_receives_host_vehicle_identity", host_car_seen)
+		await create_timer(1.5).timeout
 		session.leave_session()
+	else:
+		var found: bool = await _poll_for(func() -> bool:
+			return FileAccess.file_exists(INVITE_FILE))
+		check("intruder_sees_host_active_test_lobby",found)
+		if found:
+			var real_code: String = FileAccess.get_file_as_string(INVITE_FILE)
+			var data: Dictionary = SessionScript.decode_invite(real_code)
+			var original: String = str(data.get("key", ""))
+			var forged_secret := "a".repeat(48) if original != "a".repeat(48) else "b".repeat(48)
+			var forged_code: String = SessionScript.encode_invite(
+				str(data.get("host", "")), int(data.get("port", 0)), forged_secret)
+			check("intruder_can_attempt_connection_using_forged_invite",
+				session.join_invite(forged_code, "Intruder"))
+			var rejected: bool = await _poll_for(func() -> bool:
+				return not session.joining)
+			check("host_denies_incorrect_invite_over_real_udp",rejected and not session.active)
+			session.leave_session()
 	paused = false
 	print("ONLINE TWO PROCESS %s: %s" % [
 		role.to_upper(),"PASS" if failures.is_empty() else "FAIL "+str(failures)])
