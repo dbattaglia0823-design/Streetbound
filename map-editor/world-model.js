@@ -160,6 +160,10 @@ export function normalizeWorld(raw){
   const base=oneOf(raw.world.base,BIOMES,'base biome');
   const result={format:WORLD_FORMAT,version:WORLD_VERSION,name:title(raw.name,'Untitled world'),
     world:{width,height,seed,base},roads:[],regions:[],props:[],markers:[],assets:[]};
+  // Preserve custom-map identity when loading presets in the browser editor.
+  // Otherwise an exported starter silently becomes an unpublished demo and
+  // cannot be imported for native Test Drive / production publishing.
+  if(raw.customMap===true)result.customMap=true;
   if(raw.morrowSourceRoadCount!==undefined)
     result.morrowSourceRoadCount=integer(raw.morrowSourceRoadCount,0,LIM.roads,'Morrow source road count');
   if(raw.morrowSourcePoiCount!==undefined)
