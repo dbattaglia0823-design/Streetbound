@@ -349,7 +349,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# chassis rather than snapping its heading to the current travel direction.
 	# Low-speed handbrake turns can now pass 90/180 degrees, with rate limited.
 	var committed_turn := absf(steer_input) * smoothstep(2.5, 8.0, speed)
-	var turn_sign := signf(steer_input) * travel_sign
+	# During a 180 the body can point against its momentum: longitudinal
+	# speed changes sign even though the player is *not* in reverse. Do not
+	# reverse the requested handbrake yaw halfway through the slide.
+	var turn_sign := signf(steer_input) * (-1.0 if reversing else 1.0)
 	var oversteer_drive := committed_turn * breakaway * (0.85 + 0.65 * handbrake)
 	# A rear-wheel lock transfers the remaining rolling momentum into yaw.
 	# A moving, steered handbrake can bring a *stock* car through 180 degrees;
