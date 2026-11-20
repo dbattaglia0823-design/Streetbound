@@ -36,17 +36,21 @@ func _run() -> void:
 	check("multiplayer_is_separate_page_not_direct_local_launch",
 		title.main_page.visible and not title.multiplayer_page.visible)
 	title.actions["multiplayer"].pressed.emit()
-	check("multiplayer_page_has_local_and_disabled_online",
+	check("multiplayer_page_has_local_and_friends_online",
 		current_scene == title and title.multiplayer_page.visible and
 		not title.main_page.visible and
 		title.actions["local_multiplayer"].visible and
 		title.actions["online_multiplayer"].visible and
-		title.actions["online_multiplayer"].disabled and
-		title.actions["online_multiplayer"].text.contains("COMING SOON"))
+		not title.actions["online_multiplayer"].disabled and
+		title.actions["online_multiplayer"].text.contains("FRIENDS"))
 	title._activate("online_multiplayer")
-	check("online_multiplayer_has_no_accidental_launch_path",
-		current_scene == title and title.multiplayer_page.visible and
-		title.multiplayer_message.text.contains("coming soon"))
+	check("friends_online_page_can_host_or_join_without_auto_launch",
+		current_scene == title and title.friends_page.visible and
+		not title.multiplayer_page.visible and
+		title.actions["host_friend_session"].visible and
+		title.actions["join_friend_session"].visible and
+		title.friend_port.text == str(OnlineSession.DEFAULT_PORT))
+	title._activate("friends_back")
 	if Input.get_connected_joypads().is_empty():
 		title.actions["local_multiplayer"].pressed.emit()
 		check("local_multiplayer_requires_controller_without_changing_scenes",
