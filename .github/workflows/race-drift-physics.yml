@@ -1,0 +1,74 @@
+name: Car-specific racing and drift physics
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/vehicle/vehicle_config.gd'
+      - 'scripts/vehicle/vehicle_controller.gd'
+      - 'scripts/vehicle/player_vehicle_catalog.gd'
+      - 'scripts/vehicle/upgrade_parts.gd'
+      - 'data/upgrade_parts.json'
+      - 'tests/race_drift_upgrade_physics_test.gd'
+      - 'tests/race_drift_upgrade_physics_test.gd.uid'
+      - '.github/workflows/race-drift-physics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-vehicle-physics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1', '4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate resource IDs
+        run: python3 tests/resource_uid_test.py
+      - name: Install Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Import project scripts and sprites
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/race-drift-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/race-drift-import.log
+      - name: Test real car tune physics at 120 Hz
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 170s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_drift_upgrade_physics_test.gd 2>&1 | tee /tmp/race-drift-bench.log
+          grep -q 'CAR RACE AND DRIFT PHYSICS: PASS' /tmp/race-drift-bench.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-drift-bench.log
+      - name: Verify existing parked-handbrake, brake conflict and reverse controls
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 180s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/handbrake_input_conflict_test.gd 2>&1 | tee /tmp/race-drift-park.log
+          grep -q 'HANDBRAKE INPUT PHYSICS: PASS' /tmp/race-drift-park.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-drift-park.log
+      - name: Validate existing 120 part upgrade catalog
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/expanded_upgrade_catalog_test.gd 2>&1 | tee /tmp/race-drift-upgrades.log
+          grep -q 'EXPANDED UPGRADE CATALOG: PASS' /tmp/race-drift-upgrades.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-drift-upgrades.log
+      - name: Preserve handling results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: car-race-drift-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/race-drift-import.log
+            /tmp/race-drift-bench.log
+            /tmp/race-drift-park.log
+            /tmp/race-drift-upgrades.log
+          if-no-files-found: warn
+          retention-days: 21
