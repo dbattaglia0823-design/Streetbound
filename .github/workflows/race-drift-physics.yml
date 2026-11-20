@@ -12,6 +12,8 @@ on:
       - 'tests/race_drift_upgrade_physics_test.gd.uid'
       - 'tests/axle_grip_allocation_test.gd'
       - 'tests/axle_grip_allocation_test.gd.uid'
+      - 'tests/racing_tune_test.gd'
+      - 'tests/racing_tune_test.gd.uid'
       - 'data/player_vehicle_catalog.json'
       - 'data/player_vehicle_additions.json'
       - 'tests/roster_weight_transfer_calibration_test.gd'
@@ -59,6 +61,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/axle_grip_allocation_test.gd 2>&1 | tee /tmp/axle-grip-test.log
           grep -q 'AXLE LOAD AND GRIP ALLOCATION: PASS' /tmp/axle-grip-test.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/axle-grip-test.log
+      - name: Preserve high-speed steering and sustained brake-cornering stability
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_tune_test.gd 2>&1 | tee /tmp/racing-tune-transfer-test.log
+          grep -q 'RACING TUNE TESTS: PASS' /tmp/racing-tune-transfer-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/racing-tune-transfer-test.log
       - name: Verify existing parked-handbrake, brake conflict and reverse controls
         shell: bash
         run: |
@@ -89,6 +98,7 @@ jobs:
             /tmp/race-drift-import.log
             /tmp/race-drift-bench.log
             /tmp/axle-grip-test.log
+            /tmp/racing-tune-transfer-test.log
             /tmp/roster-transfer-test.log
             /tmp/race-drift-park.log
             /tmp/race-drift-upgrades.log

@@ -376,8 +376,17 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	rear_cornering_grip_fraction = rear_budget
 	cornering_grip_fraction = front_budget * config.front_weight + \
 		rear_budget * (1.0 - config.front_weight)
-	var front_limit := front_load * grip * front_budget * (1.0 + race_stability * 0.19)
-	var rear_limit := rear_load * grip * config.rear_grip_balance * \
+	# Tire load sensitivity: increasing normal force does not increase lateral
+	# grip one-for-one. This limits destabilizing rear unload in long
+	# trail-braking corners without hiding longitudinal weight transfer.
+	var static_front_load := mass * 9.81 * clampf(config.front_weight, 0.3, 0.7)
+	var static_rear_load := mass * 9.81 - static_front_load
+	var front_lateral_load := static_front_load * pow(
+		front_load / maxf(static_front_load, 1.0), 0.58)
+	var rear_lateral_load := static_rear_load * pow(
+		rear_load / maxf(static_rear_load, 1.0), 0.58)
+	var front_limit := front_lateral_load * grip * front_budget * (1.0 + race_stability * 0.19)
+	var rear_limit := rear_lateral_load * grip * config.rear_grip_balance * \
 		lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * \
 		(1.0 - wheel_spin * rear_drive_share * 0.2) * rear_budget * \
 		(1.0 + race_stability * 0.10) * (1.0 - drift_aid * 0.25)

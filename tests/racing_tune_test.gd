@@ -60,10 +60,20 @@ func run() -> void:
 		check("racing_lift_corner_" + str(pedal), corner_slip < deg_to_rad(9) and car.linear_velocity.length() > 15, rad_to_deg(corner_slip))
 	fresh(35)
 	var brake_slip := 0.0
+	var peak_brake_snapshot := {}
 	for i in 240:
 		await physics_frame
 		car.step_vehicle(1.0 / 120, Vector4(0, 0.4, 0.8, 0))
-		brake_slip = maxf(brake_slip, absf(car.slip_angle))
-	check("racing_braking_corner", brake_slip < deg_to_rad(9), rad_to_deg(brake_slip))
+		if absf(car.slip_angle) > brake_slip:
+			brake_slip = absf(car.slip_angle)
+			peak_brake_snapshot = {"time_s": i / 120.0,
+				"speed_mps": car.linear_velocity.length(),
+				"front_load_n": car.front_axle_load_n,
+				"rear_load_n": car.rear_axle_load_n,
+				"front_grip": car.front_cornering_grip_fraction,
+				"rear_grip": car.rear_cornering_grip_fraction,
+				"yaw_rate": car.yaw_rate}
+	check("racing_braking_corner", brake_slip < deg_to_rad(9),
+		[rad_to_deg(brake_slip), peak_brake_snapshot])
 	print("RACING TUNE TESTS: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
