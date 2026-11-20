@@ -46,3 +46,12 @@ New smoke regression: \`tests/online_friend_session_test.gd\`, run in the Godot 
 ## 2026-11-20 — Online friend-session CI verification
 
 Godot 4.6.3 CI **run 44809030179** (PR #176) reported **success** for title/pause navigation, `tests/online_friend_session_test.gd` (host world/session lifecycle), and the real two-process ENet localhost probe `tests/online_friend_connection_probe.gd` (host admission, roster, world-ready, model identity, disconnect). The project's Godot 4.6.3 cold import and resource UID preflight were also successful on that run. These are CI regressions, not WAN/firewall, high-latency or interactive multi-person gameplay validation. PR remains a draft.
+
+
+## 2026-11-20 — PR #176: private invite-only friend lobbies
+
+Scope: \`scripts/network/online_session.gd\` now generates a 192-bit random per-host admission secret, embeds a reachable host endpoint/port plus secret in an \`SB1-\` invitation, requires valid admission before creating a roster member, rejects uninvited connections, and supports host lock/unlock and secret rotation. The title menu accepts a pasteable invitation; in-game host toolbar copies/rotates it. The existing peer-controlled free-roam world remains separate from offline play.
+
+CI fix: standalone Godot 4.4.1 script loading could not resolve the global \`OnlineSession\` identifier; the gameplay scripts now access the \`/root/OnlineSession\` node at runtime. Godot type inference from dynamic Node properties required explicit \`bool\`/\`int\` annotations. Test coverage now exercises invitation parsing/rotation and a real ENet forged-secret rejection process alongside legitimate host/guest peers.
+
+Verification boundary: this milestone requires a green latest-commit **Godot 4.6.3** job and **4.4.1** physics/world job before merging. Test results on earlier revisions do not certify the latest branch. A public relay, lobby discovery backend, automatic NAT traversal and real internet playtesting have **not** been provided; these are documented gaps, not completed features. See \`docs/FRIENDS_MULTIPLAYER.md\`.
