@@ -114,11 +114,10 @@ func run() -> void:
 			node.road_batches=saved
 			break
 	world.set_performance_debug(true)
-	hud.tuning.visible=true
 	world.set_geometry_debug(true)
 	for frame in 3: await process_frame
 	world._update_performance_display()
-	check("F7_remains_available_with_F1_and_F4",world.performance_panel.visible)
+	check("F7_remains_available_with_F4_and_no_F1_menu",world.performance_panel.visible)
 	var overlaps := 0
 	for rect in Dock.obstacles(root,world.performance_hud):
 		if world.performance_panel.get_global_rect().intersects(rect): overlaps+=1
@@ -126,7 +125,6 @@ func run() -> void:
 	if gpu:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://.runtime/renderfix_diagnostics.png")
-	hud.tuning.visible=false
 	world.set_geometry_debug(false)
 	var map_hud: Node = get_first_node_in_group("streetbound_world_map_hud")
 	map_hud.large=true

@@ -27,3 +27,5 @@ Scope: driving HUD, controls, vehicle-selection callback, stock configuration co
 Further legacy test audit: `tests/imperial_display_test.gd` and `tests/runtime_test.gd` now assert no F1 menu and preserve dashboard display. README and test-runner instructions were updated; actual engine and CI results still require verification.
 
 Fixed final references to the removed F1 panel in the world minimap and race status strip, and revised the race-dismiss test to check normal race overlay visibility without the old menu.
+
+Updated `tests/world_render_contract_test.gd` to verify F7/F4 cooperation without the removed F1 tuning UI.
