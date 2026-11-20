@@ -1,0 +1,77 @@
+name: Compact Boroughs playable map
+
+on:
+  pull_request:
+    paths:
+      - 'map-editor/maps/**'
+      - 'map-editor/tests/compact-boroughs.test.mjs'
+      - 'map-editor/world-model.js'
+      - 'scripts/dev/native_map_switcher.gd'
+      - 'tests/compact_boroughs_*.py'
+      - 'tests/compact_boroughs_*.gd'
+      - '.github/workflows/compact-boroughs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'map-editor/maps/**'
+      - 'map-editor/tests/compact-boroughs.test.mjs'
+      - 'map-editor/world-model.js'
+      - 'scripts/dev/native_map_switcher.gd'
+      - 'tests/compact_boroughs_*.py'
+      - 'tests/compact_boroughs_*.gd'
+      - '.github/workflows/compact-boroughs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-bake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compact map production bake, density and safe spawn
+        run: python3 -m unittest discover -s tests -p 'compact_boroughs_map_test.py' -v
+      - name: Browser map format, roads and editable source roundtrip
+        run: node --test map-editor/tests/compact-boroughs.test.mjs
+
+  native-editor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1','4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify project resource UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Install Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Import source map assets and typed native editor scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/compact-map-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/compact-map-import.log
+      - name: Verify native custom map library import and editor source
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 105s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/compact_boroughs_native_test.gd 2>&1 | tee /tmp/compact-map-test.log
+          grep -q 'COMPACT BOROUGHS NATIVE: PASS' /tmp/compact-map-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/compact-map-test.log
+      - name: Preserve diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compact-boroughs-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/compact-map-import.log
+            /tmp/compact-map-test.log
+          retention-days: 14
+          if-no-files-found: warn
