@@ -63,7 +63,11 @@ func _sync_peers() -> void:
 func _add_remote(id: int) -> void:
 	var car := VehicleScene.instantiate() as VehicleController2D
 	car.name = "Friend_%d" % id
-	car.position = local_vehicle.global_position + Vector2(75.0 * float(id), 0)
+	# Godot assigns large non-sequential peer IDs: use the four-seat roster
+	# position, never the raw peer ID, to choose a safe spawn offset.
+	var seat := maxi(1, OnlineSession.players.keys().find(id))
+	car.position = local_vehicle.global_position + \
+		Vector2(85.0 * float(seat), 0).rotated(local_vehicle.rotation)
 	car.surface_provider = world
 	car.external_input = true
 	car.collision_layer = 0  # No vehicle-on-vehicle crashes in this slice.
