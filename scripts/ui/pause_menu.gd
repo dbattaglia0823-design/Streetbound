@@ -853,6 +853,16 @@ func _show_page(page: String) -> void:
 		focused.grab_focus()
 
 func pause_game() -> void:
+	if OnlineSession.active:
+		# Online UI pause must never stop the host's shared simulation.
+		if not menu_state.is_empty():
+			return
+		if is_instance_valid(player_vehicle):
+			player_vehicle.external_input = true
+			player_vehicle.command = Vector4.ZERO
+			player_vehicle.nitrous_requested = false
+		_show_page("paused")
+		return
 	if get_tree().paused:
 		return
 	get_tree().paused = true
@@ -865,10 +875,12 @@ func resume_game() -> void:
 	menu_state = ""
 	_cancel_capture()
 	get_viewport().gui_release_focus()
+	if OnlineSession.active and is_instance_valid(player_vehicle) and not split_screen_active:
+		player_vehicle.external_input = false
 	get_tree().paused = false
 
 func open_settings() -> void:
-	if not get_tree().paused:
+	if not get_tree().paused and menu_state.is_empty():
 		pause_game()
 	_show_page("settings")
 
@@ -971,9 +983,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	# A remapped Pause/Menu button also works on gamepads. Escape always
 	# remains the fail-safe to reach the settings menu again.
-	if get_tree().paused and menu_state.is_empty():
+	var menu_open := get_tree().paused or (OnlineSession.active and not menu_state.is_empty())
+	if menu_open and menu_state.is_empty():
 		return
-	if not get_tree().paused:
+	if not menu_open:
 		pause_game()
 	elif menu_state == "settings" and settings_tab == "controls":
 		_set_settings_tab("general")
