@@ -133,6 +133,11 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	config.audio_turbo_presence = clampf(float(entry.get("audio_turbo_presence",0.0)),0.0,1.5)
 	config.audio_hybrid_assist = clampf(float(entry.get("audio_hybrid_assist",0.0)),0.0,1.0)
 	config.wheelbase_m = float(entry.wheelbase_m)
+	# Model-level estimates: geometry, class, mass and drivetrain, not OEM
+	# centre-of-gravity measurements. Each new config stays independent.
+	config.front_weight = clampf(float(entry.get("front_weight_fraction", config.front_weight)),0.30,0.70)
+	config.center_of_gravity_height_m = clampf(float(entry.get("center_of_gravity_height_m", config.center_of_gravity_height_m)),0.25,1.10)
+	config.brake_bias_front = clampf(float(entry.get("brake_bias_front", config.brake_bias_front)),0.45,0.80)
 	config.brake_force_n = float(entry.brake_force_n)
 	config.tire_grip = float(entry.tire_grip)
 	config.drag_area = float(entry.width_m) * 0.38

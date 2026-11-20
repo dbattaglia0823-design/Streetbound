@@ -47,7 +47,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.581,
+      "center_of_gravity_height_m": 0.466,
+      "brake_bias_front": 0.659
     },
     {
       "id": "ariel-atom-500",
@@ -93,7 +96,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.458,
+      "center_of_gravity_height_m": 0.415,
+      "brake_bias_front": 0.635
     },
     {
       "id": "ariel-nomad",
@@ -139,7 +145,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.455,
+      "center_of_gravity_height_m": 0.56,
+      "brake_bias_front": 0.641
     },
     {
       "id": "aston-martin-db5",
@@ -185,7 +194,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.478,
+      "center_of_gravity_height_m": 0.474,
+      "brake_bias_front": 0.641
     },
     {
       "id": "aston-martin-valyrie-amr-pro",
@@ -231,7 +243,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "combustion_engine_only",
-      "reference_mass_basis": "manufacturer_target"
+      "reference_mass_basis": "manufacturer_target",
+      "front_weight_fraction": 0.443,
+      "center_of_gravity_height_m": 0.409,
+      "brake_bias_front": 0.632
     },
     {
       "id": "aston-martin-vulcan",
@@ -277,7 +292,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.448,
+      "center_of_gravity_height_m": 0.417,
+      "brake_bias_front": 0.634
     },
     {
       "id": "audi-r8-coupe-v10-plus",
@@ -323,7 +341,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.495,
+      "center_of_gravity_height_m": 0.472,
+      "brake_bias_front": 0.644
     },
     {
       "id": "audi-r8-lms",
@@ -369,7 +390,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.448,
+      "center_of_gravity_height_m": 0.418,
+      "brake_bias_front": 0.634
     },
     {
       "id": "audi-sport-quattro-s1",
@@ -415,7 +439,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.496,
+      "center_of_gravity_height_m": 0.472,
+      "brake_bias_front": 0.644
     },
     {
       "id": "bac-mono",
@@ -461,7 +488,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.461,
+      "center_of_gravity_height_m": 0.452,
+      "brake_bias_front": 0.637
     },
     {
       "id": "hennessey-venom-f5",
@@ -507,7 +537,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_dry_or_target",
+      "front_weight_fraction": 0.447,
+      "center_of_gravity_height_m": 0.417,
+      "brake_bias_front": 0.633
     },
     {
       "id": "hennessey-venom-gt",
@@ -553,7 +586,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.446,
+      "center_of_gravity_height_m": 0.415,
+      "brake_bias_front": 0.633
     },
     {
       "id": "honda-civic-type-r",
@@ -599,7 +635,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.583,
+      "center_of_gravity_height_m": 0.468,
+      "brake_bias_front": 0.659
     },
     {
       "id": "hyundai-n-vision-74",
@@ -645,7 +684,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.476,
+      "center_of_gravity_height_m": 0.487,
+      "brake_bias_front": 0.641
     },
     {
       "id": "koenigsegg-agera-rs",
@@ -691,7 +733,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.446,
+      "center_of_gravity_height_m": 0.421,
+      "brake_bias_front": 0.633
     },
     {
       "id": "koenigsegg-ccgt",
@@ -737,7 +782,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_dry_or_target",
+      "front_weight_fraction": 0.443,
+      "center_of_gravity_height_m": 0.415,
+      "brake_bias_front": 0.633
     },
     {
       "id": "koenigsegg-gemera",
@@ -783,7 +831,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combined_system",
-      "reference_mass_basis": "manufacturer_curb_2023_hv8"
+      "reference_mass_basis": "manufacturer_curb_2023_hv8",
+      "front_weight_fraction": 0.473,
+      "center_of_gravity_height_m": 0.428,
+      "brake_bias_front": 0.638
     },
     {
       "id": "koenigsegg-jesko",
@@ -829,7 +880,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_dry_or_target",
+      "front_weight_fraction": 0.448,
+      "center_of_gravity_height_m": 0.419,
+      "brake_bias_front": 0.634
     },
     {
       "id": "koenigsegg-regera",
@@ -876,7 +930,10 @@
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combustion_engine_only",
       "reference_mass_basis": "representative_curb_or_running",
-      "reference_final_drive": 2.73
+      "reference_final_drive": 2.73,
+      "front_weight_fraction": 0.451,
+      "center_of_gravity_height_m": 0.426,
+      "brake_bias_front": 0.634
     },
     {
       "id": "lamborghini-essenza-scv12",
@@ -922,7 +979,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.451,
+      "center_of_gravity_height_m": 0.42,
+      "brake_bias_front": 0.634
     },
     {
       "id": "lamborghini-sesto-elemento",
@@ -968,7 +1028,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.466,
+      "center_of_gravity_height_m": 0.415,
+      "brake_bias_front": 0.637
     },
     {
       "id": "lotus-evija",
@@ -1014,7 +1077,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_kerb_2026"
+      "reference_mass_basis": "manufacturer_kerb_2026",
+      "front_weight_fraction": 0.465,
+      "center_of_gravity_height_m": 0.43,
+      "brake_bias_front": 0.637
     },
     {
       "id": "maserati-mc20",
@@ -1060,7 +1126,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.476,
+      "center_of_gravity_height_m": 0.47,
+      "brake_bias_front": 0.641
     },
     {
       "id": "mclaren-12c",
@@ -1106,7 +1175,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.474,
+      "center_of_gravity_height_m": 0.469,
+      "brake_bias_front": 0.64
     },
     {
       "id": "mclaren-570s",
@@ -1152,7 +1224,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.474,
+      "center_of_gravity_height_m": 0.469,
+      "brake_bias_front": 0.64
     },
     {
       "id": "mclaren-650s",
@@ -1198,7 +1273,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.475,
+      "center_of_gravity_height_m": 0.47,
+      "brake_bias_front": 0.64
     },
     {
       "id": "mclaren-720s",
@@ -1244,7 +1322,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.474,
+      "center_of_gravity_height_m": 0.469,
+      "brake_bias_front": 0.64
     },
     {
       "id": "mclaren-750s",
@@ -1290,7 +1371,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry"
+      "reference_mass_basis": "manufacturer_dry",
+      "front_weight_fraction": 0.474,
+      "center_of_gravity_height_m": 0.468,
+      "brake_bias_front": 0.64
     },
     {
       "id": "mclaren-f1-gt",
@@ -1337,7 +1421,10 @@
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
       "reference_mass_basis": "representative_curb_or_running",
-      "reference_power_units": "627 metric PS = ~618 mechanical hp"
+      "reference_power_units": "627 metric PS = ~618 mechanical hp",
+      "front_weight_fraction": 0.448,
+      "center_of_gravity_height_m": 0.414,
+      "brake_bias_front": 0.633
     },
     {
       "id": "mclaren-f1",
@@ -1383,7 +1470,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.442,
+      "center_of_gravity_height_m": 0.414,
+      "brake_bias_front": 0.632
     },
     {
       "id": "mclaren-p1",
@@ -1429,7 +1519,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combined_system",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.45,
+      "center_of_gravity_height_m": 0.423,
+      "brake_bias_front": 0.634
     },
     {
       "id": "mclaren-senna",
@@ -1475,7 +1568,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.45,
+      "center_of_gravity_height_m": 0.421,
+      "brake_bias_front": 0.634
     },
     {
       "id": "mclaren-w1",
@@ -1521,7 +1617,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 1,
       "reference_torque_basis": "combined_system",
-      "reference_mass_basis": "manufacturer_dry"
+      "reference_mass_basis": "manufacturer_dry",
+      "front_weight_fraction": 0.449,
+      "center_of_gravity_height_m": 0.421,
+      "brake_bias_front": 0.634
     },
     {
       "id": "mercedes-benz-evolution-ii",
@@ -1567,7 +1666,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.473,
+      "center_of_gravity_height_m": 0.467,
+      "brake_bias_front": 0.64
     },
     {
       "id": "nissan-fairlady-z-432",
@@ -1613,7 +1715,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.473,
+      "center_of_gravity_height_m": 0.469,
+      "brake_bias_front": 0.64
     },
     {
       "id": "nissan-nismo-gt-r-lm",
@@ -1660,7 +1765,10 @@
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
       "reference_mass_basis": "representative_curb_or_running",
-      "reference_power_units": "representative_in_period_rated"
+      "reference_power_units": "representative_in_period_rated",
+      "front_weight_fraction": 0.476,
+      "center_of_gravity_height_m": 0.471,
+      "brake_bias_front": 0.641
     },
     {
       "id": "nissan-skyline-gtr-v-spec",
@@ -1706,7 +1814,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.496,
+      "center_of_gravity_height_m": 0.472,
+      "brake_bias_front": 0.644
     },
     {
       "id": "noble-m600",
@@ -1752,7 +1863,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.447,
+      "center_of_gravity_height_m": 0.42,
+      "brake_bias_front": 0.633
     },
     {
       "id": "pagani-huayra-bc-coupe",
@@ -1798,7 +1912,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_dry_or_target",
+      "front_weight_fraction": 0.445,
+      "center_of_gravity_height_m": 0.414,
+      "brake_bias_front": 0.633
     },
     {
       "id": "pagani-zonda-cinque-roadster",
@@ -1844,7 +1961,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.444,
+      "center_of_gravity_height_m": 0.416,
+      "brake_bias_front": 0.633
     },
     {
       "id": "pagani-zonda-r",
@@ -1890,7 +2010,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "manufacturer_dry_or_target"
+      "reference_mass_basis": "manufacturer_dry_or_target",
+      "front_weight_fraction": 0.446,
+      "center_of_gravity_height_m": 0.411,
+      "brake_bias_front": 0.633
     },
     {
       "id": "plymouth-barracuda-formula-s",
@@ -1936,7 +2059,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.477,
+      "center_of_gravity_height_m": 0.47,
+      "brake_bias_front": 0.641
     },
     {
       "id": "plymouth-cuda-426-hemi",
@@ -1982,7 +2108,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.478,
+      "center_of_gravity_height_m": 0.474,
+      "brake_bias_front": 0.641
     },
     {
       "id": "pontiac-firebird-trans-am-gta",
@@ -2028,7 +2157,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.481,
+      "center_of_gravity_height_m": 0.475,
+      "brake_bias_front": 0.642
     },
     {
       "id": "pontiac-pontiac-firebird-trans",
@@ -2074,7 +2206,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.48,
+      "center_of_gravity_height_m": 0.474,
+      "brake_bias_front": 0.641
     },
     {
       "id": "porsche-911-gt2-rs",
@@ -2120,7 +2255,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.453,
+      "center_of_gravity_height_m": 0.428,
+      "brake_bias_front": 0.635
     },
     {
       "id": "porsche-911-gt3-rs",
@@ -2166,7 +2304,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.479,
+      "center_of_gravity_height_m": 0.475,
+      "brake_bias_front": 0.641
     },
     {
       "id": "porsche-911-gt3",
@@ -2212,7 +2353,10 @@
       "boost_max_psi": 0,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.478,
+      "center_of_gravity_height_m": 0.474,
+      "brake_bias_front": 0.641
     },
     {
       "id": "porsche-935-motorsport",
@@ -2258,7 +2402,10 @@
       "boost_max_psi": 22,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.454,
+      "center_of_gravity_height_m": 0.426,
+      "brake_bias_front": 0.635
     },
     {
       "id": "zenvo-tsr-s",
@@ -2304,7 +2451,10 @@
       "boost_max_psi": 14,
       "audio_hybrid_assist": 0,
       "reference_torque_basis": "vehicle_rated",
-      "reference_mass_basis": "representative_curb_or_running"
+      "reference_mass_basis": "representative_curb_or_running",
+      "front_weight_fraction": 0.448,
+      "center_of_gravity_height_m": 0.418,
+      "brake_bias_front": 0.634
     }
   ]
 }
