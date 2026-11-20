@@ -6,6 +6,8 @@ const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PUBLISHER="res://tools/publish_custom_world.py"
 const COMPACT_PRESET="res://map-editor/maps/compact-boroughs.world.json"
 const COMPACT_FILE="compact-boroughs.world.json"
+const DRIFT_PRESET="res://map-editor/maps/drift-grounds.world.json"
+const DRIFT_FILE="drift-grounds.world.json"
 var selector: OptionButton
 var dialog: ConfirmationDialog
 var map_name: LineEdit
@@ -36,6 +38,9 @@ func build(e,parent: Node) -> void:
 	var compact_button=e._btn("Compact Boroughs",row,func():open_compact_preset(e))
 	compact_button.custom_minimum_size.y=26
 	compact_button.tooltip_text="Open a compact, fully editable three-district map, independent of Morrow Coast."
+	var drift_button=e._btn("Drift Grounds",row,func():open_drift_preset(e))
+	drift_button.custom_minimum_size.y=26
+	drift_button.tooltip_text="Open a compact linked skidpad, technical S-corners and tandem drift loop."
 	reload_list()
 	dialog=ConfirmationDialog.new();dialog.title="Create a new map";dialog.ok_button_text="Create map";dialog.min_size=Vector2i(390,280);dialog.process_mode=Node.PROCESS_MODE_ALWAYS;e.add_child(dialog)
 	var fields:=VBoxContainer.new();dialog.add_child(fields)
@@ -185,13 +190,23 @@ func ready_to_switch(e) -> bool:
 ## Import a bundled starter into the user's writable map library once. Never
 ## replace a customized local map; reopening this preset resumes their edits.
 func open_compact_preset(e) -> void:
+	_open_bundled_preset(e,COMPACT_PRESET,COMPACT_FILE,"Compact Boroughs")
+
+
+func open_drift_preset(e) -> void:
+	_open_bundled_preset(e,DRIFT_PRESET,DRIFT_FILE,"Drift Grounds")
+
+
+## An immutable bundled starter is copied only once to the local map library.
+## Existing edits (or corrupt drafts) are never overwritten when reopening.
+func _open_bundled_preset(e,resource_path: String,file_name: String,label: String) -> void:
 	if not ready_to_switch(e):return
 	var probe:=Session.new()
-	var file:=COMPACT_FILE
+	var file:=file_name
 	var destination:=Library.folder().path_join(file)
-	var source: Variant=JSON.parse_string(FileAccess.get_file_as_string(COMPACT_PRESET))
-	if not source is Dictionary or not probe._valid_source(source):
-		e._notice("Bundled Compact Boroughs map could not be validated.")
+	var source: Variant=JSON.parse_string(FileAccess.get_file_as_string(resource_path))
+	if not source is Dictionary or not probe._valid_source(source) or not bool(source.get("customMap",false)):
+		e._notice("Bundled "+label+" map could not be validated.")
 		return
 	var doc: Dictionary=source
 	if FileAccess.file_exists(destination):
@@ -199,15 +214,15 @@ func open_compact_preset(e) -> void:
 		if not saved.is_empty() and probe._valid_source(saved):
 			doc=saved
 		else:
-			# Preserve malformed or partially edited user files as-is.
-			file="compact-boroughs-copy-%d.world.json"%Time.get_ticks_usec()
+			# Keep an invalid personal file for manual recovery; make a new copy.
+			file=file_name.trim_suffix(".world.json")+"-copy-%d.world.json"%Time.get_ticks_usec()
 	if not FileAccess.file_exists(Library.folder().path_join(file)):
 		if Library.save(doc,file).is_empty():
-			e._notice("Could not save Compact Boroughs into your map library.")
+			e._notice("Could not save "+label+" into your writable map library.")
 			return
 	activate(e,doc,file)
 	reload_list()
-	e._notice("Compact Boroughs loaded: Old Town, Market District, and Dockside. F6 test drives without changing the live Morrow Coast world.")
+	e._notice(label+" loaded as a separate editable custom map. F6 test drives it without changing Morrow Coast.")
 
 
 func show_create(e) -> void:
