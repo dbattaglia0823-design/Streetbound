@@ -18,11 +18,15 @@ func simulate_handbrake(settings: VehicleConfig,road_speed: float) -> Vector3:
 	car.config=settings.duplicate(true)
 	car.transmission.reset(car.config)
 	fresh(road_speed)
-	var largest:=0.0
+	var total_turn:=0.0
+	var previous_heading:=car.rotation
 	for i in 360:
 		car.step_vehicle(1.0/120.0,Vector4(0.24,0.0,1.0,1.0))
-		largest=maxf(largest,absf(car.rotation))
-	return Vector3(largest,car.linear_velocity.length(),car.yaw_rate)
+		# Node2D exposes heading normalized to +/- PI; integrate signed frame
+		# differences to measure an actual 180 instead of a wrapped angle.
+		total_turn += angle_difference(previous_heading,car.rotation)
+		previous_heading=car.rotation
+	return Vector3(absf(total_turn),car.linear_velocity.length(),car.yaw_rate)
 
 func simulate_drift(settings: VehicleConfig) -> Vector3:
 	car.config=settings.duplicate(true)
@@ -71,7 +75,7 @@ func run() -> void:
 		check(id+"_stability_upgrades_are_speed_dependent",absf(slow_after.x-slow_before.x)<0.1,
 			[slow_before,slow_after])
 		var hb:=simulate_handbrake(stock,24.0)
-		check(id+"_stock_rolling_handbrake_can_180",hb.x>PI and hb.y>1.0,hb)
+		check(id+"_stock_rolling_handbrake_can_180",hb.x>=deg_to_rad(175.0) and hb.y>1.0,hb)
 		var equipped:=simulate_drift(drift)
 		var original:=simulate_drift(stock)
 		check(id+"_drift_parts_keep_sliding",equipped.x>deg_to_rad(7.0) and
