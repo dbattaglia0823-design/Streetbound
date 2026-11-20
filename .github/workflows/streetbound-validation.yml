@@ -75,7 +75,7 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/online_friend_session_test.gd 2>&1 | tee /tmp/online-friends-463.log
           grep -q 'ONLINE FRIEND SESSION: PASS' /tmp/online-friends-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-friends-463.log
-      - name: Verify real two-process ENet host/join and disconnect over loopback (4.6.3)
+      - name: Verify private invite admission, forged-code rejection and disconnect over loopback (4.6.3)
         run: |
           set -euo pipefail
           timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- host > /tmp/online-enet-host.log 2>&1 &
@@ -83,17 +83,25 @@ jobs:
           sleep 1
           timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- guest > /tmp/online-enet-guest.log 2>&1 &
           guest_pid=$!
+          sleep 0.3
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- intruder > /tmp/online-enet-intruder.log 2>&1 &
+          intruder_pid=$!
           guest_result=0
           host_result=0
+          intruder_result=0
           wait "$guest_pid" || guest_result=$?
+          wait "$intruder_pid" || intruder_result=$?
           wait "$host_pid" || host_result=$?
           cat /tmp/online-enet-host.log
           cat /tmp/online-enet-guest.log
+          cat /tmp/online-enet-intruder.log
           test "$guest_result" -eq 0
           test "$host_result" -eq 0
+          test "$intruder_result" -eq 0
           grep -q 'ONLINE TWO PROCESS HOST: PASS' /tmp/online-enet-host.log
           grep -q 'ONLINE TWO PROCESS GUEST: PASS' /tmp/online-enet-guest.log
-          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log
+          grep -q 'ONLINE TWO PROCESS INTRUDER: PASS' /tmp/online-enet-intruder.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
       - name: Verify existing pause/settings functionality (4.6.3)
         run: |
           set -o pipefail
