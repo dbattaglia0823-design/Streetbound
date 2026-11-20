@@ -162,6 +162,42 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 		_:
 			config.max_steer_degrees = 33.0
 			config.high_speed_steer_degrees = 9.0
+	# Vehicle identity matters independently of installed parts: a light RWD
+	# coupe rotates more eagerly than an AWD supercar or a heavy SUV. Stock
+	# driving still permits a moving handbrake 180 on asphalt.
+	match str(entry.kind):
+		"truck", "suv":
+			config.high_speed_stability = 0.05
+			config.drift_control = 0.10
+			config.handbrake_rotation_boost = 0.86
+		"compact":
+			config.high_speed_stability = 0.10
+			config.drift_control = 0.21
+			config.handbrake_rotation_boost = 1.05
+		"hyper":
+			config.high_speed_stability = 0.19
+			config.drift_control = 0.15
+			config.handbrake_rotation_boost = 0.82
+		"sport":
+			config.high_speed_stability = 0.16
+			config.drift_control = 0.20
+			config.handbrake_rotation_boost = 1.02
+		_:
+			config.high_speed_stability = 0.11
+			config.drift_control = 0.16
+			config.handbrake_rotation_boost = 0.90
+	# Final steering response also follows physical mass and driven axle.
+	var mass_factor := clampf(sqrt(1450.0 / maxf(config.mass_kg,650.0)),0.68,1.27)
+	config.handbrake_rotation_boost *= mass_factor
+	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
+		config.high_speed_stability += 0.02
+		config.drift_control *= 0.87
+		config.handbrake_rotation_boost *= 0.85
+	elif config.drivetrain == VehicleConfig.Drivetrain.RWD:
+		config.drift_control += 0.04
+	config.handbrake_rotation_boost = clampf(config.handbrake_rotation_boost,0.62,1.28)
+	config.handbrake_rear_grip = 0.40 if config.drivetrain == VehicleConfig.Drivetrain.AWD else 0.35
+	config.handbrake_grip_recovery_seconds = 0.48
 	# Keep driven tire size and acceleration consistent with vehicle class.
 	config.wheel_radius_m = 0.37 if str(entry.kind) in ["truck", "suv"] else 0.34
 	config.cornering_stiffness = 68000.0 * config.mass_kg / 1450.0

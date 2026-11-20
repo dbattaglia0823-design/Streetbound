@@ -42,13 +42,14 @@
       "modifiers": {
         "cornering_stiffness": 0.0666,
         "rear_grip_balance": 0.036,
-        "yaw_damping": 0.0126
+        "yaw_damping": 0.0126,
+        "high_speed_stability": 0.042
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest corner stiffness and planted rear axle"
+      "role": "Track cornering stiffness and high-speed stable turn-in"
     },
     {
       "id": "suspension-drift-common",
@@ -60,12 +61,14 @@
         "rear_grip_balance": -0.0756,
         "max_steer_degrees": 0.0576,
         "steering_response": 0.0612,
-        "countersteer_assist": 0.0504
+        "countersteer_assist": 0.0504,
+        "drift_control": 0.0578,
+        "handbrake_rotation_boost": 0.06
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Steering angle and easy breakaway for controlled slides"
+      "role": "Faster handbrake rotation, steering angle and steadier sustained drifts"
     },
     {
       "id": "tires-grip-common",
@@ -76,13 +79,14 @@
       "modifiers": {
         "tire_grip": 0.0756,
         "rear_grip_balance": 0.0378,
-        "cornering_stiffness": 0.0216
+        "cornering_stiffness": 0.0216,
+        "high_speed_stability": 0.04
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest all-speed lateral grip and cornering"
+      "role": "High-speed lateral bite and road-holding stability with limited tire-grip benefit"
     },
     {
       "id": "tires-drift-common",
@@ -94,12 +98,13 @@
         "tire_grip": 0.0162,
         "rear_grip_balance": -0.0756,
         "handbrake_drive_grip": 0.0468,
-        "countersteer_assist": 0.0468
+        "countersteer_assist": 0.0468,
+        "drift_control": 0.055
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Easier sliding, control and countersteering"
+      "role": "Hold powered slides with predictable countersteering and rear slip"
     },
     {
       "id": "transmission-street-common",
@@ -143,13 +148,14 @@
       "modifiers": {
         "cornering_stiffness": 0.09065,
         "rear_grip_balance": 0.049,
-        "yaw_damping": 0.01715
+        "yaw_damping": 0.01715,
+        "high_speed_stability": 0.0578
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest corner stiffness and planted rear axle"
+      "role": "Track cornering stiffness and high-speed stable turn-in"
     },
     {
       "id": "suspension-drift-uncommon",
@@ -161,12 +167,14 @@
         "rear_grip_balance": -0.1029,
         "max_steer_degrees": 0.0784,
         "steering_response": 0.0833,
-        "countersteer_assist": 0.0686
+        "countersteer_assist": 0.0686,
+        "drift_control": 0.0788,
+        "handbrake_rotation_boost": 0.075
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Steering angle and easy breakaway for controlled slides"
+      "role": "Faster handbrake rotation, steering angle and steadier sustained drifts"
     },
     {
       "id": "tires-grip-uncommon",
@@ -177,13 +185,14 @@
       "modifiers": {
         "tire_grip": 0.1029,
         "rear_grip_balance": 0.05145,
-        "cornering_stiffness": 0.0294
+        "cornering_stiffness": 0.0294,
+        "high_speed_stability": 0.055
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest all-speed lateral grip and cornering"
+      "role": "High-speed lateral bite and road-holding stability with limited tire-grip benefit"
     },
     {
       "id": "tires-drift-uncommon",
@@ -195,12 +204,13 @@
         "tire_grip": 0.02205,
         "rear_grip_balance": -0.1029,
         "handbrake_drive_grip": 0.0637,
-        "countersteer_assist": 0.0637
+        "countersteer_assist": 0.0637,
+        "drift_control": 0.075
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Easier sliding, control and countersteering"
+      "role": "Hold powered slides with predictable countersteering and rear slip"
     },
     {
       "id": "transmission-street-uncommon",
@@ -244,13 +254,14 @@
       "modifiers": {
         "cornering_stiffness": 0.12025,
         "rear_grip_balance": 0.065,
-        "yaw_damping": 0.02275
+        "yaw_damping": 0.02275,
+        "high_speed_stability": 0.0788
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest corner stiffness and planted rear axle"
+      "role": "Track cornering stiffness and high-speed stable turn-in"
     },
     {
       "id": "suspension-drift-rare",
@@ -262,12 +273,14 @@
         "rear_grip_balance": -0.1365,
         "max_steer_degrees": 0.104,
         "steering_response": 0.1105,
-        "countersteer_assist": 0.091
+        "countersteer_assist": 0.091,
+        "drift_control": 0.1103,
+        "handbrake_rotation_boost": 0.095
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Steering angle and easy breakaway for controlled slides"
+      "role": "Faster handbrake rotation, steering angle and steadier sustained drifts"
     },
     {
       "id": "tires-grip-rare",
@@ -278,13 +291,14 @@
       "modifiers": {
         "tire_grip": 0.1365,
         "rear_grip_balance": 0.06825,
-        "cornering_stiffness": 0.039
+        "cornering_stiffness": 0.039,
+        "high_speed_stability": 0.075
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest all-speed lateral grip and cornering"
+      "role": "High-speed lateral bite and road-holding stability with limited tire-grip benefit"
     },
     {
       "id": "tires-drift-rare",
@@ -296,12 +310,13 @@
         "tire_grip": 0.02925,
         "rear_grip_balance": -0.1365,
         "handbrake_drive_grip": 0.0845,
-        "countersteer_assist": 0.0845
+        "countersteer_assist": 0.0845,
+        "drift_control": 0.105
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Easier sliding, control and countersteering"
+      "role": "Hold powered slides with predictable countersteering and rear slip"
     },
     {
       "id": "transmission-street-rare",
@@ -345,13 +360,14 @@
       "modifiers": {
         "cornering_stiffness": 0.14985,
         "rear_grip_balance": 0.081,
-        "yaw_damping": 0.02835
+        "yaw_damping": 0.02835,
+        "high_speed_stability": 0.0998
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest corner stiffness and planted rear axle"
+      "role": "Track cornering stiffness and high-speed stable turn-in"
     },
     {
       "id": "suspension-drift-epic",
@@ -363,12 +379,14 @@
         "rear_grip_balance": -0.1701,
         "max_steer_degrees": 0.1296,
         "steering_response": 0.1377,
-        "countersteer_assist": 0.1134
+        "countersteer_assist": 0.1134,
+        "drift_control": 0.1418,
+        "handbrake_rotation_boost": 0.12
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Steering angle and easy breakaway for controlled slides"
+      "role": "Faster handbrake rotation, steering angle and steadier sustained drifts"
     },
     {
       "id": "tires-grip-epic",
@@ -379,13 +397,14 @@
       "modifiers": {
         "tire_grip": 0.1701,
         "rear_grip_balance": 0.08505,
-        "cornering_stiffness": 0.0486
+        "cornering_stiffness": 0.0486,
+        "high_speed_stability": 0.095
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest all-speed lateral grip and cornering"
+      "role": "High-speed lateral bite and road-holding stability with limited tire-grip benefit"
     },
     {
       "id": "tires-drift-epic",
@@ -397,12 +416,13 @@
         "tire_grip": 0.03645,
         "rear_grip_balance": -0.1701,
         "handbrake_drive_grip": 0.1053,
-        "countersteer_assist": 0.1053
+        "countersteer_assist": 0.1053,
+        "drift_control": 0.135
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Easier sliding, control and countersteering"
+      "role": "Hold powered slides with predictable countersteering and rear slip"
     },
     {
       "id": "transmission-street-epic",
@@ -446,13 +466,14 @@
       "modifiers": {
         "cornering_stiffness": 0.185,
         "rear_grip_balance": 0.1,
-        "yaw_damping": 0.035
+        "yaw_damping": 0.035,
+        "high_speed_stability": 0.1313
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest corner stiffness and planted rear axle"
+      "role": "Track cornering stiffness and high-speed stable turn-in"
     },
     {
       "id": "suspension-drift-legendary",
@@ -464,12 +485,14 @@
         "rear_grip_balance": -0.21,
         "max_steer_degrees": 0.16,
         "steering_response": 0.17,
-        "countersteer_assist": 0.14
+        "countersteer_assist": 0.14,
+        "drift_control": 0.1785,
+        "handbrake_rotation_boost": 0.15
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Steering angle and easy breakaway for controlled slides"
+      "role": "Faster handbrake rotation, steering angle and steadier sustained drifts"
     },
     {
       "id": "tires-grip-legendary",
@@ -480,13 +503,14 @@
       "modifiers": {
         "tire_grip": 0.21,
         "rear_grip_balance": 0.105,
-        "cornering_stiffness": 0.06
+        "cornering_stiffness": 0.06,
+        "high_speed_stability": 0.125
       },
       "reward_sources": [
         "circuit",
         "technical"
       ],
-      "role": "Highest all-speed lateral grip and cornering"
+      "role": "High-speed lateral bite and road-holding stability with limited tire-grip benefit"
     },
     {
       "id": "tires-drift-legendary",
@@ -498,12 +522,13 @@
         "tire_grip": 0.045,
         "rear_grip_balance": -0.21,
         "handbrake_drive_grip": 0.13,
-        "countersteer_assist": 0.13
+        "countersteer_assist": 0.13,
+        "drift_control": 0.17
       },
       "reward_sources": [
         "drift"
       ],
-      "role": "Easier sliding, control and countersteering"
+      "role": "Hold powered slides with predictable countersteering and rear slip"
     },
     {
       "id": "transmission-street-legendary",
@@ -568,13 +593,14 @@
         "cornering_stiffness": 0.0396,
         "rear_grip_balance": 0.0216,
         "yaw_damping": 0.0378,
-        "steering_response": 0.0216
+        "steering_response": 0.0216,
+        "high_speed_stability": 0.018
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip, stronger stability and predictable steering"
+      "role": "Balanced stability in medium and high-speed turns"
     },
     {
       "id": "tires-allround-common",
@@ -586,13 +612,14 @@
         "tire_grip": 0.0486,
         "rear_grip_balance": 0.0198,
         "handbrake_drive_grip": 0.0252,
-        "yaw_damping": 0.0396
+        "yaw_damping": 0.0396,
+        "high_speed_stability": 0.014
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip but steadier mixed-surface street handling"
+      "role": "Broad asphalt grip and mild high-speed stability"
     },
     {
       "id": "transmission-launch-common",
@@ -787,13 +814,14 @@
         "cornering_stiffness": 0.0539,
         "rear_grip_balance": 0.0294,
         "yaw_damping": 0.05145,
-        "steering_response": 0.0294
+        "steering_response": 0.0294,
+        "high_speed_stability": 0.0248
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip, stronger stability and predictable steering"
+      "role": "Balanced stability in medium and high-speed turns"
     },
     {
       "id": "tires-allround-uncommon",
@@ -805,13 +833,14 @@
         "tire_grip": 0.06615,
         "rear_grip_balance": 0.02695,
         "handbrake_drive_grip": 0.0343,
-        "yaw_damping": 0.0539
+        "yaw_damping": 0.0539,
+        "high_speed_stability": 0.0192
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip but steadier mixed-surface street handling"
+      "role": "Broad asphalt grip and mild high-speed stability"
     },
     {
       "id": "transmission-launch-uncommon",
@@ -1006,13 +1035,14 @@
         "cornering_stiffness": 0.0715,
         "rear_grip_balance": 0.039,
         "yaw_damping": 0.06825,
-        "steering_response": 0.039
+        "steering_response": 0.039,
+        "high_speed_stability": 0.0338
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip, stronger stability and predictable steering"
+      "role": "Balanced stability in medium and high-speed turns"
     },
     {
       "id": "tires-allround-rare",
@@ -1024,13 +1054,14 @@
         "tire_grip": 0.08775,
         "rear_grip_balance": 0.03575,
         "handbrake_drive_grip": 0.0455,
-        "yaw_damping": 0.0715
+        "yaw_damping": 0.0715,
+        "high_speed_stability": 0.0262
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip but steadier mixed-surface street handling"
+      "role": "Broad asphalt grip and mild high-speed stability"
     },
     {
       "id": "transmission-launch-rare",
@@ -1225,13 +1256,14 @@
         "cornering_stiffness": 0.0891,
         "rear_grip_balance": 0.0486,
         "yaw_damping": 0.08505,
-        "steering_response": 0.0486
+        "steering_response": 0.0486,
+        "high_speed_stability": 0.0428
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip, stronger stability and predictable steering"
+      "role": "Balanced stability in medium and high-speed turns"
     },
     {
       "id": "tires-allround-epic",
@@ -1243,13 +1275,14 @@
         "tire_grip": 0.10935,
         "rear_grip_balance": 0.04455,
         "handbrake_drive_grip": 0.0567,
-        "yaw_damping": 0.0891
+        "yaw_damping": 0.0891,
+        "high_speed_stability": 0.0332
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip but steadier mixed-surface street handling"
+      "role": "Broad asphalt grip and mild high-speed stability"
     },
     {
       "id": "transmission-launch-epic",
@@ -1444,13 +1477,14 @@
         "cornering_stiffness": 0.11,
         "rear_grip_balance": 0.06,
         "yaw_damping": 0.105,
-        "steering_response": 0.06
+        "steering_response": 0.06,
+        "high_speed_stability": 0.0563
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip, stronger stability and predictable steering"
+      "role": "Balanced stability in medium and high-speed turns"
     },
     {
       "id": "tires-allround-legendary",
@@ -1462,13 +1496,14 @@
         "tire_grip": 0.135,
         "rear_grip_balance": 0.055,
         "handbrake_drive_grip": 0.07,
-        "yaw_damping": 0.11
+        "yaw_damping": 0.11,
+        "high_speed_stability": 0.0437
       },
       "race_drop_enabled": false,
       "reward_sources": [
         "street"
       ],
-      "role": "Lower peak grip but steadier mixed-surface street handling"
+      "role": "Broad asphalt grip and mild high-speed stability"
     },
     {
       "id": "transmission-launch-legendary",
@@ -1998,9 +2033,10 @@
         "rear_grip_balance": -0.0054,
         "yaw_damping": -0.018,
         "max_steer_degrees": 0.0306,
-        "steering_response": 0.072
+        "steering_response": 0.072,
+        "high_speed_stability": 0.026
       },
-      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "role": "Sharper turn-in with modest high-speed stability",
       "reward_sources": [
         "technical",
         "circuit"
@@ -2018,9 +2054,10 @@
         "rear_grip_balance": -0.00735,
         "yaw_damping": -0.0245,
         "max_steer_degrees": 0.04165,
-        "steering_response": 0.098
+        "steering_response": 0.098,
+        "high_speed_stability": 0.0358
       },
-      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "role": "Sharper turn-in with modest high-speed stability",
       "reward_sources": [
         "technical",
         "circuit"
@@ -2038,9 +2075,10 @@
         "rear_grip_balance": -0.00975,
         "yaw_damping": -0.0325,
         "max_steer_degrees": 0.05525,
-        "steering_response": 0.13
+        "steering_response": 0.13,
+        "high_speed_stability": 0.0488
       },
-      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "role": "Sharper turn-in with modest high-speed stability",
       "reward_sources": [
         "technical",
         "circuit"
@@ -2058,9 +2096,10 @@
         "rear_grip_balance": -0.01215,
         "yaw_damping": -0.0405,
         "max_steer_degrees": 0.06885,
-        "steering_response": 0.162
+        "steering_response": 0.162,
+        "high_speed_stability": 0.0618
       },
-      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "role": "Sharper turn-in with modest high-speed stability",
       "reward_sources": [
         "technical",
         "circuit"
@@ -2078,9 +2117,10 @@
         "rear_grip_balance": -0.015,
         "yaw_damping": -0.05,
         "max_steer_degrees": 0.085,
-        "steering_response": 0.2
+        "steering_response": 0.2,
+        "high_speed_stability": 0.0813
       },
-      "role": "Fastest turn-in and greater steering response at a stability cost",
+      "role": "Sharper turn-in with modest high-speed stability",
       "reward_sources": [
         "technical",
         "circuit"

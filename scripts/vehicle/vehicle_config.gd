@@ -63,6 +63,15 @@ enum Drivetrain { FWD, RWD, AWD }
 ## Tire contact relaxes after a rear-wheel lock; throttle wheelspin slows recovery.
 @export var handbrake_grip_recovery_seconds: float = 0.9
 @export var wheel_spin_recovery_rate: float = 3.0
+## Handling style values belong to the vehicle and can be changed by parts.
+## Stock cars get subtle help; high-speed assistance never overrides tire grip.
+@export_range(0.0, 0.65) var high_speed_stability: float = 0.12
+## Smooths driver-controlled countersteer while sliding. Does not create grip
+## or affect settled tires, straight-line launches or parked vehicles.
+@export_range(0.0, 0.7) var drift_control: float = 0.16
+## Scales rotational response while moving with the handbrake engaged;
+## normalized by mass, so light coupes rotate easier than heavy SUVs.
+@export_range(0.2, 1.8) var handbrake_rotation_boost: float = 0.9
 @export_group("Steering and braking")
 @export var max_steer_degrees: float = 32.0
 @export var high_speed_steer_degrees: float = 9.0
