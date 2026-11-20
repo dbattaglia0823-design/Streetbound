@@ -450,6 +450,17 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			brake_turn * (1.0 + race_stability * 0.13) / maxf(speed, 4.0))
 		var desired_yaw := clampf(kinematic_yaw, -arcade_yaw_limit, arcade_yaw_limit)
 		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-12.0 * arcade * dt))
+	# A braking tire has less remaining cornering force than a coasting one.
+	# Do not let the arcade steering target demand a yaw rate above the axle
+	# forces' braking envelope. Preserve explicit rear-lock drifting and the
+	# existing brake-turn upgrade effect inside this bounded envelope.
+	if stopping_input > 0.1 and handbrake < 0.05 and rear_sliding < 0.15:
+		var lateral_accel_budget := maxf(0.0, front_limit + rear_limit) / mass
+		var brake_yaw_envelope := lateral_accel_budget / maxf(speed, 4.0) * \
+			(0.70 + clampf(config.brake_turn_boost, 0.0, 1.0) * arcade * 0.40)
+		var brake_blend := smoothstep(0.1, 0.4, stopping_input)
+		var allowed_yaw := lerpf(3.0, brake_yaw_envelope, brake_blend)
+		yaw_rate = clampf(yaw_rate, -allowed_yaw, allowed_yaw)
 	yaw_rate = clampf(yaw_rate, -3.0, 3.0)
 	# Static tyre friction arrests residual rotational inertia at rest. A
 	# handbrake and steering input are not a motor that can rotate the body.
