@@ -1,4 +1,5 @@
 extends CanvasLayer
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Streetbound adapter for Game-Dev-Toolkit's Functional UI v2 Pause/Settings
 ## templates and Godot layout renderer. Lives outside the paused world, so
 ## buttons, mouse, gamepad focus and Escape continue working when paused.
@@ -615,8 +616,8 @@ func _refresh_multiplayer_page() -> void:
 	if not is_instance_valid(local_split_button):
 		return
 	local_split_button.text = "EXIT SPLIT-SCREEN" if split_screen_active else "LOCAL SPLIT-SCREEN"
-	local_split_button.disabled = OnlineSession.active
-	multiplayer_feedback.text = ("Online friends session active. Leave via Main Menu." if OnlineSession.active
+	local_split_button.disabled = online_session.active
+	multiplayer_feedback.text = ("Online friends session active. Leave via Main Menu." if online_session.active
 		else "Return to single-player driving." if split_screen_active
 		else "Keyboard + controller, or two controllers.")
 
@@ -853,7 +854,7 @@ func _show_page(page: String) -> void:
 		focused.grab_focus()
 
 func pause_game() -> void:
-	if OnlineSession.active:
+	if online_session.active:
 		# Online UI pause must never stop the host's shared simulation.
 		if not menu_state.is_empty():
 			return
@@ -875,7 +876,7 @@ func resume_game() -> void:
 	menu_state = ""
 	_cancel_capture()
 	get_viewport().gui_release_focus()
-	if OnlineSession.active and is_instance_valid(player_vehicle) and not split_screen_active:
+	if online_session.active and is_instance_valid(player_vehicle) and not split_screen_active:
 		player_vehicle.external_input = false
 	get_tree().paused = false
 
@@ -983,7 +984,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	# A remapped Pause/Menu button also works on gamepads. Escape always
 	# remains the fail-safe to reach the settings menu again.
-	var menu_open := get_tree().paused or (OnlineSession.active and not menu_state.is_empty())
+	var menu_open := get_tree().paused or (online_session.active and not menu_state.is_empty())
 	if menu_open and menu_state.is_empty():
 		return
 	if not menu_open:
