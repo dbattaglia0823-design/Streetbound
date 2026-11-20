@@ -6,7 +6,7 @@ Use this as a **routing index**, not a replacement for existing detailed guides.
 
 | Task | First read | Then inspect |
 |---|---|---|
-| Online co-op sessions with friends | [FRIENDS_MULTIPLAYER.md](FRIENDS_MULTIPLAYER.md) | `scripts/network/`, `scripts/ui/title_menu.gd`, `scripts/main.gd` |
+| Private online lobbies with friends | [FRIENDS_MULTIPLAYER.md](FRIENDS_MULTIPLAYER.md) | `scripts/network/`, `scripts/ui/title_menu.gd`, `scripts/main.gd` |
 | Game architecture / entrypoints | [ARCHITECTURE.md](ARCHITECTURE.md) | `project.godot`, `scenes/`, `scripts/main.gd` |
 | Physics, traffic, racing AI, overtakes | [RACING_AI.md](systems/RACING_AI.md) | `scripts/world/race_*.gd`, `scripts/vehicle/vehicle_controller.gd` |
 | Automated AI performance baseline | [ai-driving-benchmark.md](ai-driving-benchmark.md) | `tests/ai_driving_benchmark.gd`, CI benchmark workflow |
