@@ -52,7 +52,7 @@ Test with `tests/pause_menu_test.gd` (also run by CI). The existing driving and 
 
 ## Play online with friends — initial foundation
 
-The title screen now provides **Multiplayer → Play with Friends (Online)**, with direct-IP **Host** and **Join** actions and up to four drivers in the same world. The default network port is **UDP 28163**. Over the internet, the host may need to forward this UDP port. It is a development-stage free-roam mode: authenticated invite codes, synchronized competitive races, garage upgrades and host migration are not implemented. Setup, risks and limitations are in [the friends multiplayer guide](docs/FRIENDS_MULTIPLAYER.md).
+The title screen now provides **Multiplayer → Play with Friends (Online)**, with private invitation codes and up to four drivers in the same world. The host selects a reachable IP/DNS name and shares an unguessable lobby code; guests paste that code to join. The default network port is **UDP 28163**. Over the internet, the host may need to forward this UDP port. These invitations enforce possession of a server-checked random secret but do not provide account identity or NAT traversal. Synchronized competitive races, garage upgrades and host migration are not implemented. Setup, risks and limitations are in [the friends multiplayer guide](docs/FRIENDS_MULTIPLAYER.md).
 
 ## Play
 
