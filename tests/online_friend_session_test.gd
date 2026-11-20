@@ -1,4 +1,5 @@
 extends SceneTree
+const SessionScript = preload("res://scripts/network/online_session.gd")
 ## Regression for friend-session host startup, isolated remote cars, and cleanup.
 ## This smoke test does not replace a real two-machine network test.
 var failures: Array[String] = []
@@ -12,12 +13,17 @@ func check(label: String, good: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
+	var session: Node = root.get_node_or_null("OnlineSession")
+	if session == null:
+		check("online_session_autoload_exists", false)
+		quit(1)
+		return
 	check("ports_have_unambiguous_udp_range",
-		OnlineSession.valid_port(28163) and
-		not OnlineSession.valid_port(0) and not OnlineSession.valid_port(65536))
+		SessionScript.valid_port(28163) and
+		not SessionScript.valid_port(0) and not SessionScript.valid_port(65536))
 	check("driver_names_are_sanitized",
-		OnlineSession.clean_name(" A\nB ") == "A B" and
-		OnlineSession.clean_name(" ").is_empty())
+		SessionScript.clean_name(" A\nB ") == "A B" and
+		SessionScript.clean_name(" ").is_empty())
 	var title: Control = load("res://scenes/title_menu.tscn").instantiate()
 	root.add_child(title)
 	current_scene = title
@@ -38,9 +44,9 @@ func _run() -> void:
 		game != null and game != title and game.get("ground") != null and
 		game.get("vehicle") != null)
 	check("host_session_persists_across_scene_transition",
-		OnlineSession.active and OnlineSession.hosting and
-		OnlineSession.players.size() == 1 and
-		OnlineSession.players.has(1))
+		session.active and session.hosting and
+		session.players.size() == 1 and
+		session.players.has(1))
 	if game != null and game != title:
 		var network: Node = game.get("online_world")
 		check("real_driving_world_has_online_replication",
@@ -59,7 +65,7 @@ func _run() -> void:
 				network.peer_cars.is_empty() and not game.vehicle.external_input)
 			# Inject an admitted peer into the roster. In production only the
 			# server's admission RPC can make this change.
-			OnlineSession.players[2] = {"name": "Friend", "car_id": ""}
+			session.players[2] = {"name": "Friend", "car_id": ""}
 			network._sync_peers()
 			var remote: VehicleController2D = network.peer_cars.get(2) as VehicleController2D
 			check("friend_is_real_vehicle_in_same_world",
@@ -71,17 +77,17 @@ func _run() -> void:
 			if remote != null:
 				check("untrusted_direct_rpc_does_not_move_unadmitted_sender",
 					remote.command == Vector4.ZERO)
-			OnlineSession.players.erase(2)
+			session.players.erase(2)
 			network._sync_peers()
 			check("departing_friend_is_removed",network.peer_cars.is_empty())
 		game._return_to_main_menu()
 		for frame in 4:
 			await process_frame
 		check("return_to_title_closes_udp_session_without_save_mutation",
-			not OnlineSession.active and not OnlineSession.joining and
-			not OnlineSession.hosting and OnlineSession.players.is_empty() and
+			not session.active and not session.joining and
+			not session.hosting and session.players.is_empty() and
 			current_scene != game)
-	OnlineSession.leave_session()
+	session.leave_session()
 	paused = false
 	print("ONLINE FRIEND SESSION: ", "PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
