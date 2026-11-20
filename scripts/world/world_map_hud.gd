@@ -304,7 +304,8 @@ func _update_scale() -> void:
 	atlas_scale_label.text="NORTH UP    ·    %.1f× detail    ·    Scroll to zoom / drag to pan"%[full_view.pixels_per_m/full_view.fit_scale]
 
 func _input(event: InputEvent) -> void:
-	if not driving_hud.waiting_action.is_empty(): return
+	# The F1 input-capture menu no longer exists. Map toggling is only
+	# gated by the pause state, which still protects Settings input.
 	if event.is_action_pressed("map") and not get_tree().paused:
 		large=not large
 		get_viewport().set_input_as_handled()

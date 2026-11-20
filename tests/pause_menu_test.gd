@@ -28,6 +28,8 @@ func _run() -> void:
 		quit(1)
 		return
 	check("unpaused_initially", not paused and not pause.overlay.visible)
+	var map_hud: Variant = get_first_node_in_group("streetbound_world_map_hud")
+	check("world_map_hud_available_without_f1_menu", map_hud != null)
 	check("layout_source_from_toolkit", pause.pause_screen.controls.has("resume")
 		and pause.pause_screen.controls.has("settings") and pause.pause_screen.controls.has("main_menu")
 		and pause.pause_screen.controls.has("local_multiplayer")
@@ -36,11 +38,27 @@ func _run() -> void:
 		and pause.pause_screen.controls["main_menu"].get_meta("ui_action") == "nav.main_menu"
 		and pause.pause_screen.controls["map_editor"].get_meta("ui_action") == "game.map_editor"
 		and pause.pause_screen.controls["quit"].get_meta("ui_action") == "game.quit")
-	# This must travel through Godot's normal input system, not a direct method call.
+	# Regression for removed F1 input capture: the map's InputEventAction
+	# must still toggle the atlas without reading HUD.waiting_action.
+	var map_action := InputEventAction.new()
+	map_action.action = "map"
+	map_action.pressed = true
+	if map_hud != null:
+		root.push_input(map_action)
+		await process_frame
+		check("map_open_still_works_after_f1_removal", bool(map_hud.large))
+		root.push_input(map_action)
+		await process_frame
+		check("map_close_still_works_after_f1_removal", not bool(map_hud.large))
+	# Escape must travel through Godot's normal input system, not a direct method call.
 	press_escape()
 	await process_frame
 	check("escape_pauses", paused and pause.overlay.visible and pause.menu_state == "paused")
 	check("vehicle_frozen_while_paused", not main.vehicle.can_process())
+	if map_hud != null:
+		root.push_input(map_action)
+		await process_frame
+		check("map_toggle_is_blocked_while_paused", not bool(map_hud.large))
 	check("pause_uses_left_menu_and_live_vehicle_panel",
 		pause.pause_screen.controls["resume"].position.x < 100.0 and
 		pause.vehicle_panel.visible and
@@ -83,7 +101,6 @@ func _run() -> void:
 	check("camera_toggle_applied", bool(pause.settings_store.get_setting("camera_follow")))
 	# The one shape button shows the active value, applies immediately and
 	# persists in the same settings store as volume and camera follow.
-	var map_hud: Variant = get_first_node_in_group("streetbound_world_map_hud")
 	var shape_button: Button = pause.settings_screen.controls["minimap_shape_button"]
 	check("minimap_shape_setting_starts_square",
 		shape_button.text == "Square" and

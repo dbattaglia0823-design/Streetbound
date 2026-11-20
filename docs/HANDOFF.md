@@ -31,3 +31,7 @@ Fixed final references to the removed F1 panel in the world minimap and race sta
 Updated `tests/world_render_contract_test.gd` to verify F7/F4 cooperation without the removed F1 tuning UI.
 
 Clarified that the quick-upgrades delta application preserves runtime driving state and unrelated stats; old F1 tuning is no longer an active concept.
+
+## 2026-11-20 — PR #172 CI follow-up
+
+Two Godot regression jobs (4.6.3 and 4.4.1) reported a script error during `tests/pause_menu_test.gd`: `world_map_hud.gd:307` read the deleted `driving_hud.waiting_action` property. Removed the obsolete F1 input-capture guard in world-map `_input`, while preserving the pause check; added map open/close and paused-state regression assertions to the existing pause-menu test. Car-specific racing/drift physics checks had passed. GitHub Actions must rerun on the updated commit; no unexecuted results are claimed.
