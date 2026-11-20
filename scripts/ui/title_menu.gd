@@ -1,4 +1,5 @@
 extends Control
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
 const GameplayScript = preload("res://scripts/main.gd")
@@ -40,8 +41,8 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
 	_refresh_buttons()
-	OnlineSession.status_changed.connect(_online_status)
-	OnlineSession.session_accepted.connect(_online_joined)
+	online_session.status_changed.connect(_online_status)
+	online_session.session_accepted.connect(_online_joined)
 	actions["single_player"].grab_focus()
 
 func _panel_style(color: Color, border: Color, radius: int = 14) -> StyleBoxFlat:
@@ -230,7 +231,7 @@ func _build_friends_page() -> void:
 	friend_name = _friend_field("Driver name", "Driver")
 	friend_name.max_length = 24
 	friend_address = _friend_field("Host IP or hostname (for joining)", "127.0.0.1")
-	friend_port = _friend_field("UDP port (both players must match)", str(OnlineSession.DEFAULT_PORT))
+	friend_port = _friend_field("UDP port (both players must match)", str(online_session.DEFAULT_PORT))
 	for action in [
 		["host_friend_session", "HOST FRIEND SESSION"],
 		["join_friend_session", "JOIN FRIEND SESSION"],
@@ -258,10 +259,10 @@ func _start_friends(host: bool) -> void:
 		return
 	var port := int(friend_port.text)
 	if host:
-		if OnlineSession.host_session(friend_name.text, port):
+		if online_session.host_session(friend_name.text, port):
 			_start_game("online")
 	else:
-		OnlineSession.join_session(friend_address.text, friend_name.text, port)
+		online_session.join_session(friend_address.text, friend_name.text, port)
 
 func _add_action(parent: VBoxContainer, id: String, title: String,
 		symbol: String, primary: bool = false, unavailable: bool = false) -> void:
@@ -349,7 +350,7 @@ func _show_friends() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
 		if friends_page.visible:
-			OnlineSession.leave_session()
+			online_session.leave_session()
 			_show_multiplayer()
 			get_viewport().set_input_as_handled()
 		elif multiplayer_page.visible:
@@ -370,7 +371,7 @@ func _activate(mode: String) -> void:
 		"online_multiplayer":
 			_show_friends()
 		"friends_back":
-			OnlineSession.leave_session()
+			online_session.leave_session()
 			_show_multiplayer()
 		"host_friend_session":
 			_start_friends(true)
@@ -401,7 +402,7 @@ func _start_game(mode: String) -> void:
 	if outcome != OK:
 		GameplayScript.pending_launch_mode = ""
 		if mode == "online":
-			OnlineSession.leave_session()
+			online_session.leave_session()
 		var feedback := friend_message if mode == "online" else \
 			multiplayer_message if mode == "multiplayer" else message
 		feedback.text = "Could not open the gameplay scene."
