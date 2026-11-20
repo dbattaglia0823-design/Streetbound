@@ -33,7 +33,12 @@ var nitrous_active := false
 var nitrous_fuel_seconds := 0.0
 var _nitrous_kit_initialized := false
 var arcade_assist_fraction := 0.0
-var cornering_grip_fraction := 1.0 # Fraction of lateral grip remaining after braking
+var cornering_grip_fraction := 1.0 # Weighted lateral grip budget left after brake/drive demand
+var front_cornering_grip_fraction := 1.0
+var rear_cornering_grip_fraction := 1.0
+var front_axle_load_n := 0.0
+var rear_axle_load_n := 0.0
+var longitudinal_accel_mps2 := 0.0 # Filtered signed acceleration from the prior physics tick
 var reversing := false
 var reverse_hold := 0.0
 var spawn_transform := Transform2D.IDENTITY
@@ -75,6 +80,11 @@ func reset_vehicle() -> void:
 	_nitrous_kit_initialized = nitrous_fuel_seconds > 0.0
 	arcade_assist_fraction = 0.0
 	cornering_grip_fraction = 1.0
+	front_cornering_grip_fraction = 1.0
+	rear_cornering_grip_fraction = 1.0
+	front_axle_load_n = 0.0
+	rear_axle_load_n = 0.0
+	longitudinal_accel_mps2 = 0.0
 	command = Vector4.ZERO
 	_traffic_impact_id = -1
 	_traffic_impact_cooldown = 0.0
@@ -95,6 +105,28 @@ func on_upgrade_config_changed(_previous_capacity: float = 0.0) -> void:
 		nitrous_fuel_seconds = minf(nitrous_fuel_seconds,capacity)
 	nitrous_active = false
 	boost_psi = minf(boost_psi,maxf(0.0,config.boost_max_psi))
+
+
+## Two-axle longitudinal load transfer; no invented left/right wheel model.
+## Signed forward acceleration unloads the nose, braking loads it. Keep a
+## nonzero contact patch on each axle even during hard impacts/upgrades.
+static func axle_loads_n(vehicle_config: VehicleConfig, forward_accel_mps2: float) -> Vector2:
+	var mass := maxf(vehicle_config.mass_kg, 20.0)
+	var total := mass * 9.81
+	var front_fraction := clampf(vehicle_config.front_weight, 0.3, 0.7)
+	var height := clampf(vehicle_config.center_of_gravity_height_m, 0.25, 1.1)
+	var transfer := mass * clampf(forward_accel_mps2, -13.0, 13.0) * \
+		height / maxf(vehicle_config.wheelbase_m, 1.4)
+	var front := clampf(total * front_fraction - transfer, total * 0.18, total * 0.82)
+	return Vector2(front, total - front)
+
+
+## Combined tire demand in a simplified friction circle. Reserve a modest
+## lateral contact budget at the absolute limit for responsive arcade steering.
+static func lateral_grip_budget(load_n: float, grip: float, longitudinal_n: float) -> float:
+	var capacity := maxf(1.0, load_n * maxf(grip, 0.0))
+	var fraction := clampf(absf(longitudinal_n) / capacity, 0.0, 0.93)
+	return sqrt(maxf(0.0, 1.0 - fraction * fraction))
 
 
 func _physics_process(dt: float) -> void:
@@ -240,8 +272,13 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		steering = lerpf(steering, steer_target, 1.0 - exp(-config.steering_response * dt))
 	var mass := maxf(config.mass_kg, 20.0)
 	var grip := config.tire_grip * surface_grip
-	var front_load := mass * 9.81 * config.front_weight
-	var rear_load := mass * 9.81 * (1.0 - config.front_weight)
+	# One tick of filtered acceleration gives stable, frame-rate independent
+	# pitch-load response without predicting tire forces in a feedback loop.
+	var loads := axle_loads_n(config, longitudinal_accel_mps2)
+	var front_load := loads.x
+	var rear_load := loads.y
+	front_axle_load_n = front_load
+	rear_axle_load_n = rear_load
 	var traction_load := rear_load
 	if config.drivetrain == VehicleConfig.Drivetrain.FWD:
 		traction_load = front_load
@@ -250,8 +287,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var curve_factor := config.torque_curve.sample_baked(
 		transmission.rpm / config.redline_rpm) if config.torque_curve else 1.0
 	# Compute shaft torque from actual crank RPM and the requested horsepower.
-	# Rated HP is not a soft vehicle-speed cap, so extreme F1 settings continue
-	# to pull after shifting into taller gears.
+	# Rated horsepower is not a soft vehicle-speed cap; the crank torque
+	# curve still governs acceleration at the selected RPM.
 	var boost_factor := 1.0
 	if config.boost_max_psi > 0.05:
 		boost_factor = lerpf(0.85,1.0,
@@ -269,9 +306,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
-	# Tire response is independent from crank output. Extreme F1 horsepower
-	# builds can use the same prepared, loaded drag-tire longitudinal envelope
-	# instead of hitting the stock street-tire acceleration ceiling at ~500hp.
+	# Tire response is independent from crank output. Extremely high-output
+	# upgrade builds retain their prepared drag-tire longitudinal envelope.
 	# Braking, steering grip and off-road contact are deliberately unaffected.
 	var drive_grip := lerpf(1.0,config.handbrake_drive_grip,
 		rear_sliding * rear_drive_share)
@@ -297,12 +333,27 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		if longitudinal_speed < -13.0:
 			engine_force = 0.0
 	delivered_wheel_force_n = engine_force
-	var braking := minf(config.brake_force_n * stopping_input + config.handbrake_force_n * handbrake, mass * 9.81 * grip)
+	# Allocate service braking by axle; the handbrake acts on the rear only.
+	# Clamp braking by each axle's dynamically loaded tire capacity instead
+	# of treating the whole vehicle as one contact patch.
+	var front_capacity := maxf(front_load * grip, 0.0)
+	var rear_capacity := maxf(rear_load * grip, 0.0)
+	var service_brake := maxf(config.brake_force_n, 0.0) * stopping_input
+	var bias := clampf(config.brake_bias_front, 0.45, 0.80)
+	var front_braking := minf(service_brake * bias, front_capacity)
+	var rear_braking := minf(service_brake * (1.0 - bias) +
+		maxf(config.handbrake_force_n, 0.0) * handbrake, rear_capacity)
+	var braking := front_braking + rear_braking
 	var resistance := 0.5 * 1.225 * config.drag_area * longitudinal_speed * absf(longitudinal_speed)
 	resistance += signf(longitudinal_speed) * mass * 9.81 * (config.rolling_resistance + (1.0 - surface_grip) * 0.045) * minf(absf(longitudinal_speed), 1.0)
 	var drive_accel := (engine_force - resistance) / mass
 	var new_long := longitudinal_speed + drive_accel * dt
 	new_long = move_toward(new_long, 0.0, braking / mass * dt)
+	# Use an acceleration filter rather than directly coupling noisy surface
+	# contact or collision impulses to the next tick's axle loads.
+	var acceleration := (new_long - longitudinal_speed) / maxf(dt, 0.0001)
+	longitudinal_accel_mps2 = lerpf(longitudinal_accel_mps2,
+		clampf(acceleration, -13.0, 13.0), 1.0 - exp(-13.0 * dt))
 	# Bicycle axle forces. Saturation produces understeer; rear grip loss produces oversteer.
 	var front_arm := config.wheelbase_m * (1.0 - config.front_weight)
 	var rear_arm := config.wheelbase_m * config.front_weight
@@ -310,23 +361,26 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var travel_sign := signf(longitudinal_speed) if absf(longitudinal_speed) > 0.1 else 1.0
 	var front_slip := atan2(lateral_speed + yaw_rate * front_arm, denominator) - steering * travel_sign
 	var rear_slip := atan2(lateral_speed - yaw_rate * rear_arm, denominator)
-	# Axle-only setups share the tire budget realistically. Arcade setups retain
-	# cornering grip under the service brake so S + steering helps the car turn.
-	var brake_usage := clampf(braking / maxf(mass * 9.81 * grip, 1.0), 0.0, 1.0)
-	var cornering_budget := sqrt(maxf(0.0, 1.0 - brake_usage * brake_usage))
-	cornering_budget = lerpf(cornering_budget, 1.0, arcade * stopping_input)
-	cornering_grip_fraction = cornering_budget
-	var front_limit := front_load * grip * cornering_budget * (1.0 + race_stability * 0.19)
+	# Both service braking and delivered drive torque consume lateral grip
+	# on the axle actually supplying that longitudinal force. Avoid applying
+	# the same global brake penalty to front and rear, or penalizing twice.
+	var front_longitudinal := front_braking + absf(engine_force) * (1.0 - rear_drive_share)
+	var rear_longitudinal := rear_braking + absf(engine_force) * rear_drive_share
+	var front_budget := lateral_grip_budget(front_load, grip, front_longitudinal)
+	var rear_budget := lateral_grip_budget(rear_load, grip, rear_longitudinal)
+	# Assistance restores a controlled fraction of cornering authority during
+	# braking; it never changes mass, longitudinal braking, or axle load.
+	front_budget = lerpf(front_budget, 1.0, arcade * stopping_input)
+	rear_budget = lerpf(rear_budget, 1.0, arcade * stopping_input)
+	front_cornering_grip_fraction = front_budget
+	rear_cornering_grip_fraction = rear_budget
+	cornering_grip_fraction = front_budget * config.front_weight + \
+		rear_budget * (1.0 - config.front_weight)
+	var front_limit := front_load * grip * front_budget * (1.0 + race_stability * 0.19)
 	var rear_limit := rear_load * grip * config.rear_grip_balance * \
 		lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * \
-		(1.0 - wheel_spin * rear_drive_share * 0.2) * cornering_budget * \
+		(1.0 - wheel_spin * rear_drive_share * 0.2) * rear_budget * \
 		(1.0 + race_stability * 0.10) * (1.0 - drift_aid * 0.25)
-	# Driven wheels also spend part of the friction budget on acceleration.
-	var drive_fraction := clampf(absf(engine_force) / maxf(traction_load * grip, 1.0), 0.0, 1.0)
-	if config.drivetrain != VehicleConfig.Drivetrain.RWD:
-		front_limit *= sqrt(maxf(0.35, 1.0 - drive_fraction * drive_fraction * 0.55))
-	if config.drivetrain != VehicleConfig.Drivetrain.FWD:
-		rear_limit *= sqrt(maxf(0.4, 1.0 - drive_fraction * drive_fraction * 0.5))
 	# A stationary wheel can turn in place but cannot create lateral tyre
 	# force or yaw without the body rolling. The old low-speed slip denominator
 	# produced a nonzero lateral impulse solely from steering at zero speed.

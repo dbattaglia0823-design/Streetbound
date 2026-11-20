@@ -128,7 +128,9 @@ func run() -> void:
 	check("reset", car.transform == car.spawn_transform and car.linear_velocity == Vector2.ZERO and car.yaw_rate == 0, car.position)
 	check("reset_telemetry_and_inputs", car.longitudinal_speed == 0.0 and car.lateral_speed == 0.0
 		and car.slip_angle == 0.0 and car.throttle == 0.0 and car.brake == 0.0 and car.handbrake == 0.0
-		and car.command == Vector4.ZERO and car.cornering_grip_fraction == 1.0,
+		and car.command == Vector4.ZERO and car.cornering_grip_fraction == 1.0
+		and car.longitudinal_accel_mps2 == 0.0 and car.front_axle_load_n == 0.0
+		and car.rear_axle_load_n == 0.0,
 		[car.longitudinal_speed, car.lateral_speed, car.slip_angle, car.command])
 	fresh(25)
 	await drive(0.15, Vector4(3.0, -2.0, 8.0, 4.0))

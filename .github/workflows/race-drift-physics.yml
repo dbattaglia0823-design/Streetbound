@@ -10,6 +10,8 @@ on:
       - 'data/upgrade_parts.json'
       - 'tests/race_drift_upgrade_physics_test.gd'
       - 'tests/race_drift_upgrade_physics_test.gd.uid'
+      - 'tests/axle_grip_allocation_test.gd'
+      - 'tests/axle_grip_allocation_test.gd.uid'
       - '.github/workflows/race-drift-physics.yml'
   workflow_dispatch:
 
@@ -46,6 +48,13 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 170s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_drift_upgrade_physics_test.gd 2>&1 | tee /tmp/race-drift-bench.log
           grep -q 'CAR RACE AND DRIFT PHYSICS: PASS' /tmp/race-drift-bench.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-drift-bench.log
+      - name: Verify dynamic axle loads and combined tire grip budgets
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/axle_grip_allocation_test.gd 2>&1 | tee /tmp/axle-grip-test.log
+          grep -q 'AXLE LOAD AND GRIP ALLOCATION: PASS' /tmp/axle-grip-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/axle-grip-test.log
       - name: Verify existing parked-handbrake, brake conflict and reverse controls
         shell: bash
         run: |
@@ -68,6 +77,7 @@ jobs:
           path: |
             /tmp/race-drift-import.log
             /tmp/race-drift-bench.log
+            /tmp/axle-grip-test.log
             /tmp/race-drift-park.log
             /tmp/race-drift-upgrades.log
           if-no-files-found: warn

@@ -48,6 +48,9 @@ enum Drivetrain { FWD, RWD, AWD }
 @export_group("Chassis and tires")
 @export var wheelbase_m: float = 2.65
 @export_range(0.3, 0.7) var front_weight: float = 0.43
+## Estimated centre-of-gravity height in metres, used for longitudinal load transfer.
+## This is a gameplay calibration parameter, not a factory measurement.
+@export_range(0.25, 1.1, 0.01) var center_of_gravity_height_m: float = 0.52
 @export var tire_grip: float = 1.15
 ## Additional asphalt-only traction for launches; fades out by ~100 km/h.
 ## Drag compounds can improve drive grip without adding cornering grip.
@@ -79,6 +82,8 @@ enum Drivetrain { FWD, RWD, AWD }
 ## Self-aligning spring rate (1/s); independent of the driver's turn-in response.
 @export var steering_return_strength: float = 18.0
 @export var brake_force_n: float = 18500.0
+## Fraction of service-brake demand applied to the front axle.
+@export_range(0.45, 0.8, 0.01) var brake_bias_front: float = 0.62
 @export var handbrake_force_n: float = 5000.0
 @export_group("Arcade handling")
 ## Zero preserves the axle-only model; one gives full steering assistance.
