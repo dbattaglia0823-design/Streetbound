@@ -1,4 +1,5 @@
 extends Node2D
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
@@ -234,8 +235,8 @@ func _ready() -> void:
 	selector.inventory = vehicle_ownership
 	add_child(selector)
 	selector.restore_selection()
-	if OnlineSession.active and not proving_ground:
-		OnlineSession.set_local_car(str(vehicle_ownership.active_id))
+	if online_session.active and not proving_ground:
+		online_session.set_local_car(str(vehicle_ownership.active_id))
 	if not proving_ground:
 		# Accessible from anywhere, not restricted to the physical garage.
 		# The live world remains visible behind a pause-safe transparent HUD.
@@ -316,7 +317,7 @@ func _ready() -> void:
 	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or custom_test_drive)
 	if custom_test_drive:
 		_add_test_drive_return_button()
-	if OnlineSession.active and not proving_ground and not custom_game_world:
+	if online_session.active and not proving_ground and not custom_game_world:
 		online_world = Node2D.new()
 		online_world.name = "OnlineWorld"
 		online_world.set_script(OnlineWorldScript)
@@ -368,13 +369,13 @@ func _return_to_main_menu() -> void:
 		local_split_screen.stop_split()
 	pause_menu.resume_game()
 	pending_launch_mode = ""
-	if OnlineSession.active or OnlineSession.joining:
-		OnlineSession.leave_session()
+	if online_session.active or online_session.joining:
+		online_session.leave_session()
 	get_tree().change_scene_to_file("res://scenes/title_menu.tscn")
 
 
 func _toggle_local_split_screen() -> void:
-	if OnlineSession.active:
+	if online_session.active:
 		pause_menu.show_split_screen_error("Leave the online session before starting local split-screen.")
 		return
 	if not is_instance_valid(local_split_screen):
