@@ -4,6 +4,8 @@ const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const Terrain=preload("res://scripts/dev/custom_map_terrain.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PUBLISHER="res://tools/publish_custom_world.py"
+const COMPACT_PRESET="res://map-editor/maps/compact-boroughs.world.json"
+const COMPACT_FILE="compact-boroughs.world.json"
 var selector: OptionButton
 var dialog: ConfirmationDialog
 var map_name: LineEdit
@@ -31,6 +33,9 @@ func build(e,parent: Node) -> void:
 	selector=OptionButton.new();selector.custom_minimum_size=Vector2(150,28);selector.fit_to_longest_item=false;row.add_child(selector)
 	selector.item_selected.connect(func(index):select(e,index))
 	e._btn("New map",row,func():show_create(e)).custom_minimum_size.y=26
+	var compact_button=e._btn("Compact Boroughs",row,func():open_compact_preset(e))
+	compact_button.custom_minimum_size.y=26
+	compact_button.tooltip_text="Open a compact, fully editable three-district map, independent of Morrow Coast."
 	reload_list()
 	dialog=ConfirmationDialog.new();dialog.title="Create a new map";dialog.ok_button_text="Create map";dialog.min_size=Vector2i(390,280);dialog.process_mode=Node.PROCESS_MODE_ALWAYS;e.add_child(dialog)
 	var fields:=VBoxContainer.new();dialog.add_child(fields)
@@ -177,6 +182,34 @@ func ready_to_switch(e) -> bool:
 	if custom:return save_current(e)
 	if e.source_ready and e.authoring.dirty:e._notice("Save or discard Morrow Coast edits before switching maps.");return false
 	return true
+## Import a bundled starter into the user's writable map library once. Never
+## replace a customized local map; reopening this preset resumes their edits.
+func open_compact_preset(e) -> void:
+	if not ready_to_switch(e):return
+	var probe:=Session.new()
+	var file:=COMPACT_FILE
+	var destination:=Library.folder().path_join(file)
+	var source: Variant=JSON.parse_string(FileAccess.get_file_as_string(COMPACT_PRESET))
+	if not source is Dictionary or not probe._valid_source(source):
+		e._notice("Bundled Compact Boroughs map could not be validated.")
+		return
+	var doc: Dictionary=source
+	if FileAccess.file_exists(destination):
+		var saved: Dictionary=Library.load_map(file)
+		if not saved.is_empty() and probe._valid_source(saved):
+			doc=saved
+		else:
+			# Preserve malformed or partially edited user files as-is.
+			file="compact-boroughs-copy-%d.world.json"%Time.get_ticks_usec()
+	if not FileAccess.file_exists(Library.folder().path_join(file)):
+		if Library.save(doc,file).is_empty():
+			e._notice("Could not save Compact Boroughs into your map library.")
+			return
+	activate(e,doc,file)
+	reload_list()
+	e._notice("Compact Boroughs loaded: Old Town, Market District, and Dockside. F6 test drives without changing the live Morrow Coast world.")
+
+
 func show_create(e) -> void:
 	if ready_to_switch(e):map_name.text="Untitled map";dialog.popup_centered();map_name.grab_focus()
 func create_map(e) -> void:
