@@ -25,3 +25,5 @@ On the next racing AI request, read `docs/INDEX.md` and `docs/systems/RACING_AI.
 Scope: driving HUD, controls, vehicle-selection callback, stock configuration comments, targeted regression tests and validation step descriptions. F1 tuning UI is removed. Per-model catalog physics and installed upgrades remain the supported stat paths; the legacy tuning save is ignored without deleting user data. Test runs and CI conclusions must be confirmed separately; this handoff does not claim executed gameplay validation.
 
 Further legacy test audit: `tests/imperial_display_test.gd` and `tests/runtime_test.gd` now assert no F1 menu and preserve dashboard display. README and test-runner instructions were updated; actual engine and CI results still require verification.
+
+Fixed final references to the removed F1 panel in the world minimap and race status strip, and revised the race-dismiss test to check normal race overlay visibility without the old menu.
