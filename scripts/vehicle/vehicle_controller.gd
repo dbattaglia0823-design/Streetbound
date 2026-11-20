@@ -22,6 +22,7 @@ var throttle := 0.0
 var brake := 0.0
 var handbrake := 0.0
 var handbrake_grip_loss := 0.0 # Persistent rear tire slip after a moving wheel lock
+var _previous_handbrake := 0.0 # Rising edge causes a physical moving handbrake rotation pulse
 var wheel_spin := 0.0 # Driven-wheel overspeed estimate, independent of lateral slip
 var engine_wheel_force_n := 0.0 # Unclipped driven wheel force, telemetry
 var traction_limit_n := 0.0 # Road and tire delivery limit, telemetry
@@ -62,6 +63,7 @@ func reset_vehicle() -> void:
 	brake = 0.0
 	handbrake = 0.0
 	handbrake_grip_loss = 0.0
+	_previous_handbrake = 0.0
 	wheel_spin = 0.0
 	engine_wheel_force_n = 0.0
 	traction_limit_n = 0.0
@@ -130,6 +132,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	throttle = clampf(controls.x, 0.0, 1.0)
 	brake = clampf(controls.y, 0.0, 1.0)
 	handbrake = clampf(controls.w, 0.0, 1.0)
+	var handbrake_edge := maxf(0.0, handbrake - _previous_handbrake)
+	_previous_handbrake = handbrake
 	var steer_input := clampf(controls.z, -1.0, 1.0)
 	# Brake first, then require a deliberate hold at rest before engaging reverse.
 	# Brake-only reverse is intentional, but holding the handbrake must
@@ -161,7 +165,15 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# Steering aids only help settled tires. Releasing Space must not instantly
 	# redirect momentum while the rear is still sliding or spinning under power.
 	var settled_tires := 1.0 - smoothstep(deg_to_rad(6.0), deg_to_rad(18.0), absf(slip_angle))
-	var arcade := config.arcade_steering_assist * surface_grip * (1.0 - rear_sliding) * (1.0 - wheel_spin) * settled_tires
+	# Road/race builds get a limited high-speed contact aid. It is absent on
+	# low-grip surfaces and *disengages* as soon as the rear slides, so a grip
+	# tune never auto-corrects the driver's deliberate drift.
+	var race_stability := clampf(config.high_speed_stability,0.0,0.65) * \
+		smoothstep(12.0,32.0,speed) * pow(clampf(surface_grip,0.0,1.0),2.0) * \
+		(1.0-rear_sliding) * (1.0-wheel_spin) * settled_tires
+	var arcade := clampf(config.arcade_steering_assist * surface_grip * \
+		(1.0-rear_sliding) * (1.0-wheel_spin) * settled_tires + \
+		race_stability * 0.16,0.0,1.0)
 	arcade_assist_fraction = arcade
 	var brake_turn := 1.0 + config.brake_turn_boost * stopping_input * arcade
 	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.18), drive_input, reversing, config)
@@ -198,12 +210,20 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# demanding impossible slip angles. Handbrake deliberately relaxes this aid.
 	var tire_envelope := atan(config.tire_grip * surface_grip * 9.81 * config.wheelbase_m / maxf(speed * speed, 1.0))
 	var safe_steer := (tire_envelope * lerpf(1.8, 3.5, handbrake) + deg_to_rad(1.5)) * config.high_speed_steer_degrees / 9.0
+	# High-speed grip tuning gently extends usable steer without bypassing
+	# the physical tire envelope or allowing a one-input hairpin at 200 km/h.
+	safe_steer *= 1.0 + race_stability * 0.50
 	# Sliding tires are no longer artificially locked to the stable-turn envelope.
 	var slide_request := maxf(handbrake * smoothstep(2.0, 7.0, speed),
 		smoothstep(deg_to_rad(9.0), deg_to_rad(24.0), absf(slip_angle)))
 	max_steer = minf(max_steer, lerpf(safe_steer, deg_to_rad(26.0), slide_request))
 	max_steer = minf(max_steer * brake_turn, deg_to_rad(70.0))
-	var assist := clampf(slip_angle * config.countersteer_assist, -0.18, 0.18) * clampf(speed / 8.0, 0.0, 1.0)
+	var drift_engagement := smoothstep(4.0,12.0,speed) * maxf(
+		rear_sliding * 0.90, smoothstep(deg_to_rad(9.0),deg_to_rad(25.0),absf(slip_angle)))
+	var drift_aid := clampf(config.drift_control,0.0,0.70) * \
+		drift_engagement * clampf(surface_grip,0.0,1.0)
+	var assist := clampf(slip_angle * config.countersteer_assist * \
+		(1.0 + drift_aid * 0.65), -0.24, 0.24) * clampf(speed / 8.0, 0.0, 1.0)
 	if absf(steer_input) < 0.02:
 		# Overdamped self-aligning spring: restoring torque is proportional to
 		# wheel angle, with stronger centering as road speed builds. Do not let
@@ -293,8 +313,11 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var cornering_budget := sqrt(maxf(0.0, 1.0 - brake_usage * brake_usage))
 	cornering_budget = lerpf(cornering_budget, 1.0, arcade * stopping_input)
 	cornering_grip_fraction = cornering_budget
-	var front_limit := front_load * grip * cornering_budget
-	var rear_limit := rear_load * grip * config.rear_grip_balance * lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * (1.0 - wheel_spin * rear_drive_share * 0.2) * cornering_budget
+	var front_limit := front_load * grip * cornering_budget * (1.0 + race_stability * 0.19)
+	var rear_limit := rear_load * grip * config.rear_grip_balance * \
+		lerpf(1.0, config.handbrake_rear_grip, rear_sliding) * \
+		(1.0 - wheel_spin * rear_drive_share * 0.2) * cornering_budget * \
+		(1.0 + race_stability * 0.10) * (1.0 - drift_aid * 0.25)
 	# Driven wheels also spend part of the friction budget on acceleration.
 	var drive_fraction := clampf(absf(engine_force) / maxf(traction_load * grip, 1.0), 0.0, 1.0)
 	if config.drivetrain != VehicleConfig.Drivetrain.RWD:
@@ -315,7 +338,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var breakaway := clampf(maxf(maxf(rear_sliding,
 		wheel_spin * rear_drive_share),
 		smoothstep(deg_to_rad(10.0), deg_to_rad(32.0), absf(slip_angle))), 0.0, 1.0)
-	dynamic_yaw *= exp(-config.yaw_damping * lerpf(1.0, 0.24, breakaway) * dt)
+	dynamic_yaw *= exp(-config.yaw_damping * lerpf(1.0, 0.24, breakaway) * \
+		(1.0 - drift_aid * 0.35) * dt)
 	var kinematic_yaw := new_long / config.wheelbase_m * tan(steering)
 	yaw_rate = lerpf(kinematic_yaw, dynamic_yaw, maxf(dynamic_blend, breakaway * 0.96))
 	# While sliding, committed steering and rear grip loss continue rotating the
@@ -324,11 +348,25 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var committed_turn := absf(steer_input) * smoothstep(2.5, 8.0, speed)
 	var turn_sign := signf(steer_input) * travel_sign
 	var oversteer_drive := committed_turn * breakaway * (0.85 + 0.65 * handbrake)
+	# A rear-wheel lock transfers the remaining rolling momentum into yaw.
+	# A moving, steered handbrake can bring a *stock* car through 180 degrees;
+	# the speed gate avoids resurrecting the parked-handbrake steering exploit.
+	var moving_lock := smoothstep(3.0,11.0,speed) * handbrake * \
+		clampf(surface_grip,0.0,1.0) * clampf(config.handbrake_rotation_boost,0.2,1.8)
+	oversteer_drive += committed_turn * moving_lock * 1.25
+	# Add a one-time turn initiation impulse; holding the button does not
+	# reapply it each frame. Steering is still required to rotate the car.
+	yaw_rate += turn_sign * absf(steer_input) * handbrake_edge * \
+		moving_lock * 0.67
+	# Drift suspension/tires preserve steering authority after releasing the
+	# handbrake, instead of snapping the car back onto the original trajectory.
+	oversteer_drive += committed_turn * drift_aid * (1.0 - handbrake) * 0.65
 	yaw_rate += turn_sign * oversteer_drive * dt
 	if absf(steer_input) < 0.05 and breakaway < 0.25:
 		yaw_rate = move_toward(yaw_rate, kinematic_yaw, 0.5 * dt)
 	if arcade > 0.0:
-		var arcade_yaw_limit := minf(1.9, config.arcade_cornering_accel * surface_grip * brake_turn / maxf(speed, 4.0))
+		var arcade_yaw_limit := minf(1.9, config.arcade_cornering_accel * surface_grip * \
+			brake_turn * (1.0 + race_stability * 0.13) / maxf(speed, 4.0))
 		var desired_yaw := clampf(kinematic_yaw, -arcade_yaw_limit, arcade_yaw_limit)
 		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-12.0 * arcade * dt))
 	yaw_rate = clampf(yaw_rate, -3.0, 3.0)
@@ -343,7 +381,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		# rotating the velocity vector, this costs lateral kinetic energy and
 		# cannot convert a sideways slide into a full-speed launch along the nose.
 		var extra_grip := maxf(0.0, config.arcade_cornering_accel * surface_grip - absf(front_force + rear_force) / mass)
-		var correction := absf(new_lateral) * (1.0 - exp(-config.arcade_lateral_grip * arcade * dt))
+		var correction := absf(new_lateral) * (1.0 - exp(-config.arcade_lateral_grip * \
+			(1.0 + race_stability * 0.15) * arcade * dt))
 		new_lateral = move_toward(new_lateral, 0.0, minf(correction, extra_grip * arcade * dt))
 	linear_velocity = forward * new_long + right * new_lateral
 	rotation += yaw_rate * dt
