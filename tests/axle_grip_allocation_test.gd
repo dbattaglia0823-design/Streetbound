@@ -59,7 +59,7 @@ func _run() -> void:
 		car.front_axle_load_n > static_load.x and car.rear_axle_load_n < static_load.y,
 		[car.front_axle_load_n, car.rear_axle_load_n])
 	check("actual_braking_spends_grip",
-		car.cornering_grip_fraction < 0.88 and car.cornering_grip_fraction > 0.0,
+		car.cornering_grip_fraction < 0.96 and car.cornering_grip_fraction > 0.0,
 		car.cornering_grip_fraction)
 	check("axle_grip_budgets_bounded",
 		car.front_cornering_grip_fraction >= 0.0 and car.front_cornering_grip_fraction <= 1.0

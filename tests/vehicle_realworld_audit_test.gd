@@ -57,7 +57,8 @@ func _run() -> void:
 			v.power_kw,v.torque_nm,v.mass_kg,v.length_m,v.width_m]
 		unique_signatures[fingerprint] = true
 		var cfg: VehicleConfig = Catalog.make_configuration(v)
-		all_calibrated = all_calibrated and v.has("front_weight_fraction") and
+		all_calibrated = all_calibrated and (
+			v.has("front_weight_fraction") and
 			v.has("center_of_gravity_height_m") and v.has("brake_bias_front") and
 			is_equal_approx(cfg.front_weight,float(v.get("front_weight_fraction",-1.0))) and
 			is_equal_approx(cfg.center_of_gravity_height_m,float(v.get("center_of_gravity_height_m",-1.0))) and
@@ -65,6 +66,7 @@ func _run() -> void:
 			cfg.front_weight >= 0.41 and cfg.front_weight <= 0.66 and
 			cfg.center_of_gravity_height_m >= 0.395 and cfg.center_of_gravity_height_m <= 0.89 and
 			cfg.brake_bias_front >= 0.60 and cfg.brake_bias_front <= 0.715
+		)
 		distinct_chassis["%s/%s/%s" % [cfg.front_weight,
 			cfg.center_of_gravity_height_m,cfg.brake_bias_front]] = true
 		proper_physics = proper_physics and \

@@ -162,12 +162,20 @@ func run() -> void:
 	car.config.engine_torque_nm /= 0.45
 	car.config.engine_power_kw /= 0.45
 	var drive_speeds: Array[float] = []
+	var launch_traction_limits: Array[float] = []
 	for drivetrain in 3:
 		fresh()
 		car.config.drivetrain = drivetrain
-		await drive(2, Vector4(1, 0, 0, 0))
+		await drive(0.25, Vector4(1, 0, 0, 0))
+		launch_traction_limits.append(car.traction_limit_n)
+		await drive(1.75, Vector4(1, 0, 0, 0))
 		drive_speeds.append(car.linear_velocity.length())
-	check("drivetrain_response", drive_speeds[2] > drive_speeds[1] and drive_speeds[1] > drive_speeds[0], drive_speeds)
+	# AWD and RWD can converge at 2 s once engine power, not tire bite,
+	# is the limiting factor. Verify AWD actually has more axle traction.
+	check("drivetrain_response", drive_speeds[2] >= drive_speeds[1] - 0.12
+		and drive_speeds[1] > drive_speeds[0], drive_speeds)
+	check("awd_uses_more_drive_axle_traction", launch_traction_limits[2] > launch_traction_limits[1]
+		and launch_traction_limits[2] > launch_traction_limits[0], launch_traction_limits)
 	# A repeatable steering/shift/drift trace for render-FPS comparisons.
 	car.config.drivetrain = VehicleConfig.Drivetrain.RWD
 	fresh()
