@@ -373,8 +373,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		var pivot_target := turn_sign * absf(steer_input) * \
 			(0.75 + clampf(config.handbrake_rotation_boost,0.2,1.8) * 1.2) * \
 			(0.35 + 0.65 * smoothstep(2.0,10.0,speed))
-		yaw_rate = move_toward(yaw_rate,pivot_target,
-			5.0 * moving_lock * dt)
+		# First-order rear-lock response can overcome the opposing front
+		# axle force at speed, yet decays naturally with tire momentum.
+		yaw_rate = lerpf(yaw_rate,pivot_target,
+			1.0 - exp(-16.0 * moving_lock * dt))
 	if absf(steer_input) < 0.05 and breakaway < 0.25:
 		yaw_rate = move_toward(yaw_rate, kinematic_yaw, 0.5 * dt)
 	if arcade > 0.0:
