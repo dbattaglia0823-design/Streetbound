@@ -169,7 +169,7 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 		"truck", "suv":
 			config.high_speed_stability = 0.05
 			config.drift_control = 0.10
-			config.handbrake_rotation_boost = 0.72
+			config.handbrake_rotation_boost = 0.86
 		"compact":
 			config.high_speed_stability = 0.10
 			config.drift_control = 0.21
@@ -195,7 +195,7 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 		config.handbrake_rotation_boost *= 0.85
 	elif config.drivetrain == VehicleConfig.Drivetrain.RWD:
 		config.drift_control += 0.04
-	config.handbrake_rotation_boost = clampf(config.handbrake_rotation_boost,0.45,1.28)
+	config.handbrake_rotation_boost = clampf(config.handbrake_rotation_boost,0.62,1.28)
 	config.handbrake_rear_grip = 0.40 if config.drivetrain == VehicleConfig.Drivetrain.AWD else 0.35
 	config.handbrake_grip_recovery_seconds = 0.48
 	# Keep driven tire size and acceleration consistent with vehicle class.
