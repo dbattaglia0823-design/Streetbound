@@ -49,3 +49,17 @@ These tests detect regressions but are not real-car telemetry validation. No pro
 - Switching cars still builds a fresh `VehicleConfig` from `player_vehicle_catalog.gd`, with that model's power, torque, mass, drivetrain, tire grip and braking parameters. Legitimate owned garage upgrades still apply afterward.
 - Older `user://streetbound_vehicle_tuning.cfg` files are left untouched for user data safety but are no longer loaded or written. They cannot override the active vehicle.
 - Focused regressions: `tests/tuning_persistence_test.gd` (now tests legacy save isolation), `tests/live_vehicle_dashboard_test.gd`, `tests/game_startup_smoke_test.gd`, and `tests/remappable_controls_settings_test.gd`.
+
+## 2026-11-20 — Longitudinal weight transfer and axle grip allocation
+
+The physical 120 Hz bicycle model now derives front/rear normal loads from signed, filtered longitudinal acceleration and an estimated centre-of-gravity height. The axle loads sum to the vehicle's weight, with contact bounds to avoid numerical lift-off. Service brakes are allocated by front brake bias, while the handbrake remains rear-only. Both delivered drive and brake force consume each axle's lateral tire budget via a bounded friction-circle approximation; the existing arcade-braking assist may restore some lateral authority, but cannot increase straight-line tire drive or braking forces. This does **not** simulate wheel-by-wheel load transfer, active ABS, or roll/suspension travel.
+
+The parameters `center_of_gravity_height_m` and `brake_bias_front` are calibration controls, not measured OEM numbers. Before merging, compare the existing drift/handbrake, race tuning, 120 Hz driving, high-output powertrain and AI baseline tests, plus a real player drive. Follow in a separate roster-calibration PR once the physics PR is validated.
+
+### Tire-load sensitivity follow-up
+
+The original full-load longitudinal transfer caused an excessive braking-corner slip angle in `tests/racing_tune_test.gd` when lateral cornering force also grew linearly with each axle's load. Lateral tire force now responds sublinearly to normal-load changes (0.58 power) while longitudinal drive/braking contact remains load-sensitive. The high-speed brake-corner scenario is now exercised by the dedicated two-version race/drift workflow. This is a bounded arcade-friendly contact approximation, not a measured tire curve.
+
+### Braking-yaw envelope
+
+The existing arcade steering target can demand more turn rate than the combined front/rear lateral tire forces support while the service brake is held. During service-brake cornering, yaw is now bounded by the axle-force lateral acceleration budget divided by speed. Existing brake-turn upgrades still vary the limit within a controlled range; no yaw cap is applied for handbrake/rear-lock drifts, and normal non-braking cornering is untouched. The 120 Hz racing-braking test is a CI gate to prevent excessive slip under sustained braking.
