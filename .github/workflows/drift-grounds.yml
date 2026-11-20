@@ -1,0 +1,85 @@
+name: Drift Grounds playable course
+
+on:
+  pull_request:
+    paths:
+      - 'map-editor/maps/drift-grounds.world.json'
+      - 'map-editor/maps/DRIFT_GROUNDS.md'
+      - 'map-editor/index.html'
+      - 'map-editor/world-editor.js'
+      - 'map-editor/tests/drift-grounds.test.mjs'
+      - 'scripts/dev/native_map_switcher.gd'
+      - 'tests/drift_grounds_*.py'
+      - 'tests/drift_grounds_*.gd'
+      - '.github/workflows/drift-grounds.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'map-editor/maps/drift-grounds.world.json'
+      - 'map-editor/maps/DRIFT_GROUNDS.md'
+      - 'map-editor/index.html'
+      - 'map-editor/world-editor.js'
+      - 'map-editor/tests/drift-grounds.test.mjs'
+      - 'scripts/dev/native_map_switcher.gd'
+      - 'tests/drift_grounds_*.py'
+      - 'tests/drift_grounds_*.gd'
+      - '.github/workflows/drift-grounds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift-grounds-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  geometry-and-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bake actual game world and verify drift roads, racing lines, hitboxes and safe spawn
+        run: python3 -m unittest discover -s tests -p 'drift_grounds_map_test.py' -v
+      - name: Validate browser map source, closed rings and circuit navigation
+        run: node --test map-editor/tests/drift-grounds.test.mjs
+
+  native-map-builder:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1','4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate script resource UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Download Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Cold-import game resources and native map editor
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/drift-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/drift-import.log
+      - name: Validate Drift Grounds native editor import and user-map roundtrip
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 105s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/drift_grounds_native_test.gd 2>&1 | tee /tmp/drift-test.log
+          grep -q 'DRIFT GROUNDS NATIVE: PASS' /tmp/drift-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/drift-test.log
+      - name: Preserve diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-grounds-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/drift-import.log
+            /tmp/drift-test.log
+          if-no-files-found: warn
+          retention-days: 14

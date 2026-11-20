@@ -1,0 +1,2212 @@
+{
+  "format": "gdt.racing-world",
+  "version": 2,
+  "customMap": true,
+  "name": "Drift Grounds",
+  "world": {
+    "width": 820,
+    "height": 700,
+    "seed": 48219,
+    "base": "city"
+  },
+  "roads": [
+    {
+      "id": "road-1",
+      "name": "Tandem Outer Circuit",
+      "roadClass": "track",
+      "surface": "track",
+      "width": 24,
+      "lanes": 2,
+      "shoulder": 2,
+      "markings": true,
+      "smooth": true,
+      "points": [
+        {
+          "x": 170,
+          "y": 335
+        },
+        {
+          "x": 290,
+          "y": 347
+        },
+        {
+          "x": 415,
+          "y": 379
+        },
+        {
+          "x": 525,
+          "y": 350
+        },
+        {
+          "x": 630,
+          "y": 318
+        },
+        {
+          "x": 702,
+          "y": 348
+        },
+        {
+          "x": 729,
+          "y": 420
+        },
+        {
+          "x": 708,
+          "y": 504
+        },
+        {
+          "x": 638,
+          "y": 566
+        },
+        {
+          "x": 520,
+          "y": 598
+        },
+        {
+          "x": 402,
+          "y": 598
+        },
+        {
+          "x": 276,
+          "y": 596
+        },
+        {
+          "x": 168,
+          "y": 566
+        },
+        {
+          "x": 109,
+          "y": 507
+        },
+        {
+          "x": 86,
+          "y": 423
+        },
+        {
+          "x": 112,
+          "y": 369
+        },
+        {
+          "x": 170,
+          "y": 335
+        }
+      ]
+    },
+    {
+      "id": "road-2",
+      "name": "Outer Drift Skidpad",
+      "roadClass": "track",
+      "surface": "track",
+      "width": 22,
+      "lanes": 2,
+      "shoulder": 1,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 270,
+          "y": 180
+        },
+        {
+          "x": 263.91,
+          "y": 210.615
+        },
+        {
+          "x": 246.569,
+          "y": 236.569
+        },
+        {
+          "x": 220.615,
+          "y": 253.91
+        },
+        {
+          "x": 190,
+          "y": 260
+        },
+        {
+          "x": 159.385,
+          "y": 253.91
+        },
+        {
+          "x": 133.431,
+          "y": 236.569
+        },
+        {
+          "x": 116.09,
+          "y": 210.615
+        },
+        {
+          "x": 110,
+          "y": 180
+        },
+        {
+          "x": 116.09,
+          "y": 149.385
+        },
+        {
+          "x": 133.431,
+          "y": 123.431
+        },
+        {
+          "x": 159.385,
+          "y": 106.09
+        },
+        {
+          "x": 190,
+          "y": 100
+        },
+        {
+          "x": 220.615,
+          "y": 106.09
+        },
+        {
+          "x": 246.569,
+          "y": 123.431
+        },
+        {
+          "x": 263.91,
+          "y": 149.385
+        },
+        {
+          "x": 270,
+          "y": 180
+        }
+      ]
+    },
+    {
+      "id": "road-3",
+      "name": "Inner Donut Ring",
+      "roadClass": "track",
+      "surface": "track",
+      "width": 16,
+      "lanes": 1,
+      "shoulder": 1,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 232,
+          "y": 180
+        },
+        {
+          "x": 226.373,
+          "y": 201
+        },
+        {
+          "x": 211,
+          "y": 216.373
+        },
+        {
+          "x": 190,
+          "y": 222
+        },
+        {
+          "x": 169,
+          "y": 216.373
+        },
+        {
+          "x": 153.627,
+          "y": 201
+        },
+        {
+          "x": 148,
+          "y": 180
+        },
+        {
+          "x": 153.627,
+          "y": 159
+        },
+        {
+          "x": 169,
+          "y": 143.627
+        },
+        {
+          "x": 190,
+          "y": 138
+        },
+        {
+          "x": 211,
+          "y": 143.627
+        },
+        {
+          "x": 226.373,
+          "y": 159
+        },
+        {
+          "x": 232,
+          "y": 180
+        }
+      ]
+    },
+    {
+      "id": "road-4",
+      "name": "Skidpad Radial Connector",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 1,
+      "shoulder": 1,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 232,
+          "y": 180
+        },
+        {
+          "x": 270,
+          "y": 180
+        }
+      ]
+    },
+    {
+      "id": "road-5",
+      "name": "Training Link",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 16,
+      "lanes": 1,
+      "shoulder": 1,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 270,
+          "y": 180
+        },
+        {
+          "x": 345,
+          "y": 210
+        },
+        {
+          "x": 410,
+          "y": 220
+        }
+      ]
+    },
+    {
+      "id": "road-6",
+      "name": "Technical S Transitions",
+      "roadClass": "track",
+      "surface": "track",
+      "width": 18,
+      "lanes": 1,
+      "shoulder": 1.5,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 410,
+          "y": 220
+        },
+        {
+          "x": 465,
+          "y": 167
+        },
+        {
+          "x": 512,
+          "y": 132
+        },
+        {
+          "x": 553,
+          "y": 164
+        },
+        {
+          "x": 595,
+          "y": 221
+        },
+        {
+          "x": 635,
+          "y": 209
+        },
+        {
+          "x": 673,
+          "y": 171
+        },
+        {
+          "x": 711,
+          "y": 211
+        },
+        {
+          "x": 682,
+          "y": 283
+        },
+        {
+          "x": 630,
+          "y": 318
+        }
+      ]
+    },
+    {
+      "id": "road-7",
+      "name": "Infield Reverse Transitions",
+      "roadClass": "track",
+      "surface": "track",
+      "width": 18,
+      "lanes": 1,
+      "shoulder": 1,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 415,
+          "y": 379
+        },
+        {
+          "x": 359,
+          "y": 432
+        },
+        {
+          "x": 385,
+          "y": 489
+        },
+        {
+          "x": 459,
+          "y": 478
+        },
+        {
+          "x": 489,
+          "y": 429
+        },
+        {
+          "x": 533,
+          "y": 474
+        },
+        {
+          "x": 509,
+          "y": 538
+        },
+        {
+          "x": 520,
+          "y": 598
+        }
+      ]
+    },
+    {
+      "id": "road-8",
+      "name": "Pit Lane",
+      "roadClass": "service",
+      "surface": "asphalt",
+      "width": 12,
+      "lanes": 1,
+      "shoulder": 2,
+      "markings": false,
+      "smooth": true,
+      "points": [
+        {
+          "x": 276,
+          "y": 596
+        },
+        {
+          "x": 330,
+          "y": 558
+        },
+        {
+          "x": 474,
+          "y": 558
+        },
+        {
+          "x": 520,
+          "y": 598
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "id": "region-1",
+      "name": "Skidpad Apron",
+      "biome": "rock",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 78,
+          "y": 60
+        },
+        {
+          "x": 305,
+          "y": 60
+        },
+        {
+          "x": 310,
+          "y": 295
+        },
+        {
+          "x": 75,
+          "y": 295
+        }
+      ]
+    },
+    {
+      "id": "region-2",
+      "name": "Technical Course Paving",
+      "biome": "city",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 352,
+          "y": 60
+        },
+        {
+          "x": 755,
+          "y": 60
+        },
+        {
+          "x": 755,
+          "y": 315
+        },
+        {
+          "x": 355,
+          "y": 315
+        }
+      ]
+    },
+    {
+      "id": "region-3",
+      "name": "Tandem Circuit Infield",
+      "biome": "rock",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 165,
+          "y": 386
+        },
+        {
+          "x": 661,
+          "y": 386
+        },
+        {
+          "x": 659,
+          "y": 554
+        },
+        {
+          "x": 200,
+          "y": 554
+        }
+      ]
+    },
+    {
+      "id": "region-4",
+      "name": "Service Paddock",
+      "biome": "city",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 185,
+          "y": 399
+        },
+        {
+          "x": 336,
+          "y": 399
+        },
+        {
+          "x": 349,
+          "y": 540
+        },
+        {
+          "x": 186,
+          "y": 540
+        }
+      ]
+    },
+    {
+      "id": "region-5",
+      "name": "Paddock Spectator Ground",
+      "biome": "grass",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 80,
+          "y": 618
+        },
+        {
+          "x": 750,
+          "y": 618
+        },
+        {
+          "x": 750,
+          "y": 698
+        },
+        {
+          "x": 80,
+          "y": 698
+        }
+      ]
+    },
+    {
+      "id": "region-6",
+      "name": "West Green Buffer",
+      "biome": "forest",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 0,
+          "y": 70
+        },
+        {
+          "x": 68,
+          "y": 70
+        },
+        {
+          "x": 68,
+          "y": 650
+        },
+        {
+          "x": 0,
+          "y": 650
+        }
+      ]
+    },
+    {
+      "id": "region-7",
+      "name": "East Industrial Buffer",
+      "biome": "rock",
+      "elevation": 0,
+      "points": [
+        {
+          "x": 756,
+          "y": 313
+        },
+        {
+          "x": 820,
+          "y": 313
+        },
+        {
+          "x": 820,
+          "y": 613
+        },
+        {
+          "x": 756,
+          "y": 613
+        }
+      ]
+    }
+  ],
+  "props": [
+    {
+      "id": "prop-1",
+      "name": "Skidpad Outer Safety Rail",
+      "type": "guardrail",
+      "x": 177.537,
+      "y": 180,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": "",
+      "guardrailWidth": 0.65,
+      "guardrailPoints": [
+        [
+          113.867,
+          45.148
+        ],
+        [
+          103.23,
+          63.893
+        ],
+        [
+          89.171,
+          80.23
+        ],
+        [
+          72.22,
+          93.542
+        ],
+        [
+          53.016,
+          103.327
+        ],
+        [
+          32.283,
+          109.216
+        ],
+        [
+          10.803,
+          110.988
+        ],
+        [
+          -10.615,
+          108.574
+        ],
+        [
+          -31.163,
+          102.068
+        ],
+        [
+          -50.066,
+          91.713
+        ],
+        [
+          -66.611,
+          77.9
+        ],
+        [
+          -80.175,
+          61.15
+        ],
+        [
+          -90.246,
+          42.094
+        ],
+        [
+          -96.444,
+          21.451
+        ],
+        [
+          -98.537,
+          0
+        ],
+        [
+          -96.444,
+          -21.451
+        ],
+        [
+          -90.246,
+          -42.094
+        ],
+        [
+          -80.175,
+          -61.15
+        ],
+        [
+          -66.611,
+          -77.9
+        ],
+        [
+          -50.066,
+          -91.713
+        ],
+        [
+          -31.163,
+          -102.068
+        ],
+        [
+          -10.615,
+          -108.574
+        ],
+        [
+          10.803,
+          -110.988
+        ],
+        [
+          32.283,
+          -109.216
+        ],
+        [
+          53.016,
+          -103.327
+        ],
+        [
+          72.22,
+          -93.542
+        ],
+        [
+          89.171,
+          -80.23
+        ],
+        [
+          103.23,
+          -63.893
+        ],
+        [
+          113.867,
+          -45.148
+        ]
+      ],
+      "assetSize": [
+        213.054,
+        222.626
+      ]
+    },
+    {
+      "id": "prop-2",
+      "name": "East Wall Drift Guardrail",
+      "type": "guardrail",
+      "x": 759.2,
+      "y": 456,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": "",
+      "guardrailWidth": 0.65,
+      "guardrailPoints": [
+        [
+          7.8,
+          -111
+        ],
+        [
+          13.8,
+          -56
+        ],
+        [
+          12.8,
+          4
+        ],
+        [
+          -2.2,
+          64
+        ],
+        [
+          -32.2,
+          99
+        ]
+      ],
+      "assetSize": [
+        46.65,
+        210.65
+      ]
+    },
+    {
+      "id": "prop-3",
+      "name": "Western Return Safety Rail",
+      "type": "guardrail",
+      "x": 64.25,
+      "y": 479,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": "",
+      "guardrailWidth": 0.65,
+      "guardrailPoints": [
+        [
+          -13.25,
+          -93
+        ],
+        [
+          -17.25,
+          -30
+        ],
+        [
+          0.75,
+          43
+        ],
+        [
+          29.75,
+          80
+        ]
+      ],
+      "assetSize": [
+        47.65,
+        173.65
+      ]
+    },
+    {
+      "id": "prop-4",
+      "name": "South Exit Safety Rail",
+      "type": "guardrail",
+      "x": 429.5,
+      "y": 644.25,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": "",
+      "guardrailWidth": 0.65,
+      "guardrailPoints": [
+        [
+          -213.5,
+          3.75
+        ],
+        [
+          -71.5,
+          4.75
+        ],
+        [
+          70.5,
+          4.75
+        ],
+        [
+          214.5,
+          -13.25
+        ]
+      ],
+      "assetSize": [
+        428.65,
+        18.65
+      ]
+    },
+    {
+      "id": "prop-5",
+      "name": "Infield Clipping Reference",
+      "type": "guardrail",
+      "x": 615.333,
+      "y": 393.667,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": "",
+      "guardrailWidth": 0.65,
+      "guardrailPoints": [
+        [
+          -36.333,
+          -3.667
+        ],
+        [
+          3.667,
+          -8.667
+        ],
+        [
+          32.667,
+          12.333
+        ]
+      ],
+      "assetSize": [
+        69.65,
+        21.65
+      ]
+    },
+    {
+      "id": "prop-6",
+      "name": "Skidpad Tuning Bay",
+      "type": "garage",
+      "x": 343,
+      "y": 78,
+      "rotation": 0,
+      "scale": 1.03,
+      "assetId": ""
+    },
+    {
+      "id": "prop-7",
+      "name": "Alignment Garage",
+      "type": "garage",
+      "x": 386,
+      "y": 79,
+      "rotation": 0,
+      "scale": 1.02,
+      "assetId": ""
+    },
+    {
+      "id": "prop-8",
+      "name": "Drift Tire Warehouse",
+      "type": "warehouse",
+      "x": 440,
+      "y": 45,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-9",
+      "name": "Event Storage",
+      "type": "warehouse",
+      "x": 520,
+      "y": 43,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-10",
+      "name": "Recovery Workshop",
+      "type": "garage",
+      "x": 603,
+      "y": 48,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-11",
+      "name": "Upper Paddock Warehouse",
+      "type": "warehouse",
+      "x": 742,
+      "y": 63,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-12",
+      "name": "Lower Pit Garage A",
+      "type": "garage",
+      "x": 220,
+      "y": 432,
+      "rotation": 0,
+      "scale": 1.1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-13",
+      "name": "Lower Pit Garage B",
+      "type": "garage",
+      "x": 270,
+      "y": 432,
+      "rotation": 0,
+      "scale": 1.1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-14",
+      "name": "Drifter Parking Bays",
+      "type": "parking",
+      "x": 243,
+      "y": 498,
+      "rotation": 0,
+      "scale": 1.1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-15",
+      "name": "Fuel and Service",
+      "type": "gas_station",
+      "x": 616,
+      "y": 470,
+      "rotation": 90,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-16",
+      "name": "Tandem Spectator Building",
+      "type": "warehouse",
+      "x": 625,
+      "y": 431,
+      "rotation": 0,
+      "scale": 0.87,
+      "assetId": ""
+    },
+    {
+      "id": "prop-17",
+      "name": "East Service Shed",
+      "type": "garage",
+      "x": 781,
+      "y": 343,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-18",
+      "name": "East Freight Shop",
+      "type": "warehouse",
+      "x": 786,
+      "y": 582,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-19",
+      "name": "Upper Spectator Parking",
+      "type": "parking",
+      "x": 370,
+      "y": 640,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-20",
+      "name": "Lower Spectator Parking",
+      "type": "parking",
+      "x": 556,
+      "y": 646,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-21",
+      "name": "South Tuning Garage",
+      "type": "garage",
+      "x": 756,
+      "y": 633,
+      "rotation": 0,
+      "scale": 1.05,
+      "assetId": ""
+    },
+    {
+      "id": "prop-22",
+      "name": "South Shuttle Lot",
+      "type": "parking",
+      "x": 143,
+      "y": 636,
+      "rotation": 0,
+      "scale": 0.7,
+      "assetId": ""
+    },
+    {
+      "id": "prop-23",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 325,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-24",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 378,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-25",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 432,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-26",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 489,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-27",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 547,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-28",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 600,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-29",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 653,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-30",
+      "name": "Technical Course Floodlight",
+      "type": "streetlight",
+      "x": 711,
+      "y": 86,
+      "rotation": 0,
+      "scale": 0.9,
+      "assetId": ""
+    },
+    {
+      "id": "prop-31",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 325,
+      "y": 292,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-32",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 380,
+      "y": 305,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-33",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 455,
+      "y": 296,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-34",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 535,
+      "y": 286,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-35",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 616,
+      "y": 289,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-36",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 715,
+      "y": 305,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-37",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 760,
+      "y": 331,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-38",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 754,
+      "y": 525,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-39",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 672,
+      "y": 595,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-40",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 577,
+      "y": 621,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-41",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 422,
+      "y": 622,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-42",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 275,
+      "y": 623,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-43",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 160,
+      "y": 590,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-44",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 79,
+      "y": 520,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-45",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 62,
+      "y": 410,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-46",
+      "name": "Drift Circuit Floodlight",
+      "type": "streetlight",
+      "x": 96,
+      "y": 319,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-47",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 78,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-48",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 110,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-49",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 142,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-50",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 174,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-51",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 206,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-52",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 238,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-53",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 270,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-54",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 302,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-55",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 334,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-56",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 366,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-57",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 398,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-58",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 430,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-59",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 462,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-60",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 494,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-61",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 526,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-62",
+      "name": "West Screening Trees",
+      "type": "pine",
+      "x": 30,
+      "y": 558,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-63",
+      "name": "West Screening Trees",
+      "type": "oak",
+      "x": 30,
+      "y": 590,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-64",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 92,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-65",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 123,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-66",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 154,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-67",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 185,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-68",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 216,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-69",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 247,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-70",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 278,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-71",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 309,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-72",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 340,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-73",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 371,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-74",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 402,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-75",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 433,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-76",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 464,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-77",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 495,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-78",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 526,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-79",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 557,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-80",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 588,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-81",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 619,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-82",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 650,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-83",
+      "name": "South Viewing Trees",
+      "type": "pine",
+      "x": 681,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-84",
+      "name": "South Viewing Trees",
+      "type": "oak",
+      "x": 712,
+      "y": 679,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-85",
+      "name": "Skidpad Outer Trees",
+      "type": "oak",
+      "x": 92,
+      "y": 42,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-86",
+      "name": "Skidpad Outer Trees",
+      "type": "oak",
+      "x": 141,
+      "y": 42,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-87",
+      "name": "Skidpad Outer Trees",
+      "type": "oak",
+      "x": 211,
+      "y": 42,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-88",
+      "name": "Skidpad Outer Trees",
+      "type": "oak",
+      "x": 258,
+      "y": 42,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-89",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 347,
+      "y": 119,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-90",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 393,
+      "y": 116,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-91",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 466,
+      "y": 83,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-92",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 567,
+      "y": 82,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-93",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 725,
+      "y": 99,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-94",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 747,
+      "y": 155,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-95",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 746,
+      "y": 265,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-96",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 758,
+      "y": 290,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-97",
+      "name": "Safe Buffer Landscaping",
+      "type": "bush",
+      "x": 758,
+      "y": 586,
+      "rotation": 0,
+      "scale": 0.85,
+      "assetId": ""
+    },
+    {
+      "id": "prop-98",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 198,
+      "y": 469,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-99",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 295,
+      "y": 488,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-100",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 199,
+      "y": 514,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-101",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 308,
+      "y": 510,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-102",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 550,
+      "y": 439,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-103",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 659,
+      "y": 454,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-104",
+      "name": "Viewing Area Planter",
+      "type": "planter",
+      "x": 616,
+      "y": 546,
+      "rotation": 0,
+      "scale": 0.8,
+      "assetId": ""
+    },
+    {
+      "id": "prop-105",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 314,
+      "y": 80,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-106",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 344,
+      "y": 246,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-107",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 402,
+      "y": 180,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-108",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 642,
+      "y": 244,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-109",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 693,
+      "y": 297,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-110",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 570,
+      "y": 355,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-111",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 252,
+      "y": 565,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-112",
+      "name": "Corner Zone Sign",
+      "type": "sign",
+      "x": 698,
+      "y": 610,
+      "rotation": 0,
+      "scale": 1,
+      "assetId": ""
+    },
+    {
+      "id": "prop-113",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 188,
+      "y": 531,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-114",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 197,
+      "y": 536,
+      "rotation": 180,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-115",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 206,
+      "y": 531,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-116",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 215,
+      "y": 536,
+      "rotation": 180,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-117",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 224,
+      "y": 531,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-118",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 233,
+      "y": 536,
+      "rotation": 180,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-119",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 242,
+      "y": 531,
+      "rotation": 0,
+      "scale": 0.95,
+      "assetId": ""
+    },
+    {
+      "id": "prop-120",
+      "name": "Pit Crew Car",
+      "type": "parked_car",
+      "x": 251,
+      "y": 536,
+      "rotation": 180,
+      "scale": 0.95,
+      "assetId": ""
+    }
+  ],
+  "markers": [
+    {
+      "id": "marker-1",
+      "name": "Drift Grounds Start",
+      "type": "player_spawn",
+      "x": 345,
+      "y": 210,
+      "rotation": 90,
+      "properties": {}
+    },
+    {
+      "id": "marker-2",
+      "name": "Paddock Garage",
+      "type": "garage",
+      "x": 276,
+      "y": 596,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-3",
+      "name": "Pit Fuel",
+      "type": "fuel",
+      "x": 520,
+      "y": 598,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-4",
+      "name": "Skidpad Practice",
+      "type": "fast_travel",
+      "x": 270,
+      "y": 180,
+      "rotation": 0,
+      "properties": {}
+    },
+    {
+      "id": "marker-5",
+      "name": "Technical Course Briefing",
+      "type": "mission",
+      "x": 410,
+      "y": 220,
+      "rotation": 0,
+      "properties": {}
+    }
+  ],
+  "assets": [],
+  "races": [
+    {
+      "id": "race-tandem-loop",
+      "name": "Tandem Outer Loop",
+      "mode": "circuit",
+      "race_kind": "circuit",
+      "laps": 2,
+      "points": [
+        {
+          "x": 170,
+          "y": 335
+        },
+        {
+          "x": 415,
+          "y": 379
+        },
+        {
+          "x": 630,
+          "y": 318
+        },
+        {
+          "x": 729,
+          "y": 420
+        },
+        {
+          "x": 638,
+          "y": 566
+        },
+        {
+          "x": 402,
+          "y": 598
+        },
+        {
+          "x": 168,
+          "y": 566
+        },
+        {
+          "x": 86,
+          "y": 423
+        }
+      ],
+      "category": "circuit",
+      "difficulty": "amateur",
+      "repeatable": true,
+      "reward_cash": 1350,
+      "player_start": {
+        "x": 170,
+        "y": 335,
+        "rotation": 90
+      },
+      "enemy_starts": [],
+      "formation": "single_file",
+      "time_limit": 0
+    },
+    {
+      "id": "race-technical-transitions",
+      "name": "Technical Drift Transitions",
+      "mode": "sprint",
+      "race_kind": "time_trial",
+      "laps": 1,
+      "points": [
+        {
+          "x": 410,
+          "y": 220
+        },
+        {
+          "x": 512,
+          "y": 132
+        },
+        {
+          "x": 595,
+          "y": 221
+        },
+        {
+          "x": 711,
+          "y": 211
+        },
+        {
+          "x": 630,
+          "y": 318
+        },
+        {
+          "x": 415,
+          "y": 379
+        },
+        {
+          "x": 385,
+          "y": 489
+        },
+        {
+          "x": 509,
+          "y": 538
+        }
+      ],
+      "category": "time_trial",
+      "difficulty": "pro",
+      "repeatable": true,
+      "reward_cash": 900,
+      "player_start": {
+        "x": 410,
+        "y": 220,
+        "rotation": 90
+      },
+      "enemy_starts": [],
+      "formation": "single_file",
+      "time_limit": 180
+    },
+    {
+      "id": "race-skidpad-session",
+      "name": "Skidpad Control Session",
+      "mode": "sprint",
+      "race_kind": "time_trial",
+      "laps": 1,
+      "points": [
+        {
+          "x": 270,
+          "y": 180
+        },
+        {
+          "x": 247,
+          "y": 123
+        },
+        {
+          "x": 190,
+          "y": 100
+        },
+        {
+          "x": 133,
+          "y": 123
+        },
+        {
+          "x": 110,
+          "y": 180
+        },
+        {
+          "x": 133,
+          "y": 237
+        },
+        {
+          "x": 190,
+          "y": 260
+        },
+        {
+          "x": 247,
+          "y": 237
+        }
+      ],
+      "category": "time_trial",
+      "difficulty": "rookie",
+      "repeatable": true,
+      "reward_cash": 400,
+      "player_start": {
+        "x": 270,
+        "y": 180,
+        "rotation": 90
+      },
+      "enemy_starts": [],
+      "formation": "single_file",
+      "time_limit": 180
+    }
+  ],
+  "morrowSourceRoadCount": 0,
+  "morrowSourcePoiCount": 0
+}
