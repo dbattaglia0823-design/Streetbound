@@ -42,3 +42,7 @@ Two Godot regression jobs (4.6.3 and 4.4.1) reported a script error during `test
 Added a review branch with Godot ENet direct-IP host/join UI, persistent admission/roster, host-driven guest physics, predicted local player and interpolated remote cars, nameplates, model identity broadcast, and online session teardown. The original solo career and local split-screen paths remain separate; no saved-profile migration.
 
 New smoke regression: \`tests/online_friend_session_test.gd\`, run in the Godot 4.6.3 validation workflow. This is a source/code milestone; no two-machine LAN/WAN, port forwarding, real latency or interactive network driving result is claimed. See \`docs/FRIENDS_MULTIPLAYER.md\` for operational caveats, security limitations and next steps.
+
+## 2026-11-20 — Online friend-session CI verification
+
+Godot 4.6.3 CI **run 44809030179** (PR #176) reported **success** for title/pause navigation, `tests/online_friend_session_test.gd` (host world/session lifecycle), and the real two-process ENet localhost probe `tests/online_friend_connection_probe.gd` (host admission, roster, world-ready, model identity, disconnect). The project's Godot 4.6.3 cold import and resource UID preflight were also successful on that run. These are CI regressions, not WAN/firewall, high-latency or interactive multi-person gameplay validation. PR remains a draft.
