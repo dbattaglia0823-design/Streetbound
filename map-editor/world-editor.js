@@ -1473,6 +1473,17 @@ function loadAtlasCoast(){
   if($('new-dialog').open)$('new-dialog').close();
 }
 $('load-atlas').addEventListener('click',loadAtlasCoast);
+$('load-compact').addEventListener('click',async()=>{
+  if(!readyToSave())return;
+  if(dirty&&!window.confirm('Replace unsaved edits with Compact Boroughs? Export JSON first.'))return;
+  try{
+    const response=await fetch('./maps/compact-boroughs.world.json',{cache:'no-store'});
+    if(!response.ok)throw new Error('Compact Boroughs starter file is missing.');
+    const starter=parseWorld(await response.text());
+    if(starter.customMap!==true)throw new Error('Bundled preset is not a saved custom world.');
+    startWorld(starter,'Compact Boroughs loaded: Old Town, Market District and Dockside. Export JSON for native editor Test Drive.');
+  }catch(error){errorMessage(error);}
+});
 $('adopt-game-prop').addEventListener('click',()=>{
   if(!runtimePreview)return status('Open Game Map first.');
   setTool('select');
