@@ -1,4 +1,5 @@
 extends Node2D
+@onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Free-roam online world: host simulates guest physics using the SAME
 ## VehicleController2D input seam; clients predict their own car and interpolate
 ## remote cars. Competitive races/progression are deliberately not networked.
@@ -22,8 +23,8 @@ var roster_label: Label
 
 func _ready() -> void:
 	name = "OnlineWorld"
-	OnlineSession.roster_changed.connect(_sync_peers)
-	OnlineSession.session_closed.connect(_session_closed)
+	online_session.roster_changed.connect(_sync_peers)
+	online_session.session_closed.connect(_session_closed)
 	roster_label = Label.new()
 	roster_label.name = "OnlineRoster"
 	roster_label.position = Vector2(20, 16)
@@ -34,19 +35,19 @@ func _ready() -> void:
 	overlay.add_child(roster_label)
 	add_child(overlay)
 	_sync_peers()
-	OnlineSession.mark_world_ready()
+	online_session.mark_world_ready()
 
 func _sync_peers() -> void:
-	if not OnlineSession.active or not is_instance_valid(local_vehicle):
+	if not online_session.active or not is_instance_valid(local_vehicle):
 		return
-	var own_id := OnlineSession.own_id()
-	for id in OnlineSession.players:
+	var own_id := online_session.own_id()
+	for id in online_session.players:
 		var peer_id := int(id)
 		if peer_id == own_id:
 			continue
 		if not peer_cars.has(peer_id):
 			_add_remote(peer_id)
-		var record: Dictionary = OnlineSession.players[id]
+		var record: Dictionary = online_session.players[id]
 		var model_id := str(record.get("car_id", ""))
 		if peer_models.get(peer_id, "") != model_id and not model_id.is_empty():
 			var entry: Dictionary = Catalog.find_by_id(model_id)
@@ -56,7 +57,7 @@ func _sync_peers() -> void:
 		if peer_labels.has(peer_id):
 			(peer_labels[peer_id] as Label).text = str(record.get("name", "Driver"))
 	for id in peer_cars.keys():
-		if not OnlineSession.players.has(id):
+		if not online_session.players.has(id):
 			_remove_remote(int(id))
 	_refresh_roster_label()
 
@@ -65,17 +66,17 @@ func _add_remote(id: int) -> void:
 	car.name = "Friend_%d" % id
 	# Godot assigns large non-sequential peer IDs: use the four-seat roster
 	# position, never the raw peer ID, to choose a safe spawn offset.
-	var seat := maxi(1, OnlineSession.players.keys().find(id))
+	var seat := maxi(1, online_session.players.keys().find(id))
 	car.position = local_vehicle.global_position + \
 		Vector2(85.0 * float(seat), 0).rotated(local_vehicle.rotation)
 	car.surface_provider = world
 	car.external_input = true
 	car.collision_layer = 0  # No vehicle-on-vehicle crashes in this slice.
-	car.collision_mask = 1 if OnlineSession.hosting else 0
+	car.collision_mask = 1 if online_session.hosting else 0
 	car.z_index = 8
 	add_child(car)
 	# Only the host advances guest cars through the physical controller.
-	car.set_physics_process(OnlineSession.hosting)
+	car.set_physics_process(online_session.hosting)
 	peer_cars[id] = car
 	var nameplate := Label.new()
 	nameplate.name = "Name_%d" % id
@@ -102,13 +103,13 @@ func _refresh_roster_label() -> void:
 	if not is_instance_valid(roster_label):
 		return
 	roster_label.text = "ONLINE %s   %d/%d DRIVERS" % [
-		"HOST" if OnlineSession.hosting else "GUEST",
-		OnlineSession.players.size(), OnlineSession.MAX_PLAYERS]
+		"HOST" if online_session.hosting else "GUEST",
+		online_session.players.size(), online_session.MAX_PLAYERS]
 
 func _physics_process(dt: float) -> void:
-	if not OnlineSession.active:
+	if not online_session.active:
 		return
-	if OnlineSession.hosting:
+	if online_session.hosting:
 		for id in peer_cars:
 			var car := peer_cars[id] as VehicleController2D
 			if Time.get_ticks_msec() - int(commands_at.get(id, 0)) > COMMAND_TIMEOUT_MS:
@@ -120,8 +121,8 @@ func _physics_process(dt: float) -> void:
 			var states: Dictionary = {1: _car_state(local_vehicle)}
 			for id in peer_cars:
 				states[id] = _car_state(peer_cars[id] as VehicleController2D)
-			for id in OnlineSession.world_ready_peers:
-				if OnlineSession.players.has(id):
+			for id in online_session.world_ready_peers:
+				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), states)
 	else:
 		_input_elapsed += dt
@@ -129,7 +130,7 @@ func _physics_process(dt: float) -> void:
 			_input_elapsed = fmod(_input_elapsed, INPUT_RATE)
 			_submit_controls.rpc_id(1, local_vehicle.command,
 				local_vehicle.nitrous_requested)
-		var my_state: Array = targets.get(OnlineSession.own_id(), [])
+		var my_state: Array = targets.get(online_session.own_id(), [])
 		if my_state.size() >= 3:
 			var error_px: float = local_vehicle.global_position.distance_to(my_state[0])
 			if error_px > 700.0:
@@ -146,7 +147,7 @@ func _physics_process(dt: float) -> void:
 func _process(dt: float) -> void:
 	for id in peer_cars:
 		var car := peer_cars[id] as VehicleController2D
-		if not OnlineSession.hosting:
+		if not online_session.hosting:
 			var state: Array = targets.get(id, [])
 			if state.size() >= 6:
 				var fraction := clampf(dt * 11.0, 0.0, 1.0)
@@ -167,11 +168,11 @@ static func _car_state(car: VehicleController2D) -> Array:
 
 @rpc("any_peer", "unreliable_ordered")
 func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
-	if not OnlineSession.hosting:
+	if not online_session.hosting:
 		return
 	var sender := multiplayer.get_remote_sender_id()
-	if not OnlineSession.players.has(sender) or \
-			not OnlineSession.world_ready_peers.has(sender) or not peer_cars.has(sender):
+	if not online_session.players.has(sender) or \
+			not online_session.world_ready_peers.has(sender) or not peer_cars.has(sender):
 		return
 	var car := peer_cars[sender] as VehicleController2D
 	# Treat all client data as untrusted. Clients cannot set transforms,
@@ -184,12 +185,12 @@ func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
 
 @rpc("authority", "unreliable_ordered")
 func _receive_states(states: Dictionary) -> void:
-	if OnlineSession.hosting or not OnlineSession.active:
+	if online_session.hosting or not online_session.active:
 		return
 	for id in states:
 		if states[id] is Array and (states[id] as Array).size() == 6:
 			targets[int(id)] = states[id]
-	var my_state: Array = targets.get(OnlineSession.own_id(), [])
+	var my_state: Array = targets.get(online_session.own_id(), [])
 	if _first_authoritative_state and my_state.size() >= 3:
 		_first_authoritative_state = false
 		local_vehicle.global_position = my_state[0]
@@ -198,7 +199,7 @@ func _receive_states(states: Dictionary) -> void:
 		local_vehicle.reset_physics_interpolation()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not OnlineSession.active or OnlineSession.hosting or get_tree().paused:
+	if not online_session.active or online_session.hosting or get_tree().paused:
 		return
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return
@@ -209,10 +210,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 @rpc("any_peer", "reliable")
 func _submit_action(action: String) -> void:
-	if not OnlineSession.hosting:
+	if not online_session.hosting:
 		return
 	var sender := multiplayer.get_remote_sender_id()
-	if not OnlineSession.players.has(sender) or not peer_cars.has(sender):
+	if not online_session.players.has(sender) or not peer_cars.has(sender):
 		return
 	var car := peer_cars[sender] as VehicleController2D
 	match action:
