@@ -8,7 +8,9 @@ signal roster_changed
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 1
+const PROTOCOL_VERSION := 2
+const INVITE_PREFIX := "SB1-"
+const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 
 var hosting := false
@@ -18,6 +20,11 @@ var players: Dictionary = {}
 var world_ready_peers: Dictionary = {}
 var display_name := "Driver"
 var last_message := ""
+var invite_address := ""
+var invite_port := DEFAULT_PORT
+var lobby_locked := false
+var _invite_secret := ""
+var _joining_secret := ""
 var _peer: ENetMultiplayerPeer
 
 func _ready() -> void:
@@ -33,13 +40,83 @@ static func valid_port(port: int) -> bool:
 static func clean_name(value: String) -> String:
 	return value.strip_edges().replace("\n", " ").replace("\r", " ").substr(0, 24)
 
+static func valid_address(value: String) -> bool:
+	var value_clean := value.strip_edges()
+	if value_clean.is_empty() or value_clean.length() > 253:
+		return false
+	for forbidden in [" ", "\n", "\r", "\t", "/", "\\", "@", "#", "?", "&"]:
+		if value_clean.contains(forbidden):
+			return false
+	return true
+
+static func valid_secret(value: String) -> bool:
+	if value.length() != INVITE_TOKEN_HEX_LENGTH:
+		return false
+	for index in value.length():
+		if not "0123456789abcdef".contains(value.substr(index, 1)):
+			return false
+	return true
+
+static func encode_invite(address: String, port: int, secret: String) -> String:
+	if not valid_address(address) or not valid_port(port) or not valid_secret(secret):
+		return ""
+	var payload := JSON.stringify({
+		"host": address.strip_edges(), "port": port, "key": secret})
+	var encoded := Marshalls.utf8_to_base64(payload)
+	return INVITE_PREFIX + encoded.replace("+", "-").replace("/", "_").replace("=", "")
+
+static func decode_invite(value: String) -> Dictionary:
+	var code := value.strip_edges()
+	if not code.begins_with(INVITE_PREFIX) or code.length() > 600:
+		return {}
+	var payload := code.substr(INVITE_PREFIX.length())
+	if payload.is_empty():
+		return {}
+	for index in payload.length():
+		if not "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".contains(
+				payload.substr(index, 1)):
+			return {}
+	var padded := payload.replace("-", "+").replace("_", "/")
+	while padded.length() % 4 != 0:
+		padded += "="
+	var result: Variant = JSON.parse_string(Marshalls.base64_to_utf8(padded))
+	if not result is Dictionary:
+		return {}
+	var address := str(result.get("host", ""))
+	var port := int(result.get("port", 0))
+	var secret := str(result.get("key", ""))
+	if not valid_address(address) or not valid_port(port) or not valid_secret(secret):
+		return {}
+	return {"host": address, "port": port, "key": secret}
+
+func get_invite_code() -> String:
+	if not hosting:
+		return ""
+	return encode_invite(invite_address, invite_port, _invite_secret)
+
+func rotate_invite() -> String:
+	if not hosting:
+		return ""
+	_invite_secret = Crypto.new().generate_random_bytes(24).hex_encode()
+	_set_status("New invitation created. Older codes are no longer valid.")
+	return get_invite_code()
+
+func set_lobby_locked(value: bool) -> void:
+	if not hosting:
+		return
+	lobby_locked = value
+	_set_status("Lobby locked: new players cannot join." if value else
+		"Lobby unlocked: valid invitations can join.")
+
 func own_id() -> int:
 	return 1 if hosting else multiplayer.get_unique_id()
 
-func host_session(name_value: String, port: int = DEFAULT_PORT) -> bool:
+func host_session(name_value: String, port: int = DEFAULT_PORT,
+		advertised_address: String = "127.0.0.1") -> bool:
 	leave_session()
-	if not valid_port(port) or clean_name(name_value).is_empty():
-		_set_status("Enter a driver name and UDP port between 1024 and 65535.")
+	if not valid_port(port) or clean_name(name_value).is_empty() or \
+			not valid_address(advertised_address):
+		_set_status("Enter a name, host address and UDP port between 1024 and 65535.")
 		return false
 	var transport := ENetMultiplayerPeer.new()
 	var error := transport.create_server(port, MAX_PLAYERS - 1)
@@ -51,17 +128,22 @@ func host_session(name_value: String, port: int = DEFAULT_PORT) -> bool:
 	display_name = clean_name(name_value)
 	hosting = true
 	active = true
+	invite_address = advertised_address.strip_edges()
+	invite_port = port
+	lobby_locked = false
+	_invite_secret = Crypto.new().generate_random_bytes(24).hex_encode()
 	players = {1: {"name": display_name, "car_id": ""}}
-	_set_status("Hosting on UDP %d. Share your address and port with friends." % port)
+	_set_status("Private lobby started on UDP %d. Copy an invite code for friends." % port)
 	roster_changed.emit()
 	return true
 
-func join_session(address: String, name_value: String, port: int = DEFAULT_PORT) -> bool:
+func join_session(address: String, name_value: String, port: int = DEFAULT_PORT,
+		invite_secret: String = "") -> bool:
 	leave_session()
 	var target := address.strip_edges()
-	if target.is_empty() or target.length() > 253 or not valid_port(port) or \
-			clean_name(name_value).is_empty():
-		_set_status("Enter your name, the host address, and a valid UDP port.")
+	if not valid_address(target) or not valid_port(port) or \
+			clean_name(name_value).is_empty() or not valid_secret(invite_secret):
+		_set_status("A valid private lobby invitation is required.")
 		return false
 	var transport := ENetMultiplayerPeer.new()
 	var error := transport.create_client(target, port)
@@ -70,10 +152,18 @@ func join_session(address: String, name_value: String, port: int = DEFAULT_PORT)
 		return false
 	_peer = transport
 	display_name = clean_name(name_value)
+	_joining_secret = invite_secret
 	joining = true
 	multiplayer.multiplayer_peer = transport
 	_set_status("Connecting to %s:%d..." % [target, port])
 	return true
+
+func join_invite(code: String, name_value: String) -> bool:
+	var data := decode_invite(code)
+	if data.is_empty():
+		_set_status("Invalid invitation. Ask the host for a new lobby code.")
+		return false
+	return join_session(str(data.host), name_value, int(data.port), str(data.key))
 
 func leave_session(reason: String = "Left online session.") -> void:
 	var was_connected := active or joining
@@ -82,6 +172,10 @@ func leave_session(reason: String = "Left online session.") -> void:
 	hosting = false
 	players.clear()
 	world_ready_peers.clear()
+	invite_address = ""
+	_invite_secret = ""
+	_joining_secret = ""
+	lobby_locked = false
 	if _peer != null:
 		_peer.close()
 		_peer = null
@@ -96,7 +190,7 @@ func _set_status(message: String) -> void:
 
 func _on_connected() -> void:
 	if joining:
-		_request_admission.rpc_id(1, PROTOCOL_VERSION, display_name)
+		_request_admission.rpc_id(1, PROTOCOL_VERSION, display_name, _joining_secret)
 
 func _on_connection_failed() -> void:
 	if joining:
@@ -117,20 +211,31 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		world_ready_peers.erase(peer_id)
 		_broadcast_roster()
 
+func _reject_peer(peer_id: int, reason: String) -> void:
+	_admission_denied.rpc_id(peer_id, reason)
+	# Give the reliable denial packet a chance to leave before disconnecting.
+	get_tree().create_timer(0.3).timeout.connect(func() -> void:
+		if hosting and not players.has(peer_id) and multiplayer.multiplayer_peer:
+			multiplayer.multiplayer_peer.disconnect_peer(peer_id)
+	)
+
 @rpc("any_peer", "reliable")
-func _request_admission(version: int, name_value: String) -> void:
+func _request_admission(version: int, name_value: String, invite_secret: String) -> void:
 	if not hosting:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if version != PROTOCOL_VERSION:
-		_admission_denied.rpc_id(sender, "Game versions are incompatible.")
+		_reject_peer(sender, "Game versions are incompatible.")
+		return
+	if lobby_locked or not valid_secret(invite_secret) or invite_secret != _invite_secret:
+		_reject_peer(sender, "Private lobby invite was rejected or expired.")
 		return
 	if players.size() >= MAX_PLAYERS:
-		_admission_denied.rpc_id(sender, "Session is full (4 players maximum).")
+		_reject_peer(sender, "Session is full (4 players maximum).")
 		return
 	var sanitized := clean_name(name_value)
 	if sanitized.is_empty():
-		_admission_denied.rpc_id(sender, "Driver name is required.")
+		_reject_peer(sender, "Driver name is required.")
 		return
 	if players.has(sender):
 		return
