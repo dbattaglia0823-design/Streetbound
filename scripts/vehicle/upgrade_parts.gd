@@ -16,6 +16,9 @@ const FIELD_LABELS := {
 	"steering_response":"TURN-IN","countersteer_assist":"COUNTERSTEER",
 	"tire_grip":"TIRE GRIP","handbrake_drive_grip":"SLIDE TRACTION",
 	"launch_grip_bonus":"LAUNCH GRIP",
+	"high_speed_stability":"HIGH-SPEED STABILITY",
+	"drift_control":"DRIFT CONTROL",
+	"handbrake_rotation_boost":"HANDBRAKE ROTATION",
 	"shift_duration":"SHIFT TIME","auto_shift_duration":"AUTO SHIFT",
 	"final_drive":"FINAL DRIVE",
 	"boost_max_psi":"TURBO BOOST (PSI)","boost_spool_seconds":"SPOOL TIME",
@@ -109,6 +112,13 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 					float(mods[raw_key]),6.0,45.0)
 				"launch_grip_bonus": value = clampf(
 					float(base)+float(mods[raw_key]),0.0,0.35)
+				# The new handling assists add flat normalized increments, not a
+				# percentage of zero. Do not stack on previous tune when reloading.
+				"high_speed_stability": value = clampf(
+					float(base)+float(mods[raw_key]),0.0,0.65)
+				"drift_control": value = clampf(
+					float(base)+float(mods[raw_key]),0.0,0.70)
+				"handbrake_rotation_boost": value = clampf(value,0.2,1.8)
 				"boost_spool_seconds": value = clampf(value,0.10,2.0)
 				"engine_power_kw": value = clampf(value,40.0,1800.0)
 				"engine_torque_nm": value = clampf(value,60.0,3000.0)
