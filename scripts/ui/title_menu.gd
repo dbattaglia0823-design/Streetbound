@@ -21,6 +21,7 @@ var friends_page: VBoxContainer
 var friend_name: LineEdit
 var friend_address: LineEdit
 var friend_port: LineEdit
+var friend_code: LineEdit
 var friend_message: Label
 var settings_adapter: CanvasLayer
 var message: Label
@@ -224,14 +225,16 @@ func _build_friends_page() -> void:
 	var heading := _label("PLAY WITH FRIENDS", 27, WHITE)
 	heading.custom_minimum_size.y = 45
 	friends_page.add_child(heading)
-	var info := _label("Host a session, or enter a friend's IP address and UDP port.", 15, MUTED)
+	var info := _label("Host with a reachable address or join using a private invitation.", 15, MUTED)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.custom_minimum_size.y = 36
 	friends_page.add_child(info)
 	friend_name = _friend_field("Driver name", "Driver")
 	friend_name.max_length = 24
-	friend_address = _friend_field("Host IP or hostname (for joining)", "127.0.0.1")
-	friend_port = _friend_field("UDP port (both players must match)", str(online_session.DEFAULT_PORT))
+	friend_address = _friend_field("Your reachable IP / hostname (for invite)", "127.0.0.1")
+	friend_port = _friend_field("Host UDP port", str(online_session.DEFAULT_PORT))
+	friend_code = _friend_field("Paste a friend's invitation here", "")
+	friend_code.max_length = 600
 	for action in [
 		["host_friend_session", "HOST FRIEND SESSION"],
 		["join_friend_session", "JOIN FRIEND SESSION"],
@@ -240,7 +243,7 @@ func _build_friends_page() -> void:
 		_add_action(friends_page, str(action[0]), str(action[1]), "›")
 		var button := actions[str(action[0])] as Button
 		button.custom_minimum_size = Vector2(492, 51)
-	friend_message = _label("Direct connection. Internet hosting may require UDP port forwarding.", 14, MUTED)
+	friend_message = _label("Invite codes work over LAN, or via a reachable WAN address with UDP forwarding.", 14, MUTED)
 	friend_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	friend_message.custom_minimum_size.y = 55
 	friends_page.add_child(friend_message)
@@ -254,15 +257,15 @@ func _online_joined() -> void:
 		_start_game("online")
 
 func _start_friends(host: bool) -> void:
-	if not friend_port.text.is_valid_int():
-		friend_message.text = "Enter a valid UDP port."
-		return
-	var port := int(friend_port.text)
 	if host:
-		if online_session.host_session(friend_name.text, port):
+		if not friend_port.text.is_valid_int():
+			friend_message.text = "Enter a valid UDP port."
+			return
+		var port := int(friend_port.text)
+		if online_session.host_session(friend_name.text, port, friend_address.text):
 			_start_game("online")
 	else:
-		online_session.join_session(friend_address.text, friend_name.text, port)
+		online_session.join_invite(friend_code.text, friend_name.text)
 
 func _add_action(parent: VBoxContainer, id: String, title: String,
 		symbol: String, primary: bool = false, unavailable: bool = false) -> void:
@@ -344,7 +347,7 @@ func _show_friends() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = false
 	friends_page.visible = true
-	friend_message.text = "Direct IP/UDP connection; no public matchmaking or automatic NAT traversal."
+	friend_message.text = "Private invitations are required. The host must still be reachable by UDP."
 	actions["host_friend_session"].grab_focus()
 
 func _unhandled_input(event: InputEvent) -> void:
