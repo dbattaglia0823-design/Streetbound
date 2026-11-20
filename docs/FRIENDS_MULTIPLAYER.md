@@ -29,6 +29,13 @@ The default loopback address \`127.0.0.1\` is only for connecting to a host on t
 - No cryptographic authentication/encryption is provided by this initial admission layer. Validate trust boundaries and infrastructure before internet release.
 - Needs real two-to-four-computer LAN/WAN test of joins, timeouts, FPS, high ping, packet loss, disconnect/reconnect and effects on other game systems. Headless test coverage cannot establish visual smoothness or connectivity through home routers.
 
+
+## Verification
+
+The Godot 4.6.3 GitHub Actions job first runs a local-host gameplay smoke test (\`tests/online_friend_session_test.gd\`) and then launches **two separate headless Godot processes** (\`tests/online_friend_connection_probe.gd -- host\` and \`-- guest\`) to exercise UDP admission, host/guest roster synchronization, world-ready acknowledgment, car identity distribution, and clean disconnect over loopback.
+
+These scripts are **regressions, not proof of production readiness**. Only mark them passing after the workflow actually runs successfully on the PR head. Even successful loopback tests do not validate real WAN NAT/firewalls, smoothness at high ping, peer-to-peer security, or end-to-end interactive gameplay.
+
 ## Next milestones
 
 1. Two-process end-to-end network test in CI and hands-on LAN test; fix any parse, transport or spawning failures.
