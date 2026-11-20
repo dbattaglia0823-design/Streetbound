@@ -28,6 +28,8 @@ func _run() -> void:
 	var unique_signatures := {}
 	var all_gears := true
 	var all_hybrids := true
+	var all_calibrated := true
+	var distinct_chassis := {}
 	for v in vehicles:
 		var id := str(v.get("id",""))
 		ids[id] = true
@@ -55,6 +57,16 @@ func _run() -> void:
 			v.power_kw,v.torque_nm,v.mass_kg,v.length_m,v.width_m]
 		unique_signatures[fingerprint] = true
 		var cfg: VehicleConfig = Catalog.make_configuration(v)
+		all_calibrated = all_calibrated and v.has("front_weight_fraction") and
+			v.has("center_of_gravity_height_m") and v.has("brake_bias_front") and
+			is_equal_approx(cfg.front_weight,float(v.get("front_weight_fraction",-1.0))) and
+			is_equal_approx(cfg.center_of_gravity_height_m,float(v.get("center_of_gravity_height_m",-1.0))) and
+			is_equal_approx(cfg.brake_bias_front,float(v.get("brake_bias_front",-1.0))) and
+			cfg.front_weight >= 0.41 and cfg.front_weight <= 0.66 and
+			cfg.center_of_gravity_height_m >= 0.395 and cfg.center_of_gravity_height_m <= 0.89 and
+			cfg.brake_bias_front >= 0.60 and cfg.brake_bias_front <= 0.715
+		distinct_chassis["%s/%s/%s" % [cfg.front_weight,
+			cfg.center_of_gravity_height_m,cfg.brake_bias_front]] = true
 		proper_physics = proper_physics and \
 			is_equal_approx(cfg.engine_power_kw,float(v.power_kw)) and \
 			is_equal_approx(cfg.engine_torque_nm,float(v.torque_nm)) and \
@@ -85,6 +97,9 @@ func _run() -> void:
 		Catalog.price_basis_label({"price_basis":"international_used_estimate_usd"})=="EST. IMPORT/USED")
 	check("class_copies_replaced_by_distinct_vehicle_baselines",
 		unique_signatures.size()>88,unique_signatures.size())
+	check("all_148_have_estimated_chassis_load_transfer_calibration",all_calibrated)
+	check("handling_values_are_per_model_not_one_shared_preset",
+		distinct_chassis.size() > 100,distinct_chassis.size())
 	check("engine_torque_hp_mass_and_drivetrain_reach_real_driving_config",
 		proper_physics)
 	check("factory_forward_gear_counts_reach_real_driving_config",all_gears)
