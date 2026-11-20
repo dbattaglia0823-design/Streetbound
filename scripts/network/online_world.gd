@@ -20,6 +20,8 @@ var _input_elapsed := 0.0
 var _snapshot_elapsed := 0.0
 var _first_authoritative_state := true
 var roster_label: Label
+var invitation_toolbar: HBoxContainer
+var lock_lobby_button: Button
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -33,9 +35,52 @@ func _ready() -> void:
 	var overlay := CanvasLayer.new()
 	overlay.layer = 4
 	overlay.add_child(roster_label)
+	if online_session.hosting:
+		invitation_toolbar = HBoxContainer.new()
+		invitation_toolbar.name = "PrivateLobbyActions"
+		invitation_toolbar.position = Vector2(20, 44)
+		invitation_toolbar.add_theme_constant_override("separation", 6)
+		for title in ["COPY INVITE", "NEW CODE", "LOCK LOBBY"]:
+			var action := Button.new()
+			action.text = title
+			action.add_theme_font_size_override("font_size", 13)
+			invitation_toolbar.add_child(action)
+			match title:
+				"COPY INVITE":
+					action.pressed.connect(_copy_invite)
+				"NEW CODE":
+					action.pressed.connect(_new_invite)
+				"LOCK LOBBY":
+					lock_lobby_button = action
+					action.pressed.connect(_toggle_lobby_lock)
+		overlay.add_child(invitation_toolbar)
 	add_child(overlay)
 	_sync_peers()
 	online_session.mark_world_ready()
+
+func _copy_invite() -> void:
+	if not online_session.hosting:
+		return
+	var code: String = online_session.get_invite_code()
+	if code.is_empty():
+		online_session.status_changed.emit("Set a reachable host address to share an invitation.")
+		return
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.clipboard_set(code)
+	online_session.status_changed.emit("Private invitation copied. Share it only with trusted friends.")
+
+func _new_invite() -> void:
+	if online_session.hosting:
+		online_session.rotate_invite()
+		_copy_invite()
+
+func _toggle_lobby_lock() -> void:
+	if not online_session.hosting:
+		return
+	online_session.set_lobby_locked(not online_session.lobby_locked)
+	if is_instance_valid(lock_lobby_button):
+		lock_lobby_button.text = ("UNLOCK LOBBY" if online_session.lobby_locked
+			else "LOCK LOBBY")
 
 func _sync_peers() -> void:
 	if not online_session.active or not is_instance_valid(local_vehicle):
@@ -102,9 +147,10 @@ func _remove_remote(id: int) -> void:
 func _refresh_roster_label() -> void:
 	if not is_instance_valid(roster_label):
 		return
-	roster_label.text = "ONLINE %s   %d/%d DRIVERS" % [
+	roster_label.text = "PRIVATE %s   %d/%d DRIVERS%s" % [
 		"HOST" if online_session.hosting else "GUEST",
-		online_session.players.size(), online_session.MAX_PLAYERS]
+		online_session.players.size(), online_session.MAX_PLAYERS,
+		"  /  LOCKED" if online_session.lobby_locked and online_session.hosting else ""]
 
 func _physics_process(dt: float) -> void:
 	if not online_session.active:
