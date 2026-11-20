@@ -1,47 +1,32 @@
-# Online multiplayer — friends-first foundation
+# Friends-only online lobbies — first implementation
 
-**Status:** Initial implementation on \`feature/friends-online-multiplayer-foundation\`. Godot/CI and a two-machine test must pass before treating it as usable multiplayer. This is *not* public matchmaking, an invite-code service or a completed competitive racing mode.
+Status: developmental, see PR #176 and its CI. Invite-only means a host-generated secret **must** be presented to enter. It does **not** mean cloud matchmaking, user identity verification, automatic NAT traversal, or encrypted gameplay.
 
-## How to test with a friend
+## Play with friends
 
-1. Both players use the **same Streetbound build and game data**.
-2. At the title screen open **Multiplayer → Play with Friends (Online)**.
-3. One player chooses a driver name and **Host Friend Session**. The default is **UDP 28163**.
-4. On the same network, other players enter the host's **local IP address** (and matching port), then **Join Friend Session**. For friends on different networks, the host must configure router **UDP port forwarding** and allow that UDP port in the local firewall. The host then shares their **public IP** and port. Some carrier-grade NAT / restrictive networks cannot accept incoming connections without a relay or VPN.
-5. Up to **four total drivers** (one host and three guests) can drive simultaneously in the same Morrow Coast world. Host and guest players see each other's cars and driver names. Returning to the title menu closes the session.
+1. All players run the same game version / map. From the title screen select **Multiplayer → Play with Friends (Online)**.
+2. Host: set a driver name, a **reachable host IP or DNS name**, and a **UDP port** (default 28163), then choose **HOST FRIEND SESSION**. For tests on the same PC use \`127.0.0.1\`; on a local network use the host's LAN address; for internet play use the host's public IP or reachable DNS name.
+3. In the game world, the host clicks **COPY INVITE**. The code contains the chosen host address, port and a fresh 192-bit random admission secret. Send that full code privately to friends; they don't need to type an IP or port separately.
+4. A guest chooses a driver name, pastes the invitation into the title screen's invitation field, and selects **JOIN FRIEND SESSION**. Only clients presenting the current valid secret and compatible protocol version can join.
+5. Up to four total drivers (one host plus three guests) share free-roam Morrow Coast. Host can click **LOCK LOBBY** to block further arrivals (without removing current friends), **UNLOCK LOBBY** to allow them again, or **NEW CODE** to revoke older invitations. Leaving the session/returning to title revokes that lobby's secret.
 
-The default loopback address \`127.0.0.1\` is only for connecting to a host on the **same computer**; it does not reach a friend's PC. Do not share a private LAN address with someone outside the LAN.
+**Important network requirement:** This first implementation uses ENet over direct UDP. The host may have to forward the chosen UDP port on their router and allow that port through their firewall for friends outside their LAN. Carrier-grade NAT or restrictive networks may prevent connections entirely. Invite codes bundle connection details but do **not** route traffic around NAT or automatically expose the host. No public lobby directory or relay is deployed in this repository.
 
-## Architecture
+**Security limitation:** Invitation possession is the only admission factor; it is not tied to named accounts and the game packets/secret are not end-to-end encrypted. Only share codes with trusted people and avoid hosting on adversarial networks. Rotating a code prevents *future* joins using the old code; it does not kick already connected peers. A lobby lock prevents new joins, not existing sessions. UDP ports can be probed; unadmitted clients receive a rejection and are disconnected.
 
-- \`scripts/network/online_session.gd\` is a persistent autoload. ENet hosts and joins, admission handshake checks a protocol version, the host owns the driver roster, and disconnections clean up player entries.
-- \`scripts/network/online_world.gd\` exists only in the real gameplay world when a friend session is active. Its RPC path is identical across clients. The host runs guest car inputs through the existing \`VehicleController2D\` physics, rather than trusting client-submitted positions.
-- Guest clients predict their own controls locally, receive host transforms at 15 Hz, and blend large errors; other players' cars are interpolated visual replicas. Controls transmit at 30 Hz. Remote vehicle input expires after 450 ms without packets.
-- Basic vehicle identity is shared via verified catalog IDs; each remote instance uses its model's stock visual/physics configuration. Each player's actual garage ownership and upgrades stay local.
-- Network car-to-car collision/damage is **disabled** to avoid unverified physics impulses. Both local solo driving and local split-screen remain separate.
+## Technical notes
 
-## Limitations to address before a public release
+- \`scripts/network/online_session.gd\` (autoloader) creates the private lobby using a Godot \`Crypto\` CSPRNG for a 192-bit hex secret. \`SB1-\` invitations are base64url-encoded JSON containing hostname, UDP port and token; the format is **encoding**, not encryption. Admission RPC validates version, name, capacity, lock state and secret on the **host** before adding a player to the roster. Invalid clients cannot create synced cars or send accepted driving inputs.
+- \`scripts/network/online_world.gd\` uses host-simulated guest \`VehicleController2D\` physics from clamped commands, guest-side local prediction, 15 Hz state replication and interpolation. Networked remote collision/damage is disabled in this slice.
+- \`scripts/ui/title_menu.gd\` hosts or joins using a pasteable invitation. The in-world host toolbar copies/rotates invitations and locks/unlocks the lobby. The pause menu does not pause the host's physics while friends are connected.
+- User-specific careers, inventories and upgrades remain local; competitive races, host migration, vehicle collisions, authoritative economic rewards and match results are **not yet networked**.
 
-- This direct-IP mode is **not access-controlled**: there are no accounts, passwords, invite tokens or matchmaking, and anyone able to reach the advertised UDP port can attempt to join. Use only with trusted friends, and close the port when not hosting. A true private invite-code experience requires an authenticated lobby, NAT traversal/relay and server-side access control.
-- No host migration or automatic reconnection. The host leaving closes the session for everyone.
-- Car physics use the host's stock catalog configuration for guests; non-stock upgrades can cause client prediction corrections. Synchronized garage builds, racing rules, checkpoint timing, bets, rewards, vehicle impacts and anti-cheat are **not yet implemented**.
-- The world stream still prioritizes the local player; test remote driving near each other until multi-focus streaming is expanded.
-- No cryptographic authentication/encryption is provided by this initial admission layer. Validate trust boundaries and infrastructure before internet release.
-- Needs real two-to-four-computer LAN/WAN test of joins, timeouts, FPS, high ping, packet loss, disconnect/reconnect and effects on other game systems. Headless test coverage cannot establish visual smoothness or connectivity through home routers.
+## Validation
 
+- \`tests/online_friend_session_test.gd\`: host-world smoke, real vehicle spawning, UI flows, invite generation/decoding/rotation, lock controls, pause isolation and cleanup.
+- \`tests/online_friend_connection_probe.gd\`: runs separate Godot processes through a real ENet UDP loopback connection. A host shares its ephemeral private invitation with the guest via a temporary test file, which the host removes after testing. Verifies admission, roster, world readiness, model identity and disconnect. Missing/invalid invite paths are rejected.
+- Tests are invoked in Godot 4.6.3 CI; broader world tests also execute with Godot 4.4.1. A green run verifies those precise cases only. Two physical computers, LAN/WAN firewalls, high ping/loss, and the full game still need hands-on playtesting.
 
-## Verification
+## Future infrastructure
 
-The Godot 4.6.3 GitHub Actions job first runs a local-host gameplay smoke test (\`tests/online_friend_session_test.gd\`) and then launches **two separate headless Godot processes** (\`tests/online_friend_connection_probe.gd -- host\` and \`-- guest\`) to exercise UDP admission, host/guest roster synchronization, world-ready acknowledgment, car identity distribution, and clean disconnect over loopback.
-
-These scripts are **regressions, not proof of production readiness**. Only mark them passing after the workflow actually runs successfully on the PR head. Even successful loopback tests do not validate real WAN NAT/firewalls, smoothness at high ping, peer-to-peer security, or end-to-end interactive gameplay.
-
-
-**Verified initial CI evidence:** Godot 4.6.3 regression [run 44809030179](https://github.com/dbattaglia0823-design/Streetbound/actions/runs/44809030179) passed both the host-world smoke test and real two-process localhost ENet transport probe. This only verifies that particular commit and loopback path; it does not validate external multiplayer connectivity or driving smoothness.
-
-## Next milestones
-
-1. Two-process end-to-end network test in CI and hands-on LAN test; fix any parse, transport or spawning failures.
-2. Connection health UI (ping, packet-loss indicators, retry/timeout), client interpolation/prediction tuning, world streaming for all peers, and verified model/build synchronization.
-3. Authenticated invite-only rooms with a relay/NAT traversal backend. Do not represent a locally generated join code as functional without its lookup service.
-4. Shared meetups, waypoints, coordinated races with authoritative countdown/checkpoints/results, then optional shared traffic events.
+A seamless short-code experience with no IP/port forwarding requires a **deployed** lobby registration/discovery service and managed NAT traversal/relay (or server-authoritative dedicated game hosting). An external code lookup, user identity and TLS-backed authentication are not included. Do not advertise cloud invite codes or "works behind any router" until a real backend is configured, secured, deployed and tested.
