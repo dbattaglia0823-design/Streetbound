@@ -36,6 +36,9 @@ The Godot 4.6.3 GitHub Actions job first runs a local-host gameplay smoke test (
 
 These scripts are **regressions, not proof of production readiness**. Only mark them passing after the workflow actually runs successfully on the PR head. Even successful loopback tests do not validate real WAN NAT/firewalls, smoothness at high ping, peer-to-peer security, or end-to-end interactive gameplay.
 
+
+**Verified initial CI evidence:** Godot 4.6.3 regression [run 44809030179](https://github.com/dbattaglia0823-design/Streetbound/actions/runs/44809030179) passed both the host-world smoke test and real two-process localhost ENet transport probe. This only verifies that particular commit and loopback path; it does not validate external multiplayer connectivity or driving smoothness.
+
 ## Next milestones
 
 1. Two-process end-to-end network test in CI and hands-on LAN test; fix any parse, transport or spawning failures.
