@@ -362,6 +362,16 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# handbrake, instead of snapping the car back onto the original trajectory.
 	oversteer_drive += committed_turn * drift_aid * (1.0 - handbrake) * 0.65
 	yaw_rate += turn_sign * oversteer_drive * dt
+	# With the rear wheels locked, the usual front-axle bicycle forces tend
+	# to cancel yaw before a stock handbrake turn can reach 180 degrees.
+	# Apply a bounded *angular* tire response toward the steered rotation:
+	# this neither adds linear speed nor turns a stationary vehicle.
+	if handbrake > 0.05 and absf(steer_input) > 0.08 and speed > 2.0:
+		var pivot_target := turn_sign * absf(steer_input) * \
+			(0.75 + clampf(config.handbrake_rotation_boost,0.2,1.8) * 1.2) * \
+			(0.35 + 0.65 * smoothstep(2.0,10.0,speed))
+		yaw_rate = move_toward(yaw_rate,pivot_target,
+			5.0 * moving_lock * dt)
 	if absf(steer_input) < 0.05 and breakaway < 0.25:
 		yaw_rate = move_toward(yaw_rate, kinematic_yaw, 0.5 * dt)
 	if arcade > 0.0:
