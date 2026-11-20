@@ -8,7 +8,7 @@ import {
   paintSceneryBrush,eraseSceneryBrush
 } from './world-edit-tools.js';
 import {distance,clamp,nearestOnPath,pointInPolygon,regionAt,sampleRoad} from './world-geometry.js';
-import {drawWorld,drawEditorOverlay,drawProp} from './world-renderer.js';
+import {drawWorld,drawEditorOverlay,drawProp,projectVisibleImageBounds} from './world-renderer.js';
 import {pickEditableScenery} from './world-selection.js';
 import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
@@ -588,7 +588,8 @@ function hitTest(p){
         return {id:prop.id,point:-1,kind:'entity'};
     }
     const edited=pickEditableScenery(doc.props,p,{
-      gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8)});
+      gameArt:Boolean(runtimePreview),tolerance:clamp(3/zoom,0,8),
+      visibleBoundsFor:projectVisibleImageBounds});
     if(edited)return {id:edited.id,point:-1,kind:'entity'};
     const native=pickRuntimeProp(runtimePreview,doc,p,clamp(9/zoom,6,48));
     if(native)return {kind:'native',source:native};

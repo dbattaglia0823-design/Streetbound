@@ -47,6 +47,46 @@ function getSprite(asset){
   image.src=asset.src;
   return image;
 }
+const visibleSpriteBoundsCache=new Map();
+/** Cached, normalized opaque pixels of the actual project art. The source
+ * canvas (and saved footprint) never gets resized. Only picking/selection
+ * outlines use these bounds, with faint drop-shadow alpha ignored.
+ */
+export function projectVisibleImageBounds(project){
+  if(!project||typeof document==='undefined')return null;
+  const img=getSprite(project);
+  if(!img?.complete||!img.naturalWidth||!img.naturalHeight)return null;
+  const key=project.id+'|'+project.src+'|'+JSON.stringify(project.region||[]);
+  if(visibleSpriteBoundsCache.has(key))return visibleSpriteBoundsCache.get(key);
+  const [sx,sy,sw,sh]=project.region||[0,0,img.naturalWidth,img.naturalHeight];
+  if(sw<1||sh<1)return null;
+  const maxSide=160,ratio=Math.min(1,maxSide/Math.max(sw,sh));
+  const width=Math.max(1,Math.round(sw*ratio)),height=Math.max(1,Math.round(sh*ratio));
+  let bounds=null;
+  try{
+    const canvas=document.createElement('canvas');
+    canvas.width=width;canvas.height=height;
+    const painter=canvas.getContext('2d',{willReadFrequently:true});
+    if(!painter)return null;
+    painter.drawImage(img,sx,sy,sw,sh,0,0,width,height);
+    const pixels=painter.getImageData(0,0,width,height).data;
+    let minX=width,minY=height,maxX=-1,maxY=-1;
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      if(pixels[(y*width+x)*4+3]<46)continue;
+      minX=Math.min(minX,x);minY=Math.min(minY,y);
+      maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+    }
+    if(maxX>=0){
+      const left=Math.max(0,minX-1),top=Math.max(0,minY-1);
+      const right=Math.min(width,maxX+2),bottom=Math.min(height,maxY+2);
+      bounds={x:left/width,y:top/height,width:(right-left)/width,height:(bottom-top)/height};
+    }
+  }catch{
+    // Older webviews or unavailable pixel data fall back to the full image.
+  }
+  visibleSpriteBoundsCache.set(key,bounds);
+  return bounds;
+}
 function regionDetails(region,seed){
   const existing=decoCache.get(region);
   if(existing)return existing;
@@ -527,6 +567,17 @@ export function drawEditorOverlay(ctx,doc,{
           i===selection.point?'#ffe6bd':'#527c91'));
       }else if(type==='roads'){
         drawRoadStroke(ctx,sampleRoad(item.points,item.smooth,8),item.width+5/zoom,'#f8ae6350');
+      }else if(type==='props'&&['house','building','warehouse','garage','gas_station'].includes(item.type)&&projectArtwork(item)){
+        // Draw the same tight, offset opaque box used by browser picking.
+        // The full image canvas remains unchanged for drawing and physics.
+        const project=projectArtwork(item);
+        const bounds=projectVisibleImageBounds(project)||{x:0,y:0,width:1,height:1};
+        const sx=project.size[0]*item.scale*(item.scaleX??1);
+        const sy=project.size[1]*item.scale*(item.scaleY??1);
+        ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.rotation*Math.PI/180);
+        ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;
+        ctx.strokeRect((bounds.x-.5)*sx,(bounds.y-.5)*sy,bounds.width*sx,bounds.height*sy);
+        ctx.restore();
       }else{
         ctx.beginPath();ctx.arc(item.x,item.y,radius*2,0,Math.PI*2);
         ctx.strokeStyle='#ffc987';ctx.lineWidth=2/zoom;ctx.stroke();

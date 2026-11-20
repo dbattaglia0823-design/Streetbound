@@ -1,0 +1,72 @@
+name: Tight building selection
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/dev/building_selection_footprint.gd'
+      - 'scripts/dev/native_world_editor.gd'
+      - 'scripts/dev/native_world_editor_gizmos.gd'
+      - 'scripts/dev/native_editor_multiselect.gd'
+      - 'map-editor/world-selection.js'
+      - 'map-editor/morrow-runtime-preview.js'
+      - 'map-editor/world-editor.js'
+      - 'map-editor/world-renderer.js'
+      - 'map-editor/tests/connected-building-selection.test.mjs'
+      - 'tests/building_selection_footprint_test.gd'
+      - '.github/workflows/building-selection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tight-building-selection-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-selection:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native resource UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Check narrow connected-building selection and regression
+        run: node --test map-editor/tests/connected-building-selection.test.mjs map-editor/tests/scenery-selection-markers.test.mjs
+
+  godot-selection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.4.1', '4.6.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Godot ${{ matrix.godot }}
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
+      - name: Import building sprites and validate typed scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/selection-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/selection-import.log
+      - name: Verify pixel-tight native building selection
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 105s ./Godot_v${{ matrix.godot }}-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/building_selection_footprint_test.gd 2>&1 | tee /tmp/selection-test.log
+          grep -q 'BUILDING SELECTION FOOTPRINT: PASS' /tmp/selection-test.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/selection-test.log
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: building-selection-${{ matrix.godot }}-${{ github.run_id }}
+          path: |
+            /tmp/selection-import.log
+            /tmp/selection-test.log
+          if-no-files-found: warn
+          retention-days: 14

@@ -52,6 +52,10 @@ func run() -> void:
 				for shape in chunk.collider_body.get_children():
 					if str(shape.get_meta("editor_prop_key",""))==Scenery.editor_key(prop):collision=true
 		check("game_render_and_collision_"+str(prop.editor_name),visible and collision==bool(prop.solid))
+		# Loop-local AtlasTexture can remain live in a suspended GDScript
+		# coroutine until quit(). Drop the last crop explicitly so its
+		# underlying source texture can be released after cache teardown.
+		texture = null
 	if DisplayServer.get_name()!="headless":
 		# HUD panels legitimately cover some small test props. Hide them only
 		# for the before/after world-pixel comparison, without changing the UI.

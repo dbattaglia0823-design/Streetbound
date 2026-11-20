@@ -2,6 +2,8 @@ extends RefCounted
 ## Shared selection geometry for the native map editor. Positions are metres.
 const LIMIT:=1200
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
+const Art=preload("res://scripts/world/coast_art.gd")
+const BuildingSelection=preload("res://scripts/dev/building_selection_footprint.gd")
 
 static func _path_touches_area(path: PackedVector2Array,area: Rect2) -> bool:
 	if path.is_empty():return false
@@ -27,6 +29,18 @@ static func all_visible(doc: Dictionary,layers: Dictionary) -> Array[String]:
 			if found.size()>=LIMIT:return found
 	return found
 
+static func _rotated_bounds(center: Vector2,local_rect: Rect2,angle: float) -> Rect2:
+	var corners: Array[Vector2]=[
+		local_rect.position,
+		Vector2(local_rect.end.x,local_rect.position.y),
+		local_rect.end,
+		Vector2(local_rect.position.x,local_rect.end.y)]
+	var result:=Rect2(center+corners[0].rotated(angle),Vector2.ZERO)
+	for corner in corners:
+		result=result.expand(center+corner.rotated(angle))
+	return result
+
+
 static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array[String]:
 	var found: Array[String]=[]
 	for category in ["props","markers","regions","roads"]:
@@ -45,7 +59,16 @@ static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array
 				var angle:=deg_to_rad(float(item.get("rotation",0.0)))
 				var rotated_half:=Vector2(absf(half.x*cos(angle))+absf(half.y*sin(angle)),
 					absf(half.x*sin(angle))+absf(half.y*cos(angle)))
-				matches=area.intersects(Rect2(center-rotated_half,rotated_half*2),true)
+				var broad:=Rect2(center-rotated_half,rotated_half*2)
+				matches=area.intersects(broad,true)
+				if matches and BuildingSelection.is_building_kind(str(item.get("type",""))):
+					var texture: Texture2D=null
+					if item.has("assetPath"):
+						texture=Art.project_sprite(str(item.assetPath),item.get("assetRegion",[]))
+					elif str(item.get("assetId","")).begins_with("game-"):
+						texture=Art.sprite(str(item.assetId).trim_prefix("game-"),0)
+					var tight:=BuildingSelection.selection_rect(texture,half*2)
+					matches=area.intersects(_rotated_bounds(center,tight,angle),true)
 			elif category=="markers":
 				matches=area.has_point(Vector2(float(item.x),float(item.y)))
 			else:
@@ -80,6 +103,15 @@ static func baked_indices_in_rect(data: Dictionary,area: Rect2,limit: int=64) ->
 		var extents:=Vector2(absf(half.x*cos(angle))+absf(half.y*sin(angle)),
 			absf(half.x*sin(angle))+absf(half.y*cos(angle)))
 		if area.intersects(Rect2(center-extents,extents*2),true):
+			if BuildingSelection.is_building_kind(str(item.get("kind",""))):
+				var texture: Texture2D=null
+				if item.has("asset_path"):
+					texture=Art.project_sprite(str(item.asset_path),item.get("asset_region",[]))
+				else:
+					texture=Art.sprite(str(item.kind),int(item.get("seed",0)))
+				var tight:=BuildingSelection.selection_rect(texture,half*2)
+				if not area.intersects(_rotated_bounds(center,tight,angle),true):
+					continue
 			hits.append(i)
 			if hits.size()>=limit:break
 	return hits

@@ -398,7 +398,10 @@ export function pickRuntimeProp(preview,doc,point,radius=12){
       if(!(width>0&&height>0))continue;
       const angle=Number(prop.angle)||0,c=Math.cos(angle),s=Math.sin(angle);
       const localX=dx*c+dy*s,localY=-dx*s+dy*c;
-      const padding=Math.min(8,Math.max(0,radius)*.2);
+      const isBuilding=['house','coastal_house','shop','building','warehouse',
+        'garage','workshop','showroom','fuel','cafe','office','hotel','lodge'].includes(prop.kind);
+      const padding=isBuilding?Math.min(.45,Math.max(0,radius)*.2):
+        Math.min(8,Math.max(0,radius)*.2);
       if(Math.abs(localX)>width/2+padding ||
           Math.abs(localY)>height/2+padding)continue;
       const distance=Math.hypot(dx,dy);
