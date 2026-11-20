@@ -85,7 +85,7 @@ func _toggle_lobby_lock() -> void:
 func _sync_peers() -> void:
 	if not online_session.active or not is_instance_valid(local_vehicle):
 		return
-	var own_id := online_session.own_id()
+	var own_id: int = int(online_session.own_id())
 	for id in online_session.players:
 		var peer_id := int(id)
 		if peer_id == own_id:
