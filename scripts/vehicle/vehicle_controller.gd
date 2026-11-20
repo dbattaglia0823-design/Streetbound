@@ -156,6 +156,9 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	if handbrake > 0.1 and brake > 0.1:
 		drive_input = 0.0
 		stopping_input = brake
+	# Service-brake priority also applies to handbrake rotation. Pressing all
+	# three pedals while moving must *stop*, not pivot into a powered slide.
+	var handbrake_yaw_input := handbrake * (1.0 - smoothstep(0.05,0.45,stopping_input))
 	var speed := linear_velocity.length()
 	# Preserve tire slip after a moving rear-wheel lock. This is contact recovery,
 	# not a launch cooldown: lifting and higher surface grip help it settle.
@@ -351,7 +354,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# A rear-wheel lock transfers the remaining rolling momentum into yaw.
 	# A moving, steered handbrake can bring a *stock* car through 180 degrees;
 	# the speed gate avoids resurrecting the parked-handbrake steering exploit.
-	var moving_lock := smoothstep(2.0,10.0,speed) * handbrake * \
+	var moving_lock := smoothstep(2.0,10.0,speed) * handbrake_yaw_input * \
 		clampf(surface_grip,0.0,1.0) * clampf(config.handbrake_rotation_boost,0.2,1.8)
 	oversteer_drive += committed_turn * moving_lock * 2.0
 	# Add a one-time turn initiation impulse; holding the button does not
@@ -366,7 +369,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# to cancel yaw before a stock handbrake turn can reach 180 degrees.
 	# Apply a bounded *angular* tire response toward the steered rotation:
 	# this neither adds linear speed nor turns a stationary vehicle.
-	if handbrake > 0.05 and absf(steer_input) > 0.08 and speed > 2.0:
+	if handbrake_yaw_input > 0.05 and absf(steer_input) > 0.08 and speed > 2.0:
 		var pivot_target := turn_sign * absf(steer_input) * \
 			(0.75 + clampf(config.handbrake_rotation_boost,0.2,1.8) * 1.2) * \
 			(0.35 + 0.65 * smoothstep(2.0,10.0,speed))
