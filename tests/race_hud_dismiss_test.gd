@@ -109,15 +109,8 @@ func _run() -> void:
 		hud.call("_process",0.0)
 		check("race_strip_restores_when_atlas_closes",
 			(hud.get("panel") as PanelContainer).visible)
-		var driving: CanvasLayer = world_map.get("driving_hud") as CanvasLayer
-		var tuning: Control = driving.get("tuning") as Control
-		tuning.visible = true
 		hud.call("_process",0.0)
-		check("F1_tuning_panel_hides_race_strip",
-			not (hud.get("panel") as PanelContainer).visible)
-		tuning.visible = false
-		hud.call("_process",0.0)
-		check("race_strip_restores_when_tuning_closes",
+		check("race_strip_remains_available_without_f1_menu",
 			(hud.get("panel") as PanelContainer).visible)
 	# H toggles the same close and restore actions without mouse use.
 	var key := InputEventKey.new()

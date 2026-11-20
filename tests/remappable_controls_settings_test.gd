@@ -48,6 +48,8 @@ func _run() -> void:
 		controls.name = "Controls"
 		root.add_child(controls)
 	controls.restore_defaults()
+	check("obsolete_f1_action_not_registered",
+		not controls.ACTIONS.has("tuning") and not InputMap.has_action("tuning"))
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame

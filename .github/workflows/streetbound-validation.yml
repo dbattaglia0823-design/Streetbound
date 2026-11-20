@@ -540,9 +540,9 @@ jobs:
             echo "Godot reported a startup script error despite the test result" >&2
             exit 1
           fi
-      - name: Verify F1 tuning save, restart, exit flush and restore defaults
+      - name: Verify stock car stats ignore obsolete F1 saved overrides after switching and restart
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/tuning_persistence_test.gd
-      - name: Verify five-figure F1 engine tuning physics on pinned Godot 4.4.1
+      - name: Verify high-output powertrain physics independently of removed debug UI
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 85s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/high_output_powertrain_test.gd 2>&1 | tee /tmp/godot441-high-output.log

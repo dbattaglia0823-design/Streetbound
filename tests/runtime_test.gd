@@ -48,7 +48,12 @@ func run() -> void:
 	root.push_input(event)
 	await process_frame
 	await process_frame
-	check("tuning_panel_toggle", hud.tuning.visible)
+	var panel_count := 0
+	for child in hud.get_children():
+		if child is PanelContainer:
+			panel_count += 1
+	check("f1_key_does_not_open_tuning_menu",
+		panel_count == 1 and not InputMap.has_action("tuning"))
 	var controls: Node = root.get_node("Controls")
 	# Tests use isolated user data; start and finish with the documented throttle key.
 	controls.bind_key("throttle", KEY_W)

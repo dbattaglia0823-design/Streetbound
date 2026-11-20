@@ -102,8 +102,8 @@ static func alpha_bounds(image: Image) -> Rect2i:
 
 
 static func make_configuration(entry: Dictionary) -> VehicleConfig:
-	# A fresh baseline prevents an F1 tune or the previous car's stats from
-	# accidentally carrying over to the next model.
+	# A fresh baseline ensures each model uses its own specs, not values
+	# inherited from the previously equipped vehicle.
 	var stock: VehicleConfig = load("res://resources/sport_coupe.tres") as VehicleConfig
 	var config := stock.duplicate(true) as VehicleConfig
 	config.mass_kg = float(entry.mass_kg)

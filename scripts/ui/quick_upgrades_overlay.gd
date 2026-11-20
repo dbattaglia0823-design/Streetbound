@@ -468,8 +468,8 @@ func _change_equipment(uid: String,remove: bool) -> void:
 	if entry.is_empty():
 		return
 	# Snapshot both complete, stock-derived upgrade loadouts. Applying the
-	# DIFFERENCE to the running config preserves current F1 tune, velocity,
-	# steering, RPM, transmission gear, position, and collision state.
+	# DIFFERENCE to the active car preserves speed, steering, RPM,
+	# transmission gear, position, collision state, and non-upgrade stats.
 	var before: VehicleConfig = Catalog.make_configuration(entry)
 	economy.apply_car_upgrades(before,car_id)
 	var result := economy.unequip_part(car_id,selected_slot) if remove else \

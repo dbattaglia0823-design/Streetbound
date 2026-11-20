@@ -145,11 +145,6 @@ func _other_ui_open() -> bool:
 	for map_hud in get_tree().get_nodes_in_group("streetbound_world_map_hud"):
 		if bool(map_hud.get("large")):
 			return true
-		var driving: CanvasLayer = map_hud.get("driving_hud") as CanvasLayer
-		if is_instance_valid(driving):
-			var tuning: Control = driving.get("tuning") as Control
-			if is_instance_valid(tuning) and tuning.visible:
-				return true
 	return false
 
 
@@ -165,8 +160,8 @@ func _refresh_visibility() -> void:
 
 
 func _process(_dt: float) -> void:
-	# The player can open Tab atlas or F1 settings without any race
-	# state change, so suppress the strip and restore chip immediately.
+	# The player can open the Tab atlas without any race state change,
+	# so suppress the strip and restore chip immediately.
 	_refresh_visibility()
 
 

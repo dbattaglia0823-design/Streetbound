@@ -46,8 +46,12 @@ func run() -> void:
 		dash.name == "LiveVehicleDashboard")
 	check("speed_and_gear_labels_are_live_dashboard_controls",
 		hud.speed_label == dash.speed_label and hud.gear_label == dash.gear_label)
-	check("engineering_readout_is_moved_into_f1",
-		hud.tuning.is_ancestor_of(hud.telemetry))
+	var hud_panels := 0
+	for child in hud.get_children():
+		if child is PanelContainer:
+			hud_panels += 1
+	check("f1_tuning_panel_removed", hud_panels == 1 and
+		not InputMap.has_action("tuning"))
 	var viewport_size := dash.get_viewport_rect().size
 	check("dash_fits_inside_visible_game_window",
 		dash.position.x >= 0.0 and dash.position.y >= 0.0 and \
@@ -123,11 +127,9 @@ func run() -> void:
 	check("engine_stats_come_from_current_car",
 		dash.model_label.text.contains("HP") and \
 		dash.model_label.text.contains("LB-FT"))
-	check("f1_stats_readout_stays_valid",
-		hud.telemetry.text.contains("POWER ") and \
-		hud.telemetry.text.contains("TORQUE ") and \
-		hud.telemetry.text.contains(" lb-ft") and \
-		hud.telemetry.text.contains("WEIGHT "))
+	check("dashboard_displays_model_stats_without_f1",
+		dash.model_label.text.contains("HP") and
+		dash.model_label.text.contains("LB-FT"))
 	var na: Dictionary = Catalog.find_by_id("ford-mustang")
 	check("ordinary_stock_engine_has_no_turbo_calibration",
 		float(na.get("boost_max_psi",0.0)) == 0.0)

@@ -304,7 +304,8 @@ func _update_scale() -> void:
 	atlas_scale_label.text="NORTH UP    ·    %.1f× detail    ·    Scroll to zoom / drag to pan"%[full_view.pixels_per_m/full_view.fit_scale]
 
 func _input(event: InputEvent) -> void:
-	if not driving_hud.waiting_action.is_empty(): return
+	# The F1 input-capture menu no longer exists. Map toggling is only
+	# gated by the pause state, which still protects Settings input.
 	if event.is_action_pressed("map") and not get_tree().paused:
 		large=not large
 		get_viewport().set_input_as_handled()
@@ -319,8 +320,8 @@ func _active_race_navigation() -> RefCounted:
 
 
 func _process(dt: float) -> void:
-	mini.visible=not driving_hud.tuning.visible and not large and not get_tree().paused
-	full.visible=large and not driving_hud.tuning.visible and not get_tree().paused
+	mini.visible=not large and not get_tree().paused
+	full.visible=large and not get_tree().paused
 	# UPDATE_ALWAYS still uses GPU time for a hidden SubViewport.
 	var mini_mode := SubViewport.UPDATE_ALWAYS if mini.visible else SubViewport.UPDATE_DISABLED
 	if mini_render.render_target_update_mode != mini_mode:

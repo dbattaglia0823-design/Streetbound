@@ -38,36 +38,25 @@ func _run() -> void:
 		hud._process(0.0)
 		check("mph_speedometer", hud.speed_unit_label.text.strip_edges() == "MPH"
 			and hud.speed_label.text == "067")
-		# F1 is now a compact stats-only panel; the main dial retains MPH.
-		check("stats_only_telemetry", hud.telemetry.text.contains("POWER ")
-			and hud.telemetry.text.contains("TORQUE ")
-			and hud.telemetry.text.contains("WEIGHT ")
-			and not hud.telemetry.text.contains("LONG "))
-		check("imperial_vehicle_specs", hud.telemetry.text.contains(" lb")
-			and hud.telemetry.text.contains(" lb-ft")
-			and hud.telemetry.text.contains(" hp")
-			and not hud.telemetry.text.contains("m/s"))
-		var labels := {
-			"mass_kg": "Weight (lb)",
-			"engine_torque_nm": "Torque (lb-ft)",
-			"engine_power_kw": "Horsepower (hp)"
-		}
-		check("only_three_performance_sliders", hud.tuning_sliders.size() == 3)
-		for key in labels:
-			var caption: Label = hud.config_labels[key]
-			check("imperial_tuning_%s" % key, caption.text.contains(labels[key])
-				and caption.text.ends_with(Imperial.tune_text(key, float(car.config.get(key)))))
-			var slider: HSlider = hud.tuning_sliders[key]
-			check("slider_range_and_step_%s" % key,
-				is_equal_approx(slider.min_value, 50.0)
-				and is_equal_approx(slider.max_value, 10000.0)
-				and is_equal_approx(slider.step, 10.0))
-		# Sliders work in displayed imperial units and convert to native kg.
-		var mass_slider: HSlider = hud.tuning_sliders["mass_kg"]
-		mass_slider.value = 1670.0
-		check("tuning_retains_physics_in_si",
-			absf(car.config.mass_kg - 1670.0 / Imperial.KG_TO_LB) < 0.01
-			and (hud.config_labels["mass_kg"] as Label).text.ends_with("1670"))
+		var dash: Control = hud.dashboard
+		check("dashboard_shows_imperial_vehicle_specs",
+			dash.model_label.text.contains("HP") and
+			dash.model_label.text.contains("LB-FT") and
+			not dash.model_label.text.contains("kW"))
+		var panel_count := 0
+		for child in hud.get_children():
+			if child is PanelContainer:
+				panel_count += 1
+		check("removed_f1_controls_do_not_appear", panel_count == 1 and
+			not InputMap.has_action("tuning"))
+		var stock_mass: float = car.config.mass_kg
+		var stock_torque: float = car.config.engine_torque_nm
+		var stock_power: float = car.config.engine_power_kw
+		hud._process(0.0)
+		check("hud_readouts_do_not_change_live_stats",
+			is_equal_approx(car.config.mass_kg, stock_mass) and
+			is_equal_approx(car.config.engine_torque_nm, stock_torque) and
+			is_equal_approx(car.config.engine_power_kw, stock_power))
 		# No physics values should change during display-only rendering.
 		check("physics_speed_remains_mps", is_equal_approx(car.linear_velocity.length(), 30.0))
 	main.queue_free()

@@ -1,5 +1,5 @@
 extends SceneTree
-## Five-figure F1 power / torque must produce a measurably different real
+## Five-figure power / torque must produce a measurably different real
 ## launch and higher-speed pull. No position, velocity, RPM or gear cheating.
 const Vehicle = preload("res://scenes/vehicle.tscn")
 const Power = preload("res://scripts/vehicle/powertrain_dynamics.gd")

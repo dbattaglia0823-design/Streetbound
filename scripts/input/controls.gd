@@ -6,7 +6,7 @@ const SAVE_PATH := "user://controls.cfg"
 const ACTIONS := [
 	"throttle", "brake", "left", "right", "handbrake", "nitrous",
 	"shift_up", "shift_down", "transmission", "reset", "camera",
-	"map", "garage", "upgrades", "tuning", "mute", "pause",
+	"map", "garage", "upgrades", "mute", "pause",
 	"zoom_in", "zoom_out"
 ]
 const LABELS := {
@@ -17,7 +17,7 @@ const LABELS := {
 	"transmission":"Auto / Manual", "reset":"Reset car",
 	"camera":"Camera view", "map":"Open map",
 	"garage":"Garage", "upgrades":"Upgrades",
-	"tuning":"Tuning / Stats", "mute":"Mute audio",
+	"mute":"Mute audio",
 	"pause":"Pause / Menu", "zoom_in":"Zoom in",
 	"zoom_out":"Zoom out"
 }
@@ -27,14 +27,13 @@ const KEYS := {
 	"shift_up":KEY_E, "shift_down":KEY_Q,
 	"transmission":KEY_M, "reset":KEY_R, "camera":KEY_C,
 	"map":KEY_TAB, "garage":KEY_G, "upgrades":KEY_U,
-	"tuning":KEY_F1, "mute":KEY_V, "pause":KEY_ESCAPE
+	"mute":KEY_V, "pause":KEY_ESCAPE
 }
 const BUTTONS := {
 	"handbrake":JOY_BUTTON_A, "nitrous":JOY_BUTTON_B,
 	"transmission":JOY_BUTTON_X, "reset":JOY_BUTTON_Y,
 	"camera":JOY_BUTTON_RIGHT_SHOULDER,
 	"upgrades":JOY_BUTTON_LEFT_SHOULDER,
-	"tuning":JOY_BUTTON_LEFT_STICK,
 	"shift_up":JOY_BUTTON_DPAD_UP, "shift_down":JOY_BUTTON_DPAD_DOWN,
 	"garage":JOY_BUTTON_DPAD_RIGHT, "mute":JOY_BUTTON_DPAD_LEFT,
 	"map":JOY_BUTTON_BACK, "pause":JOY_BUTTON_START

@@ -42,3 +42,10 @@ The archived loader renders roads, regions, decorative props and collision witho
 The runnable main scene stays the current Driving Lab. Run run_tests.ps1 locally under the installed Godot 4.6.3 for multi-render-rate physics comparisons. The new Actions workflow runs a pinned Godot 4.4.1 compatibility test for driver physics, racing grip, runtime input/UI/audio and saved Atlas Coast markers.
 
 These tests detect regressions but are not real-car telemetry validation. No production map streaming, dealership gameplay, traffic AI or progression is claimed.
+
+## Vehicle stats after removal of the F1 performance menu (2026-11-20)
+
+- The F1 horsepower/torque/weight overlay and its keyboard/controller binding are removed. The HUD only displays vehicle telemetry; it does not modify live physics.
+- Switching cars still builds a fresh `VehicleConfig` from `player_vehicle_catalog.gd`, with that model's power, torque, mass, drivetrain, tire grip and braking parameters. Legitimate owned garage upgrades still apply afterward.
+- Older `user://streetbound_vehicle_tuning.cfg` files are left untouched for user data safety but are no longer loaded or written. They cannot override the active vehicle.
+- Focused regressions: `tests/tuning_persistence_test.gd` (now tests legacy save isolation), `tests/live_vehicle_dashboard_test.gd`, `tests/game_startup_smoke_test.gd`, and `tests/remappable_controls_settings_test.gd`.
