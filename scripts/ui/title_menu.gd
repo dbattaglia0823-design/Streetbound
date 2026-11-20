@@ -237,7 +237,8 @@ func _build_friends_page() -> void:
 		["friends_back", "BACK"]
 	]:
 		_add_action(friends_page, str(action[0]), str(action[1]), "›")
-		actions[action[0]].custom_minimum_size.y = 51
+		var button := actions[str(action[0])] as Button
+		button.custom_minimum_size = Vector2(492, 51)
 	friend_message = _label("Direct connection. Internet hosting may require UDP port forwarding.", 14, MUTED)
 	friend_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	friend_message.custom_minimum_size.y = 55
