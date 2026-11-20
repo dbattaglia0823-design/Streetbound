@@ -2,7 +2,9 @@ extends SceneTree
 ## Two separate Godot processes exercise actual ENet admission, roster, readiness,
 ## model identity, and disconnect over loopback. No editor or mock RPCs.
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const SessionScript = preload("res://scripts/network/online_session.gd")
 const PORT := 28164
+const INVITE_FILE := "user://streetbound_ci_private_lobby_invite_28164.txt"
 const POLL_SECONDS := 0.05
 const MAX_POLLS := 180
 
@@ -40,6 +42,15 @@ func _run() -> void:
 		if not session.active:
 			quit(1)
 			return
+		var code: String = session.get_invite_code()
+		check("host_generates_random_private_invitation",
+			code.begins_with("SB1-") and
+			SessionScript.decode_invite(code).get("host", "") == "127.0.0.1")
+		var invite_file := FileAccess.open(INVITE_FILE, FileAccess.WRITE)
+		check("host_writes_local_test_invitation", invite_file != null)
+		if invite_file:
+			invite_file.store_string(code)
+			invite_file.close()
 		var arrived: bool = await _poll_for(func() -> bool:
 			return session.players.size() == 2)
 		check("host_admits_guest_through_real_enet",arrived)
@@ -56,12 +67,28 @@ func _run() -> void:
 		var left: bool = await _poll_for(func() -> bool:
 			return session.players.size() == 1)
 		check("host_clears_disconnected_guest",left)
+		var former_code: String = session.get_invite_code()
+		var changed_code: String = session.rotate_invite()
+		check("host_can_invalidate_previous_invitations",
+			changed_code != former_code and not changed_code.is_empty())
+		session.set_lobby_locked(true)
+		check("host_can_lock_private_lobby", session.lobby_locked)
 		session.leave_session()
+		if FileAccess.file_exists(INVITE_FILE):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(INVITE_FILE))
 	else:
-		# Allow the host process to bind UDP before the join attempt.
-		await create_timer(0.35).timeout
+		check("invalid_or_missing_invite_is_rejected_locally",
+			not session.join_invite("wrong", "Guest") and
+			not session.join_session("127.0.0.1", "Guest", PORT))
+		var found: bool = await _poll_for(func() -> bool:
+			return FileAccess.file_exists(INVITE_FILE))
+		check("guest_reads_host_generated_code", found)
+		if not found:
+			quit(1)
+			return
+		var code: String = FileAccess.get_file_as_string(INVITE_FILE)
 		check("guest_opens_real_udp_connection",
-			session.join_session("127.0.0.1", "Guest", PORT))
+			session.join_invite(code, "Guest"))
 		if not session.joining:
 			quit(1)
 			return
