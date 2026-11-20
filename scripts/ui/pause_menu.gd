@@ -500,7 +500,7 @@ func _native_button(parent: Control, name_value: String, value: String,
 	return button
 
 
-# The preview uses the selected vehicle's real catalog art and live tuning.
+# The preview reads the selected vehicle's real catalog art and active stats.
 func _build_vehicle_panel() -> void:
 	_info_label(pause_screen, "PauseBrand", "STREETBOUND  /  GAME PAUSED",
 		Vector2(51, 37), Vector2(288, 19), 11, Color("#ff9c5b"))

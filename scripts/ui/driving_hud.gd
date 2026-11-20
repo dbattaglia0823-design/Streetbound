@@ -1,5 +1,4 @@
 extends CanvasLayer
-const Imperial = preload("res://scripts/ui/imperial_units.gd")
 const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
 var vehicle: VehicleController2D
 var race: Node2D

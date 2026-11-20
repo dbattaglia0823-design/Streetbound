@@ -36,7 +36,7 @@ Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--s
 Write-Output 'PASS: gradual handbrake recovery, power wheelspin and clean-line corner advantage.'
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '1200', '--script', 'res://tests/runtime_test.gd', '--log-file', "`"$project\runtime_test.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'runtime_test.log') -SimpleMatch 'RUNTIME TESTS: PASS' -Quiet)) { throw 'Full-scene test did not finish.' }
-Write-Output 'PASS: full scene, input, camera, manual shifting, tuning UI, audio and saved bindings.'
+Write-Output 'PASS: full scene, input, camera, manual shifting, model stats, audio and saved bindings.'
 Invoke-Godot @('--headless', '--path', "`"$project`"", '--fixed-fps', '60', '--quit-after', '6000', '--script', 'res://tests/open_world_test.gd', '--log-file', "`"$project\open_world_test.log`"")
 if (-not (Select-String -LiteralPath (Join-Path $project 'open_world_test.log') -SimpleMatch 'OPEN WORLD TESTS: PASS' -Quiet)) { throw 'Open-world validation did not finish.' }
 Write-Output 'PASS: open-world spawn, atlas, connected roads, surfaces, collision clearance and streaming.'
