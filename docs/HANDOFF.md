@@ -35,3 +35,10 @@ Clarified that the quick-upgrades delta application preserves runtime driving st
 ## 2026-11-20 — PR #172 CI follow-up
 
 Two Godot regression jobs (4.6.3 and 4.4.1) reported a script error during `tests/pause_menu_test.gd`: `world_map_hud.gd:307` read the deleted `driving_hud.waiting_action` property. Removed the obsolete F1 input-capture guard in world-map `_input`, while preserving the pause check; added map open/close and paused-state regression assertions to the existing pause-menu test. Car-specific racing/drift physics checks had passed. GitHub Actions must rerun on the updated commit; no unexecuted results are claimed.
+
+
+## 2026-11-20 — Friends-first online multiplayer foundation
+
+Added a review branch with Godot ENet direct-IP host/join UI, persistent admission/roster, host-driven guest physics, predicted local player and interpolated remote cars, nameplates, model identity broadcast, and online session teardown. The original solo career and local split-screen paths remain separate; no saved-profile migration.
+
+New smoke regression: \`tests/online_friend_session_test.gd\`, run in the Godot 4.6.3 validation workflow. This is a source/code milestone; no two-machine LAN/WAN, port forwarding, real latency or interactive network driving result is claimed. See \`docs/FRIENDS_MULTIPLAYER.md\` for operational caveats, security limitations and next steps.
