@@ -984,7 +984,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 	# A remapped Pause/Menu button also works on gamepads. Escape always
 	# remains the fail-safe to reach the settings menu again.
-	var menu_open := get_tree().paused or (online_session.active and not menu_state.is_empty())
+	var menu_open: bool = get_tree().paused or (bool(online_session.active) and not menu_state.is_empty())
 	if menu_open and menu_state.is_empty():
 		return
 	if not menu_open:
