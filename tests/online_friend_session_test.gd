@@ -30,6 +30,8 @@ func _run() -> void:
 	await process_frame
 	title._activate("multiplayer")
 	title._activate("online_multiplayer")
+	check("private_code_input_exists", title.friend_code != null and
+		title.friend_code.max_length >= 500)
 	check("friends_page_exposes_host_and_join",
 		title.friends_page.visible and
 		title.actions["host_friend_session"].disabled == false and
@@ -47,6 +49,16 @@ func _run() -> void:
 		session.active and session.hosting and
 		session.players.size() == 1 and
 		session.players.has(1))
+	var first_code: String = session.get_invite_code()
+	var invite_data: Dictionary = SessionScript.decode_invite(first_code)
+	check("private_code_is_unpredictable_and_contains_reachable_endpoint",
+		first_code.begins_with("SB1-") and
+		str(invite_data.get("host", "")) == "127.0.0.1" and
+		int(invite_data.get("port", 0)) == 28163 and
+		SessionScript.valid_secret(str(invite_data.get("key", ""))))
+	check("malformed_and_short_codes_are_rejected",
+		SessionScript.decode_invite("SB1-bad/contents").is_empty() and
+		SessionScript.decode_invite("nope").is_empty())
 	if game != null and game != title:
 		var network: Node = game.get("online_world")
 		check("real_driving_world_has_online_replication",
@@ -61,6 +73,9 @@ func _run() -> void:
 			game.pause_menu.resume_game()
 			check("online_resume_restores_local_player_input",
 				not game.vehicle.external_input)
+			check("host_has_private_lobby_controls",
+				network.invitation_toolbar != null and
+				network.lock_lobby_button != null)
 			check("online_world_uses_no_duplicate_local_vehicle",
 				network.peer_cars.is_empty() and not game.vehicle.external_input)
 			# Inject an admitted peer into the roster. In production only the
@@ -80,6 +95,12 @@ func _run() -> void:
 			session.players.erase(2)
 			network._sync_peers()
 			check("departing_friend_is_removed",network.peer_cars.is_empty())
+		var refreshed_code: String = session.rotate_invite()
+		check("host_can_replace_a_leaked_code_without_dropping_players",
+			refreshed_code != first_code and
+			SessionScript.decode_invite(refreshed_code).has("key"))
+		session.set_lobby_locked(true)
+		check("host_lobby_can_refuse_new_arrivals", session.lobby_locked)
 		game._return_to_main_menu()
 		for frame in 4:
 			await process_frame
