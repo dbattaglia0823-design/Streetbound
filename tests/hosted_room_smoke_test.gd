@@ -66,6 +66,20 @@ func _run() -> void:
 			game != null and game.get("ground") != null and
 			game.get("vehicle") != null and game.get("online_world") != null and
 			game.online_world.local_vehicle == game.vehicle)
+		if game != null and game.get("online_world") != null:
+			var network: Node = game.get("online_world")
+			# Inject two admitted human records into a dedicated-room roster.
+			# ENet assigns arbitrary IDs; seats must not overlap without peer 1.
+			session.players[101] = {"name": "Alpha", "car_id": ""}
+			session.players[303] = {"name": "Beta", "car_id": ""}
+			network._sync_peers()
+			var first_car: Node2D = network.peer_cars.get(101) as Node2D
+			var second_car: Node2D = network.peer_cars.get(303) as Node2D
+			check("dedicated_first_two_humans_spawn_in_different_seats",
+				first_car != null and second_car != null and
+				first_car.position.distance_to(second_car.position) > 10.0)
+			session.players.clear()
+			network._sync_peers()
 		check("dedicated_roster_has_no_fake_host_driver",
 			session.players.is_empty())
 	session.leave_session()
