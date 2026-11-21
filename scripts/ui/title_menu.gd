@@ -4,6 +4,7 @@ extends Control
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
 const GameplayScript = preload("res://scripts/main.gd")
+const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
@@ -320,7 +321,7 @@ func _on_lan_scan_finished() -> void:
 
 func _host_lan_game() -> void:
 	if not online_session.host_session(lan_name.text, online_session.DEFAULT_PORT,
-			lan_discovery.local_ipv4()):
+			LanDiscoveryScript.local_ipv4()):
 		lan_message.text = str(online_session.last_message)
 		return
 	# Explicit opt-in: the admission key appears in LAN discovery responses.
