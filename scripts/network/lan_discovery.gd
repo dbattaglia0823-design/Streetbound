@@ -32,28 +32,28 @@ static func local_ipv4() -> String:
 	for address in IP.get_local_addresses():
 		if address.contains(":") or address.begins_with("127.") or address == "0.0.0.0":
 			continue
-		if address.begins_with("192.168.") or address.begins_with("10.") or
+		if address.begins_with("192.168.") or address.begins_with("10.") or \
 				address.begins_with("172.") or address.begins_with("100."):
 			return address
 		alternatives.append(address)
 	return alternatives[0] if not alternatives.is_empty() else "127.0.0.1"
 
 static func parse_reply(bytes: PackedByteArray, sender: String) -> Dictionary:
-	if bytes.is_empty() or bytes.size() > MAX_PACKET_BYTES or
+	if bytes.is_empty() or bytes.size() > MAX_PACKET_BYTES or \
 			not SESSION_SCRIPT.valid_address(sender):
 		return {}
 	var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
 	if not parsed is Dictionary:
 		return {}
-	if str(parsed.get("type", "")) != RESPONSE_TYPE or
+	if str(parsed.get("type", "")) != RESPONSE_TYPE or \
 			int(parsed.get("protocol", 0)) != SESSION_SCRIPT.PROTOCOL_VERSION:
 		return {}
 	var port: int = int(parsed.get("port", 0))
 	var secret := str(parsed.get("key", ""))
 	var name := SESSION_SCRIPT.clean_name(str(parsed.get("name", "")))
 	var count: int = int(parsed.get("players", 0))
-	if not SESSION_SCRIPT.valid_port(port) or
-			not SESSION_SCRIPT.valid_secret(secret) or name.is_empty() or
+	if not SESSION_SCRIPT.valid_port(port) or \
+			not SESSION_SCRIPT.valid_secret(secret) or name.is_empty() or \
 			count < 1 or count > SESSION_SCRIPT.MAX_PLAYERS:
 		return {}
 	var invite: String = SESSION_SCRIPT.encode_invite(sender, port, secret)
@@ -64,7 +64,7 @@ static func parse_reply(bytes: PackedByteArray, sender: String) -> Dictionary:
 
 func start_advertising() -> bool:
 	stop_advertising()
-	if online_session == null or not bool(online_session.hosting) or
+	if online_session == null or not bool(online_session.hosting) or \
 			not bool(online_session.active):
 		_set_status("Start a LAN host session before advertising.")
 		return false
@@ -97,7 +97,7 @@ func scan() -> bool:
 	_client_socket.set_broadcast_enabled(true)
 	searching = true
 	_search_started_ms = Time.get_ticks_msec()
-	if _client_socket.set_dest_address("255.255.255.255", DISCOVERY_PORT) != OK or
+	if _client_socket.set_dest_address("255.255.255.255", DISCOVERY_PORT) != OK or \
 			_client_socket.put_packet(QUERY.to_utf8_buffer()) != OK:
 		cancel_scan()
 		_set_status("LAN discovery broadcast could not be sent.")
