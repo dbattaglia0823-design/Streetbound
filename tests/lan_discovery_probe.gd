@@ -8,9 +8,9 @@ var failures: Array[String] = []
 func _initialize() -> void:
 	call_deferred("_run")
 
-func check(label: String, pass: bool) -> void:
-	print("%s %s" % ["PASS" if pass else "FAIL", label])
-	if not pass:
+func check(label: String, passed: bool) -> void:
+	print("%s %s" % ["PASS" if passed else "FAIL", label])
+	if not passed:
 		failures.append(label)
 
 func _poll_for(predicate: Callable, max_ticks: int = 200) -> bool:
