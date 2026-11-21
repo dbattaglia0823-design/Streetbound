@@ -442,6 +442,9 @@ func _start_hosted(create_new: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
 		if friends_page.visible or hosted_page.visible:
+			if hosted_page.visible and hosted_lobby != null and bool(hosted_lobby.busy):
+				_hosted_status("Room creation or lookup is in progress.")
+				return
 			online_session.leave_session()
 			_show_multiplayer()
 			get_viewport().set_input_as_handled()
@@ -465,6 +468,10 @@ func _activate(mode: String) -> void:
 		"hosted_multiplayer":
 			_show_hosted()
 		"hosted_back":
+			if hosted_lobby != null and bool(hosted_lobby.busy):
+				_hosted_status("Room creation or lookup is in progress.")
+				return
+			online_session.leave_session()
 			_show_multiplayer()
 		"create_hosted_room":
 			_start_hosted(true)
