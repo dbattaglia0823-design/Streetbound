@@ -187,7 +187,9 @@ func _physics_process(dt: float) -> void:
 		_snapshot_elapsed += dt
 		if _snapshot_elapsed >= SNAPSHOT_RATE:
 			_snapshot_elapsed = fmod(_snapshot_elapsed, SNAPSHOT_RATE)
-			var states: Dictionary = {1: _car_state(local_vehicle)}
+			# Dedicated authority has no real human peer at ID 1.
+			var states: Dictionary = {} if bool(online_session.dedicated) else \
+				{1: _car_state(local_vehicle)}
 			for id in peer_cars:
 				states[id] = _car_state(peer_cars[id] as VehicleController2D)
 			for id in online_session.world_ready_peers:
