@@ -65,7 +65,8 @@ func _run() -> void:
 		if found:
 			var first: Dictionary = discovery.rooms.values()[0]
 			check("lan_reply_contains_usable_ip_and_invitation",
-				str(first.ip) == "127.0.0.1" and
+				str(first.ip) != "" and
+				SessionScript.decode_invite(str(first.invite)).get("host", "") == str(first.ip) and
 				str(first.name) == "LAN Host" and
 				SessionScript.decode_invite(str(first.invite)).get("port", 0) == PORT)
 			check("guest_connects_using_lan_invitation",
@@ -73,6 +74,7 @@ func _run() -> void:
 			var connected: bool = await _poll_for(func() -> bool:
 				return session.active and session.players.size() == 2)
 			check("real_enet_host_accepts_lan_browser_guest", connected)
+			await create_timer(0.4).timeout
 			session.leave_session()
 		discovery.cancel_scan()
 	print("LAN DISCOVERY %s: %s" % [
