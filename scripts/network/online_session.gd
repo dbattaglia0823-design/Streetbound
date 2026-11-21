@@ -313,6 +313,9 @@ func set_local_car(car_id: String) -> void:
 	if not active or Catalog.find_by_id(car_id).is_empty():
 		return
 	if hosting:
+		if dedicated:
+			# A headless room has no human car in slot 1.
+			return
 		players[1]["car_id"] = car_id
 		_broadcast_roster()
 	else:
