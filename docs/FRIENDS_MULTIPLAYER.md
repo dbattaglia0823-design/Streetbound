@@ -1,32 +1,47 @@
-# Friends-only online lobbies — first implementation
+# Play with friends — temporary LAN and internet sessions
 
-Status: developmental, see PR #176 and its CI. Invite-only means a host-generated secret **must** be presented to enter. It does **not** mean cloud matchmaking, user identity verification, automatic NAT traversal, or encrypted gameplay.
+**No always-on game computer or deployed Streetbound service is required.** A player hosts while playing and their game becomes the session authority. When the host exits, the session ends. Up to four total drivers can play together in free-roam Morrow Coast.
 
-## Play with friends
+The implementation is Godot ENet over UDP. Two different connection methods share the same vehicle physics, admission and synchronized free-roam systems.
 
-1. All players run the same game version / map. From the title screen select **Multiplayer → Play with Friends (Online)**.
-2. Host: set a driver name, a **reachable host IP or DNS name**, and a **UDP port** (default 28163), then choose **HOST FRIEND SESSION**. For tests on the same PC use \`127.0.0.1\`; on a local network use the host's LAN address; for internet play use the host's public IP or reachable DNS name.
-3. In the game world, the host clicks **COPY INVITE**. The code contains the chosen host address, port and a fresh 192-bit random admission secret. Send that full code privately to friends; they don't need to type an IP or port separately.
-4. A guest chooses a driver name, pastes the invitation into the title screen's invitation field, and selects **JOIN FRIEND SESSION**. Only clients presenting the current valid secret and compatible protocol version can join.
-5. Up to four total drivers (one host plus three guests) share free-roam Morrow Coast. Host can click **LOCK LOBBY** to block further arrivals (without removing current friends), **UNLOCK LOBBY** to allow them again, or **NEW CODE** to revoke older invitations. Leaving the session/returning to title revokes that lobby's secret.
+## Friends on the same Wi-Fi or wired local network
 
-**Important network requirement:** This first implementation uses ENet over direct UDP. The host may have to forward the chosen UDP port on their router and allow that port through their firewall for friends outside their LAN. Carrier-grade NAT or restrictive networks may prevent connections entirely. Invite codes bundle connection details but do **not** route traffic around NAT or automatically expose the host. No public lobby directory or relay is deployed in this repository.
+1. Everyone runs the same Streetbound version. Select **Multiplayer → Find / Host LAN Game**.
+2. Host: enter your driver name, then choose **Host LAN Game**. Your computer starts hosting UDP **28163** and responds to UDP **28164** discovery queries only while your game is open.
+3. Friends: select **Find LAN Games**, choose the host from the list, and select **Join Selected LAN Game**. A same-subnet UDP broadcast finds compatible hosts; the received packet's IP is used for joining instead of asking players for an address.
+4. To end the game, the host leaves to the main menu. LAN advertising and the game session stop.
 
-**Security limitation:** Invitation possession is the only admission factor; it is not tied to named accounts and the game packets/secret are not end-to-end encrypted. Only share codes with trusted people and avoid hosting on adversarial networks. Rotating a code prevents *future* joins using the old code; it does not kick already connected peers. A lobby lock prevents new joins, not existing sessions. UDP ports can be probed; unadmitted clients receive a rejection and are disconnected.
+**Privacy:** LAN advertising is deliberately **opt-in**. It publishes the temporary session's invitation credential in responses to LAN discovery queries, so any device able to query the host on that local network may see and join the game. It does not publish rooms to the internet. **Do not use discoverable LAN hosting on an untrusted shared or public Wi-Fi.** For stricter invitation-only LAN sessions, use the Direct Friends Invite option below, and share the invite privately instead.
 
-## Technical notes
+LAN scans may not cross multiple VLANs, guest Wi-Fi/client isolation, corporate firewall segments, or a VPN tunnel. Allow the app through your OS firewall (UDP 28163 for ENet; UDP 28164 for discovery). No internet router port forwarding is required for players already on the same LAN.
 
-- \`scripts/network/online_session.gd\` (autoloader) creates the private lobby using a Godot \`Crypto\` CSPRNG for a 192-bit hex secret. \`SB1-\` invitations are base64url-encoded JSON containing hostname, UDP port and token; the format is **encoding**, not encryption. Admission RPC validates version, name, capacity, lock state and secret on the **host** before adding a player to the roster. Invalid clients cannot create synced cars or send accepted driving inputs.
-- \`scripts/network/online_world.gd\` uses host-simulated guest \`VehicleController2D\` physics from clamped commands, guest-side local prediction, 15 Hz state replication and interpolation. Networked remote collision/damage is disabled in this slice.
-- \`scripts/ui/title_menu.gd\` hosts or joins using a pasteable invitation. The in-world host toolbar copies/rotates invitations and locks/unlocks the lobby. The pause menu does not pause the host's physics while friends are connected.
-- User-specific careers, inventories and upgrades remain local; competitive races, host migration, vehicle collisions, authoritative economic rewards and match results are **not yet networked**.
+## Friends at another house — no always-on computer
 
-## Validation
+The existing **Multiplayer → Play With Friends (Online)** supports player-to-player joining when the host is reachable.
 
-- \`tests/online_friend_session_test.gd\`: host-world smoke, real vehicle spawning, UI flows, invite generation/decoding/rotation, lock controls, pause isolation and cleanup.
-- \`tests/online_friend_connection_probe.gd\`: runs separate Godot processes through a real ENet UDP loopback connection. A host shares its ephemeral private invitation with the guest via a temporary test file, which the host removes after testing. Verifies admission, roster, world readiness, model identity and disconnect. Missing/invalid invite paths are rejected.
-- Tests are invoked in Godot 4.6.3 CI; broader world tests also execute with Godot 4.4.1. A green run verifies those precise cases only. Two physical computers, LAN/WAN firewalls, high ping/loss, and the full game still need hands-on playtesting.
+**Recommended for private internet sessions without router port forwarding: Tailscale**, or a similar trusted virtual-LAN app. Tailscale can securely connect your computers or share a particular host device with friends over the internet without opening a home-router port; its service supplies the connection coordination/relay infrastructure, and only the actual players' machines must be on while playing.
 
-## Future infrastructure
+1. Both host and friends install and connect a compatible virtual-LAN app; ensure they are authorized to communicate. For Tailscale, share the host device or authorize friends in your tailnet. See [Tailscale's game server guide](https://tailscale.com/docs/use-cases/personal-or-at-home-use/share-private-game-server).
+2. The host opens **Play With Friends (Online)**, sets their driver name and **the host's Tailscale IPv4 address** (usually in the `100.x.x.x` range) in the *reachable IP/hostname* field, leaves UDP port **28163**, and selects **Host Friend Session**.
+3. In the game, the host clicks **Copy Invite** and sends the long `SB1-` code privately to friends.
+4. Each friend opens the same online menu, pastes the code, and selects **Join Friend Session**. ENet traffic goes over the private network; no dedicated Streetbound machine or game-hosting subscription is necessary.
+5. The host's game is the authority and must remain open *for the play session only*. Leaving closes the session. If Tailscale is stopped or connectivity is blocked, the game disconnects.
 
-A seamless short-code experience with no IP/port forwarding requires a **deployed** lobby registration/discovery service and managed NAT traversal/relay (or server-authoritative dedicated game hosting). An external code lookup, user identity and TLS-backed authentication are not included. Do not advertise cloud invite codes or "works behind any router" until a real backend is configured, secured, deployed and tested.
+**Without a VPN**, internet hosting may work if the host uses a public reachable address and forwards the chosen ENet **UDP** port (default 28163) on their router/firewall. This can fail with carrier-grade NAT or restrictive networks. There is no Steam/EOS relay integration, automatic NAT traversal, matchmaker, or authentication service in Streetbound yet. A code on its own cannot make an unreachable home computer reachable from another house.
+
+## Existing private invitation controls
+
+A host chooses their reachable IP or hostname and port. The game generates a random 192-bit per-session secret and packages the host address, port and secret into a `SB1-` invitation. The host checks possession of the current secret **before** admitting a guest. The in-world host can **Copy Invite**, **New Code** (invalidates earlier invitations for future joins), and **Lock/Unlock Lobby** (blocks or allows new arrivals without kicking current drivers).
+
+The protocol is not end-to-end encrypted and codes are bearer credentials. Do not broadcast a private invitation over insecure public networks. For LAN discovery, the credential is knowingly shared on the local subnet; for Direct Friends invites it remains private unless the host shares it. This does not establish verified player accounts or prevent a malicious recipient from re-sharing a code.
+
+## Implementation and test coverage
+
+- `scripts/network/online_session.gd`: host-owned roster, version handshake, validated invite admission, 4-player capacity, car model selections, and disconnect cleanup.
+- `scripts/network/lan_discovery.gd`: opt-in UDP 28164 LAN discoverability. The client broadcasts a fixed discovery query, accepts bounded JSON replies only for the same game protocol, builds join addresses from actual packet-source IPs, and never uses an untrusted advertised IP for the ENet destination.
+- `scripts/ui/title_menu.gd`: separate LAN host/browser/join page and existing private Direct Friends Invite page.
+- `scripts/network/online_world.gd`: host-simulated guest vehicle physics using normal driving commands, state snapshots and interpolation. Competitive races, synchronized upgrades and vehicle-to-vehicle collision/damage are **not networked** yet.
+- `tests/lan_discovery_probe.gd`: two separate actual Godot processes host and discover via UDP loopback, join using the session invitation and validate roster and cleanup.
+- `tests/title_navigation_test.gd` and existing `tests/online_friend_connection_probe.gd` validate the game menus and private ENet admission. CI runs these under Godot 4.6.3, and the existing broader world/physics suite also tests 4.4.1.
+
+**Testing boundaries:** A successful loopback test is not a real two-computer LAN/WAN playtest. Wi-Fi isolation, Windows firewall prompts, Tailscale access rules, multi-interface routing and internet latency still require hands-on testing. No server has been deployed or subscribed to on the user's behalf.

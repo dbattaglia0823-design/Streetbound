@@ -55,3 +55,14 @@ Scope: \`scripts/network/online_session.gd\` now generates a 192-bit random per-
 CI fix: standalone Godot 4.4.1 script loading could not resolve the global \`OnlineSession\` identifier; the gameplay scripts now access the \`/root/OnlineSession\` node at runtime. Godot type inference from dynamic Node properties required explicit \`bool\`/\`int\` annotations. Test coverage now exercises invitation parsing/rotation and a real ENet forged-secret rejection process alongside legitimate host/guest peers.
 
 Verification boundary: this milestone requires a green latest-commit **Godot 4.6.3** job and **4.4.1** physics/world job before merging. Test results on earlier revisions do not certify the latest branch. A public relay, lobby discovery backend, automatic NAT traversal and real internet playtesting have **not** been provided; these are documented gaps, not completed features. See \`docs/FRIENDS_MULTIPLAYER.md\`.
+
+
+## 2026-11-21 — PR on-demand player-hosted LAN sessions
+
+Supersedes the draft dedicated-hosted room PR #177 (closed without merge): the requested player experience is to run a game only while a friend is actually playing, either on the same LAN or across homes. No continuously running dedicated Streetbound machine or subscription is needed.
+
+Added an opt-in UDP LAN discovery autoload (`scripts/network/lan_discovery.gd`), a **Find / Host LAN Game** page on the existing title screen, and a real two-process ENet discovery/join regression. LAN discovery uses bounded UDP broadcast/unicast on **28164**, then rejoins the *existing* host-owned ENet world on the host's game port (default **28163**). It validates protocol, port, player count and credential, and uses the packet's source IP, not a peer-supplied hostname. LAN advertising shares the session invite credential with anyone on that local subnet, so the host must opt in explicitly; the original private invite flow remains available.
+
+For friends at another house, keep the direct private invitation path and use a third-party virtual network such as Tailscale (which handles connectivity without a personally maintained dedicated machine) or an existing public UDP-forwarded host. No built-in relay, unattended dedicated service or cloud-backed invite lookup has been claimed.
+
+Evidence/limits: Godot 4.6.3 cold import and two-process LAN host/guest CI must pass on the branch before merging; current tests do not establish real home Wi-Fi or real cross-house network reachability. Existing physics, map and vehicle systems are unchanged.
