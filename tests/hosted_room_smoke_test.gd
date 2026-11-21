@@ -70,6 +70,6 @@ func _run() -> void:
 			session.players.is_empty())
 	session.leave_session()
 	paused = false
-	print("HOSTED ROOM SERVER: ", "PASS" if failures.is_empty() else
-		"FAIL " + str(failures))
+	print("HOSTED ROOM SERVER: %s" % (
+		"PASS" if failures.is_empty() else "FAIL " + str(failures)))
 	quit(0 if failures.is_empty() else 1)
