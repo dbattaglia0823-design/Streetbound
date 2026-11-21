@@ -43,6 +43,18 @@ func _run() -> void:
 		title.actions["online_multiplayer"].visible and
 		not title.actions["online_multiplayer"].disabled and
 		title.actions["online_multiplayer"].text.contains("FRIENDS"))
+	check("local_network_lobby_browser_offered_alongside_direct_friends",
+		title.actions.has("lan_multiplayer") and
+		not title.actions["lan_multiplayer"].disabled)
+	title._activate("lan_multiplayer")
+	check("lan_page_has_host_scan_join_and_back",
+		title.lan_page.visible and not title.multiplayer_page.visible and
+		title.actions.has("host_lan_game") and
+		title.actions.has("scan_lan_games") and
+		title.actions.has("join_lan_game") and title.lan_games != null)
+	title._activate("lan_back")
+	check("lan_back_restores_multiplayer_menu",
+		title.multiplayer_page.visible and not title.lan_page.visible)
 	title._activate("online_multiplayer")
 	check("friends_online_page_can_host_or_join_without_auto_launch",
 		current_scene == title and title.friends_page.visible and
