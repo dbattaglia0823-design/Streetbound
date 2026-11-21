@@ -1,5 +1,6 @@
 extends Control
 @onready var online_session: Node = get_node_or_null("/root/OnlineSession")
+@onready var lan_discovery: Node = get_node_or_null("/root/LanDiscovery")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
 const GameplayScript = preload("res://scripts/main.gd")
@@ -18,6 +19,11 @@ var card: PanelContainer
 var main_page: VBoxContainer
 var multiplayer_page: VBoxContainer
 var friends_page: VBoxContainer
+var lan_page: VBoxContainer
+var lan_name: LineEdit
+var lan_games: ItemList
+var lan_message: Label
+var lan_records: Array[Dictionary] = []
 var friend_name: LineEdit
 var friend_address: LineEdit
 var friend_port: LineEdit
@@ -44,6 +50,10 @@ func _ready() -> void:
 	_refresh_buttons()
 	online_session.status_changed.connect(_online_status)
 	online_session.session_accepted.connect(_online_joined)
+	if lan_discovery != null:
+		lan_discovery.room_found.connect(_on_lan_room_found)
+		lan_discovery.status_changed.connect(_on_lan_status)
+		lan_discovery.scan_finished.connect(_on_lan_scan_finished)
 	actions["single_player"].grab_focus()
 
 func _panel_style(color: Color, border: Color, radius: int = 14) -> StyleBoxFlat:
@@ -159,6 +169,7 @@ func _build_shell() -> void:
 	_build_main_page()
 	_build_multiplayer_page()
 	_build_friends_page()
+	_build_lan_page()
 	_show_main_menu(false)
 
 	var note := _label("STREETBOUND  /  EARLY ACCESS", 13, Color("#9aaaba"),
@@ -197,6 +208,7 @@ func _build_multiplayer_page() -> void:
 	intro.custom_minimum_size.y = 43
 	multiplayer_page.add_child(intro)
 	_add_action(multiplayer_page, "local_multiplayer", "LOCAL MULTIPLAYER", "◈", true)
+	_add_action(multiplayer_page, "lan_multiplayer", "FIND / HOST LAN GAME", "◈")
 	_add_action(multiplayer_page, "online_multiplayer",
 		"PLAY WITH FRIENDS (ONLINE)", "◈")
 	_add_action(multiplayer_page, "back", "BACK", "‹")
@@ -248,12 +260,102 @@ func _build_friends_page() -> void:
 	friend_message.custom_minimum_size.y = 55
 	friends_page.add_child(friend_message)
 
+func _build_lan_page() -> void:
+	lan_page = VBoxContainer.new()
+	lan_page.name = "LANPage"
+	lan_page.add_theme_constant_override("separation", 8)
+	card.add_child(lan_page)
+	var heading := _label("PLAY TOGETHER ON LAN", 26, WHITE)
+	heading.custom_minimum_size.y = 48
+	lan_page.add_child(heading)
+	var description := _label(
+		"Host a game while you play, or find hosts on the same network.", 15, MUTED)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.custom_minimum_size.y = 44
+	lan_page.add_child(description)
+	lan_name = LineEdit.new()
+	lan_name.name = "LANDriverName"
+	lan_name.placeholder_text = "Your driver name"
+	lan_name.text = "Driver"
+	lan_name.max_length = 24
+	lan_name.custom_minimum_size.y = 40
+	lan_page.add_child(lan_name)
+	_add_action(lan_page, "host_lan_game", "HOST LAN GAME", "◈")
+	_add_action(lan_page, "scan_lan_games", "FIND LAN GAMES", "⌕")
+	for id in ["host_lan_game", "scan_lan_games"]:
+		(actions[id] as Button).custom_minimum_size.y = 44
+	lan_games = ItemList.new()
+	lan_games.name = "LANGameResults"
+	lan_games.custom_minimum_size = Vector2(492, 110)
+	lan_games.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lan_games.item_activated.connect(_join_selected_lan_game.unbind(1))
+	lan_page.add_child(lan_games)
+	_add_action(lan_page, "join_lan_game", "JOIN SELECTED LAN GAME", "›")
+	_add_action(lan_page, "lan_back", "BACK", "‹")
+	for id in ["join_lan_game", "lan_back"]:
+		(actions[id] as Button).custom_minimum_size.y = 44
+	lan_message = _label(
+		"LAN games are visible to anyone on your Wi-Fi/local subnet.", 14, MUTED)
+	lan_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lan_message.custom_minimum_size.y = 50
+	lan_page.add_child(lan_message)
+
+func _on_lan_room_found(record: Dictionary) -> void:
+	if not is_instance_valid(lan_games):
+		return
+	lan_records.append(record)
+	lan_games.add_item("%s   %d/%d   (%s)" % [
+		str(record.name), int(record.players), online_session.MAX_PLAYERS,
+		str(record.ip)])
+	if lan_games.item_count == 1:
+		lan_games.select(0)
+
+func _on_lan_status(status: String) -> void:
+	if is_instance_valid(lan_message):
+		lan_message.text = status
+
+func _on_lan_scan_finished() -> void:
+	if is_instance_valid(lan_games) and lan_games.item_count == 0:
+		lan_message.text = "No LAN hosts found. Check Wi-Fi, guest network and firewall."
+
+func _host_lan_game() -> void:
+	if not online_session.host_session(lan_name.text, online_session.DEFAULT_PORT,
+			lan_discovery.local_ipv4()):
+		lan_message.text = str(online_session.last_message)
+		return
+	# Explicit opt-in: the admission key appears in LAN discovery responses.
+	if not lan_discovery.start_advertising():
+		online_session.leave_session()
+		lan_message.text = "Could not make your game discoverable; use a direct invite."
+		return
+	_start_game("online")
+
+func _scan_lan_games() -> void:
+	lan_records.clear()
+	lan_games.clear()
+	if not lan_discovery.scan():
+		lan_message.text = str(lan_discovery.last_message)
+
+func _join_selected_lan_game() -> void:
+	var chosen: PackedInt32Array = lan_games.get_selected_items()
+	if chosen.is_empty() or int(chosen[0]) >= lan_records.size():
+		lan_message.text = "Select a LAN game first."
+		return
+	var record: Dictionary = lan_records[int(chosen[0])]
+	if int(record.players) >= online_session.MAX_PLAYERS:
+		lan_message.text = "That LAN game is full."
+		return
+	lan_discovery.cancel_scan()
+	online_session.join_invite(str(record.invite), lan_name.text)
+
 func _online_status(status: String) -> void:
 	if is_instance_valid(friend_message):
 		friend_message.text = status
+	if is_instance_valid(lan_message):
+		lan_message.text = status
 
 func _online_joined() -> void:
-	if is_inside_tree() and friends_page.visible and get_tree().current_scene == self:
+	if is_inside_tree() and (friends_page.visible or lan_page.visible) and get_tree().current_scene == self:
 		_start_game("online")
 
 func _start_friends(host: bool) -> void:
@@ -332,6 +434,7 @@ func _show_main_menu(restore_focus: bool = true) -> void:
 	main_page.visible = true
 	multiplayer_page.visible = false
 	friends_page.visible = false
+	lan_page.visible = false
 	if restore_focus:
 		actions["multiplayer"].grab_focus()
 
@@ -339,6 +442,7 @@ func _show_multiplayer() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = true
 	friends_page.visible = false
+	lan_page.visible = false
 	multiplayer_message.text = (
 		"Local split-screen: keyboard + controller, or two controllers.")
 	actions["local_multiplayer"].grab_focus()
@@ -347,12 +451,22 @@ func _show_friends() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = false
 	friends_page.visible = true
-	friend_message.text = "Private invitations are required. The host must still be reachable by UDP."
+	lan_page.visible = false
+	friend_message.text = "For friends at another house, use Tailscale or a reachable UDP address."
 	actions["host_friend_session"].grab_focus()
+
+func _show_lan() -> void:
+	main_page.visible = false
+	multiplayer_page.visible = false
+	friends_page.visible = false
+	lan_page.visible = true
+	lan_message.text = "LAN visibility is opt-in. A LAN host stays online only while playing."
+	actions["scan_lan_games"].grab_focus()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
-		if friends_page.visible:
+		if friends_page.visible or lan_page.visible:
+			lan_discovery.cancel_scan()
 			online_session.leave_session()
 			_show_multiplayer()
 			get_viewport().set_input_as_handled()
@@ -373,6 +487,17 @@ func _activate(mode: String) -> void:
 			_show_main_menu()
 		"online_multiplayer":
 			_show_friends()
+		"lan_multiplayer":
+			_show_lan()
+		"lan_back":
+			lan_discovery.cancel_scan()
+			_show_multiplayer()
+		"host_lan_game":
+			_host_lan_game()
+		"scan_lan_games":
+			_scan_lan_games()
+		"join_lan_game":
+			_join_selected_lan_game()
 		"friends_back":
 			online_session.leave_session()
 			_show_multiplayer()
@@ -406,6 +531,7 @@ func _start_game(mode: String) -> void:
 		GameplayScript.pending_launch_mode = ""
 		if mode == "online":
 			online_session.leave_session()
-		var feedback := friend_message if mode == "online" else \
-			multiplayer_message if mode == "multiplayer" else message
+		var feedback := (lan_message if mode == "online" and lan_page.visible else
+			friend_message if mode == "online" else
+			multiplayer_message if mode == "multiplayer" else message)
 		feedback.text = "Could not open the gameplay scene."
