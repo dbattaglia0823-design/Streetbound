@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import shutil
 import subprocess
 import tempfile
@@ -235,9 +236,25 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1",
                                   int(os.environ.get("STREETBOUND_API_PORT", "8090"))),
                                  handler_factory(registry))
+    stopping = threading.Event()
+
+    def sweeper():
+        while not stopping.wait(5):
+            registry.reap()
+
+    worker = threading.Thread(target=sweeper, name="room-expiry-sweeper", daemon=True)
+    worker.start()
+
+    def shutdown_server(_signum, _frame):
+        # HTTPServer.shutdown must execute on another thread.
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGTERM, shutdown_server)
     try:
         server.serve_forever(poll_interval=0.2)
     finally:
+        stopping.set()
+        worker.join(timeout=2)
         registry.shutdown()
         server.server_close()
 
