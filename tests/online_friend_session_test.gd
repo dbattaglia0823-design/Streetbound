@@ -1,5 +1,6 @@
 extends SceneTree
 const SessionScript = preload("res://scripts/network/online_session.gd")
+const LANScript = preload("res://scripts/network/lan_discovery.gd")
 ## Regression for friend-session host startup, isolated remote cars, and cleanup.
 ## This smoke test does not replace a real two-machine network test.
 var failures: Array[String] = []
@@ -53,7 +54,7 @@ func _run() -> void:
 	var invite_data: Dictionary = SessionScript.decode_invite(first_code)
 	check("private_code_is_unpredictable_and_contains_reachable_endpoint",
 		first_code.begins_with("SB1-") and
-		str(invite_data.get("host", "")) == "127.0.0.1" and
+		str(invite_data.get("host", "")) == LANScript.local_ipv4() and
 		int(invite_data.get("port", 0)) == 28163 and
 		SessionScript.valid_secret(str(invite_data.get("key", ""))))
 	check("malformed_and_short_codes_are_rejected",
