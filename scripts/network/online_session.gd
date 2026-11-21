@@ -1,6 +1,6 @@
 extends Node
 ## Persistent session transport. The host owns admission, roster and car IDs.
-## This is direct-IP ENet, not a cloud invite-code or NAT traversal service.
+## Direct friend hosting or headless dedicated room hosting over ENet UDP.
 signal session_accepted
 signal session_closed(reason: String)
 signal status_changed(message: String)
@@ -14,6 +14,7 @@ const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 
 var hosting := false
+var dedicated := false
 var joining := false
 var active := false
 var players: Dictionary = {}
@@ -111,6 +112,31 @@ func set_lobby_locked(value: bool) -> void:
 func own_id() -> int:
 	return 1 if hosting else multiplayer.get_unique_id()
 
+func host_dedicated_session(port: int, secret: String) -> bool:
+	# Launched only by the server process manager, not by a player.
+	leave_session()
+	if not valid_port(port) or not valid_secret(secret):
+		_set_status("Dedicated room has invalid port or credential.")
+		return false
+	var transport := ENetMultiplayerPeer.new()
+	var error := transport.create_server(port, MAX_PLAYERS)
+	if error != OK:
+		_set_status("Dedicated room could not bind UDP: %s" % error_string(error))
+		return false
+	_peer = transport
+	multiplayer.multiplayer_peer = transport
+	hosting = true
+	dedicated = true
+	active = true
+	display_name = "ROOM SERVER"
+	_invite_secret = secret
+	invite_port = port
+	players.clear()
+	world_ready_peers.clear()
+	_set_status("Dedicated room listening on UDP %d." % port)
+	roster_changed.emit()
+	return true
+
 func host_session(name_value: String, port: int = DEFAULT_PORT,
 		advertised_address: String = "127.0.0.1") -> bool:
 	leave_session()
@@ -170,6 +196,7 @@ func leave_session(reason: String = "Left online session.") -> void:
 	active = false
 	joining = false
 	hosting = false
+	dedicated = false
 	players.clear()
 	world_ready_peers.clear()
 	invite_address = ""
@@ -259,7 +286,7 @@ func _receive_roster(incoming: Dictionary) -> void:
 	joining = false
 	roster_changed.emit()
 	if was_joining:
-		_set_status("Joined %s's session." % str(players.get(1, {}).get("name", "host")))
+		_set_status("Joined private room.")
 		session_accepted.emit()
 
 func _broadcast_roster() -> void:
