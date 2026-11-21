@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify persistent Godot resource IDs before import
         run: python3 tests/resource_uid_test.py
+      - name: Verify hosted room directory access control and lifetime
+        run: python3 -m unittest discover -s tests -p hosted_room_directory_test.py -v
       - name: Install Godot 4.6.3 matching the reported Windows logs
         run: |
           curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
@@ -102,6 +104,12 @@ jobs:
           grep -q 'ONLINE TWO PROCESS GUEST: PASS' /tmp/online-enet-guest.log
           grep -q 'ONLINE TWO PROCESS INTRUDER: PASS' /tmp/online-enet-intruder.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
+      - name: Verify hosted dedicated server, HTTPS requirements and room UI (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/hosted_room_smoke_test.gd 2>&1 | tee /tmp/streetbound-hosted-room-463.log
+          grep -q 'HOSTED ROOM SERVER: PASS' /tmp/streetbound-hosted-room-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-hosted-room-463.log
       - name: Verify existing pause/settings functionality (4.6.3)
         run: |
           set -o pipefail
