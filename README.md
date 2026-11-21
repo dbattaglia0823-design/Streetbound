@@ -50,9 +50,9 @@ Source layout and settings modules are archived in `assets/ui/` and `addons/gdt/
 
 Test with `tests/pause_menu_test.gd` (also run by CI). The existing driving and rendering-rate tests still run unchanged.
 
-## Play online with friends — initial foundation
+## Play with friends — LAN or internet, no always-on server
 
-The title screen now provides **Multiplayer → Play with Friends (Online)**, with private invitation codes and up to four drivers in the same world. The host selects a reachable IP/DNS name and shares an unguessable lobby code; guests paste that code to join. The default network port is **UDP 28163**. Over the internet, the host may need to forward this UDP port. These invitations enforce possession of a server-checked random secret but do not provide account identity or NAT traversal. Synchronized competitive races, garage upgrades and host migration are not implemented. Setup, risks and limitations are in [the friends multiplayer guide](docs/FRIENDS_MULTIPLAYER.md).
+Choose **Multiplayer → Find / Host LAN Game** to host a temporary game and allow friends on the same local network to discover and join it. LAN discovery is opt-in, visible to other devices on that network, and requires no always-on game server or router forwarding. For friends at another house, use **Play with Friends (Online)** with a private invitation code over a virtual LAN such as Tailscale (no port forwarding) or a reachable address with UDP forwarding. The session exists only while the player host is in-game. This is free-roam multiplayer for up to four drivers; competitive races, synced upgrades and host migration remain outside its scope. Setup and security notes are in [the friends multiplayer guide](docs/FRIENDS_MULTIPLAYER.md).
 
 ## Play
 
