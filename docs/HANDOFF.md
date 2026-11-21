@@ -55,3 +55,14 @@ Scope: \`scripts/network/online_session.gd\` now generates a 192-bit random per-
 CI fix: standalone Godot 4.4.1 script loading could not resolve the global \`OnlineSession\` identifier; the gameplay scripts now access the \`/root/OnlineSession\` node at runtime. Godot type inference from dynamic Node properties required explicit \`bool\`/\`int\` annotations. Test coverage now exercises invitation parsing/rotation and a real ENet forged-secret rejection process alongside legitimate host/guest peers.
 
 Verification boundary: this milestone requires a green latest-commit **Godot 4.6.3** job and **4.4.1** physics/world job before merging. Test results on earlier revisions do not certify the latest branch. A public relay, lobby discovery backend, automatic NAT traversal and real internet playtesting have **not** been provided; these are documented gaps, not completed features. See \`docs/FRIENDS_MULTIPLAYER.md\`.
+
+
+## 2026-11-20 — PR #177: deployable hosted private-room foundation
+
+New optional path: the user-created/direct UDP lobby remains in place, while a separate hosted-rooms title page can create/join a code-backed **dedicated Godot** session. The server operator runs \`tools/hosted_rooms.py\` as a loopback-only HTTP directory, behind an operator-configured HTTPS reverse proxy. It spawns \`tools/hosted_room.gd\` to run the real Morrow Coast gameplay scene headlessly with four human seats and no synthetic host player. Players use outbound UDP to the public dedicated server; their home routers do not need an inbound port.
+
+The directory limits room count and creation rate, uses random unlisted 12-character bearer codes and 192-bit per-room game admission secrets, enforces owner-only room shutdown, and terminates processes at expiry/shutdown. The Godot \`HostedLobby\` autoload performs room create/lookup, validates HTTPS except explicit localhost testing, and keeps the previous direct-invite path intact.
+
+Focused checks: \`tests/hosted_room_directory_test.py\` tests HTTP/admin lifecycle with a fake launcher; \`tests/hosted_room_smoke_test.gd\` checks Godot dedicated authority and menu; \`tests/hosted_room_live_test.py\` plus \`tests/hosted_room_network_probe.gd\` launches **a real directory, headless Godot host and separate Godot guest** over loopback, including receiving authoritative world snapshots. CI outcomes must be confirmed before claiming tests passed; earlier commit checks do not validate latest source.
+
+No hosted instance, HTTPS domain, public game server, identity provider, ingress-rate-limiter, relay network or payment/abuse protection is deployed. Public use requires operator provision, TLS, an open public UDP range and upstream account-level anti-abuse controls. The API is a bounded development scaffold, not a public SaaS; no short-code backend URL ships with the game. See \`docs/FRIENDS_MULTIPLAYER.md\`.
