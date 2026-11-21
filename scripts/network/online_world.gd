@@ -130,9 +130,11 @@ func _sync_peers() -> void:
 func _add_remote(id: int) -> void:
 	var car := VehicleScene.instantiate() as VehicleController2D
 	car.name = "Friend_%d" % id
-	# Godot assigns large non-sequential peer IDs: use the four-seat roster
-	# position, never the raw peer ID, to choose a safe spawn offset.
-	var seat := maxi(1, online_session.players.keys().find(id))
+	# Godot assigns large non-sequential peer IDs: use roster order, not ID.
+	# Direct hosting reserves seat 0 for peer 1; dedicated rooms have no
+	# driver in that slot and must offset every human index by one.
+	var index: int = online_session.players.keys().find(id)
+	var seat: int = maxi(1, index + (0 if online_session.players.has(1) else 1))
 	car.position = local_vehicle.global_position + \
 		Vector2(85.0 * float(seat), 0).rotated(local_vehicle.rotation)
 	car.surface_provider = world
