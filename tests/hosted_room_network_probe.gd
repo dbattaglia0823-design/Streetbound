@@ -50,6 +50,8 @@ func _run() -> void:
 			var received: bool = await _poll_until(func() -> bool:
 				return network.targets.has(session.own_id()))
 			check("dedicated_server_sends_authoritative_physics_snapshots", received)
+			check("no_fake_dedicated_host_car_in_world_snapshots",
+				not network.targets.has(1))
 			check("room_code_is_retained_for_guest",str(hosted.room_code) == code)
 		session.leave_session()
 	print("HOSTED ROOM NETWORK GUEST: ",
