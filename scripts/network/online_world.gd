@@ -1,5 +1,6 @@
 extends Node2D
 @onready var online_session: Node = get_node_or_null("/root/OnlineSession")
+@onready var hosted_lobby: Node = get_node_or_null("/root/HostedLobby")
 ## Free-roam online world: host simulates guest physics using the SAME
 ## VehicleController2D input seam; clients predict their own car and interpolate
 ## remote cars. Competitive races/progression are deliberately not networked.
@@ -54,9 +55,29 @@ func _ready() -> void:
 					lock_lobby_button = action
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
+	elif hosted_lobby != null and bool(hosted_lobby.is_owner):
+		var hosted_actions := HBoxContainer.new()
+		hosted_actions.name = "HostedRoomActions"
+		hosted_actions.position = Vector2(20, 44)
+		var copy_code := Button.new()
+		copy_code.name = "CopyRoomCode"
+		copy_code.text = "COPY ROOM CODE"
+		copy_code.pressed.connect(_copy_hosted_code)
+		hosted_actions.add_child(copy_code)
+		overlay.add_child(hosted_actions)
 	add_child(overlay)
 	_sync_peers()
 	online_session.mark_world_ready()
+
+func _copy_hosted_code() -> void:
+	if hosted_lobby == null or not bool(hosted_lobby.is_owner):
+		return
+	var code := str(hosted_lobby.room_code)
+	if code.is_empty():
+		return
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.clipboard_set(code)
+	hosted_lobby.status_changed.emit("Room code copied. Friends can use it in Hosted Rooms.")
 
 func _copy_invite() -> void:
 	if not online_session.hosting:
@@ -148,6 +169,8 @@ func _refresh_roster_label() -> void:
 	if not is_instance_valid(roster_label):
 		return
 	roster_label.text = "PRIVATE %s   %d/%d DRIVERS%s" % [
+		"DEDICATED" if not online_session.hosting and hosted_lobby != null and
+			 not str(hosted_lobby.room_code).is_empty() else
 		"HOST" if online_session.hosting else "GUEST",
 		online_session.players.size(), online_session.MAX_PLAYERS,
 		"  /  LOCKED" if online_session.lobby_locked and online_session.hosting else ""]
