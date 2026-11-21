@@ -1,4 +1,5 @@
 extends Control
+@onready var hosted_lobby: Node = get_node_or_null("/root/HostedLobby")
 @onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
@@ -18,6 +19,11 @@ var card: PanelContainer
 var main_page: VBoxContainer
 var multiplayer_page: VBoxContainer
 var friends_page: VBoxContainer
+var hosted_page: VBoxContainer
+var hosted_name: LineEdit
+var hosted_url: LineEdit
+var hosted_code: LineEdit
+var hosted_message: Label
 var friend_name: LineEdit
 var friend_address: LineEdit
 var friend_port: LineEdit
@@ -44,6 +50,9 @@ func _ready() -> void:
 	_refresh_buttons()
 	online_session.status_changed.connect(_online_status)
 	online_session.session_accepted.connect(_online_joined)
+	if hosted_lobby != null:
+		hosted_lobby.status_changed.connect(_hosted_status)
+		hosted_lobby.room_created.connect(_hosted_created)
 	actions["single_player"].grab_focus()
 
 func _panel_style(color: Color, border: Color, radius: int = 14) -> StyleBoxFlat:
@@ -159,6 +168,7 @@ func _build_shell() -> void:
 	_build_main_page()
 	_build_multiplayer_page()
 	_build_friends_page()
+	_build_hosted_page()
 	_show_main_menu(false)
 
 	var note := _label("STREETBOUND  /  EARLY ACCESS", 13, Color("#9aaaba"),
@@ -197,8 +207,10 @@ func _build_multiplayer_page() -> void:
 	intro.custom_minimum_size.y = 43
 	multiplayer_page.add_child(intro)
 	_add_action(multiplayer_page, "local_multiplayer", "LOCAL MULTIPLAYER", "◈", true)
+	_add_action(multiplayer_page, "hosted_multiplayer",
+		"HOSTED FRIEND ROOMS (BETA)", "◈")
 	_add_action(multiplayer_page, "online_multiplayer",
-		"PLAY WITH FRIENDS (ONLINE)", "◈")
+		"DIRECT FRIEND INVITE (ADVANCED)", "◈")
 	_add_action(multiplayer_page, "back", "BACK", "‹")
 	multiplayer_message = _label(
 		"Local split-screen: keyboard + controller, or two controllers.",
@@ -248,12 +260,67 @@ func _build_friends_page() -> void:
 	friend_message.custom_minimum_size.y = 55
 	friends_page.add_child(friend_message)
 
+func _build_hosted_page() -> void:
+	hosted_page = VBoxContainer.new()
+	hosted_page.name = "HostedRoomsPage"
+	hosted_page.add_theme_constant_override("separation", 9)
+	card.add_child(hosted_page)
+	var heading := _label("PRIVATE HOSTED ROOMS", 26, WHITE)
+	heading.custom_minimum_size.y = 45
+	hosted_page.add_child(heading)
+	var intro := _label("Dedicated game servers: your friends need no UDP port forwarding.", 15, MUTED)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size.y = 44
+	hosted_page.add_child(intro)
+	for field_data in [
+		["Driver name", "Driver"],
+		["HTTPS room directory URL (server operator supplies it)", ""],
+		["12-character friend room code (for joining)", ""]
+	]:
+		var field := LineEdit.new()
+		field.placeholder_text = str(field_data[0])
+		field.text = str(field_data[1])
+		field.custom_minimum_size = Vector2(492, 43)
+		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		field.add_theme_font_size_override("font_size", 17)
+		hosted_page.add_child(field)
+		if hosted_name == null:
+			hosted_name = field
+		elif hosted_url == null:
+			hosted_url = field
+		else:
+			hosted_code = field
+	hosted_name.max_length = 24
+	hosted_code.max_length = 12
+	if hosted_lobby != null:
+		hosted_url.text = str(hosted_lobby.service_url)
+	for action in [
+		["create_hosted_room", "CREATE PRIVATE ROOM"],
+		["join_hosted_room", "JOIN WITH ROOM CODE"],
+		["hosted_back", "BACK"]
+	]:
+		_add_action(hosted_page, str(action[0]), str(action[1]), "›")
+		(actions[str(action[0])] as Button).custom_minimum_size = Vector2(492, 47)
+	hosted_message = _label("Requires a deployed HTTPS room directory and public UDP game server.", 14, MUTED)
+	hosted_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hosted_message.custom_minimum_size.y = 54
+	hosted_page.add_child(hosted_message)
+
+func _hosted_status(status: String) -> void:
+	if is_instance_valid(hosted_message):
+		hosted_message.text = status
+
+func _hosted_created(code: String) -> void:
+	if is_instance_valid(hosted_code):
+		hosted_code.text = code
+	_hosted_status("Room %s created. Connecting; share this code with friends." % code)
+
 func _online_status(status: String) -> void:
 	if is_instance_valid(friend_message):
 		friend_message.text = status
 
 func _online_joined() -> void:
-	if is_inside_tree() and friends_page.visible and get_tree().current_scene == self:
+	if is_inside_tree() and (friends_page.visible or hosted_page.visible) and get_tree().current_scene == self:
 		_start_game("online")
 
 func _start_friends(host: bool) -> void:
@@ -332,6 +399,7 @@ func _show_main_menu(restore_focus: bool = true) -> void:
 	main_page.visible = true
 	multiplayer_page.visible = false
 	friends_page.visible = false
+	hosted_page.visible = false
 	if restore_focus:
 		actions["multiplayer"].grab_focus()
 
@@ -339,6 +407,7 @@ func _show_multiplayer() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = true
 	friends_page.visible = false
+	hosted_page.visible = false
 	multiplayer_message.text = (
 		"Local split-screen: keyboard + controller, or two controllers.")
 	actions["local_multiplayer"].grab_focus()
@@ -347,12 +416,32 @@ func _show_friends() -> void:
 	main_page.visible = false
 	multiplayer_page.visible = false
 	friends_page.visible = true
+	hosted_page.visible = false
 	friend_message.text = "Private invitations are required. The host must still be reachable by UDP."
 	actions["host_friend_session"].grab_focus()
 
+func _show_hosted() -> void:
+	main_page.visible = false
+	multiplayer_page.visible = false
+	friends_page.visible = false
+	hosted_page.visible = true
+	if hosted_lobby != null:
+		hosted_url.text = str(hosted_lobby.service_url)
+	hosted_message.text = "Create or join using a configured service; no service is included in the game."
+	actions["create_hosted_room"].grab_focus()
+
+func _start_hosted(create_new: bool) -> void:
+	if hosted_lobby == null:
+		hosted_message.text = "Hosted room client is unavailable."
+		return
+	if create_new:
+		hosted_lobby.create_room(hosted_url.text, hosted_name.text)
+	else:
+		hosted_lobby.join_room(hosted_url.text, hosted_code.text, hosted_name.text)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
-		if friends_page.visible:
+		if friends_page.visible or hosted_page.visible:
 			online_session.leave_session()
 			_show_multiplayer()
 			get_viewport().set_input_as_handled()
@@ -373,6 +462,14 @@ func _activate(mode: String) -> void:
 			_show_main_menu()
 		"online_multiplayer":
 			_show_friends()
+		"hosted_multiplayer":
+			_show_hosted()
+		"hosted_back":
+			_show_multiplayer()
+		"create_hosted_room":
+			_start_hosted(true)
+		"join_hosted_room":
+			_start_hosted(false)
 		"friends_back":
 			online_session.leave_session()
 			_show_multiplayer()
@@ -406,6 +503,7 @@ func _start_game(mode: String) -> void:
 		GameplayScript.pending_launch_mode = ""
 		if mode == "online":
 			online_session.leave_session()
-		var feedback := friend_message if mode == "online" else \
-			multiplayer_message if mode == "multiplayer" else message
+		var feedback := (hosted_message if mode == "online" and hosted_page.visible else
+			friend_message if mode == "online" else
+			multiplayer_message if mode == "multiplayer" else message)
 		feedback.text = "Could not open the gameplay scene."
