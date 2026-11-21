@@ -244,7 +244,8 @@ func _build_friends_page() -> void:
 	friends_page.add_child(info)
 	friend_name = _friend_field("Driver name", "Driver")
 	friend_name.max_length = 24
-	friend_address = _friend_field("Your reachable IP / hostname (for invite)", "127.0.0.1")
+	friend_address = _friend_field("Host IP / DNS (use Tailscale address for remote friends)",
+		LanDiscoveryScript.local_ipv4())
 	friend_port = _friend_field("Host UDP port", str(online_session.DEFAULT_PORT))
 	friend_code = _friend_field("Paste a friend's invitation here", "")
 	friend_code.max_length = 600
