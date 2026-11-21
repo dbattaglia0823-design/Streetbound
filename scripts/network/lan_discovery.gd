@@ -149,7 +149,9 @@ func _process(_dt: float) -> void:
 			var record := parse_reply(payload, source)
 			if record.is_empty():
 				continue
-			var identity := str(record.ip) + ":" + str(record.port)
+			# A host can answer via broadcast and loopback on the same PC.
+			# The per-session secret identifies one lobby across interfaces.
+			var identity := str(SESSION_SCRIPT.decode_invite(str(record.invite)).get("key", "")) + ":" + str(record.port)
 			if not rooms.has(identity):
 				rooms[identity] = record
 				room_found.emit(record)
