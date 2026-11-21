@@ -110,6 +110,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/hosted_room_smoke_test.gd 2>&1 | tee /tmp/streetbound-hosted-room-463.log
           grep -q 'HOSTED ROOM SERVER: PASS' /tmp/streetbound-hosted-room-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-hosted-room-463.log
+      - name: Verify live hosted room directory, dedicated server and real Godot guest (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 210s python3 tests/hosted_room_live_test.py ./Godot_v4.6.3-stable_linux.x86_64 2>&1 | tee /tmp/streetbound-hosted-live-463.log
+          grep -q 'HOSTED ROOM LIVE LOOPBACK: PASS' /tmp/streetbound-hosted-live-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-hosted-live-463.log
       - name: Verify existing pause/settings functionality (4.6.3)
         run: |
           set -o pipefail
