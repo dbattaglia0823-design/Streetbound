@@ -1,0 +1,44 @@
+name: Hosted private rooms regression
+on:
+  pull_request:
+    paths:
+      - 'tools/hosted_room.gd'
+      - 'tools/hosted_rooms.py'
+      - 'scripts/network/**'
+      - 'scripts/ui/title_menu.gd'
+      - 'project.godot'
+      - 'tests/hosted_room*'
+      - '.github/workflows/hosted-rooms-validation.yml'
+  workflow_dispatch:
+jobs:
+  hosted-rooms:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate stable Godot UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Run bounded room directory and authorization unit tests
+        run: python3 -m unittest discover -s tests -p hosted_room_directory_test.py -v
+      - name: Install Godot 4.6.3
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Import game resources and compile scripts
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/hosted-godot-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/hosted-godot-import.log
+      - name: Boot dedicated server without a fake driver
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/hosted_room_smoke_test.gd 2>&1 | tee /tmp/hosted-smoke.log
+          grep -q 'HOSTED ROOM SERVER: PASS' /tmp/hosted-smoke.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/hosted-smoke.log
+      - name: Run live short-code directory to authoritative Godot guest test
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 210s python3 tests/hosted_room_live_test.py ./Godot_v4.6.3-stable_linux.x86_64 2>&1 | tee /tmp/hosted-live.log
+          grep -q 'HOSTED ROOM LIVE LOOPBACK: PASS' /tmp/hosted-live.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/hosted-live.log
