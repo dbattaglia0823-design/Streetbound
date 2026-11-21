@@ -102,6 +102,25 @@ jobs:
           grep -q 'ONLINE TWO PROCESS GUEST: PASS' /tmp/online-enet-guest.log
           grep -q 'ONLINE TWO PROCESS INTRUDER: PASS' /tmp/online-enet-intruder.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
+      - name: Verify opt-in LAN game discovery and actual ENet host/join (4.6.3)
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 40s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/lan_discovery_probe.gd -- host > /tmp/lan-host.log 2>&1 &
+          host_pid=$!
+          sleep 1
+          timeout --signal=SIGINT --kill-after=5s 40s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/lan_discovery_probe.gd -- guest > /tmp/lan-guest.log 2>&1 &
+          guest_pid=$!
+          host_result=0
+          guest_result=0
+          wait "$guest_pid" || guest_result=$?
+          wait "$host_pid" || host_result=$?
+          cat /tmp/lan-host.log
+          cat /tmp/lan-guest.log
+          test "$host_result" -eq 0
+          test "$guest_result" -eq 0
+          grep -q 'LAN DISCOVERY HOST: PASS' /tmp/lan-host.log
+          grep -q 'LAN DISCOVERY GUEST: PASS' /tmp/lan-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/lan-host.log /tmp/lan-guest.log
       - name: Verify existing pause/settings functionality (4.6.3)
         run: |
           set -o pipefail
