@@ -54,6 +54,6 @@ func _run() -> void:
 				not network.targets.has(1))
 			check("room_code_is_retained_for_guest",str(hosted.room_code) == code)
 		session.leave_session()
-	print("HOSTED ROOM NETWORK GUEST: ",
-		"PASS" if failures.is_empty() else "FAIL " + str(failures))
+	print("HOSTED ROOM NETWORK GUEST: %s" % (
+		"PASS" if failures.is_empty() else "FAIL " + str(failures)))
 	quit(0 if failures.is_empty() else 1)
