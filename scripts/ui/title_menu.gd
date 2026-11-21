@@ -210,7 +210,7 @@ func _build_multiplayer_page() -> void:
 	_add_action(multiplayer_page, "hosted_multiplayer",
 		"HOSTED FRIEND ROOMS (BETA)", "◈")
 	_add_action(multiplayer_page, "online_multiplayer",
-		"DIRECT FRIEND INVITE (ADVANCED)", "◈")
+		"DIRECT FRIENDS INVITE (ADVANCED)", "◈")
 	_add_action(multiplayer_page, "back", "BACK", "‹")
 	multiplayer_message = _label(
 		"Local split-screen: keyboard + controller, or two controllers.",
