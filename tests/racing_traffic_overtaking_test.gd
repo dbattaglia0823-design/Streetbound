@@ -85,6 +85,31 @@ func _run() -> void:
 		not planner._entry_clear(2.25,-4.5,moving_into_path,31.0))
 	check("race_AI_keeps_full_speed_when_transition_is_truly_clear",
 		planner._entry_clear(2.25,-4.5,[],31.0))
+	# A vehicle closing rapidly from behind must block a lane change, even
+	# when there is currently no vehicle alongside the racing AI.
+	var fast_rear: Array[Dictionary] = [
+		{"ahead_m":-35.0,"lateral_m":-4.5,"width_m":2.1,
+			"speed_mps":53.0,"lateral_speed_mps":0.0}
+	]
+	check("race_AI_blocks_overtake_into_fast_rear_vehicle",
+		not planner._lane_clear(-4.5,fast_rear,31.0,140.0))
+	check("race_AI_does_not_block_an_unoccupied_adjacent_lane",
+		planner._lane_clear(4.5,fast_rear,31.0,140.0))
+	var slow_rear: Array[Dictionary] = [
+		{"ahead_m":-40.0,"lateral_m":-4.5,"width_m":2.1,
+			"speed_mps":18.0,"lateral_speed_mps":0.0}
+	]
+	check("slow_rear_car_with_clear_gap_does_not_prohibit_pass",
+		planner._lane_clear(-4.5,slow_rear,31.0,140.0))
+	var near_rear: Array[Dictionary] = [
+		{"ahead_m":-8.0,"lateral_m":-4.5,"width_m":2.1,
+			"speed_mps":18.0,"lateral_speed_mps":0.0}
+	]
+	check("lane_change_requires_minimum_rear_clearance",
+		not planner._lane_clear(-4.5,near_rear,31.0,140.0))
+	check("fast_rear_racer_is_included_in_obstacle_horizon",
+		not planner._obstacle(Vector2(2.25,80.0), Vector2(0,53.0),
+			2.1,991,150.0,180.0).is_empty())
 	var first: Dictionary = planner.plan(0.15,50.0,31.0)
 	check("overtakes_slow_civilian_instead_of_braking_to_traffic_speed",
 		first.mode == "passing" and float(first.speed_cap_mps) == INF)

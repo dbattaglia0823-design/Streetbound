@@ -122,6 +122,49 @@ func _run() -> void:
 	check("racing_AI_can_use_exact_same_waypoints_as_map",
 		driver.navigation == sprint.navigation and
 		driver.route.size() == street_points.size())
+	# A figure-eight racing route crosses itself at the same world position.
+	# Projection should stay on the car's current route leg, not snap back
+	# to an earlier station simply because that one was scanned first.
+	var crossing := AIDriver.new()
+	crossing.setup(player, PackedVector2Array([
+		Vector2(-2000, 0), Vector2(2000, 0),
+		Vector2(2000, 2000), Vector2(0, 2000), Vector2(0, -2000)]))
+	check("first_route_projection_uses_nearest_world_segment",
+		absf(crossing._nearest_station(Vector2.ZERO) - 2000.0) < 0.01)
+	crossing._projection_initialized = true
+	crossing.last_station_px = 9900.0
+	check("crossing_projection_stays_with_current_race_leg",
+		absf(crossing._nearest_station(Vector2.ZERO) - 10000.0) < 0.01)
+	check("route_sampling_uses_correct_segment_on_both_sides_of_crossing",
+		crossing._point_at(10500.0).distance_to(Vector2(0, -500)) < 0.01 and
+		crossing._point_at(1500.0).distance_to(Vector2(-500, 0)) < 0.01)
+	# After an impact far off course, the controller must recover using the
+	# global nearest leg instead of getting stuck on its previous station.
+	var recovered_station: float = crossing._nearest_station(Vector2(1995, 1500))
+	check("off_route_displacement_falls_back_to_nearest_road",
+		absf(recovered_station - 5500.0) < 10.0 and crossing._projection_reset)
+	var loop_driver := AIDriver.new()
+	loop_driver.setup(player, PackedVector2Array([
+		Vector2.ZERO, Vector2(0, 2000), Vector2(2000, 2000),
+		Vector2(2000, 0), Vector2.ZERO]))
+	loop_driver.loop_route = true
+	var circuit_length: float = loop_driver.stations[loop_driver.stations.size() - 1]
+	loop_driver.last_station_px = circuit_length - 200.0
+	loop_driver._projection_initialized = true
+	check("closed_race_progress_projects_correctly_across_lap_seam",
+		absf(loop_driver._nearest_station(Vector2(0, 100)) - 100.0) < 0.01)
+	check("closed_race_waypoint_interpolation_wraps_without_jump",
+		loop_driver._point_at(circuit_length + 250.0).distance_to(
+			loop_driver._point_at(250.0)) < 0.01)
+	# The faster binary sampler must also handle long, densely sampled routes.
+	var dense := PackedVector2Array()
+	for sample in 601:
+		dense.append(Vector2(float(sample) * 5.0, 0))
+	var dense_driver := AIDriver.new()
+	dense_driver.setup(player, dense)
+	check("dense_racing_line_binary_sampling_matches_exact_waypoints",
+		dense_driver._point_at(1277.5).distance_to(Vector2(1277.5, 0)) < 0.01 and
+		dense_driver._point_at(3001).distance_to(Vector2(3000, 0)) < 0.01)
 	# A route-specific speed envelope does not alter the actual engine or grip.
 	var torque := player.config.engine_torque_nm
 	var grip := player.config.tire_grip
