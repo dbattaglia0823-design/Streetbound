@@ -30,3 +30,59 @@ Status: developmental, see PR #176 and its CI. Invite-only means a host-generate
 ## Future infrastructure
 
 A seamless short-code experience with no IP/port forwarding requires a **deployed** lobby registration/discovery service and managed NAT traversal/relay (or server-authoritative dedicated game hosting). An external code lookup, user identity and TLS-backed authentication are not included. Do not advertise cloud invite codes or "works behind any router" until a real backend is configured, secured, deployed and tested.
+
+
+---
+
+## Hosted private rooms (new development milestone, not deployed by default)
+
+Streetbound now contains an **optional headless dedicated-server mode** and short-code room directory. This removes port forwarding **for the players' home networks** when the *server operator* deploys a publicly reachable game machine.
+
+**This code is not an already-running hosted service.** The game ships no public API URL. Without a service operator deploying the backend, use the original **Direct Friends Invite** mode.
+
+### Player flow (after a server operator deploys the service)
+
+1. Open **Multiplayer → Hosted Friend Rooms (Beta)**.
+2. Enter a driver name and the operator's **HTTPS room directory URL** (the app remembers this URL). A friend creating a lobby chooses **Create Private Room**.
+3. The directory starts a fresh **authoritative Godot room process** and returns a random, unlisted **12-character code**. The creator connects as a normal player; no one runs a UDP server on their own PC.
+4. In-world, the creator clicks **Copy Room Code** and shares that code privately with friends.
+5. Each friend opens the same Hosted Rooms page, enters the service URL and code, and selects **Join With Room Code**. The directory resolves the code to the publicly reachable game server and a random per-room ENet admission secret.
+6. All players connect **outbound** over UDP to the game server. Up to **four human players** can participate; the dedicated server is not counted as a driver. The room expires after two hours, and the creator leaving requests server shutdown (disconnecting the remaining guests).
+
+The original host-as-player ENet **Direct Friends Invite** flow remains available. Hosted room codes are **not** interchangeable with the earlier \`SB1-\` direct invitations.
+
+### Operator deployment
+
+The directory is Python standard library only (\`tools/hosted_rooms.py\`), binds to **127.0.0.1:8090**, starts one isolated headless Godot process per room (\`tools/hosted_room.gd\`), and provides:
+
+| Endpoint | Behavior |
+| --- | --- |
+| \`POST /rooms\` | Allocate a bounded dedicated room; return code, owner token, server endpoint and admission secret |
+| \`GET /rooms/{CODE}\` | Resolve a private bearer code to the room's server address, UDP port and secret |
+| \`DELETE /rooms/{CODE}\` | Owner-only shutdown using \`X-Room-Owner\` credential |
+| \`GET /health\` | No-credential health check |
+
+Example on a **test VM** with Godot 4.6.3 and the entire imported Streetbound project already installed:
+
+\`\`\`sh
+export STREETBOUND_PUBLIC_GAME_HOST=games.example.com
+export STREETBOUND_GODOT=/usr/local/bin/godot
+export STREETBOUND_GAME_ROOT=/srv/streetbound
+export STREETBOUND_API_PORT=8090
+export STREETBOUND_PORT_START=28200
+export STREETBOUND_PORT_END=28207
+export STREETBOUND_MAX_ROOMS=4
+python3 tools/hosted_rooms.py
+\`\`\`
+
+- Put the loopback HTTP API **behind an HTTPS reverse proxy** (e.g. a TLS-enabled proxy for \`rooms.example.com\` to \`127.0.0.1:8090\`). HTTPS is enforced by the game's client, except when talking to **127.0.0.1/localhost** for local development. Never expose 8090 publicly.
+- Open **UDP 28200–28207** on the public game server's firewall, and **TCP 443** for HTTPS; keep HTTP 8090 bound to loopback. Game clients do not forward UDP themselves.
+- Ensure the server has sufficient CPU/RAM/storage for up to four isolated Godot worlds and that Godot imports assets once before serving rooms. The room directory uses distinct ephemeral working/data directories per room, and signals readiness only after the Morrow Coast gameplay scene initializes.
+- The default cap is four concurrent rooms, room creation is rate-limited per source address (30 seconds) and each room expires after two hours; processes are terminated/reaped on expiry or close. Start/restart of the directory does not recover rooms.
+- **Do not put this provisioning endpoint directly on the open internet.** There is *no user account/authenticated room creation, distributed rate limiting, billing quotas or DDoS protection*. Anyone who can reach \`POST /rooms\` can consume the bounded capacity; require upstream identity verification/abuse controls before a real public launch. Do not insert an administrator key into distributed game builds.
+
+### Security and functionality boundaries
+
+The short code itself is a bearer secret. Looking it up returns the ENet admission key to anyone with the code; TLS protects this during lookup. ENet gameplay packets remain unencrypted, and malicious networks may still disrupt traffic. The dedicated Godot server owns movement authority rather than trusting remote position RPCs, but competitive anti-cheat, save isolation auditing, authoritative shared races, synchronized upgrades, grief prevention and account identities are still unfinished. This does not guarantee functioning service from locked-down client networks where outbound UDP is blocked.
+
+**Tests:** \`python3 -m unittest discover -s tests -p hosted_room_directory_test.py -v\`, plus Godot 4.6.3 \`tests/hosted_room_smoke_test.gd\`. Passing these local tests is not proof that a public deployment has been performed or that real WAN gameplay latency is acceptable.
