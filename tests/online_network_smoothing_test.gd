@@ -49,6 +49,14 @@ func _run() -> void:
 	check("long_packet_gap_freezes_visual_car_instead_of_wall_teleport",
 		frozen.size() == 6 and
 		(frozen[0] as Vector2) == Vector2(12.0, 0.0))
+	check("local_authority_compensates_for_half_rtt_without_false_lag",
+		is_equal_approx(Buffer.projected_local_authority(
+			_state(Vector2.ZERO, 0.0, Vector2(20.0, 0.0)), 100.0).x, 1.0))
+	check("local_authority_projection_is_bounded_on_large_rtt",
+		is_equal_approx(Buffer.projected_local_authority(
+			_state(Vector2.ZERO, 0.0, Vector2(20.0, 0.0)), 1200.0).x, 1.6))
+	check("invalid_local_authority_is_not_predicted",
+		Buffer.projected_local_authority([], 500.0) == Vector2.ZERO)
 	check("empty_or_invalid_snapshots_are_safely_ignored",
 		Buffer.sample([], 100, 50).is_empty())
 	Buffer.add_snapshot(history, 80, [])
