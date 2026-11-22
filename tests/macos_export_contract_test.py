@@ -11,8 +11,14 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def config(path: str) -> ConfigParser:
     parser = ConfigParser(interpolation=None)
-    files = parser.read(ROOT / path, encoding="utf-8")
-    assert files, f"Missing config: {path}"
+    source = ROOT / path
+    assert source.is_file(), f"Missing config: {path}"
+    content = source.read_text(encoding="utf-8")
+    # project.godot begins with config_version=5 before its first section.
+    # Python's INI parser requires section headers, unlike Godot's parser.
+    if path == "project.godot":
+        content = content[content.index("[application]"):]
+    parser.read_string(content, source=path)
     return parser
 
 
