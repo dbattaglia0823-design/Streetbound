@@ -3,6 +3,7 @@ extends Node2D
 ## validates vehicles; network peers can only request a ready/forfeit action.
 ## No multiplayer awards or client-supplied transforms/results are accepted.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
+const Standings = preload("res://scripts/network/online_race_standings.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const PPM := 20.0
 const RACE_LENGTH_M := 402.336
@@ -53,6 +54,7 @@ var race_id := 0
 var state := "idle"
 var entries: Dictionary = {} # Int peer ID -> host-owned status/position
 var results: Array = []
+var standings: Dictionary = {} # Session-only host awards, never career save.
 var countdown_deadline := 0
 var started_ms := 0
 var results_until_ms := 0
@@ -516,8 +518,9 @@ func _host_check_done() -> void:
 			return
 	state = "results"
 	results = sorted_finishers(entries)
+	standings = Standings.settle(standings, entries, results, event_kind, race_id)
 	results_until_ms = Time.get_ticks_msec() + roundi(RESULTS_SECONDS * 1000)
-	_status = "RACE COMPLETE - results are practice only; no career payouts."
+	_status = "RACE COMPLETE - session points awarded; career payouts disabled."
 	_publish()
 
 func _host_cancel() -> void:
@@ -776,6 +779,7 @@ func _publish() -> void:
 		"state": state,
 		"entries": _public_entries(),
 		"results": results.duplicate(true),
+		"standings": standings.duplicate(true),
 		"slots": _countdown_slots.duplicate(true) if state == "countdown" else {},
 		"remaining_ms": maxi(0, countdown_deadline - Time.get_ticks_msec())
 			if state == "countdown" else 0,
@@ -813,6 +817,8 @@ func _apply_race_state(payload: Dictionary) -> void:
 	state = next_state
 	entries = (payload.get("entries", {}) as Dictionary).duplicate(true)
 	results = (payload.get("results", []) as Array).duplicate(true)
+	if payload.get("standings", {}) is Dictionary:
+		standings = (payload.get("standings", {}) as Dictionary).duplicate(true)
 	_status = str(payload.get("status", "")).substr(0, 220)
 	if next_state == "countdown":
 		if previous != "countdown" or old_race != race_id:
@@ -860,6 +866,9 @@ func _on_peer_rebound(previous_id: int, new_id: int) -> void:
 	var record: Dictionary = entries[previous_id]
 	entries.erase(previous_id)
 	entries[new_id] = record
+	if standings.has(previous_id):
+		standings[new_id] = standings[previous_id]
+		standings.erase(previous_id)
 	_publish()
 
 func _on_reconnect_finished() -> void:
@@ -874,6 +883,17 @@ func _on_session_closed(_reason: String) -> void:
 		online_world.local_vehicle.external_input = false
 	state = "idle"
 	entries.clear()
+
+func _session_standings_line() -> String:
+	var ranked: Array = Standings.ranked(standings)
+	if ranked.is_empty():
+		return "FRIEND POINTS: 10 / 7 / 5 / 3 by finishing position."
+	var lines: Array[String] = []
+	for i in mini(4, ranked.size()):
+		var item: Dictionary = ranked[i]
+		lines.append("%s %d pts" % [
+			str(item.get("name", "Driver")), int(item.get("points", 0))])
+	return "SESSION STANDINGS: " + " / ".join(lines)
 
 func _refresh_ui() -> void:
 	if not available or not is_instance_valid(panel) or session == null:
@@ -904,7 +924,7 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nDrag, circuit or street sprint. No career rewards."
+				"\nDrag, circuit or street sprint. " + _session_standings_line()"
 		"lobby":
 			var listed := []
 			for id in entries:
@@ -935,12 +955,14 @@ func _refresh_ui() -> void:
 				var finish: Dictionary = results[i]
 				lines.append("%d. %s - %.3fs" % [i + 1,
 					str(finish.get("name", "Driver")),
-					float(finish.get("ms", 0)) / 1000.0])
+					float(finish.get("ms", 0)) / 1000.0] + \
+					" +%d pts" % int(standings.get(int(finish.get("id", 0)), {}).get("last_points", 0)))
 			for id in entries:
 				if str(entries[id].get("status", "")) == "dnf":
 					lines.append("%s - DNF" % str(entries[id].get("name", "Driver")))
 			status_label.text = header + "\n" + ", ".join(lines) + \
-				"\nPractice race - no rewards."
+				"\n" + _session_standings_line() + \
+				"\nNo career cash, XP or parts."
 		_:
 			status_label.text = header + "\n" + _status
 
