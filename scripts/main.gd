@@ -211,10 +211,13 @@ func _ready() -> void:
 		world_hud.set_script(WorldHudScript)
 		world_hud.world = ground
 		world_hud.vehicle = vehicle
-		world_hud.races.append(drag_race)
-		world_hud.races.append(circuit_race)
-		world_hud.races.append(street_race)
-		world_hud.races.append_array(extra_races)
+		# Solo event menus must not start locally timed/rewarded races
+		# during a shared player-hosted friend session.
+		if not online_session.active:
+			world_hud.races.append(drag_race)
+			world_hud.races.append(circuit_race)
+			world_hud.races.append(street_race)
+			world_hud.races.append_array(extra_races)
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 		world_hud_ref=world_hud
@@ -266,9 +269,12 @@ func _ready() -> void:
 		authored_map_markers.quick_upgrades=quick_upgrades
 		authored_map_markers.traffic=traffic
 		authored_map_markers.map_hud=world_hud_ref
-		authored_map_markers.races=extra_races.duplicate()
-		for builtin_race in [drag_race,circuit_race,street_race]:
-			if is_instance_valid(builtin_race):authored_map_markers.races.append(builtin_race)
+		authored_map_markers.races = [] if online_session.active else \
+			extra_races.duplicate()
+		if not online_session.active:
+			for builtin_race in [drag_race, circuit_race, street_race]:
+				if is_instance_valid(builtin_race):
+					authored_map_markers.races.append(builtin_race)
 		add_child(authored_map_markers)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
@@ -318,16 +324,27 @@ func _ready() -> void:
 	if custom_test_drive:
 		_add_test_drive_return_button()
 	if online_session.active and not proving_ground and not custom_game_world:
-		# The normal Ashford AI/time-trial event writes career awards and is
-		# not synchronized. During friend sessions only the host-authoritative
-		# practice drag race may use the strip.
-		if is_instance_valid(drag_race):
-			drag_race.set_process_unhandled_input(false)
-			drag_race.set_physics_process(false)
-			drag_race.hide()
-			var solo_strip_status: Control = drag_race.get("_status_strip") as Control
-			if is_instance_valid(solo_strip_status):
-				solo_strip_status.hide()
+		# Solo Ashford, Larkspur and authored races are locally timed and
+		# potentially rewarded. Disable their input, ticking, visibility
+		# and menu entry points for ANY online session; their parsed routes
+		# remain available to the shared friend-race controller.
+		var solo_events: Array = [drag_race, circuit_race, street_race]
+		solo_events.append_array(extra_races)
+		for solo in solo_events:
+			if not is_instance_valid(solo):
+				continue
+			solo.set_process_unhandled_input(false)
+			solo.set_physics_process(false)
+			solo.hide()
+			for property_name in ["_status_strip", "status_strip"]:
+				var overlay: Variant = solo.get(property_name)
+				if overlay is CanvasItem and is_instance_valid(overlay):
+					overlay.hide()
+			# HUD CanvasLayers are separate nodes; hiding the race world
+			# marker alone does not hide their on-screen race prompts.
+			for child in solo.get_children():
+				if child is CanvasLayer:
+					child.hide()
 		online_world = Node2D.new()
 		online_world.name = "OnlineWorld"
 		online_world.set_script(OnlineWorldScript)
