@@ -8,7 +8,7 @@ signal roster_changed
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 2
+const PROTOCOL_VERSION := 3  # Sequenced snapshot RPC is not compatible with v2 clients.
 const INVITE_PREFIX := "SB1-"
 const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
