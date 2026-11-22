@@ -1,8 +1,9 @@
 extends Node2D
-## Friend-only Ashford drag races. The player host alone stages, times and
+## Host-authoritative Ashford friend drag and full-circuit races. The host stages, times and
 ## validates vehicles; network peers can only request a ready/forfeit action.
 ## No multiplayer awards or client-supplied transforms/results are accepted.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
+const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const PPM := 20.0
 const RACE_LENGTH_M := 402.336
 const DRAG_START_OFFSET_M := 60.0
@@ -13,12 +14,28 @@ const START_DELAY_MS := 4500
 const TIME_LIMIT_MS := 180000
 const RESULTS_SECONDS := 18.0
 const START_MOVE_TOLERANCE_M := 2.5
+const CIRCUIT_GATE_SPACING_M := 110.0
+const CIRCUIT_GATE_RADIUS_M := 16.0
+const CIRCUIT_LANE_SPACING_M := 3.0
+const CIRCUIT_TIMEOUT_MS := 480000
+const CIRCUIT_MIN_FINISH_MS := 25000
 
 var online_world
 var session: Node
 var start_m := Vector2.ZERO
 var direction := Vector2.UP
 var available := false
+var drag_available := false
+var circuit_available := false
+var drag_start_m := Vector2.ZERO
+var drag_direction := Vector2.UP
+var circuit_start_m := Vector2.ZERO
+var circuit_direction := Vector2.UP
+var circuit_navigation: RefCounted
+var circuit_gates: Array[Dictionary] = []
+var circuit_length_m := 0.0
+var event_kind := "drag"
+var race_guidance: Node2D
 var race_id := 0
 var state := "idle"
 var entries: Dictionary = {} # Int peer ID -> host-owned status/position
@@ -58,8 +75,25 @@ func _ready() -> void:
 		start_m += direction * DRAG_START_OFFSET_M
 		available = direction.length_squared() > 0.9
 		break
+	drag_available = available
+	drag_start_m = start_m
+	drag_direction = direction
+	# Reuse the real prebuilt, verified 1+ km circuit road/racing line.
+	# All server checkpoints use the host's authoritative navigation data.
+	var circuit: Node = online_world.get_parent().get("circuit_race") as Node
+	if is_instance_valid(circuit) and bool(circuit.get("available")):
+		circuit_navigation = circuit.get("navigation") as RefCounted
+		if circuit_navigation != null:
+			circuit_start_m = circuit.get("start_m") as Vector2
+			circuit_direction = circuit.get("heading") as Vector2
+			circuit_length_m = float(circuit_navigation.get("length_m"))
+			circuit_gates = make_circuit_gates(circuit_navigation,
+				CIRCUIT_GATE_SPACING_M)
+			circuit_available = circuit_length_m >= 1000.0 and \
+				circuit_gates.size() >= 8
+	available = drag_available or circuit_available
 	if not available:
-		push_warning("Friend drag race unavailable: Ashford track not present")
+		push_warning("Friend race unavailable: Ashford tracks not present")
 		return
 	session.roster_changed.connect(_on_roster)
 	session.peer_connection_suspended.connect(_on_peer_suspended)
@@ -103,6 +137,10 @@ func _ready() -> void:
 	ready_button.pressed.connect(_on_ready_pressed)
 	host_button.pressed.connect(_on_host_pressed)
 	cancel_button.pressed.connect(_on_cancel_pressed)
+	race_guidance = Node2D.new()
+	race_guidance.name = "FriendCircuitGuidance"
+	race_guidance.set_script(GuidanceScript)
+	add_child(race_guidance)
 	_refresh_ui()
 	queue_redraw()
 
@@ -151,6 +189,81 @@ func input_locked(peer_id: int) -> bool:
 	return state == "countdown" and entries.has(peer_id) and \
 		str(entries[peer_id].get("status", "")) == "staged"
 
+
+static func make_circuit_gates(nav: RefCounted,
+		spacing_m: float = CIRCUIT_GATE_SPACING_M) -> Array[Dictionary]:
+	var gates: Array[Dictionary] = []
+	if nav == null:
+		return gates
+	var length: float = float(nav.get("length_m"))
+	if length < 1000.0 or not bool(nav.get("closed")):
+		return gates
+	var count := clampi(ceili(length / maxf(50.0, spacing_m)), 8, 128)
+	for index in range(1, count + 1):
+		var station := length * float(index) / float(count)
+		var center: Vector2 = nav.call("point_at", station)
+		var prior: Vector2 = nav.call("point_at", station - 5.0)
+		var next: Vector2 = nav.call("point_at", station + 5.0)
+		var tangent := (next - prior).normalized()
+		if tangent.length_squared() < 0.9:
+			return []
+		gates.append({"position": center, "forward": tangent})
+	return gates
+
+static func passed_directional_gate(previous_m: Vector2, current_m: Vector2,
+		gate: Dictionary, radius_m: float = CIRCUIT_GATE_RADIUS_M) -> bool:
+	if not (gate.get("position") is Vector2) or not \
+			(gate.get("forward") is Vector2):
+		return false
+	var center: Vector2 = gate["position"]
+	var forward: Vector2 = gate["forward"]
+	if forward.length_squared() < 0.9:
+		return false
+	if (current_m - previous_m).dot(forward) <= 0.01:
+		return false
+	if (previous_m - center).dot(forward) >= 0.0 or \
+			(current_m - center).dot(forward) < 0.0:
+		return false
+	return Geometry2D.get_closest_point_to_segment(
+		center, previous_m, current_m).distance_to(center) <= radius_m
+
+func _nearest_available_event(car: VehicleController2D) -> String:
+	if not is_instance_valid(car):
+		return ""
+	var nearest := ""
+	var distance := STAGE_RADIUS_M * PPM
+	if drag_available:
+		var drag_distance := car.global_position.distance_to(drag_start_m * PPM)
+		if drag_distance <= distance:
+			nearest = "drag"
+			distance = drag_distance
+	if circuit_available:
+		var circuit_distance := car.global_position.distance_to(circuit_start_m * PPM)
+		if circuit_distance <= distance:
+			nearest = "circuit"
+	return nearest
+
+func _configure_event(kind: String) -> bool:
+	if kind == "drag" and drag_available:
+		event_kind = "drag"
+		start_m = drag_start_m
+		direction = drag_direction
+	elif kind == "circuit" and circuit_available:
+		event_kind = "circuit"
+		start_m = circuit_start_m
+		direction = circuit_direction
+	else:
+		return false
+	queue_redraw()
+	return true
+
+func _event_title(kind: String) -> String:
+	return "ASHFORD GRAND CIRCUIT / FULL LAP" if kind == "circuit" else \
+		"ASHFORD / QUARTER MILE"
+
+func _time_limit_ms() -> int:
+	return CIRCUIT_TIMEOUT_MS if event_kind == "circuit" else TIME_LIMIT_MS
+
 func _car_for(id: int) -> VehicleController2D:
 	if id == 1:
 		return online_world.local_vehicle as VehicleController2D
@@ -191,7 +304,10 @@ func _on_cancel_pressed() -> void:
 
 func _host_offer() -> void:
 	if not session.hosting or not session.active or not available or \
-			state not in ["idle", "results", "aborted"] or \
+			state not in ["idle", "results", "aborted"]:
+		return
+	var chosen := _nearest_available_event(_car_for(1))
+	if chosen.is_empty() or not _configure_event(chosen) or \
 			not _near_start(_car_for(1)):
 		return
 	race_id += 1
@@ -199,7 +315,8 @@ func _host_offer() -> void:
 	entries = {1: {"name": str(session.players[1].get("name", "Host")),
 		"ready": true, "status": "ready"}}
 	results.clear()
-	_status = "Friend race opened. Park near Ashford and select JOIN / READY."
+	_status = "%s opened. Park nearby and select JOIN / READY." % \
+		_event_title(event_kind)
 	_publish()
 
 func _host_set_ready(id: int, ready: bool) -> void:
@@ -250,13 +367,16 @@ func _host_start() -> void:
 	for index in ids.size():
 		var id := int(ids[index])
 		var car := _car_for(id)
-		var slot_m := start_m + direction.orthogonal().normalized() * \
+		var offset := (float(index) - float(ids.size() - 1) * 0.5) * \
+			CIRCUIT_LANE_SPACING_M if event_kind == "circuit" else \
 			lane_offset_m(ids.size(), index)
+		var slot_m := start_m + direction.orthogonal().normalized() * offset
 		_countdown_slots[id] = slot_m
 		Grid.teleport(car, Grid.pose(slot_m, direction))
 		entries[id]["status"] = "staged"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
+		entries[id]["next_gate"] = 0
 		entries[id]["ms"] = 0
 	_host_car_was_external = online_world.local_vehicle.external_input
 	online_world.local_vehicle.external_input = true
@@ -278,7 +398,8 @@ func _host_green() -> void:
 		entries[id]["status"] = "racing"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
-	_status = "GREEN! Quarter-mile sprint to the finish."
+	_status = "GREEN! Complete all checkpoints and the lap!" if \
+		event_kind == "circuit" else "GREEN! Quarter-mile sprint to the finish."
 	_publish()
 
 func _host_forfeit(id: int, reason: String) -> void:
@@ -321,6 +442,9 @@ func _host_cancel() -> void:
 	_publish()
 
 func _host_evaluate(dt: float) -> void:
+	if event_kind == "circuit":
+		_host_evaluate_circuit(dt)
+		return
 	var now := Time.get_ticks_msec()
 	for id in entries.keys():
 		var record: Dictionary = entries[id]
@@ -355,6 +479,61 @@ func _host_evaluate(dt: float) -> void:
 		_publish()
 	_host_check_done()
 
+
+func _host_evaluate_circuit(dt: float) -> void:
+	if circuit_navigation == null or circuit_gates.is_empty():
+		_host_cancel()
+		return
+	var now := Time.get_ticks_msec()
+	for id in entries.keys():
+		var record: Dictionary = entries[id]
+		if str(record.get("status", "")) != "racing":
+			continue
+		var car := _car_for(int(id))
+		if not is_instance_valid(car):
+			_host_forfeit(int(id), "Vehicle unavailable")
+			continue
+		var previous_px: Vector2 = record.get("prev_position", car.global_position)
+		var current_px: Vector2 = car.global_position
+		if not legal_step(previous_px, current_px, car.linear_velocity, dt):
+			_host_forfeit(int(id), "Invalid position jump")
+			continue
+		record["prev_position"] = current_px
+		var next_gate := int(record.get("next_gate", 0))
+		if next_gate < 0 or next_gate >= circuit_gates.size():
+			_host_forfeit(int(id), "Invalid checkpoint progress")
+			continue
+		var current_m := current_px / PPM
+		var previous_m := previous_px / PPM
+		var station := float(circuit_navigation.call("station_at", current_m))
+		var nearest: Vector2 = circuit_navigation.call("point_at", station)
+		# Route gates, not shortcut-prone station projection, determine
+		# completion. Leaving the track cannot silently award a checkpoint.
+		if current_m.distance_to(nearest) > CIRCUIT_GATE_RADIUS_M:
+			continue
+		if not passed_directional_gate(previous_m, current_m,
+				circuit_gates[next_gate]):
+			continue
+		record["next_gate"] = next_gate + 1
+		record["prev_progress"] = circuit_length_m * \
+			float(next_gate + 1) / float(circuit_gates.size())
+		if next_gate != circuit_gates.size() - 1:
+			continue
+		var elapsed_ms := now - started_ms
+		if elapsed_ms < CIRCUIT_MIN_FINISH_MS:
+			_host_forfeit(int(id), "Impossible circuit lap time")
+			continue
+		var center: Vector2 = circuit_gates[next_gate]["position"]
+		var tangent: Vector2 = circuit_gates[next_gate]["forward"]
+		var moved := current_m - previous_m
+		var crossing_fraction := clampf(-(previous_m - center).dot(tangent) / \
+			maxf(0.0001, moved.dot(tangent)), 0.0, 1.0)
+		record["status"] = "finished"
+		record["ms"] = maxi(0, elapsed_ms - roundi((1.0 - crossing_fraction) * \
+			dt * 1000.0))
+		_publish()
+	_host_check_done()
+
 func _physics_process(dt: float) -> void:
 	if not available or session == null or not session.active:
 		return
@@ -377,7 +556,7 @@ func _physics_process(dt: float) -> void:
 			"running":
 				_host_evaluate(dt)
 				if state == "running" and Time.get_ticks_msec() - started_ms >= \
-						TIME_LIMIT_MS:
+						_time_limit_ms():
 					for id in entries.keys():
 						if str(entries[id].get("status", "")) == "racing":
 							entries[id]["status"] = "dnf"
@@ -399,6 +578,10 @@ func _physics_process(dt: float) -> void:
 				_sync_elapsed >= 2.0:
 			_sync_elapsed = 0.0
 			_publish()
+	if is_instance_valid(race_guidance):
+		race_guidance.call("set_guidance", circuit_navigation,
+			online_world.local_vehicle, event_kind == "circuit" and \
+			state in ["countdown", "running"])
 	_ui_elapsed += dt
 	if _ui_elapsed >= 0.16:
 		_ui_elapsed = 0.0
@@ -440,6 +623,7 @@ func _publish() -> void:
 		return
 	var payload := {
 		"race": race_id,
+		"event": event_kind,
 		"state": state,
 		"entries": _public_entries(),
 		"results": results.duplicate(true),
@@ -470,6 +654,9 @@ func _apply_race_state(payload: Dictionary) -> void:
 	var next_state := str(payload.get("state", ""))
 	if next_state not in ["idle", "lobby", "countdown", "running",
 			"results", "aborted"]:
+		return
+	var incoming_event := str(payload.get("event", ""))
+	if not _configure_event(incoming_event):
 		return
 	var previous := state
 	var old_race := race_id
@@ -541,7 +728,10 @@ func _refresh_ui() -> void:
 	if not available or not is_instance_valid(panel) or session == null:
 		return
 	var me := int(session.own_id())
-	var can_stage := _near_start(_car_for(1 if session.hosting else me))
+	var car := _car_for(1 if session.hosting else me)
+	var nearby_event := _nearest_available_event(car) if state == "idle" else event_kind
+	var can_stage := not nearby_event.is_empty() if state == "idle" else \
+		_near_start(car)
 	panel.visible = can_stage or state != "idle"
 	if not panel.visible:
 		return
@@ -557,11 +747,13 @@ func _refresh_ui() -> void:
 		not entries.has(me))
 	ready_button.text = "LEAVE GRID" if entries.has(me) else "JOIN / READY"
 	cancel_button.text = "CANCEL" if session.hosting else "FORFEIT"
-	var header := "ASHFORD / FRIENDS QUARTER MILE / %d-%d DRIVERS" % [
-		2, session.MAX_PLAYERS]
+	var header := "%s / %d-%d FRIENDS" % [
+		_event_title(nearby_event), 2, session.MAX_PLAYERS]
 	match state:
 		"idle":
-			status_label.text = header + "\nPark near the drag-strip start. Host: NEW FRIEND RACE.\nNo cash, XP or career result changes."
+			status_label.text = header + \
+				"\nPark by the race start. Host: NEW FRIEND RACE." + \
+				"\nFull circuit or quarter mile. No career rewards."
 		"lobby":
 			var listed := []
 			for id in entries:
@@ -583,7 +775,9 @@ func _refresh_ui() -> void:
 					if str(driver.get("status", "")) == "racing" else
 					str(driver.get("status", "")).to_upper()])
 			status_label.text = header + "\nRACE LIVE / " + \
-				", ".join(listing) + "\nHost validates each finish."
+				", ".join(listing) + \
+				("\nAll circuit checkpoints required." if event_kind == \
+				"circuit" else "\nHost validates each finish.")
 		"results":
 			var lines := []
 			for i in results.size():
@@ -602,8 +796,14 @@ func _refresh_ui() -> void:
 func _draw() -> void:
 	if not available:
 		return
-	# Race line and staging location in the same physical Ashford world.
-	var x := start_m * PPM
-	draw_circle(x, STAGE_RADIUS_M * PPM, Color(0.98, 0.48, 0.16, 0.04))
-	draw_arc(x, STAGE_RADIUS_M * PPM, 0, TAU, 72,
-		Color(0.92, 0.44, 0.16, 0.65), 2.0, true)
+	# Both real race starts remain discoverable before any race is offered.
+	var starts: Array[Vector2] = []
+	if drag_available:
+		starts.append(drag_start_m)
+	if circuit_available:
+		starts.append(circuit_start_m)
+	for anchor in starts:
+		var x := anchor * PPM
+		draw_circle(x, STAGE_RADIUS_M * PPM, Color(0.98, 0.48, 0.16, 0.04))
+		draw_arc(x, STAGE_RADIUS_M * PPM, 0, TAU, 72,
+			Color(0.92, 0.44, 0.16, 0.65), 2.0, true)
