@@ -318,6 +318,16 @@ func _ready() -> void:
 	if custom_test_drive:
 		_add_test_drive_return_button()
 	if online_session.active and not proving_ground and not custom_game_world:
+		# The normal Ashford AI/time-trial event writes career awards and is
+		# not synchronized. During friend sessions only the host-authoritative
+		# practice drag race may use the strip.
+		if is_instance_valid(drag_race):
+			drag_race.set_process_unhandled_input(false)
+			drag_race.set_physics_process(false)
+			drag_race.hide()
+			var solo_strip_status: Control = drag_race.get("_status_strip") as Control
+			if is_instance_valid(solo_strip_status):
+				solo_strip_status.hide()
 		online_world = Node2D.new()
 		online_world.name = "OnlineWorld"
 		online_world.set_script(OnlineWorldScript)

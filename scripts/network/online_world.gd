@@ -6,6 +6,7 @@ extends Node2D
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const RemoteBuffer = preload("res://scripts/network/remote_snapshot_buffer.gd")
+const FriendRaceScript = preload("res://scripts/network/online_friend_race.gd")
 # Client command response: <=16.7 ms scheduling at 120 Hz physics, rather
 # than the previous 33.3 ms. Hold-state heartbeat avoids idle bandwidth.
 const INPUT_RATE := 1.0 / 60.0
@@ -40,6 +41,7 @@ var roster_label: Label
 var quality_label: Label
 var invitation_toolbar: HBoxContainer
 var lock_lobby_button: Button
+var friend_race: Node2D
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -84,6 +86,10 @@ func _ready() -> void:
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
 	add_child(overlay)
+	friend_race = Node2D.new()
+	friend_race.name = "FriendDragRace"
+	friend_race.set_script(FriendRaceScript)
+	add_child(friend_race)
 	_sync_peers()
 	online_session.mark_world_ready()
 
@@ -365,6 +371,12 @@ func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
 			not online_session.world_ready_peers.has(sender) or not peer_cars.has(sender):
 		return
 	var car := peer_cars[sender] as VehicleController2D
+	if is_instance_valid(friend_race) and friend_race.has_method("input_locked") and \
+			friend_race.call("input_locked", sender):
+		car.command = Vector4.ZERO
+		car.nitrous_requested = false
+		commands_at[sender] = Time.get_ticks_msec()
+		return
 	# Treat all client data as untrusted. Clients cannot set transforms,
 	# money, upgrades or another player's controls through this RPC.
 	car.command = Vector4(
@@ -419,6 +431,9 @@ func _submit_action(action: String) -> void:
 	if not online_session.players.has(sender) or not peer_cars.has(sender):
 		return
 	var car := peer_cars[sender] as VehicleController2D
+	if is_instance_valid(friend_race) and friend_race.has_method("input_locked") and \
+			friend_race.call("input_locked", sender) and action == "reset":
+		return
 	match action:
 		"reset":
 			car.reset_vehicle()
