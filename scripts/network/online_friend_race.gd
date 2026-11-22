@@ -627,6 +627,60 @@ func _host_evaluate_circuit(dt: float) -> void:
 		_publish()
 	_host_check_done()
 
+func _host_evaluate_street(dt: float) -> void:
+	if street_navigation == null or street_gates.is_empty():
+		_host_cancel()
+		return
+	var now := Time.get_ticks_msec()
+	for id in entries.keys():
+		var record: Dictionary = entries[id]
+		if str(record.get("status", "")) != "racing":
+			continue
+		var car := _car_for(int(id))
+		if not is_instance_valid(car):
+			_host_forfeit(int(id), "Vehicle unavailable")
+			continue
+		var prior_px: Vector2 = record.get("prev_position", car.global_position)
+		var current_px: Vector2 = car.global_position
+		if not legal_step(prior_px, current_px, car.linear_velocity, dt):
+			_host_forfeit(int(id), "Invalid position jump")
+			continue
+		record["prev_position"] = current_px
+		var current_m := current_px / PPM
+		var prior_m := prior_px / PPM
+		var station := float(street_navigation.call("station_at", current_m))
+		var nearest: Vector2 = street_navigation.call("point_at", station)
+		if current_m.distance_to(nearest) > STREET_OFF_ROUTE_LIMIT_M:
+			record["off_route_seconds"] = float(record.get("off_route_seconds", 0.0)) + dt
+			if float(record["off_route_seconds"]) >= STREET_OFF_ROUTE_GRACE_S:
+				_host_forfeit(int(id), "Left street race route")
+			continue
+		record["off_route_seconds"] = 0.0
+		var next_gate := int(record.get("next_gate", 0))
+		if next_gate < 0 or next_gate >= street_gates.size():
+			_host_forfeit(int(id), "Invalid checkpoint state")
+			continue
+		if not passed_directional_gate(prior_m, current_m, street_gates[next_gate],
+				STREET_GATE_RADIUS_M):
+			continue
+		record["next_gate"] = next_gate + 1
+		record["prev_progress"] = street_length_m * float(next_gate + 1) / float(street_gates.size())
+		if next_gate < street_gates.size() - 1:
+			continue
+		var elapsed_ms := now - started_ms
+		if elapsed_ms < STREET_MIN_FINISH_MS:
+			_host_forfeit(int(id), "Impossible street race finish")
+			continue
+		var center: Vector2 = street_gates[next_gate]["position"]
+		var forward: Vector2 = street_gates[next_gate]["forward"]
+		var crossed := current_m - prior_m
+		var fraction := clampf(-(prior_m - center).dot(forward) /
+			maxf(0.0001, crossed.dot(forward)), 0.0, 1.0)
+		record["status"] = "finished"
+		record["ms"] = maxi(0, elapsed_ms - roundi((1.0 - fraction) * dt * 1000.0))
+		_publish()
+	_host_check_done()
+
 func _physics_process(dt: float) -> void:
 	if not available or session == null or not session.active:
 		return
@@ -640,7 +694,8 @@ func _physics_process(dt: float) -> void:
 					car.command = Vector4.ZERO
 					car.nitrous_requested = false
 					if car.global_position.distance_to(
-							_countdown_slots.get(id, car.global_position) * PPM) > \
+							(Grid.point(_countdown_slots[id]) if event_kind == "street" else
+							_countdown_slots.get(id, car.global_position)) * PPM) > \
 							START_MOVE_TOLERANCE_M * PPM:
 						_host_cancel()
 						return
@@ -672,8 +727,9 @@ func _physics_process(dt: float) -> void:
 			_sync_elapsed = 0.0
 			_publish()
 	if is_instance_valid(race_guidance):
-		race_guidance.call("set_guidance", circuit_navigation,
-			online_world.local_vehicle, event_kind == "circuit" and \
+		race_guidance.call("set_guidance",
+			street_navigation if event_kind == "street" else circuit_navigation,
+			online_world.local_vehicle, event_kind in ["circuit", "street"] and
 			state in ["countdown", "running"])
 	_ui_elapsed += dt
 	if _ui_elapsed >= 0.16:
@@ -697,7 +753,7 @@ func _race_progress(received_race: int, progress: Dictionary) -> void:
 		return
 	for id in progress:
 		if entries.has(id) and typeof(progress[id]) == TYPE_INT:
-			entries[id]["prev_progress"] = clampi(int(progress[id]), 0, 500)
+			entries[id]["prev_progress"] = clampi(int(progress[id]), 0, ceili(maxf(500.0, maxf(street_length_m, circuit_length_m))))
 
 func _public_entries() -> Dictionary:
 	var safe: Dictionary = {}
@@ -765,7 +821,9 @@ func _apply_race_state(payload: Dictionary) -> void:
 			_client_car_was_external = online_world.local_vehicle.external_input
 			var slots: Dictionary = payload.get("slots", {})
 			var my_slot: Variant = slots.get(int(session.own_id()))
-			if my_slot is Vector2:
+			if my_slot is Dictionary and event_kind == "street":
+				Grid.teleport(online_world.local_vehicle, my_slot)
+			elif my_slot is Vector2:
 				Grid.teleport(online_world.local_vehicle,
 					Grid.pose(my_slot, direction))
 			online_world.local_vehicle.external_input = true
@@ -846,7 +904,7 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nFull circuit or quarter mile. No career rewards."
+				"\nDrag, circuit or street sprint. No career rewards."
 		"lobby":
 			var listed := []
 			for id in entries:
@@ -869,8 +927,8 @@ func _refresh_ui() -> void:
 					str(driver.get("status", "")).to_upper()])
 			status_label.text = header + "\nRACE LIVE / " + \
 				", ".join(listing) + \
-				("\nAll circuit checkpoints required." if event_kind == \
-				"circuit" else "\nHost validates each finish.")
+				("\nAll circuit checkpoints required." if event_kind in \
+				["circuit", "street"] else "\nHost validates each finish.")
 		"results":
 			var lines := []
 			for i in results.size():
@@ -895,6 +953,8 @@ func _draw() -> void:
 		starts.append(drag_start_m)
 	if circuit_available:
 		starts.append(circuit_start_m)
+	if street_available:
+		starts.append(street_start_m)
 	for anchor in starts:
 		var x := anchor * PPM
 		draw_circle(x, STAGE_RADIUS_M * PPM, Color(0.98, 0.48, 0.16, 0.04))
