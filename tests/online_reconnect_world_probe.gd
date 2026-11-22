@@ -55,9 +55,9 @@ func _run() -> void:
 			session.join_invite(FileAccess.get_file_as_string(INVITE_FILE),
 				"Recover Guest"))
 		var admitted: bool = await _poll(func() -> bool:
-			return session.active and session.players.size() == 2 and
+			return session.active and session.players.size() == 2 and \
 				not str(session.get("_resume_token")).is_empty())
-		check("guest_gets_distinct_host_issued_resume_secret", admitted and
+		check("guest_gets_distinct_host_issued_resume_secret", admitted and \
 			str(session.get("_resume_token")) !=
 			str(session.get("_joining_secret")))
 		if not admitted:
@@ -75,10 +75,10 @@ func _run() -> void:
 	var car: VehicleController2D = game.get("vehicle") as VehicleController2D
 	if role == "host":
 		var observed_guest: bool = await _poll(func() -> bool:
-			return session.players.size() == 2 and
-				session.world_ready_peers.size() == 1 and
-				world.peer_cars.size() == 1 and
-				str(session.players.values()[1].get("car_id", "")) != "")
+			return session.players.size() == 2 and \
+				session.world_ready_peers.size() == 1 and \
+				world.peer_cars.size() == 1 and \
+				str(session.players[world.peer_cars.keys()[0]].get("car_id", "")) != "")
 		check("host_sees_guest_world_and_selected_car", observed_guest)
 		if observed_guest:
 			var old_id: int = int(world.peer_cars.keys()[0])
@@ -88,30 +88,29 @@ func _run() -> void:
 			session.rotate_invite()
 			var dropped: bool = await _poll(func() -> bool:
 				return session.disconnected_since.has(old_id))
-			check("lost_guest_is_reserved_without_freeing_car", dropped and
-				session.players.has(old_id) and
+			check("lost_guest_is_reserved_without_freeing_car", dropped and \
+				session.players.has(old_id) and \
 				world.peer_cars.get(old_id) == hosted_car)
 			check("disconnect_cancels_hosted_guest_throttle_and_nitrous",
-				hosted_car.command == Vector4.ZERO and
+				hosted_car.command == Vector4.ZERO and \
 				not hosted_car.nitrous_requested)
 			var back: bool = await _poll(func() -> bool:
-				return session.disconnected_since.is_empty() and
-					session.players.size() == 2 and
-					session.world_ready_peers.size() == 1 and
+				return session.disconnected_since.is_empty() and \
+					session.players.size() == 2 and \
+					session.world_ready_peers.size() == 1 and \
 					world.peer_cars.size() == 1)
 			check("guest_rejoins_locked_rotated_room_with_personal_secret", back)
 			if back:
 				var new_id: int = int(world.peer_cars.keys()[0])
 				check("same_host_physics_car_was_rebound_without_respawn",
-					world.peer_cars[new_id] == hosted_car and
+					world.peer_cars[new_id] == hosted_car and \
 					is_instance_valid(hosted_car))
 				check("selected_vehicle_model_survives_reconnect",
 					str(session.players[new_id].get("car_id", "")) ==
 					preserved_car_id)
 				check("rejoined_guest_has_no_duplicate_host_player",
-					session.players.size() == 2 and
-					not world.peer_cars.has(old_id) if new_id != old_id else
-					session.players.size() == 2)
+					session.players.size() == 2 and world.peer_cars.size() == 1 and \
+					(new_id == old_id or not world.peer_cars.has(old_id)))
 		var finally_left: bool = await _poll(func() -> bool:
 			return session.disconnected_since.size() == 1)
 		check("guest_eventually_leaves_without_new_ghost_player", finally_left)
@@ -120,7 +119,7 @@ func _run() -> void:
 				session.RECONNECT_GRACE_MS - 1
 		session.expire_disconnected_players(Time.get_ticks_msec())
 		check("expired_reserved_driver_releases_original_seat",
-			session.players.size() == 1 and
+			session.players.size() == 1 and \
 			session.disconnected_since.is_empty())
 	else:
 		var local_car_id := ""
@@ -132,7 +131,7 @@ func _run() -> void:
 		if not local_car_id.is_empty():
 			session.set_local_car(local_car_id)
 		var snapshots: bool = await _poll(func() -> bool:
-			return world._last_received_sequence >= 4 and
+			return world._last_received_sequence >= 4 and \
 				str(session.players.get(session.own_id(), {}).get(
 					"car_id", "")) == local_car_id)
 		check("guest_drives_in_real_world_before_network_loss", snapshots)
@@ -140,15 +139,15 @@ func _run() -> void:
 		var original_vehicle: VehicleController2D = car
 		session._on_server_disconnected()
 		check("brief_network_loss_starts_recovery_not_title_transition",
-			session.reconnecting and not session.active and
+			session.reconnecting and not session.active and \
 			world.local_vehicle.external_input)
 		var resumed: bool = await _poll(func() -> bool:
-			return session.active and not session.reconnecting and
-				session.players.has(session.own_id()) and
-				world._last_received_sequence >= 5 and
+			return session.active and not session.reconnecting and \
+				session.players.has(session.own_id()) and \
+				world._last_received_sequence >= 5 and \
 				world.targets.has(session.own_id()))
 		check("guest_recovers_same_live_scene_and_receives_new_snapshots",
-			resumed and game == current_scene and
+			resumed and game == current_scene and \
 			world.local_vehicle == original_vehicle)
 		if resumed:
 			check("guest_regains_original_car_selection",
@@ -157,7 +156,7 @@ func _run() -> void:
 			check("guest_resumes_own_normal_gameplay_controls",
 				not original_vehicle.external_input)
 			check("reconnect_is_not_reinterpreted_as_fresh_title_join",
-				get_tree().current_scene == game)
+				current_scene == game)
 		session.leave_session()
 	session.leave_session()
 	if role == "host" and FileAccess.file_exists(INVITE_FILE):
