@@ -157,6 +157,9 @@ func _run() -> void:
 				not original_vehicle.external_input)
 			check("reconnect_is_not_reinterpreted_as_fresh_title_join",
 				current_scene == game)
+		# Keep the resumed connection alive long enough for the host to
+		# observe a new world-ready signal and verify identical car identity.
+		await create_timer(1.5).timeout
 		session.leave_session()
 	session.leave_session()
 	if role == "host" and FileAccess.file_exists(INVITE_FILE):
