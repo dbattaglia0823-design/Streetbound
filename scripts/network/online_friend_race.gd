@@ -104,7 +104,7 @@ func _ready() -> void:
 				CIRCUIT_GATE_SPACING_M)
 			circuit_available = circuit_length_m >= 1000.0 and \
 				circuit_gates.size() >= 8
-# Use the directed road route from the existing (disabled) solo sprint.
+	# Use the directed road route from the existing (disabled) solo sprint.
 	var street: Node = online_world.get_parent().get("street_race") as Node
 	if is_instance_valid(street) and bool(street.get("available")):
 		street_navigation = street.get("navigation") as RefCounted
@@ -485,7 +485,7 @@ func _host_green() -> void:
 		entries[id]["status"] = "racing"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
-match event_kind:
+	match event_kind:
 		"circuit": _status = "GREEN! Complete every circuit checkpoint!"
 		"street": _status = "GREEN! Follow the streets and cross every checkpoint!"
 		_: _status = "GREEN! Quarter-mile sprint to the finish."
