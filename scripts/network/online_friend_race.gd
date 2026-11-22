@@ -14,7 +14,7 @@ const TIME_LIMIT_MS := 180000
 const RESULTS_SECONDS := 18.0
 const START_MOVE_TOLERANCE_M := 2.5
 
-var online_world: Node2D
+var online_world
 var session: Node
 var start_m := Vector2.ZERO
 var direction := Vector2.UP
