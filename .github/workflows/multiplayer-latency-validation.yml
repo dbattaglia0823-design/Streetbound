@@ -21,6 +21,10 @@ on:
       - "tests/online_friend_circuit_rules_test.gd.uid"
       - "tests/online_friend_circuit_world_probe.gd"
       - "tests/online_friend_circuit_world_probe.gd.uid"
+      - "tests/online_friend_street_rules_test.gd"
+      - "tests/online_friend_street_rules_test.gd.uid"
+      - "tests/online_friend_street_world_probe.gd"
+      - "tests/online_friend_street_world_probe.gd.uid"
       - ".github/workflows/multiplayer-latency-validation.yml"
   workflow_dispatch:
 
@@ -66,6 +70,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_circuit_rules_test.gd 2>&1 | tee /tmp/friend-circuit-rules.log
           grep -q 'FRIEND CIRCUIT RULES: PASS' /tmp/friend-circuit-rules.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-circuit-rules.log
+      - name: Street sprint ordered checkpoints and narrow-grid regression
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_street_rules_test.gd 2>&1 | tee /tmp/friend-street-rules.log
+          grep -q 'FRIEND STREET RULES: PASS' /tmp/friend-street-rules.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-street-rules.log
       - name: Actual invite-protected ENet exchange with measured RTT
         run: |
           set -euo pipefail
@@ -169,3 +179,22 @@ jobs:
           grep -q 'FRIEND CIRCUIT WORLD HOST: PASS' /tmp/friend-circuit-host.log
           grep -q 'FRIEND CIRCUIT WORLD GUEST: PASS' /tmp/friend-circuit-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-circuit-host.log /tmp/friend-circuit-guest.log
+
+      - name: Real two-process Larkspur street race with DNF and no solo rewards
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_street_world_probe.gd -- host >/tmp/friend-street-host.log 2>&1 &
+          host_pid=$!
+          sleep 2
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_street_world_probe.gd -- guest >/tmp/friend-street-guest.log 2>&1 &
+          guest_pid=$!
+          guest_code=0
+          host_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/friend-street-host.log /tmp/friend-street-guest.log
+          test "$guest_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'FRIEND STREET WORLD HOST: PASS' /tmp/friend-street-host.log
+          grep -q 'FRIEND STREET WORLD GUEST: PASS' /tmp/friend-street-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-street-host.log /tmp/friend-street-guest.log
