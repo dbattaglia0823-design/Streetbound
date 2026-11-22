@@ -8,7 +8,7 @@ signal roster_changed
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 2
+const PROTOCOL_VERSION := 3  # Sequenced snapshot RPC is not compatible with v2 clients.
 const INVITE_PREFIX := "SB1-"
 const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
@@ -107,6 +107,26 @@ func set_lobby_locked(value: bool) -> void:
 	lobby_locked = value
 	_set_status("Lobby locked: new players cannot join." if value else
 		"Lobby unlocked: valid invitations can join.")
+
+func network_stats(peer_id: int = 1) -> Dictionary:
+	# ENet reports actual smoothed RTT and RTT variance in milliseconds.
+	# "loss" is its RELIABLE packet-loss statistic, not total UDP loss.
+	if not active or _peer == null or peer_id == own_id():
+		return {}
+	var connection: ENetPacketPeer = _peer.get_peer(peer_id)
+	if connection == null or not connection.is_active() or \
+			connection.get_state() != ENetPacketPeer.STATE_CONNECTED:
+		return {}
+	var loss_epoch: float = connection.get_statistic(
+		ENetPacketPeer.PEER_PACKET_LOSS_EPOCH)
+	return {
+		"rtt_ms": roundi(connection.get_statistic(
+			ENetPacketPeer.PEER_ROUND_TRIP_TIME)),
+		"variation_ms": roundi(connection.get_statistic(
+			ENetPacketPeer.PEER_ROUND_TRIP_TIME_VARIANCE)),
+		"reliable_loss_percent": 100.0 * connection.get_statistic(
+			ENetPacketPeer.PEER_PACKET_LOSS) / float(
+				ENetPacketPeer.PACKET_LOSS_SCALE) if loss_epoch > 0.0 else -1.0}
 
 func own_id() -> int:
 	return 1 if hosting else multiplayer.get_unique_id()

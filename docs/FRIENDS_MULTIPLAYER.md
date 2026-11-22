@@ -35,6 +35,24 @@ A host chooses their reachable IP or hostname and port. The game generates a ran
 
 The protocol is not end-to-end encrypted and codes are bearer credentials. Do not broadcast a private invitation over insecure public networks. For LAN discovery, the credential is knowingly shared on the local subnet; for Direct Friends invites it remains private unless the host shares it. This does not establish verified player accounts or prevent a malicious recipient from re-sharing a code.
 
+## Low-latency free-roam synchronization
+
+The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v3** is required on both ends because the authoritative snapshot RPC now includes a sequence number; old v2 builds are refused at admission.
+
+- **Local input prediction:** each participant drives immediately on their own machine. The client schedules changed controls at **60 Hz** (previously 30 Hz), and periodically resends held commands at **10 Hz**, safely inside the host's 450 ms stale-command brake. This reduces command batching without transmitting redundant packets sixty times a second when the player holds steady.
+- **Authoritative snapshots:** the player-host simulates guest physics and sends sequenced world state at **30 Hz** (previously 15 Hz), using unreliable ordered ENet packets. Old/out-of-order snapshots are dropped instead of rolling back peers. Remote players' cars still cannot override the host's vehicle physics or economy.
+- **Remote-car visuals:** clients buffer up to seven received snapshots and interpolate positions, headings, steering and velocity with an RTT-variance-informed **50–125 ms visual delay**. Missing packets trigger at most **60 ms** of velocity-based *visual* extrapolation; stale cars freeze rather than continuing to drive through scenery. This intentionally smooths other drivers while the local driver's controls remain immediate.
+- **Client reconciliation:** the local client ignores small position errors (up to 20 game units), gently corrects medium errors at a frame-rate-independent rate, and immediately accepts major resyncs (>700 game units). The server stays authoritative.
+- **Real connection indicator:** the in-game overlay reads actual ENet **RTT**, **RTT variation**, and **reliable-packet-loss** statistics for the connection. The hosting player sees the largest observed RTT among their connected guests; a guest sees their RTT to the host. **Reliable loss is not total UDP input/snapshot loss**, and RTT variation is not a precise one-way jitter measurement. Until ENet has samples, the overlay says *measuring*, not a fictitious 0 ms.
+
+At 60 Hz, one input scheduling interval is ~16.7 ms (was ~33.3 ms). At 30 Hz, snapshots are spaced ~33.3 ms (was ~66.7 ms). These are **application update intervals, not internet ping or guaranteed latency reductions**. The number displayed in-game depends on route distance, Wi-Fi congestion, CPU stalls, buffering, and ISP/VPN routing.
+
+### Getting the lowest practical ping
+
+Use **wired Ethernet**, or a strong and uncongested 5/6 GHz Wi-Fi connection, on the local LAN for best results. Choose as host a player with low, stable RTT to the others and a responsive PC. For friends at another house using Tailscale, check `tailscale status` or `tailscale ping <friend-device>`: a **direct UDP** connection typically has lower latency than a DERP/peer relay. Tailscale documentation: [Connection types](https://tailscale.com/docs/reference/connection-types). Router forwarding is optional for a reachable direct public-IP host, but the in-game private invite remains mandatory.
+
+CI test `tests/online_network_smoothing_test.gd` validates interpolation math, timestamp buffering, RTT-corrected local targets, jump limits, stale freezing, angle wraparound, and transmission intervals. `tests/online_friend_connection_probe.gd` reads actual measured ENet RTT on a separate guest process. `tests/online_realtime_world_probe.gd` launches two full Morrow Coast game sessions over real ENet loopback and checks the sequenced snapshots, bounded buffer, and live RTT display. The focused `.github/workflows/multiplayer-latency-validation.yml` runs these alongside the existing full regression. Real two-house RTT, packet loss under congestion, and perceptual smoothness need hands-on sessions; localhost CI does **not** establish zero ping or any promised cross-house RTT.
+
 ## Implementation and test coverage
 
 - `scripts/network/online_session.gd`: host-owned roster, version handshake, validated invite admission, 4-player capacity, car model selections, and disconnect cleanup.

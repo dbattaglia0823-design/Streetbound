@@ -69,6 +69,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/title_navigation_test.gd 2>&1 | tee /tmp/streetbound-title-463.log
           grep -q 'TITLE AND PAUSE NAVIGATION: PASS' /tmp/streetbound-title-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-title-463.log
+      - name: Verify low-latency multiplayer smoothing and bounded visual packet recovery (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_network_smoothing_test.gd 2>&1 | tee /tmp/online-smoothing-463.log
+          grep -q 'NETWORK SMOOTHING: PASS' /tmp/online-smoothing-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-smoothing-463.log
       - name: Verify host/join menu and online world session lifecycle (4.6.3)
         run: |
           set -o pipefail
