@@ -112,6 +112,10 @@ func _run() -> void:
 				check("host_countdown_advances_to_authoritative_green",
 					running)
 				if running:
+					# Keep green active long enough for the remote scene to
+					# observe it at normal 60ms polling and release its input.
+					# Racing itself uses unchanged real physics.
+					await create_timer(1.2).timeout
 					# Only advance the HOST clock to test the time-limit DNF
 					# path. No fake physics, car motion or awarded winner.
 					race.started_ms = Time.get_ticks_msec() - race.TIME_LIMIT_MS - 1
@@ -131,12 +135,12 @@ func _run() -> void:
 			race.direction))
 		await create_timer(1.0).timeout
 		var offered: bool = await _poll(func() -> bool:
-			return race.state == "lobby")
+			return is_instance_valid(race) and race.state == "lobby")
 		check("guest_receives_host_offered_race", offered)
 		if offered:
 			race._on_ready_pressed()
 			var staged: bool = await _poll(func() -> bool:
-				return race.state == "countdown")
+				return is_instance_valid(race) and race.state == "countdown")
 			check("guest_receives_synchronized_staged_grid_and_countdown",
 				staged and race.entries.size() == 2 and \
 				race._client_countdown_end_ms > Time.get_ticks_msec())
@@ -144,13 +148,13 @@ func _run() -> void:
 				check("guest_driving_inputs_are_frozen_until_green",
 					game.get("vehicle").external_input)
 				var started: bool = await _poll(func() -> bool:
-					return race.state == "running")
+					return is_instance_valid(race) and race.state == "running")
 				check("guest_receives_host_authoritative_green", started)
 				if started:
 					check("guest_input_returns_after_green",
 						not game.get("vehicle").external_input)
 				var finished: bool = await _poll(func() -> bool:
-					return race.state == "results")
+					return is_instance_valid(race) and race.state == "results")
 				check("guest_receives_host_validated_results_and_no_rewards",
 					finished and race.results.is_empty() and \
 					race.entries.size() == 2)
