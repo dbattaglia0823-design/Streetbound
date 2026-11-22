@@ -203,8 +203,8 @@ func _physics_process(dt: float) -> void:
 			_input_elapsed = fmod(_input_elapsed, INPUT_RATE)
 			var latest_command: Vector4 = local_vehicle.command
 			var latest_nitrous: bool = local_vehicle.nitrous_requested
-			if latest_command != _last_sent_command or
-					latest_nitrous != _last_sent_nitrous or
+			if latest_command != _last_sent_command or \
+					latest_nitrous != _last_sent_nitrous or \
 					_input_heartbeat_elapsed >= INPUT_HEARTBEAT:
 				_submit_controls.rpc_id(1, latest_command, latest_nitrous)
 				_last_sent_command = latest_command
@@ -317,7 +317,7 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 			continue
 		var state: Array = states[id]
 		# Reject malformed transforms before touching the render-only cars.
-		if not state[0] is Vector2 or not state[2] is Vector2:
+		if not (state[0] is Vector2) or not (state[2] is Vector2):
 			continue
 		targets[int(id)] = state
 		if int(id) != online_session.own_id():
