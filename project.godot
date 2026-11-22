@@ -17,6 +17,8 @@ window/size/resizable=true
 
 [rendering]
 renderer/rendering_method="gl_compatibility"
+# Import Apple-supported ETC2/ASTC variants for universal macOS exports.
+textures/vram_compression/import_etc2_astc=true
 textures/default_filters/use_nearest_mipmap_filter=false
 environment/defaults/default_clear_color=Color(0.095, 0.15, 0.12, 1)
 
