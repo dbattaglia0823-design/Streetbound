@@ -54,6 +54,10 @@ Test with `tests/pause_menu_test.gd` (also run by CI). The existing driving and 
 
 Choose **Multiplayer → Find / Host LAN Game** to host a temporary game and allow friends on the same local network to discover and join it. LAN discovery is opt-in, visible to other devices on that network, and requires no always-on game server or router forwarding. For friends at another house, use **Play with Friends (Online)** with a private invitation code over a virtual LAN such as Tailscale (no port forwarding) or a reachable address with UDP forwarding. The session exists only while the player host is in-game. This is free-roam multiplayer for up to four drivers; competitive races, synced upgrades and host migration remain outside its scope. Setup and security notes are in [the friends multiplayer guide](docs/FRIENDS_MULTIPLAYER.md).
 
+## macOS (Apple Silicon and Intel)
+
+A native macOS Universal 2 build is available from the **Streetbound macOS universal build** GitHub Actions workflow when its run succeeds. Download its `Streetbound-macOS-universal` artifact, extract both ZIP layers and open `Streetbound.app`. This development build is ad-hoc signed, not notarized; use macOS's normal **Open** / **Open Anyway** security exception for builds you trust. For source play, open `project.godot` using **Godot 4.6.3 for macOS** and press F5. Keyboard, controller rebinding and LAN multiplayer use the existing game systems. See [macOS install, build, and troubleshooting](docs/MACOS.md).
+
 ## Play
 
 On this computer, double-click **Launch.cmd** to play using the installed Godot. Alternatively, open `project.godot` in **Godot 4.3 or later** and press **F5** to run the project. Built and tested with **Godot 4.6.3** on Windows. No addons or downloads are required.
