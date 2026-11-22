@@ -269,9 +269,12 @@ func _ready() -> void:
 		authored_map_markers.quick_upgrades=quick_upgrades
 		authored_map_markers.traffic=traffic
 		authored_map_markers.map_hud=world_hud_ref
-		authored_map_markers.races = [] if online_session.active else \
-			extra_races.duplicate()
-		if not online_session.active:
+		# Keep the script's typed Array[Node2D] intact: assigning []
+		# directly coerces it to an untyped Array and breaks world startup.
+		authored_map_markers.races = extra_races.duplicate()
+		if online_session.active:
+			authored_map_markers.races.clear()
+		else:
 			for builtin_race in [drag_race, circuit_race, street_race]:
 				if is_instance_valid(builtin_race):
 					authored_map_markers.races.append(builtin_race)
