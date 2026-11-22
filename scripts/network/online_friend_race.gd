@@ -306,6 +306,10 @@ func _nearest_available_event(car: VehicleController2D) -> String:
 		var circuit_distance := car.global_position.distance_to(circuit_start_m * PPM)
 		if circuit_distance <= distance:
 			nearest = "circuit"
+	if street_available:
+		var street_distance := car.global_position.distance_to(street_start_m * PPM)
+		if street_distance <= distance:
+			nearest = "street"
 	return nearest
 
 func _configure_event(kind: String) -> bool:
@@ -317,17 +321,26 @@ func _configure_event(kind: String) -> bool:
 		event_kind = "circuit"
 		start_m = circuit_start_m
 		direction = circuit_direction
+	elif kind == "street" and street_available:
+		event_kind = "street"
+		start_m = street_start_m
+		direction = street_direction
 	else:
 		return false
 	queue_redraw()
 	return true
 
 func _event_title(kind: String) -> String:
-	return "ASHFORD GRAND CIRCUIT / FULL LAP" if kind == "circuit" else \
-		"ASHFORD / QUARTER MILE"
+	match kind:
+		"circuit": return "ASHFORD GRAND CIRCUIT / FULL LAP"
+		"street": return "LARKSPUR / STREET SPRINT"
+		_: return "ASHFORD / QUARTER MILE"
 
 func _time_limit_ms() -> int:
-	return CIRCUIT_TIMEOUT_MS if event_kind == "circuit" else TIME_LIMIT_MS
+	match event_kind:
+		"circuit": return CIRCUIT_TIMEOUT_MS
+		"street": return STREET_TIMEOUT_MS
+		_: return TIME_LIMIT_MS
 
 func _car_for(id: int) -> VehicleController2D:
 	if id == 1:
@@ -423,7 +436,7 @@ func _host_start() -> void:
 	for id in entries:
 		if not bool(entries[id].get("ready", false)) or \
 				not _is_connected(int(id)) or not _near_start(_car_for(int(id))):
-			_status = "All racers must be parked at the strip, ready, and connected."
+			_status = "All racers must be parked at the event start, ready, and connected."
 			_publish()
 			return
 	var ids: Array = entries.keys()
@@ -432,16 +445,25 @@ func _host_start() -> void:
 	for index in ids.size():
 		var id := int(ids[index])
 		var car := _car_for(id)
-		var offset := (float(index) - float(ids.size() - 1) * 0.5) * \
-			CIRCUIT_LANE_SPACING_M if event_kind == "circuit" else \
-			lane_offset_m(ids.size(), index)
-		var slot_m := start_m + direction.orthogonal().normalized() * offset
-		_countdown_slots[id] = slot_m
-		Grid.teleport(car, Grid.pose(slot_m, direction))
+		if event_kind == "street":
+			var street_pose := street_grid_pose(street_navigation, index, ids.size())
+			if street_pose.is_empty():
+				_host_cancel()
+				return
+			_countdown_slots[id] = street_pose
+			Grid.teleport(car, street_pose)
+		else:
+			var offset := (float(index) - float(ids.size() - 1) * 0.5) * (
+				CIRCUIT_LANE_SPACING_M if event_kind == "circuit" else
+				lane_offset_m(ids.size(), index))
+			var slot_m := start_m + direction.orthogonal().normalized() * offset
+			_countdown_slots[id] = slot_m
+			Grid.teleport(car, Grid.pose(slot_m, direction))
 		entries[id]["status"] = "staged"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
 		entries[id]["next_gate"] = 0
+		entries[id]["off_route_seconds"] = 0.0
 		entries[id]["ms"] = 0
 	_host_car_was_external = online_world.local_vehicle.external_input
 	online_world.local_vehicle.external_input = true
@@ -463,8 +485,10 @@ func _host_green() -> void:
 		entries[id]["status"] = "racing"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
-	_status = "GREEN! Complete all checkpoints and the lap!" if \
-		event_kind == "circuit" else "GREEN! Quarter-mile sprint to the finish."
+match event_kind:
+		"circuit": _status = "GREEN! Complete every circuit checkpoint!"
+		"street": _status = "GREEN! Follow the streets and cross every checkpoint!"
+		_: _status = "GREEN! Quarter-mile sprint to the finish."
 	_publish()
 
 func _host_forfeit(id: int, reason: String) -> void:
@@ -509,6 +533,9 @@ func _host_cancel() -> void:
 func _host_evaluate(dt: float) -> void:
 	if event_kind == "circuit":
 		_host_evaluate_circuit(dt)
+		return
+	if event_kind == "street":
+		_host_evaluate_street(dt)
 		return
 	var now := Time.get_ticks_msec()
 	for id in entries.keys():
