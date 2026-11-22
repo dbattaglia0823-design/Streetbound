@@ -78,7 +78,7 @@ func _run() -> void:
 			check("host_receives_guest_world_ready", peer_ready)
 			if peer_ready:
 				# Use the actual input seam and host's 120 Hz car physics.
-				var host_vehicle: VehicleController2D = current_scene.get("vehicle")
+				var host_vehicle: VehicleController2D = current_scene.get("vehicle") as VehicleController2D
 				host_vehicle.external_input = true
 				host_vehicle.command = Vector4(0.6, 0.0, 0.0, 0.0)
 				await create_timer(2.5).timeout
@@ -88,8 +88,8 @@ func _run() -> void:
 			check("host_observes_guest_disconnect", disconnected)
 		else:
 			var received: bool = await _poll_until(func() -> bool:
-				return int(world._last_received_sequence) >= 6 and
-					world.targets.has(session.own_id()) and
+				return int(world._last_received_sequence) >= 6 and \
+					world.targets.has(session.own_id()) and \
 					world.peer_cars.has(1))
 			check("guest_receives_ordered_authoritative_car_snapshots", received)
 			if received:
