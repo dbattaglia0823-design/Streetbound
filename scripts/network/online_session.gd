@@ -16,6 +16,7 @@ const PROTOCOL_VERSION := 4  # Reconnect admission extends the v3 RPC handshake.
 const RECONNECT_GRACE_MS := 35000
 const CLIENT_RECONNECT_WINDOW_MS := 30000
 const RECONNECT_RETRY_MS := 5000
+const INITIAL_RECONNECT_SETTLE_MS := 350
 const INVITE_PREFIX := "SB1-"
 const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
@@ -171,7 +172,11 @@ func set_lobby_locked(value: bool) -> void:
 func network_stats(peer_id: int = 1) -> Dictionary:
 	# ENet reports actual smoothed RTT and RTT variance in milliseconds.
 	# "loss" is its RELIABLE packet-loss statistic, not total UDP loss.
-	if not active or _peer == null or peer_id == own_id():
+	if not active or _peer == null or peer_id == own_id() or \
+			not multiplayer.get_peers().has(peer_id):
+		return {}
+	# Reserved seats remain in players but are no longer connected ENet peers.
+	if hosting and disconnected_since.has(peer_id):
 		return {}
 	var connection: ENetPacketPeer = _peer.get_peer(peer_id)
 	if connection == null or not connection.is_active() or \
@@ -300,9 +305,16 @@ func _on_server_disconnected() -> void:
 		active = false
 		joining = true
 		_reconnect_started_at = Time.get_ticks_msec()
-		_last_reconnect_attempt_at = 0
+		# Close the old ENet transport now. Give the host a short chance to
+		# observe the release before the next peer attempts to claim the seat.
+		_last_reconnect_attempt_at = _reconnect_started_at - \
+			RECONNECT_RETRY_MS + INITIAL_RECONNECT_SETTLE_MS
 		reconnect_started.emit()
-		_attempt_reconnect()
+		if _peer != null:
+			_peer.close()
+			_peer = null
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		_set_status("Connection interrupted. Attempting to restore your car...")
 	elif active or joining:
 		leave_session("Host disconnected.")
 		_set_status("Host disconnected.")
@@ -328,7 +340,8 @@ func _reject_peer(peer_id: int, reason: String) -> void:
 	_admission_denied.rpc_id(peer_id, reason)
 	# Give the reliable denial packet a chance to leave before disconnecting.
 	get_tree().create_timer(0.3).timeout.connect(func() -> void:
-		if hosting and not players.has(peer_id) and multiplayer.multiplayer_peer:
+		if hosting and not players.has(peer_id) and \
+				multiplayer.get_peers().has(peer_id):
 			multiplayer.multiplayer_peer.disconnect_peer(peer_id)
 	)
 
