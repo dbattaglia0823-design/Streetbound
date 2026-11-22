@@ -72,18 +72,18 @@ func _run() -> void:
 	var race = net.get("friend_race")
 	var solo_circuit = game.get("circuit_race")
 	check("friend_controller_finds_verified_closed_circuit",
-		race != null and race.circuit_available and
+		race != null and race.circuit_available and \
 			race.circuit_gates.size() >= 8)
 	check("solo_circuit_is_disabled_in_online_game",
-		is_instance_valid(solo_circuit) and
-			not solo_circuit.is_physics_processing() and
+		is_instance_valid(solo_circuit) and \
+			not solo_circuit.is_physics_processing() and \
 			not solo_circuit.is_processing_unhandled_input())
 	if race == null or not race.circuit_available:
 		quit(1)
 		return
 	if role == "host":
 		var guest_ready: bool = await _poll(func() -> bool:
-			return session.world_ready_peers.size() == 1 and
+			return session.world_ready_peers.size() == 1 and \
 				net.peer_cars.size() == 1)
 		check("host_has_real_circuit_guest_physics_car", guest_ready)
 		if guest_ready:
@@ -98,24 +98,24 @@ func _run() -> void:
 				race.circuit_direction))
 			race._host_offer()
 			check("host_selects_circuit_event_not_drag",
-				race.state == "lobby" and race.event_kind == "circuit" and
+				race.state == "lobby" and race.event_kind == "circuit" and \
 					race.circuit_length_m >= 1000.0)
 			var opted: bool = await _poll(func() -> bool:
-				return race.entries.has(guest_id) and
+				return race.entries.has(guest_id) and \
 					bool(race.entries[guest_id].get("ready", false)))
 			check("guest_ready_is_authorized_by_host_position", opted)
 			if opted:
 				race._host_start()
 				check("host_stages_original_cars_in_circuit_lanes",
-					race.state == "countdown" and
-						race.input_locked(guest_id) and
+					race.state == "countdown" and \
+						race.input_locked(guest_id) and \
 						race.entries[guest_id].get("next_gate", -1) == 0)
 				var started: bool = await _poll(func() -> bool:
 					return race.state == "running")
 				check("circuit_countdown_reaches_host_green", started)
 				if started:
 					check("no_circuit_finish_without_checkpoints",
-						race.results.is_empty() and
+						race.results.is_empty() and \
 							int(race.entries[guest_id].get("next_gate", -1)) == 0)
 					# Let the guest observe green and enter live driving before
 					# simulating the long time-limit rule without fake progress.
@@ -125,7 +125,7 @@ func _run() -> void:
 					var complete: bool = await _poll(func() -> bool:
 						return race.state == "results")
 					check("host_denies_unearned_circuit_laps_on_timeout",
-						complete and race.results.is_empty() and
+						complete and race.results.is_empty() and \
 							str(race.entries[guest_id].get("status", "")) == "dnf")
 			await create_timer(2.0).timeout
 	else:
@@ -137,7 +137,7 @@ func _run() -> void:
 			race.circuit_direction))
 		await create_timer(1.0).timeout
 		var offered: bool = await _poll(func() -> bool:
-			return is_instance_valid(race) and race.state == "lobby" and
+			return is_instance_valid(race) and race.state == "lobby" and \
 				race.event_kind == "circuit")
 		check("guest_receives_explicit_circuit_event_type", offered)
 		if offered:
@@ -145,7 +145,7 @@ func _run() -> void:
 			var staged: bool = await _poll(func() -> bool:
 				return is_instance_valid(race) and race.state == "countdown")
 			check("guest_receives_shared_circuit_grid_and_countdown",
-				staged and local_car.external_input and
+				staged and local_car.external_input and \
 					race.entries.size() == 2)
 			if staged:
 				var green: bool = await _poll(func() -> bool:
@@ -157,7 +157,7 @@ func _run() -> void:
 				var done: bool = await _poll(func() -> bool:
 					return is_instance_valid(race) and race.state == "results")
 				check("guest_gets_host_verified_circuit_DNFs_without_rewards",
-					done and race.results.is_empty() and
+					done and race.results.is_empty() and \
 						race.entries.size() == 2)
 	session.leave_session()
 	if role == "host" and FileAccess.file_exists(INVITE_FILE):
