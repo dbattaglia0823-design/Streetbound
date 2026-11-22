@@ -15,8 +15,8 @@ func check(label: String, condition: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("protocol_v7_retains_circuit_event_RPC_shape",
-		Session.PROTOCOL_VERSION == 7)
+	check("protocol_v8_retains_circuit_event_RPC_shape",
+		Session.PROTOCOL_VERSION == 8)
 	var nav := Navigation.new()
 	var corners := PackedVector2Array([
 		Vector2(0.0, 0.0),
