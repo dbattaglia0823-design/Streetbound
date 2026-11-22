@@ -33,6 +33,7 @@ var _snapshot_sequence := 0
 var _last_received_sequence := -1
 var _first_authoritative_state := true
 var _rtt_variation_ms := 0.0
+var _last_rtt_ms := 0.0
 var _quality_elapsed := NETWORK_STATS_INTERVAL
 var _interpolation_delay_ms := 55
 var roster_label: Label
@@ -212,7 +213,10 @@ func _physics_process(dt: float) -> void:
 				_input_heartbeat_elapsed = 0.0
 		var my_state: Array = targets.get(online_session.own_id(), [])
 		if my_state.size() >= 3:
-			var error_px: float = local_vehicle.global_position.distance_to(my_state[0])
+			var authority_now: Vector2 = RemoteBuffer.projected_local_authority(
+				my_state, _last_rtt_ms)
+			var error_px: float = local_vehicle.global_position.distance_to(
+				authority_now)
 			if error_px > 700.0:
 				# Spawn, reset and large divergence should converge immediately.
 				local_vehicle.global_position = my_state[0]
@@ -225,7 +229,7 @@ func _physics_process(dt: float) -> void:
 				var correction := clampf((error_px - 20.0) / 280.0, 0.0, 1.0)
 				var blend := clampf(dt * (2.0 + correction * 8.0), 0.0, 0.15)
 				local_vehicle.global_position = local_vehicle.global_position.lerp(
-					my_state[0], blend)
+					authority_now, blend)
 
 func _process(dt: float) -> void:
 	if not online_session.active:
@@ -273,6 +277,7 @@ func _update_network_quality() -> void:
 		quality_label.text = "NETWORK RTT: measuring..." if not online_session.hosting else \
 			"PEER RTT: no samples"
 		return
+	_last_rtt_ms = float(observed.get("rtt_ms", 0))
 	_rtt_variation_ms = float(observed.get("variation_ms", 0))
 	_interpolation_delay_ms = RemoteBuffer.interpolation_delay_ms(
 		SNAPSHOT_RATE * 1000.0, _rtt_variation_ms)
