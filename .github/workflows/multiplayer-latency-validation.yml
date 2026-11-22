@@ -119,21 +119,24 @@ jobs:
           grep -q 'RECONNECT REAL WORLD GUEST: PASS' /tmp/reconnect-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/reconnect-host.log /tmp/reconnect-guest.log
 
-      - name: Real 2-process Ashford friend race ready countdown and host-only results
+      - name: Repeat real Ashford friend drag countdown and host-only results twice
         run: |
           set -euo pipefail
-          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_drag_world_probe.gd -- host >/tmp/friend-drag-host.log 2>&1 &
-          host_pid=$!
-          sleep 2
-          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_drag_world_probe.gd -- guest >/tmp/friend-drag-guest.log 2>&1 &
-          guest_pid=$!
-          guest_code=0
-          host_code=0
-          wait "$guest_pid" || guest_code=$?
-          wait "$host_pid" || host_code=$?
-          cat /tmp/friend-drag-host.log /tmp/friend-drag-guest.log
-          test "$guest_code" -eq 0
-          test "$host_code" -eq 0
-          grep -q 'FRIEND DRAG WORLD HOST: PASS' /tmp/friend-drag-host.log
-          grep -q 'FRIEND DRAG WORLD GUEST: PASS' /tmp/friend-drag-guest.log
-          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-drag-host.log /tmp/friend-drag-guest.log
+          for attempt in 1 2; do
+              echo "FRIEND RACE INTEGRATION ATTEMPT $attempt"
+            timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_drag_world_probe.gd -- host >/tmp/friend-drag-host.log 2>&1 &
+            host_pid=$!
+            sleep 2
+            timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_drag_world_probe.gd -- guest >/tmp/friend-drag-guest.log 2>&1 &
+            guest_pid=$!
+            guest_code=0
+            host_code=0
+            wait "$guest_pid" || guest_code=$?
+            wait "$host_pid" || host_code=$?
+            cat /tmp/friend-drag-host.log /tmp/friend-drag-guest.log
+            test "$guest_code" -eq 0
+            test "$host_code" -eq 0
+            grep -q 'FRIEND DRAG WORLD HOST: PASS' /tmp/friend-drag-host.log
+            grep -q 'FRIEND DRAG WORLD GUEST: PASS' /tmp/friend-drag-guest.log
+            ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-drag-host.log /tmp/friend-drag-guest.log
+          done
