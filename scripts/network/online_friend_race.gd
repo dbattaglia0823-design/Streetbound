@@ -510,6 +510,9 @@ func _on_peer_suspended(id: int) -> void:
 		return
 	if state == "lobby" and entries.erase(id):
 		_publish()
+	elif state == "countdown" and entries.has(id):
+		# Do not go green with a racer who vanished before the start.
+		_host_cancel()
 	elif state == "running":
 		_host_forfeit(id, "Connection lost")
 
