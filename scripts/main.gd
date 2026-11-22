@@ -336,10 +336,6 @@ func _ready() -> void:
 			solo.set_process_unhandled_input(false)
 			solo.set_physics_process(false)
 			solo.hide()
-			for property_name in ["_status_strip", "status_strip"]:
-				var overlay: Variant = solo.get(property_name)
-				if overlay is CanvasItem and is_instance_valid(overlay):
-					overlay.hide()
 			# HUD CanvasLayers are separate nodes; hiding the race world
 			# marker alone does not hide their on-screen race prompts.
 			for child in solo.get_children():
