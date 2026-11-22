@@ -1,5 +1,5 @@
 extends Node2D
-## Host-authoritative Ashford friend drag and full-circuit races. The host stages, times and
+## Host-authoritative friend drag, circuit and street races. The host stages, times and
 ## validates vehicles; network peers can only request a ready/forfeit action.
 ## No multiplayer awards or client-supplied transforms/results are accepted.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
@@ -19,6 +19,13 @@ const CIRCUIT_GATE_RADIUS_M := 16.0
 const CIRCUIT_LANE_SPACING_M := 3.0
 const CIRCUIT_TIMEOUT_MS := 480000
 const CIRCUIT_MIN_FINISH_MS := 25000
+const STREET_GATE_SPACING_M := 80.0
+const STREET_GATE_RADIUS_M := 10.0
+const STREET_GRID_GAP_M := 9.0
+const STREET_TIMEOUT_MS := 300000
+const STREET_MIN_FINISH_MS := 18000
+const STREET_OFF_ROUTE_LIMIT_M := 16.0
+const STREET_OFF_ROUTE_GRACE_S := 3.0
 
 var online_world
 var session: Node
@@ -34,6 +41,12 @@ var circuit_direction := Vector2.UP
 var circuit_navigation: RefCounted
 var circuit_gates: Array[Dictionary] = []
 var circuit_length_m := 0.0
+var street_available := false
+var street_start_m := Vector2.ZERO
+var street_direction := Vector2.UP
+var street_navigation: RefCounted
+var street_gates: Array[Dictionary] = []
+var street_length_m := 0.0
 var event_kind := "drag"
 var race_guidance: Node2D
 var race_id := 0
@@ -91,9 +104,19 @@ func _ready() -> void:
 				CIRCUIT_GATE_SPACING_M)
 			circuit_available = circuit_length_m >= 1000.0 and \
 				circuit_gates.size() >= 8
-	available = drag_available or circuit_available
+	# Use the directed road route from the existing (disabled) solo sprint.
+	var street: Node = online_world.get_parent().get("street_race") as Node
+	if is_instance_valid(street) and bool(street.get("available")):
+		street_navigation = street.get("navigation") as RefCounted
+		if street_navigation != null:
+			street_start_m = street.get("start_m") as Vector2
+			street_direction = street.get("heading") as Vector2
+			street_length_m = float(street_navigation.get("length_m"))
+			street_gates = make_street_gates(street_navigation)
+			street_available = street_length_m >= 600.0 and street_gates.size() >= 8
+	available = drag_available or circuit_available or street_available
 	if not available:
-		push_warning("Friend race unavailable: Ashford tracks not present")
+		push_warning("Friend race unavailable: supported routes not present")
 		return
 	session.roster_changed.connect(_on_roster)
 	session.peer_connection_suspended.connect(_on_peer_suspended)
@@ -210,6 +233,41 @@ static func make_circuit_gates(nav: RefCounted,
 		gates.append({"position": center, "forward": tangent})
 	return gates
 
+## A street sprint is an open route: each gate must be crossed in order and
+## only in the direction of traffic. The final gate is the physical finish.
+static func make_street_gates(nav: RefCounted,
+		spacing_m: float = STREET_GATE_SPACING_M) -> Array[Dictionary]:
+	var gates: Array[Dictionary] = []
+	if nav == null or bool(nav.get("closed")):
+		return gates
+	var length: float = float(nav.get("length_m"))
+	if length < 600.0:
+		return gates
+	var count := clampi(ceili(length / maxf(50.0, spacing_m)), 8, 128)
+	for index in range(1, count + 1):
+		var station := (length - 5.0) * float(index) / float(count)
+		var center: Vector2 = nav.call("point_at", station)
+		var forward: Vector2 = (nav.call("point_at", minf(length, station + 4.0)) -
+			nav.call("point_at", maxf(0.0, station - 4.0))).normalized()
+		if forward.length_squared() < 0.9:
+			return []
+		gates.append({"position": center, "forward": forward})
+	return gates
+
+## Centerline-only safe stagger, never four cars abreast on narrow streets.
+static func street_grid_pose(nav: RefCounted, index: int, count: int) -> Dictionary:
+	if nav == null or index < 0 or count < 2 or count > 4 or index >= count:
+		return {}
+	if float(nav.get("length_m")) < 600.0:
+		return {}
+	var station := 2.0 + float(index) * STREET_GRID_GAP_M
+	var center: Vector2 = nav.call("point_at", station)
+	var tangent: Vector2 = (nav.call("point_at", station + 2.0) -
+		nav.call("point_at", station - 1.5)).normalized()
+	if tangent.length_squared() < 0.9:
+		return {}
+	return Grid.pose(center, tangent)
+
 static func passed_directional_gate(previous_m: Vector2, current_m: Vector2,
 		gate: Dictionary, radius_m: float = CIRCUIT_GATE_RADIUS_M) -> bool:
 	if not (gate.get("position") is Vector2) or not \
@@ -248,6 +306,10 @@ func _nearest_available_event(car: VehicleController2D) -> String:
 		var circuit_distance := car.global_position.distance_to(circuit_start_m * PPM)
 		if circuit_distance <= distance:
 			nearest = "circuit"
+	if street_available:
+		var street_distance := car.global_position.distance_to(street_start_m * PPM)
+		if street_distance <= distance:
+			nearest = "street"
 	return nearest
 
 func _configure_event(kind: String) -> bool:
@@ -259,17 +321,26 @@ func _configure_event(kind: String) -> bool:
 		event_kind = "circuit"
 		start_m = circuit_start_m
 		direction = circuit_direction
+	elif kind == "street" and street_available:
+		event_kind = "street"
+		start_m = street_start_m
+		direction = street_direction
 	else:
 		return false
 	queue_redraw()
 	return true
 
 func _event_title(kind: String) -> String:
-	return "ASHFORD GRAND CIRCUIT / FULL LAP" if kind == "circuit" else \
-		"ASHFORD / QUARTER MILE"
+	match kind:
+		"circuit": return "ASHFORD GRAND CIRCUIT / FULL LAP"
+		"street": return "LARKSPUR / STREET SPRINT"
+		_: return "ASHFORD / QUARTER MILE"
 
 func _time_limit_ms() -> int:
-	return CIRCUIT_TIMEOUT_MS if event_kind == "circuit" else TIME_LIMIT_MS
+	match event_kind:
+		"circuit": return CIRCUIT_TIMEOUT_MS
+		"street": return STREET_TIMEOUT_MS
+		_: return TIME_LIMIT_MS
 
 func _car_for(id: int) -> VehicleController2D:
 	if id == 1:
@@ -365,7 +436,7 @@ func _host_start() -> void:
 	for id in entries:
 		if not bool(entries[id].get("ready", false)) or \
 				not _is_connected(int(id)) or not _near_start(_car_for(int(id))):
-			_status = "All racers must be parked at the strip, ready, and connected."
+			_status = "All racers must be parked at the event start, ready, and connected."
 			_publish()
 			return
 	var ids: Array = entries.keys()
@@ -374,16 +445,25 @@ func _host_start() -> void:
 	for index in ids.size():
 		var id := int(ids[index])
 		var car := _car_for(id)
-		var offset := (float(index) - float(ids.size() - 1) * 0.5) * \
-			CIRCUIT_LANE_SPACING_M if event_kind == "circuit" else \
-			lane_offset_m(ids.size(), index)
-		var slot_m := start_m + direction.orthogonal().normalized() * offset
-		_countdown_slots[id] = slot_m
-		Grid.teleport(car, Grid.pose(slot_m, direction))
+		if event_kind == "street":
+			var street_pose := street_grid_pose(street_navigation, index, ids.size())
+			if street_pose.is_empty():
+				_host_cancel()
+				return
+			_countdown_slots[id] = street_pose
+			Grid.teleport(car, street_pose)
+		else:
+			var offset := (float(index) - float(ids.size() - 1) * 0.5) * (
+				CIRCUIT_LANE_SPACING_M if event_kind == "circuit" else
+				lane_offset_m(ids.size(), index))
+			var slot_m := start_m + direction.orthogonal().normalized() * offset
+			_countdown_slots[id] = slot_m
+			Grid.teleport(car, Grid.pose(slot_m, direction))
 		entries[id]["status"] = "staged"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
 		entries[id]["next_gate"] = 0
+		entries[id]["off_route_seconds"] = 0.0
 		entries[id]["ms"] = 0
 	_host_car_was_external = online_world.local_vehicle.external_input
 	online_world.local_vehicle.external_input = true
@@ -405,8 +485,10 @@ func _host_green() -> void:
 		entries[id]["status"] = "racing"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
-	_status = "GREEN! Complete all checkpoints and the lap!" if \
-		event_kind == "circuit" else "GREEN! Quarter-mile sprint to the finish."
+	match event_kind:
+		"circuit": _status = "GREEN! Complete every circuit checkpoint!"
+		"street": _status = "GREEN! Follow the streets and cross every checkpoint!"
+		_: _status = "GREEN! Quarter-mile sprint to the finish."
 	_publish()
 
 func _host_forfeit(id: int, reason: String) -> void:
@@ -451,6 +533,9 @@ func _host_cancel() -> void:
 func _host_evaluate(dt: float) -> void:
 	if event_kind == "circuit":
 		_host_evaluate_circuit(dt)
+		return
+	if event_kind == "street":
+		_host_evaluate_street(dt)
 		return
 	var now := Time.get_ticks_msec()
 	for id in entries.keys():
@@ -542,6 +627,60 @@ func _host_evaluate_circuit(dt: float) -> void:
 		_publish()
 	_host_check_done()
 
+func _host_evaluate_street(dt: float) -> void:
+	if street_navigation == null or street_gates.is_empty():
+		_host_cancel()
+		return
+	var now := Time.get_ticks_msec()
+	for id in entries.keys():
+		var record: Dictionary = entries[id]
+		if str(record.get("status", "")) != "racing":
+			continue
+		var car := _car_for(int(id))
+		if not is_instance_valid(car):
+			_host_forfeit(int(id), "Vehicle unavailable")
+			continue
+		var prior_px: Vector2 = record.get("prev_position", car.global_position)
+		var current_px: Vector2 = car.global_position
+		if not legal_step(prior_px, current_px, car.linear_velocity, dt):
+			_host_forfeit(int(id), "Invalid position jump")
+			continue
+		record["prev_position"] = current_px
+		var current_m := current_px / PPM
+		var prior_m := prior_px / PPM
+		var station := float(street_navigation.call("station_at", current_m))
+		var nearest: Vector2 = street_navigation.call("point_at", station)
+		if current_m.distance_to(nearest) > STREET_OFF_ROUTE_LIMIT_M:
+			record["off_route_seconds"] = float(record.get("off_route_seconds", 0.0)) + dt
+			if float(record["off_route_seconds"]) >= STREET_OFF_ROUTE_GRACE_S:
+				_host_forfeit(int(id), "Left street race route")
+			continue
+		record["off_route_seconds"] = 0.0
+		var next_gate := int(record.get("next_gate", 0))
+		if next_gate < 0 or next_gate >= street_gates.size():
+			_host_forfeit(int(id), "Invalid checkpoint state")
+			continue
+		if not passed_directional_gate(prior_m, current_m, street_gates[next_gate],
+				STREET_GATE_RADIUS_M):
+			continue
+		record["next_gate"] = next_gate + 1
+		record["prev_progress"] = street_length_m * float(next_gate + 1) / float(street_gates.size())
+		if next_gate < street_gates.size() - 1:
+			continue
+		var elapsed_ms := now - started_ms
+		if elapsed_ms < STREET_MIN_FINISH_MS:
+			_host_forfeit(int(id), "Impossible street race finish")
+			continue
+		var center: Vector2 = street_gates[next_gate]["position"]
+		var forward: Vector2 = street_gates[next_gate]["forward"]
+		var crossed := current_m - prior_m
+		var fraction := clampf(-(prior_m - center).dot(forward) /
+			maxf(0.0001, crossed.dot(forward)), 0.0, 1.0)
+		record["status"] = "finished"
+		record["ms"] = maxi(0, elapsed_ms - roundi((1.0 - fraction) * dt * 1000.0))
+		_publish()
+	_host_check_done()
+
 func _physics_process(dt: float) -> void:
 	if not available or session == null or not session.active:
 		return
@@ -555,7 +694,8 @@ func _physics_process(dt: float) -> void:
 					car.command = Vector4.ZERO
 					car.nitrous_requested = false
 					if car.global_position.distance_to(
-							_countdown_slots.get(id, car.global_position) * PPM) > \
+							(Grid.point(_countdown_slots[id]) if event_kind == "street" else
+							_countdown_slots.get(id, car.global_position)) * PPM) > \
 							START_MOVE_TOLERANCE_M * PPM:
 						_host_cancel()
 						return
@@ -587,8 +727,9 @@ func _physics_process(dt: float) -> void:
 			_sync_elapsed = 0.0
 			_publish()
 	if is_instance_valid(race_guidance):
-		race_guidance.call("set_guidance", circuit_navigation,
-			online_world.local_vehicle, event_kind == "circuit" and \
+		race_guidance.call("set_guidance",
+			street_navigation if event_kind == "street" else circuit_navigation,
+			online_world.local_vehicle, event_kind in ["circuit", "street"] and
 			state in ["countdown", "running"])
 	_ui_elapsed += dt
 	if _ui_elapsed >= 0.16:
@@ -612,7 +753,7 @@ func _race_progress(received_race: int, progress: Dictionary) -> void:
 		return
 	for id in progress:
 		if entries.has(id) and typeof(progress[id]) == TYPE_INT:
-			entries[id]["prev_progress"] = clampi(int(progress[id]), 0, 500)
+			entries[id]["prev_progress"] = clampi(int(progress[id]), 0, ceili(maxf(500.0, maxf(street_length_m, circuit_length_m))))
 
 func _public_entries() -> Dictionary:
 	var safe: Dictionary = {}
@@ -680,7 +821,9 @@ func _apply_race_state(payload: Dictionary) -> void:
 			_client_car_was_external = online_world.local_vehicle.external_input
 			var slots: Dictionary = payload.get("slots", {})
 			var my_slot: Variant = slots.get(int(session.own_id()))
-			if my_slot is Vector2:
+			if my_slot is Dictionary and event_kind == "street":
+				Grid.teleport(online_world.local_vehicle, my_slot)
+			elif my_slot is Vector2:
 				Grid.teleport(online_world.local_vehicle,
 					Grid.pose(my_slot, direction))
 			online_world.local_vehicle.external_input = true
@@ -761,7 +904,7 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nFull circuit or quarter mile. No career rewards."
+				"\nDrag, circuit or street sprint. No career rewards."
 		"lobby":
 			var listed := []
 			for id in entries:
@@ -784,8 +927,8 @@ func _refresh_ui() -> void:
 					str(driver.get("status", "")).to_upper()])
 			status_label.text = header + "\nRACE LIVE / " + \
 				", ".join(listing) + \
-				("\nAll circuit checkpoints required." if event_kind == \
-				"circuit" else "\nHost validates each finish.")
+				("\nAll circuit checkpoints required." if event_kind in \
+				["circuit", "street"] else "\nHost validates each finish.")
 		"results":
 			var lines := []
 			for i in results.size():
@@ -810,6 +953,8 @@ func _draw() -> void:
 		starts.append(drag_start_m)
 	if circuit_available:
 		starts.append(circuit_start_m)
+	if street_available:
+		starts.append(street_start_m)
 	for anchor in starts:
 		var x := anchor * PPM
 		draw_circle(x, STAGE_RADIUS_M * PPM, Color(0.98, 0.48, 0.16, 0.04))
