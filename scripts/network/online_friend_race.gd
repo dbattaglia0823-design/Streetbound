@@ -147,6 +147,10 @@ static func sorted_finishers(records: Dictionary) -> Array:
 			(int(a.ms) == int(b.ms) and int(a.id) < int(b.id)))
 	return finished
 
+func input_locked(peer_id: int) -> bool:
+	return state == "countdown" and entries.has(peer_id) and \
+		str(entries[peer_id].get("status", "")) == "staged"
+
 func _car_for(id: int) -> VehicleController2D:
 	if id == 1:
 		return online_world.local_vehicle as VehicleController2D
@@ -439,6 +443,7 @@ func _publish() -> void:
 		"state": state,
 		"entries": _public_entries(),
 		"results": results.duplicate(true),
+		"slots": _countdown_slots.duplicate(true) if state == "countdown" else {},
 		"remaining_ms": maxi(0, countdown_deadline - Time.get_ticks_msec())
 			if state == "countdown" else 0,
 		"status": _status}
@@ -466,13 +471,20 @@ func _race_state(payload: Dictionary) -> void:
 	results = (payload.get("results", []) as Array).duplicate(true)
 	_status = str(payload.get("status", "")).substr(0, 220)
 	if next_state == "countdown":
+		if previous != "countdown" or old_race != race_id:
+			# Position only the local visual/client simulation; the host
+			# already teleported and owns the authoritative physical car.
+			_client_car_was_external = online_world.local_vehicle.external_input
+			var slots: Dictionary = payload.get("slots", {})
+			var my_slot: Variant = slots.get(int(session.own_id()))
+			if my_slot is Vector2:
+				Grid.teleport(online_world.local_vehicle,
+					Grid.pose(my_slot, direction))
+			online_world.local_vehicle.external_input = true
 		var half_rtt := clampi(
 			int(session.network_stats().get("rtt_ms", 0)) / 2, 0, 200)
 		_client_countdown_end_ms = Time.get_ticks_msec() + \
 			maxi(0, int(payload.get("remaining_ms", 0)) - half_rtt)
-		if previous != "countdown" or old_race != race_id:
-			_client_car_was_external = online_world.local_vehicle.external_input
-			online_world.local_vehicle.external_input = true
 	elif previous == "countdown":
 		online_world.local_vehicle.external_input = \
 			_client_car_was_external or get_tree().paused or session.reconnecting
