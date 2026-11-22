@@ -66,3 +66,12 @@ Added an opt-in UDP LAN discovery autoload (`scripts/network/lan_discovery.gd`),
 For friends at another house, keep the direct private invitation path and use a third-party virtual network such as Tailscale (which handles connectivity without a personally maintained dedicated machine) or an existing public UDP-forwarded host. No built-in relay, unattended dedicated service or cloud-backed invite lookup has been claimed.
 
 Evidence/limits: Godot 4.6.3 cold import and two-process LAN host/guest CI must pass on the branch before merging; current tests do not establish real home Wi-Fi or real cross-house network reachability. Existing physics, map and vehicle systems are unchanged.
+
+
+## 2026-11-22 — On-demand multiplayer latency and jitter pass
+
+Following the merged LAN/direct-friend P2P PR #178, this work adjusts the existing host-authoritative free-roam transport **without adding a permanent server**. `scripts/network/online_world.gd` now schedules changed controls at 60 Hz with a 10 Hz held-command heartbeat, increases host snapshots from 15 to 30 Hz with monotonic sequence numbers, and corrects local position errors without overpowering local input. `scripts/network/remote_snapshot_buffer.gd` provides a bounded remote-car visual state history (up to seven), interpolation delay based on ENet RTT variance, and at most 60 ms of visual extrapolation. None of this authorizes remote transforms or changes the shared 120 Hz vehicle controller physics.
+
+`scripts/network/online_session.gd` queries actual ENet RTT, RTT variance, and **reliable** loss (not total UDP loss) from `ENetPacketPeer`. An in-game status label surfaces these metrics. Because the snapshot RPC added an integer sequence number, the online protocol version is bumped from **2 to 3**; players must be on the same new game build. Existing invite encoding remains the same, but admission refuses mismatched versions.
+
+Focused test `tests/online_network_smoothing_test.gd` checks rate contracts, interpolation, bounded extrapolation, stale freeze, buffer size, and heading wrap. The existing two-process `tests/online_friend_connection_probe.gd` now checks an actual RTT sample on ENet. CI runs all under Godot 4.6.3, alongside the broader 4.4.1 physics/world suite. A final clean CI check is required before saying this is verified or merged. Do not confuse timer intervals, RTT variance or visual delay with physical internet ping reductions.
