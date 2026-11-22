@@ -1,0 +1,81 @@
+name: Streetbound low-latency multiplayer
+
+on:
+  pull_request:
+    paths:
+      - "scripts/network/**"
+      - "tests/online_network_smoothing_test.gd"
+      - "tests/online_network_smoothing_test.gd.uid"
+      - "tests/online_realtime_world_probe.gd"
+      - "tests/online_realtime_world_probe.gd.uid"
+      - "tests/online_friend_connection_probe.gd"
+      - ".github/workflows/multiplayer-latency-validation.yml"
+  workflow_dispatch:
+
+jobs:
+  realtime-transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify stable resource UIDs
+        run: python3 tests/resource_uid_test.py
+      - name: Install tested Godot 4.6.3
+        run: |
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Cold-import game and compile GDScript
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/multi-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/multi-import.log
+      - name: Deterministic interpolator and prediction regression
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_network_smoothing_test.gd 2>&1 | tee /tmp/multi-smoothing.log
+          grep -q 'NETWORK SMOOTHING: PASS' /tmp/multi-smoothing.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/multi-smoothing.log
+      - name: Actual invite-protected ENet exchange with measured RTT
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- host >/tmp/online-enet-host.log 2>&1 &
+          host_pid=$!
+          sleep 1
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- guest >/tmp/online-enet-guest.log 2>&1 &
+          guest_pid=$!
+          sleep 0.3
+          timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- intruder >/tmp/online-enet-intruder.log 2>&1 &
+          intruder_pid=$!
+          guest_code=0
+          host_code=0
+          intruder_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$intruder_pid" || intruder_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
+          test "$guest_code" -eq 0
+          test "$intruder_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'ONLINE TWO PROCESS HOST: PASS' /tmp/online-enet-host.log
+          grep -q 'ONLINE TWO PROCESS GUEST: PASS' /tmp/online-enet-guest.log
+          grep -q 'ONLINE TWO PROCESS INTRUDER: PASS' /tmp/online-enet-intruder.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
+      - name: Full game host/guest snapshots and live RTT over localhost
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_realtime_world_probe.gd -- host >/tmp/realtime-host.log 2>&1 &
+          host_pid=$!
+          sleep 2
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_realtime_world_probe.gd -- guest >/tmp/realtime-guest.log 2>&1 &
+          guest_pid=$!
+          guest_code=0
+          host_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/realtime-host.log /tmp/realtime-guest.log
+          test "$guest_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'LOW LATENCY WORLD HOST: PASS' /tmp/realtime-host.log
+          grep -q 'LOW LATENCY WORLD GUEST: PASS' /tmp/realtime-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/realtime-host.log /tmp/realtime-guest.log
