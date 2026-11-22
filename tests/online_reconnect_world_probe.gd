@@ -58,7 +58,7 @@ func _run() -> void:
 			return session.active and session.players.size() == 2 and \
 				not str(session.get("_resume_token")).is_empty())
 		check("guest_gets_distinct_host_issued_resume_secret", admitted and \
-			str(session.get("_resume_token")) !=
+			str(session.get("_resume_token")) != \
 			str(session.get("_joining_secret")))
 		if not admitted:
 			quit(1)
@@ -106,7 +106,7 @@ func _run() -> void:
 					world.peer_cars[new_id] == hosted_car and \
 					is_instance_valid(hosted_car))
 				check("selected_vehicle_model_survives_reconnect",
-					str(session.players[new_id].get("car_id", "")) ==
+					str(session.players[new_id].get("car_id", "")) == \
 					preserved_car_id)
 				check("rejoined_guest_has_no_duplicate_host_player",
 					session.players.size() == 2 and world.peer_cars.size() == 1 and \
@@ -151,7 +151,7 @@ func _run() -> void:
 			world.local_vehicle == original_vehicle)
 		if resumed:
 			check("guest_regains_original_car_selection",
-				str(session.players[session.own_id()].get("car_id", "")) ==
+				str(session.players[session.own_id()].get("car_id", "")) == \
 				local_car_id)
 			check("guest_resumes_own_normal_gameplay_controls",
 				not original_vehicle.external_input)
