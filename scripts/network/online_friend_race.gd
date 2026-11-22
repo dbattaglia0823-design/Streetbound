@@ -1,5 +1,5 @@
 extends Node2D
-## Host-authoritative Ashford friend drag and full-circuit races. The host stages, times and
+## Host-authoritative friend drag, circuit and street races. The host stages, times and
 ## validates vehicles; network peers can only request a ready/forfeit action.
 ## No multiplayer awards or client-supplied transforms/results are accepted.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
@@ -19,6 +19,13 @@ const CIRCUIT_GATE_RADIUS_M := 16.0
 const CIRCUIT_LANE_SPACING_M := 3.0
 const CIRCUIT_TIMEOUT_MS := 480000
 const CIRCUIT_MIN_FINISH_MS := 25000
+const STREET_GATE_SPACING_M := 80.0
+const STREET_GATE_RADIUS_M := 10.0
+const STREET_GRID_GAP_M := 9.0
+const STREET_TIMEOUT_MS := 300000
+const STREET_MIN_FINISH_MS := 18000
+const STREET_OFF_ROUTE_LIMIT_M := 16.0
+const STREET_OFF_ROUTE_GRACE_S := 3.0
 
 var online_world
 var session: Node
@@ -34,6 +41,12 @@ var circuit_direction := Vector2.UP
 var circuit_navigation: RefCounted
 var circuit_gates: Array[Dictionary] = []
 var circuit_length_m := 0.0
+var street_available := false
+var street_start_m := Vector2.ZERO
+var street_direction := Vector2.UP
+var street_navigation: RefCounted
+var street_gates: Array[Dictionary] = []
+var street_length_m := 0.0
 var event_kind := "drag"
 var race_guidance: Node2D
 var race_id := 0
@@ -91,9 +104,19 @@ func _ready() -> void:
 				CIRCUIT_GATE_SPACING_M)
 			circuit_available = circuit_length_m >= 1000.0 and \
 				circuit_gates.size() >= 8
-	available = drag_available or circuit_available
+# Use the directed road route from the existing (disabled) solo sprint.
+	var street: Node = online_world.get_parent().get("street_race") as Node
+	if is_instance_valid(street) and bool(street.get("available")):
+		street_navigation = street.get("navigation") as RefCounted
+		if street_navigation != null:
+			street_start_m = street.get("start_m") as Vector2
+			street_direction = street.get("heading") as Vector2
+			street_length_m = float(street_navigation.get("length_m"))
+			street_gates = make_street_gates(street_navigation)
+			street_available = street_length_m >= 600.0 and street_gates.size() >= 8
+	available = drag_available or circuit_available or street_available
 	if not available:
-		push_warning("Friend race unavailable: Ashford tracks not present")
+		push_warning("Friend race unavailable: supported routes not present")
 		return
 	session.roster_changed.connect(_on_roster)
 	session.peer_connection_suspended.connect(_on_peer_suspended)
@@ -209,6 +232,41 @@ static func make_circuit_gates(nav: RefCounted,
 			return []
 		gates.append({"position": center, "forward": tangent})
 	return gates
+
+## A street sprint is an open route: each gate must be crossed in order and
+## only in the direction of traffic. The final gate is the physical finish.
+static func make_street_gates(nav: RefCounted,
+		spacing_m: float = STREET_GATE_SPACING_M) -> Array[Dictionary]:
+	var gates: Array[Dictionary] = []
+	if nav == null or bool(nav.get("closed")):
+		return gates
+	var length: float = float(nav.get("length_m"))
+	if length < 600.0:
+		return gates
+	var count := clampi(ceili(length / maxf(50.0, spacing_m)), 8, 128)
+	for index in range(1, count + 1):
+		var station := (length - 5.0) * float(index) / float(count)
+		var center: Vector2 = nav.call("point_at", station)
+		var forward: Vector2 = (nav.call("point_at", minf(length, station + 4.0)) -
+			nav.call("point_at", maxf(0.0, station - 4.0))).normalized()
+		if forward.length_squared() < 0.9:
+			return []
+		gates.append({"position": center, "forward": forward})
+	return gates
+
+## Centerline-only safe stagger, never four cars abreast on narrow streets.
+static func street_grid_pose(nav: RefCounted, index: int, count: int) -> Dictionary:
+	if nav == null or index < 0 or count < 2 or count > 4 or index >= count:
+		return {}
+	if float(nav.get("length_m")) < 600.0:
+		return {}
+	var station := 2.0 + float(index) * STREET_GRID_GAP_M
+	var center: Vector2 = nav.call("point_at", station)
+	var tangent: Vector2 = (nav.call("point_at", station + 2.0) -
+		nav.call("point_at", station - 1.5)).normalized()
+	if tangent.length_squared() < 0.9:
+		return {}
+	return Grid.pose(center, tangent)
 
 static func passed_directional_gate(previous_m: Vector2, current_m: Vector2,
 		gate: Dictionary, radius_m: float = CIRCUIT_GATE_RADIUS_M) -> bool:
