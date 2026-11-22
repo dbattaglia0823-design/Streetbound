@@ -37,7 +37,7 @@ The protocol is not end-to-end encrypted and codes are bearer credentials. Do no
 
 ## Recover from an interrupted connection
 
-Since **multiplayer protocol v4**, a guest can recover from a short internet/Wi-Fi interruption without reloading the driving world or replacing their car. The host remains the authority; no always-on game computer, central server, or router change is introduced.
+Since **multiplayer protocol v4** (retained in v5), a guest can recover from a short internet/Wi-Fi interruption without reloading the driving world or replacing their car. The host remains the authority; no always-on game computer, central server, or router change is introduced.
 
 - At initial admission, the host generates a **separate random 192-bit personal resume token** for each guest. It stays in memory for this session and is not displayed in the invite code, roster, or LAN advertisement. A shared lobby invite is **not enough** to claim another player's reconnecting seat.
 - If the host detects a lost guest, it reserves the player's occupied slot and **the exact existing physics car** for **35 seconds**. It immediately cancels stale throttle/nitrous commands. Friends who remain in the session see that driver's name labeled **reconnecting**.
@@ -49,9 +49,27 @@ Since **multiplayer protocol v4**, a guest can recover from a short internet/Wi-
 
 Tests include `tests/online_reconnect_world_probe.gd` (real two-process Godot host/guest gameplay, locked/rotated lobby and exact car preservation) and `tests/online_reconnect_impairment_test.gd` (deterministic, **synthetic** snapshot-arrival profiles for **30, 80 and 150 ms RTT** with jitter and packet drops). These do not substitute for real LAN/WAN outage and packet-capture tests.
 
+## Friend-to-friend Ashford quarter-mile racing (protocol v5)
+
+This is the first playable **multiplayer racing event** in the existing 2–4 driver player-hosted Morrow Coast free-roam session. It uses the **actual Ashford Drag Strip** course; no always-on server, account, matchmaking service, or separate world is needed.
+
+1. Everyone joins the same temporary LAN/direct/Tailscale friend session with the **same protocol v5 game build**.
+2. Drive to the **Ashford Drag Strip** starting circle. The host parks near the start and selects **NEW FRIEND RACE** in the in-world *ASHFORD / FRIENDS QUARTER MILE* overlay.
+3. Other drivers park within 35 metres of the starting circle, slow down, and select **JOIN / READY**. The host validates the actual server-simulated position, connection and speed before marking them ready. Players not racing can remain in free roam.
+4. When at least two drivers have opted in and are staged, the host chooses **START RACE**. The host places the existing vehicles in two, three or four separate real-world lanes at Ashford's start and starts a 4.5-second shared countdown. Client visuals align to the host-owned grid; steering/throttle are held until **GREEN**.
+5. Race to the physical **402.336 m** finish line. The player host alone validates positions, forward line crossings, lane bounds, suspicious position jumps and a 180-second run limit. Results show ordered finish times (millisecond precision from host clock) and DNF/forfeit status. Results are pushed to all connected racers and spectators.
+
+**Practice-only in this initial implementation.** Friend races do **not** earn cash, XP, wager payouts, parts, or career/race progress. The existing solo Ashford AI race is temporarily disabled during online sessions to avoid overlapping prompts or unsynchronized rewards. No vehicle-to-vehicle collision/damage is added in this PR. Other solo race types are not yet synchronized multiplayer events.
+
+The host may cancel an event, and a guest may forfeit during a run. Disconnecting during a run causes a **DNF**, even if the player reconnects to the same car shortly afterward; this prevents reconnecting to reset the race timer or gain a free restart. The separate reconnect system continues to preserve the driver's ordinary free-roam vehicle. Results reset after a short display interval, allowing the host to open another event.
+
+**Security and fairness:** Remote clients cannot submit finish positions, elapsed times, money changes or winner choices. Host-authenticated readiness/forfeits are the only guest race RPCs. The host can still cheat because this is peer-hosted; a central anti-cheat service and independent timing arbiter are intentionally outside the temporary friends-only scope. A physical LAN/WAN playtest is needed to validate countdown alignment under real packet delay (the UI compensates approximately using measured RTT).
+
+Dedicated tests: `tests/online_friend_drag_rules_test.gd` covers lane layouts, direction-aware finish geometry, impossible jumps, DNF exclusion and deterministic ranking. `tests/online_friend_drag_world_probe.gd` launches two real full-game processes and checks authorized readiness, staged host-owned vehicles, countdown, guest input release, and synchronized host-only practice results.
+
 ## Low-latency free-roam synchronization
 
-The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v4** is required on both ends because the admission handshake now includes resume credentials and the sequenced snapshot RPC is retained; old v2/v3 builds are refused at admission.
+The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v5** is required on both ends because the admission and world RPCs now also include the friend race controller, alongside resume credentials and sequenced snapshots; old v2/v3/v4 builds are refused at admission.
 
 - **Local input prediction:** each participant drives immediately on their own machine. The client schedules changed controls at **60 Hz** (previously 30 Hz), and periodically resends held commands at **10 Hz**, safely inside the host's 450 ms stale-command brake. This reduces command batching without transmitting redundant packets sixty times a second when the player holds steady.
 - **Authoritative snapshots:** the player-host simulates guest physics and sends sequenced world state at **30 Hz** (previously 15 Hz), using unreliable ordered ENet packets. Old/out-of-order snapshots are dropped instead of rolling back peers. Remote players' cars still cannot override the host's vehicle physics or economy.
@@ -72,7 +90,7 @@ CI test `tests/online_network_smoothing_test.gd` validates interpolation math, t
 - `scripts/network/online_session.gd`: host-owned roster, version handshake, validated invite and resume-token admission, 4-player capacity, reserved/recovered car identity, and disconnect expiry.
 - `scripts/network/lan_discovery.gd`: opt-in UDP 28164 LAN discoverability. The client broadcasts a fixed discovery query, accepts bounded JSON replies only for the same game protocol, builds join addresses from actual packet-source IPs, and never uses an untrusted advertised IP for the ENet destination.
 - `scripts/ui/title_menu.gd`: separate LAN host/browser/join page and existing private Direct Friends Invite page.
-- `scripts/network/online_world.gd`: host-simulated guest vehicle physics using normal driving commands, state snapshots and interpolation. Competitive races, synchronized upgrades and vehicle-to-vehicle collision/damage are **not networked** yet.
+- `scripts/network/online_world.gd`: host-simulated guest vehicle physics using normal driving commands, state snapshots and interpolation. Friend drag events are synchronized through `online_friend_race.gd`; other competitive races, synchronized upgrades and vehicle-to-vehicle collision/damage are **not networked** yet.
 - `tests/lan_discovery_probe.gd`: two separate actual Godot processes host and discover via UDP loopback, join using the session invitation and validate roster and cleanup.
 - `tests/title_navigation_test.gd` and existing `tests/online_friend_connection_probe.gd` validate the game menus and private ENet admission. CI runs these under Godot 4.6.3, and the existing broader world/physics suite also tests 4.4.1.
 
