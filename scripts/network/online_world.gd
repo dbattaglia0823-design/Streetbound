@@ -5,9 +5,16 @@ extends Node2D
 ## remote cars. Competitive races/progression are deliberately not networked.
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
-const INPUT_RATE := 1.0 / 30.0
-const SNAPSHOT_RATE := 1.0 / 15.0
+const RemoteBuffer = preload("res://scripts/network/remote_snapshot_buffer.gd")
+# Client command response: <=16.7 ms scheduling at 120 Hz physics, rather
+# than the previous 33.3 ms. Hold-state heartbeat avoids idle bandwidth.
+const INPUT_RATE := 1.0 / 60.0
+const INPUT_HEARTBEAT := 0.10
+# Host authoritative replication: 30 Hz rather than 15 Hz. This does not
+# change the game's fixed 120 Hz physics or the player's local input loop.
+const SNAPSHOT_RATE := 1.0 / 30.0
 const COMMAND_TIMEOUT_MS := 450
+const NETWORK_STATS_INTERVAL := 0.5
 
 var local_vehicle: VehicleController2D
 var world: Node2D
@@ -15,11 +22,21 @@ var peer_cars: Dictionary = {}
 var peer_models: Dictionary = {}
 var peer_labels: Dictionary = {}
 var targets: Dictionary = {}
+var histories: Dictionary = {}
 var commands_at: Dictionary = {}
 var _input_elapsed := 0.0
+var _input_heartbeat_elapsed := INPUT_HEARTBEAT
+var _last_sent_command := Vector4(-1, -1, -1, -1)
+var _last_sent_nitrous := false
 var _snapshot_elapsed := 0.0
+var _snapshot_sequence := 0
+var _last_received_sequence := -1
 var _first_authoritative_state := true
+var _rtt_variation_ms := 0.0
+var _quality_elapsed := NETWORK_STATS_INTERVAL
+var _interpolation_delay_ms := 55
 var roster_label: Label
+var quality_label: Label
 var invitation_toolbar: HBoxContainer
 var lock_lobby_button: Button
 
@@ -32,9 +49,16 @@ func _ready() -> void:
 	roster_label.position = Vector2(20, 16)
 	roster_label.add_theme_font_size_override("font_size", 16)
 	roster_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quality_label = Label.new()
+	quality_label.name = "NetworkQuality"
+	quality_label.position = Vector2(20, 82)
+	quality_label.add_theme_font_size_override("font_size", 13)
+	quality_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quality_label.text = "NETWORK RTT: measuring..."
 	var overlay := CanvasLayer.new()
 	overlay.layer = 4
 	overlay.add_child(roster_label)
+	overlay.add_child(quality_label)
 	if online_session.hosting:
 		invitation_toolbar = HBoxContainer.new()
 		invitation_toolbar.name = "PrivateLobbyActions"
@@ -142,6 +166,7 @@ func _remove_remote(id: int) -> void:
 	peer_labels.erase(id)
 	peer_models.erase(id)
 	targets.erase(id)
+	histories.erase(id)
 	commands_at.erase(id)
 
 func _refresh_roster_label() -> void:
@@ -164,49 +189,99 @@ func _physics_process(dt: float) -> void:
 		_snapshot_elapsed += dt
 		if _snapshot_elapsed >= SNAPSHOT_RATE:
 			_snapshot_elapsed = fmod(_snapshot_elapsed, SNAPSHOT_RATE)
+			_snapshot_sequence += 1
 			var states: Dictionary = {1: _car_state(local_vehicle)}
 			for id in peer_cars:
 				states[id] = _car_state(peer_cars[id] as VehicleController2D)
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
-					_receive_states.rpc_id(int(id), states)
+					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
 	else:
 		_input_elapsed += dt
+		_input_heartbeat_elapsed += dt
 		if _input_elapsed >= INPUT_RATE:
 			_input_elapsed = fmod(_input_elapsed, INPUT_RATE)
-			_submit_controls.rpc_id(1, local_vehicle.command,
-				local_vehicle.nitrous_requested)
+			var latest_command: Vector4 = local_vehicle.command
+			var latest_nitrous: bool = local_vehicle.nitrous_requested
+			if latest_command != _last_sent_command or
+					latest_nitrous != _last_sent_nitrous or
+					_input_heartbeat_elapsed >= INPUT_HEARTBEAT:
+				_submit_controls.rpc_id(1, latest_command, latest_nitrous)
+				_last_sent_command = latest_command
+				_last_sent_nitrous = latest_nitrous
+				_input_heartbeat_elapsed = 0.0
 		var my_state: Array = targets.get(online_session.own_id(), [])
 		if my_state.size() >= 3:
 			var error_px: float = local_vehicle.global_position.distance_to(my_state[0])
 			if error_px > 700.0:
+				# Spawn, reset and large divergence should converge immediately.
 				local_vehicle.global_position = my_state[0]
 				local_vehicle.rotation = my_state[1]
 				local_vehicle.linear_velocity = my_state[2]
 				local_vehicle.reset_physics_interpolation()
-			elif error_px > 90.0:
-				# Small corrections keep local handling responsive. There is
-				# no forced per-tick teleport or client-authoritative position.
+			elif error_px > 20.0:
+				# Local input is predicted immediately; only recover the error
+				# softly. Small errors do not fight the player's steering.
+				var correction := clampf((error_px - 20.0) / 280.0, 0.0, 1.0)
+				var blend := clampf(dt * (2.0 + correction * 8.0), 0.0, 0.15)
 				local_vehicle.global_position = local_vehicle.global_position.lerp(
-					my_state[0], 0.045)
+					my_state[0], blend)
 
 func _process(dt: float) -> void:
+	if not online_session.active:
+		return
+	_quality_elapsed += dt
+	if _quality_elapsed >= NETWORK_STATS_INTERVAL:
+		_quality_elapsed = fmod(_quality_elapsed, NETWORK_STATS_INTERVAL)
+		_update_network_quality()
+	var now_ms := Time.get_ticks_msec()
 	for id in peer_cars:
 		var car := peer_cars[id] as VehicleController2D
 		if not online_session.hosting:
-			var state: Array = targets.get(id, [])
-			if state.size() >= 6:
-				var fraction := clampf(dt * 11.0, 0.0, 1.0)
-				car.global_position = car.global_position.lerp(state[0], fraction)
-				car.rotation = lerp_angle(car.rotation, state[1], fraction)
+			var samples: Array = histories.get(id, [])
+			var state: Array = RemoteBuffer.sample(
+				samples, now_ms, _interpolation_delay_ms)
+			if state.size() == 6:
+				# Only remote visuals are interpolated. Never client-drive another
+				# player's authoritative physics or position via RPC.
+				car.global_position = state[0]
+				car.rotation = state[1]
 				car.linear_velocity = state[2]
-				car.steering = lerpf(car.steering, float(state[3]), fraction)
+				car.steering = float(state[3])
 				car.longitudinal_speed = float(state[4])
 				car.yaw_rate = float(state[5])
 		if peer_labels.has(id):
 			var tag := peer_labels[id] as Label
 			tag.position = car.global_position + Vector2(-90, -115)
 			tag.size = Vector2(180, 25)
+
+func _update_network_quality() -> void:
+	if not is_instance_valid(quality_label):
+		return
+	var observed: Dictionary = {}
+	if online_session.hosting:
+		for id in online_session.players:
+			if int(id) == 1:
+				continue
+			var one: Dictionary = online_session.network_stats(int(id))
+			if not one.is_empty() and int(one.get("rtt_ms", 0)) > \
+					int(observed.get("rtt_ms", -1)):
+				observed = one
+	else:
+		observed = online_session.network_stats()
+	if observed.is_empty() or int(observed.get("rtt_ms", 0)) <= 0:
+		quality_label.text = "NETWORK RTT: measuring..." if not online_session.hosting else \
+			"PEER RTT: no samples"
+		return
+	_rtt_variation_ms = float(observed.get("variation_ms", 0))
+	_interpolation_delay_ms = RemoteBuffer.interpolation_delay_ms(
+		SNAPSHOT_RATE * 1000.0, _rtt_variation_ms)
+	var loss: float = float(observed.get("reliable_loss_percent", -1.0))
+	var loss_text := "%.1f%%" % loss if loss >= 0.0 else "measuring"
+	quality_label.text = "%s %d ms  |  RTT VAR %d ms  |  REL-LOSS %s" % [
+		"MAX PEER RTT" if online_session.hosting else "RTT",
+		int(observed.get("rtt_ms", 0)),
+		int(observed.get("variation_ms", 0)), loss_text]
 
 static func _car_state(car: VehicleController2D) -> Array:
 	return [car.global_position, car.rotation, car.linear_velocity,
@@ -230,12 +305,25 @@ func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
 	commands_at[sender] = Time.get_ticks_msec()
 
 @rpc("authority", "unreliable_ordered")
-func _receive_states(states: Dictionary) -> void:
-	if online_session.hosting or not online_session.active:
+func _receive_states(sequence: int, states: Dictionary) -> void:
+	if online_session.hosting or not online_session.active or \
+			sequence <= _last_received_sequence:
 		return
+	_last_received_sequence = sequence
+	var now_ms := Time.get_ticks_msec()
 	for id in states:
-		if states[id] is Array and (states[id] as Array).size() == 6:
-			targets[int(id)] = states[id]
+		if not online_session.players.has(id) or not states[id] is Array or \
+				(states[id] as Array).size() != 6:
+			continue
+		var state: Array = states[id]
+		# Reject malformed transforms before touching the render-only cars.
+		if not state[0] is Vector2 or not state[2] is Vector2:
+			continue
+		targets[int(id)] = state
+		if int(id) != online_session.own_id():
+			var samples: Array = histories.get(int(id), [])
+			RemoteBuffer.add_snapshot(samples, now_ms, state)
+			histories[int(id)] = samples
 	var my_state: Array = targets.get(online_session.own_id(), [])
 	if _first_authoritative_state and my_state.size() >= 3:
 		_first_authoritative_state = false
