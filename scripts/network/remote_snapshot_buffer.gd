@@ -4,6 +4,7 @@ extends RefCounted
 const MAX_HISTORY := 7
 const MAX_EXTRAPOLATE_MS := 60
 const STALE_FREEZE_MS := 250
+const MAX_LOCAL_FORWARD_MS := 80
 
 static func interpolation_delay_ms(snapshot_interval_ms: float,
 		rtt_variation_ms: float) -> int:
@@ -50,6 +51,17 @@ static func sample(history: Array, now_ms: int, delay_ms: int) -> Array:
 	state[0] = (state[0] as Vector2) + (state[2] as Vector2) * advance_seconds
 	state[1] = float(state[1]) + float(state[5]) * advance_seconds
 	return state
+
+static func projected_local_authority(state: Array, rtt_ms: float) -> Vector2:
+	# Do not reconcile the client toward an already-old host snapshot.
+	# Approximate one-way network age from ENet RTT; keep the correction
+	# strictly bounded and use only host-owned velocity for projection.
+	if state.size() < 3 or not (state[0] is Vector2) or \
+			not (state[2] is Vector2):
+		return Vector2.ZERO
+	var seconds := clampf(rtt_ms * 0.0005, 0.0,
+		float(MAX_LOCAL_FORWARD_MS) / 1000.0)
+	return (state[0] as Vector2) + (state[2] as Vector2) * seconds
 
 static func interpolate(a: Array, b: Array, fraction: float) -> Array:
 	if a.size() != 6 or b.size() != 6:
