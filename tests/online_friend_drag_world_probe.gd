@@ -122,6 +122,14 @@ func _run() -> void:
 						str(race.entries[guest_id].get("status", "")) == "dnf")
 			await create_timer(2.0).timeout
 	else:
+		# The CI guest starts at the garage but a real player would drive to
+		# Ashford first. Stage the local TEST fixture at the same track and
+		# permit the streamed world to load before the live race starts.
+		var guest_car: VehicleController2D = game.get("vehicle")
+		Grid.teleport(guest_car, Grid.pose(
+			race.start_m + race.direction.orthogonal() * 3.0,
+			race.direction))
+		await create_timer(1.0).timeout
 		var offered: bool = await _poll(func() -> bool:
 			return race.state == "lobby")
 		check("guest_receives_host_offered_race", offered)
