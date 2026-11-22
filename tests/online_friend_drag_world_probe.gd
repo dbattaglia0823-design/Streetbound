@@ -1,5 +1,5 @@
 extends SceneTree
-## Two real Godot processes; hosts create race at real Ashford strip and
+## Two real Godot processes; hosts create race at real Ashford strip and \
 ## guests join with an admitted ENet peer ID. Never fakes a race winner.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
 const PORT := 28409
@@ -68,7 +68,7 @@ func _run() -> void:
 		return
 	var game: Node = current_scene
 	var online: Node = game.get("online_world")
-	var race: Node = online.get("friend_race")
+	var race = online.get("friend_race")
 	check("friend_race_controller_exists_on_both_game_processes",
 		race != null and race.available)
 	check("solo_race_is_disabled_during_online_friend_event",
@@ -78,7 +78,7 @@ func _run() -> void:
 		return
 	if role == "host":
 		var guest_world: bool = await _poll(func() -> bool:
-			return session.world_ready_peers.size() == 1 and
+			return session.world_ready_peers.size() == 1 and \
 				online.peer_cars.size() == 1)
 		check("host_has_one_real_ready_guest", guest_world)
 		if guest_world:
@@ -97,15 +97,15 @@ func _run() -> void:
 			check("host_opens_invite_only_ready_lobby",
 				race.state == "lobby" and race.entries.has(1))
 			var ready: bool = await _poll(func() -> bool:
-				return race.entries.has(guest_id) and
+				return race.entries.has(guest_id) and \
 					bool(race.entries[guest_id].get("ready", false)))
 			check("host_validates_guest_ready_at_strip_not_client_position",
 				ready and race._ready_count() == 2)
 			if ready:
 				race._host_start()
 				check("host_stages_both_original_physical_cars",
-					race.state == "countdown" and
-					race._countdown_slots.size() == 2 and
+					race.state == "countdown" and \
+					race._countdown_slots.size() == 2 and \
 					race.input_locked(guest_id))
 				var running: bool = await _poll(func() -> bool:
 					return race.state == "running")
@@ -118,7 +118,7 @@ func _run() -> void:
 					var finalized: bool = await _poll(func() -> bool:
 						return race.state == "results")
 					check("host_rejects_undriven_finish_and_marks_DNF",
-						finalized and race.results.is_empty() and
+						finalized and race.results.is_empty() and \
 						str(race.entries[guest_id].get("status", "")) == "dnf")
 			await create_timer(2.0).timeout
 	else:
@@ -130,7 +130,7 @@ func _run() -> void:
 			var staged: bool = await _poll(func() -> bool:
 				return race.state == "countdown")
 			check("guest_receives_synchronized_staged_grid_and_countdown",
-				staged and race.entries.size() == 2 and
+				staged and race.entries.size() == 2 and \
 				race._client_countdown_end_ms > Time.get_ticks_msec())
 			if staged:
 				check("guest_driving_inputs_are_frozen_until_green",
@@ -144,7 +144,7 @@ func _run() -> void:
 				var finished: bool = await _poll(func() -> bool:
 					return race.state == "results")
 				check("guest_receives_host_validated_results_and_no_rewards",
-					finished and race.results.is_empty() and
+					finished and race.results.is_empty() and \
 					race.entries.size() == 2)
 	session.leave_session()
 	if role == "host" and FileAccess.file_exists(INVITE_FILE):
