@@ -924,7 +924,7 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nDrag, circuit or street sprint. " + _session_standings_line()"
+				"\nDrag, circuit or street sprint. " + _session_standings_line()
 		"lobby":
 			var listed := []
 			for id in entries:
@@ -953,10 +953,10 @@ func _refresh_ui() -> void:
 			var lines := []
 			for i in results.size():
 				var finish: Dictionary = results[i]
-				lines.append("%d. %s - %.3fs" % [i + 1,
+				var earned := int(standings.get(int(finish.get("id", 0)), {}).get("last_points", 0))
+				lines.append("%d. %s - %.3fs  +%d pts" % [i + 1,
 					str(finish.get("name", "Driver")),
-					float(finish.get("ms", 0)) / 1000.0] + \
-					" +%d pts" % int(standings.get(int(finish.get("id", 0)), {}).get("last_points", 0)))
+					float(finish.get("ms", 0)) / 1000.0, earned])
 			for id in entries:
 				if str(entries[id].get("status", "")) == "dnf":
 					lines.append("%s - DNF" % str(entries[id].get("name", "Driver")))
