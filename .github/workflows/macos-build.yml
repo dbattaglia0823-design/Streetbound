@@ -64,9 +64,9 @@ jobs:
         run: |
           set -euo pipefail
           for spec in \
-            "title_navigation_test.gd|TITLE NAVIGATION: PASS" \
+            "title_navigation_test.gd|TITLE AND PAUSE NAVIGATION: PASS" \
             "game_startup_smoke_test.gd|REAL GAME STARTUP: PASS" \
-            "remappable_controls_settings_test.gd|REMAPPABLE CONTROLS: PASS"; do
+            "remappable_controls_settings_test.gd|REMAP SETTINGS CONTROLS: PASS"; do
             test_file="${spec%%|*}"
             expected="${spec#*|}"
             log="$RUNNER_TEMP/${test_file%.gd}.log"
