@@ -45,6 +45,10 @@ func _ready() -> void:
 	name = "OnlineWorld"
 	online_session.roster_changed.connect(_sync_peers)
 	online_session.session_closed.connect(_session_closed)
+	online_session.reconnect_started.connect(_reconnect_started)
+	online_session.reconnect_finished.connect(_reconnect_finished)
+	online_session.peer_connection_suspended.connect(_peer_suspended)
+	online_session.peer_id_rebound.connect(_rebind_peer_car)
 	roster_label = Label.new()
 	roster_label.name = "OnlineRoster"
 	roster_label.position = Vector2(20, 16)
@@ -125,11 +129,71 @@ func _sync_peers() -> void:
 				Catalog.select(peer_cars[peer_id] as VehicleController2D, entry)
 				peer_models[peer_id] = model_id
 		if peer_labels.has(peer_id):
-			(peer_labels[peer_id] as Label).text = str(record.get("name", "Driver"))
+			(peer_labels[peer_id] as Label).text = str(record.get("name", "Driver")) + \
+			(" (reconnecting)" if online_session.disconnected_since.has(peer_id) else "")
 	for id in peer_cars.keys():
 		if not online_session.players.has(id):
 			_remove_remote(int(id))
 	_refresh_roster_label()
+
+func _peer_suspended(peer_id: int) -> void:
+	if not online_session.hosting:
+		return
+	# On disconnect, brake the old control stream immediately rather than
+	# applying throttle for the entire 450ms stale-input timeout.
+	var car: VehicleController2D = peer_cars.get(peer_id) as VehicleController2D
+	if is_instance_valid(car):
+		car.command = Vector4.ZERO
+		car.nitrous_requested = false
+
+func _rebind_peer_car(previous_id: int, current_id: int) -> void:
+	if not online_session.hosting or previous_id == current_id:
+		return
+	# Server remains authoritative: transfer the SAME physics object rather
+	# than instantiating a replacement car at the default spawn location.
+	for mapping in [peer_cars, peer_models, peer_labels, commands_at]:
+		if mapping.has(previous_id):
+			mapping[current_id] = mapping[previous_id]
+			mapping.erase(previous_id)
+	if peer_cars.has(current_id):
+		(peer_cars[current_id] as VehicleController2D).name = \
+			"Friend_%d" % current_id
+	if peer_labels.has(current_id):
+		(peer_labels[current_id] as Label).name = "Name_%d" % current_id
+	commands_at.erase(current_id)
+	_peer_suspended(current_id)
+
+func _reconnect_started() -> void:
+	if online_session.hosting:
+		return
+	if is_instance_valid(local_vehicle):
+		local_vehicle.command = Vector4.ZERO
+		local_vehicle.nitrous_requested = false
+		local_vehicle.external_input = true
+	if is_instance_valid(quality_label):
+		quality_label.text = "CONNECTION LOST - trying to rejoin (30 seconds)"
+
+func _reconnect_finished() -> void:
+	if online_session.hosting:
+		return
+	# Existing game scene stays loaded. The new ENet ID is authenticated by
+	# the host, which has retained the same original car and its state.
+	targets.clear()
+	histories.clear()
+	_last_received_sequence = -1
+	_first_authoritative_state = true
+	_last_sent_command = Vector4(-1, -1, -1, -1)
+	_last_sent_nitrous = false
+	_input_heartbeat_elapsed = INPUT_HEARTBEAT
+	_last_rtt_ms = 0.0
+	_interpolation_delay_ms = 55
+	if is_instance_valid(local_vehicle):
+		local_vehicle.command = Vector4.ZERO
+		local_vehicle.nitrous_requested = false
+		local_vehicle.external_input = get_tree().paused
+	if is_instance_valid(quality_label):
+		quality_label.text = "RECONNECTED - syncing vehicle position..."
+	online_session.mark_world_ready()
 
 func _add_remote(id: int) -> void:
 	var car := VehicleScene.instantiate() as VehicleController2D

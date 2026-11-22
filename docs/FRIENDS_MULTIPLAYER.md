@@ -35,9 +35,23 @@ A host chooses their reachable IP or hostname and port. The game generates a ran
 
 The protocol is not end-to-end encrypted and codes are bearer credentials. Do not broadcast a private invitation over insecure public networks. For LAN discovery, the credential is knowingly shared on the local subnet; for Direct Friends invites it remains private unless the host shares it. This does not establish verified player accounts or prevent a malicious recipient from re-sharing a code.
 
+## Recover from an interrupted connection
+
+Since **multiplayer protocol v4**, a guest can recover from a short internet/Wi-Fi interruption without reloading the driving world or replacing their car. The host remains the authority; no always-on game computer, central server, or router change is introduced.
+
+- At initial admission, the host generates a **separate random 192-bit personal resume token** for each guest. It stays in memory for this session and is not displayed in the invite code, roster, or LAN advertisement. A shared lobby invite is **not enough** to claim another player's reconnecting seat.
+- If the host detects a lost guest, it reserves the player's occupied slot and **the exact existing physics car** for **35 seconds**. It immediately cancels stale throttle/nitrous commands. Friends who remain in the session see that driver's name labeled **reconnecting**.
+- The guest automatically retries the prior address/port every **5 seconds**, for up to **30 seconds**. During recovery the driving scene stays loaded and local driving input is temporarily suspended. A successful resume uses the personal token, rebinds the old host-owned car to the new ENet peer ID, restores the selected vehicle, resets client interpolation history, resynchronizes authoritative position and resumes normal input.
+- An authenticated reconnect is permitted even if the host has subsequently **locked the lobby or rotated the shared invite**, but only while the player's reservation remains valid. New players must still pass the normal invitation/lock/capacity checks. Expired seats and tokens are purged.
+- If recovery fails or the original host has quit, the guest returns to the title screen with a disconnection status. **Host migration is not included.** This does not change NAT traversal, packet travel time, or how different-house sessions are established.
+
+**Limits:** The 35-second reservation also temporarily occupies a slot after an ordinary disconnect/exit, until it expires. Reconnection only succeeds if the host keeps the same session alive and remains reachable. The token is not an account identity, does not persist across game restarts, and cannot provide end-to-end encryption.
+
+Tests include `tests/online_reconnect_world_probe.gd` (real two-process Godot host/guest gameplay, locked/rotated lobby and exact car preservation) and `tests/online_reconnect_impairment_test.gd` (deterministic, **synthetic** snapshot-arrival profiles for **30, 80 and 150 ms RTT** with jitter and packet drops). These do not substitute for real LAN/WAN outage and packet-capture tests.
+
 ## Low-latency free-roam synchronization
 
-The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v3** is required on both ends because the authoritative snapshot RPC now includes a sequence number; old v2 builds are refused at admission.
+The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v4** is required on both ends because the admission handshake now includes resume credentials and the sequenced snapshot RPC is retained; old v2/v3 builds are refused at admission.
 
 - **Local input prediction:** each participant drives immediately on their own machine. The client schedules changed controls at **60 Hz** (previously 30 Hz), and periodically resends held commands at **10 Hz**, safely inside the host's 450 ms stale-command brake. This reduces command batching without transmitting redundant packets sixty times a second when the player holds steady.
 - **Authoritative snapshots:** the player-host simulates guest physics and sends sequenced world state at **30 Hz** (previously 15 Hz), using unreliable ordered ENet packets. Old/out-of-order snapshots are dropped instead of rolling back peers. Remote players' cars still cannot override the host's vehicle physics or economy.
@@ -55,7 +69,7 @@ CI test `tests/online_network_smoothing_test.gd` validates interpolation math, t
 
 ## Implementation and test coverage
 
-- `scripts/network/online_session.gd`: host-owned roster, version handshake, validated invite admission, 4-player capacity, car model selections, and disconnect cleanup.
+- `scripts/network/online_session.gd`: host-owned roster, version handshake, validated invite and resume-token admission, 4-player capacity, reserved/recovered car identity, and disconnect expiry.
 - `scripts/network/lan_discovery.gd`: opt-in UDP 28164 LAN discoverability. The client broadcasts a fixed discovery query, accepts bounded JSON replies only for the same game protocol, builds join addresses from actual packet-source IPs, and never uses an untrusted advertised IP for the ENet destination.
 - `scripts/ui/title_menu.gd`: separate LAN host/browser/join page and existing private Direct Friends Invite page.
 - `scripts/network/online_world.gd`: host-simulated guest vehicle physics using normal driving commands, state snapshots and interpolation. Competitive races, synchronized upgrades and vehicle-to-vehicle collision/damage are **not networked** yet.

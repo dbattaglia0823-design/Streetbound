@@ -9,6 +9,10 @@ on:
       - "tests/online_realtime_world_probe.gd"
       - "tests/online_realtime_world_probe.gd.uid"
       - "tests/online_friend_connection_probe.gd"
+      - "tests/online_reconnect_world_probe.gd"
+      - "tests/online_reconnect_world_probe.gd.uid"
+      - "tests/online_reconnect_impairment_test.gd"
+      - "tests/online_reconnect_impairment_test.gd.uid"
       - ".github/workflows/multiplayer-latency-validation.yml"
   workflow_dispatch:
 
@@ -36,6 +40,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_network_smoothing_test.gd 2>&1 | tee /tmp/multi-smoothing.log
           grep -q 'NETWORK SMOOTHING: PASS' /tmp/multi-smoothing.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/multi-smoothing.log
+      - name: Synthetic 30/80/150 ms RTT jitter and packet-loss bounds
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_reconnect_impairment_test.gd 2>&1 | tee /tmp/reconnect-impairment.log
+          grep -q 'RECONNECT IMPAIRMENT PROFILE: PASS' /tmp/reconnect-impairment.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/reconnect-impairment.log
       - name: Actual invite-protected ENet exchange with measured RTT
         run: |
           set -euo pipefail
@@ -79,3 +89,22 @@ jobs:
           grep -q 'LOW LATENCY WORLD HOST: PASS' /tmp/realtime-host.log
           grep -q 'LOW LATENCY WORLD GUEST: PASS' /tmp/realtime-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/realtime-host.log /tmp/realtime-guest.log
+
+      - name: Two full gameplay clients recover the original locked-lobby car after an ENet interruption
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_reconnect_world_probe.gd -- host >/tmp/reconnect-host.log 2>&1 &
+          host_pid=$!
+          sleep 2
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_reconnect_world_probe.gd -- guest >/tmp/reconnect-guest.log 2>&1 &
+          guest_pid=$!
+          guest_code=0
+          host_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/reconnect-host.log /tmp/reconnect-guest.log
+          test "$guest_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'RECONNECT REAL WORLD HOST: PASS' /tmp/reconnect-host.log
+          grep -q 'RECONNECT REAL WORLD GUEST: PASS' /tmp/reconnect-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/reconnect-host.log /tmp/reconnect-guest.log

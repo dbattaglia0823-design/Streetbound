@@ -84,8 +84,14 @@ func _run() -> void:
 				await create_timer(2.5).timeout
 				host_vehicle.command = Vector4.ZERO
 			var disconnected: bool = await _poll_until(func() -> bool:
-				return session.players.size() == 1)
-			check("host_observes_guest_disconnect", disconnected)
+				return session.disconnected_since.size() == 1)
+			check("host_reserves_disconnected_driver_car", disconnected and
+				session.players.size() == 2 and world.peer_cars.size() == 1)
+			for id in session.disconnected_since:
+				session.disconnected_since[id] = Time.get_ticks_msec() - \
+					session.RECONNECT_GRACE_MS - 1
+			session.expire_disconnected_players(Time.get_ticks_msec())
+			check("expired_driver_is_cleaned_up", session.players.size() == 1)
 		else:
 			var received: bool = await _poll_until(func() -> bool:
 				return int(world._last_received_sequence) >= 6 and \
