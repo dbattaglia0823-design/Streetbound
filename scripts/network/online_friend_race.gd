@@ -456,6 +456,14 @@ func _publish() -> void:
 func _race_state(payload: Dictionary) -> void:
 	if session.hosting or not session.active or payload.size() > 12:
 		return
+	# Applying a grid teleport, input mode and HUD during ENet's RPC poll
+	# can re-enter physics/scene updates. Defer all mutations to the main
+	# SceneTree phase while preserving reliable host packet ordering.
+	call_deferred("_apply_race_state", payload.duplicate(true))
+
+func _apply_race_state(payload: Dictionary) -> void:
+	if session == null or session.hosting or not session.active:
+		return
 	var new_race := int(payload.get("race", -1))
 	if new_race < race_id:
 		return
@@ -464,9 +472,6 @@ func _race_state(payload: Dictionary) -> void:
 			"results", "aborted"]:
 		return
 	var previous := state
-	if next_state in ["countdown", "running", "results"]:
-		print("FRIEND_RACE_DIAG before mode=", next_state,
-			" prev=", previous, " ticks=", Time.get_ticks_msec())
 	var old_race := race_id
 	race_id = new_race
 	state = next_state
@@ -489,14 +494,9 @@ func _race_state(payload: Dictionary) -> void:
 		_client_countdown_end_ms = Time.get_ticks_msec() + \
 			maxi(0, int(payload.get("remaining_ms", 0)) - half_rtt)
 	elif previous == "countdown":
-		print("FRIEND_RACE_DIAG restoring input ", Time.get_ticks_msec())
 		online_world.local_vehicle.external_input = \
 			_client_car_was_external or get_tree().paused or session.reconnecting
-		print("FRIEND_RACE_DIAG input restored ", Time.get_ticks_msec())
 	_refresh_ui()
-	if next_state in ["countdown", "running", "results"]:
-		print("FRIEND_RACE_DIAG after mode=", next_state,
-			" ticks=", Time.get_ticks_msec())
 
 func _on_roster() -> void:
 	if session.hosting and state != "idle":
