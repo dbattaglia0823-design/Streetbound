@@ -66,3 +66,9 @@ Added an opt-in UDP LAN discovery autoload (`scripts/network/lan_discovery.gd`),
 For friends at another house, keep the direct private invitation path and use a third-party virtual network such as Tailscale (which handles connectivity without a personally maintained dedicated machine) or an existing public UDP-forwarded host. No built-in relay, unattended dedicated service or cloud-backed invite lookup has been claimed.
 
 Evidence/limits: Godot 4.6.3 cold import and two-process LAN host/guest CI must pass on the branch before merging; current tests do not establish real home Wi-Fi or real cross-house network reachability. Existing physics, map and vehicle systems are unchanged.
+
+## 2026-11-22 — Universal macOS build (awaiting CI)
+
+Added a Godot 4.6.3 macOS Universal 2 export preset (Apple Silicon + Intel), included raw JSON/TXT game data required by FileAccess, enabled ETC2/ASTC imports, and introduced a native macOS GitHub Actions job. The job cold-imports, executes title/main-world/control regressions, exports an ad-hoc signed `.app`, checks architectures and signature, runs a packaged headless launch, and publishes a ZIP artifact. New packaging contract test and player instructions live in `tests/macos_export_contract_test.py` and `docs/MACOS.md`.
+
+**Evidence boundary:** changes are source-only until the new PR's Mac CI completes. A generated app and macOS interactive driving, audio, gamepad, saves, Gatekeeper launch, and two-machine LAN are not yet verified. Do not claim a distributable/notarized release. On CI failures, fix the actual error and rerun on the latest commit; afterward test on Apple Silicon and Intel hardware before calling this fully playable.
