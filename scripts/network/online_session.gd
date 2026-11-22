@@ -341,6 +341,9 @@ func _request_admission(version: int, name_value: String, invite_secret: String,
 	if version != PROTOCOL_VERSION:
 		_reject_peer(sender, "Game versions are incompatible.")
 		return
+	if players.has(sender) and not disconnected_since.has(sender):
+		# Duplicate admission attempts cannot rewrite an already-owned slot.
+		return
 	# Resumes require their own host-issued random credential, not the shared
 	# invitation. Check this BEFORE lobby lock/capacity so saved seats survive.
 	if not resume_token.is_empty():
@@ -395,7 +398,11 @@ func _admission_granted(personal_token: String) -> void:
 
 @rpc("authority", "reliable")
 func _admission_denied(reason: String) -> void:
-	if joining:
+	if reconnecting:
+		# A fresh ENet connection may arrive before the old connection's
+		# disconnect event. Keep retrying until the bounded deadline.
+		_set_status("%s Retrying while the previous slot is reserved." % reason)
+	elif joining:
 		leave_session(reason)
 		_set_status(reason)
 
@@ -423,7 +430,7 @@ func _broadcast_roster() -> void:
 		return
 	roster_changed.emit()
 	for id in players:
-		if int(id) != 1:
+		if int(id) != 1 and not disconnected_since.has(id):
 			_receive_roster.rpc_id(int(id), players)
 
 func mark_world_ready() -> void:
