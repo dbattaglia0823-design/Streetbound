@@ -227,6 +227,13 @@ static func passed_directional_gate(previous_m: Vector2, current_m: Vector2,
 	return Geometry2D.get_closest_point_to_segment(
 		center, previous_m, current_m).distance_to(center) <= radius_m
 
+static func next_circuit_gate_index(current_gate: int, previous_m: Vector2,
+		current_m: Vector2, gates: Array[Dictionary]) -> int:
+	if current_gate < 0 or current_gate >= gates.size():
+		return current_gate
+	return current_gate + 1 if passed_directional_gate(previous_m, current_m,
+		gates[current_gate]) else current_gate
+
 func _nearest_available_event(car: VehicleController2D) -> String:
 	if not is_instance_valid(car):
 		return ""
@@ -511,10 +518,11 @@ func _host_evaluate_circuit(dt: float) -> void:
 		# completion. Leaving the track cannot silently award a checkpoint.
 		if current_m.distance_to(nearest) > CIRCUIT_GATE_RADIUS_M:
 			continue
-		if not passed_directional_gate(previous_m, current_m,
-				circuit_gates[next_gate]):
+		var new_gate := next_circuit_gate_index(next_gate, previous_m,
+			current_m, circuit_gates)
+		if new_gate == next_gate:
 			continue
-		record["next_gate"] = next_gate + 1
+		record["next_gate"] = new_gate
 		record["prev_progress"] = circuit_length_m * \
 			float(next_gate + 1) / float(circuit_gates.size())
 		if next_gate != circuit_gates.size() - 1:
