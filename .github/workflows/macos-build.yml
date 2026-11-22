@@ -94,7 +94,7 @@ jobs:
           EXEC_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
           test -x "$APP/Contents/MacOS/$EXEC_NAME"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "com.dbattaglia0823.streetbound"
-          lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/$EXEC_NAME"
+          lipo "$APP/Contents/MacOS/$EXEC_NAME" -verify_arch arm64 x86_64
           codesign --verify --deep --verbose=2 "$APP"
           find "$APP/Contents" -name '*.pck' -type f | grep -q .
           echo "APP_EXECUTABLE=$PWD/$APP/Contents/MacOS/$EXEC_NAME" >> "$GITHUB_ENV"
