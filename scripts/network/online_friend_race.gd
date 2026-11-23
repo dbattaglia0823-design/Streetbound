@@ -1099,7 +1099,7 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nDrag, circuit or street sprint. " + _session_standings_line() +
+				"\nDrag, circuit or street sprint. " + _session_standings_line() + \
 				"\n" + _reward_preview(nearby_event)
 		"lobby":
 			var listed := []
