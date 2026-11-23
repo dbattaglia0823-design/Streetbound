@@ -13,8 +13,8 @@ func check(label: String, passed: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("protocol_v8_rejects_old_unsynchronized_race_clients",
-		Session.PROTOCOL_VERSION == 8)
+	check("protocol_v9_rejects_old_unsynchronized_race_clients",
+		Session.PROTOCOL_VERSION == 9)
 	for count in range(2, 5):
 		var slots: Array[Vector2] = []
 		var heading := Vector2(1.0, 0.0)

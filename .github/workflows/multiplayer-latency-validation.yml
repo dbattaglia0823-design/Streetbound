@@ -4,6 +4,12 @@ on:
   pull_request:
     paths:
       - "scripts/network/**"
+      - "scripts/main.gd"
+      - "scripts/world/world_publication.gd"
+      - "tests/online_map_race_rules_test.gd"
+      - "tests/online_map_race_rules_test.gd.uid"
+      - "tests/online_published_world_probe.gd"
+      - "tests/online_published_world_probe.gd.uid"
       - "tests/online_friend_standings_test.gd"
       - "tests/online_friend_standings_test.gd.uid"
       - "tests/online_network_smoothing_test.gd"
@@ -84,6 +90,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_standings_test.gd 2>&1 | tee /tmp/friend-standings.log
           grep -q 'FRIEND SESSION STANDINGS: PASS' /tmp/friend-standings.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-standings.log
+      - name: Matching published worlds and map-authored checkpoint/grid rules
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_map_race_rules_test.gd 2>&1 | tee /tmp/map-race-rules.log
+          grep -q 'MAP-INDEPENDENT FRIEND RACING: PASS' /tmp/map-race-rules.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/map-race-rules.log
       - name: Actual invite-protected ENet exchange with measured RTT
         run: |
           set -euo pipefail
@@ -206,3 +218,24 @@ jobs:
           grep -q 'FRIEND STREET WORLD HOST: PASS' /tmp/friend-street-host.log
           grep -q 'FRIEND STREET WORLD GUEST: PASS' /tmp/friend-street-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-street-host.log /tmp/friend-street-guest.log
+
+      - name: Build production Map Builder fixture for network race validation
+        run: python3 tests/published_world_runtime_fixture.py
+      - name: Two-process published Map Builder world and friend sprint with validated results
+        run: |
+          set -euo pipefail
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_published_world_probe.gd -- host >/tmp/published-host.log 2>&1 &
+          host_pid=$!
+          sleep 2
+          timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_published_world_probe.gd -- guest >/tmp/published-guest.log 2>&1 &
+          guest_pid=$!
+          guest_code=0
+          host_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/published-host.log /tmp/published-guest.log
+          test "$guest_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'PUBLISHED ONLINE WORLD HOST: PASS' /tmp/published-host.log
+          grep -q 'PUBLISHED ONLINE WORLD GUEST: PASS' /tmp/published-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/published-host.log /tmp/published-guest.log
