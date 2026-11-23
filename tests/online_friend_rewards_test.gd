@@ -16,7 +16,7 @@ func check(label: String, passed: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("persistent_prizes_require_protocol_v10",Session.PROTOCOL_VERSION==10)
+	check("persistent_prizes_require_protocol_v11",Session.PROTOCOL_VERSION==11)
 	check("unrecognized_race_types_or_places_never_pay",
 		Rewards.payouts("forged",1).is_empty() and
 		Rewards.payouts("street",0).is_empty() and
