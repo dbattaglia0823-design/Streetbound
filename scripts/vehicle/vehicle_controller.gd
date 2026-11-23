@@ -61,6 +61,11 @@ func _ready() -> void:
 	_nitrous_kit_initialized = nitrous_fuel_seconds > 0.0
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 
+## A visual-only accessor permits older baseline vehicle scripts to run with
+## newer effects scripts in the physics guardrail's comparative test.
+func drafting_effect_strength() -> float:
+	return draft_strength
+
 func reset_vehicle() -> void:
 	transform = spawn_transform
 	linear_velocity = Vector2.ZERO
