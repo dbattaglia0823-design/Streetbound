@@ -100,7 +100,7 @@ func _run() -> void:
 			check("host_offers_authored_sprint_with_valid_event_id",
 				race.state=="lobby" and race.event_id=="race-0")
 			var opted: bool = await _poll(func()->bool:
-				return race.entries.has(guest_id) and
+				return race.entries.has(guest_id) and \
 					bool(race.entries[guest_id].get("ready",false)))
 			check("guest_ready_is_approved_by_host",opted)
 			if opted:
