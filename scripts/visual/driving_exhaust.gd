@@ -115,6 +115,7 @@ func _process(delta: float) -> void:
 	if vehicle.global_position.distance_to(_last_position)>550.0:
 		_on_reset()
 	_last_position=vehicle.global_position
+	var had_particles := not particles.is_empty()
 	for i in range(particles.size()-1,-1,-1):
 		var puff: Dictionary=particles[i]
 		puff.age=float(puff.age)+dt
@@ -139,7 +140,9 @@ func _process(delta: float) -> void:
 			_spawn("nitrous")
 	else:
 		_nitrous_clock=0.0
-	if not particles.is_empty():
+	# Explicit redraw when the last puff expires; otherwise CanvasItem could
+	# retain stale flame geometry until the next exhaust event.
+	if had_particles or not particles.is_empty():
 		queue_redraw()
 
 
