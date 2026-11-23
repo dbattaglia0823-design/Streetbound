@@ -105,6 +105,9 @@ def make_archive(doc):
            v!=int(v) or not 600<=v<=24000 for v in (width,height)):
         raise ValueError("Invalid custom world dimensions")
     width,height=int(width),int(height)
+    rain = doc.get("rain_intensity", 0.0)
+    if type(rain) not in (int,float) or not math.isfinite(rain) or not 0.0 <= rain <= 1.0:
+        raise ValueError("Rain intensity must be between 0 and 1")
     source_roads = doc.get("roads", [])
     if not isinstance(source_roads, list) or len(source_roads) > 180:
         raise ValueError("Invalid custom road list")
@@ -251,6 +254,7 @@ def make_archive(doc):
     result=dict(format="streetbound.streamed-world",version=1,units="metres",
                 name=str(doc.get("name","Custom Test Drive")),pixels_per_metre=20,
                 editor_custom_test_drive=True,road_width_scale=1.10,
+                rain_intensity=float(rain),
                 size=[width,height],original_extent=[width,height],
                 chunk_size=CHUNK,surface_cell=CELL,spawn=spawn,
                 nodes=nodes,roads=roads,segments=segments,props=props,pois=pois,
