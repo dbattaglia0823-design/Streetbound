@@ -3,6 +3,8 @@ extends RefCounted
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const OnlineRewards=preload("res://scripts/network/online_race_rewards.gd")
+const VehicleOwnership=preload("res://scripts/vehicle/vehicle_ownership.gd")
 var panel: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
@@ -37,6 +39,13 @@ var dialog_formation: OptionButton
 var dialog_cash: SpinBox
 var dialog_driver_xp: SpinBox
 var dialog_car_xp: SpinBox
+var dialog_tabs: TabContainer
+var online_use_custom: CheckBox
+var online_cash: SpinBox
+var online_driver_xp: SpinBox
+var online_car_xp: SpinBox
+var online_part_chance: SpinBox
+var online_preview: Label
 var pool_search: LineEdit
 var pool_list: ItemList
 var pool_summary: Label
@@ -261,7 +270,7 @@ func _form_column(parent: Node, width: float) -> VBoxContainer:
 func _build_dialog(e) -> void:
 	dialog=AcceptDialog.new()
 	dialog.name="EditRaceDialog"
-	dialog.title="Edit Race — Route, Opponents, Rewards & Career"
+	dialog.title="Edit Race — Routes, Career & Multiplayer Rewards"
 	dialog.ok_button_text="Cancel"
 	dialog.min_size=Vector2i(980,675)
 	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
@@ -271,6 +280,7 @@ func _build_dialog(e) -> void:
 	dialog.add_child(body)
 	var tabs:=TabContainer.new()
 	tabs.name="RaceEditTabs"
+	dialog_tabs=tabs
 	tabs.custom_minimum_size=Vector2(940,550)
 	tabs.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	body.add_child(tabs)
@@ -322,6 +332,7 @@ func _build_dialog(e) -> void:
 	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=1
 	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=1
 	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=1
+	e._btn("Set Multiplayer Rewards...",awards,func():tabs.current_tab=2).tooltip_text="Configure first-place multiplayer cash, driver XP, car XP and upgrade-part drop chance on this race."
 	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
 	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var career:=HBoxContainer.new()
@@ -363,6 +374,34 @@ func _build_dialog(e) -> void:
 	locks.add_child(career_require_cars)
 	var note:=_form_label(locks,"Ctrl-click to select multiple. Prerequisite chains must be acyclic. First-win bonuses are paid only once; repeat rewards apply on every subsequent win.")
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var multiplayer_tab:=HBoxContainer.new()
+	multiplayer_tab.name="Multiplayer Rewards"
+	multiplayer_tab.add_theme_constant_override("separation",30)
+	tabs.add_child(multiplayer_tab)
+	var online_fields:=_form_column(multiplayer_tab,385)
+	_form_label(online_fields,"FRIEND RACE REWARDS")
+	online_use_custom=CheckBox.new()
+	online_use_custom.text="Use custom multiplayer prizes for this race"
+	online_fields.add_child(online_use_custom)
+	online_cash=e._number(online_fields,"First-place cash $",0,OnlineRewards.MAX_CUSTOM_CASH,0)
+	online_cash.step=1
+	online_driver_xp=e._number(online_fields,"First-place driver XP",0,OnlineRewards.MAX_CUSTOM_XP,0)
+	online_driver_xp.step=1
+	online_car_xp=e._number(online_fields,"First-place vehicle XP",0,OnlineRewards.MAX_CUSTOM_XP,0)
+	online_car_xp.step=1
+	online_part_chance=e._number(online_fields,"First-place upgrade drop %",0,100,100)
+	online_part_chance.step=1
+	var online_hint:=_form_label(online_fields,"Lower places scale automatically. A 0 reward disables that currency or item chance. Only 2–4 player races that finish and pass the host's checkpoint validation can claim prizes.")
+	online_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var online_right:=_form_column(multiplayer_tab,490)
+	_form_label(online_right,"LIVE 1ST–4TH PLACE PREVIEW")
+	online_preview=_form_label(online_right,"")
+	online_preview.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var online_notice:=_form_label(online_right,"Multiplayer prizes are separate from the solo race rewards and career first-win bonuses. Uncheck custom prizes to keep the game's default values for this track. Save Race Settings, then Save to Game / publish the map. Every online player must run the same published world build.")
+	online_notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	online_use_custom.toggled.connect(func(_enabled: bool):_update_online_rewards())
+	for spin in [online_cash,online_driver_xp,online_car_xp,online_part_chance]:
+		spin.value_changed.connect(func(_value: float):_update_online_rewards())
 	var foot:=HBoxContainer.new();body.add_child(foot)
 	dialog_message=_form_label(foot,"")
 	dialog_message.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -376,6 +415,28 @@ func _update_dialog_type() -> void:
 	dialog_formation.disabled=solo
 	pool_list.mouse_filter=Control.MOUSE_FILTER_IGNORE if solo else Control.MOUSE_FILTER_STOP
 	pool_summary.text="Solo time trial — no enemy cars" if solo else ("%d available vehicle models"%selected_pool.size() if not selected_pool.is_empty() else "No pool — opponents copy player car")
+	_update_online_rewards()
+
+func _update_online_rewards() -> void:
+	if not is_instance_valid(online_use_custom) or not is_instance_valid(online_preview):
+		return
+	var custom: bool=online_use_custom.button_pressed
+	for field in [online_cash,online_driver_xp,online_car_xp,online_part_chance]:
+		field.editable=custom
+	var kind: String="circuit" if str(dialog_type.get_selected_metadata())=="circuit" else "street"
+	var rules: Dictionary={
+		"multiplayer_reward_custom":custom,
+		"multiplayer_reward_cash":int(online_cash.value),
+		"multiplayer_reward_player_xp":int(online_driver_xp.value),
+		"multiplayer_reward_car_xp":int(online_car_xp.value),
+		"multiplayer_reward_part_chance":int(online_part_chance.value)}
+	online_preview.text="Custom first-place prizes" if custom else "Standard multiplayer prizes (unchanged)"
+	for place in range(1,5):
+		var payout: Dictionary=OnlineRewards.payouts(kind,place,rules)
+		online_preview.text+="\n%d.  %s  /  %d DRIVER XP  /  %d CAR XP  /  %d%% PART" % [
+			place,VehicleOwnership.dollars(int(payout.get("cash",0))),
+			int(payout.get("player_xp",0)),int(payout.get("car_xp",0)),
+			OnlineRewards.part_chance(place,rules)]
 
 func open_selected(e) -> void:
 	open_for(e,e.source_id)
@@ -403,6 +464,13 @@ func open_for(e,id: String) -> void:
 	dialog_cash.value=float(race.get("reward_cash",0))
 	dialog_driver_xp.value=float(race.get("reward_player_xp",0))
 	dialog_car_xp.value=float(race.get("reward_car_xp",0))
+	var online_kind: String="circuit" if race.get("mode","")=="circuit" else "street"
+	online_use_custom.button_pressed=bool(race.get("multiplayer_reward_custom",false))
+	var standard: Dictionary=OnlineRewards.payouts(online_kind,1)
+	online_cash.value=float(race.get("multiplayer_reward_cash",standard.get("cash",0)))
+	online_driver_xp.value=float(race.get("multiplayer_reward_player_xp",standard.get("player_xp",0)))
+	online_car_xp.value=float(race.get("multiplayer_reward_car_xp",standard.get("car_xp",0)))
+	online_part_chance.value=float(race.get("multiplayer_reward_part_chance",100))
 	for i in career_category.item_count:
 		if str(career_category.get_item_metadata(i))==str(race.get("category","street")):career_category.select(i)
 	for i in career_difficulty.item_count:
@@ -437,6 +505,7 @@ func open_for(e,id: String) -> void:
 	dialog_message.text=""
 	_refresh_pool()
 	_update_dialog_type()
+	dialog_tabs.current_tab=0
 	dialog.popup_centered()
 
 func _refresh_pool() -> void:
@@ -498,6 +567,11 @@ func _save_dialog(e) -> void:
 		"reward_cash":int(dialog_cash.value),
 		"reward_player_xp":int(dialog_driver_xp.value),
 		"reward_car_xp":int(dialog_car_xp.value),
+		"multiplayer_reward_custom":online_use_custom.button_pressed,
+		"multiplayer_reward_cash":int(online_cash.value),
+		"multiplayer_reward_player_xp":int(online_driver_xp.value),
+		"multiplayer_reward_car_xp":int(online_car_xp.value),
+		"multiplayer_reward_part_chance":int(online_part_chance.value),
 		"category":str(career_category.get_selected_metadata()),
 		"difficulty":str(career_difficulty.get_selected_metadata()),
 		"required_player_level":int(career_level.value),
