@@ -326,11 +326,10 @@ func _ready() -> void:
 	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or custom_test_drive)
 	if custom_test_drive:
 		_add_test_drive_return_button()
-	if online_session.active and not proving_ground and not custom_game_world:
-		# Solo Ashford, Larkspur and authored races are locally timed and
-		# potentially rewarded. Disable their input, ticking, visibility
-		# and menu entry points for ANY online session; their parsed routes
-		# remain available to the shared friend-race controller.
+	if online_session.active and not proving_ground and not custom_test_drive:
+		# Race controllers supply navigation to the host-authoritative
+		# online event catalog on both bundled and published maps. Local
+		# payouts must never run during a shared multiplayer session.
 		var solo_events: Array = [drag_race, circuit_race, street_race]
 		solo_events.append_array(extra_races)
 		for solo in solo_events:
