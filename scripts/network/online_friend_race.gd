@@ -55,6 +55,7 @@ var race_events: Dictionary = {} # Trusted local world routes, never guest-suppl
 var active_title := ""
 var active_laps := 1
 var active_grid: Dictionary = {}
+var active_reward_settings: Dictionary = {}
 var active_stage_radius_m := STAGE_RADIUS_M
 var active_gate_radius_m := STREET_GATE_RADIUS_M
 var active_time_limit_ms := TIME_LIMIT_MS
@@ -300,6 +301,8 @@ static func make_street_gates(nav: RefCounted,
 ## Convert a map-authored route into a host-verifiable multiplayer event.
 ## Coordinates are taken from the locally loaded map, never from an RPC.
 static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dictionary:
+	if not Rewards.valid_settings(definition):
+		return {}
 	if nav == null or not str(definition.get("id","")).begins_with("race-"):
 		return {}
 	var mode: String = str(definition.get("mode",""))
@@ -330,6 +333,7 @@ static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dict
 	return {"kind":kind, "title":str(definition.get("name","Custom Race")).left(80),
 		"start":start, "direction":direction, "navigation":nav, "gates":gates,
 		"length":length, "grid":grid, "laps":laps,
+		"reward_settings": definition.duplicate(true),
 		"stage_radius":maxf(STAGE_RADIUS_M, float(definition.get("start_radius",8))),
 		"gate_radius":checkpoint_radius,
 		"off_route_limit":maxf(STREET_OFF_ROUTE_LIMIT_M, checkpoint_radius * 1.35),
@@ -411,6 +415,7 @@ func _configure_event(key: String) -> bool:
 	direction = record["direction"]
 	active_laps = int(record.get("laps",1))
 	active_grid = record.get("grid",{})
+	active_reward_settings = record.get("reward_settings",{})
 	authored_event = not active_grid.is_empty()
 	active_stage_radius_m = float(record.get("stage_radius",STAGE_RADIUS_M))
 	active_gate_radius_m = float(record.get("gate_radius",
@@ -979,7 +984,7 @@ func _award_own_finish() -> void:
 		return
 	var receipt: Dictionary = owned.record_multiplayer_race(
 		session.reward_session_id,race_id,int(finisher.place),int(finisher.ms),
-		event_kind,str(finisher.car_id))
+		event_kind,str(finisher.car_id),active_reward_settings)
 	_last_reward_race_id = race_id
 	match str(receipt.get("result","")):
 		"completed":
@@ -1038,6 +1043,22 @@ func _on_session_closed(_reason: String) -> void:
 	state = "idle"
 	entries.clear()
 
+## Show the prizes actually active on this route, including authored
+## overrides. Every peer calculates this from its installed world archive.
+func _reward_preview(key: String) -> String:
+	var event: Dictionary = race_events.get(key,{})
+	if event.is_empty():
+		return ""
+	var rules: Dictionary = event.get("reward_settings",{})
+	var kind: String = str(event.get("kind",""))
+	var top: Dictionary = Rewards.payouts(kind,1,rules)
+	if top.is_empty():
+		return ""
+	return "1st: %s / %d DRIVER XP / %d CAR XP / %d%% PART" % [
+		VehicleOwnership.dollars(int(top.get("cash",0))),
+		int(top.get("player_xp",0)),int(top.get("car_xp",0)),
+		Rewards.part_chance(1,rules)]
+
 func _session_standings_line() -> String:
 	var ranked: Array = Standings.ranked(standings)
 	if ranked.is_empty():
@@ -1078,14 +1099,15 @@ func _refresh_ui() -> void:
 		"idle":
 			status_label.text = header + \
 				"\nPark by the race start. Host: NEW FRIEND RACE." + \
-				"\nDrag, circuit or street sprint. " + _session_standings_line()
+				"\nDrag, circuit or street sprint. " + _session_standings_line() +
+				"\n" + _reward_preview(nearby_event)
 		"lobby":
 			var listed := []
 			for id in entries:
 				listed.append("%s: %s" % [str(entries[id].get("name", "Driver")),
 					"READY" if bool(entries[id].get("ready", false)) else "WAITING"])
 			status_label.text = header + "\n" + ", ".join(listed) + \
-				"\n" + _status
+				"\n" + _status + "\n" + _reward_preview(event_id)
 		"countdown":
 			var remaining := maxi(0, countdown_deadline - Time.get_ticks_msec()) \
 				if session.hosting else maxi(0, _client_countdown_end_ms - Time.get_ticks_msec())
