@@ -38,8 +38,8 @@ static func impact_profile(travel_speed_mps: float, closing_speed_mps: float) ->
 		"sparks": mini(36, roundi(3.0 + energy * 33.0)),
 		"debris": mini(14, roundi(1.0 + energy * 13.0)),
 		"dust": mini(8, roundi(1.0 + energy * 7.0)),
-		"glass": mini(6,roundi((energy-.45)*9.0)) if closing_speed_mps > 11.0 else 0,
-		"plastic": mini(6,roundi((energy-.3)*8.0)) if closing_speed_mps > 8.0 else 0,
+		"glass": clampi(roundi((energy-.45)*9.0),0,6) if closing_speed_mps > 11.0 else 0,
+		"plastic": clampi(roundi((energy-.3)*8.0),0,6) if closing_speed_mps > 8.0 else 0,
 		"flash_radius": 9.0 + 27.0 * energy,
 		"scrape":false
 	}
