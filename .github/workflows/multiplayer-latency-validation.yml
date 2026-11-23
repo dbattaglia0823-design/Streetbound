@@ -10,6 +10,11 @@ on:
       - "tests/online_map_race_rules_test.gd.uid"
       - "tests/online_published_world_probe.gd"
       - "tests/online_published_world_probe.gd.uid"
+      - "scripts/vehicle/vehicle_ownership.gd"
+      - "tests/online_friend_rewards_test.gd"
+      - "tests/online_friend_rewards_test.gd.uid"
+      - "tests/online_friend_rewards_world_probe.gd"
+      - "tests/online_friend_rewards_world_probe.gd.uid"
       - "tests/online_friend_standings_test.gd"
       - "tests/online_friend_standings_test.gd.uid"
       - "tests/online_network_smoothing_test.gd"
@@ -96,6 +101,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_map_race_rules_test.gd 2>&1 | tee /tmp/map-race-rules.log
           grep -q 'MAP-INDEPENDENT FRIEND RACING: PASS' /tmp/map-race-rules.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/map-race-rules.log
+      - name: Persistent friend race cash XP item rolls and replay-safe career saves
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_rewards_test.gd 2>&1 | tee /tmp/friend-career-rewards.log
+          grep -q 'FRIEND CAREER REWARDS: PASS' /tmp/friend-career-rewards.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-career-rewards.log
       - name: Actual invite-protected ENet exchange with measured RTT
         run: |
           set -euo pipefail
@@ -239,3 +250,23 @@ jobs:
           grep -q 'PUBLISHED ONLINE WORLD HOST: PASS' /tmp/published-host.log
           grep -q 'PUBLISHED ONLINE WORLD GUEST: PASS' /tmp/published-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/published-host.log /tmp/published-guest.log
+
+      - name: Separate host and guest career saves for end-to-end rewards
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sb-prize-host /tmp/sb-prize-guest
+          XDG_DATA_HOME=/tmp/sb-prize-host timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_rewards_world_probe.gd -- host >/tmp/prize-host.log 2>&1 &
+          host_pid=$!
+          sleep 2
+          XDG_DATA_HOME=/tmp/sb-prize-guest timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_rewards_world_probe.gd -- guest >/tmp/prize-guest.log 2>&1 &
+          guest_pid=$!
+          guest_code=0
+          host_code=0
+          wait "$guest_pid" || guest_code=$?
+          wait "$host_pid" || host_code=$?
+          cat /tmp/prize-host.log /tmp/prize-guest.log
+          test "$guest_code" -eq 0
+          test "$host_code" -eq 0
+          grep -q 'FRIEND REAL REWARDS WORLD HOST: PASS' /tmp/prize-host.log
+          grep -q 'FRIEND REAL REWARDS WORLD GUEST: PASS' /tmp/prize-guest.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/prize-host.log /tmp/prize-guest.log

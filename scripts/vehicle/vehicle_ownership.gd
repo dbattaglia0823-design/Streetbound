@@ -7,6 +7,7 @@ const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const OnlineRewards=preload("res://scripts/network/online_race_rewards.gd")
 const SAVE_PATH := "user://streetbound_vehicle_ownership.cfg"
 const OLD_SELECTION_PATH := "user://streetbound_selected_vehicle.cfg"
 const STARTER_ID := "audi-rs3"
@@ -20,6 +21,7 @@ var car_xp: Dictionary = {}
 var best_quarter_mile := 0.0
 var _claimed_races: Array[String] = []
 var completed_events: Dictionary = {}
+var multiplayer_claims: Dictionary = {} # session nonce -> highest paid race ID.
 var upgrade_inventory: Array[Dictionary] = []
 var upgrade_loadouts: Dictionary = {}
 var next_part_uid := 1
@@ -62,6 +64,14 @@ func _init(enable_persistence: bool = true) -> void:
 			for id in history:
 				if str(id).length()<=160 and int(history[id])>0:
 					completed_events[str(id)]=clampi(int(history[id]),1,100000)
+		# A durable per-session high-water mark prevents replay even after
+		# relaunch; solo's bounded _claimed_races history is not sufficient.
+		var online_claims: Variant = file.get_value("progression","multiplayer_claims",{})
+		if online_claims is Dictionary:
+			for token in online_claims:
+				var key := str(token)
+				if _valid_multiplayer_session_id(key) and int(online_claims[token]) > 0 and multiplayer_claims.size() < 8192:
+					multiplayer_claims[key] = maxi(0, int(online_claims[token]))
 		_load_upgrades(file)
 		return
 	# Migration: previously all cars could be selected anywhere. Retain the
@@ -409,6 +419,70 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
 		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key)}
 
+## A player may earn career rewards only for a completed, host-verified
+## multiplayer finish. The network layer validates the final standings and
+## supplies only the place, duration and staged car; amounts/templates are
+## calculated exclusively here from bundled, bounded rules.
+static func _valid_multiplayer_session_id(value: String) -> bool:
+	if value.length() != 48:
+		return false
+	for c in value:
+		if not "0123456789abcdef".contains(c):
+			return false
+	return true
+
+func record_multiplayer_race(session_id: String, race_id: int, place: int,
+		elapsed_ms: int, kind: String, car_id: String) -> Dictionary:
+	if not _valid_multiplayer_session_id(session_id) or race_id < 1 or \
+			race_id > 1000000000 or elapsed_ms < 1200 or elapsed_ms > 7200000 or \
+			not owns(car_id) or Catalog.find_by_id(car_id).is_empty():
+		return {"result":"invalid"}
+	var previous_race: int = int(multiplayer_claims.get(session_id,0))
+	if race_id <= previous_race:
+		return {"result":"already_claimed"}
+	if multiplayer_claims.size() >= 8192 and not multiplayer_claims.has(session_id):
+		return {"result":"claim_history_full"}
+	var payout: Dictionary = OnlineRewards.payouts(kind,place)
+	if payout.is_empty():
+		return {"result":"invalid"}
+	var prior_balance := balance
+	var prior_player_xp := player_xp
+	var prior_car_xp: int = int(car_xp.get(car_id,0))
+	var previous_inventory_count := upgrade_inventory.size()
+	var previous_part_uid := next_part_uid
+	var old_claims := multiplayer_claims.duplicate()
+	var prior_car_level := level_for_car(car_id)
+	balance += int(payout.cash)
+	player_xp = mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),
+		player_xp + int(payout.player_xp))
+	car_xp[car_id] = mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),
+		prior_car_xp + int(payout.car_xp))
+	var part: Dictionary = {}
+	var part_uid := ""
+	var receipt_key := "%s/%d/%s" % [session_id,race_id,car_id]
+	if upgrade_inventory.size() < 2500 and \
+			OnlineRewards.part_roll(session_id,race_id,car_id,place):
+		part = Parts.reward_template(receipt_key,level_for_car(car_id),kind)
+		if not part.is_empty():
+			part_uid = "up-%d" % next_part_uid
+			upgrade_inventory.append({"uid":part_uid,"template":str(part.id)})
+			next_part_uid += 1
+	multiplayer_claims[session_id] = race_id
+	if not save():
+		balance = prior_balance
+		player_xp = prior_player_xp
+		car_xp[car_id] = prior_car_xp
+		upgrade_inventory.resize(previous_inventory_count)
+		next_part_uid = previous_part_uid
+		multiplayer_claims = old_claims
+		return {"result":"save_failed"}
+	changed.emit()
+	return {"result":"completed", "cash":int(payout.cash),
+		"player_xp":int(payout.player_xp), "car_xp":int(payout.car_xp),
+		"car_id":car_id, "car_level_before":prior_car_level,
+		"car_level_after":level_for_car(car_id),
+		"part":part, "part_uid":part_uid}
+
 func credit(amount: int) -> bool:
 	if amount <= 0:
 		return false
@@ -432,6 +506,7 @@ func save() -> bool:
 	file.set_value("progression","best_quarter_mile",best_quarter_mile)
 	file.set_value("progression","claimed_races",_claimed_races)
 	file.set_value("progression","completed_events",completed_events)
+	file.set_value("progression","multiplayer_claims",multiplayer_claims)
 	file.set_value("upgrades","inventory",upgrade_inventory)
 	file.set_value("upgrades","loadouts",upgrade_loadouts)
 	file.set_value("upgrades","next_uid",next_part_uid)

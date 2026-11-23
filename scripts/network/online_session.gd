@@ -12,7 +12,7 @@ signal peer_id_rebound(previous_id: int, current_id: int)
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 9  # World identity handshake and Map Builder multiplayer.
+const PROTOCOL_VERSION := 10  # Host-verified durable friend race rewards.
 const RECONNECT_GRACE_MS := 35000
 const CLIENT_RECONNECT_WINDOW_MS := 30000
 const RECONNECT_RETRY_MS := 5000
@@ -35,6 +35,7 @@ var _reconnect_started_at := 0
 var _last_reconnect_attempt_at := 0
 var players: Dictionary = {}
 var world_identity: Dictionary = {}
+var reward_session_id := "" # Public unique lobby ID; not an auth credential.
 var world_ready_peers: Dictionary = {}
 var display_name := "Driver"
 var last_message := ""
@@ -223,6 +224,7 @@ func host_session(name_value: String, port: int = DEFAULT_PORT,
 	invite_address = advertised_address.strip_edges()
 	invite_port = port
 	lobby_locked = false
+	reward_session_id = Crypto.new().generate_random_bytes(24).hex_encode()
 	_invite_secret = Crypto.new().generate_random_bytes(24).hex_encode()
 	players = {1: {"name": display_name, "car_id": ""}}
 	_set_status("Private lobby started on UDP %d. Copy an invite code for friends." % port)
@@ -271,6 +273,7 @@ func leave_session(reason: String = "Left online session.") -> void:
 	reconnecting = false
 	players.clear()
 	world_identity.clear()
+	reward_session_id = ""
 	world_ready_peers.clear()
 	disconnected_since.clear()
 	_peer_resume_tokens.clear()
@@ -395,7 +398,7 @@ func _request_admission(version: int, name_value: String, invite_secret: String,
 				_peer_resume_tokens.erase(previous_id)
 				_peer_resume_tokens[sender] = resume_token
 				peer_id_rebound.emit(int(previous_id), sender)
-			_admission_granted.rpc_id(sender, resume_token)
+			_admission_granted.rpc_id(sender, resume_token, reward_session_id)
 			_broadcast_roster()
 			return
 		_reject_peer(sender, "Reconnect token expired or driver unavailable.")
@@ -415,13 +418,14 @@ func _request_admission(version: int, name_value: String, invite_secret: String,
 	players[sender] = {"name": sanitized, "car_id": ""}
 	var personal_token := Crypto.new().generate_random_bytes(24).hex_encode()
 	_peer_resume_tokens[sender] = personal_token
-	_admission_granted.rpc_id(sender, personal_token)
+	_admission_granted.rpc_id(sender, personal_token, reward_session_id)
 	_broadcast_roster()
 
 @rpc("authority", "reliable")
-func _admission_granted(personal_token: String) -> void:
-	if not hosting and (joining or active) and valid_secret(personal_token):
+func _admission_granted(personal_token: String, lobby_id: String) -> void:
+	if not hosting and (joining or active) and valid_secret(personal_token) and valid_secret(lobby_id):
 		_resume_token = personal_token
+		reward_session_id = lobby_id
 
 @rpc("authority", "reliable")
 func _admission_denied(reason: String) -> void:
@@ -438,6 +442,9 @@ func _receive_roster(incoming: Dictionary) -> void:
 	if hosting or not (joining or active):
 		return
 	# Only the authority (peer 1) can replace this list.
+	if not valid_secret(reward_session_id):
+		# A client without a host-issued lobby ID cannot receive rewards.
+		return
 	var was_joining := joining
 	var was_reconnecting := reconnecting
 	players = incoming.duplicate(true)
