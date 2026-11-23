@@ -383,16 +383,18 @@ func _build_dialog(e) -> void:
 	online_use_custom=CheckBox.new()
 	online_use_custom.text="Use custom multiplayer prizes for this race"
 	online_fields.add_child(online_use_custom)
-	online_cash=e._number(online_fields,"First-place cash $",0,OnlineRewards.MAX_CUSTOM_CASH,0)
+	online_cash=e._number(online_fields,"First-place cash $",0,OnlineRewards.MAX_EXACT_REWARD,0)
 	online_cash.step=1
-	online_driver_xp=e._number(online_fields,"First-place driver XP",0,OnlineRewards.MAX_CUSTOM_XP,0)
+	online_driver_xp=e._number(online_fields,"First-place driver XP",0,OnlineRewards.MAX_EXACT_REWARD,0)
 	online_driver_xp.step=1
-	online_car_xp=e._number(online_fields,"First-place vehicle XP",0,OnlineRewards.MAX_CUSTOM_XP,0)
+	online_car_xp=e._number(online_fields,"First-place vehicle XP",0,OnlineRewards.MAX_EXACT_REWARD,0)
 	online_car_xp.step=1
 	online_part_chance=e._number(online_fields,"First-place upgrade drop %",0,100,100)
 	online_part_chance.step=1
 	var online_hint:=_form_label(online_fields,"Lower places scale automatically. A 0 reward disables that currency or item chance. Only 2–4 player races that finish and pass the host's checkpoint validation can claim prizes.")
 	online_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	for field in [online_cash, online_driver_xp, online_car_xp]:
+		field.tooltip_text="No gameplay reward cap. Enter a nonnegative whole number; values must remain exactly representable when saved to the published world."
 	var online_right:=_form_column(multiplayer_tab,490)
 	_form_label(online_right,"LIVE 1ST–4TH PLACE PREVIEW")
 	online_preview=_form_label(online_right,"")

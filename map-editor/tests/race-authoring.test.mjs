@@ -25,14 +25,26 @@ test('Native configurable multiplayer prizes survive browser export and import',
     undefined,'Legacy races retain defaults');
 });
 
+test('Large multiplayer cash and XP rewards round-trip without an arbitrary cap',()=>{
+  const high={...configured,multiplayer_reward_custom:true,
+    multiplayer_reward_cash:250000000,multiplayer_reward_player_xp:2800000,
+    multiplayer_reward_car_xp:1600000,multiplayer_reward_part_chance:25};
+  assert.deepEqual(parseWorld(serializeWorld(normalizeWorld({...createWorld(),races:[high]}))).races[0],high);
+  const exact={...high,multiplayer_reward_cash:Number.MAX_SAFE_INTEGER,
+    multiplayer_reward_player_xp:Number.MAX_SAFE_INTEGER,
+    multiplayer_reward_car_xp:Number.MAX_SAFE_INTEGER};
+  assert.deepEqual(parseWorld(serializeWorld(normalizeWorld({...createWorld(),races:[exact]}))).races[0],exact);
+});
+
 test('Invalid custom multiplayer awards are rejected rather than imported',()=>{
   const custom={...configured,multiplayer_reward_custom:true,
     multiplayer_reward_cash:9600,multiplayer_reward_player_xp:2800,
     multiplayer_reward_car_xp:1600,multiplayer_reward_part_chance:25};
   for(const changed of [
-    {multiplayer_reward_custom:'true'}, {multiplayer_reward_cash:20001},
+    {multiplayer_reward_custom:'true'}, {multiplayer_reward_cash:Number.MAX_SAFE_INTEGER+1},
     {multiplayer_reward_cash:-1}, {multiplayer_reward_cash:1.5},
-    {multiplayer_reward_player_xp:5001}, {multiplayer_reward_car_xp:5001},
+    {multiplayer_reward_player_xp:Number.MAX_SAFE_INTEGER+1},
+    {multiplayer_reward_car_xp:Number.MAX_SAFE_INTEGER+1},
     {multiplayer_reward_part_chance:101}, {multiplayer_reward_part_chance:-1},
     {multiplayer_reward_part_chance:NaN}]){
     assert.throws(()=>normalizeWorld({...createWorld(),races:[{...custom,...changed}]}));

@@ -6,8 +6,10 @@ const Cash := [1800, 1100, 700, 400]
 const DriverXp := [780, 490, 310, 190]
 const CarXp := [560, 360, 220, 130]
 const Types := ["drag","circuit","street"]
-const MAX_CUSTOM_CASH := 20000
-const MAX_CUSTOM_XP := 5000
+## No gameplay payout ceiling. JSON, JavaScript and the native SpinBox all
+## represent integers exactly only through 2^53 - 1. Larger values would
+## silently change while exporting or importing a published world.
+const MAX_EXACT_REWARD := 9007199254740991
 const PART_PLACE_PERCENT := [100, 70, 40, 20]
 
 ## Optional, published Map Builder fields. Legacy maps and built-in tracks
@@ -17,9 +19,9 @@ static func valid_settings(settings: Dictionary) -> bool:
 	if settings.has("multiplayer_reward_custom") and \
 			typeof(settings["multiplayer_reward_custom"]) != TYPE_BOOL:
 		return false
-	for rule in [["multiplayer_reward_cash", MAX_CUSTOM_CASH],
-			["multiplayer_reward_player_xp", MAX_CUSTOM_XP],
-			["multiplayer_reward_car_xp", MAX_CUSTOM_XP],
+	for rule in [["multiplayer_reward_cash", MAX_EXACT_REWARD],
+			["multiplayer_reward_player_xp", MAX_EXACT_REWARD],
+			["multiplayer_reward_car_xp", MAX_EXACT_REWARD],
 			["multiplayer_reward_part_chance", 100]]:
 		var key: String = str(rule[0])
 		if not settings.has(key):
@@ -40,6 +42,12 @@ static func payouts(kind: String, place: int, settings: Dictionary = {}) -> Dict
 	if bool(settings.get("multiplayer_reward_custom", false)):
 		# The author configures first-place prizes. Other places use the
 		# established individual cash/driver XP/car XP finishing ratios.
+		# First place uses the authored integer exactly, even near the
+		# largest JSON-safe integer. Lower placements use existing ratios.
+		if i == 0:
+			return {"cash":int(settings["multiplayer_reward_cash"]),
+				"player_xp":int(settings["multiplayer_reward_player_xp"]),
+				"car_xp":int(settings["multiplayer_reward_car_xp"])}
 		return {
 			"cash": roundi(float(settings["multiplayer_reward_cash"]) *
 				float(Cash[i]) / float(Cash[0])),

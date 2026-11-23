@@ -53,8 +53,8 @@ func _run() -> void:
 		record.get("reward_settings",{}).get("multiplayer_reward_cash",0)==8600 and
 		record.get("reward_settings",{}).get("multiplayer_reward_part_chance",0)==45)
 	var invalid_rewards: Dictionary=sprint.duplicate(true)
-	invalid_rewards["multiplayer_reward_cash"]=20001
-	check("online_controller_rejects_unbounded_published_reward_profiles",
+	invalid_rewards["multiplayer_reward_cash"]=9007199254740992
+	check("online_controller_rejects_unrepresentable_published_reward_profiles",
 		Race.authored_event_spec(invalid_rewards,nav).is_empty())
 	var player: Dictionary = Race.authored_grid_pose(sprint,0)
 	var second: Dictionary = Race.authored_grid_pose(sprint,1)
