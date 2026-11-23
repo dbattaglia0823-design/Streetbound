@@ -9,9 +9,11 @@ static func points_for_finish(place: int) -> int:
 	return PLACE_POINTS[place - 1] if place >= 1 and place <= PLACE_POINTS.size() else 0
 
 static func settle(before: Dictionary, entries: Dictionary, results: Array,
-		event: String, race_id: int) -> Dictionary:
+		event: String, race_id: int, event_key: String = "") -> Dictionary:
 	var next: Dictionary = before.duplicate(true)
-	if not SUPPORTED.has(event) or race_id <= 0 or entries.size() < 2 or entries.size() > 4:
+	if not SUPPORTED.has(event) or race_id <= 0 or entries.size() < 2 or entries.size() > 4 or event_key.length() > 240:
+		return next
+	var personal_best_key: String = event if event_key.is_empty() else event_key
 		return next
 	var placements: Dictionary = {}
 	for i in results.size():
@@ -23,7 +25,7 @@ static func settle(before: Dictionary, entries: Dictionary, results: Array,
 				str(entries[peer].get("status", "")) != "finished"):
 			return next
 		var elapsed := int(finisher.get("ms", 0))
-		if elapsed <= 0 or elapsed > 480000:
+		if elapsed <= 0 or elapsed > (7200000 if not event_key.is_empty() else 480000):
 			return next
 		placements[peer] = i + 1
 	# Every entry must be a completed validated finish or recorded DNF.
@@ -51,11 +53,12 @@ static func settle(before: Dictionary, entries: Dictionary, results: Array,
 		stats["points"] = int(stats.get("points", 0)) + earned
 		stats["last_points"] = earned
 		stats["last_race"] = race_id
+		stats["last_event"] = personal_best_key
 		var best: Dictionary = stats.get("best_ms", {}).duplicate(true)
 		if state == "finished":
 			var duration := int(entries[id].get("ms", 0))
-			if duration > 0 and (not best.has(event) or duration < int(best[event])):
-				best[event] = duration
+			if duration > 0 and (not best.has(personal_best_key) or duration < int(best[personal_best_key])):
+				best[personal_best_key] = duration
 		stats["best_ms"] = best
 		next[peer] = stats
 	return next
