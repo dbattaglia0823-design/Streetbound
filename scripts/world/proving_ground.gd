@@ -9,6 +9,7 @@ const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
 var tire_marks: TireMarks2D
 var mark_clock := 0.0
+var rain_intensity := 0.0
 var vehicle: VehicleController2D
 
 func _ready() -> void:
@@ -57,6 +58,13 @@ func barrier(point: Vector2, length: float, angle: float) -> void:
 	visual.color = Color("b4c0b6")
 	body.add_child(visual)
 	add_child(body)
+
+func get_rain_intensity() -> float:
+	return rain_intensity
+
+func set_rain_intensity(amount: float) -> void:
+	rain_intensity = clampf(amount, 0.0, 1.0) if is_finite(amount) else 0.0
+
 
 func surface_at(point: Vector2) -> Dictionary:
 	if point.distance_to(skidpad_center) < skidpad_radius or Rect2(0, 350, 1250, 500).has_point(point):

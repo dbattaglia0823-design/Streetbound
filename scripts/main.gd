@@ -7,6 +7,7 @@ const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const TrafficFlowScript = preload("res://scripts/world/traffic_flow.gd")
 const WorldHudScript = preload("res://scripts/world/world_map_hud.gd")
 const CameraScript = preload("res://scripts/camera/driving_camera.gd")
+const RainVisuals = preload("res://scripts/visual/wet_road_effects.gd")
 const HudScript = preload("res://scripts/ui/driving_hud.gd")
 const VehicleAwarenessScript = preload("res://scripts/ui/offscreen_vehicle_awareness.gd")
 const VehicleSelectorScript = preload("res://scripts/ui/vehicle_selector.gd")
@@ -91,6 +92,14 @@ func _ready() -> void:
 	add_child(vehicle)
 	vehicle.add_to_group("player_vehicle")
 	ground.vehicle = vehicle
+	# The weather layer uses the active provider, so authored/published maps
+	# get the same visual response without a map-specific scene.
+	var rain_fx := Node2D.new()
+	rain_fx.name = "WetRoadEffects"
+	rain_fx.set_script(RainVisuals)
+	rain_fx.world = ground
+	rain_fx.focus_vehicle = vehicle
+	ground.add_child(rain_fx)
 	var traffic: Node2D = null
 	if not proving_ground:
 		# Traffic uses the same baked Morrow road curves/intersections as roads
