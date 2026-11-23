@@ -20,7 +20,7 @@ func run() -> void:
 		if node is Camera2D:
 			camera = node
 	var overlay = main.get_node("SpeedFXLayer/SpeedOverlay")
-	var dust = main.get_node("DrivingDust")
+	var dust = car.get_node("DrivingDust")
 	var body = car.get_node("Art")
 	check("vfx_nodes_present", camera != null and overlay != null and dust != null and body != null, main.get_child_count())
 	check("streak_pool_fixed", overlay.streaks.size() == 64, overlay.streaks.size())
