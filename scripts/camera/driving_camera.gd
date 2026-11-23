@@ -146,7 +146,9 @@ func _physics_process(dt: float) -> void:
 	_shift_pulse = move_toward(_shift_pulse,0.0,dt*3.6)
 	_nitrous_pulse = lerpf(_nitrous_pulse,1.0 if target.nitrous_active else 0.0,
 		1.0-exp(-6.0*dt))
-	_draft_pulse = lerpf(_draft_pulse,clampf(target.draft_strength,0.0,1.0),
+	var drafting := float(target.call("drafting_effect_strength")) \
+		if target.has_method("drafting_effect_strength") else 0.0
+	_draft_pulse = lerpf(_draft_pulse,clampf(drafting,0.0,1.0),
 		1.0-exp(-5.0*dt))
 	var lead := target.linear_velocity * 3.8
 	var desired := transform_now.origin + lead.limit_length(230.0)
