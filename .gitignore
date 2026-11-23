@@ -10,3 +10,6 @@ capture*.png.import
 # Rebuildable Python caches (do not commit interpreter-specific bytecode)
 __pycache__/
 *.py[cod]
+
+# Local macOS export outputs
+dist/

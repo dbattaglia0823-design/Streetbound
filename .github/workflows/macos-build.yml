@@ -1,0 +1,139 @@
+name: Streetbound macOS universal build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Avoid spending macOS runner time on superseded commits.
+concurrency:
+  group: streetbound-macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate macOS packaging contract
+        run: python3 -B tests/macos_export_contract_test.py
+
+      - name: Install matching Godot 4.6.3 universal editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors \
+            -o "$RUNNER_TEMP/godot-mac.zip" \
+            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_macos.universal.zip
+          mkdir -p "$RUNNER_TEMP/godot"
+          ditto -x -k "$RUNNER_TEMP/godot-mac.zip" "$RUNNER_TEMP/godot"
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot.app/Contents/MacOS/Godot"
+          test -x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Install matching Godot 4.6.3 export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors \
+            -o "$RUNNER_TEMP/export_templates.tpz" \
+            https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_export_templates.tpz
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/4.6.3.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          unzip -p "$RUNNER_TEMP/export_templates.tpz" templates/macos.zip > "$TEMPLATE_DIR/macos.zip"
+          unzip -t "$TEMPLATE_DIR/macos.zip" >/dev/null
+
+      - name: Cold import Godot project on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . --editor --import --quit 2>&1 | tee "$RUNNER_TEMP/macos-import.log"
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' "$RUNNER_TEMP/macos-import.log"; then
+            exit 1
+          fi
+
+      - name: Test title screen, actual world startup and controls on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in \
+            "title_navigation_test.gd|TITLE AND PAUSE NAVIGATION: PASS" \
+            "game_startup_smoke_test.gd|REAL GAME STARTUP: PASS" \
+            "remappable_controls_settings_test.gd|REMAP SETTINGS CONTROLS: PASS"; do
+            test_file="${spec%%|*}"
+            expected="${spec#*|}"
+            log="$RUNNER_TEMP/${test_file%.gd}.log"
+            "$GODOT_BIN" --headless --path . --fixed-fps 60 \
+              --script "res://tests/$test_file" 2>&1 | tee "$log"
+            grep -Fq "$expected" "$log"
+            if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' "$log"; then
+              exit 1
+            fi
+          done
+
+      - name: Export native Apple Silicon and Intel app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          "$GODOT_BIN" --headless --path . --export-release macOS dist/Streetbound.app \
+            2>&1 | tee "$RUNNER_TEMP/macos-export.log"
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|ERROR: Cannot export' "$RUNNER_TEMP/macos-export.log"; then
+            exit 1
+          fi
+          APP=dist/Streetbound.app
+          test -d "$APP/Contents/Resources"
+          test -f "$APP/Contents/Info.plist"
+          EXEC_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")
+          test -x "$APP/Contents/MacOS/$EXEC_NAME"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "com.dbattaglia0823.streetbound"
+          lipo "$APP/Contents/MacOS/$EXEC_NAME" -verify_arch arm64 x86_64
+          codesign --verify --deep --verbose=2 "$APP"
+          find "$APP/Contents" -name '*.pck' -type f | grep -q .
+          echo "APP_EXECUTABLE=$PWD/$APP/Contents/MacOS/$EXEC_NAME" >> "$GITHUB_ENV"
+
+      - name: Smoke launch exported game (no editor or source tree)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          "$APP_EXECUTABLE" --headless --quit-after 90 2>&1 | tee macos-exported-launch.log
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|ERROR: Cannot open file|ERROR: Failed loading' macos-exported-launch.log; then
+            exit 1
+          fi
+
+      - name: Package signed macOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          ditto -c -k --keepParent dist/Streetbound.app dist/Streetbound-macOS-universal.zip
+          test -s dist/Streetbound-macOS-universal.zip
+          unzip -t dist/Streetbound-macOS-universal.zip >/dev/null
+
+      - name: Upload downloadable macOS application
+        uses: actions/upload-artifact@v4
+        with:
+          name: Streetbound-macOS-universal
+          path: dist/Streetbound-macOS-universal.zip
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload macOS diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Streetbound-macOS-diagnostics
+          path: |
+            ${{ runner.temp }}/macos-*.log
+            ${{ runner.temp }}/title_navigation_test.log
+            ${{ runner.temp }}/game_startup_smoke_test.log
+            ${{ runner.temp }}/remappable_controls_settings_test.log
+          if-no-files-found: ignore
+          retention-days: 7
