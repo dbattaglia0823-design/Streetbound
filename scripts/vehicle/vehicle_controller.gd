@@ -7,6 +7,7 @@ signal crash_contact(closing_speed_mps: float, contact_point_px: Vector2,
 signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
+const Drafting = preload("res://scripts/vehicle/drafting_aerodynamics.gd")
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
 var surface_provider: Node
@@ -28,6 +29,8 @@ var engine_wheel_force_n := 0.0 # Unclipped driven wheel force, telemetry
 var traction_limit_n := 0.0 # Road and tire delivery limit, telemetry
 var delivered_wheel_force_n := 0.0 # After driven-wheel slip and shift cuts
 var boost_psi := 0.0 # Modeled manifold charge pressure; zero for N/A engines
+var draft_strength := 0.0 # Local aerodynamic wake strength, not a torque multiplier
+var _draft_elapsed := 0.0
 var nitrous_requested := false # Player N/button input; AI does not auto-use nitrous
 var nitrous_active := false
 var nitrous_fuel_seconds := 0.0
@@ -50,6 +53,7 @@ var _traffic_impact_cooldown := 0.0
 func _ready() -> void:
 	# World ink samples every physical racer (player, AI, remote peers).
 	add_to_group("skidmark_vehicle")
+	add_to_group("drafting_vehicle")
 	config = config.duplicate(true)
 	spawn_transform = transform
 	transmission.reset(config)
@@ -76,6 +80,8 @@ func reset_vehicle() -> void:
 	traction_limit_n = 0.0
 	delivered_wheel_force_n = 0.0
 	boost_psi = 0.0
+	draft_strength = 0.0
+	_draft_elapsed = 0.0
 	nitrous_active = false
 	nitrous_requested = false
 	nitrous_fuel_seconds = maxf(0.0,config.nitrous_capacity_seconds)
@@ -194,6 +200,14 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# three pedals while moving must *stop*, not pivot into a powered slide.
 	var handbrake_yaw_input := handbrake * (1.0 - smoothstep(0.05,0.45,stopping_input))
 	var speed := linear_velocity.length()
+	# Periodically sample *actual* nearby vehicle positions/speeds. The
+	# interpolation is fast; the neighbor scan is bounded to 10 Hz.
+	_draft_elapsed -= dt
+	if _draft_elapsed <= 0.0:
+		_draft_elapsed = Drafting.SAMPLE_SECONDS
+		var target_strength: float = Drafting.best_strength(self)
+		draft_strength = lerpf(draft_strength,target_strength,
+			1.0-exp(-12.0*Drafting.SAMPLE_SECONDS))
 	# Preserve tire slip after a moving rear-wheel lock. This is contact recovery,
 	# not a launch cooldown: lifting and higher surface grip help it settle.
 	var recovery_rate := maxf(surface_grip, 0.2) * (1.0 - wheel_spin * 0.15) / maxf(config.handbrake_grip_recovery_seconds, 0.05)
@@ -346,7 +360,10 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var rear_braking := minf(service_brake * (1.0 - bias) +
 		maxf(config.handbrake_force_n, 0.0) * handbrake, rear_capacity)
 	var braking := front_braking + rear_braking
-	var resistance := 0.5 * 1.225 * config.drag_area * longitudinal_speed * absf(longitudinal_speed)
+	# Drafting only reduces the aerodynamic part of resistance, and only
+	# behind a moving, aligned car. Rolling losses/braking/grip are untouched.
+	var resistance := 0.5 * 1.225 * config.drag_area * longitudinal_speed * \
+		absf(longitudinal_speed) * Drafting.aero_drag_multiplier(draft_strength)
 	resistance += signf(longitudinal_speed) * mass * 9.81 * (config.rolling_resistance + (1.0 - surface_grip) * 0.045) * minf(absf(longitudinal_speed), 1.0)
 	var drive_accel := (engine_force - resistance) / mass
 	var new_long := longitudinal_speed + drive_accel * dt
