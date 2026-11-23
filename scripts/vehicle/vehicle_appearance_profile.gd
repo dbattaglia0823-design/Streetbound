@@ -31,3 +31,9 @@ extends Resource
 ## override these if their light clusters differ from the shared defaults.
 @export var rear_light_left_uv := Vector2(.20, .925)
 @export var rear_light_right_uv := Vector2(.80, .925)
+
+@export_group("Exhaust tip positions in silhouette UV")
+## Optional per-model placement; the existing wheel/body layout still wins.
+@export var exhaust_left_uv := Vector2(.33,.98)
+@export var exhaust_right_uv := Vector2(.67,.98)
+@export_range(1,2,1) var exhaust_tip_count := 2
