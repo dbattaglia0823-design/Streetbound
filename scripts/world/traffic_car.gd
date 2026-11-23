@@ -33,6 +33,9 @@ var length_px := BASE_LENGTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var width_px := BASE_WIDTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var recovering := false
 var recovery_velocity := Vector2.ZERO
+# Actual forward road speed (m/s); drafting never relies on a traffic
+# car's planned cruise speed when it's stopped in a queue or has crashed.
+var motion_speed_mps := 0.0
 var impact_count := 0
 var model_loaded := false
 var brake_lights_on := false
@@ -170,7 +173,11 @@ func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 	# Knockback is consumed gradually so a collision is visible and cars can
 	# rejoin a path without instantly snapping over buildings or sidewalks.
 	var motion := motion_px + recovery_velocity * dt
+	var before := global_position
 	var hit := move_and_collide(motion)
+	var forward := Vector2.UP.rotated(rotation)
+	motion_speed_mps = maxf(0.0,(global_position-before).dot(forward) /
+		(PPM * maxf(dt,.0001)))
 	if hit:
 		var other: Object = hit.get_collider()
 		var dynamic_blocker := false
