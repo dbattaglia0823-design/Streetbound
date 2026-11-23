@@ -3,6 +3,7 @@ extends RefCounted
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const OnlineRewards=preload("res://scripts/network/online_race_rewards.gd")
 const MAX_REWARD_CASH:=1000000
 const MAX_REWARD_XP:=100000
 static func valid_rewards_and_opponents(race: Dictionary) -> bool:
@@ -17,7 +18,7 @@ static func valid_rewards_and_opponents(race: Dictionary) -> bool:
 		var amount: Variant=race.get(setting[0],0)
 		if typeof(amount) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(amount)):return false
 		if float(amount)!=floorf(float(amount)) or float(amount)<0 or float(amount)>setting[1]:return false
-	return true
+	return OnlineRewards.valid_settings(race)
 static func valid(race: Dictionary,width: float,height: float) -> bool:
 	if not str(race.get("id","")).begins_with("race-") or str(race.get("name","")).strip_edges().is_empty() or str(race.get("name","")).length()>80:return false
 	if race.get("mode","") not in ["sprint","circuit"]:return false
