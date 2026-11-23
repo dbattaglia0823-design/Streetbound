@@ -38,12 +38,24 @@ func _run() -> void:
 	var sprint: Dictionary = {"id":"race-main-street","name":"Downtown Sprint",
 		"mode":"sprint","points":[{"x":100.0,"y":500.0},{"x":600.0,"y":500.0}],
 		"formation":"single_file","enemy_starts":[],"laps":1,"checkpoint_radius":12}
+	sprint["multiplayer_reward_custom"]=true
+	sprint["multiplayer_reward_cash"]=8600
+	sprint["multiplayer_reward_player_xp"]=2600
+	sprint["multiplayer_reward_car_xp"]=1300
+	sprint["multiplayer_reward_part_chance"]=45
 	var record: Dictionary = Race.authored_event_spec(sprint,nav)
 	check("custom_sprint_has_world_route_and_gate_sequence",record.get("kind","")=="street" and
 		record.get("length",0.0) >= 500.0 and record.get("gates",[]).size() >= 8)
 	check("custom_sprint_uses_map_builder_title_and_radius",
 		record.get("title","") == "Downtown Sprint" and
 		float(record.get("gate_radius",0)) == 12.0)
+	check("authored_route_carries_same_local_prize_configuration_on_host_and_guest",
+		record.get("reward_settings",{}).get("multiplayer_reward_cash",0)==8600 and
+		record.get("reward_settings",{}).get("multiplayer_reward_part_chance",0)==45)
+	var invalid_rewards: Dictionary=sprint.duplicate(true)
+	invalid_rewards["multiplayer_reward_cash"]=20001
+	check("online_controller_rejects_unbounded_published_reward_profiles",
+		Race.authored_event_spec(invalid_rewards,nav).is_empty())
 	var player: Dictionary = Race.authored_grid_pose(sprint,0)
 	var second: Dictionary = Race.authored_grid_pose(sprint,1)
 	var fourth: Dictionary = Race.authored_grid_pose(sprint,3)
