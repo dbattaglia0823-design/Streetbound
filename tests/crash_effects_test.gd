@@ -65,8 +65,7 @@ func run() -> void:
 	# in the same particle pool. Inspect a fragment from this heavier event,
 	# rather than assuming array index zero belongs to the latest collision.
 	check("particles_spawn_at_world_collision_point",
-		particles.any(func(p):return p.kind=="debris" and
-			Vector2(p.point).distance_to(origin)<6.0))
+		particles.any(func(p):return p.kind=="debris" and Vector2(p.point).distance_to(origin)<6.0))
 	var first_burst: int=int(fx.get("emitted_bursts"))
 	car.crash_contact.emit(16.0,origin,Vector2.LEFT,Vector2.RIGHT*28.0)
 	check("same_frame_contacts_do_not_spam_effects",int(fx.get("emitted_bursts"))==first_burst)
