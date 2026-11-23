@@ -15,7 +15,7 @@ func check(label: String, condition: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("street_grid_protocol_v10", Session.PROTOCOL_VERSION == 10)
+	check("street_grid_protocol_v11", Session.PROTOCOL_VERSION == 11)
 	var nav := Navigation.new()
 	nav.setup(PackedVector2Array([
 		Vector2(0,0),Vector2(350,0),Vector2(350,350),

@@ -12,7 +12,7 @@ signal peer_id_rebound(previous_id: int, current_id: int)
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 10  # Host-verified durable friend race rewards.
+const PROTOCOL_VERSION := 11  # Per-map configurable career payouts must match clients.
 const RECONNECT_GRACE_MS := 35000
 const CLIENT_RECONNECT_WINDOW_MS := 30000
 const RECONNECT_RETRY_MS := 5000

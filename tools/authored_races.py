@@ -111,6 +111,22 @@ def authored_races(doc,width,height):
             if type(amount) is not int or not 0<=amount<=maximum:
                 raise ValueError('Invalid race reward: '+key)
             if key in race:entry[key]=amount
+        custom=race.get('multiplayer_reward_custom',False)
+        if type(custom) is not bool:
+            raise ValueError('Multiplayer prize override must be a boolean')
+        if 'multiplayer_reward_custom' in race:
+            entry['multiplayer_reward_custom']=custom
+        for key,maximum in [('multiplayer_reward_cash',20000),
+                            ('multiplayer_reward_player_xp',5000),
+                            ('multiplayer_reward_car_xp',5000),
+                            ('multiplayer_reward_part_chance',100)]:
+            if custom and key not in race:
+                raise ValueError('Custom multiplayer prizes require '+key)
+            if key in race:
+                amount=race[key]
+                if type(amount) is not int or not 0<=amount<=maximum:
+                    raise ValueError('Invalid multiplayer prize: '+key)
+                entry[key]=amount
         result.append(entry)
     graph={race['id']:race for race in result}
     for race in result:
