@@ -116,9 +116,9 @@ def authored_races(doc,width,height):
             raise ValueError('Multiplayer prize override must be a boolean')
         if 'multiplayer_reward_custom' in race:
             entry['multiplayer_reward_custom']=custom
-        for key,maximum in [('multiplayer_reward_cash',20000),
-                            ('multiplayer_reward_player_xp',5000),
-                            ('multiplayer_reward_car_xp',5000),
+        for key,maximum in [('multiplayer_reward_cash',9007199254740991),
+                            ('multiplayer_reward_player_xp',9007199254740991),
+                            ('multiplayer_reward_car_xp',9007199254740991),
                             ('multiplayer_reward_part_chance',100)]:
             if custom and key not in race:
                 raise ValueError('Custom multiplayer prizes require '+key)
