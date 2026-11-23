@@ -68,15 +68,48 @@ func _run() -> void:
 		Rewards.part_chance(1,custom)==0 and
 		Rewards.part_chance(3,custom)==0 and
 		not Rewards.part_roll(session_id,4,"audi-rs3",1,custom))
-	check("custom_prize_bounds_and_boolean_are_validated_at_runtime",
+	check("custom_prize_precision_and_boolean_are_validated_at_runtime",
 		not Rewards.valid_settings({"multiplayer_reward_custom":true,
-			"multiplayer_reward_cash":20001,
+			"multiplayer_reward_cash":9007199254740992,
 			"multiplayer_reward_player_xp":0,
 			"multiplayer_reward_car_xp":0,
 			"multiplayer_reward_part_chance":100}) and
 		not Rewards.valid_settings({"multiplayer_reward_custom":1}) and
 		not Rewards.valid_settings({"multiplayer_reward_custom":true}) and
 		Rewards.payouts("street",1,{}).get("cash",0)>0)
+	var large: Dictionary=custom.duplicate(true)
+	large["multiplayer_reward_cash"]=250000000
+	large["multiplayer_reward_player_xp"]=2800000
+	large["multiplayer_reward_car_xp"]=1600000
+	var large_first: Dictionary=Rewards.payouts("circuit",1,large)
+	check("no_arbitrary_cash_or_xp_caps_on_authored_multiplayer_prizes",
+		Rewards.valid_settings(large) and
+		int(large_first.get("cash",-1))==250000000 and
+		int(large_first.get("player_xp",-1))==2800000 and
+		int(large_first.get("car_xp",-1))==1600000)
+	var maximum: Dictionary=large.duplicate(true)
+	maximum["multiplayer_reward_cash"]=Rewards.MAX_EXACT_REWARD
+	maximum["multiplayer_reward_player_xp"]=Rewards.MAX_EXACT_REWARD
+	maximum["multiplayer_reward_car_xp"]=Rewards.MAX_EXACT_REWARD
+	check("largest_json_safe_first_place_reward_is_preserved_exactly",
+		Rewards.valid_settings(maximum) and
+		Rewards.payouts("street",1,maximum).get("cash",-1)==Rewards.MAX_EXACT_REWARD and
+		Rewards.payouts("street",1,maximum).get("player_xp",-1)==Rewards.MAX_EXACT_REWARD)
+	var large_wallet:=Ownership.new(false)
+	var large_before: int=large_wallet.balance
+	var large_receipt: Dictionary=large_wallet.record_multiplayer_race(
+		"e".repeat(48),1,1,32000,"street",Ownership.STARTER_ID,large)
+	check("large_authored_cash_prize_is_credited_without_truncation",
+		large_receipt.get("result","")=="completed" and
+		large_wallet.balance==large_before+250000000 and
+		int(large_receipt.get("player_xp",0))==2800000)
+	var overflow_wallet:=Ownership.new(false)
+	overflow_wallet.balance=9223372036854775807-10
+	check("very_large_balances_cannot_overflow_the_wallet",
+		overflow_wallet.record_multiplayer_race("f".repeat(48),1,1,32000,
+			"street",Ownership.STARTER_ID,large).get("result","")=="balance_overflow" and
+		overflow_wallet.balance==9223372036854775807-10 and
+		overflow_wallet.multiplayer_claims.is_empty())
 	var custom_wallet:=Ownership.new(false)
 	var custom_cash_before: int=custom_wallet.balance
 	var custom_award: Dictionary=custom_wallet.record_multiplayer_race(
