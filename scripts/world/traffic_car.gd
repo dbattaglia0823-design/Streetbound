@@ -5,6 +5,7 @@ extends CharacterBody2D
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
+const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
 const MODEL_PATHS := [
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
@@ -67,6 +68,10 @@ func _ready() -> void:
 	lights.name = "RearLights"
 	lights.set_script(Lights)
 	add_child(lights)
+	var wake := Node2D.new()
+	wake.name = "Slipstream"
+	wake.set_script(Slipstream)
+	add_child(wake)
 	queue_redraw()
 
 
