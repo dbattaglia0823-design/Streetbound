@@ -7,6 +7,7 @@ const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Dust = preload("res://scripts/visual/driving_dust.gd")
 const Marks = preload("res://scripts/world/tire_marks.gd")
 const Sampler = preload("res://scripts/world/vehicle_tire_trails.gd")
+const OnlineWorld = preload("res://scripts/network/online_world.gd")
 var failures: Array[String] = []
 
 class TestSurface extends Node2D:
@@ -43,11 +44,15 @@ func run() -> void:
 	player.reversing=false
 	lights._process(.02)
 	check("service_brake_brightens_the_rear_lamps",lights.braking and not lights.reversing)
+	check("online_brake_status_uses_host_vehicle_controls",
+		OnlineWorld._lamp_state(player)==[true,false])
 	player.brake=0.0
 	player.reversing=true
 	lights._process(.02)
 	check("reverse_activates_white_lamps_without_brake_lighting",
 		lights.reversing and not lights.braking)
+	check("online_reverse_status_uses_host_vehicle_direction",
+		OnlineWorld._lamp_state(player)==[false,true])
 	player.reversing=false
 	player.handbrake=.8
 	lights._process(.02)
