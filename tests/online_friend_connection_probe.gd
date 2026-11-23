@@ -64,9 +64,16 @@ func _run() -> void:
 		if not car_id.is_empty():
 			session.set_local_car(car_id)
 			check("host_car_identity_can_be_selected", str(session.players[1].get("car_id","")) == car_id)
-		var left: bool = await _poll_for(func() -> bool:
-			return session.players.size() == 1)
-		check("host_clears_disconnected_guest",left)
+		var reserved: bool = await _poll_for(func() -> bool:
+			return session.disconnected_since.size() == 1)
+		check("host_holds_disconnected_guest_seat_for_reconnect", reserved and
+			session.players.size() == 2)
+		for id in session.disconnected_since:
+			session.disconnected_since[id] = Time.get_ticks_msec() - \
+				session.RECONNECT_GRACE_MS - 1
+		session.expire_disconnected_players(Time.get_ticks_msec())
+		check("expired_reservation_releases_slot_and_car_id",
+			session.players.size() == 1 and session.disconnected_since.is_empty())
 		var former_code: String = session.get_invite_code()
 		var changed_code: String = session.rotate_invite()
 		check("host_can_invalidate_previous_invitations",
@@ -102,6 +109,15 @@ func _run() -> void:
 			var host_car_seen: bool = await _poll_for(func() -> bool:
 				return str(session.players[1].get("car_id","")) != "")
 			check("guest_receives_host_vehicle_identity", host_car_seen)
+			var enet_measurement: bool = await _poll_for(func() -> bool:
+				var stats: Dictionary = session.network_stats()
+				return stats.has("rtt_ms") and int(stats["rtt_ms"]) > 0)
+			check("client_reads_real_enet_rtt_not_estimated_ping", enet_measurement)
+			if enet_measurement:
+				var metrics: Dictionary = session.network_stats()
+				check("enet_exposes_round_trip_variation_and_loss_scope",
+					int(metrics.get("variation_ms", -1)) >= 0 and
+					metrics.has("reliable_loss_percent"))
 		await create_timer(1.5).timeout
 		session.leave_session()
 	else:

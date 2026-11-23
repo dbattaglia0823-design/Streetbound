@@ -24,6 +24,24 @@ func run() -> void:
 	form.dialog_cash.value=12500
 	form.dialog_driver_xp.value=275
 	form.dialog_car_xp.value=150
+	check("race_editor_has_multiplayer_rewards_tab_and_default_controls",
+		form.dialog_tabs.get_tab_count()==3 and
+		form.dialog_tabs.get_tab_title(2)=="Multiplayer Rewards" and
+		not form.online_use_custom.button_pressed and not form.online_cash.editable)
+	check("multiplayer_reward_inputs_have_no_gameplay_caps",
+		form.online_cash.max_value>=1000000000 and
+		form.online_driver_xp.max_value>=1000000000 and
+		form.online_car_xp.max_value>=1000000000)
+	form.online_use_custom.button_pressed=true
+	form.online_cash.value=250000000
+	form.online_driver_xp.value=2800000
+	form.online_car_xp.value=1600000
+	form.online_part_chance.value=25
+	form._update_online_rewards()
+	check("multiplayer_rewards_preview_first_place_and_part_chance",
+		form.online_cash.editable and
+		form.online_preview.text.contains("$250,000,000") and
+		form.online_preview.text.contains("25% PART"))
 	form.pool_search.text="Audi RS3";form._refresh_pool()
 	var audi_found:=false
 	for i in form.pool_list.item_count:
@@ -40,7 +58,10 @@ func run() -> void:
 	var configured: Dictionary=e.authoring.race_at_id(id)
 	var saved_ok: bool=e.authoring.history.size()==history_before+1 and configured.enemy_starts.size()==3 and \
 		configured.get("opponent_pool",[]).has("audi-rs3") and configured.get("opponent_pool",[]).has("acura-integra") and \
-		int(configured.get("reward_cash",0))==12500 and int(configured.get("reward_player_xp",0))==275 and int(configured.get("reward_car_xp",0))==150
+		int(configured.get("reward_cash",0))==12500 and int(configured.get("reward_player_xp",0))==275 and int(configured.get("reward_car_xp",0))==150 and \
+		bool(configured.get("multiplayer_reward_custom",false)) and int(configured.get("multiplayer_reward_cash",0))==250000000 and \
+		int(configured.get("multiplayer_reward_player_xp",0))==2800000 and int(configured.get("multiplayer_reward_car_xp",0))==1600000 and \
+		int(configured.get("multiplayer_reward_part_chance",0))==25
 	if not saved_ok:
 		print("RACE SAVE AUDIT: history ",history_before,"=>",e.authoring.history.size(),
 			" rivals=",configured.get("enemy_starts",[]).size()," pool=",configured.get("opponent_pool",[]),
@@ -51,6 +72,9 @@ func run() -> void:
 	check("race_edit_settings_are_undoable",not e.authoring.race_at_id(id).has("opponent_pool") or e.authoring.race_at_id(id).get("opponent_pool",[]).is_empty())
 	e._redo()
 	form.open_for(e,id)
+	check("race_editor_reopens_with_saved_multiplayer_prizes",
+		form.online_use_custom.button_pressed and int(form.online_cash.value)==250000000 and
+		int(form.online_driver_xp.value)==2800000 and int(form.online_part_chance.value)==25)
 	form.dialog_type.select(2)
 	form._save_dialog(e)
 	check("race_type_time_trial_has_zero_ai",e.authoring.race_at_id(id).enemy_starts.is_empty())
@@ -108,7 +132,8 @@ func run() -> void:
 	check("race_is_listed_with_world_objects",found)
 	var file=FileAccess.open("res://.runtime/race-editor-test/source.json",FileAccess.WRITE)
 	file.store_string(JSON.stringify(e.bridge._python_typed_source(e.authoring.doc)));file.close()
-	var restored=e.authoring.get_script().new();check("race_source_can_be_reopened",restored.load_source("res://.runtime/race-editor-test/source.json") and restored.doc.races[0].name==race.name)
+	var restored=e.authoring.get_script().new();check("race_source_can_be_reopened",restored.load_source("res://.runtime/race-editor-test/source.json") and restored.doc.races[0].name==race.name and
+		int(restored.doc.races[0].get("multiplayer_reward_cash",0))==250000000)
 	var stamp:=JSON.stringify(e.authoring.doc)
 	var bad: Array[Vector2]=[Vector2(2000,2000),Vector2(2001,2000)]
 	check("invalid_race_does_not_modify_draft",e.authoring.save_race(bad,{"name":"Bad","mode":"sprint"}).is_empty() and stamp==JSON.stringify(e.authoring.doc))

@@ -46,3 +46,21 @@ static func current() -> Dictionary:
 	if not FileAccess.file_exists(MANIFEST):return default_world()
 	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(MANIFEST))
 	return resolve_manifest(parsed)
+
+## The complete compiled world archive, not its display name, is the lobby
+## compatibility key. This works with both the bundled world and published
+## Map Builder archives without requiring an always-on service.
+static func network_identity() -> Dictionary:
+	var selected: Dictionary = current()
+	var archive: String = str(selected.get("archive", ""))
+	if not FileAccess.file_exists(archive):
+		return {}
+	var digest: String = FileAccess.get_sha256(archive)
+	if digest.length() != 64:
+		return {}
+	return {"id": str(selected.get("id", "")), "sha256": digest}
+
+static func same_network_identity(a: Dictionary, b: Dictionary) -> bool:
+	var id: String = str(a.get("id", ""))
+	var sha: String = str(a.get("sha256", ""))
+	return not id.is_empty() and sha.length() == 64 and id == str(b.get("id", "")) and sha == str(b.get("sha256", ""))

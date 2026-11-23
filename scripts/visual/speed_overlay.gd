@@ -8,6 +8,8 @@ var vehicle: VehicleController2D
 var camera: Camera2D
 var intensity := 0.0
 var acceleration_pulse := 0.0
+var nitrous_pulse := 0.0
+var drafting_pulse := 0.0
 var streaks: Array[Vector2] = []
 var _last_speed := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -48,6 +50,12 @@ func _process(delta: float) -> void:
 	var punch := clampf((acceleration - 3.5) / 11.0, 0.0, 1.0)
 	acceleration_pulse = lerpf(acceleration_pulse, punch,
 		1.0 - exp(-(10.0 if punch > acceleration_pulse else 3.0) * dt))
+	nitrous_pulse = lerpf(nitrous_pulse,1.0 if vehicle.nitrous_active else 0.0,
+		1.0-exp(-7.0*dt))
+	var drafting := float(vehicle.call("drafting_effect_strength")) \
+		if vehicle.has_method("drafting_effect_strength") else 0.0
+	drafting_pulse = lerpf(drafting_pulse,clampf(drafting,0.0,1.0),
+		1.0-exp(-7.0*dt))
 	if intensity < 0.015 or speed < 0.1:
 		queue_redraw()
 		return
@@ -83,11 +91,12 @@ func _draw() -> void:
 		return
 	var direction := -vehicle.linear_velocity.rotated(
 		-camera.global_rotation).normalized()
-	var visual_strength := clampf(intensity * (1.0 + acceleration_pulse * 0.25),
+	var visual_strength := clampf(intensity * (1.0 + acceleration_pulse * 0.25 +
+		nitrous_pulse*.22 + drafting_pulse*.12),
 		0.0, 1.0)
 	# Atmospheric blue-grey light bleed along the extreme viewport borders.
 	# It remains below the HUD and never paints a central screen overlay.
-	var edge_alpha := visual_strength * 0.075
+	var edge_alpha := visual_strength * (0.075+nitrous_pulse*.018)
 	var edge_w := minf(size.x * 0.055, 55.0)
 	var edge_h := minf(size.y * 0.085, 50.0)
 	draw_rect(Rect2(Vector2.ZERO, Vector2(edge_w, size.y)),

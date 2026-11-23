@@ -1,7 +1,7 @@
 extends Node2D
 ## Bounded tire smoke and surface dust from the car's actual wheel hubs.
 ## Existing TireMarks2D owns the continuous drivable-world rubber trails.
-const MAX_PUFFS := 90
+const MAX_PUFFS := 48
 var vehicle: VehicleController2D
 var puffs: Array[Dictionary] = []
 var _emission := 0.0
@@ -25,7 +25,13 @@ static func dust_color(surface: String) -> Color:
 		_: return Color(.76, .81, .82)
 
 func _ready() -> void:
-	_rng.seed = 60491
+	if not is_instance_valid(vehicle):
+		vehicle = get_parent() as VehicleController2D
+	# Each scene-owned smoke renderer remains world-aligned; puffs must
+	# not spin and translate with their car after they leave the tire.
+	top_level = true
+	global_transform = Transform2D.IDENTITY
+	_rng.seed = 60491 + vehicle.get_instance_id()
 	_last_position = vehicle.global_position
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
@@ -73,8 +79,16 @@ func _process(delta: float) -> void:
 		puff["point"] = Vector2(puff["point"]) + Vector2(puff["drift"]) * dt
 		puffs[i] = puff
 	var speed := vehicle.linear_velocity.length()
-	var strength := tire_smoke_strength(speed, vehicle.slip_angle,
-		vehicle.wheel_spin, vehicle.handbrake_grip_loss, vehicle.surface)
+	var measured_slip := vehicle.slip_angle
+	if not vehicle.is_physics_processing():
+		# Clients interpolate remote car transforms without stepping physics.
+		# Derive visual slip from replicated heading and velocity.
+		var forward := Vector2.UP.rotated(vehicle.rotation)
+		var right := Vector2.RIGHT.rotated(vehicle.rotation)
+		measured_slip = atan2(vehicle.linear_velocity.dot(right),
+			maxf(absf(vehicle.linear_velocity.dot(forward)),1.0))
+	var strength := tire_smoke_strength(speed, measured_slip,
+		vehicle.wheel_spin, maxf(vehicle.handbrake,vehicle.handbrake_grip_loss), vehicle.surface)
 	if strength < 0.03:
 		_emission = 0.0
 	else:

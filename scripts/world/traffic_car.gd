@@ -4,6 +4,8 @@ extends CharacterBody2D
 ## Player impacts can displace cars; TrafficFlow then returns them to a legal
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
+const Lights = preload("res://scripts/visual/vehicle_lights.gd")
+const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
 const MODEL_PATHS := [
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
@@ -32,8 +34,13 @@ var length_px := BASE_LENGTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var width_px := BASE_WIDTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var recovering := false
 var recovery_velocity := Vector2.ZERO
+# Actual forward road speed (m/s); drafting never relies on a traffic
+# car's planned cruise speed when it's stopped in a queue or has crashed.
+var motion_speed_mps := 0.0
 var impact_count := 0
 var model_loaded := false
+var brake_lights_on := false
+var reverse_lights_on := false
 
 static func model_count() -> int:
 	return MODEL_PATHS.size()
@@ -57,6 +64,14 @@ func _ready() -> void:
 	shape_node.shape = shape
 	add_child(shape_node)
 	_add_sprite()
+	var lights := Node2D.new()
+	lights.name = "RearLights"
+	lights.set_script(Lights)
+	add_child(lights)
+	var wake := Node2D.new()
+	wake.name = "Slipstream"
+	wake.set_script(Slipstream)
+	add_child(wake)
 	queue_redraw()
 
 
@@ -163,7 +178,11 @@ func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 	# Knockback is consumed gradually so a collision is visible and cars can
 	# rejoin a path without instantly snapping over buildings or sidewalks.
 	var motion := motion_px + recovery_velocity * dt
+	var before := global_position
 	var hit := move_and_collide(motion)
+	var forward := Vector2.UP.rotated(rotation)
+	motion_speed_mps = maxf(0.0,(global_position-before).dot(forward) /
+		(PPM * maxf(dt,.0001)))
 	if hit:
 		var other: Object = hit.get_collider()
 		var dynamic_blocker := false

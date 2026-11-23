@@ -29,6 +29,9 @@ var follow_heading := false
 var impact_strength := 0.0
 var _impact_time := 0.0
 var _surge := 0.0
+var _shift_pulse := 0.0
+var _nitrous_pulse := 0.0
+var _draft_pulse := 0.0
 var _previous_longitudinal := 0.0
 # The car is allowed to steer inside this angular pocket without rotating the world.
 @export_range(0.0, 30.0, 1.0) var heading_deadzone_degrees := 12.0
@@ -50,6 +53,7 @@ func _ready() -> void:
 		_neighborhood_view_active else 1.06 * world_zoom_multiplier)
 	_previous_longitudinal = target.longitudinal_speed
 	target.impacted.connect(_on_impact)
+	target.transmission.shifted.connect(_on_shift)
 
 ## Wheel up brings the camera closer; wheel down pulls it back. This is
 ## intentionally handled only for unconsumed viewport input: scrolling the
@@ -93,16 +97,23 @@ static func speed_zoom_weight(player_magnification: float) -> float:
 
 static func target_zoom_for(speed: float, player_magnification: float,
 		world_magnification: float, acceleration_surge: float = 0.0,
-		collision_impact: float = 0.0) -> float:
+		collision_impact: float = 0.0, shift_pulse: float = 0.0,
+		nitrous_pulse: float = 0.0, draft_pulse: float = 0.0) -> float:
 	var user_factor := clampf(player_magnification,
 		PLAYER_ZOOM_MIN, PLAYER_ZOOM_MAX)
 	var speed_mix := smoothstep(5.0, 57.0, speed)
 	var base := lerpf(1.06, 0.64,
 		speed_mix * speed_zoom_weight(user_factor))
-	var effects := 1.0 - acceleration_surge * 0.012 + collision_impact * 0.022
+	var effects := 1.0 - acceleration_surge * 0.012 + collision_impact * 0.022 - \
+		shift_pulse * .008 - nitrous_pulse * .014 - draft_pulse * .006
 	return clampf(base * world_magnification * user_factor * effects,
 		ABSOLUTE_ZOOM_MIN, ABSOLUTE_ZOOM_MAX)
 
+
+func _on_shift(_gear: int) -> void:
+	# Crisp, short shift impulse. This never touches vehicle motion.
+	if is_instance_valid(target) and target.linear_velocity.length()>8.0:
+		_shift_pulse = maxf(_shift_pulse,.75)
 
 func _on_impact(strength: float) -> void:
 	impact_strength = maxf(impact_strength, clampf((strength - 2.0) / 18.0, 0.0, 1.0))
@@ -132,6 +143,13 @@ func _physics_process(dt: float) -> void:
 	var acceleration := (forward_speed - maxf(_previous_longitudinal, 0.0)) / maxf(dt, 0.001)
 	_previous_longitudinal = target.longitudinal_speed
 	_surge = lerpf(_surge, clampf(acceleration / 14.0, 0.0, 1.0), 1.0 - exp(-3.8 * dt))
+	_shift_pulse = move_toward(_shift_pulse,0.0,dt*3.6)
+	_nitrous_pulse = lerpf(_nitrous_pulse,1.0 if target.nitrous_active else 0.0,
+		1.0-exp(-6.0*dt))
+	var drafting := float(target.call("drafting_effect_strength")) \
+		if target.has_method("drafting_effect_strength") else 0.0
+	_draft_pulse = lerpf(_draft_pulse,clampf(drafting,0.0,1.0),
+		1.0-exp(-5.0*dt))
 	var lead := target.linear_velocity * 3.8
 	var desired := transform_now.origin + lead.limit_length(230.0)
 	global_position = global_position.lerp(desired, 1.0 - exp(-POSITION_RESPONSE * dt))
@@ -148,20 +166,24 @@ func _physics_process(dt: float) -> void:
 	_smoothed_player_zoom = lerpf(_smoothed_player_zoom,
 		player_zoom_multiplier, 1.0 - exp(-WHEEL_RESPONSE * dt))
 	var target_zoom := target_zoom_for(speed, _smoothed_player_zoom,
-		world_zoom_multiplier, _surge, impact_strength)
+		world_zoom_multiplier, _surge, impact_strength,
+		_shift_pulse,_nitrous_pulse,_draft_pulse)
 	if _neighborhood_view_active:
 		target_zoom = minf(target_zoom, STARTUP_NEIGHBORHOOD_ZOOM)
 	zoom = zoom.lerp(Vector2.ONE * target_zoom,
 		1.0 - exp(-CAMERA_RESPONSE * dt))
 	_impact_time += dt
 	impact_strength = maxf(0.0, impact_strength - dt * 4.0)
-	var shake := impact_strength * 9.0
+	var shake := impact_strength * 9.0 + _shift_pulse*.75 + _nitrous_pulse*.34
 	offset = Vector2(sin(_impact_time * 73.0), cos(_impact_time * 57.0)) * shake
 	if global_position.distance_to(transform_now.origin) > MAX_FOLLOW_DISTANCE_PX + 1.0:
 		global_position = transform_now.origin
 		offset = Vector2.ZERO
 		impact_strength = 0.0
 		_surge = 0.0
+		_shift_pulse = 0.0
+		_nitrous_pulse = 0.0
+		_draft_pulse = 0.0
 		reset_physics_interpolation()
 
 func _update_heading_rotation(dt: float, car_heading: float, speed: float) -> void:

@@ -14,6 +14,45 @@ test('Configured race pools, starting grids and payouts round-trip without loss'
   const doc=normalizeWorld({...createWorld(),races:[configured]});
   assert.deepEqual(parseWorld(serializeWorld(doc)).races,[configured]);
 });
+test('Native configurable multiplayer prizes survive browser export and import',()=>{
+  const custom={...configured,multiplayer_reward_custom:true,
+    multiplayer_reward_cash:9600,multiplayer_reward_player_xp:2800,
+    multiplayer_reward_car_xp:1600,multiplayer_reward_part_chance:25};
+  const doc=normalizeWorld({...createWorld(),races:[custom]});
+  assert.deepEqual(parseWorld(serializeWorld(doc)).races,[custom]);
+  assert.equal(doc.races[0].reward_cash,12500,'Solo cash must stay separate');
+  assert.equal(normalizeWorld({...createWorld(),races:[race]}).races[0].multiplayer_reward_custom,
+    undefined,'Legacy races retain defaults');
+});
+
+test('Large multiplayer cash and XP rewards round-trip without an arbitrary cap',()=>{
+  const high={...configured,multiplayer_reward_custom:true,
+    multiplayer_reward_cash:250000000,multiplayer_reward_player_xp:2800000,
+    multiplayer_reward_car_xp:1600000,multiplayer_reward_part_chance:25};
+  assert.deepEqual(parseWorld(serializeWorld(normalizeWorld({...createWorld(),races:[high]}))).races[0],high);
+  const exact={...high,multiplayer_reward_cash:Number.MAX_SAFE_INTEGER,
+    multiplayer_reward_player_xp:Number.MAX_SAFE_INTEGER,
+    multiplayer_reward_car_xp:Number.MAX_SAFE_INTEGER};
+  assert.deepEqual(parseWorld(serializeWorld(normalizeWorld({...createWorld(),races:[exact]}))).races[0],exact);
+});
+
+test('Invalid custom multiplayer awards are rejected rather than imported',()=>{
+  const custom={...configured,multiplayer_reward_custom:true,
+    multiplayer_reward_cash:9600,multiplayer_reward_player_xp:2800,
+    multiplayer_reward_car_xp:1600,multiplayer_reward_part_chance:25};
+  for(const changed of [
+    {multiplayer_reward_custom:'true'}, {multiplayer_reward_cash:Number.MAX_SAFE_INTEGER+1},
+    {multiplayer_reward_cash:-1}, {multiplayer_reward_cash:1.5},
+    {multiplayer_reward_player_xp:Number.MAX_SAFE_INTEGER+1},
+    {multiplayer_reward_car_xp:Number.MAX_SAFE_INTEGER+1},
+    {multiplayer_reward_part_chance:101}, {multiplayer_reward_part_chance:-1},
+    {multiplayer_reward_part_chance:NaN}]){
+    assert.throws(()=>normalizeWorld({...createWorld(),races:[{...custom,...changed}]}));
+  }
+  const missing={...custom};delete missing.multiplayer_reward_car_xp;
+  assert.throws(()=>normalizeWorld({...createWorld(),races:[missing]}));
+});
+
 test('Invalid race geometry and settings are rejected',()=>{
   for(const changed of [{laps:1.5},{points:[{x:0,y:0},{x:1,y:1}]},
     {opponent_pool:['audi-rs3','audi-rs3']},{reward_cash:-1},

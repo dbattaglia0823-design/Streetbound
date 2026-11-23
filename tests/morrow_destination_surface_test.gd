@@ -63,7 +63,7 @@ func run() -> void:
 			float(world.data.pois[0].position[1]))) < 70:
 			area_decor += 1
 	check("laurel_entry_has_planting",area_decor >= 1,area_decor)
-	var dust: Node2D = main.get_node("DrivingDust")
+	var dust: Node2D = main.vehicle.get_node("DrivingDust")
 	main.vehicle.linear_velocity = Vector2.UP * 25.0
 	main.vehicle.surface = "GRASS"
 	for i in 4: dust._process(0.05)

@@ -26,7 +26,6 @@ const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd"
 const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const OnlineWorldScript = preload("res://scripts/network/online_world.gd")
 const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
-const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 static var pending_launch_mode := ""
 var pause_menu
@@ -148,13 +147,6 @@ func _ready() -> void:
 			event.network=traffic.network;event.economy=vehicle_ownership
 			ground.add_child(event)
 			extra_races.append(event)
-	var dust := Node2D.new()
-	dust.name = "DrivingDust"
-	dust.set_script(DustScript)
-	dust.vehicle = vehicle
-	add_child(dust)
-	# World-space particles should draw behind the car, never over the sprite.
-	move_child(dust, vehicle.get_index())
 	var camera := Camera2D.new()
 	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	camera.set_script(CameraScript)
@@ -211,10 +203,13 @@ func _ready() -> void:
 		world_hud.set_script(WorldHudScript)
 		world_hud.world = ground
 		world_hud.vehicle = vehicle
-		world_hud.races.append(drag_race)
-		world_hud.races.append(circuit_race)
-		world_hud.races.append(street_race)
-		world_hud.races.append_array(extra_races)
+		# Solo event menus must not start locally timed/rewarded races
+		# during a shared player-hosted friend session.
+		if not online_session.active:
+			world_hud.races.append(drag_race)
+			world_hud.races.append(circuit_race)
+			world_hud.races.append(street_race)
+			world_hud.races.append_array(extra_races)
 		world_hud.driving_hud = hud
 		add_child(world_hud)
 		world_hud_ref=world_hud
@@ -266,9 +261,15 @@ func _ready() -> void:
 		authored_map_markers.quick_upgrades=quick_upgrades
 		authored_map_markers.traffic=traffic
 		authored_map_markers.map_hud=world_hud_ref
-		authored_map_markers.races=extra_races.duplicate()
-		for builtin_race in [drag_race,circuit_race,street_race]:
-			if is_instance_valid(builtin_race):authored_map_markers.races.append(builtin_race)
+		# Keep the script's typed Array[Node2D] intact: assigning []
+		# directly coerces it to an untyped Array and breaks world startup.
+		authored_map_markers.races = extra_races.duplicate()
+		if online_session.active:
+			authored_map_markers.races.clear()
+		else:
+			for builtin_race in [drag_race, circuit_race, street_race]:
+				if is_instance_valid(builtin_race):
+					authored_map_markers.races.append(builtin_race)
 		add_child(authored_map_markers)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
@@ -317,7 +318,23 @@ func _ready() -> void:
 	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or custom_test_drive)
 	if custom_test_drive:
 		_add_test_drive_return_button()
-	if online_session.active and not proving_ground and not custom_game_world:
+	if online_session.active and not proving_ground and not custom_test_drive:
+		# Race controllers supply navigation to the host-authoritative
+		# online event catalog on both bundled and published maps. Local
+		# payouts must never run during a shared multiplayer session.
+		var solo_events: Array = [drag_race, circuit_race, street_race]
+		solo_events.append_array(extra_races)
+		for solo in solo_events:
+			if not is_instance_valid(solo):
+				continue
+			solo.set_process_unhandled_input(false)
+			solo.set_physics_process(false)
+			solo.hide()
+			# HUD CanvasLayers are separate nodes; hiding the race world
+			# marker alone does not hide their on-screen race prompts.
+			for child in solo.get_children():
+				if child is CanvasLayer:
+					child.hide()
 		online_world = Node2D.new()
 		online_world.name = "OnlineWorld"
 		online_world.set_script(OnlineWorldScript)

@@ -25,9 +25,28 @@ with tempfile.TemporaryDirectory(prefix='streetbound-race-') as tmp:
 for patch in [{'points':[{'x':0,'y':0}]},{'laps':1.5},{'checkpoint_radius':float('nan')},
               {'mode':'invalid'},{'opponent_pool':['nonexistent-car']},
               {'opponent_pool':['audi-rs3','audi-rs3']},{'reward_cash':-1},
-              {'reward_player_xp':100001},{'reward_car_xp':1.5}]:
+              {'reward_player_xp':100001},{'reward_car_xp':1.5},
+              {'multiplayer_reward_custom':'true'},
+              {'multiplayer_reward_cash':9007199254740992},
+              {'multiplayer_reward_player_xp':9007199254740992},
+              {'multiplayer_reward_car_xp':9007199254740992},
+              {'multiplayer_reward_part_chance':101},
+              {'multiplayer_reward_part_chance':-1},
+              {'multiplayer_reward_cash':1.5}]:
     invalid=json.loads(json.dumps(doc));invalid['races'][0].update(patch)
     try:authored_races(invalid,doc['world']['width'],doc['world']['height'])
     except ValueError:pass
     else:raise AssertionError('Invalid race was accepted: '+str(patch))
+# The old arbitrary multiplayer caps must not apply during baking.
+high=json.loads(json.dumps(doc))
+high['races'][0].update(multiplayer_reward_custom=True,
+    multiplayer_reward_cash=250000000,
+    multiplayer_reward_player_xp=2800000,
+    multiplayer_reward_car_xp=1600000,
+    multiplayer_reward_part_chance=25)
+retained=authored_races(high,doc['world']['width'],doc['world']['height'])[0]
+assert retained['multiplayer_reward_cash']==250000000
+assert retained['multiplayer_reward_player_xp']==2800000
+assert retained['multiplayer_reward_car_xp']==1600000
+print('RACE EDITOR HIGH-PAYOUT VALIDATION: PASS')
 print('RACE EDITOR VALIDATION: PASS')

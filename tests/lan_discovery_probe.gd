@@ -51,9 +51,16 @@ func _run() -> void:
 		var guest_seen: bool = await _poll_for(func() -> bool:
 			return session.players.size() == 2)
 		check("host_authorizes_actual_lan_client", guest_seen)
-		var guest_left: bool = await _poll_for(func() -> bool:
-			return guest_seen and session.players.size() == 1)
-		check("host_recovers_after_guest_disconnect", guest_left)
+		var reserved: bool = await _poll_for(func() -> bool:
+			return guest_seen and session.disconnected_since.size() == 1)
+		check("host_keeps_lan_guest_slot_for_authenticated_reconnect",
+			reserved and session.players.size() == 2)
+		for id in session.disconnected_since:
+			session.disconnected_since[id] = Time.get_ticks_msec() - \
+				session.RECONNECT_GRACE_MS - 1
+		session.expire_disconnected_players(Time.get_ticks_msec())
+		check("host_clears_lan_guest_after_expired_reconnect_grace",
+			session.players.size() == 1 and session.disconnected_since.is_empty())
 		session.leave_session()
 		check("advertisement_stops_with_host",
 			not discovery.advertising and not session.active)

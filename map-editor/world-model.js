@@ -194,6 +194,24 @@ export function normalizeWorld(raw){
       if(r.opponent_pool!==undefined)entry.opponent_pool=[...pool];
       for(const [key,max] of [['reward_cash',1000000],['reward_player_xp',100000],['reward_car_xp',100000]])
         if(r[key]!==undefined)entry[key]=integer(r[key],0,max,key);
+      // Match native Godot and the production Python baker. Older authored
+      // maps have no override and retain the standard friend-race rewards.
+      if(r.multiplayer_reward_custom!==undefined){
+        if(typeof r.multiplayer_reward_custom!=='boolean')
+          throw new TypeError('Multiplayer prize override must be a boolean');
+        entry.multiplayer_reward_custom=r.multiplayer_reward_custom;
+      }
+      for(const [key,max] of [['multiplayer_reward_cash',Number.MAX_SAFE_INTEGER],
+          ['multiplayer_reward_player_xp',Number.MAX_SAFE_INTEGER],
+          ['multiplayer_reward_car_xp',Number.MAX_SAFE_INTEGER],
+          ['multiplayer_reward_part_chance',100]]){
+        if(r.multiplayer_reward_custom===true&&r[key]===undefined)
+          throw new TypeError('Missing configured multiplayer prize: '+key);
+        if(r[key]!==undefined){
+          if(!Number.isSafeInteger(r[key]))throw new RangeError('Invalid exact integer '+key);
+          entry[key]=integer(r[key],0,max,key);
+        }
+      }
       if(r.category!==undefined)entry.category=oneOf(r.category,['street','circuit','time_trial','championship','challenge'],'event category');
       if(r.difficulty!==undefined)entry.difficulty=oneOf(r.difficulty,['rookie','amateur','pro','elite'],'event difficulty');
       if(r.repeatable!==undefined){
