@@ -7,7 +7,7 @@ extends SceneTree
 const Grid = preload("res://scripts/world/race_start_grid.gd")
 const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const PORT := 28441
-const INVITE_FILE := "user://streetbound_friend_rewards_invite.txt"
+const INVITE_FILE := "res://.runtime/streetbound_friend_rewards_invite.txt"
 const TICK := 0.06
 const MAX_POLLS := 700
 var failures: Array[String] = []
