@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "scripts/network/**"
+      - "tests/online_friend_standings_test.gd"
+      - "tests/online_friend_standings_test.gd.uid"
       - "tests/online_network_smoothing_test.gd"
       - "tests/online_network_smoothing_test.gd.uid"
       - "tests/online_realtime_world_probe.gd"
@@ -76,6 +78,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_street_rules_test.gd 2>&1 | tee /tmp/friend-street-rules.log
           grep -q 'FRIEND STREET RULES: PASS' /tmp/friend-street-rules.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-street-rules.log
+      - name: Validated session-only friend league and replay prevention
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_standings_test.gd 2>&1 | tee /tmp/friend-standings.log
+          grep -q 'FRIEND SESSION STANDINGS: PASS' /tmp/friend-standings.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/friend-standings.log
       - name: Actual invite-protected ENet exchange with measured RTT
         run: |
           set -euo pipefail

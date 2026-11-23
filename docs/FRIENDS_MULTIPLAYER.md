@@ -89,9 +89,19 @@ This is still **practice only** until real-network result validation: no cash, X
 
 Automated coverage: `tests/online_friend_street_rules_test.gd` verifies the directional gates, shortcuts and narrow single-file start grid; `tests/online_friend_street_world_probe.gd` checks the full game with a host and guest over real loopback ENet. A **real two-house latency and fairness playtest** is still required before enabling persistent multiplayer career rewards.
 
+## Shared friend-race progression and session rewards (protocol v8)
+
+All three synchronized race types (Ashford drag, full Ashford Circuit and Larkspur street sprint) contribute to **one shared leaderboard for the current hosted session**. When every participating driver has either completed the host-verified physical route or received DNF, the host settles the race exactly once and sends the results and standings to every friend. Each validated finisher receives **10 / 7 / 5 / 3 friend race points** in finishing order (first through fourth). DNFs receive zero. The HUD shows the gained points and session standings; the host also tracks races, wins, podiums, DNFs and personal-best times per race type.
+
+These points are **session-scoped rewards**, not spendable career currency. A race result is only eligible after the host's official validated finish, not from a client message or a race merely being started; duplicate results and repeat network messages cannot award the same run twice. The scoreboard follows authorized reconnects within the live hosting session. The host remains the authority; this does not add user accounts, backend rankings or an independent anti-cheat service.
+
+**Career rewards remain gated:** Multiplayer wins do not add saved player XP, car XP, cash, part drops, wagers, permanent career completion or achievements. Earlier agreement was to keep those separate until physical cross-house result/latency validation. The current local career remains exclusively governed by the existing single-player race/save system; no saved economy API is called by friend racing. When real network validation and anti-duplication review are complete, career payout can be implemented separately rather than assuming localhost tests prove fairness. Host shutdown clears the temporary standings.
+
+Protocol **v8** includes replicated session standings; old clients must update. Automated `tests/online_friend_standings_test.gd` covers finish order points, repeated-result defense, DNF, session personal bests and rejection of invalid contestants; the existing two-process friend race regressions cover host/guest result replication.
+
 ## Low-latency free-roam synchronization
 
-The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v7** is required on both ends because the admission and world RPCs now also include the friend race controller, alongside resume credentials and sequenced snapshots; older v2/v3/v4/v5/v6 builds are refused at admission.
+The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v8** is required on both ends because the admission and world RPCs now also include the friend race controller, alongside resume credentials and sequenced snapshots; older v2/v3/v4/v5/v6/v7 builds are refused at admission.
 
 - **Local input prediction:** each participant drives immediately on their own machine. The client schedules changed controls at **60 Hz** (previously 30 Hz), and periodically resends held commands at **10 Hz**, safely inside the host's 450 ms stale-command brake. This reduces command batching without transmitting redundant packets sixty times a second when the player holds steady.
 - **Authoritative snapshots:** the player-host simulates guest physics and sends sequenced world state at **30 Hz** (previously 15 Hz), using unreliable ordered ENet packets. Old/out-of-order snapshots are dropped instead of rolling back peers. Remote players' cars still cannot override the host's vehicle physics or economy.
