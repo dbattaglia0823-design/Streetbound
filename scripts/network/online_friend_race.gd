@@ -489,7 +489,7 @@ func _host_offer() -> void:
 		"ready": true, "status": "ready"}}
 	results.clear()
 	_status = "%s opened. Park nearby and select JOIN / READY." % \
-		_event_title(event_kind)
+		_event_title(event_id)
 	_publish()
 
 func _host_set_ready(id: int, ready: bool) -> void:
@@ -1004,7 +1004,7 @@ func _refresh_ui() -> void:
 		return
 	var me := int(session.own_id())
 	var car := _car_for(1 if session.hosting else me)
-	var nearby_event := _nearest_available_event(car) if state == "idle" else event_kind
+	var nearby_event := _nearest_available_event(car) if state == "idle" else event_id
 	var can_stage := not nearby_event.is_empty() if state == "idle" else \
 		_near_start(car)
 	panel.visible = can_stage or state != "idle"
