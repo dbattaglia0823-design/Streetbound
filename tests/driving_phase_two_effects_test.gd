@@ -57,6 +57,11 @@ func run() -> void:
 			Vector2(42,-200))<strong)
 	check("drafting_reacts_to_wheel_alignment",
 		_strength(Vector2.ZERO,.35,Vector2(0,-34))<strong)
+	check("relative_speed_alters_draft_strength",
+		_strength(Vector2.ZERO,0.0,Vector2(0,-34),
+			Vector2(0,-200),0.0,Vector2(0,-33))>
+		_strength(Vector2.ZERO,0.0,Vector2(0,-34),
+			Vector2(0,-200),0.0,Vector2(0,-19)))
 
 	var road := Road.new()
 	root.add_child(road)
@@ -94,6 +99,29 @@ func run() -> void:
 	check("wake_disappears_after_separation",
 		Draft.best_strength(follower)==0.0 and
 		Draft.wake_strength(leader,road,leader.linear_velocity)==0.0)
+	leader.linear_velocity=Vector2.UP*18.0
+	for i in 20:
+		wake._process(.05)
+	check("ambient_wake_invisible_below_fifty_mph",
+		wake.wake_intensity<.005,wake.wake_intensity)
+	leader.linear_velocity=Vector2.UP*27.0
+	for i in 20:
+		wake._process(.05)
+	check("ambient_wake_is_faint_above_sixty_mph",
+		wake.wake_intensity>.055 and wake.wake_intensity<.085,
+		wake.wake_intensity)
+	leader.global_position=Vector2(0,-220)
+	leader.linear_velocity=Vector2.UP*34.0
+	for i in 20:
+		wake._process(.05)
+	check("active_slipstream_brightens_wake_lines",
+		wake.wake_intensity>.8,wake.wake_intensity)
+	leader.global_position=Vector2(1200,-220)
+	for i in 20:
+		wake._process(.05)
+	check("pulling_out_fades_to_faint_ambient_streaks",
+		wake.wake_intensity>=.06 and wake.wake_intensity<.11,
+		wake.wake_intensity)
 	follower.reset_vehicle()
 	check("reset_clears_previous_drafting_advantage",
 		is_equal_approx(follower.draft_strength,0.0))
