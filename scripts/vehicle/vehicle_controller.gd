@@ -48,6 +48,8 @@ var _traffic_impact_id := -1
 var _traffic_impact_cooldown := 0.0
 
 func _ready() -> void:
+	# World ink samples every physical racer (player, AI, remote peers).
+	add_to_group("skidmark_vehicle")
 	config = config.duplicate(true)
 	spawn_transform = transform
 	transmission.reset(config)
