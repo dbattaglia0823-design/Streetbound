@@ -14,7 +14,6 @@ static func settle(before: Dictionary, entries: Dictionary, results: Array,
 	if not SUPPORTED.has(event) or race_id <= 0 or entries.size() < 2 or entries.size() > 4 or event_key.length() > 240:
 		return next
 	var personal_best_key: String = event if event_key.is_empty() else event_key
-		return next
 	var placements: Dictionary = {}
 	for i in results.size():
 		var finisher: Variant = results[i]
