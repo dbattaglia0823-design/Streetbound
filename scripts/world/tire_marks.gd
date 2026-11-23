@@ -51,9 +51,13 @@ func _process(delta: float) -> void:
 			line.modulate = tint
 
 
-func reset_tracks() -> void:
-	# Break current paths without erasing already drawn, bounded marks.
-	_active.clear()
+func reset_tracks(track: int = -1) -> void:
+	# -1 breaks all paths (legacy use); a specific rear-wheel track breaks
+	# only its own path, so one racer coasting cannot stop another's drift.
+	if track < 0:
+		_active.clear()
+	else:
+		_active.erase(track)
 
 
 static func ink_for_surface(surface: String) -> Color:
