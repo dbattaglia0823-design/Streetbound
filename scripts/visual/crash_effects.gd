@@ -4,6 +4,7 @@ extends Node2D
 ## vehicle controller owns collision physics; this node only draws feedback.
 const MIN_TRAVEL_SPEED_MPS := 6.7 # Approximately 15 mph.
 const MIN_CLOSING_SPEED_MPS := 2.2
+const MIN_SCRAPE_SPEED_MPS := 11.0
 const IMPACT_COOLDOWN_SECONDS := 0.20
 const MAX_PARTICLES := 160
 const MAX_FLASHES := 5
@@ -20,8 +21,15 @@ var _rng := RandomNumberGenerator.new()
 ## Pure calculation for the speed gate and scalable effect budgets.
 static func impact_profile(travel_speed_mps: float, closing_speed_mps: float) -> Dictionary:
 	if not is_finite(travel_speed_mps) or not is_finite(closing_speed_mps) or \
-			travel_speed_mps < MIN_TRAVEL_SPEED_MPS or closing_speed_mps < MIN_CLOSING_SPEED_MPS:
+			travel_speed_mps < MIN_TRAVEL_SPEED_MPS or closing_speed_mps < 0.35:
 		return {}
+	# A fast shallow contact against guardrails creates small sparks without
+	# pretending that it broke glass or caused a frontal collision.
+	if closing_speed_mps < MIN_CLOSING_SPEED_MPS:
+		if travel_speed_mps < MIN_SCRAPE_SPEED_MPS:
+			return {}
+		return {"energy":0.12,"sparks":5,"debris":0,"dust":0,
+			"glass":0,"plastic":0,"flash_radius":5.0,"scrape":true}
 	var travel_weight := smoothstep(MIN_TRAVEL_SPEED_MPS, 32.0, travel_speed_mps)
 	var hit_weight := smoothstep(MIN_CLOSING_SPEED_MPS, 19.0, closing_speed_mps)
 	var energy := clampf(travel_weight * 0.48 + hit_weight * 0.52, 0.0, 1.0)
@@ -30,7 +38,10 @@ static func impact_profile(travel_speed_mps: float, closing_speed_mps: float) ->
 		"sparks": mini(36, roundi(3.0 + energy * 33.0)),
 		"debris": mini(14, roundi(1.0 + energy * 13.0)),
 		"dust": mini(8, roundi(1.0 + energy * 7.0)),
-		"flash_radius": 9.0 + 27.0 * energy
+		"glass": mini(6,roundi((energy-.45)*9.0)) if closing_speed_mps > 11.0 else 0,
+		"plastic": mini(6,roundi((energy-.3)*8.0)) if closing_speed_mps > 8.0 else 0,
+		"flash_radius": 9.0 + 27.0 * energy,
+		"scrape":false
 	}
 
 func _ready() -> void:
@@ -66,7 +77,7 @@ func _on_crash_contact(closing_speed_mps: float, contact_point: Vector2,
 	if away.length_squared() < 0.01:
 		away = Vector2.UP
 	var energy: float = float(profile.energy)
-	_cooldown = IMPACT_COOLDOWN_SECONDS
+	_cooldown = 0.10 if bool(profile.get("scrape",false)) else IMPACT_COOLDOWN_SECONDS
 	emitted_bursts += 1
 	# Render a brief contact flash, a little grey body/dust debris, followed
 	# by high-velocity gold/white sparks spreading away from the struck wall.
@@ -79,6 +90,10 @@ func _on_crash_contact(closing_speed_mps: float, contact_point: Vector2,
 		_add_particle("dust",contact_point,away,pre_impact_velocity_mps,energy)
 	for i in int(profile.debris):
 		_add_particle("debris",contact_point,away,pre_impact_velocity_mps,energy)
+	for i in int(profile.glass):
+		_add_particle("glass",contact_point,away,pre_impact_velocity_mps,energy)
+	for i in int(profile.plastic):
+		_add_particle("plastic",contact_point,away,pre_impact_velocity_mps,energy)
 	for i in int(profile.sparks):
 		_add_particle("spark",contact_point,away,pre_impact_velocity_mps,energy)
 	while particles.size() > MAX_PARTICLES:
@@ -100,6 +115,16 @@ func _add_particle(kind: String,point: Vector2,normal: Vector2,
 		life = _rng.randf_range(0.13,0.32) * (0.75 + energy * 0.45)
 		width = _rng.randf_range(1.0,2.4)
 		tint = Color(1.0,_rng.randf_range(0.62,0.93),_rng.randf_range(0.20,0.51))
+	elif kind == "glass":
+		speed = _rng.randf_range(60.0,155.0) * (0.6 + energy)
+		life = _rng.randf_range(.32,.70)
+		width = _rng.randf_range(1.4,2.9)
+		tint = Color(.64,.88,.96)
+	elif kind == "plastic":
+		speed = _rng.randf_range(28.0,105.0) * (0.6 + energy)
+		life = _rng.randf_range(.30,.60)
+		width = _rng.randf_range(2.0,3.6)
+		tint = Color(.23,.29,.33)
 	elif kind == "debris":
 		speed = _rng.randf_range(35.0,115.0) * (0.7 + energy)
 		life = _rng.randf_range(0.3,0.72)
@@ -166,7 +191,7 @@ func _draw() -> void:
 		tint.a = (1.0-t)*(1.0-t)*0.2
 		draw_circle(Vector2(item["point"]),float(item["width"])*(1.0+t*1.8),tint)
 	for item in particles:
-		if str(item["kind"]) != "debris":continue
+		if str(item["kind"]) not in ["debris","glass","plastic"]:continue
 		var t: float = float(item["age"])/float(item["life"])
 		var velocity: Vector2 = item["velocity"]
 		var direction := velocity.normalized() if velocity.length_squared() > 0.001 else Vector2.UP

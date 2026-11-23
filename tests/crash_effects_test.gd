@@ -48,8 +48,11 @@ func run() -> void:
 		fx.get("particles").is_empty() and fx.get("flashes").is_empty() and
 		int(fx.get("emitted_bursts"))==0)
 	car.crash_contact.emit(1.5,Vector2(225,1000),Vector2.LEFT,Vector2.RIGHT*18.0)
-	check("fast_scrape_stays_effect_free",fx.get("particles").is_empty())
+	check("fast_scrape_creates_only_small_guardrail_sparks",
+		fx.get("particles").size()>0 and
+		fx.get("particles").all(func(p):return p.kind=="spark"))
 	var origin:=Vector2(225,1000)
+	fx.call("_process",0.11)
 	car.crash_contact.emit(10.0,origin,Vector2.LEFT,Vector2.RIGHT*18.0)
 	var particles: Array=fx.get("particles")
 	check("fast_contact_has_sparks_debris_smoke_and_flash",
