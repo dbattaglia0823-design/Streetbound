@@ -37,8 +37,8 @@ func _process(delta: float) -> void:
 		_measured_wake = Drafting.wake_strength(vehicle,world,velocity) \
 			if speed >= Drafting.START_SPEED_MPS else 0.0
 	var following := 0.0
-	if vehicle is VehicleController2D:
-		following = (vehicle as VehicleController2D).draft_strength
+	if vehicle.has_method("drafting_effect_strength"):
+		following = float(vehicle.call("drafting_effect_strength"))
 	var target := _measured_wake
 	var easing := 1.0-exp(-8.0*dt)
 	var previous := wake_intensity
