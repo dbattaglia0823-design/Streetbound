@@ -49,6 +49,16 @@ var street_navigation: RefCounted
 var street_gates: Array[Dictionary] = []
 var street_length_m := 0.0
 var event_kind := "drag"
+var event_id := ""
+var race_events: Dictionary = {} # Trusted local world routes, never guest-supplied.
+var active_title := ""
+var active_laps := 1
+var active_grid: Dictionary = {}
+var active_stage_radius_m := STAGE_RADIUS_M
+var active_gate_radius_m := STREET_GATE_RADIUS_M
+var active_time_limit_ms := TIME_LIMIT_MS
+var active_off_route_limit_m := STREET_OFF_ROUTE_LIMIT_M
+var authored_event := false
 var race_guidance: Node2D
 var race_id := 0
 var state := "idle"
@@ -116,7 +126,35 @@ func _ready() -> void:
 			street_length_m = float(street_navigation.get("length_m"))
 			street_gates = make_street_gates(street_navigation)
 			street_available = street_length_m >= 600.0 and street_gates.size() >= 8
-	available = drag_available or circuit_available or street_available
+	# Built-in locations are catalog entries just like published map races.
+	if drag_available:
+		race_events["drag"] = {"kind":"drag", "title":"ASHFORD / QUARTER MILE",
+			"start":drag_start_m, "direction":drag_direction,
+			"limit_ms":TIME_LIMIT_MS}
+	if circuit_available:
+		race_events["circuit"] = {"kind":"circuit",
+			"title":"ASHFORD GRAND CIRCUIT / FULL LAP",
+			"start":circuit_start_m, "direction":circuit_direction,
+			"navigation":circuit_navigation, "gates":circuit_gates,
+			"length":circuit_length_m, "limit_ms":CIRCUIT_TIMEOUT_MS}
+	if street_available:
+		race_events["street"] = {"kind":"street", "title":"LARKSPUR / STREET SPRINT",
+			"start":street_start_m, "direction":street_direction,
+			"navigation":street_navigation, "gates":street_gates,
+			"length":street_length_m, "limit_ms":STREET_TIMEOUT_MS}
+	var authored: Variant = online_world.get_parent().get("extra_races")
+	if authored is Array:
+		for race_node in authored:
+			if not is_instance_valid(race_node) or not bool(race_node.get("available")):
+				continue
+			var definition: Variant = race_node.get("definition")
+			if not definition is Dictionary or not str(definition.get("id","")).begins_with("race-"):
+				continue
+			var record: Dictionary = authored_event_spec(definition,
+				race_node.get("navigation") as RefCounted)
+			if not record.is_empty() and not race_events.has(str(definition.id)):
+				race_events[str(definition.id)] = record
+	available = not race_events.is_empty()
 	if not available:
 		push_warning("Friend race unavailable: supported routes not present")
 		return
@@ -216,12 +254,12 @@ func input_locked(peer_id: int) -> bool:
 
 
 static func make_circuit_gates(nav: RefCounted,
-		spacing_m: float = CIRCUIT_GATE_SPACING_M) -> Array[Dictionary]:
+		spacing_m: float = CIRCUIT_GATE_SPACING_M, min_length_m: float = 1000.0) -> Array[Dictionary]:
 	var gates: Array[Dictionary] = []
 	if nav == null:
 		return gates
 	var length: float = float(nav.get("length_m"))
-	if length < 1000.0 or not bool(nav.get("closed")):
+	if length < min_length_m or not bool(nav.get("closed")):
 		return gates
 	var count := clampi(ceili(length / maxf(50.0, spacing_m)), 8, 128)
 	for index in range(1, count + 1):
@@ -238,12 +276,12 @@ static func make_circuit_gates(nav: RefCounted,
 ## A street sprint is an open route: each gate must be crossed in order and
 ## only in the direction of traffic. The final gate is the physical finish.
 static func make_street_gates(nav: RefCounted,
-		spacing_m: float = STREET_GATE_SPACING_M) -> Array[Dictionary]:
+		spacing_m: float = STREET_GATE_SPACING_M, min_length_m: float = 600.0) -> Array[Dictionary]:
 	var gates: Array[Dictionary] = []
 	if nav == null or bool(nav.get("closed")):
 		return gates
 	var length: float = float(nav.get("length_m"))
-	if length < 600.0:
+	if length < min_length_m:
 		return gates
 	var count := clampi(ceili(length / maxf(50.0, spacing_m)), 8, 128)
 	for index in range(1, count + 1):
@@ -255,6 +293,56 @@ static func make_street_gates(nav: RefCounted,
 			return []
 		gates.append({"position": center, "forward": forward})
 	return gates
+
+## Convert a map-authored route into a host-verifiable multiplayer event.
+## Coordinates are taken from the locally loaded map, never from an RPC.
+static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dictionary:
+	if nav == null or not str(definition.get("id","")).begins_with("race-"):
+		return {}
+	var mode: String = str(definition.get("mode",""))
+	if mode not in ["circuit","sprint"] or bool(nav.get("closed")) != (mode=="circuit"):
+		return {}
+	var length: float = float(nav.get("length_m"))
+	if not is_finite(length) or length < 120.0:
+		return {}
+	var kind := "circuit" if mode == "circuit" else "street"
+	var gates: Array[Dictionary] = make_circuit_gates(nav, CIRCUIT_GATE_SPACING_M,
+		120.0) if mode == "circuit" else make_street_gates(nav,
+		STREET_GATE_SPACING_M, 120.0)
+	if gates.size() < 8:
+		return {}
+	var grid: Dictionary = definition.duplicate(true)
+	var start_pose: Dictionary = Grid.player_slot(grid)
+	var start: Vector2 = Grid.point(start_pose)
+	var direction: Vector2 = Vector2.UP.rotated(Grid.angle(start_pose))
+	if not start.is_finite() or direction.length_squared() < 0.9:
+		return {}
+	var laps: int = clampi(int(definition.get("laps",1)), 1, 20) if mode=="circuit" else 1
+	var requested_limit: float = float(definition.get("time_limit",0))
+	var allowed_limit_ms: int = clampi(roundi(requested_limit * 1000.0),
+		30000, 7200000) if requested_limit > 0.0 else clampi(
+		roundi(length * float(laps) / 12.0 * 1000.0), 90000, 7200000)
+	var checkpoint_radius: float = clampf(
+		float(definition.get("checkpoint_radius",16)), 4.0, 60.0)
+	return {"kind":kind, "title":str(definition.get("name","Custom Race")).left(80),
+		"start":start, "direction":direction, "navigation":nav, "gates":gates,
+		"length":length, "grid":grid, "laps":laps,
+		"stage_radius":maxf(STAGE_RADIUS_M, float(definition.get("start_radius",8))),
+		"gate_radius":checkpoint_radius,
+		"off_route_limit":maxf(STREET_OFF_ROUTE_LIMIT_M, checkpoint_radius * 1.35),
+		"limit_ms":allowed_limit_ms}
+
+## Prefer player/enemy start poses authored in the map. Fill absent AI
+## positions with the editor's formation rules for time-trial friend races.
+static func authored_grid_pose(definition: Dictionary, index: int) -> Dictionary:
+	var player_pose: Dictionary = Grid.player_slot(definition)
+	if index == 0:
+		return player_pose
+	var opponents: Array = definition.get("enemy_starts",[])
+	if index - 1 < opponents.size() and opponents[index - 1] is Dictionary:
+		return opponents[index - 1]
+	return Grid.default_enemy(player_pose, index - 1,
+		str(definition.get("formation","single_file")))
 
 ## Centerline-only safe stagger, never four cars abreast on narrow streets.
 static func street_grid_pose(nav: RefCounted, index: int, count: int) -> Dictionary:
