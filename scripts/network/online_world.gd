@@ -24,6 +24,7 @@ var peer_models: Dictionary = {}
 # Host-authored cosmetic brake/reverse indicators. These never drive physics
 # or reward logic, and older snapshots without the optional field still work.
 var peer_light_states: Dictionary = {}
+var peer_exhaust_states: Dictionary = {}
 var peer_labels: Dictionary = {}
 var targets: Dictionary = {}
 var histories: Dictionary = {}
@@ -240,6 +241,7 @@ func _remove_remote(id: int) -> void:
 	peer_labels.erase(id)
 	peer_models.erase(id)
 	peer_light_states.erase(id)
+	peer_exhaust_states.erase(id)
 	targets.erase(id)
 	histories.erase(id)
 	commands_at.erase(id)
@@ -267,13 +269,16 @@ func _physics_process(dt: float) -> void:
 			_snapshot_sequence += 1
 			var states: Dictionary = {1: _car_state(local_vehicle)}
 			var lamps: Dictionary = {1: _lamp_state(local_vehicle)}
+			var exhaust: Dictionary = {1: _exhaust_state(local_vehicle)}
 			for id in peer_cars:
 				var remote: VehicleController2D=peer_cars[id] as VehicleController2D
 				states[id] = _car_state(remote)
 				lamps[id] = _lamp_state(remote)
+				exhaust[id] = _exhaust_state(remote)
 			# Reserved negative key: existing six-value movement snapshots and
 			# protocol stay compatible; no vehicle may have a negative peer ID.
 			states[-1] = lamps
+			states[-2] = exhaust # Optional cosmetic metadata, never physics.
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
@@ -331,6 +336,17 @@ func _process(dt: float) -> void:
 					car.brake=1.0 if bool(lamp[0]) else 0.0
 					car.handbrake=0.0
 					car.reversing=bool(lamp[1])
+				var exhaust_state: Array=peer_exhaust_states.get(id,[])
+				if exhaust_state.size()==5:
+					# Host-driven cosmetics for render-only remote cars.
+					car.nitrous_active=bool(exhaust_state[0])
+					car.boost_psi=float(exhaust_state[1])
+					car.throttle=float(exhaust_state[2])
+					car.transmission.rpm=float(exhaust_state[3])
+					var rendered_gear: int=int(exhaust_state[4])
+					if rendered_gear != car.transmission.gear:
+						car.transmission.gear=rendered_gear
+						car.transmission.shifted.emit(rendered_gear)
 				# Only remote visuals are interpolated. Never client-drive another
 				# player's authoritative physics or position via RPC.
 				car.global_position = state[0]
@@ -381,6 +397,22 @@ static func _lamp_state(car: VehicleController2D) -> Array:
 	return [not car.reversing and maxf(car.brake,car.handbrake*.65)>.12,
 		car.reversing]
 
+static func _exhaust_state(car: VehicleController2D) -> Array:
+	return [car.nitrous_active,car.boost_psi,car.throttle,
+		car.transmission.rpm,car.transmission.gear]
+
+static func valid_exhaust_state(value: Variant) -> bool:
+	if not value is Array or value.size()!=5 or typeof(value[0])!=TYPE_BOOL:
+		return false
+	for i in [1,2,3]:
+		if not (value[i] is float or value[i] is int) or \
+				not is_finite(float(value[i])):
+			return false
+	return value[1]>=0.0 and value[1]<=150.0 and \
+		value[2]>=0.0 and value[2]<=1.0 and \
+		value[3]>=0.0 and value[3]<=30000.0 and \
+		value[4] is int and value[4]>=1 and value[4]<=12
+
 @rpc("any_peer", "unreliable_ordered")
 func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
 	if not online_session.hosting:
@@ -420,6 +452,14 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 			if value is Array and value.size()==2 and \
 					typeof(value[0])==TYPE_BOOL and typeof(value[1])==TYPE_BOOL:
 				peer_light_states[int(peer_id)]=value.duplicate()
+	var exhaust_payload: Variant=states.get(-2,{})
+	if exhaust_payload is Dictionary:
+		for peer_id in exhaust_payload:
+			if not peer_id is int or not online_session.players.has(peer_id):
+				continue
+			var value: Variant=exhaust_payload[peer_id]
+			if valid_exhaust_state(value):
+				peer_exhaust_states[int(peer_id)]=value.duplicate()
 	for id in states:
 		if not online_session.players.has(id) or not states[id] is Array or \
 				(states[id] as Array).size() != 6:
