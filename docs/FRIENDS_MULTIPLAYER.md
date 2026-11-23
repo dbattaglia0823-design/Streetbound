@@ -126,7 +126,20 @@ The standard first-to-fourth payouts are:
 | 3rd | $700 | 310 | 220 | 40% |
 | 4th | $400 | 190 | 130 | 20% |
 
-Circuit rewards are multiplied by **1.25** and street sprint rewards by **1.10**, rounded to the nearest integer. The prize schedule is intentionally **game-defined and capped**. A custom map cannot advertise an arbitrary million-dollar multiplayer award through its single-player race properties; those remain separate. Upgrade items use the existing race-category loot pool, seeded deterministically by the hosted run and raced car, with rarity limited by car level. If the player's inventory has reached the 2,500-item limit, no additional part is generated. Cash and XP still apply up to existing progression caps.
+For unmodified races, circuit rewards are multiplied by **1.25** and street sprint rewards by **1.10**, rounded to the nearest integer. Map authors can now explicitly override these defaults on a race-by-race basis; solo race rewards remain separate. Upgrade items use the existing race-category loot pool, seeded deterministically by the hosted run and raced car, with rarity limited by car level. If the player's inventory has reached the 2,500-item limit, no additional part is generated. Cash and XP still apply up to existing progression caps.
+
+### Configuring Map Builder multiplayer prizes in the race editor
+
+Open **Map Builder → select or place a race → Edit Race... → Multiplayer Rewards**, inside the same existing race settings window. The **Set Multiplayer Rewards...** button under Race Setup's solo reward fields opens that tab directly. Check **Use custom multiplayer prizes for this race** and set:
+
+- **First-place cash:** $0–$20,000.
+- **First-place driver XP:** 0–5,000.
+- **First-place vehicle XP:** 0–5,000.
+- **First-place upgrade drop chance:** 0–100%.
+
+A live preview shows the **1st–4th place** cash, XP and part odds. The first-place amounts are exact; 2nd–4th scale individually using the existing finishing-position ratios. Part odds scale from the specified first-place chance using 70%, 40% and 20% for lower places. A zero amount disables that specific reward; a zero drop chance disables upgrade parts for that race.
+
+**Unchecking the override leaves that race on the standard multiplayer payouts**, including existing published maps and Morrow Coast's built-in events. Existing solo rewards, career first-win bonuses and event unlock requirements are unchanged. Save Race Settings, then **Save to Game / publish** the edited map; distribute the **same compiled map build** to every participant. Players cannot edit prizes mid-session, and multiplayer money/XP uses locally validated map settings rather than guest-supplied RPC amounts. Invalid, non-integer, missing or out-of-cap custom prizes are rejected by the native editor, browser import and production world baker.
 
 **Eligibility and duplicate protection:** The lobby host is still the sole authority for finish timing and every ordered directional checkpoint; clients cannot submit a winning result or a payout amount. Before settlement, **all** participants must be finished or DNF. Only finishers are rewarded; DNFs, forfeits, spectators, aborted races, and unfinished runs earn nothing. The host transmits one settled result to everyone, and each participant independently calculates their fixed rewards and atomically writes their own save. A distinct random 192-bit lobby ID and a monotonically increasing host race ID are saved in `multiplayer_claims`, so replicated result packets, reconnections and app restarts cannot pay the same run twice. A missing/invalid save fails closed, returning a visible error rather than silently granting a reward.
 
