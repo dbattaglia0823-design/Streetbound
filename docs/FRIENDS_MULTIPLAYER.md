@@ -95,7 +95,7 @@ All synchronized race types (Ashford drag, full Ashford Circuit, Larkspur street
 
 These points are **session-scoped rewards**, not spendable career currency. A race result is only eligible after the host's official validated finish, not from a client message or a race merely being started; duplicate results and repeat network messages cannot award the same run twice. The scoreboard follows authorized reconnects within the live hosting session. The host remains the authority; this does not add user accounts, backend rankings or an independent anti-cheat service.
 
-**Career rewards remain gated:** Multiplayer wins do not add saved player XP, car XP, cash, part drops, wagers, permanent career completion or achievements. Earlier agreement was to keep those separate until physical cross-house result/latency validation. The current local career remains exclusively governed by the existing single-player race/save system; no saved economy API is called by friend racing. When real network validation and anti-duplication review are complete, career payout can be implemented separately rather than assuming localhost tests prove fairness. Host shutdown clears the temporary standings.
+**Updated in protocol v10:** Cash, driver/car XP and upgrade-item prizes are now credited to the local career after a host-validated finish. See the persistent rewards section below. Wagers and permanent career event completion/achievements remain separate; friend session standings still reset when the host leaves.
 
 Protocol **v8** introduced replicated session standings; **v9** additionally binds each race to its compiled map and event ID. Older clients must update. Automated `tests/online_friend_standings_test.gd` covers finish order points, repeated-result defense, DNF, session personal bests and rejection of invalid contestants; the existing two-process friend race regressions cover host/guest result replication.
 
@@ -109,13 +109,36 @@ Multiplayer no longer depends on launching the bundled Morrow Coast map. Publish
 
 A published map with **no race events** still supports online free roam. The Map Builder's development-only **Test Drive** remains local and is intentionally excluded from multiplayer. Maps must be **published and packaged into both installations**; this work does **not** stream or download unknown custom maps to friends, transfer draft files, or allow mid-session map switching. Every player must have the same build. For a changed map, publish a new build and start a fresh lobby.
 
-**Session scoring across map replacements:** the shared 10/7/5/3 finish-point scoreboard remains temporary to the hosted session. Personal bests are distinguished by published world ID, archive hash and race ID, so different race courses cannot overwrite one another. No permanent cash, XP, item drops, wagers, achievements or long-term friends leaderboard are enabled until verified WAN playtesting and a secure persistence/identity design.
+**Session scoring across map replacements:** the shared 10/7/5/3 finish-point scoreboard remains temporary to the hosted session. Personal bests are distinguished by published world ID, archive hash and race ID, so different race courses cannot overwrite one another. Career cash, XP and item drops are now separately saved under protocol v10; wagers, achievements and a long-term friend leaderboard are not implemented.
 
 Automated coverage includes `tests/online_map_race_rules_test.gd` (map hash mismatch, authored circuits/sprints, starting grid, per-event results) and `tests/online_published_world_probe.gd` (two separate Godot processes in the fully published Map Builder world, joining the same ENet session and host-validating an authored sprint). These are localhost runs, not proof of same-house or different-house latency.
 
+## Persistent cash, driver/car XP and garage parts (protocol v10)
+
+**Friend races now pay career rewards after host-confirmed results.** In any private 2–4-player lobby, a validated finish of an Ashford drag, Ashford circuit, Larkspur sprint, or **published Map Builder** circuit/sprint earns the local driver **cash**, **driver XP**, **XP for the car they staged with**, and a chance at one actual garage upgrade part. The existing 10/7/5/3 session-points standings continue unchanged. Results and prizes are visible in the friend-race overlay; the normal balance, XP HUD and garage inventory update from the existing VehicleOwnership save model.
+
+The standard first-to-fourth payouts are:
+
+| Place | Drag cash | Driver XP | Car XP | Upgrade item chance |
+|---|---:|---:|---:|---:|
+| 1st | $1,800 | 780 | 560 | 100% |
+| 2nd | $1,100 | 490 | 360 | 70% |
+| 3rd | $700 | 310 | 220 | 40% |
+| 4th | $400 | 190 | 130 | 20% |
+
+Circuit rewards are multiplied by **1.25** and street sprint rewards by **1.10**, rounded to the nearest integer. The prize schedule is intentionally **game-defined and capped**. A custom map cannot advertise an arbitrary million-dollar multiplayer award through its single-player race properties; those remain separate. Upgrade items use the existing race-category loot pool, seeded deterministically by the hosted run and raced car, with rarity limited by car level. If the player's inventory has reached the 2,500-item limit, no additional part is generated. Cash and XP still apply up to existing progression caps.
+
+**Eligibility and duplicate protection:** The lobby host is still the sole authority for finish timing and every ordered directional checkpoint; clients cannot submit a winning result or a payout amount. Before settlement, **all** participants must be finished or DNF. Only finishers are rewarded; DNFs, forfeits, spectators, aborted races, and unfinished runs earn nothing. The host transmits one settled result to everyone, and each participant independently calculates their fixed rewards and atomically writes their own save. A distinct random 192-bit lobby ID and a monotonically increasing host race ID are saved in `multiplayer_claims`, so replicated result packets, reconnections and app restarts cannot pay the same run twice. A missing/invalid save fails closed, returning a visible error rather than silently granting a reward.
+
+**Trust boundary:** This is a private, player-hosted game, **not a tamper-proof online economy**. A malicious host can falsify their own authoritative results, or players can edit their local save; the host cannot become an independently trusted anti-cheat referee without a dedicated trusted service and account identities. Play paid multiplayer with trusted friends. This feature does not provide a global leaderboard, authenticated accounts, wagers, currency exchange, or automatic map downloads.
+
+**Delivery limits:** A guest must receive the host's final reliable results packet before leaving the session to save their prize. A disconnected guest who forfeits is DNF and receives no prize. A host closing the lobby before sending a completed result can prevent the guest receiving it; there is no backend mailbox or delayed offline claim system. Godot localhost tests do not substitute for real two-house playtesting.
+
+Tests: `tests/online_friend_rewards_test.gd` verifies fixed caps, result eligibility, part drops, per-car XP, save/reload and replay protection. `tests/online_friend_rewards_world_probe.gd` launches two real Godot ENet processes with **separate user-data directories** in a published Map Builder world to exercise final result delivery and independent host/guest career saves. This test injects terminal records after real staging/countdown to isolate the payout path; the preexisting drag, circuit, and street tests validate physical finishes and shortcut checks.
+
 ## Low-latency free-roam synchronization
 
-The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v9** is required on both ends. Admission now checks the exact compiled world archive SHA-256 and map ID in addition to the protocol, private invite and reconnect credential. Older builds are refused.
+The game remains **player hosted** (no always-on game server) and retains the exact same 120 Hz vehicle physics for local and hosted drivers. Multiplayer protocol **v10** is required on both ends. Admission checks the exact compiled world archive SHA-256 and map ID in addition to the protocol, private invite and reconnect credential; an admitted friend also receives the unique lobby ID required for durable payouts. Older builds are refused.
 
 - **Local input prediction:** each participant drives immediately on their own machine. The client schedules changed controls at **60 Hz** (previously 30 Hz), and periodically resends held commands at **10 Hz**, safely inside the host's 450 ms stale-command brake. This reduces command batching without transmitting redundant packets sixty times a second when the player holds steady.
 - **Authoritative snapshots:** the player-host simulates guest physics and sends sequenced world state at **30 Hz** (previously 15 Hz), using unreliable ordered ENet packets. Old/out-of-order snapshots are dropped instead of rolling back peers. Remote players' cars still cannot override the host's vehicle physics or economy.
