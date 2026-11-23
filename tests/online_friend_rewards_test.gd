@@ -49,6 +49,53 @@ func _run() -> void:
 	check("duplicate_or_unordered_results_cannot_forge_places",
 		Rewards.confirmed_finisher(entries,[finals[0],finals[0]],1).is_empty() and
 		Rewards.confirmed_finisher(entries,[finals[1],finals[0]],1).is_empty())
+	var custom: Dictionary={
+		"multiplayer_reward_custom":true,
+		"multiplayer_reward_cash":8600,
+		"multiplayer_reward_player_xp":2600,
+		"multiplayer_reward_car_xp":1300,
+		"multiplayer_reward_part_chance":0}
+	check("custom_multiplayer_first_place_matches_authored_dollars_and_xp",
+		Rewards.valid_settings(custom) and
+		Rewards.payouts("street",1,custom)=={
+			"cash":8600,"player_xp":2600,"car_xp":1300})
+	var second_custom: Dictionary=Rewards.payouts("street",2,custom)
+	check("lower_places_scale_each_currency_using_original_place_ratios",
+		int(second_custom.get("cash",-1))==roundi(8600.0*1100.0/1800.0) and
+		int(second_custom.get("player_xp",-1))==roundi(2600.0*490.0/780.0) and
+		int(second_custom.get("car_xp",-1))==roundi(1300.0*360.0/560.0))
+	check("authored_zero_drop_chance_disables_all_prize_parts",
+		Rewards.part_chance(1,custom)==0 and
+		Rewards.part_chance(3,custom)==0 and
+		not Rewards.part_roll(session_id,4,"audi-rs3",1,custom))
+	check("custom_prize_bounds_and_boolean_are_validated_at_runtime",
+		not Rewards.valid_settings({"multiplayer_reward_custom":true,
+			"multiplayer_reward_cash":20001,
+			"multiplayer_reward_player_xp":0,
+			"multiplayer_reward_car_xp":0,
+			"multiplayer_reward_part_chance":100}) and
+		not Rewards.valid_settings({"multiplayer_reward_custom":1}) and
+		not Rewards.valid_settings({"multiplayer_reward_custom":true}) and
+		Rewards.payouts("street",1,{}).get("cash",0)>0)
+	var custom_wallet:=Ownership.new(false)
+	var custom_cash_before: int=custom_wallet.balance
+	var custom_award: Dictionary=custom_wallet.record_multiplayer_race(
+		"c".repeat(48),1,1,32000,"street",Ownership.STARTER_ID,custom)
+	check("career_applies_authored_prize_values_without_solo_reward_leakage",
+		custom_award.get("result","")=="completed" and
+		int(custom_award.get("cash",-1))==8600 and
+		int(custom_award.get("player_xp",-1))==2600 and
+		int(custom_award.get("car_xp",-1))==1300 and
+		custom_wallet.balance==custom_cash_before+8600 and
+		custom_wallet.upgrade_inventory.is_empty())
+	var invalid_eco:=Ownership.new(false)
+	check("invalid_authored_prizes_cannot_mutate_inventory_or_currency",
+		invalid_eco.record_multiplayer_race("d".repeat(48),1,1,32000,
+			"street",Ownership.STARTER_ID,
+			{"multiplayer_reward_custom":true,
+			 "multiplayer_reward_cash":100000000}).get("result","")=="invalid" and
+		invalid_eco.balance==Ownership.STARTING_CASH and
+		invalid_eco.player_xp==0 and invalid_eco.upgrade_inventory.is_empty())
 	var economy := Ownership.new(false)
 	var old_balance: int = economy.balance
 	var winner: Dictionary = economy.record_multiplayer_race(
