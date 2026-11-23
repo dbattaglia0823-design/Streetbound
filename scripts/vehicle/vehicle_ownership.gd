@@ -448,6 +448,10 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 	var payout: Dictionary = OnlineRewards.payouts(kind,place,race_settings)
 	if payout.is_empty():
 		return {"result":"invalid"}
+	# Even without gameplay payout caps, never wrap the native 64-bit
+	# balance if an extremely large authored prize is earned repeatedly.
+	if balance > 9223372036854775807 - int(payout.cash):
+		return {"result":"balance_overflow"}
 	var prior_balance := balance
 	var prior_player_xp := player_xp
 	var prior_car_xp: int = int(car_xp.get(car_id,0))
