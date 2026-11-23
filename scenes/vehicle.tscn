@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 [ext_resource type="Script" path="res://scripts/vehicle/vehicle_controller.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/sport_coupe.tres" id="2"]
 [ext_resource type="Texture2D" path="res://assets/player_car.png" id="3"]
@@ -7,6 +7,8 @@
 [ext_resource type="Resource" path="res://resources/appearance/porsche_coupe.tres" id="6"]
 [ext_resource type="Script" path="res://scripts/visual/car_ground_shadow.gd" id="7"]
 [ext_resource type="Script" path="res://scripts/visual/crash_effects.gd" id="8"]
+[ext_resource type="Script" path="res://scripts/visual/vehicle_lights.gd" id="9"]
+[ext_resource type="Script" path="res://scripts/visual/driving_dust.gd" id="10"]
 [sub_resource type="CapsuleShape2D" id="Shape"]
 radius = 18.5
 height = 86.0
@@ -21,9 +23,16 @@ shape = SubResource("Shape")
 script = ExtResource("8")
 top_level = true
 z_index = 12
+[node name="DrivingDust" type="Node2D" parent="."]
+script = ExtResource("10")
+top_level = true
+z_as_relative = false
+z_index = 7
 [node name="GroundShadow" type="Node2D" parent="."]
 script = ExtResource("7")
 z_index = -2
+[node name="RearLights" type="Node2D" parent="."]
+script = ExtResource("9")
 [node name="Art" type="Node2D" parent="."]
 script = ExtResource("4")
 [node name="Wheels" type="Node2D" parent="Art"]

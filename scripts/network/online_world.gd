@@ -21,6 +21,9 @@ var local_vehicle: VehicleController2D
 var world: Node2D
 var peer_cars: Dictionary = {}
 var peer_models: Dictionary = {}
+# Host-authored cosmetic brake/reverse indicators. These never drive physics
+# or reward logic, and older snapshots without the optional field still work.
+var peer_light_states: Dictionary = {}
 var peer_labels: Dictionary = {}
 var targets: Dictionary = {}
 var histories: Dictionary = {}
@@ -236,6 +239,7 @@ func _remove_remote(id: int) -> void:
 	peer_cars.erase(id)
 	peer_labels.erase(id)
 	peer_models.erase(id)
+	peer_light_states.erase(id)
 	targets.erase(id)
 	histories.erase(id)
 	commands_at.erase(id)
@@ -262,8 +266,14 @@ func _physics_process(dt: float) -> void:
 			_snapshot_elapsed = fmod(_snapshot_elapsed, SNAPSHOT_RATE)
 			_snapshot_sequence += 1
 			var states: Dictionary = {1: _car_state(local_vehicle)}
+			var lamps: Dictionary = {1: _lamp_state(local_vehicle)}
 			for id in peer_cars:
-				states[id] = _car_state(peer_cars[id] as VehicleController2D)
+				var remote: VehicleController2D=peer_cars[id] as VehicleController2D
+				states[id] = _car_state(remote)
+				lamps[id] = _lamp_state(remote)
+			# Reserved negative key: existing six-value movement snapshots and
+			# protocol stay compatible; no vehicle may have a negative peer ID.
+			states[-1] = lamps
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
@@ -316,6 +326,11 @@ func _process(dt: float) -> void:
 			var state: Array = RemoteBuffer.sample(
 				samples, now_ms, _interpolation_delay_ms)
 			if state.size() == 6:
+				var lamp: Array=peer_light_states.get(id,[])
+				if lamp.size()==2:
+					car.brake=1.0 if bool(lamp[0]) else 0.0
+					car.handbrake=0.0
+					car.reversing=bool(lamp[1])
 				# Only remote visuals are interpolated. Never client-drive another
 				# player's authoritative physics or position via RPC.
 				car.global_position = state[0]
@@ -362,6 +377,10 @@ static func _car_state(car: VehicleController2D) -> Array:
 	return [car.global_position, car.rotation, car.linear_velocity,
 		car.steering, car.longitudinal_speed, car.yaw_rate]
 
+static func _lamp_state(car: VehicleController2D) -> Array:
+	return [not car.reversing and maxf(car.brake,car.handbrake*.65)>.12,
+		car.reversing]
+
 @rpc("any_peer", "unreliable_ordered")
 func _submit_controls(input_command: Vector4, nitrous: bool) -> void:
 	if not online_session.hosting:
@@ -392,6 +411,15 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		return
 	_last_received_sequence = sequence
 	var now_ms := Time.get_ticks_msec()
+	var lamp_payload: Variant=states.get(-1,{})
+	if lamp_payload is Dictionary:
+		for peer_id in lamp_payload:
+			if not peer_id is int or not online_session.players.has(peer_id):
+				continue
+			var value: Variant=lamp_payload[peer_id]
+			if value is Array and value.size()==2 and \
+					typeof(value[0])==TYPE_BOOL and typeof(value[1])==TYPE_BOOL:
+				peer_light_states[int(peer_id)]=value.duplicate()
 	for id in states:
 		if not online_session.players.has(id) or not states[id] is Array or \
 				(states[id] as Array).size() != 6:

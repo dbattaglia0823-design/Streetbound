@@ -4,6 +4,7 @@ extends CharacterBody2D
 ## Player impacts can displace cars; TrafficFlow then returns them to a legal
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
+const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const MODEL_PATHS := [
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
@@ -34,6 +35,8 @@ var recovering := false
 var recovery_velocity := Vector2.ZERO
 var impact_count := 0
 var model_loaded := false
+var brake_lights_on := false
+var reverse_lights_on := false
 
 static func model_count() -> int:
 	return MODEL_PATHS.size()
@@ -57,6 +60,10 @@ func _ready() -> void:
 	shape_node.shape = shape
 	add_child(shape_node)
 	_add_sprite()
+	var lights := Node2D.new()
+	lights.name = "RearLights"
+	lights.set_script(Lights)
+	add_child(lights)
 	queue_redraw()
 
 

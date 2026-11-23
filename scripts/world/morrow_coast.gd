@@ -3,6 +3,7 @@ extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
+const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
 const MapGeometry = preload("res://scripts/world/map_geometry.gd")
 const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
@@ -600,30 +601,26 @@ func location_at(position_px: Vector2) -> Dictionary:
 	return result
 
 func _physics_process(dt: float) -> void:
-	if not initialization_complete or not vehicle:
-		return
-	if vehicle.linear_velocity.length() < 3.0:
-		tire_marks.reset_tracks()
+	if not initialization_complete or not is_instance_valid(vehicle):
 		return
 	mark_clock += dt
-	if mark_clock < 0.035:
+	if mark_clock < .035:
 		return
-	mark_clock = 0.0
-	var slide := smoothstep(0.08,0.34,absf(vehicle.slip_angle))
-	var loss := maxf(slide,maxf(vehicle.handbrake,maxf(vehicle.handbrake_grip_loss,vehicle.wheel_spin*1.8)))
-	if loss < 0.13 and vehicle.surface == "ASPHALT":
-		tire_marks.reset_tracks()
-		return
-	# Sample the actual fitted rear wheel anchors (not a generic 16px offset),
-	# even for long trucks and narrow sports cars. Visual curb lift never
-	# changes these true contact coordinates.
-	var rig := vehicle.get_node_or_null("Art/Wheels")
-	for track in 2:
-		var wheel: Vector2 = Vector2(-16.0,25.0) if track == 0 else Vector2(16.0,25.0)
-		if is_instance_valid(rig) and rig.has_method("wheel_anchor"):
-			wheel = rig.wheel_anchor(2+track)
-		var contact := vehicle.global_position + wheel.rotated(vehicle.rotation)
-		var contact_surface: Dictionary = surface_at(contact)
-		tire_marks.add_mark(contact,vehicle.rotation,
-			str(contact_surface.name) == "ASPHALT",track,
-			str(contact_surface.name),loss)
+	mark_clock=0.0
+	# One bounded world-space ink pool serves all active physical racers;
+	# per-car track IDs prevent a coasting car from breaking another's skid.
+	TireTrailSampler.sample(tire_marks,vehicle,vehicle,self)
+	for node in get_tree().get_nodes_in_group("skidmark_vehicle"):
+		if node == vehicle or not node is VehicleController2D:
+			continue
+		var racer := node as VehicleController2D
+		if racer.surface_provider != self:
+			continue
+		if racer.global_position.distance_to(vehicle.global_position) > TireTrailSampler.VIEW_DISTANCE_PX and \
+				(not is_instance_valid(secondary_stream_vehicle) or \
+				 racer.global_position.distance_to(secondary_stream_vehicle.global_position) > TireTrailSampler.VIEW_DISTANCE_PX):
+			var track: int=TireTrailSampler.track_id(racer,vehicle,0)
+			tire_marks.reset_tracks(track)
+			tire_marks.reset_tracks(track+1)
+			continue
+		TireTrailSampler.sample(tire_marks,racer,vehicle,self)

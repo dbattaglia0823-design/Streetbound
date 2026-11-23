@@ -26,7 +26,6 @@ const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd"
 const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const OnlineWorldScript = preload("res://scripts/network/online_world.gd")
 const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
-const DustScript = preload("res://scripts/visual/driving_dust.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 static var pending_launch_mode := ""
 var pause_menu
@@ -148,13 +147,6 @@ func _ready() -> void:
 			event.network=traffic.network;event.economy=vehicle_ownership
 			ground.add_child(event)
 			extra_races.append(event)
-	var dust := Node2D.new()
-	dust.name = "DrivingDust"
-	dust.set_script(DustScript)
-	dust.vehicle = vehicle
-	add_child(dust)
-	# World-space particles should draw behind the car, never over the sprite.
-	move_child(dust, vehicle.get_index())
 	var camera := Camera2D.new()
 	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	camera.set_script(CameraScript)

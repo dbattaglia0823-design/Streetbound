@@ -25,3 +25,9 @@ extends Resource
 @export_range(0.5, 2.0, 0.05) var steer_multiplier := 1.35
 @export_range(10.0, 45.0, 1.0) var max_visual_steer_degrees := 38.0
 @export_range(5.0, 40.0, 1.0) var steer_animation_speed := 20.0
+
+@export_group("Rear lamps in visible silhouette UV")
+## Normalized to the *alpha-trimmed* car outline. Individual models can
+## override these if their light clusters differ from the shared defaults.
+@export var rear_light_left_uv := Vector2(.20, .925)
+@export var rear_light_right_uv := Vector2(.80, .925)
