@@ -25,7 +25,14 @@ with tempfile.TemporaryDirectory(prefix='streetbound-race-') as tmp:
 for patch in [{'points':[{'x':0,'y':0}]},{'laps':1.5},{'checkpoint_radius':float('nan')},
               {'mode':'invalid'},{'opponent_pool':['nonexistent-car']},
               {'opponent_pool':['audi-rs3','audi-rs3']},{'reward_cash':-1},
-              {'reward_player_xp':100001},{'reward_car_xp':1.5}]:
+              {'reward_player_xp':100001},{'reward_car_xp':1.5},
+              {'multiplayer_reward_custom':'true'},
+              {'multiplayer_reward_cash':20001},
+              {'multiplayer_reward_player_xp':5001},
+              {'multiplayer_reward_car_xp':5001},
+              {'multiplayer_reward_part_chance':101},
+              {'multiplayer_reward_part_chance':-1},
+              {'multiplayer_reward_cash':1.5}]:
     invalid=json.loads(json.dumps(doc));invalid['races'][0].update(patch)
     try:authored_races(invalid,doc['world']['width'],doc['world']['height'])
     except ValueError:pass
