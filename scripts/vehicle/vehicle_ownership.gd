@@ -432,7 +432,8 @@ static func _valid_multiplayer_session_id(value: String) -> bool:
 	return true
 
 func record_multiplayer_race(session_id: String, race_id: int, place: int,
-		elapsed_ms: int, kind: String, car_id: String) -> Dictionary:
+		elapsed_ms: int, kind: String, car_id: String,
+		race_settings: Dictionary = {}) -> Dictionary:
 	if not _valid_multiplayer_session_id(session_id) or race_id < 1 or \
 			race_id > 1000000000 or elapsed_ms < 1200 or elapsed_ms > 7200000 or \
 			not owns(car_id) or Catalog.find_by_id(car_id).is_empty():
@@ -442,7 +443,9 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 		return {"result":"already_claimed"}
 	if multiplayer_claims.size() >= 8192 and not multiplayer_claims.has(session_id):
 		return {"result":"claim_history_full"}
-	var payout: Dictionary = OnlineRewards.payouts(kind,place)
+	# Reward configuration comes from the locally loaded, SHA-256-matched
+	# published world, not an RPC amount supplied by another player.
+	var payout: Dictionary = OnlineRewards.payouts(kind,place,race_settings)
 	if payout.is_empty():
 		return {"result":"invalid"}
 	var prior_balance := balance
@@ -461,7 +464,7 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 	var part_uid := ""
 	var receipt_key := "%s/%d/%s" % [session_id,race_id,car_id]
 	if upgrade_inventory.size() < 2500 and \
-			OnlineRewards.part_roll(session_id,race_id,car_id,place):
+			OnlineRewards.part_roll(session_id,race_id,car_id,place,race_settings):
 		part = Parts.reward_template(receipt_key,level_for_car(car_id),kind)
 		if not part.is_empty():
 			part_uid = "up-%d" % next_part_uid
