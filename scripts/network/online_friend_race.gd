@@ -4,6 +4,7 @@ extends Node2D
 ## No multiplayer awards or client-supplied transforms/results are accepted.
 const Grid = preload("res://scripts/world/race_start_grid.gd")
 const Standings = preload("res://scripts/network/online_race_standings.gd")
+const Rewards = preload("res://scripts/network/online_race_rewards.gd")
 const GuidanceScript = preload("res://scripts/world/race_guidance.gd")
 const PPM := 20.0
 const RACE_LENGTH_M := 402.336
@@ -64,7 +65,9 @@ var race_id := 0
 var state := "idle"
 var entries: Dictionary = {} # Int peer ID -> host-owned status/position
 var results: Array = []
-var standings: Dictionary = {} # Session-only host awards, never career save.
+var standings: Dictionary = {} # Session points, distinct from persistent prizes.
+var _last_reward_race_id := 0
+var _last_reward_message := ""
 var countdown_deadline := 0
 var started_ms := 0
 var results_until_ms := 0
@@ -488,6 +491,7 @@ func _host_offer() -> void:
 	entries = {1: {"name": str(session.players[1].get("name", "Host")),
 		"ready": true, "status": "ready"}}
 	results.clear()
+	_last_reward_message = ""
 	_status = "%s opened. Park nearby and select JOIN / READY." % \
 		_event_title(event_id)
 	_publish()
@@ -556,6 +560,7 @@ func _host_start() -> void:
 			_countdown_slots[id] = slot_m
 			Grid.teleport(car, Grid.pose(slot_m, direction))
 		entries[id]["status"] = "staged"
+		entries[id]["car_id"] = str(session.players.get(id,{}).get("car_id",""))
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
 		entries[id]["next_gate"] = 0
@@ -618,7 +623,8 @@ func _host_check_done() -> void:
 	standings = Standings.settle(standings, entries, results, event_kind, race_id,
 		"%s/%s/%s" % [world_id, world_digest, event_id])
 	results_until_ms = Time.get_ticks_msec() + roundi(RESULTS_SECONDS * 1000)
-	_status = "RACE COMPLETE - session points awarded; career payouts disabled."
+	_status = "RACE COMPLETE - host results verified. Career prizes available."
+	_award_own_finish()
 	_publish()
 
 func _host_cancel() -> void:
@@ -871,6 +877,7 @@ func _public_entries() -> Dictionary:
 			"status": str(data.get("status", "waiting")),
 			"ms": int(data.get("ms", 0)),
 			"reason": str(data.get("reason", "")),
+			"car_id": str(data.get("car_id", "")),
 			"prev_progress": roundi(float(data.get("prev_progress", 0.0)))}
 	return safe
 
@@ -923,7 +930,14 @@ func _apply_race_state(payload: Dictionary) -> void:
 	results = (payload.get("results", []) as Array).duplicate(true)
 	if payload.get("standings", {}) is Dictionary:
 		standings = (payload.get("standings", {}) as Dictionary).duplicate(true)
+	if new_race != old_race:
+		_last_reward_message = ""
 	_status = str(payload.get("status", "")).substr(0, 220)
+	if next_state == "results":
+		# The authority RPC settles the final results. All reward values
+		# are recomputed on each driver's own installation, never trusted
+		# from network payout numbers.
+		_award_own_finish()
 	if next_state == "countdown":
 		if previous != "countdown" or old_race != race_id:
 			# Position only the local visual/client simulation; the host
@@ -945,6 +959,42 @@ func _apply_race_state(payload: Dictionary) -> void:
 		online_world.local_vehicle.external_input = \
 			_client_car_was_external or get_tree().paused or session.reconnecting
 	_refresh_ui()
+
+## Exactly one local, durable career prize for each host-verified finish.
+## Results are replicated reliably and can be retried after a save failure.
+func _award_own_finish() -> void:
+	if state != "results" or session == null or not session.active or \
+			not session.valid_secret(session.reward_session_id):
+		return
+	if _last_reward_race_id == race_id and not _last_reward_message.is_empty() and \
+			not _last_reward_message.begins_with("REWARD SAVE FAILED"):
+		return
+	var personal_id: int = int(session.own_id())
+	var finisher: Dictionary = Rewards.confirmed_finisher(entries,results,personal_id)
+	if finisher.is_empty():
+		return # DNF, spectator, or malformed/incomplete official finish set.
+	var game: Node = online_world.get_parent()
+	var owned: VehicleOwnership = game.get("vehicle_ownership") as VehicleOwnership
+	if not is_instance_valid(owned):
+		return
+	var receipt: Dictionary = owned.record_multiplayer_race(
+		session.reward_session_id,race_id,int(finisher.place),int(finisher.ms),
+		event_kind,str(finisher.car_id))
+	_last_reward_race_id = race_id
+	match str(receipt.get("result","")):
+		"completed":
+			var part: Dictionary = receipt.get("part",{})
+			_last_reward_message = "CAREER +%s  +%d DRIVER XP  +%d CAR XP" % [
+				VehicleOwnership.dollars(int(receipt.get("cash",0))),
+				int(receipt.get("player_xp",0)),int(receipt.get("car_xp",0))]
+			if not part.is_empty():
+				_last_reward_message += "  /  PART: %s" % str(part.get("name","UPGRADE"))
+		"already_claimed":
+			_last_reward_message = "CAREER REWARD ALREADY COLLECTED"
+		"save_failed":
+			_last_reward_message = "REWARD SAVE FAILED - RETRYING"
+		_:
+			_last_reward_message = "REWARD NOT PAID: " + str(receipt.get("result","invalid"))
 
 func _on_roster() -> void:
 	if session.hosting and state != "idle":
@@ -1066,7 +1116,8 @@ func _refresh_ui() -> void:
 					lines.append("%s - DNF" % str(entries[id].get("name", "Driver")))
 			status_label.text = header + "\n" + ", ".join(lines) + \
 				"\n" + _session_standings_line() + \
-				"\nNo career cash, XP or parts."
+				("\n" + _last_reward_message if not _last_reward_message.is_empty() else
+				"\nDNF / spectators receive no career payouts.")
 		_:
 			status_label.text = header + "\n" + _status
 
