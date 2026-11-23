@@ -45,27 +45,32 @@ static func aero_drag_multiplier(strength: float) -> float:
 
 ## Queries only nearby live physical racing cars and traffic within the same
 ## world. Called at 10 Hz rather than once per vehicle per physics tick.
-static func best_strength(car: VehicleController2D) -> float:
-	if not car.is_inside_tree() or not is_instance_valid(car.surface_provider):
+static func best_strength(car: Node2D) -> float:
+	if not car.is_inside_tree():
 		return 0.0
+	var world: Node = car.get("surface_provider") as Node
+	if not is_instance_valid(world):
+		return 0.0
+	var follower_velocity: Vector2 = car.get("linear_velocity")
 	var forward: Vector2 = Vector2.UP.rotated(car.rotation)
-	if car.reversing or car.linear_velocity.dot(forward) < START_SPEED_MPS:
+	if bool(car.get("reversing")) or follower_velocity.dot(forward) < START_SPEED_MPS:
 		return 0.0
 	var best := 0.0
 	for node in car.get_tree().get_nodes_in_group("drafting_vehicle"):
-		if node == car or not node is VehicleController2D:
+		if node == car or not node is Node2D:
 			continue
-		var leader := node as VehicleController2D
-		if leader.surface_provider != car.surface_provider or \
+		var leader := node as Node2D
+		if leader.get("surface_provider") != world or \
 				car.global_position.distance_squared_to(leader.global_position) > \
 				pow(MAX_GAP_M * PPM + 50.0, 2.0):
 			continue
+		var leader_velocity: Vector2=leader.get("linear_velocity")
 		best = maxf(best,strength_for(car.global_position,car.rotation,
-			car.linear_velocity,leader.global_position,leader.rotation,
-			leader.linear_velocity))
+			follower_velocity,leader.global_position,leader.rotation,
+			leader_velocity))
 	for node in car.get_tree().get_nodes_in_group("traffic_vehicle"):
 		if not node is Node2D or node.get_parent() == null or \
-				node.get_parent().get_parent() != car.surface_provider:
+				node.get_parent().get_parent() != world:
 			continue
 		var leader := node as Node2D
 		if car.global_position.distance_squared_to(leader.global_position) > \
@@ -74,7 +79,7 @@ static func best_strength(car: VehicleController2D) -> float:
 		var speed: float=float(leader.get("motion_speed_mps"))
 		var lead_velocity := Vector2.UP.rotated(leader.rotation)*speed
 		best=maxf(best,strength_for(car.global_position,car.rotation,
-			car.linear_velocity,leader.global_position,leader.rotation,
+			follower_velocity,leader.global_position,leader.rotation,
 			lead_velocity))
 	return best
 
@@ -86,14 +91,15 @@ static func wake_strength(leader: Node2D, world: Node, velocity: Vector2) -> flo
 		return 0.0
 	var best := 0.0
 	for node in leader.get_tree().get_nodes_in_group("drafting_vehicle"):
-		if not node is VehicleController2D or node == leader:
+		if not node is Node2D or node == leader:
 			continue
-		var follower := node as VehicleController2D
-		if follower.surface_provider != world or \
+		var follower := node as Node2D
+		if follower.get("surface_provider") != world or \
 				follower.global_position.distance_squared_to(leader.global_position) > \
 				pow(MAX_GAP_M * PPM + 50.0,2.0):
 			continue
+		var follower_velocity: Vector2=follower.get("linear_velocity")
 		best=maxf(best,strength_for(follower.global_position,follower.rotation,
-			follower.linear_velocity,leader.global_position,leader.rotation,
+			follower_velocity,leader.global_position,leader.rotation,
 			velocity))
 	return best
