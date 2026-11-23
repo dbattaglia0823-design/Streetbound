@@ -52,7 +52,9 @@ func _process(delta: float) -> void:
 		1.0 - exp(-(10.0 if punch > acceleration_pulse else 3.0) * dt))
 	nitrous_pulse = lerpf(nitrous_pulse,1.0 if vehicle.nitrous_active else 0.0,
 		1.0-exp(-7.0*dt))
-	drafting_pulse = lerpf(drafting_pulse,clampf(vehicle.draft_strength,0.0,1.0),
+	var drafting := float(vehicle.call("drafting_effect_strength")) \
+		if vehicle.has_method("drafting_effect_strength") else 0.0
+	drafting_pulse = lerpf(drafting_pulse,clampf(drafting,0.0,1.0),
 		1.0-exp(-7.0*dt))
 	if intensity < 0.015 or speed < 0.1:
 		queue_redraw()
