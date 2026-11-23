@@ -688,7 +688,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 	# Signal the actual brake demand to the shared rear-lamp renderer. Cars
 	# held at a red light or junction retain illuminated brake lights.
 	node.set("brake_lights_on", desired < previous - PPM * .25 or
-		(desired < PPM * .45 and previous > PPM * .2))
+		desired < PPM * .45)
 	agent.progress=float(agent.progress)+float(agent.speed)*dt
 	if float(agent.progress)>=float(edge.length_px):
 		var chosen := _next_target(agent,edge)
