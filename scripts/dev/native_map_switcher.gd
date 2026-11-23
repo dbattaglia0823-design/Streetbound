@@ -42,19 +42,6 @@ func build(e,parent: Node) -> void:
 	var drift_button=e._btn("Drift Grounds",row,func():open_drift_preset(e))
 	drift_button.custom_minimum_size.y=26
 	drift_button.tooltip_text="Open a compact linked skidpad, technical S-corners and tandem drift loop."
-	# Weather is a source-level property and can be undone, saved and baked.
-	var rain_row := HBoxContainer.new()
-	parent.add_child(rain_row)
-	var rain_label := Label.new()
-	rain_label.text="Map weather"
-	rain_row.add_child(rain_label)
-	weather_option=OptionButton.new()
-	for choice in ["Clear","Light rain","Rain","Heavy rain"]:
-		weather_option.add_item(choice)
-	rain_row.add_child(weather_option)
-	weather_option.tooltip_text="Weather for this custom map's Test Drive and published game. Save the source before publishing."
-	weather_option.item_selected.connect(func(index: int): _change_weather(e,index))
-	_sync_weather(e)
 	reload_list()
 	dialog=ConfirmationDialog.new();dialog.title="Create a new map";dialog.ok_button_text="Create map";dialog.min_size=Vector2i(390,280);dialog.process_mode=Node.PROCESS_MODE_ALWAYS;e.add_child(dialog)
 	var fields:=VBoxContainer.new();dialog.add_child(fields)
@@ -71,6 +58,21 @@ func build_publish_ui(e,parent: Node) -> void:
 	var heading:=Label.new()
 	heading.text="GAME WORLD / PUBLISH"
 	parent.add_child(heading)
+	# Keep the fixed-height BuilderHeader reserved for map selection.
+	# Weather lives with publish options in the scrollable settings sidebar,
+	# preventing this control from pushing the header into BuilderTools.
+	var rain_row := HBoxContainer.new()
+	parent.add_child(rain_row)
+	var rain_label := Label.new()
+	rain_label.text="Map weather"
+	rain_row.add_child(rain_label)
+	weather_option=OptionButton.new()
+	for choice in ["Clear","Light rain","Rain","Heavy rain"]:
+		weather_option.add_item(choice)
+	rain_row.add_child(weather_option)
+	weather_option.tooltip_text="Weather for this custom map's Test Drive and published game. Save the source before publishing."
+	weather_option.item_selected.connect(func(index: int): _change_weather(e,index))
+	_sync_weather(e)
 	publication_status=Label.new()
 	publication_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(publication_status)
@@ -338,6 +340,8 @@ func refresh(e) -> void:
 	var drag_key:=JSON.stringify(e.pending_drag)
 	if revision!=e.authoring.edit_revision or drag_key!=drag_revision:
 		revision=e.authoring.edit_revision;drag_revision=drag_key;terrain.update_map(e.authoring.road_preview_source(e.pending_drag))
+		# Undo/redo and source switching must update the visible weather preset.
+		_sync_weather(e)
 	terrain.visible=e.layer_flags.terrain
 func update_view(e) -> void:
 	if is_instance_valid(e.overview_renderer):e.overview_renderer.visible=false
