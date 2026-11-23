@@ -81,6 +81,13 @@ func _run() -> void:
 		quit(1)
 		return
 	var track: Dictionary = race.race_events["race-0"]
+	var prizes: Dictionary = track.get("reward_settings",{})
+	check("both_processes_load_the_exact_published_multiplayer_reward_override",
+		bool(prizes.get("multiplayer_reward_custom",false)) and
+		int(prizes.get("multiplayer_reward_cash",0))==8600 and
+		int(prizes.get("multiplayer_reward_player_xp",0))==2600 and
+		int(prizes.get("multiplayer_reward_car_xp",0))==1300 and
+		int(prizes.get("multiplayer_reward_part_chance",0))==100)
 	var start: Vector2 = track["start"]
 	var direction: Vector2 = track["direction"]
 	var prior_cash: int = economy.balance
@@ -125,6 +132,10 @@ func _run() -> void:
 						return economy.balance>prior_cash and \
 							economy.player_xp>prior_driver_xp)
 					check("winning_host_earns_real_money_and_driver_xp",credited)
+					check("host_receives_exact_custom_first_place_cash_and_xp",
+						economy.balance==prior_cash+8600 and
+						economy.player_xp==prior_driver_xp+2600 and
+						int(economy.car_xp.get(economy.active_id,0))==prior_car_xp+1300)
 					check("winning_host_earns_car_xp_and_upgrade_item",
 						int(economy.car_xp.get(economy.active_id,0))>prior_car_xp and
 						economy.upgrade_inventory.size()==prior_parts+1)
@@ -158,6 +169,11 @@ func _run() -> void:
 						return economy.balance>prior_cash and \
 							economy.player_xp>prior_driver_xp)
 					check("second_place_guest_receives_cash_and_driver_xp",credited)
+					check("guest_receives_scaled_custom_second_place_prize",
+						economy.balance==prior_cash+roundi(8600.0*1100.0/1800.0) and
+						economy.player_xp==prior_driver_xp+roundi(2600.0*490.0/780.0) and
+						int(economy.car_xp.get(economy.active_id,0))==
+							prior_car_xp+roundi(1300.0*360.0/560.0))
 					check("guest_receives_correct_raced_car_xp",
 						int(economy.car_xp.get(economy.active_id,0))>prior_car_xp)
 					var now_cash := economy.balance
