@@ -122,7 +122,7 @@ func _run() -> void:
 					race._host_check_done()
 					check("host_settles_authoritative_final_result",race.state=="results")
 					var credited: bool = await _poll(func()->bool:
-						return economy.balance>prior_cash and
+						return economy.balance>prior_cash and \
 							economy.player_xp>prior_driver_xp)
 					check("winning_host_earns_real_money_and_driver_xp",credited)
 					check("winning_host_earns_car_xp_and_upgrade_item",
@@ -155,7 +155,7 @@ func _run() -> void:
 				check("guest_receives_host_only_settled_results",results)
 				if results:
 					var credited: bool = await _poll(func()->bool:
-						return economy.balance>prior_cash and
+						return economy.balance>prior_cash and \
 							economy.player_xp>prior_driver_xp)
 					check("second_place_guest_receives_cash_and_driver_xp",credited)
 					check("guest_receives_correct_raced_car_xp",
