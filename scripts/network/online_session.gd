@@ -12,7 +12,7 @@ signal peer_id_rebound(previous_id: int, current_id: int)
 
 const DEFAULT_PORT := 28163
 const MAX_PLAYERS := 4
-const PROTOCOL_VERSION := 8  # Replicates session-only race points and standings.
+const PROTOCOL_VERSION := 9  # World identity handshake and Map Builder multiplayer.
 const RECONNECT_GRACE_MS := 35000
 const CLIENT_RECONNECT_WINDOW_MS := 30000
 const RECONNECT_RETRY_MS := 5000
@@ -20,6 +20,7 @@ const INITIAL_RECONNECT_SETTLE_MS := 350
 const INVITE_PREFIX := "SB1-"
 const INVITE_TOKEN_HEX_LENGTH := 48
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const WorldPublication = preload("res://scripts/world/world_publication.gd")
 
 var hosting := false
 var joining := false
@@ -33,6 +34,7 @@ var _target_port := DEFAULT_PORT
 var _reconnect_started_at := 0
 var _last_reconnect_attempt_at := 0
 var players: Dictionary = {}
+var world_identity: Dictionary = {}
 var world_ready_peers: Dictionary = {}
 var display_name := "Driver"
 var last_message := ""
@@ -199,6 +201,10 @@ func own_id() -> int:
 func host_session(name_value: String, port: int = DEFAULT_PORT,
 		advertised_address: String = "127.0.0.1") -> bool:
 	leave_session()
+	world_identity = WorldPublication.network_identity()
+	if world_identity.is_empty():
+		_set_status("Cannot host: selected map archive is missing or invalid.")
+		return false
 	if not valid_port(port) or clean_name(name_value).is_empty() or \
 			not valid_address(advertised_address):
 		_set_status("Enter a name, host address and UDP port between 1024 and 65535.")
@@ -226,6 +232,10 @@ func host_session(name_value: String, port: int = DEFAULT_PORT,
 func join_session(address: String, name_value: String, port: int = DEFAULT_PORT,
 		invite_secret: String = "") -> bool:
 	leave_session()
+	world_identity = WorldPublication.network_identity()
+	if world_identity.is_empty():
+		_set_status("Cannot join: selected map archive is missing or invalid.")
+		return false
 	var target := address.strip_edges()
 	if not valid_address(target) or not valid_port(port) or \
 			clean_name(name_value).is_empty() or not valid_secret(invite_secret):
@@ -260,6 +270,7 @@ func leave_session(reason: String = "Left online session.") -> void:
 	hosting = false
 	reconnecting = false
 	players.clear()
+	world_identity.clear()
 	world_ready_peers.clear()
 	disconnected_since.clear()
 	_peer_resume_tokens.clear()
@@ -287,7 +298,7 @@ func _set_status(message: String) -> void:
 func _on_connected() -> void:
 	if joining:
 		_request_admission.rpc_id(1, PROTOCOL_VERSION, display_name,
-			_joining_secret, _resume_token if reconnecting else "")
+			_joining_secret, _resume_token if reconnecting else "", world_identity)
 
 func _on_connection_failed() -> void:
 	if reconnecting:
@@ -347,12 +358,15 @@ func _reject_peer(peer_id: int, reason: String) -> void:
 
 @rpc("any_peer", "reliable")
 func _request_admission(version: int, name_value: String, invite_secret: String,
-		resume_token: String) -> void:
+		resume_token: String, client_world: Dictionary) -> void:
 	if not hosting:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if version != PROTOCOL_VERSION:
 		_reject_peer(sender, "Game versions are incompatible.")
+		return
+	if not WorldPublication.same_network_identity(world_identity, client_world):
+		_reject_peer(sender, "Map mismatch: install the same published world build as the host.")
 		return
 	if players.has(sender) and not disconnected_since.has(sender):
 		# Duplicate admission attempts cannot rewrite an already-owned slot.
