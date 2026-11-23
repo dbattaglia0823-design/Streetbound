@@ -21,7 +21,7 @@ static func part_roll(session_id: String, race_id: int, car_id: String, place: i
 		return true
 	if place < 2 or place > 4:
 		return false
-	var chance := [0, 100, 70, 40, 20][place]
+	var chance: int = int([0, 100, 70, 40, 20][place])
 	var token := "%s/%d/%s/%d" % [session_id,race_id,car_id,place]
 	return (int(token.hash()) & 0x7fffffff) % 100 < chance
 
@@ -42,9 +42,9 @@ static func confirmed_finisher(entries: Dictionary, results: Array,
 		var record: Dictionary = results[i]
 		var id := int(record.get("id",0))
 		var ms := int(record.get("ms",0))
-		if finished.has(id) or not entries.has(id) or
-				str(entries[id].get("status","")) != "finished" or ms <= 0 or
-				ms > 7200000 or int(entries[id].get("ms",0)) != ms or
+		if finished.has(id) or not entries.has(id) or \
+				str(entries[id].get("status","")) != "finished" or ms <= 0 or \
+				ms > 7200000 or int(entries[id].get("ms",0)) != ms or \
 				ms < previous_ms or (ms == previous_ms and id <= last_id):
 			return {}
 		finished[id] = true
@@ -54,7 +54,7 @@ static func confirmed_finisher(entries: Dictionary, results: Array,
 			mine = {"place":i+1, "ms":ms, "car_id":str(entries[id].get("car_id",""))}
 	for id in entries:
 		var status := str(entries[id].get("status",""))
-		if status not in ["finished","dnf"] or
+		if status not in ["finished","dnf"] or \
 				(status == "finished") != finished.has(id):
 			return {}
 	if mine.is_empty() or str(mine.get("car_id","")).is_empty():
