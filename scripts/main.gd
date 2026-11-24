@@ -30,6 +30,7 @@ const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.g
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
 const VehicleDamageServiceScript = preload("res://scripts/world/vehicle_damage_service.gd")
 const PolicePursuitScript = preload("res://scripts/world/police_pursuit.gd")
+const DrivingContractScript = preload("res://scripts/world/driving_contracts.gd")
 static var pending_launch_mode := ""
 var pause_menu
 var player_garage: Node2D
@@ -52,6 +53,7 @@ var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
 var vehicle_damage_service: CanvasLayer
 var police_pursuit: Node2D
+var driving_contracts: Node2D
 @export var proving_ground := false
 var ground: Node2D
 var custom_test_drive:=false
@@ -310,6 +312,16 @@ func _ready() -> void:
 		add_child(police_pursuit)
 		vehicle_damage_service.set("police", police_pursuit)
 		authored_map_markers.set("resources", vehicle_damage_service)
+		driving_contracts = Node2D.new()
+		driving_contracts.set_script(DrivingContractScript)
+		driving_contracts.set("player", vehicle)
+		driving_contracts.set("world", ground)
+		driving_contracts.set("economy", vehicle_ownership)
+		driving_contracts.set("police", police_pursuit)
+		driving_contracts.set("marker_source", authored_map_markers)
+		driving_contracts.set("map_hud", world_hud_ref)
+		add_child(driving_contracts)
+		authored_map_markers.set("contracts", driving_contracts)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
 	local_split_screen = CanvasLayer.new()
@@ -326,7 +338,7 @@ func _ready() -> void:
 	local_split_screen.hidden_layers = hidden
 	var disabled: Array[Node] = []
 	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race,
-			police_pursuit,vehicle_damage_service]:
+			police_pursuit,vehicle_damage_service,driving_contracts]:
 		if is_instance_valid(system):
 			disabled.append(system)
 	disabled.append_array(extra_races)
