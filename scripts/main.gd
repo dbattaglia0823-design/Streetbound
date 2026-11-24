@@ -28,6 +28,8 @@ const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const OnlineWorldScript = preload("res://scripts/network/online_world.gd")
 const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
+const VehicleDamageServiceScript = preload("res://scripts/world/vehicle_damage_service.gd")
+const PolicePursuitScript = preload("res://scripts/world/police_pursuit.gd")
 static var pending_launch_mode := ""
 var pause_menu
 var player_garage: Node2D
@@ -48,6 +50,8 @@ var local_split_screen
 var online_world: Node2D
 var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
+var vehicle_damage_service: CanvasLayer
+var police_pursuit: Node2D
 @export var proving_ground := false
 var ground: Node2D
 var custom_test_drive:=false
@@ -280,6 +284,31 @@ func _ready() -> void:
 				if is_instance_valid(builtin_race):
 					authored_map_markers.races.append(builtin_race)
 		add_child(authored_map_markers)
+	# Single-player only: host-authoritative multiplayer damage/police requires
+	# its own synchronized state and is excluded from this first vertical slice.
+	if not proving_ground and not custom_test_drive and not online_session.active:
+		vehicle_damage_service = CanvasLayer.new()
+		vehicle_damage_service.set_script(VehicleDamageServiceScript)
+		vehicle_damage_service.set("player", vehicle)
+		vehicle_damage_service.set("economy", vehicle_ownership)
+		vehicle_damage_service.set("garage", player_garage)
+		vehicle_damage_service.set("authored_markers", authored_map_markers)
+		add_child(vehicle_damage_service)
+		police_pursuit = Node2D.new()
+		police_pursuit.set_script(PolicePursuitScript)
+		police_pursuit.set("player", vehicle)
+		police_pursuit.set("world", ground)
+		police_pursuit.set("traffic", traffic)
+		police_pursuit.set("economy", vehicle_ownership)
+		police_pursuit.set("damage_service", vehicle_damage_service)
+		var illegal_races: Array = []
+		if is_instance_valid(street_race):illegal_races.append(street_race)
+		for race in extra_races:
+			if str(race.get("race_type")).to_lower().contains("street"):
+				illegal_races.append(race)
+		police_pursuit.set("street_races", illegal_races)
+		add_child(police_pursuit)
+		vehicle_damage_service.set("police", police_pursuit)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
 	local_split_screen = CanvasLayer.new()
@@ -295,7 +324,8 @@ func _ready() -> void:
 			hidden.append(node)
 	local_split_screen.hidden_layers = hidden
 	var disabled: Array[Node] = []
-	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race]:
+	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race,
+			police_pursuit,vehicle_damage_service]:
 		if is_instance_valid(system):
 			disabled.append(system)
 	disabled.append_array(extra_races)
