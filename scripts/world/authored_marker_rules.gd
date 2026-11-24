@@ -2,8 +2,9 @@ extends RefCounted
 ## Canonical map marker schema. Existing saved landmarks with no properties
 ## remain valid; playable marker types acquire typed optional links.
 const TYPES=["player_spawn","garage","dealership","mission","fast_travel",
-	"traffic_spawn","fuel","checkpoint","race_start","finish","custom"]
+	"traffic_spawn","fuel","checkpoint","race_start","finish","contract","contract_dropoff","custom"]
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const Contracts=preload("res://scripts/world/driving_contract_rules.gd")
 
 static func valid(marker: Dictionary) -> bool:
 	var kind: String=str(marker.get("type",""))
@@ -16,6 +17,10 @@ static func valid(marker: Dictionary) -> bool:
 		if properties.has(field):
 			if not properties[field] is String or str(properties[field]).length()>100:return false
 	if properties.has("enabled") and typeof(properties.enabled)!=TYPE_BOOL:return false
+	if properties.has("contract_kind"):
+		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false
+	if properties.has("destination_marker_id"):
+		if not properties.destination_marker_id is String or str(properties.destination_marker_id).length()>100:return false
 	if properties.has("radius_m"):
 		var distance: Variant=properties.radius_m
 		if typeof(distance) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(distance)) or \
@@ -32,6 +37,9 @@ static func valid_links(markers: Array,races: Array,dealers: Array) -> bool:
 	var dealer_ids: Dictionary={}
 	for dealer in dealers:dealer_ids[str(dealer.get("id",""))]=true
 	var spawns:=0
+	var by_id: Dictionary={}
+	for marker in markers:
+		by_id[str(marker.get("id",""))]=marker
 	for marker in markers:
 		if not marker is Dictionary or not valid(marker):return false
 		if str(marker.type)=="player_spawn":spawns+=1
@@ -39,6 +47,10 @@ static func valid_links(markers: Array,races: Array,dealers: Array) -> bool:
 		for name in ["race_id","required_race"]:
 			if not str(info.get(name,"")).is_empty() and not event_ids.has(str(info[name])):return false
 		if not str(info.get("dealer_id","")).is_empty() and not dealer_ids.has(str(info.dealer_id)):return false
+		if str(marker.type)=="contract":
+			var destination_id:=str(info.get("destination_marker_id",""))
+			if not destination_id.is_empty():
+				if not by_id.has(destination_id) or not Contracts.valid_link(marker,by_id[destination_id]):return false
 	return spawns<=1
 
 static func unlocked(marker: Dictionary,economy: Object,world_id: String) -> bool:
