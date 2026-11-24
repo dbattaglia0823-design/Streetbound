@@ -12,7 +12,7 @@ Baseline: c59b76d4846194ac2efa1a1423dfb4ab1f120844 (main). Inventory: 267 PNGs u
 - Ferrari 308, 458 Italia, F8 Tributo, Roma, 296 GTB
 
 ## Visual inspection (partial)
-Seven images were rendered from the repository. Alfa Romeo 4C: recognizable but soft edges, visible badge; Dodge Dart and Neon: soft details, should be refreshed; Maserati MC20: detailed, minor edge cleanup; Nissan Fairlady Z 432: red/orange edge halo; Nismo GT-R LM: obvious white/blue edge debris, priority cleanup; Skyline GT-R V-Spec: blue edge debris, verify generation against catalog. File byte size alone does not establish image quality. Larger images were unavailable; all other images are NOT visually approved. No original pixels changed.
+Ten images were rendered from the repository. Alfa Romeo 4C: recognizable but soft edges, visible badge; Dodge Dart and Neon: soft details, should be refreshed; Maserati MC20: detailed, minor edge cleanup; Nissan Fairlady Z 432: red/orange edge halo; Nismo GT-R LM: obvious white/blue edge debris, priority cleanup; Skyline GT-R V-Spec: blue edge debris, verify generation against catalog. Three generic traffic sprites were also reviewed: slot 7 (white cargo van) has minor outline debris; slot 9 (blue pickup) has conspicuous blue edge artifacts; slot 10 (white box truck) has white, red and yellow fringe debris. Their exact make/model is not established, so their filenames remain unchanged rather than guessed. File byte size alone does not establish image quality. Larger images were unavailable; all other images are NOT visually approved. No original pixels changed.
 
 ## Filename corrections
 - `assets/Vehicles/Acura/Integra TypeS.png` → `assets/Vehicles/Acura/Integra Type S.png`
