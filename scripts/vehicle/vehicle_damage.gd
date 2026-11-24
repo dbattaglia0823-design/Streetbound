@@ -17,12 +17,19 @@ func register_impact(closing_speed_mps: float, now_seconds: float) -> float:
 	integrity = maxf(0.0, integrity - applied)
 	return applied
 
+## Engine health affects performance only in the critical last 20%.
+## At 1% health the engine still produces roughly 81% of normal drive force;
+## 0% remains a fully disabled vehicle for police/impound gameplay.
+const POWER_LOSS_START_HEALTH := 20.0
+const MAX_RUNNING_POWER_LOSS := 0.20
+
 func drive_fraction() -> float:
 	if integrity <= 0.0:
 		return 0.0
-	if integrity >= 70.0:
+	if integrity >= POWER_LOSS_START_HEALTH:
 		return 1.0
-	return lerpf(0.35, 1.0, integrity / 70.0)
+	return 1.0 - MAX_RUNNING_POWER_LOSS * (
+		(POWER_LOSS_START_HEALTH - integrity) / POWER_LOSS_START_HEALTH)
 
 func is_disabled() -> bool:
 	return integrity <= 0.0
