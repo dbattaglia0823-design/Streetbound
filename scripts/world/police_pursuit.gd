@@ -233,7 +233,7 @@ func _recover_busted() -> void:
 				economy.balance += fee
 	player.reset_vehicle()
 	if is_instance_valid(damage_service):
-		damage_service.repair_full()
+		damage_service.impound_recovery()
 	containment_seconds = 0.0
 	search_clock = 0.0
 
