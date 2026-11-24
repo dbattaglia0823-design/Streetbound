@@ -13,6 +13,9 @@ var weight_input: SpinBox
 var race_input: OptionButton
 var required_input: OptionButton
 var dealer_input: OptionButton
+var contract_fields: VBoxContainer
+var contract_kind_input: OptionButton
+var contract_destination_input: OptionButton
 var feedback: Label
 var edit_button: Button
 
@@ -49,6 +52,16 @@ func build(e,panel: Node) -> void:
 	description_input.placeholder_text="e.g. Downtown race hub, or a landmark description"
 	form.add_child(description_input)
 	type_input=e._options(form,"Marker type",Rules.TYPES)
+	contract_fields=VBoxContainer.new()
+	form.add_child(contract_fields)
+	_text_label(contract_fields,"DRIVING CONTRACT TYPE")
+	contract_kind_input=e._options(contract_fields,"Vehicle-only job",
+		["courier","smuggling","getaway"])
+	_text_label(contract_fields,"Contract destination marker (place a dropoff first)")
+	contract_destination_input=OptionButton.new()
+	contract_fields.add_child(contract_destination_input)
+	type_input.item_selected.connect(func(_index: int)->void:
+		contract_fields.visible=str(type_input.get_selected_metadata())=="contract")
 	enabled_input=CheckBox.new()
 	enabled_input.text="Enabled in gameplay"
 	enabled_input.button_pressed=true
@@ -88,7 +101,18 @@ func _populate_links(e,source: Dictionary) -> void:
 	for dealer in e.authoring.doc.get("dealerships",[]):
 		dealer_input.add_item(str(dealer.get("name",dealer.id))+"  ["+str(dealer.id)+"]")
 		dealer_input.set_item_metadata(dealer_input.item_count-1,str(dealer.id))
+	contract_destination_input.clear()
+	contract_destination_input.add_item("Choose a dropoff marker")
+	contract_destination_input.set_item_metadata(0,"")
+	for item in e.authoring.doc.get("markers",[]):
+		if str(item.get("type",""))!="contract_dropoff" or str(item.get("id",""))==str(source.get("id","")):
+			continue
+		var caption:=str(item.get("name","Dropoff"))+"  ["+str(item.get("id",""))+"]"
+		contract_destination_input.add_item(caption)
+		contract_destination_input.set_item_metadata(contract_destination_input.item_count-1,str(item.id))
 	var info: Dictionary=source.get("properties",{})
+	_select_value(contract_kind_input,str(info.get("contract_kind","courier")))
+	_select_value(contract_destination_input,str(info.get("destination_marker_id","")))
 	_select_value(race_input,str(info.get("race_id","")))
 	_select_value(required_input,str(info.get("required_race","")))
 	_select_value(dealer_input,str(info.get("dealer_id","")))
@@ -103,12 +127,13 @@ func open_for(e,id: String) -> void:
 	name_input.text=str(marker.get("name",""))
 	description_input.text=str(marker.get("properties",{}).get("description",""))
 	_select_value(type_input,str(marker.get("type","custom")))
+	contract_fields.visible=str(type_input.get_selected_metadata())=="contract"
 	var info: Dictionary=marker.get("properties",{})
 	enabled_input.button_pressed=bool(info.get("enabled",true))
 	radius_input.value=float(info.get("radius_m",12))
 	weight_input.value=float(info.get("traffic_weight",3))
 	_populate_links(e,marker)
-	feedback.text="Mission markers launch the linked race; fast travel requires an unlocked marker and a stopped car."
+	feedback.text="Contract markers offer vehicle-only courier/getaway jobs. Place a contract dropoff first, then select it here."
 	dialog.popup_centered()
 
 func update(e) -> void:
@@ -132,6 +157,14 @@ func save(e) -> void:
 		var chosen: String=str(pair[0].get_selected_metadata())
 		if chosen.is_empty():info.erase(pair[1])
 		else:info[pair[1]]=chosen
+	if str(type_input.get_selected_metadata())=="contract":
+		info["contract_kind"]=str(contract_kind_input.get_selected_metadata())
+		var dropoff:=str(contract_destination_input.get_selected_metadata())
+		if dropoff.is_empty():info.erase("destination_marker_id")
+		else:info["destination_marker_id"]=dropoff
+	else:
+		info.erase("contract_kind")
+		info.erase("destination_marker_id")
 	if e.authoring.update_marker(marker_id,{
 		"name":name_input.text.strip_edges(),
 		"type":str(type_input.get_selected_metadata()),
