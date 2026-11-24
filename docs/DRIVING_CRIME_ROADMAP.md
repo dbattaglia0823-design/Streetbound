@@ -12,14 +12,23 @@ during a wanted pursuit is a bust, not a teleport escape.
   contacts within a 0.25-second impact window do not stack damage.
 - Damage lowers *available driving force* without changing catalog specs,
   tire friction, braking, or the established 120 Hz handling model.
-- Damage is scoped to equipped car IDs for the active session; it is not yet
-  persisted, and a position reset **does not heal** a vehicle.
-- Park at the existing garage or an authored garage/fuel marker and press **K**
-  to pay for full repairs. Normal repairs require the full quoted price.
-- If the vehicle becomes disabled outside a police chase, **K** offers a
-  capped-price emergency tow to the starting area at 35% integrity. This
-  prevents an out-of-cash, disabled-car soft lock without granting free full
-  repairs.
+- Vehicle integrity and fuel are tracked per equipped car and persisted in a
+  separate resources save. A position reset **does not** refill or repair it.
+- Park at a garage, including authored garage markers, and press **K** to
+  restore **100% condition for free**, even when the balance is $0.
+- At an authored gas station (`fuel` marker), press **K** to repair only up to
+  **50% condition** for a small fee ($25 base + $4 per restored point).
+  Cars already above 50% receive no repair from the gas station.
+- Gas stations also sell fuel/EV charging: press **J** while parked, or use
+  the station's **F** interaction. Fuel consumption scales with movement
+  and throttle and is independent of nitrous; an empty tank disables drive
+  power but retains steering and braking.
+- The top-right HUD displays small original vector engine and fuel icons,
+  each with a circular condition ring and low/critical colors.
+- If the car is disabled or out of fuel outside a police chase, **K** offers
+  a capped-price emergency tow to the starting area, with at least 35% engine
+  integrity and 8% fuel. It never gives full repair/refill. Police impounds
+  use the same low-condition recovery, so garage repairs remain meaningful.
 - Starting a street race triggers the first single-player pursuit prototype.
   **F7** also starts a test pursuit in debug builds.
 - Police use actual vehicle bodies and the current directional road route
@@ -41,8 +50,9 @@ during a wanted pursuit is a bust, not a teleport escape.
    roadblocks, line-of-sight searches, tactical escalation and wanted heat.
 3. Career/underground reputation, mission contract payouts and failure rules
    with saved progression and explicit anti-duplicate reward tokens.
-4. Improved damage effects, persistent per-car damage, paid towing,
-   repair UI, and non-police disabling/recovery.
+4. Polish vehicle damage visuals, physical gas station placement and repair
+   UI, plus realistic vehicle-specific consumption tuning and persistent
+   damage integration with future career saves.
 5. Host-authoritative multiplayer police, shared pursuits, damage and contract
    payouts, with reconnect and split-screen validation.
 
@@ -53,6 +63,8 @@ Run the standalone test after normal import:
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
+godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
+godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
 ```
 
 Also run the repository-wide validation workflow and visually inspect pursuit
