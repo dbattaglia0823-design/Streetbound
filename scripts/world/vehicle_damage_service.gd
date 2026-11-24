@@ -11,6 +11,7 @@ const RESOURCE_PATH := "user://streetbound_vehicle_resources.cfg"
 const GAS_PRICE_PER_LITRE := 1.25
 const CHARGE_PRICE_PER_UNIT := 0.3
 
+var resource_save_path := RESOURCE_PATH
 var player: VehicleController2D
 var economy: Object
 var garage: Node2D
@@ -57,7 +58,7 @@ func _exit_tree() -> void:
 
 func _load_resources() -> void:
 	var file := ConfigFile.new()
-	if file.load(RESOURCE_PATH) != OK:
+	if file.load(resource_save_path) != OK:
 		return
 	for slot in ["integrity", "fuel"]:
 		var saved: Variant = file.get_value("resources", slot, {})
@@ -81,7 +82,7 @@ func _save_resources() -> bool:
 	var file := ConfigFile.new()
 	file.set_value("resources", "integrity", integrity_by_car)
 	file.set_value("resources", "fuel", fuel_by_car)
-	return file.save(RESOURCE_PATH) == OK
+	return file.save(resource_save_path) == OK
 
 func _configure_active_car() -> void:
 	var entry: Dictionary = Catalog.find_by_id(current_car_id)
@@ -179,6 +180,35 @@ func impound_recovery() -> void:
 	_update_gauges()
 	_save_resources()
 
+func _try_tow() -> bool:
+	if not _can_tow() or not is_instance_valid(economy):
+		return false
+	# An affordable recovery cannot full-repair or full-refill the vehicle.
+	var fee: int = mini(ServiceRules.TOW_MAX_FEE, int(economy.balance))
+	var previous_integrity: float = damage.integrity
+	var previous_fuel: float = fuel.remaining
+	damage.integrity = maxf(35.0, damage.integrity)
+	fuel.remaining = maxf(fuel.remaining, fuel.capacity * 0.08)
+	if not _save_resources():
+		damage.integrity = previous_integrity
+		fuel.remaining = previous_fuel
+		_show_notice("TOW SAVE FAILED")
+		return false
+	economy.balance -= fee
+	if not economy.save():
+		economy.balance += fee
+		damage.integrity = previous_integrity
+		fuel.remaining = previous_fuel
+		_save_resources()
+		_show_notice("TOW PAYMENT FAILED")
+		return false
+	economy.changed.emit()
+	player.reset_vehicle()
+	_apply_drive_condition()
+	_update_gauges()
+	_show_notice("EMERGENCY TOW / -%s" % economy.dollars(fee))
+	return true
+
 func try_repair() -> bool:
 	if not is_instance_valid(economy):
 		return false
@@ -192,10 +222,14 @@ func try_repair() -> bool:
 		return true
 	if service == "station":
 		if damage.integrity >= ServiceRules.STATION_REPAIR_LIMIT:
+			if _can_tow():
+				return _try_tow()
 			_show_notice("STATION REPAIR LIMIT / 50%")
 			return false
 		var fee: int = ServiceRules.station_repair_fee(damage.integrity)
 		if int(economy.balance) < fee:
+			if _can_tow():
+				return _try_tow()
 			_show_notice("NOT ENOUGH CASH FOR REPAIR")
 			return false
 		var previous: float = damage.integrity
@@ -216,34 +250,7 @@ func try_repair() -> bool:
 		_update_gauges()
 		_show_notice("GAS STATION / 50%% / -%s" % economy.dollars(fee))
 		return true
-	if not _can_tow():
-		return false
-	# Prevent an empty tank / dead engine from permanently soft-locking the
-	# player: emergency recovery has a maximum fee, never fully repairs.
-	var tow_fee: int = mini(ServiceRules.TOW_MAX_FEE, int(economy.balance))
-	var previous_integrity: float = damage.integrity
-	var previous_fuel: float = fuel.remaining
-	damage.integrity = maxf(35.0, damage.integrity)
-	fuel.remaining = maxf(fuel.remaining, fuel.capacity * 0.08)
-	if not _save_resources():
-		damage.integrity = previous_integrity
-		fuel.remaining = previous_fuel
-		_show_notice("TOW SAVE FAILED")
-		return false
-	economy.balance -= tow_fee
-	if not economy.save():
-		economy.balance += tow_fee
-		damage.integrity = previous_integrity
-		fuel.remaining = previous_fuel
-		_save_resources()
-		_show_notice("TOW PAYMENT FAILED")
-		return false
-	economy.changed.emit()
-	player.reset_vehicle()
-	_apply_drive_condition()
-	_update_gauges()
-	_show_notice("EMERGENCY TOW / -%s" % economy.dollars(tow_fee))
-	return true
+	return _try_tow()
 
 func try_refuel() -> bool:
 	if not is_instance_valid(economy):
