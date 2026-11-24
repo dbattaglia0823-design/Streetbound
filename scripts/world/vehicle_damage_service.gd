@@ -137,7 +137,7 @@ func _location_type() -> String:
 		return ""
 	if is_instance_valid(police) and int(police.get("wanted_level")) > 0:
 		return ""
-	var at_garage := is_instance_valid(garage) and garage.has_method("can_switch") and garage.call("can_switch")
+	var at_garage: bool = is_instance_valid(garage) and garage.has_method("can_switch") and bool(garage.call("can_switch"))
 	var at_station := false
 	if is_instance_valid(authored_markers):
 		var raw: Variant = authored_markers.get("markers")
