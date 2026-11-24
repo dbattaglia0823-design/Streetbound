@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dpnt2ykxqlxk8"
-path="res://.godot/imported/Valyrie AMR Pro.png-3fa28837b43bb24b350f8b0949e6aba6.ctex"
+uid="uid://bcimojwp31ci7"
+path="res://.godot/imported/RS6 Avant.png-be8ef346a4971b830abcaa001d824765.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Aston Martin/Valyrie AMR Pro.png"
-dest_files=["res://.godot/imported/Valyrie AMR Pro.png-3fa28837b43bb24b350f8b0949e6aba6.ctex"]
+source_file="res://assets/Vehicles/Audi/RS6 Avant.png"
+dest_files=["res://.godot/imported/RS6 Avant.png-be8ef346a4971b830abcaa001d824765.ctex"]
 
 [params]
 

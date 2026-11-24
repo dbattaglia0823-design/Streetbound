@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcimojwp31ci7"
-path="res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"
+uid="uid://23puio402fig"
+path="res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Audi/RS6 Avante.png"
-dest_files=["res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"]
+source_file="res://assets/Vehicles/Acura/Integra Type S.png"
+dest_files=["res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"]
 
 [params]
 

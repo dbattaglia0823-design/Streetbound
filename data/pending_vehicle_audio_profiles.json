@@ -311,9 +311,9 @@
     },
     {
       "id": "audi-rs6-avante",
-      "display_name": "Audi RS6 Avante",
+      "display_name": "Audi RS6 Avant",
       "manufacturer": "Audi",
-      "model": "RS6 Avante",
+      "model": "RS6 Avant",
       "audio_status": "prepared_unreleased",
       "audio_family": "v8_cross",
       "audio_induction": "turbo",

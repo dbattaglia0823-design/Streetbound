@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cdvans8b24gof"
-path="res://.godot/imported/Skyline GTR V-Spec.png-0d98a6c06b493a5cd14c0757443c1556.ctex"
+uid="uid://cnisfy3oqgsf4"
+path="res://.godot/imported/F-150.png-b8eed393ce4d6f35cc57658ade083661.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Nissan/Skyline GTR V-Spec.png"
-dest_files=["res://.godot/imported/Skyline GTR V-Spec.png-0d98a6c06b493a5cd14c0757443c1556.ctex"]
+source_file="res://assets/Vehicles/Ford/F-150.png"
+dest_files=["res://.godot/imported/F-150.png-b8eed393ce4d6f35cc57658ade083661.ctex"]
 
 [params]
 

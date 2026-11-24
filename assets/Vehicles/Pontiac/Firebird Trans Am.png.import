@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bw32rfbs1oyvk"
-path="res://.godot/imported/Pontiac Firebird Trans.png-d1448e0acad673b50e83028dabca2d73.ctex"
+path="res://.godot/imported/Firebird Trans Am.png-a194f14c1e59f9b925b3036e541f4ba1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Pontiac/Pontiac Firebird Trans.png"
-dest_files=["res://.godot/imported/Pontiac Firebird Trans.png-d1448e0acad673b50e83028dabca2d73.ctex"]
+source_file="res://assets/Vehicles/Pontiac/Firebird Trans Am.png"
+dest_files=["res://.godot/imported/Firebird Trans Am.png-a194f14c1e59f9b925b3036e541f4ba1.ctex"]
 
 [params]
 
