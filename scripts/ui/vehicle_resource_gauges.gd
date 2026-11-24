@@ -25,8 +25,13 @@ func _ready() -> void:
 
 func _layout() -> void:
 	var viewport := get_viewport_rect().size
-	# Keep it entirely on screen even with a narrow window.
-	position = Vector2(maxf(8.0, viewport.x - 500.0), 44.0)
+	# On wide screens, place meters to the left of the minimap.
+	# On narrow screens, move below it so they do not cover the
+	# driver's existing top-left garage/progression HUD.
+	if viewport.x >= 1000.0:
+		position = Vector2(viewport.x - 500.0, 44.0)
+	else:
+		position = Vector2(maxf(8.0, viewport.x - 190.0), 375.0)
 
 func update_levels(engine: float, fuel: float, is_electric: bool = false) -> void:
 	var next_engine := clampf(engine, 0.0, 1.0)
