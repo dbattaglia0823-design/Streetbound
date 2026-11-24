@@ -159,8 +159,9 @@ func _complete() -> void:
 	var event_key := str(marker_source.get("world_id")) + "::" + str(active.get("id",""))
 	var payout: Dictionary = economy.call("record_driving_contract",run_token, event_key, kind)
 	if str(payout.get("result","")) == "completed":
-		_end("JOB COMPLETE / +%s / +%d DRIVER XP" % [
-			economy.dollars(int(payout.get("cash",0))), int(payout.get("player_xp",0))])
+		_end("JOB COMPLETE / +%s / +%d DRIVER XP / +%d STREET REP" % [
+			economy.dollars(int(payout.get("cash",0))), int(payout.get("player_xp",0)),
+			int(payout.get("underground_rep",0))])
 	else:
 		_end("JOB NOT PAID / " + str(payout.get("result","save_failed")))
 
@@ -204,7 +205,8 @@ func _process(dt: float) -> void:
 	notice_seconds = maxf(0.0, notice_seconds - dt)
 	abandon_button.visible = not active.is_empty()
 	if active.is_empty():
-		readout.text = "DRIVING CONTRACTS / " + (notice if notice_seconds > 0.0 else "Find a job marker")
+		readout.text = "DRIVING CONTRACTS / REP %d / " % int(economy.get("underground_reputation")) + \
+			(notice if notice_seconds > 0.0 else "Find a job marker")
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var dist_m := player.global_position.distance_to(
