@@ -5,6 +5,9 @@ const MarkerRules = preload("res://scripts/world/authored_marker_rules.gd")
 const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Session = preload("res://scripts/dev/native_map_edit_session.gd")
 const ContractRuntime = preload("res://scripts/world/driving_contracts.gd")
+const MarkerRuntime = preload("res://scripts/world/authored_map_markers.gd")
+const PoliceRuntime = preload("res://scripts/world/police_pursuit.gd")
+const PlayerScene = preload("res://scenes/vehicle.tscn")
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -84,9 +87,49 @@ func run() -> void:
 		and str(session.marker_at_id("marker-2").properties.contract_kind)=="smuggling"
 		and session.undo()
 		and str(session.marker_at_id("marker-2").properties.contract_kind)=="getaway")
+	# Execute the actual reward completion seam with an in-world car
+	# rather than relying only on the pure rules.
+	var vehicle: VehicleController2D = PlayerScene.instantiate()
+	vehicle.external_input = true
+	root.add_child(vehicle)
+	await physics_frame
+	var police: Node2D = Node2D.new()
+	police.set_script(PoliceRuntime)
+	var source_markers: Node2D = Node2D.new()
+	source_markers.set_script(MarkerRuntime)
+	source_markers.set("world_id","test-world")
 	var runtime: Node2D = Node2D.new()
 	runtime.set_script(ContractRuntime)
-	check("contract_runtime_script_instantiates",runtime != null)
+	runtime.set("player",vehicle)
+	runtime.set("police",police)
+	runtime.set("marker_source",source_markers)
+	runtime.set("economy",economy)
+	runtime.set("active",source.duplicate(true))
+	runtime.set("destination",destination.duplicate(true))
+	runtime.set("remaining_seconds",60.0)
+	runtime.set("run_token","contract-runtime-completed-0005")
+	runtime.set("started_car_id",str(economy.active_id))
+	vehicle.position = Vector2(float(destination.x),float(destination.y))*20.0
+	vehicle.linear_velocity = Vector2.ZERO
+	var before_completion: int = economy.balance
+	runtime.call("_physics_process",0.02)
+	check("real_vehicle_dropoff_pays_once",economy.balance==before_completion+1350
+		and (runtime.get("active") as Dictionary).is_empty())
+	runtime.call("_physics_process",0.02)
+	check("completed_job_cannot_pay_second_time",economy.balance==before_completion+1350)
+	runtime.set("active",source.duplicate(true))
+	runtime.set("destination",destination.duplicate(true))
+	runtime.set("remaining_seconds",60.0)
+	runtime.set("run_token","contract-runtime-busted-0006")
+	runtime.set("started_car_id",str(economy.active_id))
+	runtime.call("_on_police_busted","BOXED IN")
+	var after_busted: int = economy.balance
+	runtime.call("_physics_process",0.02)
+	check("busted_job_cannot_pay",economy.balance==after_busted and
+		(runtime.get("active") as Dictionary).is_empty())
 	runtime.free()
+	source_markers.free()
+	police.free()
+	vehicle.queue_free()
 	print("DRIVING CONTRACTS: %d failures" % failures.size())
 	quit(1 if not failures.is_empty() else 0)
