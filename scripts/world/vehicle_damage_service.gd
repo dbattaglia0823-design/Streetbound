@@ -61,14 +61,26 @@ func repair_full() -> void:
 	integrity_by_car[current_car_id] = 100.0
 	_apply_drive_condition()
 
+func _emergency_recovery_available() -> bool:
+	return damage.is_disabled() and is_instance_valid(player) and (
+		not is_instance_valid(police) or int(police.get("wanted_level")) == 0)
+
 func try_repair() -> bool:
-	if not _service_available() or damage.integrity >= 100.0:
+	if not is_instance_valid(economy) or damage.integrity >= 100.0:
 		return false
-	var fee := damage.repair_cost()
-	if not is_instance_valid(economy) or int(economy.balance) < fee:
+	var garage_repair := _service_available()
+	var roadside_recovery := _emergency_recovery_available()
+	if not garage_repair and not roadside_recovery:
+		return false
+	# Normal garage repairs require their full price. A disabled car must
+	# always have one non-exploitable way back to driveability: an affordable
+	# tow to the spawn location and 35% emergency integrity, not full health.
+	var full_repair := garage_repair and int(economy.balance) >= damage.repair_cost()
+	if not full_repair and not roadside_recovery:
 		notice = "INSUFFICIENT CASH FOR REPAIR"
 		notice_remaining = 3.0
 		return false
+	var fee: int = damage.repair_cost() if full_repair else mini(750, int(economy.balance))
 	economy.balance -= fee
 	if not economy.save():
 		economy.balance += fee
@@ -76,8 +88,16 @@ func try_repair() -> bool:
 		notice_remaining = 3.0
 		return false
 	economy.changed.emit()
-	repair_full()
-	notice = "REPAIRED / -%s" % economy.dollars(fee)
+	if full_repair:
+		repair_full()
+		notice = "REPAIRED / -%s" % economy.dollars(fee)
+	else:
+		damage.integrity = 35.0
+		damage.last_impact_at = -INF
+		integrity_by_car[current_car_id] = damage.integrity
+		player.reset_vehicle()
+		_apply_drive_condition()
+		notice = "EMERGENCY TOW / 35% CONDITION / -%s" % economy.dollars(fee)
 	notice_remaining = 3.0
 	return true
 
@@ -102,8 +122,11 @@ func _process(dt: float) -> void:
 		label += "  /  DISABLED"
 	elif damage.integrity < 35.0:
 		label += "  /  CRITICAL"
-	if _service_available() and damage.integrity < 100.0:
-		label += "  /  K REPAIR %s" % economy.dollars(damage.repair_cost())
+	if damage.integrity < 100.0:
+		if _service_available():
+			label += "  /  K REPAIR %s" % economy.dollars(damage.repair_cost())
+		elif _emergency_recovery_available():
+			label += "  /  K TOW / 35% CONDITION"
 	if notice_remaining > 0.0:
 		label += "  /  " + notice
 	readout.text = label
