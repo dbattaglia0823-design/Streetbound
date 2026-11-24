@@ -6,6 +6,7 @@ const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
 const FuelState = preload("res://scripts/vehicle/vehicle_fuel.gd")
 const ServiceRules = preload("res://scripts/vehicle/vehicle_service_rules.gd")
 const FuelGauges = preload("res://scripts/ui/vehicle_resource_gauges.gd")
+const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const RESOURCE_PATH := "user://streetbound_vehicle_resources.cfg"
 const GAS_PRICE_PER_LITRE := 1.25
@@ -23,6 +24,7 @@ var fuel_by_car: Dictionary = {}
 var damage = DamageState.new()
 var fuel = FuelState.new()
 var gauges: Control
+var engine_smoke: Node2D
 var readout: Label
 var notice := ""
 var notice_remaining := 0.0
@@ -39,6 +41,12 @@ func _ready() -> void:
 	_configure_active_car()
 	player.crash_contact.connect(_on_impact)
 	player.vehicle_reset.connect(_apply_drive_condition)
+	# The VFX follows the player in world coordinates, not the CanvasLayer.
+	# Keep it separate from exhaust flames and tire smoke.
+	engine_smoke = Node2D.new()
+	engine_smoke.set_script(DamageSmoke)
+	engine_smoke.set("vehicle", player)
+	player.add_child(engine_smoke)
 	gauges = Control.new()
 	gauges.set_script(FuelGauges)
 	add_child(gauges)
@@ -53,6 +61,8 @@ func _ready() -> void:
 	_update_gauges()
 
 func _exit_tree() -> void:
+	if is_instance_valid(engine_smoke):
+		engine_smoke.queue_free()
 	if not current_car_id.is_empty():
 		_save_resources()
 
@@ -125,6 +135,8 @@ func _apply_drive_condition() -> void:
 		return
 	player.damage_drive_fraction = damage.drive_fraction()
 	player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
+	if is_instance_valid(engine_smoke):
+		engine_smoke.call("set_health", damage.integrity)
 
 func _update_gauges() -> void:
 	if is_instance_valid(gauges):
