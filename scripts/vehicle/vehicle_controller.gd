@@ -50,6 +50,9 @@ var external_input := false
 var command := Vector4.ZERO # throttle, brake, steer, handbrake; AI/test seam
 var _traffic_impact_id := -1
 var _traffic_impact_cooldown := 0.0
+## Set by the driving-only damage service; one means an undamaged engine.
+## Resetting position does not repair a damaged car.
+var damage_drive_fraction := 1.0
 
 func _ready() -> void:
 	# World ink samples every physical racer (player, AI, remote peers).
@@ -325,6 +328,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var pedal := pow(drive_input, 1.0 + high_output * 1.9)
 	var requested_force := engine_force * pedal * \
 		(1.0+config.nitrous_torque_fraction if nitrous_active else 1.0)
+	requested_force *= clampf(damage_drive_fraction,0.0,1.0)
 	var rear_drive_share := 1.0 if config.drivetrain == VehicleConfig.Drivetrain.RWD else 0.0
 	if config.drivetrain == VehicleConfig.Drivetrain.AWD:
 		rear_drive_share = 0.5
