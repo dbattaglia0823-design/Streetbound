@@ -173,15 +173,18 @@ func activate() -> void:
 			race.call("start_race")
 		"fast_travel":_open_travel()
 		"fuel":
-			# Station F uses the actual paid fuel service; nitrous retains
-			# its original instantaneous kit refill behavior.
+			# In the driving-only career F refuels through the paid station
+			# service and does not unexpectedly open the upgrades overlay.
 			if is_instance_valid(resources):
 				resources.try_refuel()
-			# The base game already recharges nitrous automatically. This
-			# service marker provides an immediate refill for an installed kit.
-			player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
-			if float(player.config.nitrous_capacity_seconds)<=0.0 and is_instance_valid(quick_upgrades):
-				quick_upgrades.open_menu()
+				if float(player.config.nitrous_capacity_seconds)>0.0:
+					player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
+			else:
+				# Legacy sandbox/multiplayer behavior remains unchanged
+				# until their own authoritative fuel rules are introduced.
+				player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
+				if float(player.config.nitrous_capacity_seconds)<=0.0 and is_instance_valid(quick_upgrades):
+					quick_upgrades.open_menu()
 		"race_start","checkpoint","finish","custom":
 			var race:=_linked_race(str(properties.get("race_id","")))
 			if race!=null and is_instance_valid(map_hud) and is_instance_valid(map_hud.waypoints):
