@@ -176,9 +176,12 @@ func activate() -> void:
 			# In the driving-only career F refuels through the paid station
 			# service and does not unexpectedly open the upgrades overlay.
 			if is_instance_valid(resources):
-				resources.try_refuel()
-				if float(player.config.nitrous_capacity_seconds)>0.0:
-					player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
+				# Police heat and vehicle movement block both paid fuel and
+				# instant kit recharge; F cannot bypass service restrictions.
+				if str(resources.call("_location_type"))=="station":
+					resources.try_refuel()
+					if float(player.config.nitrous_capacity_seconds)>0.0:
+						player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
 			else:
 				# Legacy sandbox/multiplayer behavior remains unchanged
 				# until their own authoritative fuel rules are introduced.
