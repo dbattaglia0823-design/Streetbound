@@ -35,8 +35,12 @@ static func strength_for(follower_at: Vector2, follower_heading: float,
 	var near_factor := smoothstep(2.0,7.0,ahead)
 	var far_factor := 1.0 - smoothstep(16.0,MAX_GAP_M,ahead)
 	var lane_factor := 1.0 - smoothstep(1.2,3.6,lateral)
-	return clampf(speed_factor*angle_factor*near_factor*far_factor*lane_factor,
-		0.0,1.0)
+	# Crossing a wake at a much higher/lower speed is less useful than
+	# remaining tucked behind a similarly paced lead car.
+	var relative_speed := absf(speed-lead_speed)
+	var relative_factor := 1.0 - .55*smoothstep(4.0,16.0,relative_speed)
+	return clampf(speed_factor*angle_factor*near_factor*far_factor*lane_factor*
+		relative_factor,0.0,1.0)
 
 
 static func aero_drag_multiplier(strength: float) -> float:

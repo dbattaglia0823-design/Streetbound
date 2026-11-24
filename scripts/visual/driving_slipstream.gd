@@ -4,11 +4,17 @@ extends Node2D
 ## world trails. Traffic and remote players use exactly the same visual rule.
 const Drafting = preload("res://scripts/vehicle/drafting_aerodynamics.gd")
 const WAKE_LINES := 7
+# Visual airflow becomes noticeable only near 50-60 mph. The much fainter
+# unfollowed wake is atmospheric, while an eligible drafting pair amplifies it.
+const WIND_START_MPS := 22.35
+const WIND_FULL_MPS := 26.82
+const AMBIENT_WAKE_STRENGTH := .08
 var vehicle: Node2D
 var wake_intensity := 0.0
 var following_intensity := 0.0
 var _refresh_in := 0.0
 var _measured_wake := 0.0
+var _speed_wake_fraction := 0.0
 
 func _ready() -> void:
 	vehicle = get_parent() as Node2D
@@ -34,12 +40,18 @@ func _process(delta: float) -> void:
 				world = vehicle.get_parent().get_parent()
 			speed = float(vehicle.get("motion_speed_mps"))
 			velocity = Vector2.UP.rotated(vehicle.rotation)*speed
-		_measured_wake = Drafting.wake_strength(vehicle,world,velocity) \
-			if speed >= Drafting.START_SPEED_MPS else 0.0
+		_speed_wake_fraction = smoothstep(WIND_START_MPS,WIND_FULL_MPS,
+			maxf(speed,0.0))
+		_measured_wake = 0.0
+		if _speed_wake_fraction > 0.0:
+			_measured_wake = Drafting.wake_strength(vehicle,world,velocity) * \
+				_speed_wake_fraction
 	var following := 0.0
 	if vehicle.has_method("drafting_effect_strength"):
-		following = float(vehicle.call("drafting_effect_strength"))
-	var target := _measured_wake
+		following = float(vehicle.call("drafting_effect_strength")) * \
+			_speed_wake_fraction
+	var target := maxf(_measured_wake,
+		AMBIENT_WAKE_STRENGTH*_speed_wake_fraction)
 	var easing := 1.0-exp(-8.0*dt)
 	var previous := wake_intensity
 	wake_intensity = lerpf(wake_intensity,target,easing)
@@ -53,6 +65,10 @@ func _draw() -> void:
 	if wake_intensity > .035:
 		var alpha := minf(.40,wake_intensity*.31)
 		for i in WAKE_LINES:
+			# Only four very thin lines on an unfollowed car; the seven-line
+			# wake appears when a trailing car is actually benefiting.
+			if wake_intensity < .14 and i%2 != 0:
+				continue
 			var side := (float(i)-3.0)/3.0
 			var start := Vector2(side*16.0,36.0)
 			var dist := 160.0 + 260.0*wake_intensity

@@ -37,3 +37,9 @@ The small **Drift Grounds** map is a useful manual driving target but is not req
 ### Design limits
 
 This is a deliberately forgiving arcade/track model, not an individual-four-wheel tire model. There is still no dedicated differential simulation, suspension load transfer, tire temperature, ABS or automatic drift-score measurement. Refine balance after hands-on driving with multiple car classes and keyboard/touch controls.
+
+## Phase 2 drafting and airflow feedback
+
+All playable, AI and hosted multiplayer physical cars use the same `DraftingAerodynamics` calculation; moving traffic can provide a wake. The only mechanical benefit is reduced aerodynamic resistance (capped at 18%); steering, brakes, tire grip and wheel force are unchanged. Strength depends on forward speeds, relative speed, distance, lane offset and heading alignment. Passing to the side or falling behind fades the bonus without a speed boost.
+
+World-space streaks begin around 50 mph and reach their normal visibility around 60 mph. Unfollowed high-speed vehicles show at most four very faint lines; an aligned trailing racer strengthens the wake to seven lines, which fades back naturally after separation. Camera, nitrous, backfire and turbo visuals remain the Phase 2 implementation from PR #191. The effects are vehicle-scene based rather than map-specific. Validate visibility with multiple zoom levels and busy traffic before treating the manual look-and-feel pass as complete.
