@@ -90,7 +90,7 @@ func _run() -> void:
 	check("every_car_has_a_named_real_model_year_and_trim",valid)
 	check("vehicle_ids_unchanged_and_unique",ids.size()==256)
 	check("source_checked_and_representative_trims_distinguished",
-		direct_sources>=1 and estimated_specs>=1 and \
+		direct_sources>=54 and estimated_specs>=1 and \
 		direct_sources+estimated_specs==256,[direct_sources,estimated_specs])
 	check("prices_are_explicit_about_original_vs_estimated_market_basis",
 		price_bases.size()==7 and \

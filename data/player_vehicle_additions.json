@@ -8062,7 +8062,7 @@
       "price_usd": 39000,
       "dealership_id": "used",
       "required_player_level": 13,
-      "audio_family": "i4",
+      "audio_family": "i3",
       "audio_induction": "turbo",
       "boost_max_psi": 15,
       "audio_aggression": 0.74,
