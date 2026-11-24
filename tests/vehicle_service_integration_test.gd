@@ -95,9 +95,28 @@ func run() -> void:
 		and service.fuel.fraction() >= 0.08
 		and inventory.balance == 0)
 	check("fuel_stored_for_equipped_car", service.fuel_by_car.has(inventory.active_id))
+	service.damage.integrity = 0.0
+	service.fuel.remaining = 0.0
+	service.impound_recovery()
+	check("impound_never_full_repairs", service.damage.integrity == 35.0
+		and service.fuel.fraction() >= 0.08)
 
 	root.remove_child(service)
 	service.queue_free()
+	await process_frame
+	var reloaded = Service.new()
+	reloaded.player = player
+	reloaded.economy = inventory
+	reloaded.authored_markers = marker_node
+	reloaded.resource_save_path = TEST_SAVE
+	root.add_child(reloaded)
+	await process_frame
+	reloaded.set_physics_process(false)
+	check("resources_persist_after_reinstantiation",
+		is_equal_approx(reloaded.damage.integrity, 35.0)
+		and reloaded.fuel.fraction() >= 0.08)
+	root.remove_child(reloaded)
+	reloaded.queue_free()
 	await process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 	player.queue_free()
