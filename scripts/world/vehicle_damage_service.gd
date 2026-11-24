@@ -262,12 +262,18 @@ func try_refuel() -> bool:
 		_show_notice("TANK ALREADY FULL")
 		return false
 	var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
-	var fee: int = fuel.refill_cost(price)
-	if int(economy.balance) < fee:
+	var full_fee: int = fuel.refill_cost(price)
+	var fee: int = mini(full_fee, int(economy.balance))
+	if fee <= 0:
 		_show_notice("NOT ENOUGH CASH FOR FUEL")
 		return false
 	var previous: float = fuel.remaining
-	fuel.refill()
+	if fee == full_fee:
+		fuel.refill()
+	else:
+		# Buying part of a tank is preferable to being stranded at a pump
+		# because the player cannot afford the complete refill.
+		fuel.remaining = minf(fuel.capacity, fuel.remaining + float(fee) / price)
 	if not _save_resources():
 		fuel.remaining = previous
 		_show_notice("FUEL SAVE FAILED")
@@ -283,7 +289,10 @@ func try_refuel() -> bool:
 	_low_fuel_warning = false
 	_apply_drive_condition()
 	_update_gauges()
-	_show_notice("%s FULL / -%s" % ["CHARGE" if fuel.electric else "TANK", economy.dollars(fee)])
+	_show_notice("%s %s / -%s" % [
+		"CHARGE" if fuel.electric else "FUEL",
+		"FULL" if fee == full_fee else "PARTIAL",
+		economy.dollars(fee)])
 	return true
 
 func _unhandled_input(event: InputEvent) -> void:
