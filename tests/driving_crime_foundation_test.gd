@@ -36,7 +36,7 @@ func run() -> void:
 	var police_ring: Array[Vector2] = [
 		Vector2(5.0, 0.0), Vector2(-2.5, 4.33), Vector2(-2.5, -4.33)]
 	var p := Containment.progress(0.0, 1.0, Vector2.ZERO, 0.0, 0.0, police_ring)
-	check("idle_car_not_busted", p == 0.0)
+	check("surrounded_stationary_car_can_be_busted", p == 1.0)
 	p = Containment.progress(0.0, 1.0, Vector2.ZERO, 4.0, 1.0, police_ring)
 	check("moving_car_not_busted", p == 0.0)
 	var single_officer: Array[Vector2] = [Vector2(3.0, 0.0)]
