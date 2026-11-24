@@ -309,6 +309,7 @@ func _ready() -> void:
 		police_pursuit.set("street_races", illegal_races)
 		add_child(police_pursuit)
 		vehicle_damage_service.set("police", police_pursuit)
+		authored_map_markers.set("resources", vehicle_damage_service)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
 	local_split_screen = CanvasLayer.new()
