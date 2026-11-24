@@ -10,7 +10,7 @@ export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
 export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
-export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','custom']);
+export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
 const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
@@ -312,6 +312,7 @@ export function normalizeWorld(raw){
   const raceIds=new Set((result.races??[]).map(e=>e.id));
   const dealerIds=new Set((result.dealerships??[]).map(e=>e.id));
   let playerSpawns=0;
+  const byMarkerId=new Map(result.markers.map(m=>[m.id,m]));
   for(const marker of result.markers){
     if(marker.type==='player_spawn')playerSpawns++;
     const info=marker.properties??{};
@@ -327,6 +328,19 @@ export function normalizeWorld(raw){
       typeof info.dealer_id!=='string'||info.dealer_id.length>100||
       (info.dealer_id!==''&&!dealerIds.has(info.dealer_id))))
       throw new TypeError('Marker references unknown dealership');
+    if(info.contract_kind!==undefined&&!['courier','smuggling','getaway'].includes(info.contract_kind))
+      throw new TypeError('Invalid driving contract type');
+    if(info.destination_marker_id!==undefined&&(
+      typeof info.destination_marker_id!=='string'||info.destination_marker_id.length>100))
+      throw new TypeError('Invalid driving contract destination');
+    if(marker.type==='contract'&&info.destination_marker_id){
+      const dest=byMarkerId.get(info.destination_marker_id);
+      if(!dest||dest.type!=='contract_dropoff'||dest.id===marker.id)
+        throw new TypeError('Contract destination must link to a dropoff marker');
+      const distance=Math.hypot(marker.x-dest.x,marker.y-dest.y);
+      if(distance<100||distance>15000)
+        throw new RangeError('Driving contract distance must be between 100 and 15000 metres');
+    }
     if(info.enabled!==undefined&&typeof info.enabled!=='boolean')throw new TypeError('Invalid marker enabled flag');
     if(info.radius_m!==undefined)real(info.radius_m,4,50,'marker radius');
     if(info.traffic_weight!==undefined)integer(info.traffic_weight,1,10,'traffic spawn priority');
