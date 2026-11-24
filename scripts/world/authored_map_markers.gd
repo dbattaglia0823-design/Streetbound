@@ -13,6 +13,7 @@ var economy: Object
 var selector: CanvasLayer
 var dealer_menu: CanvasLayer
 var quick_upgrades: CanvasLayer
+var resources: CanvasLayer
 var traffic: Node2D
 var map_hud: CanvasLayer
 var races: Array[Node2D]=[]
@@ -116,7 +117,7 @@ func _process(dt: float) -> void:
 	prompt.visible=actionable and not _is_busy() and not get_tree().paused
 	if prompt.visible:
 		var hint: String={"garage":"GARAGE","dealership":"DEALERSHIP","mission":"START MISSION",
-			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / NITROUS",
+			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / FUEL", 
 			"race_start":"RACE ROUTE","checkpoint":"CHECKPOINT",
 			"finish":"FINISH","custom":"MAP WAYPOINT"}.get(kind,"INTERACT")
 		prompt.text=str(_nearby.get("name",kind)).to_upper()+"  /  "+hint+"  [ F ]"
@@ -172,6 +173,10 @@ func activate() -> void:
 			race.call("start_race")
 		"fast_travel":_open_travel()
 		"fuel":
+			# Station F uses the actual paid fuel service; nitrous retains
+			# its original instantaneous kit refill behavior.
+			if is_instance_valid(resources):
+				resources.try_refuel()
 			# The base game already recharges nitrous automatically. This
 			# service marker provides an immediate refill for an installed kit.
 			player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
