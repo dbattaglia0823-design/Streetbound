@@ -66,7 +66,7 @@ func run() -> void:
 	marker_node.markers.clear()
 	marker_node.markers.append(station)
 	inventory.balance = 500
-	var fuel_price: int = service.fuel.refill_cost(service.GAS_PRICE_PER_LITRE)
+	var fuel_price: int = service.fuel.refill_cost(Service.GAS_PRICE_PER_LITRE)
 	check("gas_station_refuels_for_cash", service.try_refuel()
 		and service.fuel.fraction() == 1.0 and inventory.balance == 500 - fuel_price)
 	check("already_full_not_charged", not service.try_refuel()
