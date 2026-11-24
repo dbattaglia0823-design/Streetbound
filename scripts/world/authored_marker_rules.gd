@@ -39,7 +39,10 @@ static func valid_links(markers: Array,races: Array,dealers: Array) -> bool:
 	var spawns:=0
 	var by_id: Dictionary={}
 	for marker in markers:
-		by_id[str(marker.get("id",""))]=marker
+		if not marker is Dictionary:return false
+		var id:=str(marker.get("id",""))
+		if id.is_empty() or by_id.has(id):return false
+		by_id[id]=marker
 	for marker in markers:
 		if not marker is Dictionary or not valid(marker):return false
 		if str(marker.type)=="player_spawn":spawns+=1
