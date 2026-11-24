@@ -10,8 +10,14 @@ during a wanted pursuit is a bust, not a teleport escape.
 - A reusable per-vehicle integrity model responds to actual
   `VehicleController2D.crash_contact` signals. Light contacts and repeated
   contacts within a 0.25-second impact window do not stack damage.
-- Damage lowers *available driving force* without changing catalog specs,
-  tire friction, braking, or the established 120 Hz handling model.
+- Engine power stays **100% through 20% integrity**. Below 20% health,
+  drive force declines smoothly by at most 20% while the engine can still
+  run; at exactly 0% the engine is disabled. Tire friction, braking, catalog
+  specs, and the established 120 Hz driving model are unaffected.
+- Bounded grey smoke begins at damaged hood condition (below 60%), increases
+  gradually as integrity falls, stays in world space as the car moves, and
+  dissipates after repair. It uses actual selected vehicle visual bounds,
+  adds no new particle textures, and is not on-foot gameplay.
 - Vehicle integrity and fuel are tracked per equipped car and persisted in a
   separate resources save. A position reset **does not** refill or repair it.
 - Park at a garage, including authored garage markers, and press **K** to
