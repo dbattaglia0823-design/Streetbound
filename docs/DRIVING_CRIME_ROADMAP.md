@@ -15,7 +15,11 @@ during a wanted pursuit is a bust, not a teleport escape.
 - Damage is scoped to equipped car IDs for the active session; it is not yet
   persisted, and a position reset **does not heal** a vehicle.
 - Park at the existing garage or an authored garage/fuel marker and press **K**
-  to pay for repairs. An unaffordable repair does not change car state.
+  to pay for full repairs. Normal repairs require the full quoted price.
+- If the vehicle becomes disabled outside a police chase, **K** offers a
+  capped-price emergency tow to the starting area at 35% integrity. This
+  prevents an out-of-cash, disabled-car soft lock without granting free full
+  repairs.
 - Starting a street race triggers the first single-player pursuit prototype.
   **F7** also starts a test pursuit in debug builds.
 - Police use actual vehicle bodies and the current directional road route
