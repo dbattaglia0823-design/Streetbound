@@ -218,7 +218,9 @@ func try_repair() -> bool:
 	var service := _location_type()
 	if service == "garage":
 		if damage.integrity >= 100.0:
-			return false
+			# A full-health car that has run dry at its garage must still
+			# have a recovery route if no fuel pump is available there.
+			return _try_tow() if _can_tow() else false
 		repair_full()
 		_show_notice("GARAGE / FULL REPAIR FREE")
 		return true
@@ -339,7 +341,7 @@ func _process(dt: float) -> void:
 	if service == "station" and fuel.fraction() < 0.9999:
 		var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
 		label += "  /  J %s" % economy.dollars(fuel.refill_cost(price))
-	if service.is_empty() and _can_tow():
+	if (service.is_empty() or (service == "garage" and damage.integrity >= 100.0)) and _can_tow():
 		label += "  /  K TOW"
 	if notice_remaining > 0.0:
 		label += "  /  " + notice
