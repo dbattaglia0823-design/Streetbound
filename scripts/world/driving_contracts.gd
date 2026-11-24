@@ -107,10 +107,11 @@ func try_start(source: Dictionary) -> Dictionary:
 	if not Rules.valid_kind(kind):
 		return {"result":"invalid"}
 	var heat: int = Rules.wanted_level(kind)
-	if heat > 0 and not bool(police.call("start_pursuit",heat)):
-		return {"result":"police_unavailable","message":"Unable to begin getaway pursuit on this road"}
 	if not bool(guide.call("set_destination",target_pos, str(target.get("name","Contract destination")))):
 		return {"result":"navigation_unavailable"}
+	if heat > 0 and not bool(police.call("start_pursuit",heat)):
+		guide.call("clear_destination")
+		return {"result":"police_unavailable","message":"Unable to begin getaway pursuit on this road"}
 	_run_sequence += 1
 	run_token = "job-%d-%d-%d" % [
 		int(Time.get_unix_time_from_system()), Time.get_ticks_usec(), _run_sequence]
@@ -171,6 +172,14 @@ func _physics_process(dt: float) -> void:
 	if str(economy.active_id) != started_car_id:
 		_end("CONTRACT FAILED / VEHICLE CHANGED")
 		return
+	if player.damage_drive_fraction <= 0.0 or player.fuel_drive_fraction <= 0.0:
+		_end("CONTRACT FAILED / VEHICLE DISABLED")
+		return
+	if is_instance_valid(marker_source):
+		for race in marker_source.get("races"):
+			if is_instance_valid(race) and str(race.get("state")) in ["countdown","running"]:
+				_end("CONTRACT FAILED / RACE STARTED")
+				return
 	remaining_seconds -= dt
 	if remaining_seconds <= 0.0:
 		_end("CONTRACT FAILED / TIME EXPIRED")
@@ -183,7 +192,7 @@ func _physics_process(dt: float) -> void:
 	if not Rules.arrived(dist_m, player.linear_velocity.length()):
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
-	if Rules.wanted_level(kind) > 0 and int(police.get("wanted_level")) > 0:
+	if int(police.get("wanted_level")) > 0:
 		notice = "EVADE POLICE BEFORE DROP-OFF"
 		notice_seconds = 1.5
 		return
