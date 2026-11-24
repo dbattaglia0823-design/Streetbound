@@ -35,7 +35,7 @@ func _ready() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(world) or not is_instance_valid(traffic):
 		return
 	planner = PlannerScript.new()
-	planner.setup(traffic.network, world.data)
+	planner.call("setup", traffic.get("network"), world.get("data"))
 	player.vehicle_reset.connect(_on_player_reset)
 	var layer := CanvasLayer.new()
 	layer.layer = 5
@@ -83,7 +83,10 @@ func _race_trigger() -> void:
 func _spawn_candidates() -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	var origin := player.global_position
-	for edge in traffic.network.edges:
+	var road_network: RefCounted = traffic.get("network")
+	if road_network == null:
+		return options
+	for edge in road_network.get("edges"):
 		if bool(edge.get("connector", false)):
 			continue
 		var points: PackedVector2Array = edge.points
@@ -137,8 +140,8 @@ func _spawn_units() -> void:
 		car.add_child(identifier)
 		var driver := Node.new()
 		driver.set_script(DriverScript)
-		driver.reaction_seconds = 0.0
-		driver.throttle_limit = 0.88
+		driver.set("reaction_seconds", 0.0)
+		driver.set("throttle_limit", 0.88)
 		add_child(driver)
 		units.append({"car": car, "driver": driver})
 		selected.append(point)
@@ -158,7 +161,7 @@ func _refresh_unit_route(index: int) -> void:
 	# not teleporting or a scripted instant-arrest radius.
 	var offset := -forward * 5.0 if index == 0 else forward * 5.0 + right * (-5.0 if index == 1 else 5.0)
 	var target_m := player.global_position / PPM + offset
-	var route: Dictionary = planner.plan(car.global_position / PPM, target_m,
+	var route: Dictionary = planner.call("plan", car.global_position / PPM, target_m,
 		Vector2.UP.rotated(car.rotation))
 	if route.is_empty():
 		# A failed road route means stop, never cut across solid buildings.
@@ -245,7 +248,7 @@ func _physics_process(dt: float) -> void:
 		return
 	if wanted_level <= 0:
 		return
-	if is_instance_valid(damage_service) and damage_service.damage.is_disabled():
+	if is_instance_valid(damage_service) and bool(damage_service.get("damage").call("is_disabled")):
 		_bust("VEHICLE DISABLED")
 		return
 	if units.is_empty():
