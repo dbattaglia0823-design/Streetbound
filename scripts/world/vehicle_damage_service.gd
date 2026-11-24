@@ -1,7 +1,16 @@
 extends CanvasLayer
-## Player-only damage + stationary garage repairs. Test drives and online
-## sessions deliberately omit this system until their authority rules exist.
+## Single-player vehicle condition and fuel. Repairs are location-based:
+## garages restore 100% free; gas stations repair to 50% for a small fee.
+## Real fuel is independent from nitrous. No R-key refuel/repair exploits.
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
+const FuelState = preload("res://scripts/vehicle/vehicle_fuel.gd")
+const ServiceRules = preload("res://scripts/vehicle/vehicle_service_rules.gd")
+const FuelGauges = preload("res://scripts/ui/vehicle_resource_gauges.gd")
+const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const RESOURCE_PATH := "user://streetbound_vehicle_resources.cfg"
+const GAS_PRICE_PER_LITRE := 1.25
+const CHARGE_PRICE_PER_UNIT := 0.3
+
 var player: VehicleController2D
 var economy: Object
 var garage: Node2D
@@ -9,124 +18,311 @@ var authored_markers: Node2D
 var police: Node2D
 var current_car_id := ""
 var integrity_by_car: Dictionary = {}
+var fuel_by_car: Dictionary = {}
 var damage = DamageState.new()
+var fuel = FuelState.new()
+var gauges: Control
 var readout: Label
 var notice := ""
 var notice_remaining := 0.0
+var _save_clock := 0.0
+var _low_fuel_warning := false
 
 func _ready() -> void:
 	layer = 4
 	name = "VehicleDamageService"
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or not is_instance_valid(economy):
 		return
-	current_car_id = str(economy.active_id) if is_instance_valid(economy) else "default"
+	_load_resources()
+	current_car_id = str(economy.active_id)
+	_configure_active_car()
 	player.crash_contact.connect(_on_impact)
 	player.vehicle_reset.connect(_apply_drive_condition)
-	var readout_panel := PanelContainer.new()
-	readout_panel.position = Vector2(24, 204)
-	readout_panel.custom_minimum_size = Vector2(285, 30)
-	add_child(readout_panel)
+	gauges = Control.new()
+	gauges.set_script(FuelGauges)
+	add_child(gauges)
+	var box := PanelContainer.new()
+	box.position = Vector2(24, 204)
+	box.custom_minimum_size = Vector2(335, 30)
+	add_child(box)
 	readout = Label.new()
-	readout.add_theme_font_size_override("font_size", 13)
-	readout_panel.add_child(readout)
+	readout.add_theme_font_size_override("font_size", 12)
+	box.add_child(readout)
 	_apply_drive_condition()
+	_update_gauges()
+
+func _exit_tree() -> void:
+	if not current_car_id.is_empty():
+		_save_resources()
+
+func _load_resources() -> void:
+	var file := ConfigFile.new()
+	if file.load(RESOURCE_PATH) != OK:
+		return
+	for slot in ["integrity", "fuel"]:
+		var saved: Variant = file.get_value("resources", slot, {})
+		if not saved is Dictionary:
+			continue
+		var target: Dictionary = integrity_by_car if slot == "integrity" else fuel_by_car
+		for key in saved:
+			var id := str(key)
+			var value: Variant = saved[key]
+			if id.length() > 100 or Catalog.find_by_id(id).is_empty():
+				continue
+			if typeof(value) not in [TYPE_FLOAT, TYPE_INT] or not is_finite(float(value)):
+				continue
+			target[id] = clampf(float(value), 0.0, 100.0 if slot == "integrity" else 500.0)
+
+func _save_resources() -> bool:
+	if current_car_id.is_empty():
+		return false
+	integrity_by_car[current_car_id] = damage.integrity
+	fuel_by_car[current_car_id] = fuel.remaining
+	var file := ConfigFile.new()
+	file.set_value("resources", "integrity", integrity_by_car)
+	file.set_value("resources", "fuel", fuel_by_car)
+	return file.save(RESOURCE_PATH) == OK
+
+func _configure_active_car() -> void:
+	var entry: Dictionary = Catalog.find_by_id(current_car_id)
+	var vehicle_kind := str(entry.get("kind", "sport"))
+	var powertrain := str(entry.get("reference_powertrain", "")).to_lower()
+	fuel.configure(vehicle_kind, float(player.config.mass_kg), float(player.config.engine_power_kw),
+		powertrain == "electric")
+	damage.integrity = clampf(float(integrity_by_car.get(current_car_id, 100.0)), 0.0, 100.0)
+	damage.last_impact_at = -INF
+	fuel.remaining = clampf(float(fuel_by_car.get(current_car_id, fuel.capacity)), 0.0, fuel.capacity)
+	_low_fuel_warning = fuel.fraction() < 0.15
+	_apply_drive_condition()
+
+func _sync_car() -> void:
+	if not is_instance_valid(economy):
+		return
+	var new_car_id := str(economy.active_id)
+	if new_car_id == current_car_id:
+		return
+	_save_resources()
+	current_car_id = new_car_id
+	_configure_active_car()
+	_update_gauges()
 
 func _on_impact(speed_mps: float, _position_px: Vector2,
 		_normal: Vector2, _velocity_mps: Vector2) -> void:
+	_sync_car()
 	var applied: float = damage.register_impact(speed_mps, Time.get_ticks_msec() / 1000.0)
-	if applied > 0.0:
-		integrity_by_car[current_car_id] = damage.integrity
-		notice = "IMPACT -%d" % roundi(applied)
-		notice_remaining = 2.0
-		_apply_drive_condition()
+	if applied <= 0.0:
+		return
+	_save_resources()
+	_apply_drive_condition()
+	_update_gauges()
+	_show_notice("IMPACT -%d" % roundi(applied))
 
 func _apply_drive_condition() -> void:
-	if is_instance_valid(player):
-		player.damage_drive_fraction = damage.drive_fraction()
+	if not is_instance_valid(player):
+		return
+	player.damage_drive_fraction = damage.drive_fraction()
+	player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
 
-func _service_available() -> bool:
+func _update_gauges() -> void:
+	if is_instance_valid(gauges):
+		gauges.call("update_levels", damage.integrity / 100.0, fuel.fraction(), fuel.electric)
+
+func _show_notice(value: String) -> void:
+	notice = value
+	notice_remaining = 3.0
+
+func _location_type() -> String:
 	if not is_instance_valid(player) or player.linear_velocity.length() > 1.0:
-		return false
+		return ""
 	if is_instance_valid(police) and int(police.get("wanted_level")) > 0:
-		return false
-	if is_instance_valid(garage) and garage.has_method("can_switch") and garage.can_switch():
-		return true
+		return ""
+	var at_garage := is_instance_valid(garage) and garage.has_method("can_switch") and garage.call("can_switch")
+	var at_station := false
 	if is_instance_valid(authored_markers):
-		var nearby: Dictionary = authored_markers.nearest_marker()
-		return str(nearby.get("type", "")) in ["garage", "fuel"]
-	return false
+		var raw: Variant = authored_markers.get("markers")
+		if raw is Array:
+			for marker in raw:
+				if not marker is Dictionary or str(marker.get("type", "")) not in ["garage", "fuel"]:
+					continue
+				if authored_markers.has_method("_enabled") and not bool(authored_markers.call("_enabled", marker)):
+					continue
+				if not marker.has("x") or not marker.has("y"):
+					continue
+				var position_m := Vector2(float(marker.x), float(marker.y))
+				var radius_m := clampf(float(marker.get("properties", {}).get("radius_m", 12.0)), 4.0, 50.0)
+				if player.global_position.distance_to(position_m * 20.0) > radius_m * 20.0:
+					continue
+				if str(marker.type) == "garage":
+					at_garage = true
+				elif str(marker.type) == "fuel":
+					at_station = true
+	return ServiceRules.service_type(at_garage, at_station)
 
-func repair_full() -> void:
-	damage.repair()
-	integrity_by_car[current_car_id] = 100.0
-	_apply_drive_condition()
-
-func _emergency_recovery_available() -> bool:
-	return damage.is_disabled() and is_instance_valid(player) and (
+func _can_tow() -> bool:
+	return is_instance_valid(player) and (damage.is_disabled() or fuel.empty()) and (
 		not is_instance_valid(police) or int(police.get("wanted_level")) == 0)
 
+func repair_full() -> void:
+	# Recovery/legacy API. Gameplay calls garage repair or police impound.
+	damage.repair()
+	_apply_drive_condition()
+	_update_gauges()
+	_save_resources()
+
+func impound_recovery() -> void:
+	# Busted does not grant the free full garage repair. Player must reach
+	# a garage for that, but the seized vehicle must remain driveable.
+	damage.integrity = maxf(35.0, damage.integrity)
+	fuel.remaining = maxf(fuel.remaining, fuel.capacity * 0.08)
+	damage.last_impact_at = -INF
+	_apply_drive_condition()
+	_update_gauges()
+	_save_resources()
+
 func try_repair() -> bool:
-	if not is_instance_valid(economy) or damage.integrity >= 100.0:
+	if not is_instance_valid(economy):
 		return false
-	var garage_repair := _service_available()
-	var roadside_recovery := _emergency_recovery_available()
-	if not garage_repair and not roadside_recovery:
+	_sync_car()
+	var service := _location_type()
+	if service == "garage":
+		if damage.integrity >= 100.0:
+			return false
+		repair_full()
+		_show_notice("GARAGE / FULL REPAIR FREE")
+		return true
+	if service == "station":
+		if damage.integrity >= ServiceRules.STATION_REPAIR_LIMIT:
+			_show_notice("STATION REPAIR LIMIT / 50%")
+			return false
+		var fee: int = ServiceRules.station_repair_fee(damage.integrity)
+		if int(economy.balance) < fee:
+			_show_notice("NOT ENOUGH CASH FOR REPAIR")
+			return false
+		var previous: float = damage.integrity
+		damage.integrity = ServiceRules.station_repair_target(previous)
+		if not _save_resources():
+			damage.integrity = previous
+			_show_notice("REPAIR SAVE FAILED")
+			return false
+		economy.balance -= fee
+		if not economy.save():
+			economy.balance += fee
+			damage.integrity = previous
+			_save_resources()
+			_show_notice("PAYMENT SAVE FAILED")
+			return false
+		economy.changed.emit()
+		_apply_drive_condition()
+		_update_gauges()
+		_show_notice("GAS STATION / 50%% / -%s" % economy.dollars(fee))
+		return true
+	if not _can_tow():
 		return false
-	# Normal garage repairs require their full price. A disabled car must
-	# always have one non-exploitable way back to driveability: an affordable
-	# tow to the spawn location and 35% emergency integrity, not full health.
-	var full_repair := garage_repair and int(economy.balance) >= damage.repair_cost()
-	if not full_repair and not roadside_recovery:
-		notice = "INSUFFICIENT CASH FOR REPAIR"
-		notice_remaining = 3.0
+	# Prevent an empty tank / dead engine from permanently soft-locking the
+	# player: emergency recovery has a maximum fee, never fully repairs.
+	var tow_fee: int = mini(ServiceRules.TOW_MAX_FEE, int(economy.balance))
+	var previous_integrity: float = damage.integrity
+	var previous_fuel: float = fuel.remaining
+	damage.integrity = maxf(35.0, damage.integrity)
+	fuel.remaining = maxf(fuel.remaining, fuel.capacity * 0.08)
+	if not _save_resources():
+		damage.integrity = previous_integrity
+		fuel.remaining = previous_fuel
+		_show_notice("TOW SAVE FAILED")
 		return false
-	var fee: int = damage.repair_cost() if full_repair else mini(750, int(economy.balance))
+	economy.balance -= tow_fee
+	if not economy.save():
+		economy.balance += tow_fee
+		damage.integrity = previous_integrity
+		fuel.remaining = previous_fuel
+		_save_resources()
+		_show_notice("TOW PAYMENT FAILED")
+		return false
+	economy.changed.emit()
+	player.reset_vehicle()
+	_apply_drive_condition()
+	_update_gauges()
+	_show_notice("EMERGENCY TOW / -%s" % economy.dollars(tow_fee))
+	return true
+
+func try_refuel() -> bool:
+	if not is_instance_valid(economy):
+		return false
+	_sync_car()
+	if _location_type() != "station":
+		return false
+	if fuel.fraction() >= 0.9999:
+		_show_notice("TANK ALREADY FULL")
+		return false
+	var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
+	var fee: int = fuel.refill_cost(price)
+	if int(economy.balance) < fee:
+		_show_notice("NOT ENOUGH CASH FOR FUEL")
+		return false
+	var previous: float = fuel.remaining
+	fuel.refill()
+	if not _save_resources():
+		fuel.remaining = previous
+		_show_notice("FUEL SAVE FAILED")
+		return false
 	economy.balance -= fee
 	if not economy.save():
 		economy.balance += fee
-		notice = "REPAIR SAVE FAILED"
-		notice_remaining = 3.0
+		fuel.remaining = previous
+		_save_resources()
+		_show_notice("PAYMENT SAVE FAILED")
 		return false
 	economy.changed.emit()
-	if full_repair:
-		repair_full()
-		notice = "REPAIRED / -%s" % economy.dollars(fee)
-	else:
-		damage.integrity = 35.0
-		damage.last_impact_at = -INF
-		integrity_by_car[current_car_id] = damage.integrity
-		player.reset_vehicle()
-		_apply_drive_condition()
-		notice = "EMERGENCY TOW / 35% CONDITION / -%s" % economy.dollars(fee)
-	notice_remaining = 3.0
+	_low_fuel_warning = false
+	_apply_drive_condition()
+	_update_gauges()
+	_show_notice("%s FULL / -%s" % ["CHARGE" if fuel.electric else "TANK", economy.dollars(fee)])
 	return true
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_K:
-		if try_repair():
-			get_viewport().set_input_as_handled()
+	if not event is InputEventKey or not event.pressed or event.echo or get_tree().paused:
+		return
+	if event.keycode == KEY_K and try_repair():
+		get_viewport().set_input_as_handled()
+	elif event.keycode == KEY_J and try_refuel():
+		get_viewport().set_input_as_handled()
+
+func _physics_process(dt: float) -> void:
+	if not is_instance_valid(player) or not is_instance_valid(economy):
+		return
+	_sync_car()
+	if fuel.consume(dt, player.linear_velocity.length(), player.throttle) > 0.0:
+		player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
+		if fuel.fraction() < 0.15 and not _low_fuel_warning:
+			_low_fuel_warning = true
+			_show_notice("LOW %s" % ("CHARGE" if fuel.electric else "FUEL"))
+	_save_clock += dt
+	if _save_clock >= 10.0:
+		_save_clock = 0.0
+		_save_resources()
 
 func _process(dt: float) -> void:
-	if not is_instance_valid(player) or not is_instance_valid(readout):
+	if not is_instance_valid(readout) or not is_instance_valid(player):
 		return
-	var car_id := str(economy.active_id) if is_instance_valid(economy) else "default"
-	if car_id != current_car_id:
-		integrity_by_car[current_car_id] = damage.integrity
-		current_car_id = car_id
-		damage.integrity = clampf(float(integrity_by_car.get(car_id, 100.0)), 0.0, 100.0)
-		damage.last_impact_at = -INF
-		_apply_drive_condition()
+	_sync_car()
+	_update_gauges()
 	notice_remaining = maxf(0.0, notice_remaining - dt)
-	var label := "VEHICLE %d%%" % roundi(damage.integrity)
+	var service := _location_type()
+	var label := "ENGINE %d%%  /  %s %d%%" % [
+		roundi(damage.integrity), "CHARGE" if fuel.electric else "FUEL", roundi(fuel.fraction() * 100.0)]
 	if damage.is_disabled():
 		label += "  /  DISABLED"
-	elif damage.integrity < 35.0:
-		label += "  /  CRITICAL"
-	if damage.integrity < 100.0:
-		if _service_available():
-			label += "  /  K REPAIR %s" % economy.dollars(damage.repair_cost())
-		elif _emergency_recovery_available():
-			label += "  /  K TOW / 35% CONDITION"
+	elif fuel.empty():
+		label += "  /  OUT OF %s" % ("CHARGE" if fuel.electric else "FUEL")
+	if service == "garage" and damage.integrity < 100.0:
+		label += "  /  K FREE 100% REPAIR"
+	elif service == "station" and damage.integrity < ServiceRules.STATION_REPAIR_LIMIT:
+		label += "  /  K 50%% REPAIR %s" % economy.dollars(ServiceRules.station_repair_fee(damage.integrity))
+	if service == "station" and fuel.fraction() < 0.9999:
+		var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
+		label += "  /  J %s" % economy.dollars(fuel.refill_cost(price))
+	if service.is_empty() and _can_tow():
+		label += "  /  K TOW"
 	if notice_remaining > 0.0:
 		label += "  /  " + notice
 	readout.text = label
