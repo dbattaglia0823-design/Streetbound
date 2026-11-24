@@ -113,7 +113,9 @@ func _on_impact(speed_mps: float, _position_px: Vector2,
 	var applied: float = damage.register_impact(speed_mps, Time.get_ticks_msec() / 1000.0)
 	if applied <= 0.0:
 		return
-	_save_resources()
+	# Disk writes are batched during driving, not executed inside the
+	# physics collision signal for every police/traffic impact.
+	integrity_by_car[current_car_id] = damage.integrity
 	_apply_drive_condition()
 	_update_gauges()
 	_show_notice("IMPACT -%d" % roundi(applied))
@@ -313,7 +315,7 @@ func _physics_process(dt: float) -> void:
 			_low_fuel_warning = true
 			_show_notice("LOW %s" % ("CHARGE" if fuel.electric else "FUEL"))
 	_save_clock += dt
-	if _save_clock >= 10.0:
+	if _save_clock >= 5.0:
 		_save_clock = 0.0
 		_save_resources()
 
