@@ -61,6 +61,15 @@ func run() -> void:
 	car.damage_drive_fraction = 0.0
 	car.reset_vehicle()
 	check("reset_does_not_repair_vehicle", car.damage_drive_fraction == 0.0)
+	car.damage_drive_fraction = 1.0
+	car.fuel_drive_fraction = 0.0
+	for frame in 120:
+		car.step_vehicle(1.0 / 120.0, Vector4(1.0, 0.0, 0.0, 0.0))
+	check("empty_fuel_disables_acceleration", car.linear_velocity.length() < 0.1)
+	car.fuel_drive_fraction = 1.0
+	for frame in 120:
+		car.step_vehicle(1.0 / 120.0, Vector4(1.0, 0.0, 0.0, 0.0))
+	check("refilled_fuel_restores_acceleration", car.linear_velocity.length() > 0.1)
 	check("police_and_repair_scripts_constructible", Police.new() != null and
 		DamageService.new() != null)
 	car.queue_free()
