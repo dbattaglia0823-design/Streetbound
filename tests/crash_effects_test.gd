@@ -48,8 +48,12 @@ func run() -> void:
 		fx.get("particles").is_empty() and fx.get("flashes").is_empty() and
 		int(fx.get("emitted_bursts"))==0)
 	car.crash_contact.emit(1.5,Vector2(225,1000),Vector2.LEFT,Vector2.RIGHT*18.0)
-	check("fast_scrape_stays_effect_free",fx.get("particles").is_empty())
+	check("fast_scrape_creates_only_small_guardrail_sparks",
+		fx.get("particles").size()>0 and
+		fx.get("particles").all(func(p):return p.kind=="spark"))
 	var origin:=Vector2(225,1000)
+	fx.call("_process",0.05)
+	fx.call("_process",0.05)
 	car.crash_contact.emit(10.0,origin,Vector2.LEFT,Vector2.RIGHT*18.0)
 	var particles: Array=fx.get("particles")
 	check("fast_contact_has_sparks_debris_smoke_and_flash",
@@ -57,8 +61,11 @@ func run() -> void:
 		particles.any(func(p):return p.kind=="debris") and
 		particles.any(func(p):return p.kind=="dust") and
 		not fx.get("flashes").is_empty(),particles.size())
+	# The earlier guardrail scrape intentionally leaves short-lived sparks
+	# in the same particle pool. Inspect a fragment from this heavier event,
+	# rather than assuming array index zero belongs to the latest collision.
 	check("particles_spawn_at_world_collision_point",
-		not particles.is_empty() and Vector2(particles[0].point).distance_to(origin)<6.0)
+		particles.any(func(p):return p.kind=="debris" and Vector2(p.point).distance_to(origin)<6.0))
 	var first_burst: int=int(fx.get("emitted_bursts"))
 	car.crash_contact.emit(16.0,origin,Vector2.LEFT,Vector2.RIGHT*28.0)
 	check("same_frame_contacts_do_not_spam_effects",int(fx.get("emitted_bursts"))==first_burst)

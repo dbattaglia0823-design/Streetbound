@@ -374,6 +374,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_two_effects_test.gd 2>&1 | tee /tmp/driving-phase2-463.log
           grep -q 'DRIVING PHASE 2 FX: PASS' /tmp/driving-phase2-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase2-463.log
+      - name: Verify weather, wet grip, spray, debris and reflections (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_three_effects_test.gd 2>&1 | tee /tmp/driving-phase3-463.log
+          grep -q 'DRIVING PHASE 3 FX: PASS' /tmp/driving-phase3-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase3-463.log
       - name: Verify shared taillights, brake lights, reverse lights, smoke and multi-car skidmarks (4.6.3)
         run: |
           set -o pipefail
@@ -626,6 +632,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_two_effects_test.gd 2>&1 | tee /tmp/driving-phase2-441.log
           grep -q 'DRIVING PHASE 2 FX: PASS' /tmp/driving-phase2-441.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase2-441.log
+      - name: Verify weather, wet grip, spray, debris and reflections (4.4.1)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_three_effects_test.gd 2>&1 | tee /tmp/driving-phase3-441.log
+          grep -q 'DRIVING PHASE 3 FX: PASS' /tmp/driving-phase3-441.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase3-441.log
       - name: Verify shared driving phase one visual effects (4.4.1)
         run: |
           set -o pipefail

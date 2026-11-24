@@ -71,6 +71,10 @@ func _valid_source(value: Dictionary) -> bool:
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
+	var rain: Variant = value.get("rain_intensity",0.0)
+	if not (rain is int or rain is float) or not is_finite(float(rain)) or \
+			float(rain)<0.0 or float(rain)>1.0:
+		return false
 	var width: float = float(world.get("width",0))
 	var height: float = float(world.get("height",0))
 	if value.get("customMap",false):

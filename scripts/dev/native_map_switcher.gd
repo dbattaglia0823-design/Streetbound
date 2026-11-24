@@ -14,6 +14,7 @@ var map_name: LineEdit
 var width: SpinBox
 var height: SpinBox
 var base: OptionButton
+var weather_option: OptionButton
 var publish_button: Button
 var restore_button: Button
 var import_published_button: Button
@@ -57,6 +58,21 @@ func build_publish_ui(e,parent: Node) -> void:
 	var heading:=Label.new()
 	heading.text="GAME WORLD / PUBLISH"
 	parent.add_child(heading)
+	# Keep the fixed-height BuilderHeader reserved for map selection.
+	# Weather lives with publish options in the scrollable settings sidebar,
+	# preventing this control from pushing the header into BuilderTools.
+	var rain_row := HBoxContainer.new()
+	parent.add_child(rain_row)
+	var rain_label := Label.new()
+	rain_label.text="Map weather"
+	rain_row.add_child(rain_label)
+	weather_option=OptionButton.new()
+	for choice in ["Clear","Light rain","Rain","Heavy rain"]:
+		weather_option.add_item(choice)
+	rain_row.add_child(weather_option)
+	weather_option.tooltip_text="Weather for this custom map's Test Drive and published game. Save the source before publishing."
+	weather_option.item_selected.connect(func(index: int): _change_weather(e,index))
+	_sync_weather(e)
 	publication_status=Label.new()
 	publication_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(publication_status)
@@ -176,6 +192,34 @@ func _publish(e,restore_default: bool) -> void:
 			str(summary.get("name",e.authoring.doc.name)),int(summary.get("roads",0)),
 			int(summary.get("junctions",0)),int(summary.get("races",0))])
 
+func _change_weather(e,index: int) -> void:
+	if not custom or not e.source_ready or e._editing_locked():
+		_sync_weather(e)
+		return
+	var values := [0.0,0.3,0.65,1.0]
+	if index < 0 or index >= values.size():
+		return
+	var next: Dictionary=e.authoring.doc.duplicate(true)
+	next["rain_intensity"]=values[index]
+	if e.authoring._commit(next):
+		e._notice("Map weather changed. Save to retain it in Test Drive and published PLAY.")
+	else:
+		_sync_weather(e)
+
+
+func _sync_weather(e) -> void:
+	if not is_instance_valid(weather_option):
+		return
+	weather_option.disabled=not custom
+	var value: float=float(e.authoring.doc.get("rain_intensity",0.0)) if custom else 0.0
+	var values := [0.0,0.3,0.65,1.0]
+	var best := 0
+	for i in values.size():
+		if absf(values[i]-value)<absf(values[best]-value):
+			best=i
+	weather_option.select(best)
+
+
 func reload_list() -> void:
 	selector.clear();selector.add_item("Morrow Coast");selector.set_item_metadata(0,"")
 	for map in Library.list_maps():
@@ -257,6 +301,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 		if recovered is Dictionary and e.authoring._valid_source(recovered):
 			e.authoring.doc=recovered;e.authoring.history.append(doc.duplicate(true));e.authoring.dirty=e.authoring._fingerprint(recovered)!=e.authoring.baseline_hash
 	recovery_revision=-1
+	_sync_weather(e)
 	# Cached Morrow render canvases retain their original world owner. Swapping
 	# that owner's data underneath queued draw calls left stale road/bridge
 	# indices referencing empty arrays, even when their parent was hidden.
@@ -295,6 +340,8 @@ func refresh(e) -> void:
 	var drag_key:=JSON.stringify(e.pending_drag)
 	if revision!=e.authoring.edit_revision or drag_key!=drag_revision:
 		revision=e.authoring.edit_revision;drag_revision=drag_key;terrain.update_map(e.authoring.road_preview_source(e.pending_drag))
+		# Undo/redo and source switching must update the visible weather preset.
+		_sync_weather(e)
 	terrain.visible=e.layer_flags.terrain
 func update_view(e) -> void:
 	if is_instance_valid(e.overview_renderer):e.overview_renderer.visible=false
@@ -305,6 +352,7 @@ func update_view(e) -> void:
 func restore(e) -> void:
 	if not custom:return
 	e.world=original_world_node;e.gizmos.world=e.world;e.authoring=original_session;custom=false;current_file=""
+	_sync_weather(e)
 	_refresh_publication_ui()
 	e._apply_landmark_layer()
 	if is_instance_valid(custom_world):custom_world.free();custom_world=null

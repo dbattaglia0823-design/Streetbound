@@ -8,6 +8,7 @@ signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
 const Drafting = preload("res://scripts/vehicle/drafting_aerodynamics.gd")
+const Weather = preload("res://scripts/world/weather_conditions.gd")
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
 var surface_provider: Node
@@ -168,7 +169,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	if surface_provider:
 		var info: Dictionary = surface_provider.surface_at(global_position)
 		surface = info.name
-		surface_grip = info.grip
+		surface_grip = float(info.grip) * Weather.grip_multiplier(surface, Weather.rain_at(surface_provider))
 	else:
 		surface = "ASPHALT"
 		surface_grip = 1.0

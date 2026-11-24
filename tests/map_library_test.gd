@@ -22,6 +22,14 @@ func run() -> void:
 	switcher.map_name.text="Lake district";switcher.width.value=1200;switcher.height.value=900;switcher.create_map(e);switcher.dialog.hide()
 	check("new_map_is_blank_and_correctly_sized",switcher.custom and e.authoring.doc.world.width==1200 and e.authoring.doc.world.height==900 and e.authoring.doc.roads.is_empty() and e.authoring.doc.regions.is_empty() and e.world.data.props.is_empty())
 	check("custom_map_publisher_unlocked_in_builder",not switcher.publish_button.disabled)
+	check("map_weather_control_stays_out_of_fixed_header",
+		is_instance_valid(switcher.weather_option) and
+		e.settings_panel.is_ancestor_of(switcher.weather_option) and
+		not switcher.weather_option.disabled)
+	switcher._change_weather(e,2)
+	check("map_weather_is_authored_and_undoable",
+		is_equal_approx(float(e.authoring.doc.get("rain_intensity",0.0)),0.65) and
+		e.authoring.dirty)
 	switcher._show_publish(e)
 	check("publishing_requires_explicit_confirmation",switcher.publish_dialog.visible and
 		switcher.publish_dialog.dialog_text.contains("Player Spawn"))
@@ -39,6 +47,8 @@ func run() -> void:
 	var distance: Image=depth_field.texture.get_image()
 	check("water_depth_is_continuous_and_shallow_near_shore",distance.get_pixel(0,0).r==0 and distance.get_pixel(distance.get_width()/2,distance.get_height()/2).r>distance.get_pixel(4,4).r)
 	check("custom_map_save_is_successful",switcher.save_current(e) and not e.authoring.dirty)
+	check("saved_map_keeps_weather_preset",
+		is_equal_approx(float(Library.load_map(switcher.current_file).get("rain_intensity",0.0)),0.65))
 	check("saved_map_can_be_overwritten_atomically",switcher.save_current(e) and Library.load_map(first).regions.size()==2)
 	switcher.map_name.text="Desert loop";switcher.width.value=800;switcher.height.value=800;switcher.create_map(e)
 	check("multiple_maps_appear_in_dropdown",switcher.selector.item_count==3 and Library.list_maps().size()==2)
@@ -47,6 +57,9 @@ func run() -> void:
 		if str(switcher.selector.get_item_metadata(i))==first:switcher.select(e,i);break
 	print("RESTORED MAP ",e.authoring.doc.name," ",e.world.data.size," regions ",e.authoring.doc.regions.size())
 	check("switching_maps_restores_saved_terrain_and_size",e.authoring.doc.name=="Lake district" and e.authoring.doc.regions.size()==2 and Vector2(e.world.data.size[0],e.world.data.size[1])==Vector2(1200,900))
+	check("switching_maps_restores_weather_control",
+		is_equal_approx(float(e.authoring.doc.get("rain_intensity",0.0)),0.65) and
+		switcher.weather_option.selected==2)
 	check("saved_custom_terrain_can_be_deleted",e.authoring.delete_entity(lake))
 	e._undo();check("terrain_deletion_supports_undo",e.authoring.doc.regions.size()==2)
 	switcher.select(e,0)

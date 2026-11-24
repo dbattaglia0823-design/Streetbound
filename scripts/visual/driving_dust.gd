@@ -2,6 +2,7 @@ extends Node2D
 ## Bounded tire smoke and surface dust from the car's actual wheel hubs.
 ## Existing TireMarks2D owns the continuous drivable-world rubber trails.
 const MAX_PUFFS := 48
+const Weather = preload("res://scripts/world/weather_conditions.gd")
 var vehicle: VehicleController2D
 var puffs: Array[Dictionary] = []
 var _emission := 0.0
@@ -87,33 +88,41 @@ func _process(delta: float) -> void:
 		var right := Vector2.RIGHT.rotated(vehicle.rotation)
 		measured_slip = atan2(vehicle.linear_velocity.dot(right),
 			maxf(absf(vehicle.linear_velocity.dot(forward)),1.0))
-	var strength := tire_smoke_strength(speed, measured_slip,
+	var rain := Weather.rain_at(vehicle.surface_provider)
+	var spray := Weather.spray_strength(vehicle.surface,speed,rain)
+	var smoke := tire_smoke_strength(speed, measured_slip,
 		vehicle.wheel_spin, maxf(vehicle.handbrake,vehicle.handbrake_grip_loss), vehicle.surface)
+	# Wet tires throw water rather than endless dry-road burnout smoke.
+	var strength := maxf(smoke * (1.0 - rain * 0.70), spray)
 	if strength < 0.03:
 		_emission = 0.0
 	else:
 		_emission = minf(_emission + dt * strength * 46.0, 5.0)
 		while _emission >= 1.0 and puffs.size() < MAX_PUFFS:
 			_emission -= 1.0
-			_spawn_puff(vehicle.surface)
+			_spawn_puff(vehicle.surface, rain, spray > 0.04 and _rng.randf() < spray / maxf(strength,0.01))
 		if puffs.size() >= MAX_PUFFS:
 			_emission = 0.0
 	queue_redraw()
 
-func _spawn_puff(surface: String) -> void:
+func _spawn_puff(surface: String, rain: float = 0.0, water: bool = false) -> void:
 	var contacts := _rear_wheel_contacts()
 	var point: Vector2 = contacts[0 if _rng.randf() < 0.5 else 1]
 	point += Vector2(_rng.randf_range(-6.0, 6.0), _rng.randf_range(-6.0, 6.0))
+	var kind := "water" if water else "stone" if surface == "GRAVEL" and _rng.randf() < 0.32 else "dust"
 	var drift := vehicle.linear_velocity * VehicleController2D.PIXELS_PER_METER * 0.11
 	drift += Vector2(_rng.randf_range(-25.0, 25.0), _rng.randf_range(-25.0, 25.0))
 	puffs.append({
 		"point": point,
 		"drift": drift,
 		"age": 0.0,
-		"life": _rng.randf_range(0.66, 1.12) if surface != "GRASS" else _rng.randf_range(.45, .78),
-		"radius": _rng.randf_range(7.0, 12.5) if surface != "SAND" else _rng.randf_range(9.0, 16.0),
+		"life": _rng.randf_range(.24,.48) if water else _rng.randf_range(.32,.64) if kind == "stone" else
+			_rng.randf_range(0.66, 1.12) if surface != "GRASS" else _rng.randf_range(.45, .78),
+		"radius": _rng.randf_range(5.0, 9.0) if water else _rng.randf_range(1.2, 2.9) if kind == "stone" else
+			_rng.randf_range(7.0, 12.5) if surface != "SAND" else _rng.randf_range(9.0, 16.0),
 		"surface": surface,
-		"color": dust_color(surface)
+		"kind": kind,
+		"color": Color(.64,.79,.90) if water else dust_color(surface).darkened(rain*.20)
 	})
 
 func _draw() -> void:
@@ -123,6 +132,16 @@ func _draw() -> void:
 		var point: Vector2 = puff["point"]
 		var radius := float(puff["radius"]) * (1.0 + progress * 1.8)
 		var tint: Color = puff["color"]
+		if str(puff.get("kind","dust")) == "water":
+			tint.a = 0.40 * fade
+			draw_arc(point, radius * (1.0 + progress),0.0,PI,9,tint,1.3,true)
+			draw_line(point+Vector2(-radius*.6,0),point+Vector2(radius*.6,-radius*.35),
+				Color(.83,.94,1.0,.28*fade),1.4,true)
+			continue
+		if str(puff.get("kind","dust")) == "stone":
+			tint.a = 0.75 * fade
+			draw_circle(point, radius,tint)
+			continue
 		tint.a = 0.24 * fade
 		draw_circle(point, radius, tint)
 		tint.a = 0.15 * fade

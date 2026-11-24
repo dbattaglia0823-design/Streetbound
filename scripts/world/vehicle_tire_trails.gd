@@ -3,6 +3,7 @@ extends RefCounted
 ## while each racing vehicle owns an independent pair of active track IDs.
 const PPM := 20.0
 const VIEW_DISTANCE_PX := 6000.0
+const Weather = preload("res://scripts/world/weather_conditions.gd")
 
 static func track_id(car: VehicleController2D, primary: VehicleController2D,
 		rear_side: int) -> int:
@@ -44,5 +45,8 @@ static func sample(marks: TireMarks2D, car: VehicleController2D,
 		var point: Vector2=car.global_position+wheel.rotated(car.rotation)
 		var surface: Dictionary=world.surface_at(point)
 		var material: String=str(surface.get("name","ASPHALT"))
+		# Rain washes rubber contrast out without deleting existing trails.
+		var visible_strength := strength * (1.0 - Weather.rain_at(world) * 0.55) \
+			if material == "ASPHALT" else strength
 		marks.add_mark(point,car.rotation,material=="ASPHALT",base+side,
-			material,strength)
+			material,visible_strength)

@@ -42,6 +42,8 @@ var mountain_art_cache: Dictionary={}
 var max_chunk_build_usec := 0
 var stream_build_usec := 0
 var mark_clock := 0.0
+## 0 = clear, 1 = heavy rain. Optional on any published or Test Drive archive.
+var rain_intensity := 0.0
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -217,6 +219,7 @@ func _ready() -> void:
 				_junction_grid[key].append(i)
 	# Optional art metadata runs only after the core spatial indices are ready.
 	DowntownPilot.apply(data.props)
+	rain_intensity = clampf(float(data.get("rain_intensity",0.0)),0.0,1.0)
 	tire_marks = TireMarks.new()
 	# Above asphalt and lane paint, below roadside props and player cars.
 	tire_marks.z_index = 4
@@ -271,6 +274,13 @@ func set_geometry_debug(enabled: bool) -> void:
 		var overlay: Node2D = chunks[index].get_node_or_null("GeometryOverlay")
 		if overlay != null:
 			overlay.set_enabled(enabled)
+
+
+func get_rain_intensity() -> float:
+	return rain_intensity
+
+func set_rain_intensity(amount: float) -> void:
+	rain_intensity = clampf(amount, 0.0, 1.0) if is_finite(amount) else 0.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
