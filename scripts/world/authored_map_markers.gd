@@ -14,6 +14,7 @@ var selector: CanvasLayer
 var dealer_menu: CanvasLayer
 var quick_upgrades: CanvasLayer
 var resources: CanvasLayer
+var contracts: Node2D
 var traffic: Node2D
 var map_hud: CanvasLayer
 var races: Array[Node2D]=[]
@@ -84,6 +85,7 @@ func _enabled(marker: Dictionary) -> bool:
 func _is_busy() -> bool:
 	for race in races:
 		if is_instance_valid(race) and str(race.get("state")) in ["countdown","running"]:return true
+	if is_instance_valid(contracts) and not (contracts.get("active") as Dictionary).is_empty():return true
 	return false
 
 func nearest_marker() -> Dictionary:
@@ -113,13 +115,13 @@ func _process(dt: float) -> void:
 		return
 	var kind: String=str(_nearby.get("type",""))
 	var actionable:=kind in ["garage","dealership","mission","fast_travel","fuel",
-		"race_start","checkpoint","finish","custom"]
+		"race_start","checkpoint","finish","custom","contract"]
 	prompt.visible=actionable and not _is_busy() and not get_tree().paused
 	if prompt.visible:
 		var hint: String={"garage":"GARAGE","dealership":"DEALERSHIP","mission":"START MISSION",
 			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / FUEL", 
 			"race_start":"RACE ROUTE","checkpoint":"CHECKPOINT",
-			"finish":"FINISH","custom":"MAP WAYPOINT"}.get(kind,"INTERACT")
+			"finish":"FINISH","custom":"MAP WAYPOINT","contract":"DRIVING JOB"}.get(kind,"INTERACT")
 		prompt.text=str(_nearby.get("name",kind)).to_upper()+"  /  "+hint+"  [ F ]"
 		prompt.disabled=not InteractionSpeed.allowed(player.linear_velocity.length())
 
@@ -172,6 +174,13 @@ func activate() -> void:
 			Grid.teleport(player,Grid.player_slot(race.definition))
 			race.call("start_race")
 		"fast_travel":_open_travel()
+		"contract":
+			if is_instance_valid(contracts):
+				var response: Dictionary=contracts.call("try_start",_nearby)
+				if str(response.get("result",""))!="started":
+					_show_info(_nearby,str(response.get("message","Unable to start driving contract")))
+			else:
+				_show_info(_nearby,"Driving contracts are available in the single-player career.")
 		"fuel":
 			# In the driving-only career F refuels through the paid station
 			# service and does not unexpectedly open the upgrades overlay.
