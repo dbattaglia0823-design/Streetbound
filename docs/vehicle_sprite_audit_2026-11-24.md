@@ -28,3 +28,33 @@ Ten images were rendered from the repository. Alfa Romeo 4C: recognizable but so
 Preserve catalog IDs, PNG blob SHAs, Godot import UIDs and import parameters. Update both catalogs and checked references and corresponding import cache paths. Generic Lotus and ten traffic filenames require visual identification before a model-based rename. RSQ5, Plaid, and the Chevrolet folder typo are deferred pending a separate verification/reference pass. Other existing model names may benefit from punctuation normalization.
 
 Remaining work: complete a visual contact-sheet review of every sprite (true overhead, front facing down, correct model and trim, clean transparency, no wheels or lettering, consistent rendering), identify the 11 generic filenames, repair or restore 24 missing PNGs, run Godot import and vehicle tests. This report is not a full visual certification.
+
+## Roster reconciliation (follow-up)
+
+Removed all 24 missing-artwork catalog entries per project direction. Preserved all 124 artwork-backed entries and IDs. Added 132 existing named assets to playable catalog (256 playable total); registered one unidentified Lotus and ten traffic sprites separately. No vehicle PNG deleted. Specs and prices of the 132 are representative estimates, not verified against external sources. RSQ5 and Plaid are explicitly unverified named variants. The unidentified Lotus is not purchasable under an invented name. Existing ownership loading drops retired IDs, selects an owned surviving vehicle (or starter), and keeps money and unrelated progress; no compensation policy added. Automated coverage checks require every PNG to have exactly one role.
+
+Retired IDs:
+- acura-tl (Acura TL)
+- acura-tsx (Acura TSX)
+- acura-ilx (Acura ILX)
+- audi-a3 (Audi A3)
+- audi-a4 (Audi A4)
+- audi-a5 (Audi A5)
+- audi-a6 (Audi A6)
+- audi-a7 (Audi A7)
+- audi-a8 (Audi A8)
+- audi-q3 (Audi Q3)
+- audi-q5 (Audi Q5)
+- audi-q7 (Audi Q7)
+- bentley-flying-spur (Bentley Flying Spur)
+- bentley-bentayga (Bentley Bentayga)
+- bugatti-eb110 (Bugatti EB110)
+- cadillac-ct4 (Cadillac CT4)
+- cadillac-ct5 (Cadillac CT5)
+- dodge-avenger (Dodge Avenger)
+- dodge-magnum (Dodge Magnum)
+- ferrari-308 (Ferrari 308)
+- ferrari-458-italia (Ferrari 458 Italia)
+- ferrari-f8-tributo (Ferrari F8 Tributo)
+- ferrari-roma (Ferrari Roma)
+- ferrari-296-gtb (Ferrari 296 GTB)
