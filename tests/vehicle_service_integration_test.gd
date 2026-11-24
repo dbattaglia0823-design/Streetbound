@@ -62,6 +62,10 @@ func run() -> void:
 	service.fuel.remaining = 3.0
 	check("garage_cannot_sell_fuel", not service.try_refuel()
 		and service.fuel.remaining == 3.0)
+	service.fuel.remaining = 0.0
+	check("full_health_empty_tank_at_garage_has_recovery", service.try_repair()
+		and service.damage.integrity == 100.0
+		and service.fuel.fraction() >= 0.08 and inventory.balance == 0)
 
 	marker_node.markers.clear()
 	marker_node.markers.append(station)
