@@ -356,6 +356,10 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_width_adaptation_test.gd 2>&1 | tee /tmp/godot463-road-width.log
           grep -q 'MORROW 10 PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
+      - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
+        run: |
+          godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
+
       - name: Validate traffic crash recovery, junction queues and player collision sensing
         run: |
           set -o pipefail
