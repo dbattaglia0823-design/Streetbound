@@ -71,6 +71,12 @@ func run() -> void:
 		and service.fuel.fraction() == 1.0 and inventory.balance == 500 - fuel_price)
 	check("already_full_not_charged", not service.try_refuel()
 		and inventory.balance == 500 - fuel_price)
+	service.fuel.remaining = 1.0
+	inventory.balance = 5
+	check("limited_cash_buys_partial_fuel", service.try_refuel()
+		and service.fuel.remaining > 1.0
+		and service.fuel.remaining < service.fuel.capacity
+		and inventory.balance == 0)
 
 	service.damage.integrity = 42.0
 	service.fuel.remaining = 2.0
