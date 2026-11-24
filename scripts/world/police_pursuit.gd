@@ -2,6 +2,8 @@ extends Node2D
 ## Single-player, driving-only police pursuit prototype. Police are actual
 ## VehicleController2D instances obeying road geometry and vehicle physics.
 ## Host-authoritative multiplayer police are intentionally out of scope.
+signal busted(reason: String)
+signal escaped
 const PPM := 20.0
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
@@ -205,6 +207,7 @@ func _escape() -> void:
 	containment_seconds = 0.0
 	message = "ESCAPED"
 	message_timer = 3.0
+	escaped.emit()
 	_despawn_units()
 
 func _bust(reason: String) -> void:
@@ -218,6 +221,7 @@ func _bust(reason: String) -> void:
 				race.has_method("quit_race"):
 			race.call("quit_race")
 	bust_timer = 2.0
+	busted.emit(reason)
 	message = "BUSTED / " + reason
 	message_timer = 4.0
 	for entry in units:
