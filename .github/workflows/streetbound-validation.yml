@@ -29,6 +29,25 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_crime_foundation_test.gd 2>&1 | tee /tmp/driving-crime-463.log
+          grep -q 'DRIVING CRIME FOUNDATION: 0 failures' /tmp/driving-crime-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-crime-463.log
+      - name: Verify vehicle fuel model and circular dashboard meters (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd 2>&1 | tee /tmp/vehicle-fuel-463.log
+          grep -q 'FUEL/RESOURCE HUD: 0 failures' /tmp/vehicle-fuel-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/vehicle-fuel-463.log
+      - name: Verify free garages, capped gas station repairs and refueling (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_service_integration_test.gd 2>&1 | tee /tmp/service-rules-463.log
+          grep -q 'GARAGE/FUEL SERVICE: 0 failures' /tmp/service-rules-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/service-rules-463.log
+
       - name: Verify branching sidewalk T, Y and X junctions (4.6.3)
         run: |
           set -o pipefail
@@ -356,18 +375,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_width_adaptation_test.gd 2>&1 | tee /tmp/godot463-road-width.log
           grep -q 'MORROW 10 PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
-      - name: Verify vehicle fuel model and circular dashboard meters (4.6.3)
-        run: |
-          godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
-
-      - name: Verify free garages, capped gas station repairs and refueling (4.6.3)
-        run: |
-          godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
-
-      - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
-        run: |
-          godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
-
       - name: Validate traffic crash recovery, junction queues and player collision sensing
         run: |
           set -o pipefail
