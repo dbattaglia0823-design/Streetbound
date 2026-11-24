@@ -109,6 +109,12 @@ Added native Godot 4.6.3 macOS Universal 2 exports for Apple Silicon and Intel, 
 
 **Evidence:** The isolated macOS branch passed run [44993683948](https://github.com/dbattaglia0823-design/Streetbound/actions/runs/44993683948), and its normal Godot regressions passed run [44993683924](https://github.com/dbattaglia0823-design/Streetbound/actions/runs/44993683924). Since the feature was integrated with newer `main` code, these earlier results are historical; the combined branch requires fresh current-head CI before merge. Native GUI rendering, driving feel, hardware gamepads/audio, save persistence, Gatekeeper on consumer Macs and cross-machine multiplayer have not been tested physically, and Apple Developer ID/notarization are not included. This is an ad-hoc signed development build, not a public notarized release.
 
+## 2026-11-23 — Phase 2 drafting wake refinement
+
+From merged Phase 2 PR #191, refine the aerodynamic wake without changing the vehicle or network protocols. Relative forward-speed difference now attenuates the drafting bonus in addition to distance, alignment and lane offset; the cap stays at 18% aerodynamic drag reduction. The local vehicle and traffic visual scripts fade in four low-alpha background streaks from roughly 50–60 mph, expand to seven under an eligible follower, and fade on overtaking or separation. The existing tests now check relative-speed discrimination, low-speed invisibility, faint high-speed ambience, active-draft emphasis, and departure fade.
+
+Verification status: code/tests authored for Godot 4.4.1 and 4.6.3 CI; GitHub Actions results and manual visual/drive checks must be reviewed on the final commit. No local Godot executable was available in the editing environment.
+
 ## Driving immersion Phase 3 — 2026-11-23 (PR pending verification)
 
 This branch adds an optional map-level `rain_intensity` (0–1) to saved custom-map sources, Test Drive compilation and published streamed archives. Map Builder exposes Clear, Light Rain, Rain and Heavy Rain, saved and undoable alongside the map. The shared 120 Hz car physics reads the surface provider's weather, reducing full-wet asphalt grip at most 18%; clear/dry behavior is unchanged. Multiplayer uses the common compiled world state, not a client-authoritative weather or grip RPC.
