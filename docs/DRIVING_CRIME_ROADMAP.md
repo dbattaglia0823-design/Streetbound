@@ -48,10 +48,40 @@ during a wanted pursuit is a bust, not a teleport escape.
 - The new prototype is disabled for multiplayer, split-screen driving and
   custom test drives to avoid partially synchronized damage and rewards.
 
+## Vehicle-only driving contracts — first playable framework
+
+- The World Builder can author `contract` pickup markers and
+  `contract_dropoff` destinations. Configure the contract kind and link a
+  destination via the native marker editor; the browser editor accepts the
+  same fields in marker JSON (`contract_kind`, `destination_marker_id`).
+- Three initial mission types: **courier** (legal $550), **smuggling**
+  (wanted 1, $950) and **getaway** (wanted 2, $1,350). Other XP and underground
+  reputation rewards come from fixed game rules, never arbitrary map values.
+- To create a job, place a dropoff on an accessible road, then place a
+  contract pickup at least 100 metres away. Select the dropoff in the
+  contract marker editor. Jobs require a connected road route and are not
+  automatically populated at nonexistent buildings.
+- While parked at the job marker, press **F** to accept. Navigate to the
+  destination and stop within 12 metres before the timer expires. Police
+  jobs require evading the pursuit before payout.
+- Box-in arrests, vehicle resets, vehicle changes, disabling the engine
+  or running out of fuel, race participation, and expired timers cancel the
+  contract without payment. Jobs can also be abandoned from the HUD.
+- Completed jobs award cash and driver/car XP through the existing
+  ownership save, with persistent one-time run claims, event completion
+  counts, and underground reputation. Duplicate run tokens never pay twice.
+- These are **single-player, map-authored activities**. The current
+  bundled map is not automatically given new contract markers, and store
+  robberies/advanced criminal missions are not yet implemented. The
+  existing race, garage, gas station and vehicle damage systems are kept.
+- Before merging, validate Godot import, contract reward/authoring tests,
+  and in-game pickup, arrival, pursuit loss, box-in and dropoff UX.
+
 ## Next phases (not yet implemented)
 
-1. Activity definitions and map-builder editing for getaway, robbery,
-   delivery, impound, repair and police-station markers with stable world IDs.
+1. Expand the initial map-authored courier/getaway/smuggling contracts
+   into vehicle-only robbery pickup jobs and richer delivery objectives;
+   author real contract locations on each production map.
 2. More reliable police interception, collision-safe spawning, coordinated
    roadblocks, line-of-sight searches, tactical escalation and wanted heat.
 3. Career/underground reputation, mission contract payouts and failure rules
@@ -71,6 +101,7 @@ godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
 godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
 godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
+godot --headless --path . --script res://tests/driving_contracts_test.gd
 ```
 
 Also run the repository-wide validation workflow and visually inspect pursuit
