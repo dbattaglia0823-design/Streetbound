@@ -1,15 +1,15 @@
 extends RefCounted
 ## Conservative arrest condition: three separate police cars must form a
-## near-complete blockade while the player tries to drive out at low speed.
-## Just stopping, hitting scenery, or touching a single cruiser cannot bust.
+## near-complete blockade around a slow/stationary car. No throttle input is
+## required once physically surrounded; a single nearby cruiser cannot bust.
 const CAPTURE_SECONDS := 4.0
 const MAX_SPEED_MPS := 1.35
 const BLOCK_RADIUS_M := 8.0
 const MAX_OPEN_GAP_RAD := deg_to_rad(155.0)
 
 static func progress(previous: float, dt: float, player_m: Vector2,
-		speed_mps: float, drive_intent: float, police_positions_m: Array[Vector2]) -> float:
-	if dt <= 0.0 or speed_mps > MAX_SPEED_MPS or drive_intent < 0.2:
+		speed_mps: float, _drive_intent: float, police_positions_m: Array[Vector2]) -> float:
+	if dt <= 0.0 or speed_mps > MAX_SPEED_MPS:
 		return 0.0
 	var angles: Array[float] = []
 	for position in police_positions_m:
