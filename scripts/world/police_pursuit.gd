@@ -211,6 +211,12 @@ func _bust(reason: String) -> void:
 	if wanted_level <= 0 or bust_timer > 0.0:
 		return
 	bust_reason = reason
+	# A busted player cannot continue a running street race and earn an
+	# unrelated payout after the impound recovery.
+	for race in street_races:
+		if is_instance_valid(race) and str(race.get("state")) in ["countdown", "running"] and \
+				race.has_method("quit_race"):
+			race.call("quit_race")
 	bust_timer = 2.0
 	message = "BUSTED / " + reason
 	message_timer = 4.0
