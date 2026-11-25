@@ -118,6 +118,7 @@ var cancel_button: Button
 const EditorContext=preload("res://scripts/dev/native_editor_context.gd")
 var tool_options: Container
 var tool_help: Label
+var mountain_help: Label
 var sidewalk_settings: Control
 var guardrail_settings: Control
 var race_settings: Control
@@ -521,6 +522,7 @@ func _update_context_panels() -> void:
 	race_editor.update(self)
 	marker_editor.update(self)
 	marker_editor.edit_button.visible=bool(context.marker) and record.get("category","")=="markers"
+	marker_kind.visible=tool_name=="place_marker"
 	asset_dock.visible=bool(context.assets)
 	finish_button.visible=bool(context.shape_actions)
 	cancel_button.visible=bool(context.shape_actions) or not pending_drag.is_empty()
@@ -545,6 +547,8 @@ func _update_context_panels() -> void:
 		terrain_elevation.value=float(record.item.get("elevation",0))
 		_setting_controls=false
 	terrain_elevation.editable=terrain_barrier.button_pressed
+	terrain_elevation.visible=terrain_barrier.button_pressed
+	mountain_help.visible=terrain_barrier.button_pressed
 
 
 func _redraw_visible_scenery() -> void:
@@ -2175,7 +2179,7 @@ func _refresh_inspector() -> void:
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
 	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
-	prop_transforms.visible=exists and record.category=="props" and str(record.item.get("type","")) not in ["sidewalk","guardrail"]
+	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
@@ -2199,6 +2203,8 @@ func _refresh_inspector() -> void:
 		if record.category=="props":
 			var size: Vector2=gizmos._prop_size(item)/PPM
 			asset_dimensions_label.text="Footprint: %.2f × %.2f m"%[size.x,size.y]
+			var path_prop:=str(item.get("type","")) in ["sidewalk","guardrail"]
+			prop_transforms.visible=not path_prop
 			var building:=RoadBuildingSnap.supports(item)
 			inspector_road_facing.visible=building;inspector_road_front.visible=building
 			inspector_road_facing.set_pressed_no_signal(RoadBuildingSnap.enabled(item))
@@ -2261,6 +2267,8 @@ func _change_terrain_settings() -> void:
 	if _setting_controls:return
 	if _option_value(terrain_biome) not in ["mountain","rock"]:terrain_barrier.set_pressed_no_signal(false)
 	terrain_elevation.editable=terrain_barrier.button_pressed
+	terrain_elevation.visible=terrain_barrier.button_pressed
+	mountain_help.visible=terrain_barrier.button_pressed
 	if tool_name=="draw_terrain" or _editing_locked():return
 	var record:=_selected_record()
 	if record.get("category","")!="regions":return
