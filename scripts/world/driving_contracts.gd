@@ -28,6 +28,7 @@ var abandon_button: Button
 
 func _ready() -> void:
 	name = "DrivingContracts"
+	add_to_group("streetbound_contracts")
 	if not is_instance_valid(player) or not is_instance_valid(economy):
 		return
 	player.vehicle_reset.connect(_on_vehicle_reset)
