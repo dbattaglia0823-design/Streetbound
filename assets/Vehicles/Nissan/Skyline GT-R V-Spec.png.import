@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cn73tn7t4uxbl"
-path="res://.godot/imported/Evolution II.png-3d82b8c101bea627444da06b3c2db44b.ctex"
+uid="uid://cdvans8b24gof"
+path="res://.godot/imported/Skyline GT-R V-Spec.png-18dd862599d02e24b6288feddd217de2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Mercedes-Benz/Evolution II.png"
-dest_files=["res://.godot/imported/Evolution II.png-3d82b8c101bea627444da06b3c2db44b.ctex"]
+source_file="res://assets/Vehicles/Nissan/Skyline GT-R V-Spec.png"
+dest_files=["res://.godot/imported/Skyline GT-R V-Spec.png-18dd862599d02e24b6288feddd217de2.ctex"]
 
 [params]
 

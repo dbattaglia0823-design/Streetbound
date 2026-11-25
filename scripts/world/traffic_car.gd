@@ -6,22 +6,19 @@ extends CharacterBody2D
 const PPM := 20.0
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
+# Keep existing model slots stable for seeded parked cars and moving traffic.
 const MODEL_PATHS := [
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
+	"res://assets/Vehicles/Traffic Vehicles/Electric Traffic.png",
+	"res://assets/Vehicles/Traffic Vehicles/Car1.png",
+	"res://assets/Vehicles/Traffic Vehicles/Sedan.png",
+	"res://assets/Vehicles/Traffic Vehicles/SportSUV.png",
+	"res://assets/Vehicles/Traffic Vehicles/SUV.png",
+	"res://assets/Vehicles/Traffic Vehicles/Minivan.png",
+	"res://assets/Vehicles/Traffic Vehicles/Van.png",
+	"res://assets/Vehicles/Traffic Vehicles/Taxi.png",
+	"res://assets/Vehicles/Traffic Vehicles/Pickup Truck.png",
+	"res://assets/Vehicles/Traffic Vehicles/Box Truck.png"
 ]
-# Current model-named artwork is preferred on both normal and test-drive
-# worlds. Older development checkouts still have the previous filenames.
-const NAMED_MODELS := ["Box Truck.png","Car1.png","Electric Traffic.png",
-	"Minivan.png","Pickup Truck.png","SUV.png","Sedan.png","SportSUV.png","Taxi.png","Van.png"]
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
 ## moving traffic and static parked cars; each chunk does not rescan PNG data.
@@ -83,11 +80,8 @@ static func appearance_for(index: int) -> Dictionary:
 	var slot := posmod(index,MODEL_PATHS.size())
 	if art_cache.has(slot):
 		return art_cache[slot]
-	var path: String = "res://assets/Vehicles/Traffic Vehicles/"+str(NAMED_MODELS[slot])
+	var path: String = MODEL_PATHS[slot]
 	var texture: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
-	if texture==null:
-		path=MODEL_PATHS[slot]
-		texture=load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 	if texture == null:
 		# Keep older checkouts working while assets migrate to assets/vehicles.
 		var legacy := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")

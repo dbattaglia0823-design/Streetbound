@@ -18,6 +18,7 @@ Use this as a **routing index**, not a replacement for existing detailed guides.
 | World rendering/performance | [performance-maintenance.md](performance-maintenance.md), [PERFORMANCE_MAP_QUALITY.md](PERFORMANCE_MAP_QUALITY.md) | `scripts/world/`, related tests |
 | Vehicle additions, wheel alignment, art | [new_vehicle_2026_expansion.md](new_vehicle_2026_expansion.md), [STEERABLE_WHEELS.md](STEERABLE_WHEELS.md) | `scripts/vehicle/`, `assets/`, `tests/multi_model_wheels_test.gd` |
 | Garage, upgrades, audio | [upgrades.md](upgrades.md), [VEHICLE_AUDIO_REFERENCES.md](VEHICLE_AUDIO_REFERENCES.md) | `scripts/ui/`, `scripts/audio/` |
+| Historical milestones and older handoffs | [WORK_LOG.md](WORK_LOG.md) | Verify old PR/CI status before relying on notes |
 | Validation, CI and handoff | [TESTING.md](TESTING.md), [HANDOFF.md](HANDOFF.md) | `.github/workflows/`, `tests/` |
 | Technical choices and risks | [DECISIONS.md](DECISIONS.md), [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Actual issue/PR and code evidence |
 

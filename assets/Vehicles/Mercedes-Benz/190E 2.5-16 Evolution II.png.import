@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://e0j6tlwt32r1"
-path="res://.godot/imported/Ferrari F80.png-11870e9916a770cc61ac2b0d29a35483.ctex"
+uid="uid://cn73tn7t4uxbl"
+path="res://.godot/imported/190E 2.5-16 Evolution II.png-6ba7b8a0c783373c45fbd2d7a37eb7b1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Ferrari/Ferrari F80.png"
-dest_files=["res://.godot/imported/Ferrari F80.png-11870e9916a770cc61ac2b0d29a35483.ctex"]
+source_file="res://assets/Vehicles/Mercedes-Benz/190E 2.5-16 Evolution II.png"
+dest_files=["res://.godot/imported/190E 2.5-16 Evolution II.png-6ba7b8a0c783373c45fbd2d7a37eb7b1.ctex"]
 
 [params]
 

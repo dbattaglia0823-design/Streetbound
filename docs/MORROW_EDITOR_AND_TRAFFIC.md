@@ -59,7 +59,7 @@ No external project source code was copied.
 ## Traffic artwork, contact and road recovery
 
 Ambient traffic now uses the **10 existing PNG car models** from
-`assets/Traffic Vehicles/` instead of the generic polygon bodies. Each
+`assets/Vehicles/Traffic Vehicles/` instead of the generic polygon bodies. Each
 vehicle gets a scaled, cropped top-down sprite and its own collision shape.
 The player can hit traffic cars, and contact supplies a physically bounded
 knockback impulse. AI cars remain collidable during recovery.
@@ -130,3 +130,21 @@ new live physics body for every pole. It is decorative, not collidable.
 Validation: `map-editor/tests/environment-presets.test.mjs`,
 `tests/morrow_environment_props_test.py` and
 `tests/morrow_environment_visual_test.gd`.
+
+### Named traffic artwork
+
+The ambient and parked vehicle renderers share `TrafficCar.MODEL_PATHS`.
+The existing model slot order is preserved with the current filenames:
+- 1. `Electric Traffic.png`
+- 2. `Car1.png`
+- 3. `Sedan.png`
+- 4. `SportSUV.png`
+- 5. `SUV.png`
+- 6. `Minivan.png`
+- 7. `Van.png`
+- 8. `Taxi.png`
+- 9. `Pickup Truck.png`
+- 10. `Box Truck.png`
+
+All ten paths must resolve to imported textures; the traffic impact/recovery test
+checks the exact paths, rendered texture identity, alpha bounds and collision.

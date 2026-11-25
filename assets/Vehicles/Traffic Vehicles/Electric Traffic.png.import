@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://be71y8k15vdol"
-path="res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png-de5231b4488c7a1bedcecc6faf8aef70.ctex"
+uid="uid://ycjscye4emql"
+path="res://.godot/imported/Electric Traffic.png-bdc325ccba85788d65f7e4842fd767d9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png-de5231b4488c7a1bedcecc6faf8aef70.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/Electric Traffic.png"
+dest_files=["res://.godot/imported/Electric Traffic.png-bdc325ccba85788d65f7e4842fd767d9.ctex"]
 
 [params]
 

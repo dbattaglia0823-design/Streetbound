@@ -29,7 +29,7 @@ static func all() -> Array[Dictionary]:
 	if not _vehicles.is_empty():
 		return _vehicles
 	# Keep original IDs stable for saves. Newly imported sprites extend, never
-	# replace, the original 98-car roster.
+	# replace, retained artwork-backed roster.
 	var ids := {}
 	for path in [CATALOG_PATH, ADDITIONS_PATH]:
 		if not FileAccess.file_exists(path):
@@ -50,6 +50,12 @@ static func all() -> Array[Dictionary]:
 				_vehicles.clear()
 				return _vehicles
 			ids[id] = true
+			# Never expose retired/missing artwork as a playable entry. The
+			# same catalog is used by pause, garage, dealerships and AI.
+			var artwork := str(value.get("texture", ""))
+			if artwork.is_empty() or not ResourceLoader.exists(artwork, "Texture2D"):
+				push_warning("Skipping unavailable vehicle artwork: " + id)
+				continue
 			_vehicles.append(value)
 	return _vehicles
 
@@ -232,7 +238,7 @@ static func _wheel_uv(entry: Dictionary, key: String, fallback: Vector2) -> Vect
 
 
 static func _temporary_unverified_body() -> Texture2D:
-	# Several catalog entries reference art that was never committed. Draw a
+	# A damaged or incomplete installation may be missing art. Draw a
 	# neutral, clearly provisional top-down shape rather than loading an
 	# unavailable path or silently displaying another manufacturer's vehicle.
 	var image := Image.create(64, 128, false, Image.FORMAT_RGBA8)

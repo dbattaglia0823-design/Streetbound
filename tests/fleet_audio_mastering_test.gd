@@ -42,7 +42,7 @@ func run() -> void:
 	check("vehicles_have_many_distinct_acoustic_signatures",
 		car_sound_signatures.size() >= 35,car_sound_signatures.size())
 	for id in ["ford-mustang","dodge-challenger","bmw-m3",
-		"ferrari-458-italia","ferrari-f40","bugatti-chiron"]:
+		"ferrari-488-gtb","ferrari-f40","bugatti-chiron"]:
 		var config := Catalog.make_configuration(Catalog.find_by_id(id))
 		check("sound_profile_applies_to_actual_car_"+id,
 			is_equal_approx(config.audio_tone,

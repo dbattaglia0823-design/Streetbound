@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://r5ik6mqfx3i1"
-path="res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png-eeed6a5f088d6449e69d15b7fe67a899.ctex"
+uid="uid://bderdol86qj3v"
+path="res://.godot/imported/SUV.png-0c96baef49d24769f954a47572f17cb9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png-eeed6a5f088d6449e69d15b7fe67a899.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/SUV.png"
+dest_files=["res://.godot/imported/SUV.png-0c96baef49d24769f954a47572f17cb9.ctex"]
 
 [params]
 

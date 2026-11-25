@@ -156,11 +156,11 @@ func run() -> void:
 	editor.call("open_for",{"authoring":contact_session},contact)
 	check("npc_contract_editor_loads_two_jobs",(editor.get("offers") as Array).size()==2)
 	editor.call("_duplicate_job")
-	var after_copy: Array=editor.get("offers")
+	var after_copy: Array=editor.get("offers").duplicate(true)
 	check("duplicating_native_contract_assigns_new_id", after_copy.size()==3 and
 		str(after_copy[1].get("id",""))!="job_1" and str(after_copy[0].get("id",""))=="job_1")
 	editor.call("_move_job",1)
-	var reordered: Array=editor.get("offers")
+	var reordered: Array=editor.get("offers").duplicate(true)
 	check("native_job_ordering_preserves_save_ids",str(reordered[2].get("id",""))==str(after_copy[1].get("id","")))
 	editor.call("_apply_difficulty_preset")
 	check("native_preset_keeps_current_job_identity",

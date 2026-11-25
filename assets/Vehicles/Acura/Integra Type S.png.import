@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://krb8en1kn24i"
-path="res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png-4d8243b72a9b91226ea888ea99eb56ab.ctex"
+uid="uid://23puio402fig"
+path="res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png-4d8243b72a9b91226ea888ea99eb56ab.ctex"]
+source_file="res://assets/Vehicles/Acura/Integra Type S.png"
+dest_files=["res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1

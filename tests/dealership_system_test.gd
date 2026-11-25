@@ -247,7 +247,7 @@ func run() -> void:
 	check("every_dealership_sorted_cheapest_to_priciest_with_stable_ties",prices_and_ties_sorted)
 	menu._active_shop = budget
 	menu._rebuild_cards()
-	menu._filter("acura")
+	menu._filter("ford")
 	var filtered_sorted := true
 	var prior_filtered_price := -1
 	for item in menu.cards:
@@ -257,7 +257,7 @@ func run() -> void:
 			prior_filtered_price = current_price
 	check("search_keeps_price_order",filtered_sorted and prior_filtered_price >= 0)
 	menu._filter("")
-	var buy_entry := Catalog.find_by_id("acura-tl")
+	var buy_entry := Catalog.find_by_id("ford-fiesta")
 	check("budget_car_has_reachable_price",
 		int(buy_entry.price_usd) <= starter.balance)
 	var before := starter.balance

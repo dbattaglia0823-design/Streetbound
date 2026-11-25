@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx2s0dy06cytq"
-path="res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png-faa39096cd5338769185ce5af8f48bf9.ctex"
+uid="uid://dcksmer6hgwvv"
+path="res://.godot/imported/Box Truck.png-4560505bd6428a6a49b204f94977737f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png-faa39096cd5338769185ce5af8f48bf9.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/Box Truck.png"
+dest_files=["res://.godot/imported/Box Truck.png-4560505bd6428a6a49b204f94977737f.ctex"]
 
 [params]
 

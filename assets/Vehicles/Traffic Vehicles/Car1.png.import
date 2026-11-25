@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://23puio402fig"
-path="res://.godot/imported/Integra TypeS.png-7a1700523e1991a7e981548f90059011.ctex"
+uid="uid://cvo0o02dh658a"
+path="res://.godot/imported/Car1.png-73adef651c6cd3474cb878f608827b0d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Acura/Integra TypeS.png"
-dest_files=["res://.godot/imported/Integra TypeS.png-7a1700523e1991a7e981548f90059011.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/Car1.png"
+dest_files=["res://.godot/imported/Car1.png-73adef651c6cd3474cb878f608827b0d.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=512
 detect_3d/compress_to=1

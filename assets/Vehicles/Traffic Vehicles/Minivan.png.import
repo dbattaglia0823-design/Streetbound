@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bcimojwp31ci7"
-path="res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"
+uid="uid://chkqi0f7t5ghq"
+path="res://.godot/imported/Minivan.png-c9f815094ac03da583d718f18ed77c75.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Audi/RS6 Avante.png"
-dest_files=["res://.godot/imported/RS6 Avante.png-61ce2b49a31480af11fadbffbc5421bb.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/Minivan.png"
+dest_files=["res://.godot/imported/Minivan.png-c9f815094ac03da583d718f18ed77c75.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=512
 detect_3d/compress_to=1
