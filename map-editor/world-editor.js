@@ -1571,6 +1571,14 @@ $('scatter').addEventListener('click',()=>{
   if(!region){status('Select a terrain region before scattering scenery.');return;}
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
+$('road-class').addEventListener('change',e=>{
+  if(e.target.value==='track')$('road-surface').value='track';
+  else if($('road-surface').value==='track')$('road-surface').value='asphalt';
+});
+$('road-surface').addEventListener('change',e=>{
+  if(e.target.value==='track')$('road-class').value='track';
+  else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='country';
+});
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
 for(const id of ['show-roads','show-junctions','show-road-priority','show-road-gaps',
   'show-road-clearances','show-preset-preview','show-terrain','show-scenery',
@@ -1599,6 +1607,16 @@ for(const [elementId,options] of Object.entries(fields)){
       else if(kind==='json')value=JSON.parse(event.target.value);
       else value=event.target.value;
       const update={[key]:value};
+      if(key==='roadClass'){
+        const old=getEntity(doc,selection.id)?.item;
+        if(value==='track')update.surface='track';
+        else if(old?.surface==='track')update.surface='asphalt';
+      }
+      if(key==='surface'){
+        const old=getEntity(doc,selection.id)?.item;
+        if(value==='track')update.roadClass='track';
+        else if(old?.roadClass==='track'&&['dirt','gravel'].includes(value))update.roadClass='country';
+      }
       if(key==='biome'&&!['mountain','rock'].includes(value))update.barrier=false;
       if(key==='barrier'&&value){const r=getEntity(doc,selection.id)?.item;
         if(!['mountain','rock'].includes(r?.biome))update.biome='mountain';
