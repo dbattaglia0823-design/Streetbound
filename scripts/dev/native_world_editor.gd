@@ -124,6 +124,7 @@ var guardrail_settings: Control
 var race_settings: Control
 var dealership_settings: Control
 var inspector_tabs: TabContainer
+var settings_tabs: TabContainer
 var selection_fields: Control
 var road_layer_settings: Control
 var settings_panel: PanelContainer
@@ -896,6 +897,7 @@ func _choose_tool(mode: String) -> void:
 	# selected group. Switching back to V must allow an immediate group drag.
 	var keep_selection: bool=tool_name in ["move_prop","select_box"] and mode in ["move_prop","select_box"]
 	tool_name = mode
+	if is_instance_valid(settings_tabs):settings_tabs.current_tab=0
 	if not keep_selection:_set_multi([])
 	marquee_tracking=false
 	group_moving=false
@@ -2397,6 +2399,7 @@ func _select_entity(index: int) -> void:
 	if record.is_empty():return
 	editor_camera.global_position=_record_position(record)*PPM
 	_refresh_authoring();_update_view(true)
+	if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 
 func _set_layer(enabled: bool,key: String) -> void:
 	layer_flags[key]=enabled
