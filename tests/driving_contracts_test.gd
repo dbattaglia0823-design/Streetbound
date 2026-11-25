@@ -153,7 +153,7 @@ func run() -> void:
 	var host:=Control.new()
 	root.add_child(host)
 	editor.build(host)
-	editor.open_for(contact_session,contact)
+	editor.open_for({"authoring":contact_session},contact)
 	check("npc_contract_editor_loads_two_jobs",editor.offers.size()==2)
 	var visual:=Node2D.new()
 	visual.set_script(ContactVisual)
