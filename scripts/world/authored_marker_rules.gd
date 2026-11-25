@@ -19,6 +19,7 @@ static func valid(marker: Dictionary) -> bool:
 	if properties.has("enabled") and typeof(properties.enabled)!=TYPE_BOOL:return false
 	if properties.has("contract_kind"):
 		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false
+	if properties.has("contact_style") and str(properties.contact_style) not in ["street","business","mechanic","casual"]:return false
 	if properties.has("offers") and (kind != "contract_contact" or not properties.offers is Array or properties.offers.size()>Contracts.MAX_OFFERS):
 		return false
 	if properties.has("destination_marker_id"):
