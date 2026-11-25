@@ -115,6 +115,20 @@ func run() -> void:
 	check("selected_road_only_exposes_road_settings",e.road_settings.visible and
 		not e.terrain_settings.visible and not e.race_settings.visible and e.selection_fields.visible
 		and e.point_picker.visible and not e.prop_transforms.visible)
+	var original_road: Dictionary=e.authoring.road_at_id("road-0").duplicate(true)
+	check("placed_road_has_visible_type_selector",e.inspector_road_type_fields.visible)
+	e._change_inspector_road_type(5)
+	var converted: Dictionary=e.authoring.road_at_id("road-0")
+	check("existing_road_converts_to_track_without_geometry_changes",
+		converted.roadClass=="track" and converted.surface=="track"
+		and converted.points==original_road.points and converted.width==original_road.width
+		and converted.lanes==original_road.lanes)
+	check("road_type_controls_remain_synchronized",e.road_class.selected==5 and e.inspector_road_type.selected==5)
+	e._change_inspector_road_type(0)
+	check("track_can_be_converted_back_to_city",
+		e.authoring.road_at_id("road-0").roadClass=="city" and e.authoring.road_at_id("road-0").surface=="asphalt")
+	e._undo();e._undo()
+	check("road_type_changes_are_undoable",e.authoring.road_at_id("road-0")==original_road)
 	e._choose_tool("pan")
 	check("pan_hides_previous_road_settings",not e.road_settings.visible and not e.selection_fields.visible)
 	e._choose_tool("move_prop")
