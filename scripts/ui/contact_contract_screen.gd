@@ -37,7 +37,7 @@ var job_list: VBoxContainer
 var job_buttons: Array[Button] = []
 var job_title: Label
 var job_subtitle: Label
-var description_label: Label
+var description_label: RichTextLabel
 var payout_label: Label
 var xp_label: Label
 var timing_label: Label
@@ -184,8 +184,15 @@ func _build_frame() -> void:
 	job_subtitle = _text(details, "", 13, HIGHLIGHT,
 		Vector2(20, 54), Vector2(627, 25))
 	_line(details, Vector2(20, 91), 632, Color("#40555b"))
-	description_label = _text(details, "", 15, INK,
-		Vector2(20, 104), Vector2(628, 66), true)
+	description_label = RichTextLabel.new()
+	description_label.name = "JobDescription"
+	description_label.position = Vector2(20, 102)
+	description_label.size = Vector2(625, 71)
+	description_label.bbcode_enabled = false
+	description_label.scroll_active = true
+	description_label.add_theme_font_size_override("normal_font_size", 15)
+	description_label.add_theme_color_override("default_color", INK)
+	details.add_child(description_label)
 	payout_label = _text(details, "", 18, HIGHLIGHT,
 		Vector2(20, 177), Vector2(313, 32))
 	xp_label = _text(details, "", 13, MUTED,
@@ -245,6 +252,7 @@ func open_contact(contact: Dictionary) -> bool:
 	role_label.text = str(persona["role"]).to_upper()
 	greeting_label.text = "\"" + str(persona["greeting"]) + "\""
 	bio_label.text = str(persona["bio"])
+	bio_label.tooltip_text = bio_label.text
 	avatar.text = str(persona["name"]).substr(0, 1).to_upper()
 	avatar.add_theme_color_override("font_color", selected_accent)
 	portrait_panel.add_theme_stylebox_override("panel",
