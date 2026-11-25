@@ -173,9 +173,17 @@ func save(e) -> void:
 		info.erase("destination_marker_id")
 	if str(type_input.get_selected_metadata())=="contract_contact":
 		info.merge(contact_editor.save_fields(),true)
+		var candidate: Dictionary=source.duplicate(true)
+		candidate["properties"]=info
+		candidate["type"]="contract_contact"
+		var warnings: Array[String]=contact_editor.validation_errors(candidate,e.authoring.doc.get("markers",[]))
+		if not warnings.is_empty():
+			feedback.text="Fix before saving: "+" / ".join(warnings)
+			contact_editor.status.text=feedback.text
+			return
 	else:
-		info.erase("offers")
-		info.erase("contact_style")
+		for field in ["offers","contact_style","contact_role","contact_greeting","contact_bio"]:
+			info.erase(field)
 	if e.authoring.update_marker(marker_id,{
 		"name":name_input.text.strip_edges(),
 		"type":str(type_input.get_selected_metadata()),
