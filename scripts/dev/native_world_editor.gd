@@ -169,6 +169,8 @@ var road_surface: OptionButton
 var road_width: SpinBox
 var road_lanes: SpinBox
 var road_class: OptionButton
+var inspector_road_type: OptionButton
+var inspector_road_type_fields: Control
 var terrain_biome: OptionButton
 var terrain_barrier: CheckBox
 var terrain_elevation: SpinBox
@@ -536,7 +538,7 @@ func _update_context_panels() -> void:
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
 		for option in [road_class,road_surface]:
-			var value:=str(road.roadClass) if option==road_class else str(road.surface)
+			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
 			for i in option.item_count:
 				if str(option.get_item_metadata(i))==value:option.select(i);break
 		_setting_controls=false
@@ -2139,6 +2141,32 @@ func _number(parent: Node,title: String,minimum: float,maximum: float,start: flo
 func _option_value(option: OptionButton) -> String:
 	return str(option.get_item_metadata(option.selected))
 
+func _select_road_option(control: OptionButton,value: String) -> void:
+	for i in control.item_count:
+		if str(control.get_item_metadata(i))==value:
+			control.select(i);return
+
+func _change_inspector_road_type(index: int) -> void:
+	if _updating_inspector or _setting_controls:return
+	road_class.select(index)
+	_change_road_type(index)
+
+func _change_road_type(_index: int) -> void:
+	if _setting_controls:return
+	var kind:=_option_value(road_class)
+	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
+	if kind=="track":_select_road_option(road_surface,"track")
+	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
+	_change_road_settings()
+
+func _change_road_surface(_index: int) -> void:
+	if _setting_controls:return
+	var surface:=_option_value(road_surface)
+	if surface=="track":_select_road_option(road_class,"track")
+	elif _option_value(road_class)=="track" and surface in ["gravel","dirt"]:
+		_select_road_option(road_class,"country")
+	_change_road_settings()
+
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
 	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
@@ -2173,6 +2201,11 @@ func _refresh_inspector() -> void:
 	var context:=EditorContext.resolve(tool_name,str(record.get("category","")),str(record.get("item",{}).get("type","")),multi_selection.size())
 	var exists:=bool(context.selected_fields)
 	selection_fields.visible=exists
+	inspector_road_type_fields.visible=exists and record.get("category","")=="roads"
+	if inspector_road_type_fields.visible:
+		var kind:=str(record.item.get("roadClass","city"))
+		if str(record.item.get("surface",""))=="track":kind="track"
+		_select_road_option(inspector_road_type,kind)
 	edit_actions.visible=bool(context.selection_actions)
 	if multi_selection.size()>1:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
