@@ -343,6 +343,10 @@ export function normalizeWorld(raw){
     }
     if(info.contact_style!==undefined&&!['street','business','mechanic','casual'].includes(info.contact_style))
       throw new TypeError('Invalid contact appearance');
+    for(const [field,max] of [['contact_role',60],['contact_greeting',180],['contact_bio',240]]){
+      if(info[field]!==undefined&&(typeof info[field]!=='string'||info[field].length>max))
+        throw new TypeError('Invalid contact personality field: '+field);
+    }
     if(info.offers!==undefined){
       if(marker.type!=='contract_contact'||!Array.isArray(info.offers)||info.offers.length>8)
         throw new TypeError('Contact must have no more than eight jobs');
@@ -354,6 +358,9 @@ export function normalizeWorld(raw){
         seenOffers.add(offer.id);
         if(typeof offer.title!=='string'||!offer.title.trim()||offer.title.length>80)
           throw new TypeError('Invalid contract title');
+        if(offer.description!==undefined&&
+           (typeof offer.description!=='string'||offer.description.length>400))
+          throw new TypeError('Invalid contract briefing description');
         if(!['courier','smuggling','getaway','robbery'].includes(offer.kind)||
            !['rookie','amateur','pro','elite'].includes(offer.difficulty??'rookie'))
           throw new TypeError('Invalid job type or difficulty');
