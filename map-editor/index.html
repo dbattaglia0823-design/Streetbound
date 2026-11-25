@@ -383,6 +383,10 @@
             <div class="field"><label for="race-edit-time">Time limit (seconds, 0 = off)</label><input id="race-edit-time" type="number" min="0" max="7200" step="1"></div>
           </div>
           <div class="double-fields">
+            <div class="field"><label for="race-edit-checkpoint-radius">Checkpoint radius (m)</label><input id="race-edit-checkpoint-radius" type="number" min="4" max="60" step="1"></div>
+            <div class="field"><label for="race-edit-start-radius">Start circle radius (m)</label><input id="race-edit-start-radius" type="number" min="3" max="30" step="1"></div>
+          </div>
+          <div class="double-fields">
             <div class="field"><label for="race-edit-cash">Cash reward</label><input id="race-edit-cash" type="number" min="0" max="1000000" step="1"></div>
             <div class="field"><label for="race-edit-xp">Driver XP</label><input id="race-edit-xp" type="number" min="0" max="100000" step="1"></div>
           </div>
@@ -393,6 +397,10 @@
           <div class="double-fields">
             <div class="field"><label for="race-edit-car-level">Car level requirement</label><input id="race-edit-car-level" type="number" min="1" max="50" step="1"></div>
             <div class="field"><label for="race-edit-first-cash">First-win cash bonus</label><input id="race-edit-first-cash" type="number" min="0" max="1000000" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-first-xp">First-win driver XP bonus</label><input id="race-edit-first-xp" type="number" min="0" max="100000" step="1"></div>
+            <div class="field"><label for="race-edit-first-car-xp">First-win vehicle XP bonus</label><input id="race-edit-first-car-xp" type="number" min="0" max="100000" step="1"></div>
           </div>
           <label class="check"><input id="race-edit-repeatable" type="checkbox" checked> Repeatable after first victory</label>
           <div class="field"><label for="race-edit-prerequisites">Prerequisite races (Ctrl-click to multi-select)</label><select id="race-edit-prerequisites" multiple size="4"></select></div>
