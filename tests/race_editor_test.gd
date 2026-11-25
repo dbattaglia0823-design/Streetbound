@@ -24,10 +24,19 @@ func run() -> void:
 	form.dialog_cash.value=12500
 	form.dialog_driver_xp.value=275
 	form.dialog_car_xp.value=150
+	var tab_titles: Array[String]=[]
+	for index in form.dialog_tabs.get_tab_count():
+		tab_titles.append(form.dialog_tabs.get_tab_title(index))
 	check("race_editor_has_multiplayer_rewards_tab_and_default_controls",
-		form.dialog_tabs.get_tab_count()==3 and
-		form.dialog_tabs.get_tab_title(2)=="Multiplayer Rewards" and
+		tab_titles.has("Race Setup") and tab_titles.has("Career & Unlocks") and
+		tab_titles.has("Underground & Stakes") and tab_titles.has("Multiplayer Rewards") and
 		not form.online_use_custom.button_pressed and not form.online_cash.editable)
+	# Exercise the actual shortcut button: the new Underground tab displaced
+	# the old multiplayer index, so index-based navigation opened the wrong page.
+	form.multiplayer_rewards_button.pressed.emit()
+	check("multiplayer_rewards_shortcut_opens_correct_tab",
+		form.dialog_tabs.get_tab_title(form.dialog_tabs.current_tab)=="Multiplayer Rewards")
+	form.dialog_tabs.current_tab=0
 	check("multiplayer_reward_inputs_have_no_gameplay_caps",
 		form.online_cash.max_value>=1000000000 and
 		form.online_driver_xp.max_value>=1000000000 and
