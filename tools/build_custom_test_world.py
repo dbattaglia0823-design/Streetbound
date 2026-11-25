@@ -134,7 +134,9 @@ def make_archive(doc):
         surface = str(item.get("surface","asphalt")).upper()
         if surface not in ("ASPHALT","CONCRETE","TRACK","GRAVEL","DIRT"):
             raise ValueError("Unknown road surface")
-        if surface == "GRAVEL":
+        if surface == "TRACK":
+            kind = "track"
+        elif surface == "GRAVEL":
             kind = "gravel"
         road_width = float(item.get("width",10))
         lanes = int(item.get("lanes",2))
