@@ -107,7 +107,7 @@ func run() -> void:
 		and (board.get("role_label") as Label).text=="PRIVATE FIXER")
 	check("repeatable_completion_status_and_briefing",
 		(board.get("status_label") as Label).text.contains("2 COMPLETE")
-		and (board.get("description_label") as Label).text.contains("marina"))
+		and (board.get("description_label") as RichTextLabel).text.contains("marina"))
 	check("earnings_and_xp_are_visible",
 		(board.get("payout_label") as Label).text.contains("$2,250")
 		and (board.get("xp_label") as Label).text.contains("260 DRIVER XP"))
