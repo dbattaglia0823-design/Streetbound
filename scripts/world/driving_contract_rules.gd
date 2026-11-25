@@ -54,6 +54,8 @@ static func valid_offer(offer: Dictionary, contact: Dictionary, markers_by_id: D
 	var title := str(offer.get("title",""))
 	if title.strip_edges().is_empty() or title.length() > 80:
 		return false
+	if offer.has("description") and (not offer.description is String or str(offer.description).length()>400):
+		return false
 	var kind := str(offer.get("kind",""))
 	if not valid_kind(kind) or str(offer.get("difficulty","rookie")) not in DIFFICULTIES:
 		return false
