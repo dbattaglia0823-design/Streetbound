@@ -106,7 +106,8 @@ func try_start_offer(contact: Dictionary, selected: Dictionary) -> Dictionary:
 		return {"result":"locked","message":lock}
 	var props := {
 		"contract_kind":str(selected.get("kind","courier")),
-		"destination_marker_id":str(selected.get("destination_marker_id",""))
+		"destination_marker_id":str(selected.get("destination_marker_id","")),
+		"radius_m":clampf(float(contact.get("properties",{}).get("radius_m",12.0)),4.0,50.0)
 	}
 	if str(selected.get("kind","")) == "robbery":
 		props["robbery_marker_id"] = str(selected.get("robbery_marker_id",""))
@@ -155,7 +156,8 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 	if player.global_position.distance_to(source_pos * PPM) > clampf(
 			float(props.get("radius_m",12.0)),4.0,50.0) * PPM:
 		return {"result":"out_of_range"}
-	if not _road_accessible(source_pos) or not _road_accessible(target_pos):
+	if not _road_accessible(source_pos) or not _road_accessible(target_pos) or \
+			(kind=="robbery" and not _road_accessible(Vector2(float(target.x),float(target.y)))):
 		return {"result":"offroad","message":"The pickup and dropoff must be close to drivable roads"}
 	var guide := _waypoints()
 	if not is_instance_valid(guide):
@@ -170,6 +172,11 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 		return {"result":"unreachable","message":"No connected road route to that dropoff"}
 	if not Rules.valid_kind(kind):
 		return {"result":"invalid"}
+	if kind=="robbery":
+		var escape_route: Dictionary=planner.call("plan",target_pos,
+			Vector2(float(target.x),float(target.y)),Vector2.UP)
+		if escape_route.is_empty():
+			return {"result":"unreachable","message":"Robbery drop-off is disconnected from the target"}
 	var heat: int = Rules.configured_wanted(kind,authored_offer)
 	if not bool(guide.call("set_destination",target_pos, str(next_stop.get("name","Contract destination")))):
 		return {"result":"navigation_unavailable"}
