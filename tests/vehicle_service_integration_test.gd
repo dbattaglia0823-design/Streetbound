@@ -110,6 +110,8 @@ func run() -> void:
 	service.impound_recovery()
 	check("impound_never_full_repairs", service.damage.integrity == 35.0
 		and service.fuel.fraction() >= 0.08)
+	var saved_fuel: float = service.fuel.remaining
+	var saved_integrity: float = service.damage.integrity
 
 	root.remove_child(service)
 	service.queue_free()
@@ -123,8 +125,8 @@ func run() -> void:
 	await process_frame
 	reloaded.set_physics_process(false)
 	check("resources_persist_after_reinstantiation",
-		is_equal_approx(reloaded.damage.integrity, 35.0)
-		and reloaded.fuel.fraction() >= 0.08)
+		is_equal_approx(reloaded.damage.integrity, saved_integrity)
+		and is_equal_approx(reloaded.fuel.remaining, saved_fuel))
 	root.remove_child(reloaded)
 	reloaded.queue_free()
 	await process_frame
