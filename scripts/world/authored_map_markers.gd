@@ -149,15 +149,13 @@ func _process(dt: float) -> void:
 		prompt.disabled=not InteractionSpeed.allowed(player.linear_velocity.length())
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey:return
-	var key: InputEventKey=event
-	if not key.pressed or key.echo:return
+	if event is InputEventKey and (not event.pressed or event.echo):return
 	if is_instance_valid(contact_screen) and bool(contact_screen.get("is_open")):return
-	if _dialog_open and key.keycode==KEY_ESCAPE:
+	if _dialog_open and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause")):
 		_close_travel()
 		get_viewport().set_input_as_handled()
 		return
-	if key.keycode==KEY_F and not _dialog_open and not _nearby.is_empty() and \
+	if event.is_action_pressed("interact") and not _dialog_open and not _nearby.is_empty() and \
 			not get_tree().paused and not _is_busy() and InteractionSpeed.allowed(player.linear_velocity.length()):
 		activate()
 		get_viewport().set_input_as_handled()
