@@ -2,6 +2,10 @@ extends SceneTree
 ## An authored map must launch the REAL driving scene: same streamed junctions,
 ## AI lane network, audio, HUD, map, car menu and vehicle physics as Morrow Coast.
 const Library=preload("res://scripts/dev/native_map_library.gd")
+const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const Ownership=preload("res://scripts/vehicle/vehicle_ownership.gd")
+const TrafficCar=preload("res://scripts/world/traffic_car.gd")
+const ResourceService=preload("res://scripts/world/vehicle_damage_service.gd")
 var failures: Array[String]=[]
 
 func _initialize() -> void:
@@ -55,6 +59,9 @@ func _run() -> void:
 		print("FULL GAME CUSTOM TEST DRIVE: FAIL");quit(1);return
 	set_meta("streetbound_test_drive_archive",archive)
 	set_meta("streetbound_test_drive_map",file)
+	var resource_before:=FileAccess.get_file_as_bytes(ResourceService.RESOURCE_PATH) if FileAccess.file_exists(ResourceService.RESOURCE_PATH) else PackedByteArray()
+	var ownership_before:=FileAccess.get_file_as_bytes(Ownership.SAVE_PATH) if FileAccess.file_exists(Ownership.SAVE_PATH) else PackedByteArray()
+	var saved_model:=Ownership.new()
 	var main: Node=load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	for i in 16:await process_frame
@@ -83,6 +90,23 @@ func _run() -> void:
 		main.dealership_world==null)
 	check("test_driver_cannot_modify_real_player_progression",
 		not main.vehicle_ownership.persist_enabled)
+	check("real_single_player_damage_fuel_police_contracts_present",
+		is_instance_valid(main.vehicle_damage_service) and is_instance_valid(main.police_pursuit)
+		and is_instance_valid(main.driving_contracts) and not main.vehicle_damage_service.persist_enabled)
+	var entry: Dictionary=Catalog.find_by_id(saved_model.active_id)
+	var expected:=Catalog.make_configuration(entry)
+	saved_model.apply_car_upgrades(expected,saved_model.active_id)
+	var actual: VehicleConfig=main.vehicle.config
+	check("test_drive_restores_real_car_and_tuning",main.vehicle_ownership.active_id==saved_model.active_id
+		and is_equal_approx(actual.mass_kg,expected.mass_kg)
+		and is_equal_approx(actual.engine_power_kw,expected.engine_power_kw))
+	var body: Sprite2D=main.vehicle.get_node("Art/Sprite")
+	check("player_uses_catalog_artwork",ResourceLoader.exists(str(entry.texture),"Texture2D")
+		and body.texture!=null and body.texture.resource_path==str(entry.texture))
+	var all_traffic_art:=true
+	for index in TrafficCar.model_count():
+		if TrafficCar.appearance_for(index).is_empty():all_traffic_art=false
+	check("real_traffic_artwork_is_available",all_traffic_art)
 	var mark: Node=main.authored_map_markers
 	check("game_instantiates_all_authored_marker_types",
 		is_instance_valid(mark) and mark.markers.size()==6)
@@ -112,8 +136,14 @@ func _run() -> void:
 
 	check("test_drive_has_clear_return_to_builder",
 		main.has_node("TestDriveReturn/ReturnToMapEditor"))
+	main.vehicle_damage_service.damage.integrity=42.0
+	main.vehicle_damage_service.fuel.remaining=1.0
+	check("test_condition_updates_are_memory_only",main.vehicle_damage_service._save_resources())
+	main.vehicle_ownership.credit(100)
 	main.queue_free()
 	await process_frame
+	check("real_career_save_unchanged",ownership_before==(FileAccess.get_file_as_bytes(Ownership.SAVE_PATH) if FileAccess.file_exists(Ownership.SAVE_PATH) else PackedByteArray()))
+	check("real_vehicle_condition_save_unchanged",resource_before==(FileAccess.get_file_as_bytes(ResourceService.RESOURCE_PATH) if FileAccess.file_exists(ResourceService.RESOURCE_PATH) else PackedByteArray()))
 	for key in ["streetbound_test_drive_archive","streetbound_test_drive_map"]:
 		if has_meta(key):remove_meta(key)
 	for p in [source_path,archive]:
