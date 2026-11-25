@@ -4,6 +4,7 @@ const GPS_COLOR=Color("ffc866")
 var map_view: Control
 var waypoints: Node
 var races: Array[Node2D]=[]
+var contacts: Array[Dictionary]=[]
 var on_map:=true
 var _clock:=0.0
 
@@ -21,6 +22,19 @@ func race_at(local_point: Vector2) -> Node2D:
 		var at: Vector2=mapped(race.get("start_m"))
 		if at.distance_to(local_point)<distance:distance=at.distance_to(local_point);best=race
 	return best
+
+func contact_at(local_point: Vector2) -> Dictionary:
+	if not is_instance_valid(map_view):
+		return {}
+	var closest := 18.0
+	var result: Dictionary = {}
+	for marker in contacts:
+		var p:=mapped(Vector2(float(marker.x),float(marker.y)))
+		var dist:=p.distance_to(local_point)
+		if dist < closest:
+			closest=dist
+			result=marker
+	return result
 
 func _draw() -> void:
 	if not is_instance_valid(waypoints):return
@@ -45,6 +59,21 @@ func _draw() -> void:
 			var a:=mapped(points[i-1]);var b:=mapped(points[i])
 			if not clip.has_point(a) and not clip.has_point(b) and not Rect2(a,b-a).abs().intersects(clip):continue
 			draw_line(a,b,Color("443522"),5.5*density,true);draw_line(a,b,GPS_COLOR,3*density,true)
+	for marker in contacts:
+		var contact_point:=mapped(Vector2(float(marker.x),float(marker.y)))
+		if not clip.has_point(contact_point):
+			continue
+		var glyph_size: float=(5.5 if map_view.miniature else 9.0)*density
+		draw_circle(contact_point,glyph_size+2.0*density,Color("262d2b"))
+		draw_circle(contact_point,glyph_size,Color("dbaa59"))
+		draw_circle(contact_point+Vector2(0,-2)*density,2.2*density,Color("283035"))
+		draw_rect(Rect2(contact_point+Vector2(-3,1)*density,Vector2(6,4)*density),Color("283035"))
+		if not map_view.miniature:
+			var font:=ThemeDB.fallback_font
+			var font_size:=maxi(1,roundi(11.0*density))
+			draw_string(font,contact_point+Vector2(13,3)*density,
+				str(marker.get("name","Contact")),HORIZONTAL_ALIGNMENT_LEFT,-1,
+				font_size,Color("f6d49b"))
 	for race in races:
 		if not is_instance_valid(race) or not bool(race.get("available")):continue
 		var p:=mapped(race.get("start_m"))
