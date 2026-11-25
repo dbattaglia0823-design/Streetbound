@@ -48,20 +48,38 @@ func run() -> void:
 		check(str(event.race_title)+"_F_starts_race",event.state=="countdown")
 		check(str(event.race_title)+"_physical_rival_and_countdown",event.state=="countdown" and is_instance_valid(event.opponent))
 		check("another_event_cannot_stage_during_active_race",not game.street_race.can_stage())
+		# Drive the route independently of the rival and AI pursuit updates.
+		# Underground career races now remain running until police are escaped.
+		var pursuit: Node=event.police
+		pursuit.set_physics_process(false)
+		var before_prize:=int(event.economy.balance)
 		event._clear_opponent();event.countdown=.01;event._physics_process(.02)
+		check(str(event.race_title)+"_launch_starts_pursuit",event.state=="running" and pursuit.wanted_level>0)
 		var distance:=0.0
-		while distance<float(nav.length_m) and event.state=="running":
+		while distance<float(nav.length_m) and event.state=="running" and not event.awaiting_escape:
 			distance=minf(float(nav.length_m),distance+3)
 			game.vehicle.position=nav.point_at(distance)*20
 			game.vehicle.linear_velocity=event.heading*30
 			event._physics_process(.1)
-		check(str(event.race_title)+"_finishes_after_full_course",event.state=="results",event.result)
-		event.state="idle";game.vehicle.position=event.start_m*20;game.vehicle.linear_velocity=Vector2.ZERO
+		check(str(event.race_title)+"_course_finish_requires_escape",event.state=="running" and event.awaiting_escape and pursuit.wanted_level>0,event.result)
+		event._physics_process(.1)
+		check(str(event.race_title)+"_no_prize_during_pursuit",int(event.economy.balance)==before_prize)
+		# Exercise the real pursuit cleanup and race settlement; police search
+		# behavior is independently covered by the pursuit regression suite.
+		pursuit._escape()
+		event._physics_process(.1)
+		check(str(event.race_title)+"_finishes_after_full_course",event.state=="results" and not event.awaiting_escape and int(event.economy.balance)>before_prize,event.result)
+		event._physics_process(float(event.status_timer)+1.0)
+		game.vehicle.position=event.start_m*20;game.vehicle.rotation=event.heading.angle()+PI/2;game.vehicle.linear_velocity=Vector2.ZERO
 		check(str(event.race_title)+"_replayable",event.start_race())
+		var before_invalid_run:=int(event.economy.balance)
 		event._clear_opponent();event.countdown=.01;event._physics_process(.02)
+		check(str(event.race_title)+"_replay_launches",event.state=="running" and pursuit.wanted_level>0)
 		game.vehicle.position=event.finish_m*20;event._physics_process(.1)
-		check(str(event.race_title)+"_rejects_finish_teleport",event.state=="aborted")
-		event.state="idle"
+		check(str(event.race_title)+"_rejects_finish_teleport",event.state=="aborted" and not event.awaiting_escape and int(event.economy.balance)==before_invalid_run,event.result)
+		if pursuit.wanted_level>0:pursuit._escape()
+		if event.state in ["countdown","running"]:event.quit_race()
+		event._physics_process(float(event.status_timer)+1.0)
 		await process_frame
 	game.vehicle.position=game.ground.spawn_position();game.vehicle.linear_velocity=Vector2.ZERO
 	var gps: Node=map.waypoints
