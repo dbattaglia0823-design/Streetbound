@@ -54,7 +54,7 @@ static func build(e) -> void:
 		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL;e.mode_buttons[item[1]]=button
 	e.mode_buttons["anchor"]=e._btn("Road points",tools,e._choose_tool.bind("anchor"))
 	e.settings_panel=e._panel(Vector2.ZERO,Vector2.ZERO);e.settings_panel.name="ToolSettings"
-	var left_tabs:=TabContainer.new();left_tabs.name="ToolAndWorldTabs"
+	var left_tabs:=TabContainer.new();left_tabs.name="ToolAndWorldTabs";e.settings_tabs=left_tabs
 	e.settings_panel.add_child(left_tabs)
 	var tool_scroll:=ScrollContainer.new();tool_scroll.name="Tool"
 	tool_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
