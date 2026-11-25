@@ -27,5 +27,6 @@ common/physics_interpolation=true
 
 [autoload]
 Controls="*res://scripts/input/controls.gd"
+MenuNavigation="*res://scripts/input/menu_navigation.gd"
 OnlineSession="*res://scripts/network/online_session.gd"
 LanDiscovery="*res://scripts/network/lan_discovery.gd"
