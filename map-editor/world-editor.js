@@ -734,10 +734,15 @@ function refreshRaceEditor(){
   for(const [id,value] of [
     ['race-edit-name',race.name],['race-edit-category',race.category??(race.mode==='circuit'?'circuit':'street')],
     ['race-edit-difficulty',race.difficulty??'rookie'],['race-edit-laps',race.laps??1],
-    ['race-edit-time',race.time_limit??0],['race-edit-cash',race.reward_cash??0],
+    ['race-edit-time',race.time_limit??0],
+    ['race-edit-checkpoint-radius',race.checkpoint_radius??16],
+    ['race-edit-start-radius',race.start_radius??8],
+    ['race-edit-cash',race.reward_cash??0],
     ['race-edit-xp',race.reward_player_xp??0],['race-edit-car-xp',race.reward_car_xp??0],
     ['race-edit-level',race.required_player_level??1],['race-edit-car-level',race.required_car_level??1],
-    ['race-edit-first-cash',race.first_win_reward_cash??0]
+    ['race-edit-first-cash',race.first_win_reward_cash??0],
+    ['race-edit-first-xp',race.first_win_reward_player_xp??0],
+    ['race-edit-first-car-xp',race.first_win_reward_car_xp??0]
   ])$(id).value=value;
   $('race-edit-repeatable').checked=race.repeatable!==false;
   $('race-edit-laps').disabled=race.mode!=='circuit';
@@ -1716,12 +1721,16 @@ for(const [id,key,format] of [
   ['race-edit-difficulty','difficulty','text'],
   ['race-edit-laps','laps','number'],
   ['race-edit-time','time_limit','number'],
+  ['race-edit-checkpoint-radius','checkpoint_radius','number'],
+  ['race-edit-start-radius','start_radius','number'],
   ['race-edit-cash','reward_cash','number'],
   ['race-edit-xp','reward_player_xp','number'],
   ['race-edit-car-xp','reward_car_xp','number'],
   ['race-edit-level','required_player_level','number'],
   ['race-edit-car-level','required_car_level','number'],
   ['race-edit-first-cash','first_win_reward_cash','number'],
+  ['race-edit-first-xp','first_win_reward_player_xp','number'],
+  ['race-edit-first-car-xp','first_win_reward_car_xp','number'],
   ['race-edit-repeatable','repeatable','boolean']
 ]){
   $(id).addEventListener('change',e=>{
