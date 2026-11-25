@@ -2,7 +2,7 @@ extends RefCounted
 ## Canonical map marker schema. Existing saved landmarks with no properties
 ## remain valid; playable marker types acquire typed optional links.
 const TYPES=["player_spawn","garage","dealership","mission","fast_travel",
-	"traffic_spawn","fuel","checkpoint","race_start","finish","contract","contract_dropoff","custom"]
+	"traffic_spawn","fuel","checkpoint","race_start","finish","contract","contract_dropoff","contract_contact","robbery_target","custom"]
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Contracts=preload("res://scripts/world/driving_contract_rules.gd")
 
@@ -19,6 +19,8 @@ static func valid(marker: Dictionary) -> bool:
 	if properties.has("enabled") and typeof(properties.enabled)!=TYPE_BOOL:return false
 	if properties.has("contract_kind"):
 		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false
+	if properties.has("offers") and (kind != "contract_contact" or not properties.offers is Array or properties.offers.size()>Contracts.MAX_OFFERS):
+		return false
 	if properties.has("destination_marker_id"):
 		if not properties.destination_marker_id is String or str(properties.destination_marker_id).length()>100:return false
 	if properties.has("radius_m"):
@@ -50,6 +52,7 @@ static func valid_links(markers: Array,races: Array,dealers: Array) -> bool:
 		for name in ["race_id","required_race"]:
 			if not str(info.get(name,"")).is_empty() and not event_ids.has(str(info[name])):return false
 		if not str(info.get("dealer_id","")).is_empty() and not dealer_ids.has(str(info.dealer_id)):return false
+		if str(marker.type)=="contract_contact" and not Contracts.valid_contact(marker,by_id):return false
 		if str(marker.type)=="contract":
 			var destination_id:=str(info.get("destination_marker_id",""))
 			if not destination_id.is_empty():
