@@ -509,7 +509,7 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 
 ## Fixed game-authored cash/XP/underground reputation, saved with a unique run token.
 ## A map marker cannot alter payouts or claim a run twice.
-func record_driving_contract(run_id: String, event_key: String, kind: String) -> Dictionary:
+func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}) -> Dictionary:
 	if run_id.length() < 12 or run_id.length() > 150:
 		return {"result":"invalid_or_duplicate"}
 	if event_key.length() < 5 or event_key.length() > 160:
@@ -518,7 +518,21 @@ func record_driving_contract(run_id: String, event_key: String, kind: String) ->
 		return {"result":"invalid_or_duplicate"}
 	if not DrivingContracts.valid_kind(kind) or driving_contract_claims.size() >= 4096:
 		return {"result":"invalid_or_duplicate"}
-	var rewards: Dictionary = DrivingContracts.reward(kind)
+	# Never trust arbitrary map JSON reward amounts: reject out-of-range values
+	# even when a caller bypasses the editor's schema validation.
+	for field in DrivingContracts.REWARD_LIMITS:
+		if not offer.has(field):
+			continue
+		var amount: Variant = offer[field]
+		if typeof(amount) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(amount)) or \
+				float(amount) != floorf(float(amount)) or int(amount) < 0 or \
+				int(amount) > int(DrivingContracts.REWARD_LIMITS[field]):
+			return {"result":"invalid_reward"}
+	if offer.has("repeatable") and typeof(offer.repeatable) != TYPE_BOOL:
+		return {"result":"invalid_offer"}
+	if not bool(offer.get("repeatable",true)) and int(completed_driving_contracts.get(event_key,0)) > 0:
+		return {"result":"already_completed"}
+	var rewards: Dictionary = DrivingContracts.configured_reward(kind,offer)
 	var cash: int = int(rewards.get("cash",0))
 	var driver_xp: int = int(rewards.get("player_xp",0))
 	var vehicle_xp: int = int(rewards.get("car_xp",0))
