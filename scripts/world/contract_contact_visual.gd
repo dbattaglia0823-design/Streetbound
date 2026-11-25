@@ -2,6 +2,7 @@ extends Node2D
 ## Small top-down contact NPC. The player remains in their vehicle; the
 ## character is a roadside interaction point, not an on-foot controller.
 const PALETTE := {
+	"racing":Color("#ae5938"),
 	"street":Color("#526e9e"),
 	"business":Color("#3c4e57"),
 	"mechanic":Color("#bb7a35"),
