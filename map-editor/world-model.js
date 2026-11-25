@@ -368,7 +368,8 @@ export function normalizeWorld(raw){
           throw new TypeError('Invalid repeatability');
         for(const [key,min,max] of [['cash',0,10000],['player_xp',0,1500],['car_xp',0,1200],
              ['underground_rep',0,30],['wanted_level',0,5],['required_player_level',1,100],
-             ['required_underground_rep',0,100000],['time_limit_seconds',60,900]]){
+             ['required_underground_rep',0,100000],['time_limit_seconds',60,900],
+             ['robbery_hold_seconds',3,30],['arrival_radius_m',6,30]]){
           if(offer[key]!==undefined)integer(offer[key],min,max,key);
         }
         const destination=byMarkerId.get(offer.destination_marker_id);
