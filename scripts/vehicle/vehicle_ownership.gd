@@ -389,12 +389,14 @@ func completed_event_count(event_key: String) -> int:
 	return int(completed_events.get(event_key,0))
 
 func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictionary,
-		event_key: String="") -> Dictionary:
+		event_key: String="", police_cleared: bool=false) -> Dictionary:
 	if run_id.length()<8 or run_id.length()>150 or _claimed_races.has(run_id) or \
 			not is_finite(elapsed_seconds) or elapsed_seconds<0.1 or elapsed_seconds>7200.0 or not owns(active_id):
 		return {"result":"invalid_or_duplicate"}
 	if not EventRules.valid_event(awards):
 		return {"result":"invalid_event"}
+	if int(awards.get("race_heat",0))>0 and not police_cleared:
+		return {"result":"escape_required"}
 	if event_key.is_empty():event_key="morrow-coast::"+str(awards.get("id","legacy"))
 	var reason: String=EventRules.lock_reason(awards,self,
 		event_key.get_slice("::",0)) if event_key.contains("::") else ""
@@ -419,6 +421,9 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	var previous_car_xp:=int(car_xp.get(active_id,0))
 	var previous_claims: Array[String]=_claimed_races.duplicate()
 	var previous_events: Dictionary=completed_events.duplicate()
+	var previous_rep:=underground_reputation
+	var street_rep:=int(awards.get("underground_rep_reward",0))
+	underground_reputation=mini(100000,underground_reputation+street_rep)
 	balance+=cash
 	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
 	car_xp[active_id]=mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),previous_car_xp+vehicle_xp)
@@ -431,10 +436,12 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 		car_xp[active_id]=previous_car_xp
 		_claimed_races=previous_claims
 		completed_events=previous_events
+		underground_reputation=previous_rep
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
-		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key)}
+		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key),
+		"underground_rep":street_rep}
 
 ## A player may earn career rewards only for a completed, host-verified
 ## multiplayer finish. The network layer validates the final standings and
@@ -562,6 +569,20 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
 		"car_xp":vehicle_xp,"underground_rep":reputation}
+
+# Entry fee is paid once when a validated race is staged, after the grid
+# has been prepared. Loss, false start, quit or arrest does not refund it.
+func pay_race_entry(awards: Dictionary) -> bool:
+	if not EventRules.valid_event(awards):return false
+	var fee:=int(awards.get("entry_fee",0))
+	if fee==0:return true
+	if fee>balance:return false
+	balance-=fee
+	if not save():
+		balance+=fee
+		return false
+	changed.emit()
+	return true
 
 func credit(amount: int) -> bool:
 	if amount <= 0:
