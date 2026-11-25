@@ -6,7 +6,7 @@ const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const InteractionSpeed=preload("res://scripts/world/interaction_speed.gd")
-const ContractRules=preload("res://scripts/world/driving_contract_rules.gd")
+const ContactScreen = preload("res://scripts/ui/contact_contract_screen.gd")
 const ContactVisual=preload("res://scripts/world/contract_contact_visual.gd")
 const PPM:=20.0
 var world: Node2D
@@ -17,6 +17,7 @@ var dealer_menu: CanvasLayer
 var quick_upgrades: CanvasLayer
 var resources: CanvasLayer
 var contracts: Node2D
+var contact_screen: CanvasLayer
 var traffic: Node2D
 var map_hud: CanvasLayer
 var races: Array[Node2D]=[]
@@ -85,6 +86,14 @@ func _ready() -> void:
 	var close:=Button.new();close.text="Close"
 	close.pressed.connect(_close_travel)
 	box.add_child(close)
+	# The contact board is a separate full-screen interface. Fast travel
+	# and informational dialogs retain their smaller existing panel.
+	contact_screen = CanvasLayer.new()
+	contact_screen.set_script(ContactScreen)
+	contact_screen.set("economy", economy)
+	contact_screen.set("contracts", contracts)
+	contact_screen.set("world_id", world_id)
+	add_child(contact_screen)
 
 func _point(marker: Dictionary) -> Vector2:
 	return Vector2(float(marker.x),float(marker.y))
@@ -120,7 +129,7 @@ func _process(dt: float) -> void:
 	_nearby=nearest_marker()
 	if is_instance_valid(selector):
 		selector.remote_garage_allowed=not _nearby.is_empty() and str(_nearby.type)=="garage" and not _is_busy() and InteractionSpeed.allowed(player.linear_velocity.length())
-	if _dialog_open:
+	if _dialog_open or (is_instance_valid(contact_screen) and bool(contact_screen.get("is_open"))):
 		prompt.visible=false
 		return
 	var kind: String=str(_nearby.get("type",""))
@@ -139,6 +148,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventKey:return
 	var key: InputEventKey=event
 	if not key.pressed or key.echo:return
+	if is_instance_valid(contact_screen) and bool(contact_screen.get("is_open")):return
 	if _dialog_open and key.keycode==KEY_ESCAPE:
 		_close_travel()
 		get_viewport().set_input_as_handled()
@@ -216,49 +226,12 @@ func activate() -> void:
 			else:
 				_show_info(_nearby,"This marker is available as a map landmark. Link a race to navigate to its start.")
 
-## Reuses the existing pause-safe marker panel as an in-car mission board.
-## A single roadside person can offer multiple independently configured jobs.
+## Open the dedicated contact screen; never reuse the small fast-travel panel.
 func _open_contact(contact: Dictionary) -> void:
-	if _dialog_open or not is_instance_valid(contracts):
+	if _dialog_open or not is_instance_valid(contact_screen) or not is_instance_valid(contracts):
 		return
-	for child in destinations.get_children():
-		destinations.remove_child(child)
-		child.queue_free()
-	dialog_title.text=str(contact.get("name","CONTRACT CONTACT")).to_upper()
-	message.text=str(contact.get("properties",{}).get("description","Choose a vehicle-only contract."))
-	var offers: Array=contact.get("properties",{}).get("offers",[])
-	if offers.is_empty():
-		message.text="This contact has no jobs yet. Configure offers in the map builder."
-	for offer in offers:
-		if not offer is Dictionary:
-			continue
-		var kind:=str(offer.get("kind","courier"))
-		var reward: Dictionary=ContractRules.configured_reward(kind,offer)
-		var wanted: int=ContractRules.configured_wanted(kind,offer)
-		var lock_reason: String=str(contracts.call("offer_lock_reason",contact,offer))
-		var button:=Button.new()
-		button.text="%s  /  %s  /  %s  /  %ds  /  WANTED %d" % [
-			str(offer.get("title","Driving contract")).to_upper(),
-			kind.to_upper(),economy.dollars(int(reward.get("cash",0))),
-			roundi(ContractRules.configured_time(kind,offer)),wanted]
-		if not lock_reason.is_empty():
-			button.text+="  /  "+lock_reason
-			button.disabled=true
-		button.pressed.connect(_accept_contact_offer.bind(contact.duplicate(true),offer.duplicate(true)))
-		destinations.add_child(button)
-	panel.visible=true
-	_dialog_open=true
-	get_tree().paused=true
+	contact_screen.call("open_contact", contact)
 
-func _accept_contact_offer(contact: Dictionary, offer: Dictionary) -> void:
-	if not is_instance_valid(contracts):
-		return
-	# Release menu pause before mission setup; close only on success.
-	var result: Dictionary=contracts.call("try_start_offer",contact,offer)
-	if str(result.get("result",""))=="started":
-		_close_travel()
-	else:
-		message.text=str(result.get("message","Contract unavailable"))
 
 func _safe_destination(marker: Dictionary) -> bool:
 	var target: Vector2=_point(marker)*PPM
