@@ -447,14 +447,10 @@ func _refresh() -> void:
 	status_strip.call("set_status", state, nearby, label.text)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not available or not event is InputEventKey or \
-			not event.pressed or event.echo or get_tree().paused:
-		return
-	var key: InputEventKey = event
-	if key.keycode == KEY_F or key.physical_keycode == KEY_F:
-		if can_stage() and start_race():
-			get_viewport().set_input_as_handled()
-
+	if not available or get_tree().paused:return
+	if event is InputEventKey and (not event.pressed or event.echo):return
+	if event.is_action_pressed("interact") and can_stage():
+		if start_race():get_viewport().set_input_as_handled()
 
 func _draw() -> void:
 	if not available:
