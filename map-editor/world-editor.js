@@ -1701,6 +1701,39 @@ $('contact-offer-kind').addEventListener('change',e=>{
   },'Changed contract type and loaded default difficulty rewards.');
 });
 
+// Race configuration is a separate, optional panel: it never moves
+// checkpoints, replaces race IDs or rewrites the native starting grid.
+$('race-edit-select').addEventListener('change',e=>{
+  selectedRaceId=e.target.value;
+  refreshRaceEditor();
+});
+for(const [id,key,format] of [
+  ['race-edit-name','name','text'],
+  ['race-edit-category','category','text'],
+  ['race-edit-difficulty','difficulty','text'],
+  ['race-edit-laps','laps','number'],
+  ['race-edit-time','time_limit','number'],
+  ['race-edit-cash','reward_cash','number'],
+  ['race-edit-xp','reward_player_xp','number'],
+  ['race-edit-car-xp','reward_car_xp','number'],
+  ['race-edit-level','required_player_level','number'],
+  ['race-edit-car-level','required_car_level','number'],
+  ['race-edit-first-cash','first_win_reward_cash','number'],
+  ['race-edit-repeatable','repeatable','boolean']
+]){
+  $(id).addEventListener('change',e=>{
+    const value=format==='number'?Number(e.target.value):
+      format==='boolean'?e.target.checked:e.target.value;
+    if(!changeRaceConfiguration({[key]:value},'Updated race '+key+'.'))
+      refreshRaceEditor();
+  });
+}
+$('race-edit-prerequisites').addEventListener('change',e=>{
+  const prerequisites=[...e.target.selectedOptions].map(x=>x.value);
+  if(!changeRaceConfiguration({prerequisite_races:prerequisites},'Updated event prerequisites.'))
+    refreshRaceEditor();
+});
+
 $('world-title').addEventListener('change',e=>change(d=>normalizeWorld({...d,name:e.target.value}),'World renamed.'));
 $('mountain-barrier-tool').addEventListener('click',()=>{
   setTool('terrain');$('biome').value='mountain';$('terrain-barrier').checked=true;$('elevation').value=80;
