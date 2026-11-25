@@ -1608,24 +1608,47 @@ $('contact-offer-index').addEventListener('change',e=>{
 });
 $('contact-add-offer').addEventListener('click',()=>{
   const marker=selection?getEntity(doc,selection.id)?.item:null;
-  if(!marker||marker.type!=='contract_contact')return;
-  const destinations=contactEligibleDropoffs(marker);
-  if(!destinations.length)return status('Place a contract dropoff 100m–15km from this contact before adding a job.');
-  const offers=contactOffers(marker),used=new Set(offers.map(o=>o.id));
-  if(offers.length>=8)return status('Maximum eight contracts per person.');
-  let id=1;while(used.has('job_'+id))id++;
-  const entry={id:'job_'+id,title:'New Driving Contract',kind:'courier',difficulty:'rookie',
-    destination_marker_id:destinations[0].id,repeatable:true,required_player_level:1,
-    required_underground_rep:0,...contactJobDefaults.courier};
-  const prior=selectedContactOfferIndex;selectedContactOfferIndex=offers.length;
-  if(!changeContactProperties(p=>({...p,offers:[...p.offers,entry]}),'Added driving contract to person.'))
-    selectedContactOfferIndex=prior;
+  if(marker?.type!=='contract_contact')return;
+  const destination=contactEligibleDropoffs(marker)[0]?.id??'';
+  const current=contactOffers(marker);
+  let job;
+  try{job=createOffer(current,'courier',destination);}
+  catch(e){return errorMessage(e);}
+  const previous=selectedContactOfferIndex;selectedContactOfferIndex=current.length;
+  if(!changeContactProperties(p=>({...p,offers:[...p.offers,job]}),'Added driving contract to contact.'))
+    selectedContactOfferIndex=previous;
 });
+$('contact-copy-offer').addEventListener('click',()=>{
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(marker?.type!=='contract_contact')return;
+  const previous=selectedContactOfferIndex;
+  selectedContactOfferIndex=previous+1;
+  if(!changeContactProperties(p=>({...p,offers:duplicateOffer(p.offers,previous)}),
+     'Duplicated job with a new career identity.'))selectedContactOfferIndex=previous;
+});
+for(const [id,direction] of [['contact-move-up',-1],['contact-move-down',1]]){
+  $(id).addEventListener('click',()=>{
+    const old=selectedContactOfferIndex;
+    if(!changeContactProperties(p=>{
+      const moved=moveOffer(p.offers,old,direction);
+      selectedContactOfferIndex=moved.index;
+      return {...p,offers:moved.offers};
+    },'Reordered contact jobs.'))selectedContactOfferIndex=old;
+  });
+}
 $('contact-remove-offer').addEventListener('click',()=>{
   const previous=selectedContactOfferIndex;
   selectedContactOfferIndex=Math.max(0,selectedContactOfferIndex-1);
   if(!changeContactProperties(p=>({...p,offers:p.offers.filter((_,i)=>i!==previous)}),
       'Deleted selected person contract.'))selectedContactOfferIndex=previous;
+});
+$('contact-apply-preset').addEventListener('click',()=>{
+  const offer=selection?contactOffers(getEntity(doc,selection.id)?.item)[selectedContactOfferIndex]:null;
+  if(!offer)return;
+  const difficulty=$('contact-offer-difficulty').value;
+  if(!window.confirm('Apply '+difficulty+' suggested rewards, heat and driver-level requirements?\nThis changes gameplay values but keeps the job ID and its destinations.'))return;
+  changeContactOffer(existing=>presetOffer(existing,difficulty),
+    'Applied '+difficulty+' contract preset.');
 });
 const updateJobField=(id,field,conversion=e=>e.target.value)=>{
   $(id).addEventListener('change',e=>{
@@ -1642,7 +1665,9 @@ for(const [id,field] of [
   ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
   ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
   ['contact-offer-required-level','required_player_level'],
-  ['contact-offer-required-rep','required_underground_rep']
+  ['contact-offer-required-rep','required_underground_rep'],
+  ['contact-offer-radius','arrival_radius_m'],
+  ['contact-offer-wait','robbery_hold_seconds']
 ])updateJobField(id,field,e=>Number(e.target.value));
 $('contact-offer-destination').addEventListener('change',e=>{
   const destId=e.target.value;
@@ -1667,6 +1692,7 @@ $('contact-offer-kind').addEventListener('change',e=>{
   changeContactOffer(offer=>{
     const next={...offer,kind,...contactJobDefaults[kind]};
     if(kind==='robbery'){
+      if(next.robbery_hold_seconds===undefined)next.robbery_hold_seconds=7;
       const targets=contactEligibleTargets(marker,offer.destination_marker_id);
       if(!targets.length)throw new Error('Place a robbery target 100m from the contact and dropoff first.');
       next.robbery_marker_id=targets[0].id;
