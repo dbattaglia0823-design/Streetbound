@@ -19,6 +19,9 @@ var contract_fields: VBoxContainer
 var contract_kind_input: OptionButton
 var contract_destination_input: OptionButton
 var feedback: Label
+var race_fields: VBoxContainer
+var prerequisite_fields: VBoxContainer
+var dealer_fields: VBoxContainer
 var edit_button: Button
 
 func _text_label(parent: Node,label_text: String) -> void:
@@ -63,9 +66,7 @@ func build(e,panel: Node) -> void:
 	contract_destination_input=OptionButton.new()
 	contract_fields.add_child(contract_destination_input)
 	contact_editor.build(form)
-	type_input.item_selected.connect(func(_index: int)->void:
-		contract_fields.visible=str(type_input.get_selected_metadata())=="contract"
-		contact_editor.fields.visible=str(type_input.get_selected_metadata())=="contract_contact")
+	type_input.item_selected.connect(func(_index: int)->void:_refresh_type_fields())
 	enabled_input=CheckBox.new()
 	enabled_input.text="Enabled in gameplay"
 	enabled_input.button_pressed=true
@@ -74,17 +75,41 @@ func build(e,panel: Node) -> void:
 	radius_input.step=1
 	weight_input=e._number(form,"Traffic spawn priority (1–10)",1,10,3)
 	weight_input.step=1
-	_text_label(form,"Linked race / mission (optional for waypoint markers)")
-	race_input=OptionButton.new();form.add_child(race_input)
-	_text_label(form,"Unlock after event victory (optional)")
-	required_input=OptionButton.new();form.add_child(required_input)
-	_text_label(form,"Linked dealership (optional; requires its real forecourt)")
-	dealer_input=OptionButton.new();form.add_child(dealer_input)
+	race_fields=VBoxContainer.new();form.add_child(race_fields)
+	_text_label(race_fields,"Linked race / mission")
+	race_input=OptionButton.new();race_fields.add_child(race_input)
+	prerequisite_fields=VBoxContainer.new();form.add_child(prerequisite_fields)
+	_text_label(prerequisite_fields,"Unlock after event victory (optional)")
+	required_input=OptionButton.new();prerequisite_fields.add_child(required_input)
+	dealer_fields=VBoxContainer.new();form.add_child(dealer_fields)
+	_text_label(dealer_fields,"Linked dealership")
+	dealer_input=OptionButton.new();dealer_fields.add_child(dealer_input)
 	feedback=Label.new()
 	feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	feedback.text="Mission markers start their linked race. Fast travel is available between unlocked travel markers while stationary."
 	form.add_child(feedback)
 	e._btn("Save Marker Settings",form,func():save(e))
+	_refresh_type_fields()
+
+func _refresh_type_fields() -> void:
+	var kind:=str(type_input.get_selected_metadata())
+	contract_fields.visible=kind=="contract"
+	contact_editor.fields.visible=kind=="contract_contact"
+	weight_input.visible=kind=="traffic_spawn"
+	race_fields.visible=kind in ["mission","race_start","checkpoint","finish","custom"]
+	dealer_fields.visible=kind=="dealership"
+	prerequisite_fields.visible=kind in ["garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
+	radius_input.visible=kind in ["garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
+	feedback.text=str({
+		"contract_contact":"Configure the person and their contracts.",
+		"contract":"Choose the job and its delivery marker.",
+		"contract_dropoff":"Destination for delivery or getaway contracts.",
+		"robbery_target":"Select this location from a robbery contract.",
+		"traffic_spawn":"Adjust priority for traffic spawning.",
+		"mission":"Link this marker to a race.",
+		"fast_travel":"Stationary players can travel between unlocked markers.",
+		"dealership":"Link this marker to its dealership forecourt."
+	}.get(kind,"Edit this marker's name and description."))
 
 func _select_value(control: OptionButton,value: String) -> void:
 	for index in control.item_count:
@@ -139,7 +164,7 @@ func open_for(e,id: String) -> void:
 	_populate_links(e,marker)
 	contact_editor.fields.visible=str(type_input.get_selected_metadata())=="contract_contact"
 	contact_editor.open_for(e,marker)
-	feedback.text="Contract markers offer vehicle-only courier/getaway jobs. Place a contract dropoff first, then select it here."
+	_refresh_type_fields()
 	dialog.popup_centered()
 
 func update(e) -> void:
