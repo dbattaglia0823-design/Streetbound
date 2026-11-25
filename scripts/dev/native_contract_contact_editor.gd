@@ -26,6 +26,7 @@ var wanted_input: SpinBox
 var duration_input: SpinBox
 var level_input: SpinBox
 var required_rep_input: SpinBox
+var required_race_input: OptionButton
 var status: Label
 var offers: Array[Dictionary] = []
 var selected_index := -1
@@ -83,7 +84,7 @@ func build(parent: Node) -> void:
 	persona.add_theme_constant_override("separation",8)
 	identity_scroll.add_child(persona)
 	_caption(persona,"CONTRACT GIVER / APPEARANCE")
-	style_input=_choice(persona,"NPC style",["street","business","mechanic","casual"])
+	style_input=_choice(persona,"NPC style",["street","business","mechanic","casual","racing"])
 	_caption(persona,"CONTACT ROLE / PERSONALITY")
 	role_input=LineEdit.new()
 	role_input.max_length=60
@@ -175,6 +176,7 @@ func build(parent: Node) -> void:
 	_caption(jobs,"UNLOCK REQUIREMENTS")
 	level_input=_number(jobs,"Required driver level",1,100,1)
 	required_rep_input=_number(jobs,"Required underground reputation",0,100000,0)
+	required_race_input=_choice(jobs,"Required race victory",[])
 	status=Label.new()
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	status.text="Place a drop-off marker first, then create your contract."
@@ -184,7 +186,7 @@ func build(parent: Node) -> void:
 func _show_selected_controls(enabled: bool) -> void:
 	for element in [title_input,job_description_input,type_input,difficulty_input,dropoff_input,target_input,
 			repeat_input,arrival_radius_input,robbery_wait_input,cash_input,player_xp_input,car_xp_input,rep_input,
-			wanted_input,duration_input,level_input,required_rep_input]:
+			wanted_input,duration_input,level_input,required_rep_input,required_race_input]:
 		if element is LineEdit:
 			(element as LineEdit).editable=enabled
 		elif element is SpinBox:
@@ -200,6 +202,12 @@ func _show_selected_controls(enabled: bool) -> void:
 	status.visible=true
 
 func _populate_locations(e) -> void:
+	required_race_input.clear()
+	required_race_input.add_item("No race prerequisite")
+	required_race_input.set_item_metadata(0,"")
+	for race in e.authoring.doc.get("races",[]):
+		required_race_input.add_item(str(race.get("name",race.get("id","Race"))))
+		required_race_input.set_item_metadata(required_race_input.item_count-1,str(race.get("id","")))
 	for input in [dropoff_input,target_input]:
 		input.clear()
 		input.add_item("Select a map marker")
@@ -267,6 +275,7 @@ func _load_selected() -> void:
 	duration_input.value=Rules.configured_time(kind,offer)
 	level_input.value=int(offer.get("required_player_level",1))
 	required_rep_input.value=int(offer.get("required_underground_rep",0))
+	_pick(required_race_input,str(offer.get("required_race_id","")))
 	target_input.visible=kind=="robbery"
 	robbery_wait_input.visible=kind=="robbery"
 	status.text="Job ID: "+str(offer.get("id",""))+" — stable for saved career progress."
@@ -298,6 +307,9 @@ func _commit_selected() -> void:
 	else:offer.erase("robbery_hold_seconds")
 	offer.required_player_level=int(level_input.value)
 	offer.required_underground_rep=int(required_rep_input.value)
+	var required_race:=_value(required_race_input)
+	if required_race.is_empty():offer.erase("required_race_id")
+	else:offer.required_race_id=required_race
 	offers[selected_index]=offer
 
 func _change_job(index: int) -> void:
