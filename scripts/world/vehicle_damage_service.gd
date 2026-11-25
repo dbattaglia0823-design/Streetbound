@@ -13,6 +13,8 @@ const GAS_PRICE_PER_LITRE := 1.25
 const CHARGE_PRICE_PER_UNIT := 0.3
 
 var resource_save_path := RESOURCE_PATH
+# Test Drive reads the same condition snapshot but keeps later changes in memory.
+var persist_enabled := true
 var player: VehicleController2D
 var economy: Object
 var garage: Node2D
@@ -89,6 +91,7 @@ func _save_resources() -> bool:
 		return false
 	integrity_by_car[current_car_id] = damage.integrity
 	fuel_by_car[current_car_id] = fuel.remaining
+	if not persist_enabled:return true
 	var file := ConfigFile.new()
 	file.set_value("resources", "integrity", integrity_by_car)
 	file.set_value("resources", "fuel", fuel_by_car)
