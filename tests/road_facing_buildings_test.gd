@@ -33,36 +33,41 @@ func run() -> void:
 	var second: String=place(e,Vector2(463,431))
 	house=e.authoring.prop_at_id(second)
 	check("road_alignment_and_building_walls_form_a_city_row",pos(house).distance_to(Vector2(462,433))<.01 and absf(float(house.rotation))<.01)
-	check("per_asset_alignment_control_is_available",e.inspector_road_facing.visible and e.inspector_road_facing.button_pressed)
+	# Placement mode deliberately hides the selected-object inspector. Use
+	# Select/Edit just as a player would before changing the placed house.
+	select(e,second)
+	check("per_asset_alignment_control_is_available",
+		e.inspector_road_facing.is_visible_in_tree() and e.inspector_road_facing.button_pressed)
 	# Buildings share an exact wall with no separation margin. Rotation may
 	# intentionally overlap the neighbour; neither edit may be rejected.
 	e.inspector_road_facing.button_pressed=false
 	e.inspector_rotation.value=37
 	house=e.authoring.prop_at_id(second)
 	check("adjacent_house_rotation_may_overlap",
-		not house.roadFacing and absf(float(house.rotation)-37)<.01 and
+		not Snap.enabled(house) and absf(float(house.rotation)-37)<.01 and
 		pos(house).distance_to(Vector2(462,433))<.01)
 	# Moving the house into open space retains the same manual rotation.
 	drag(e,second,Vector2(500,431))
 	e.inspector_rotation.value=37
 	house=e.authoring.prop_at_id(second)
 	check("disabled_asset_retains_manual_rotation_and_position",
-		not house.roadFacing and absf(float(house.rotation)-37)<.01 and
+		not Snap.enabled(house) and absf(float(house.rotation)-37)<.01 and
 		pos(house).distance_to(Vector2(500,431))<.01)
 	check("disabling_one_asset_keeps_others_enabled",Snap.enabled(e.authoring.prop_at_id(first)))
 	e.inspector_road_facing.button_pressed=true
 	check("enabling_near_road_aligns_in_one_edit",Snap.enabled(e.authoring.prop_at_id(second)) and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(500,433))<.01 and absf(float(e.authoring.prop_at_id(second).rotation))<.01)
 	e._undo();house=e.authoring.prop_at_id(second)
-	check("toggle_undo_restores_preference_and_transform",not house.roadFacing and absf(float(house.rotation)-37)<.01 and pos(house).distance_to(Vector2(500,431))<.01)
+	check("toggle_undo_restores_preference_and_transform",not Snap.enabled(house) and absf(float(house.rotation)-37)<.01 and pos(house).distance_to(Vector2(500,431))<.01)
 	# Edge snapping remains available when road-facing is off.
 	e.authoring.edit_entity(second,{"rotation":0.0},Vector2(500,431));e._refresh_authoring()
 	drag(e,second,Vector2(463,433))
-	check("disabled_road_facing_still_allows_building_edge_snap",not e.authoring.prop_at_id(second).roadFacing and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462,433))<.01)
+	check("disabled_road_facing_still_allows_building_edge_snap",not Snap.enabled(e.authoring.prop_at_id(second)) and pos(e.authoring.prop_at_id(second)).distance_to(Vector2(462,433))<.01)
 	var south: String=place(e,Vector2(700,468));house=e.authoring.prop_at_id(south)
 	check("opposite_side_faces_back_toward_road",pos(house).distance_to(Vector2(700,467))<.01 and Vector2.DOWN.rotated(deg_to_rad(float(house.rotation))).dot(Vector2.UP)>.999)
+	select(e,south)
 	e.inspector_road_front.select(2);e.inspector_road_front.item_selected.emit(2)
 	house=e.authoring.prop_at_id(south)
-	check("artwork_front_option_supports_other_model_orientations",house.roadFront==270 and absf(float(house.rotation))<.01)
+	check("artwork_front_option_supports_other_model_orientations",int(house.get("roadFront",90))==270 and absf(float(house.rotation))<.01)
 	var diagonal: Array[Vector2]=[Vector2(300,700),Vector2(900,850)]
 	e.authoring.add_road_path(diagonal,{"width":12.0});e._refresh_authoring()
 	var tangent:=Vector2(600,150).normalized();var outward:=Vector2(tangent.y,-tangent.x)
@@ -112,9 +117,9 @@ func run() -> void:
 	check("drag_reuses_road_index_and_single_house_canvas",e.road_building_snap.rebuild_count==rebuilds and (DisplayServer.get_name()=="headless" or e.gizmos.static_redraw_count==canvas_redraws))
 	if not times.is_empty():times.sort();print("ROAD-FACING RENDERED DRAG ms median=",times[50]," p95=",times[95])
 	e._finish_source_drag((Vector2(1400,300)+Vector2.from_angle(.75)*101)*20)
-	check("custom_map_persists_per_asset_road_facing_settings",switcher.save_current(e) and Library.load_map(switcher.current_file).props.any(func(item):return item.id==second and item.roadFacing==false))
+	check("custom_map_persists_per_asset_road_facing_settings",switcher.save_current(e) and Library.load_map(switcher.current_file).props.any(func(item):return item.id==second and item.get("roadFacing",true)==false))
 	var duplicate: String=e.authoring.duplicate_entity(second)
-	check("duplicate_keeps_its_own_alignment_preference",not duplicate.is_empty() and e.authoring.prop_at_id(duplicate).roadFacing==false)
+	check("duplicate_keeps_its_own_alignment_preference",not duplicate.is_empty() and e.authoring.prop_at_id(duplicate).get("roadFacing",true)==false)
 	e._undo()
 	# Export actual editor output for the production bake regression.
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.runtime/road-facing"))
