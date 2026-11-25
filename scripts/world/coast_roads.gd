@@ -1,5 +1,6 @@
 extends Node2D
 const PPM := 20.0
+const TrackKerbs=preload("res://scripts/world/track_kerbs.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 ## Editor-only draft masking. Cleared on editor close; game data stays intact.
 static var editor_hidden: Dictionary={}
@@ -187,7 +188,7 @@ func _roads(stage: int) -> void:
 		var path: PackedVector2Array = batch.path
 		var r: Dictionary = batch.road
 		var width := float(r.width) * PPM
-		var urban: bool = r.kind in ["local", "arterial"]
+		var urban: bool = r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
 		var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 		if stage == 0:
 			if urban:
@@ -285,9 +286,9 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 	if gravel or r.kind == "driveway":
 		return
 	var edge := Color("dcd9c4")
-	if r.kind == "track":
-		_dashes(_offset(path,width/2-5),8,Color("e1d8bf"),65,65,station,true)
-		_dashes(_offset(path,-width/2+5),8,Color("c98675"),65,65,station,true)
+	if TrackKerbs.is_track(r):
+		TrackKerbs.paint(self,path,width,station)
+		return
 	else:
 		var layout:=Lanes.layout(r)
 		var divider:=float(layout.divider)*PPM
