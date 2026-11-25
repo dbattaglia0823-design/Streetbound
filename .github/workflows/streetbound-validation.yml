@@ -29,6 +29,13 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify contact personality, briefing and dedicated screen UI (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/contact_contract_screen_test.gd 2>&1 | tee /tmp/contact-screen-463.log
+          grep -q 'CONTACT CONTRACT SCREEN: 0 failures' /tmp/contact-screen-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/contact-screen-463.log
+
       - name: Verify vehicle-only contracts, map links and durable rewards (4.6.3)
         run: |
           set -o pipefail
