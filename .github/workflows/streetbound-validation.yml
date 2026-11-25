@@ -346,6 +346,13 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/automatic-bridges-463.log
           python3 -B tests/automatic_bridges_test.py
           python3 -B tests/automatic_bridges_bake_test.py
+      - name: Verify continuous red-white track kerbs and chunk phase
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/track_kerbs_test.gd 2>&1 | tee /tmp/track-kerbs-463.log
+          grep -q 'TRACK KERBS: 0 failures' /tmp/track-kerbs-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/track-kerbs-463.log
+
       - name: Verify browser-style native workspace, inspector and persistent full-map zoom
         run: |
           set -o pipefail
