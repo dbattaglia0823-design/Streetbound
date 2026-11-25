@@ -101,6 +101,7 @@ func _ready() -> void:
 	grid.add_theme_constant_override("v_separation",12)
 	scroll.add_child(grid)
 	overlay.visible = false
+	get_node("/root/MenuNavigation").register_scope(overlay,18,close_menu)
 	if is_instance_valid(economy):
 		economy.changed.connect(_refresh_cards)
 	get_viewport().size_changed.connect(_layout)
