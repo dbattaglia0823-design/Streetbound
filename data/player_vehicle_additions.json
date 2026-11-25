@@ -5,7 +5,7 @@
   "vehicles": [
     {
       "id": "acura-integra-type-r",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "Acura",
       "model": "Integra Type R",
       "display_name": "Acura Integra Type R",
@@ -55,7 +55,7 @@
     },
     {
       "id": "ariel-atom-500",
-      "max_health_points": 75,
+      "max_health_points": 1500,
       "brand": "Ariel",
       "model": "Atom 500",
       "display_name": "Ariel Atom 500",
@@ -105,7 +105,7 @@
     },
     {
       "id": "ariel-nomad",
-      "max_health_points": 75,
+      "max_health_points": 1500,
       "brand": "Ariel",
       "model": "Nomad",
       "display_name": "Ariel Nomad",
@@ -155,7 +155,7 @@
     },
     {
       "id": "aston-martin-db5",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Aston Martin",
       "model": "DB5",
       "display_name": "Aston Martin DB5",
@@ -205,7 +205,7 @@
     },
     {
       "id": "aston-martin-valyrie-amr-pro",
-      "max_health_points": 83,
+      "max_health_points": 1660,
       "brand": "Aston Martin",
       "model": "Valkyrie AMR Pro",
       "display_name": "Aston Martin Valkyrie AMR Pro",
@@ -255,7 +255,7 @@
     },
     {
       "id": "aston-martin-vulcan",
-      "max_health_points": 92,
+      "max_health_points": 1840,
       "brand": "Aston Martin",
       "model": "Vulcan",
       "display_name": "Aston Martin Vulcan",
@@ -305,7 +305,7 @@
     },
     {
       "id": "audi-r8-coupe-v10-plus",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Audi",
       "model": "R8 V10 Plus",
       "display_name": "Audi R8 V10 Plus",
@@ -355,7 +355,7 @@
     },
     {
       "id": "audi-r8-lms",
-      "max_health_points": 89,
+      "max_health_points": 1780,
       "brand": "Audi",
       "model": "R8 LMS GT3",
       "display_name": "Audi R8 LMS GT3",
@@ -405,7 +405,7 @@
     },
     {
       "id": "audi-sport-quattro-s1",
-      "max_health_points": 90,
+      "max_health_points": 1800,
       "brand": "Audi",
       "model": "Sport quattro S1 E2",
       "display_name": "Audi Sport quattro S1 E2",
@@ -455,7 +455,7 @@
     },
     {
       "id": "bac-mono",
-      "max_health_points": 76,
+      "max_health_points": 1520,
       "brand": "BAC",
       "model": "Mono",
       "display_name": "BAC Mono",
@@ -505,7 +505,7 @@
     },
     {
       "id": "hennessey-venom-f5",
-      "max_health_points": 92,
+      "max_health_points": 1840,
       "brand": "Hennessey",
       "model": "Venom F5",
       "display_name": "Hennessey Venom F5",
@@ -555,7 +555,7 @@
     },
     {
       "id": "hennessey-venom-gt",
-      "max_health_points": 89,
+      "max_health_points": 1780,
       "brand": "Hennessey",
       "model": "Venom GT",
       "display_name": "Hennessey Venom GT",
@@ -605,7 +605,7 @@
     },
     {
       "id": "honda-civic-type-r",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Honda",
       "model": "Civic Type R",
       "display_name": "Honda Civic Type R",
@@ -655,7 +655,7 @@
     },
     {
       "id": "hyundai-n-vision-74",
-      "max_health_points": 127,
+      "max_health_points": 2540,
       "brand": "Hyundai",
       "model": "N Vision 74",
       "display_name": "Hyundai N Vision 74",
@@ -705,7 +705,7 @@
     },
     {
       "id": "koenigsegg-agera-rs",
-      "max_health_points": 92,
+      "max_health_points": 1840,
       "brand": "Koenigsegg",
       "model": "Agera RS",
       "display_name": "Koenigsegg Agera RS",
@@ -755,7 +755,7 @@
     },
     {
       "id": "koenigsegg-ccgt",
-      "max_health_points": 84,
+      "max_health_points": 1680,
       "brand": "Koenigsegg",
       "model": "CCGT",
       "display_name": "Koenigsegg CCGT",
@@ -805,7 +805,7 @@
     },
     {
       "id": "koenigsegg-gemera",
-      "max_health_points": 110,
+      "max_health_points": 2200,
       "brand": "Koenigsegg",
       "model": "Gemera",
       "display_name": "Koenigsegg Gemera",
@@ -855,7 +855,7 @@
     },
     {
       "id": "koenigsegg-jesko",
-      "max_health_points": 91,
+      "max_health_points": 1820,
       "brand": "Koenigsegg",
       "model": "Jesko Attack",
       "display_name": "Koenigsegg Jesko Attack",
@@ -905,7 +905,7 @@
     },
     {
       "id": "koenigsegg-regera",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Koenigsegg",
       "model": "Regera",
       "display_name": "Koenigsegg Regera",
@@ -956,7 +956,7 @@
     },
     {
       "id": "lamborghini-essenza-scv12",
-      "max_health_points": 94,
+      "max_health_points": 1880,
       "brand": "Lamborghini",
       "model": "Essenza SCV12",
       "display_name": "Lamborghini Essenza SCV12",
@@ -1006,7 +1006,7 @@
     },
     {
       "id": "lamborghini-sesto-elemento",
-      "max_health_points": 83,
+      "max_health_points": 1660,
       "brand": "Lamborghini",
       "model": "Sesto Elemento",
       "display_name": "Lamborghini Sesto Elemento",
@@ -1056,7 +1056,7 @@
     },
     {
       "id": "lotus-evija",
-      "max_health_points": 105,
+      "max_health_points": 2100,
       "brand": "Lotus",
       "model": "Evija",
       "display_name": "Lotus Evija",
@@ -1106,7 +1106,7 @@
     },
     {
       "id": "maserati-mc20",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Maserati",
       "model": "MC20",
       "display_name": "Maserati MC20",
@@ -1156,7 +1156,7 @@
     },
     {
       "id": "mclaren-12c",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "McLaren",
       "model": "12C",
       "display_name": "McLaren 12C",
@@ -1206,7 +1206,7 @@
     },
     {
       "id": "mclaren-570s",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "McLaren",
       "model": "570S",
       "display_name": "McLaren 570S",
@@ -1256,7 +1256,7 @@
     },
     {
       "id": "mclaren-650s",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "McLaren",
       "model": "650S",
       "display_name": "McLaren 650S",
@@ -1306,7 +1306,7 @@
     },
     {
       "id": "mclaren-720s",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "McLaren",
       "model": "720S",
       "display_name": "McLaren 720S",
@@ -1356,7 +1356,7 @@
     },
     {
       "id": "mclaren-750s",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "McLaren",
       "model": "750S",
       "display_name": "McLaren 750S",
@@ -1406,7 +1406,7 @@
     },
     {
       "id": "mclaren-f1-gt",
-      "max_health_points": 87,
+      "max_health_points": 1740,
       "brand": "McLaren",
       "model": "F1 GT",
       "display_name": "McLaren F1 GT",
@@ -1457,7 +1457,7 @@
     },
     {
       "id": "mclaren-f1",
-      "max_health_points": 85,
+      "max_health_points": 1700,
       "brand": "McLaren",
       "model": "F1",
       "display_name": "McLaren F1",
@@ -1507,7 +1507,7 @@
     },
     {
       "id": "mclaren-p1",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "McLaren",
       "model": "P1",
       "display_name": "McLaren P1",
@@ -1557,7 +1557,7 @@
     },
     {
       "id": "mclaren-senna",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "McLaren",
       "model": "Senna",
       "display_name": "McLaren Senna",
@@ -1607,7 +1607,7 @@
     },
     {
       "id": "mclaren-w1",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "McLaren",
       "model": "W1",
       "display_name": "McLaren W1",
@@ -1657,7 +1657,7 @@
     },
     {
       "id": "mercedes-benz-evolution-ii",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Mercedes-Benz",
       "model": "190E 2.5-16 Evolution II",
       "display_name": "Mercedes-Benz 190E 2.5-16 Evolution II",
@@ -1707,7 +1707,7 @@
     },
     {
       "id": "nissan-fairlady-z-432",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Nissan",
       "model": "Fairlady Z 432",
       "display_name": "Nissan Fairlady Z 432",
@@ -1757,7 +1757,7 @@
     },
     {
       "id": "nissan-nismo-gt-r-lm",
-      "max_health_points": 104,
+      "max_health_points": 2080,
       "brand": "Nissan",
       "model": "NISMO GT-R LM Road Car",
       "display_name": "Nissan NISMO GT-R LM Road Car",
@@ -1808,7 +1808,7 @@
     },
     {
       "id": "nissan-skyline-gtr-v-spec",
-      "max_health_points": 103,
+      "max_health_points": 2060,
       "brand": "Nissan",
       "model": "Skyline GT-R V-Spec",
       "display_name": "Nissan Skyline GT-R V-Spec",
@@ -1858,7 +1858,7 @@
     },
     {
       "id": "noble-m600",
-      "max_health_points": 87,
+      "max_health_points": 1740,
       "brand": "Noble",
       "model": "M600",
       "display_name": "Noble M600",
@@ -1908,7 +1908,7 @@
     },
     {
       "id": "pagani-huayra-bc-coupe",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Pagani",
       "model": "Huayra BC Coupe",
       "display_name": "Pagani Huayra BC Coupe",
@@ -1958,7 +1958,7 @@
     },
     {
       "id": "pagani-zonda-cinque-roadster",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Pagani",
       "model": "Zonda Cinque Roadster",
       "display_name": "Pagani Zonda Cinque Roadster",
@@ -2008,7 +2008,7 @@
     },
     {
       "id": "pagani-zonda-r",
-      "max_health_points": 86,
+      "max_health_points": 1720,
       "brand": "Pagani",
       "model": "Zonda R",
       "display_name": "Pagani Zonda R",
@@ -2058,7 +2058,7 @@
     },
     {
       "id": "plymouth-barracuda-formula-s",
-      "max_health_points": 103,
+      "max_health_points": 2060,
       "brand": "Plymouth",
       "model": "Barracuda Formula S",
       "display_name": "Plymouth Barracuda Formula S",
@@ -2108,7 +2108,7 @@
     },
     {
       "id": "plymouth-cuda-426-hemi",
-      "max_health_points": 108,
+      "max_health_points": 2160,
       "brand": "Plymouth",
       "model": "Cuda 426 Hemi",
       "display_name": "Plymouth Cuda 426 Hemi",
@@ -2158,7 +2158,7 @@
     },
     {
       "id": "pontiac-firebird-trans-am-gta",
-      "max_health_points": 105,
+      "max_health_points": 2100,
       "brand": "Pontiac",
       "model": "Firebird Trans Am GTA",
       "display_name": "Pontiac Firebird Trans Am GTA",
@@ -2208,7 +2208,7 @@
     },
     {
       "id": "pontiac-pontiac-firebird-trans",
-      "max_health_points": 109,
+      "max_health_points": 2180,
       "brand": "Pontiac",
       "model": "Firebird Trans Am",
       "display_name": "Pontiac Firebird Trans Am",
@@ -2258,7 +2258,7 @@
     },
     {
       "id": "porsche-911-gt2-rs",
-      "max_health_points": 94,
+      "max_health_points": 1880,
       "brand": "Porsche",
       "model": "911 GT2 RS",
       "display_name": "Porsche 911 GT2 RS",
@@ -2308,7 +2308,7 @@
     },
     {
       "id": "porsche-911-gt3-rs",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Porsche",
       "model": "911 GT3 RS",
       "display_name": "Porsche 911 GT3 RS",
@@ -2358,7 +2358,7 @@
     },
     {
       "id": "porsche-911-gt3",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Porsche",
       "model": "911 GT3",
       "display_name": "Porsche 911 GT3",
@@ -2408,7 +2408,7 @@
     },
     {
       "id": "porsche-935-motorsport",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "Porsche",
       "model": "935 (2019)",
       "display_name": "Porsche 935 (2019)",
@@ -2458,7 +2458,7 @@
     },
     {
       "id": "zenvo-tsr-s",
-      "max_health_points": 96,
+      "max_health_points": 1920,
       "brand": "Zenvo",
       "model": "TSR-S",
       "display_name": "Zenvo TSR-S",
@@ -2508,7 +2508,7 @@
     },
     {
       "id": "audi-r8",
-      "max_health_points": 104,
+      "max_health_points": 2080,
       "brand": "Audi",
       "model": "R8",
       "display_name": "Audi R8",
@@ -2558,7 +2558,7 @@
     },
     {
       "id": "audi-rs4",
-      "max_health_points": 110,
+      "max_health_points": 2200,
       "brand": "Audi",
       "model": "RS4",
       "display_name": "Audi RS4",
@@ -2608,7 +2608,7 @@
     },
     {
       "id": "audi-rs5",
-      "max_health_points": 110,
+      "max_health_points": 2200,
       "brand": "Audi",
       "model": "RS5",
       "display_name": "Audi RS5",
@@ -2658,7 +2658,7 @@
     },
     {
       "id": "audi-rs6-avante",
-      "max_health_points": 118,
+      "max_health_points": 2360,
       "brand": "Audi",
       "model": "RS6 Avant",
       "display_name": "Audi RS6 Avant",
@@ -2708,7 +2708,7 @@
     },
     {
       "id": "audi-rs6",
-      "max_health_points": 125,
+      "max_health_points": 2500,
       "brand": "Audi",
       "model": "RS6",
       "display_name": "Audi RS6",
@@ -2758,7 +2758,7 @@
     },
     {
       "id": "audi-rs7",
-      "max_health_points": 120,
+      "max_health_points": 2400,
       "brand": "Audi",
       "model": "RS7",
       "display_name": "Audi RS7",
@@ -2808,7 +2808,7 @@
     },
     {
       "id": "audi-rsq5",
-      "max_health_points": 158,
+      "max_health_points": 3160,
       "brand": "Audi",
       "model": "RSQ5",
       "display_name": "Audi RSQ5",
@@ -2858,7 +2858,7 @@
     },
     {
       "id": "audi-rsq8",
-      "max_health_points": 167,
+      "max_health_points": 3340,
       "brand": "Audi",
       "model": "RSQ8",
       "display_name": "Audi RSQ8",
@@ -2908,7 +2908,7 @@
     },
     {
       "id": "dodge-challenger-hellcat-redeye",
-      "max_health_points": 117,
+      "max_health_points": 2340,
       "brand": "Dodge",
       "model": "Challenger Hellcat Redeye",
       "display_name": "Dodge Challenger Hellcat Redeye",
@@ -2958,7 +2958,7 @@
     },
     {
       "id": "dodge-charger-hellcat-redeye",
-      "max_health_points": 118,
+      "max_health_points": 2360,
       "brand": "Dodge",
       "model": "Charger Hellcat Redeye",
       "display_name": "Dodge Charger Hellcat Redeye",
@@ -3008,7 +3008,7 @@
     },
     {
       "id": "ferrari-296-speciale",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "Ferrari",
       "model": "296 Speciale",
       "display_name": "Ferrari 296 Speciale",
@@ -3058,7 +3058,7 @@
     },
     {
       "id": "ferrari-599xx",
-      "max_health_points": 94,
+      "max_health_points": 1880,
       "brand": "Ferrari",
       "model": "599XX",
       "display_name": "Ferrari 599XX",
@@ -3108,7 +3108,7 @@
     },
     {
       "id": "ferrari-812-superfast",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "Ferrari",
       "model": "812 Superfast",
       "display_name": "Ferrari 812 Superfast",
@@ -3158,7 +3158,7 @@
     },
     {
       "id": "ferrari-f80",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Ferrari",
       "model": "F80",
       "display_name": "Ferrari F80",
@@ -3208,7 +3208,7 @@
     },
     {
       "id": "ferrari-fxx",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Ferrari",
       "model": "FXX",
       "display_name": "Ferrari FXX",
@@ -3258,7 +3258,7 @@
     },
     {
       "id": "ferrari-fxx-k-evo",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Ferrari",
       "model": "FXX K Evo",
       "display_name": "Ferrari FXX K Evo",
@@ -3308,7 +3308,7 @@
     },
     {
       "id": "ferrari-sf90-xx-stradale",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Ferrari",
       "model": "SF90 XX Stradale",
       "display_name": "Ferrari SF90 XX Stradale",
@@ -3358,7 +3358,7 @@
     },
     {
       "id": "ford-mustang-1965",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Ford",
       "model": "Mustang (1965)",
       "display_name": "Ford Mustang (1965)",
@@ -3408,7 +3408,7 @@
     },
     {
       "id": "ford-gt",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Ford",
       "model": "GT",
       "display_name": "Ford GT",
@@ -3458,7 +3458,7 @@
     },
     {
       "id": "ford-gt40-mk-ii",
-      "max_health_points": 86,
+      "max_health_points": 1720,
       "brand": "Ford",
       "model": "GT40 Mk II",
       "display_name": "Ford GT40 Mk II",
@@ -3508,7 +3508,7 @@
     },
     {
       "id": "ford-mustang-boss-302",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Ford",
       "model": "Mustang Boss 302",
       "display_name": "Ford Mustang Boss 302",
@@ -3558,7 +3558,7 @@
     },
     {
       "id": "ford-mustang-dark-horse",
-      "max_health_points": 110,
+      "max_health_points": 2200,
       "brand": "Ford",
       "model": "Mustang Dark Horse",
       "display_name": "Ford Mustang Dark Horse",
@@ -3608,7 +3608,7 @@
     },
     {
       "id": "ford-mustang-gtd",
-      "max_health_points": 108,
+      "max_health_points": 2160,
       "brand": "Ford",
       "model": "Mustang GTD",
       "display_name": "Ford Mustang GTD",
@@ -3658,7 +3658,7 @@
     },
     {
       "id": "ford-mustang-svt-cobra-r",
-      "max_health_points": 105,
+      "max_health_points": 2100,
       "brand": "Ford",
       "model": "Mustang SVT Cobra R",
       "display_name": "Ford Mustang SVT Cobra R",
@@ -3708,7 +3708,7 @@
     },
     {
       "id": "ford-mustang-shelby-gt350",
-      "max_health_points": 108,
+      "max_health_points": 2160,
       "brand": "Ford",
       "model": "Mustang Shelby GT350",
       "display_name": "Ford Mustang Shelby GT350",
@@ -3758,7 +3758,7 @@
     },
     {
       "id": "gmc-hummer-ev",
-      "max_health_points": 230,
+      "max_health_points": 4600,
       "brand": "GMC",
       "model": "Hummer EV",
       "display_name": "GMC Hummer EV",
@@ -3808,7 +3808,7 @@
     },
     {
       "id": "gmc-jimmy",
-      "max_health_points": 153,
+      "max_health_points": 3060,
       "brand": "GMC",
       "model": "Jimmy",
       "display_name": "GMC Jimmy",
@@ -3858,7 +3858,7 @@
     },
     {
       "id": "gmc-sierra",
-      "max_health_points": 194,
+      "max_health_points": 3880,
       "brand": "GMC",
       "model": "Sierra",
       "display_name": "GMC Sierra",
@@ -3908,7 +3908,7 @@
     },
     {
       "id": "honda-accord",
-      "max_health_points": 114,
+      "max_health_points": 2280,
       "brand": "Honda",
       "model": "Accord",
       "display_name": "Honda Accord",
@@ -3958,7 +3958,7 @@
     },
     {
       "id": "honda-civic",
-      "max_health_points": 92,
+      "max_health_points": 1840,
       "brand": "Honda",
       "model": "Civic",
       "display_name": "Honda Civic",
@@ -4008,7 +4008,7 @@
     },
     {
       "id": "honda-nsx",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Honda",
       "model": "NSX",
       "display_name": "Honda NSX",
@@ -4058,7 +4058,7 @@
     },
     {
       "id": "honda-prelude",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Honda",
       "model": "Prelude",
       "display_name": "Honda Prelude",
@@ -4108,7 +4108,7 @@
     },
     {
       "id": "honda-s2000",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "Honda",
       "model": "S2000",
       "display_name": "Honda S2000",
@@ -4158,7 +4158,7 @@
     },
     {
       "id": "hyundai-elantra-n",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Hyundai",
       "model": "Elantra N",
       "display_name": "Hyundai Elantra N",
@@ -4208,7 +4208,7 @@
     },
     {
       "id": "hyundai-ioniq-5",
-      "max_health_points": 161,
+      "max_health_points": 3220,
       "brand": "Hyundai",
       "model": "Ioniq 5",
       "display_name": "Hyundai Ioniq 5",
@@ -4258,7 +4258,7 @@
     },
     {
       "id": "hyundai-ioniq-6",
-      "max_health_points": 126,
+      "max_health_points": 2520,
       "brand": "Hyundai",
       "model": "Ioniq 6",
       "display_name": "Hyundai Ioniq 6",
@@ -4308,7 +4308,7 @@
     },
     {
       "id": "hyundai-veloster-n",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Hyundai",
       "model": "Veloster N",
       "display_name": "Hyundai Veloster N",
@@ -4358,7 +4358,7 @@
     },
     {
       "id": "infiniti-g35",
-      "max_health_points": 104,
+      "max_health_points": 2080,
       "brand": "Infiniti",
       "model": "G35",
       "display_name": "Infiniti G35",
@@ -4408,7 +4408,7 @@
     },
     {
       "id": "infiniti-q50",
-      "max_health_points": 118,
+      "max_health_points": 2360,
       "brand": "Infiniti",
       "model": "Q50",
       "display_name": "Infiniti Q50",
@@ -4458,7 +4458,7 @@
     },
     {
       "id": "jaguar-c-x75",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Jaguar",
       "model": "C-X75",
       "display_name": "Jaguar C-X75",
@@ -4508,7 +4508,7 @@
     },
     {
       "id": "jaguar-f-type",
-      "max_health_points": 107,
+      "max_health_points": 2140,
       "brand": "Jaguar",
       "model": "F-Type",
       "display_name": "Jaguar F-Type",
@@ -4558,7 +4558,7 @@
     },
     {
       "id": "jaguar-xe",
-      "max_health_points": 113,
+      "max_health_points": 2260,
       "brand": "Jaguar",
       "model": "XE",
       "display_name": "Jaguar XE",
@@ -4608,7 +4608,7 @@
     },
     {
       "id": "jaguar-xk",
-      "max_health_points": 107,
+      "max_health_points": 2140,
       "brand": "Jaguar",
       "model": "XK",
       "display_name": "Jaguar XK",
@@ -4658,7 +4658,7 @@
     },
     {
       "id": "jeep-gladiator",
-      "max_health_points": 189,
+      "max_health_points": 3780,
       "brand": "Jeep",
       "model": "Gladiator",
       "display_name": "Jeep Gladiator",
@@ -4708,7 +4708,7 @@
     },
     {
       "id": "jeep-wrangler",
-      "max_health_points": 160,
+      "max_health_points": 3200,
       "brand": "Jeep",
       "model": "Wrangler",
       "display_name": "Jeep Wrangler",
@@ -4758,7 +4758,7 @@
     },
     {
       "id": "lamborghini-centenario",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Lamborghini",
       "model": "Centenario",
       "display_name": "Lamborghini Centenario",
@@ -4808,7 +4808,7 @@
     },
     {
       "id": "lamborghini-countach",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "Lamborghini",
       "model": "Countach",
       "display_name": "Lamborghini Countach",
@@ -4858,7 +4858,7 @@
     },
     {
       "id": "lamborghini-diablo",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Lamborghini",
       "model": "Diablo",
       "display_name": "Lamborghini Diablo",
@@ -4908,7 +4908,7 @@
     },
     {
       "id": "lamborghini-gallardo",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Lamborghini",
       "model": "Gallardo",
       "display_name": "Lamborghini Gallardo",
@@ -4958,7 +4958,7 @@
     },
     {
       "id": "lamborghini-huracan",
-      "max_health_points": 96,
+      "max_health_points": 1920,
       "brand": "Lamborghini",
       "model": "Huracán",
       "display_name": "Lamborghini Huracán",
@@ -5008,7 +5008,7 @@
     },
     {
       "id": "lamborghini-miura",
-      "max_health_points": 89,
+      "max_health_points": 1780,
       "brand": "Lamborghini",
       "model": "Miura",
       "display_name": "Lamborghini Miura",
@@ -5058,7 +5058,7 @@
     },
     {
       "id": "lamborghini-murcielago",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Lamborghini",
       "model": "Murciélago",
       "display_name": "Lamborghini Murciélago",
@@ -5108,7 +5108,7 @@
     },
     {
       "id": "lamborghini-revuelto",
-      "max_health_points": 104,
+      "max_health_points": 2080,
       "brand": "Lamborghini",
       "model": "Revuelto",
       "display_name": "Lamborghini Revuelto",
@@ -5158,7 +5158,7 @@
     },
     {
       "id": "lamborghini-aventador-svj",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Lamborghini",
       "model": "Aventador SVJ",
       "display_name": "Lamborghini Aventador SVJ",
@@ -5208,7 +5208,7 @@
     },
     {
       "id": "lamborghini-temerario",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Lamborghini",
       "model": "Temerario",
       "display_name": "Lamborghini Temerario",
@@ -5258,7 +5258,7 @@
     },
     {
       "id": "lamborghini-urus",
-      "max_health_points": 165,
+      "max_health_points": 3300,
       "brand": "Lamborghini",
       "model": "Urus",
       "display_name": "Lamborghini Urus",
@@ -5308,7 +5308,7 @@
     },
     {
       "id": "lamborghini-veneno",
-      "max_health_points": 96,
+      "max_health_points": 1920,
       "brand": "Lamborghini",
       "model": "Veneno",
       "display_name": "Lamborghini Veneno",
@@ -5358,7 +5358,7 @@
     },
     {
       "id": "lexus-gx",
-      "max_health_points": 172,
+      "max_health_points": 3440,
       "brand": "Lexus",
       "model": "GX",
       "display_name": "Lexus GX",
@@ -5408,7 +5408,7 @@
     },
     {
       "id": "lexus-is",
-      "max_health_points": 118,
+      "max_health_points": 2360,
       "brand": "Lexus",
       "model": "IS",
       "display_name": "Lexus IS",
@@ -5458,7 +5458,7 @@
     },
     {
       "id": "lexus-lc",
-      "max_health_points": 113,
+      "max_health_points": 2260,
       "brand": "Lexus",
       "model": "LC",
       "display_name": "Lexus LC",
@@ -5508,7 +5508,7 @@
     },
     {
       "id": "lotus-3-eleven",
-      "max_health_points": 85,
+      "max_health_points": 1700,
       "brand": "Lotus",
       "model": "3-Eleven",
       "display_name": "Lotus 3-Eleven",
@@ -5558,7 +5558,7 @@
     },
     {
       "id": "lotus-emira",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Lotus",
       "model": "Emira",
       "display_name": "Lotus Emira",
@@ -5608,7 +5608,7 @@
     },
     {
       "id": "lotus-europa",
-      "max_health_points": 86,
+      "max_health_points": 1720,
       "brand": "Lotus",
       "model": "Europa",
       "display_name": "Lotus Europa",
@@ -5658,7 +5658,7 @@
     },
     {
       "id": "lotus-evora",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Lotus",
       "model": "Evora",
       "display_name": "Lotus Evora",
@@ -5708,7 +5708,7 @@
     },
     {
       "id": "lotus-exige",
-      "max_health_points": 90,
+      "max_health_points": 1800,
       "brand": "Lotus",
       "model": "Exige",
       "display_name": "Lotus Exige",
@@ -5758,7 +5758,7 @@
     },
     {
       "id": "mazda-mx-5-miata",
-      "max_health_points": 88,
+      "max_health_points": 1760,
       "brand": "Mazda",
       "model": "MX-5 Miata",
       "display_name": "Mazda MX-5 Miata",
@@ -5808,7 +5808,7 @@
     },
     {
       "id": "mazda-rx-7",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "Mazda",
       "model": "RX-7",
       "display_name": "Mazda RX-7",
@@ -5858,7 +5858,7 @@
     },
     {
       "id": "mazda-rx-8",
-      "max_health_points": 98,
+      "max_health_points": 1960,
       "brand": "Mazda",
       "model": "RX-8",
       "display_name": "Mazda RX-8",
@@ -5908,7 +5908,7 @@
     },
     {
       "id": "mercedes-benz-a-class",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Mercedes-Benz",
       "model": "A-Class",
       "display_name": "Mercedes-Benz A-Class",
@@ -5958,7 +5958,7 @@
     },
     {
       "id": "mercedes-benz-c-class",
-      "max_health_points": 119,
+      "max_health_points": 2380,
       "brand": "Mercedes-Benz",
       "model": "C-Class",
       "display_name": "Mercedes-Benz C-Class",
@@ -6008,7 +6008,7 @@
     },
     {
       "id": "mercedes-benz-cla",
-      "max_health_points": 113,
+      "max_health_points": 2260,
       "brand": "Mercedes-Benz",
       "model": "CLA",
       "display_name": "Mercedes-Benz CLA",
@@ -6058,7 +6058,7 @@
     },
     {
       "id": "mercedes-benz-e-class",
-      "max_health_points": 122,
+      "max_health_points": 2440,
       "brand": "Mercedes-Benz",
       "model": "E-Class",
       "display_name": "Mercedes-Benz E-Class",
@@ -6108,7 +6108,7 @@
     },
     {
       "id": "mercedes-benz-s-class",
-      "max_health_points": 132,
+      "max_health_points": 2640,
       "brand": "Mercedes-Benz",
       "model": "S-Class",
       "display_name": "Mercedes-Benz S-Class",
@@ -6158,7 +6158,7 @@
     },
     {
       "id": "mitsubishi-3000gt",
-      "max_health_points": 107,
+      "max_health_points": 2140,
       "brand": "Mitsubishi",
       "model": "3000GT",
       "display_name": "Mitsubishi 3000GT",
@@ -6208,7 +6208,7 @@
     },
     {
       "id": "mitsubishi-eclipse-gsx",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "Mitsubishi",
       "model": "Eclipse GSX",
       "display_name": "Mitsubishi Eclipse GSX",
@@ -6258,7 +6258,7 @@
     },
     {
       "id": "mitsubishi-galant",
-      "max_health_points": 110,
+      "max_health_points": 2200,
       "brand": "Mitsubishi",
       "model": "Galant",
       "display_name": "Mitsubishi Galant",
@@ -6308,7 +6308,7 @@
     },
     {
       "id": "mitsubishi-lancer-evolution-viii-mr",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "Mitsubishi",
       "model": "Lancer Evolution VIII MR",
       "display_name": "Mitsubishi Lancer Evolution VIII MR",
@@ -6358,7 +6358,7 @@
     },
     {
       "id": "mitsubishi-starion",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Mitsubishi",
       "model": "Starion",
       "display_name": "Mitsubishi Starion",
@@ -6408,7 +6408,7 @@
     },
     {
       "id": "nissan-altima-sr",
-      "max_health_points": 113,
+      "max_health_points": 2260,
       "brand": "Nissan",
       "model": "Altima SR",
       "display_name": "Nissan Altima SR",
@@ -6458,7 +6458,7 @@
     },
     {
       "id": "nissan-frontier",
-      "max_health_points": 184,
+      "max_health_points": 3680,
       "brand": "Nissan",
       "model": "Frontier",
       "display_name": "Nissan Frontier",
@@ -6508,7 +6508,7 @@
     },
     {
       "id": "nissan-gt-r-nismo",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Nissan",
       "model": "GT-R Nismo",
       "display_name": "Nissan GT-R Nismo",
@@ -6558,7 +6558,7 @@
     },
     {
       "id": "nissan-gt-r",
-      "max_health_points": 109,
+      "max_health_points": 2180,
       "brand": "Nissan",
       "model": "GT-R",
       "display_name": "Nissan GT-R",
@@ -6608,7 +6608,7 @@
     },
     {
       "id": "nissan-maxima",
-      "max_health_points": 116,
+      "max_health_points": 2320,
       "brand": "Nissan",
       "model": "Maxima",
       "display_name": "Nissan Maxima",
@@ -6658,7 +6658,7 @@
     },
     {
       "id": "nissan-silvia-spec-r",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "Nissan",
       "model": "Silvia Spec-R",
       "display_name": "Nissan Silvia Spec-R",
@@ -6708,7 +6708,7 @@
     },
     {
       "id": "nissan-skyline-gt-r",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Nissan",
       "model": "Skyline GT-R",
       "display_name": "Nissan Skyline GT-R",
@@ -6758,7 +6758,7 @@
     },
     {
       "id": "nissan-z",
-      "max_health_points": 103,
+      "max_health_points": 2060,
       "brand": "Nissan",
       "model": "Z",
       "display_name": "Nissan Z",
@@ -6808,7 +6808,7 @@
     },
     {
       "id": "porsche-356",
-      "max_health_points": 85,
+      "max_health_points": 1700,
       "brand": "Porsche",
       "model": "356",
       "display_name": "Porsche 356",
@@ -6858,7 +6858,7 @@
     },
     {
       "id": "porsche-911",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Porsche",
       "model": "911",
       "display_name": "Porsche 911",
@@ -6908,7 +6908,7 @@
     },
     {
       "id": "porsche-918-spyder",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Porsche",
       "model": "918 Spyder",
       "display_name": "Porsche 918 Spyder",
@@ -6958,7 +6958,7 @@
     },
     {
       "id": "porsche-928",
-      "max_health_points": 104,
+      "max_health_points": 2080,
       "brand": "Porsche",
       "model": "928",
       "display_name": "Porsche 928",
@@ -7008,7 +7008,7 @@
     },
     {
       "id": "porsche-944",
-      "max_health_points": 94,
+      "max_health_points": 1880,
       "brand": "Porsche",
       "model": "944",
       "display_name": "Porsche 944",
@@ -7058,7 +7058,7 @@
     },
     {
       "id": "porsche-cayenne",
-      "max_health_points": 162,
+      "max_health_points": 3240,
       "brand": "Porsche",
       "model": "Cayenne",
       "display_name": "Porsche Cayenne",
@@ -7108,7 +7108,7 @@
     },
     {
       "id": "porsche-718-cayman",
-      "max_health_points": 97,
+      "max_health_points": 1940,
       "brand": "Porsche",
       "model": "718 Cayman",
       "display_name": "Porsche 718 Cayman",
@@ -7158,7 +7158,7 @@
     },
     {
       "id": "porsche-macan",
-      "max_health_points": 155,
+      "max_health_points": 3100,
       "brand": "Porsche",
       "model": "Macan",
       "display_name": "Porsche Macan",
@@ -7208,7 +7208,7 @@
     },
     {
       "id": "porsche-panamera",
-      "max_health_points": 124,
+      "max_health_points": 2480,
       "brand": "Porsche",
       "model": "Panamera",
       "display_name": "Porsche Panamera",
@@ -7258,7 +7258,7 @@
     },
     {
       "id": "porsche-taycan",
-      "max_health_points": 119,
+      "max_health_points": 2380,
       "brand": "Porsche",
       "model": "Taycan",
       "display_name": "Porsche Taycan",
@@ -7308,7 +7308,7 @@
     },
     {
       "id": "rolls-royce-cullinan",
-      "max_health_points": 177,
+      "max_health_points": 3540,
       "brand": "Rolls-Royce",
       "model": "Cullinan",
       "display_name": "Rolls-Royce Cullinan",
@@ -7358,7 +7358,7 @@
     },
     {
       "id": "rolls-royce-dawn",
-      "max_health_points": 140,
+      "max_health_points": 2800,
       "brand": "Rolls-Royce",
       "model": "Dawn",
       "display_name": "Rolls-Royce Dawn",
@@ -7408,7 +7408,7 @@
     },
     {
       "id": "rolls-royce-ghost",
-      "max_health_points": 140,
+      "max_health_points": 2800,
       "brand": "Rolls-Royce",
       "model": "Ghost",
       "display_name": "Rolls-Royce Ghost",
@@ -7458,7 +7458,7 @@
     },
     {
       "id": "rolls-royce-phantom",
-      "max_health_points": 140,
+      "max_health_points": 2800,
       "brand": "Rolls-Royce",
       "model": "Phantom",
       "display_name": "Rolls-Royce Phantom",
@@ -7508,7 +7508,7 @@
     },
     {
       "id": "rolls-royce-spectre",
-      "max_health_points": 140,
+      "max_health_points": 2800,
       "brand": "Rolls-Royce",
       "model": "Spectre",
       "display_name": "Rolls-Royce Spectre",
@@ -7558,7 +7558,7 @@
     },
     {
       "id": "rolls-royce-wraith",
-      "max_health_points": 138,
+      "max_health_points": 2760,
       "brand": "Rolls-Royce",
       "model": "Wraith",
       "display_name": "Rolls-Royce Wraith",
@@ -7608,7 +7608,7 @@
     },
     {
       "id": "subaru-brz",
-      "max_health_points": 94,
+      "max_health_points": 1880,
       "brand": "Subaru",
       "model": "BRZ",
       "display_name": "Subaru BRZ",
@@ -7658,7 +7658,7 @@
     },
     {
       "id": "subaru-baja",
-      "max_health_points": 168,
+      "max_health_points": 3360,
       "brand": "Subaru",
       "model": "Baja",
       "display_name": "Subaru Baja",
@@ -7708,7 +7708,7 @@
     },
     {
       "id": "subaru-impreza-wrx-sti",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Subaru",
       "model": "Impreza WRX STI",
       "display_name": "Subaru Impreza WRX STI",
@@ -7758,7 +7758,7 @@
     },
     {
       "id": "subaru-wrx-sti-2013",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Subaru",
       "model": "WRX STI (2013)",
       "display_name": "Subaru WRX STI (2013)",
@@ -7808,7 +7808,7 @@
     },
     {
       "id": "subaru-wrx-sti-2015",
-      "max_health_points": 103,
+      "max_health_points": 2060,
       "brand": "Subaru",
       "model": "WRX STI (2015)",
       "display_name": "Subaru WRX STI (2015)",
@@ -7858,7 +7858,7 @@
     },
     {
       "id": "tesla-cybertruck",
-      "max_health_points": 207,
+      "max_health_points": 4140,
       "brand": "Tesla",
       "model": "Cybertruck",
       "display_name": "Tesla Cybertruck",
@@ -7908,7 +7908,7 @@
     },
     {
       "id": "tesla-model-3",
-      "max_health_points": 120,
+      "max_health_points": 2400,
       "brand": "Tesla",
       "model": "Model 3",
       "display_name": "Tesla Model 3",
@@ -7958,7 +7958,7 @@
     },
     {
       "id": "tesla-model-s",
-      "max_health_points": 128,
+      "max_health_points": 2560,
       "brand": "Tesla",
       "model": "Model S",
       "display_name": "Tesla Model S",
@@ -8008,7 +8008,7 @@
     },
     {
       "id": "tesla-model-x",
-      "max_health_points": 168,
+      "max_health_points": 3360,
       "brand": "Tesla",
       "model": "Model X",
       "display_name": "Tesla Model X",
@@ -8058,7 +8058,7 @@
     },
     {
       "id": "tesla-model-y",
-      "max_health_points": 158,
+      "max_health_points": 3160,
       "brand": "Tesla",
       "model": "Model Y",
       "display_name": "Tesla Model Y",
@@ -8108,7 +8108,7 @@
     },
     {
       "id": "tesla-plaid",
-      "max_health_points": 120,
+      "max_health_points": 2400,
       "brand": "Tesla",
       "model": "Plaid",
       "display_name": "Tesla Plaid",
@@ -8158,7 +8158,7 @@
     },
     {
       "id": "tesla-roadster",
-      "max_health_points": 92,
+      "max_health_points": 1840,
       "brand": "Tesla",
       "model": "Roadster",
       "display_name": "Tesla Roadster",
@@ -8208,7 +8208,7 @@
     },
     {
       "id": "toyota-gr-corolla",
-      "max_health_points": 100,
+      "max_health_points": 2000,
       "brand": "Toyota",
       "model": "GR Corolla",
       "display_name": "Toyota GR Corolla",
@@ -8258,7 +8258,7 @@
     },
     {
       "id": "toyota-gr86",
-      "max_health_points": 95,
+      "max_health_points": 1900,
       "brand": "Toyota",
       "model": "GR86",
       "display_name": "Toyota GR86",
@@ -8308,7 +8308,7 @@
     },
     {
       "id": "toyota-highlander",
-      "max_health_points": 158,
+      "max_health_points": 3160,
       "brand": "Toyota",
       "model": "Highlander",
       "display_name": "Toyota Highlander",
@@ -8358,7 +8358,7 @@
     },
     {
       "id": "toyota-land-cruiser",
-      "max_health_points": 170,
+      "max_health_points": 3400,
       "brand": "Toyota",
       "model": "Land Cruiser",
       "display_name": "Toyota Land Cruiser",
@@ -8408,7 +8408,7 @@
     },
     {
       "id": "toyota-rav4",
-      "max_health_points": 147,
+      "max_health_points": 2940,
       "brand": "Toyota",
       "model": "RAV4",
       "display_name": "Toyota RAV4",
@@ -8458,7 +8458,7 @@
     },
     {
       "id": "toyota-supra-mk4",
-      "max_health_points": 103,
+      "max_health_points": 2060,
       "brand": "Toyota",
       "model": "Supra Mk4",
       "display_name": "Toyota Supra Mk4",
@@ -8508,7 +8508,7 @@
     },
     {
       "id": "toyota-gr-supra",
-      "max_health_points": 102,
+      "max_health_points": 2040,
       "brand": "Toyota",
       "model": "GR Supra",
       "display_name": "Toyota GR Supra",
@@ -8558,7 +8558,7 @@
     },
     {
       "id": "toyota-tacoma-trd-pro",
-      "max_health_points": 182,
+      "max_health_points": 3640,
       "brand": "Toyota",
       "model": "Tacoma TRD Pro",
       "display_name": "Toyota Tacoma TRD Pro",
@@ -8608,7 +8608,7 @@
     },
     {
       "id": "toyota-tundra",
-      "max_health_points": 197,
+      "max_health_points": 3940,
       "brand": "Toyota",
       "model": "Tundra",
       "display_name": "Toyota Tundra",
@@ -8658,7 +8658,7 @@
     },
     {
       "id": "volkswagen-arteon",
-      "max_health_points": 118,
+      "max_health_points": 2360,
       "brand": "Volkswagen",
       "model": "Arteon",
       "display_name": "Volkswagen Arteon",
@@ -8708,7 +8708,7 @@
     },
     {
       "id": "volkswagen-beetle",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "Volkswagen",
       "model": "Beetle",
       "display_name": "Volkswagen Beetle",
@@ -8758,7 +8758,7 @@
     },
     {
       "id": "volkswagen-corrado-vr6",
-      "max_health_points": 93,
+      "max_health_points": 1860,
       "brand": "Volkswagen",
       "model": "Corrado VR6",
       "display_name": "Volkswagen Corrado VR6",
@@ -8808,7 +8808,7 @@
     },
     {
       "id": "volkswagen-golf-gti-16v-mk2",
-      "max_health_points": 82,
+      "max_health_points": 1640,
       "brand": "Volkswagen",
       "model": "Golf GTI 16V Mk2",
       "display_name": "Volkswagen Golf GTI 16V Mk2",
@@ -8858,7 +8858,7 @@
     },
     {
       "id": "volkswagen-golf-r",
-      "max_health_points": 101,
+      "max_health_points": 2020,
       "brand": "Volkswagen",
       "model": "Golf R",
       "display_name": "Volkswagen Golf R",
@@ -8908,7 +8908,7 @@
     },
     {
       "id": "volkswagen-jetta",
-      "max_health_points": 109,
+      "max_health_points": 2180,
       "brand": "Volkswagen",
       "model": "Jetta",
       "display_name": "Volkswagen Jetta",
@@ -8958,7 +8958,7 @@
     },
     {
       "id": "volkswagen-phaeton",
-      "max_health_points": 136,
+      "max_health_points": 2720,
       "brand": "Volkswagen",
       "model": "Phaeton",
       "display_name": "Volkswagen Phaeton",
@@ -9008,7 +9008,7 @@
     },
     {
       "id": "volkswagen-scirocco-r",
-      "max_health_points": 99,
+      "max_health_points": 1980,
       "brand": "Volkswagen",
       "model": "Scirocco R",
       "display_name": "Volkswagen Scirocco R",
@@ -9058,7 +9058,7 @@
     },
     {
       "id": "volkswagen-touareg",
-      "max_health_points": 162,
+      "max_health_points": 3240,
       "brand": "Volkswagen",
       "model": "Touareg",
       "display_name": "Volkswagen Touareg",

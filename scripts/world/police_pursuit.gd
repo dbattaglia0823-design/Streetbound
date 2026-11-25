@@ -12,7 +12,7 @@ const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
 ## Current unmarked prototype cruiser. Future police model configs set their own capacity.
-const PROTOTYPE_POLICE_HEALTH := 130
+const PROTOTYPE_POLICE_HEALTH := 2600
 const ROUTE_INTERVAL := 0.75
 const SEARCH_SWEEP_INTERVAL := 4.5
 const DISPATCH_RETRY_SECONDS := 3.0

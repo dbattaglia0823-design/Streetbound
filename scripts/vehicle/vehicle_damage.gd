@@ -3,9 +3,12 @@ extends RefCounted
 ## Repeated contact in one crash cannot consume the whole integrity bar.
 const MIN_DAMAGING_IMPACT_MPS := 6.0
 const IMPACT_COOLDOWN_SECONDS := 0.25
+## 20x point scale preserves the normalized stock damage balance.
+const DAMAGE_POINTS_PER_MPS := 36.0
+const MAX_BASE_IMPACT_POINTS := 1300.0
 ## Keep normalized integrity for existing saves, repairs and smoke thresholds.
 var integrity := 100.0
-var max_health_points: int = 100
+var max_health_points: int = 2000
 const PLAYER_DAMAGE_COLOR := Color("#ff9d32")
 const POLICE_DAMAGE_COLOR := Color("#ff4545")
 
@@ -13,15 +16,18 @@ func current_health_points() -> float:
 	return clampf(integrity, 0.0, 100.0) * float(maxi(1, max_health_points)) / 100.0
 var last_impact_at := -INF
 
-func register_impact(closing_speed_mps: float, now_seconds: float) -> float:
-	if not is_finite(closing_speed_mps) or not is_finite(now_seconds):
+## Optional outgoing multiplier is an extension point for future impact upgrades.
+## Stock collisions use 1.0; upgrades are not yet equipped or sold.
+func register_impact(closing_speed_mps: float, now_seconds: float, outgoing_multiplier: float = 1.0) -> float:
+	if not is_finite(closing_speed_mps) or not is_finite(now_seconds) or not is_finite(outgoing_multiplier) or outgoing_multiplier <= 0.0:
 		return 0.0
 	if closing_speed_mps < MIN_DAMAGING_IMPACT_MPS or now_seconds - last_impact_at < IMPACT_COOLDOWN_SECONDS:
 		return 0.0
-	last_impact_at = now_seconds
-	var damage := minf(65.0, (closing_speed_mps - MIN_DAMAGING_IMPACT_MPS) * 1.8)
-	if damage <= 0.0:
+	var base_damage := minf(MAX_BASE_IMPACT_POINTS, (closing_speed_mps - MIN_DAMAGING_IMPACT_MPS) * DAMAGE_POINTS_PER_MPS)
+	if base_damage <= 0.0:
 		return 0.0
+	last_impact_at = now_seconds
+	var damage := base_damage * clampf(outgoing_multiplier, 0.0, 3.0)
 	var capacity := float(maxi(1, max_health_points))
 	var remaining := current_health_points()
 	var applied := minf(remaining, maxf(1.0, roundf(damage)))

@@ -48,22 +48,30 @@ func run() -> void:
 
 	var light = Damage.new()
 	var heavy = Damage.new()
-	light.max_health_points = 90
-	heavy.max_health_points = 180
+	light.max_health_points = 1800
+	heavy.max_health_points = 3600
 	var light_loss: float = light.register_impact(26.0, 1.0)
 	var heavy_loss: float = heavy.register_impact(26.0, 1.0)
-	check("same_impact_loses_same_points", light_loss == heavy_loss and light_loss == 36.0)
+	check("same_impact_loses_same_points", light_loss == heavy_loss and light_loss == 720.0)
 	check("larger_capacity_survives_more_damage", is_equal_approx(light.integrity, 60.0)
 		and is_equal_approx(heavy.integrity, 80.0))
-	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 144.0))
+	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 2880.0))
 	heavy.repair()
-	check("repair_restores_model_capacity", heavy.current_health_points() == 180.0)
+	check("repair_restores_model_capacity", heavy.current_health_points() == 3600.0)
+	var upgraded = Damage.new()
+	upgraded.max_health_points = 3600
+	check("future_outgoing_upgrade_multiplier_scales_points",
+		upgraded.register_impact(26.0, 1.0, 1.5) == 1080.0)
+	check("upgrade_multiplier_rejects_nonfinite_values",
+		upgraded.register_impact(26.0, 2.0, INF) == 0.0)
+	check("large_stock_hit_has_bounded_damage",
+		upgraded.register_impact(100.0, 3.0) == 1300.0)
 	var roster_ok := not Catalog.all().is_empty()
 	for entry in Catalog.all():
 		var hp := int(entry.get("max_health_points", 0))
-		roster_ok = roster_ok and hp > 0
+		roster_ok = roster_ok and hp >= 1500
 		if str(entry.kind) in ["suv", "truck"]:
-			roster_ok = roster_ok and hp >= 140
+			roster_ok = roster_ok and hp >= 2800
 	check("all_playable_models_have_capacity", roster_ok)
 
 	var police_ring: Array[Vector2] = [
@@ -97,10 +105,10 @@ func run() -> void:
 	car.external_input = true
 	root.add_child(car)
 	await physics_frame
-	var orange := Damage.show_damage_number(car, 36.0)
-	var red := Damage.show_damage_number(car, 18.0, true)
+	var orange := Damage.show_damage_number(car, 720.0)
+	var red := Damage.show_damage_number(car, 360.0, true)
 	check("damage_numbers_match_applied_points_and_role", orange != null and red != null
-		and orange.text == "-36" and red.text == "-18"
+		and orange.text == "-720" and red.text == "-360"
 		and orange.get_theme_color("font_color") == Damage.PLAYER_DAMAGE_COLOR
 		and red.get_theme_color("font_color") == Damage.POLICE_DAMAGE_COLOR)
 	car.damage_drive_fraction = 0.0

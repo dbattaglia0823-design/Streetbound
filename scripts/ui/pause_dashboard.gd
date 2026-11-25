@@ -773,7 +773,7 @@ func _add_car_row(parent: VBoxContainer, entry: Dictionary) -> void:
 	_label(row, "CarSpecs", "%.0f HP  •  %s  •  %s  •  HEALTH %d" % [
 		float(entry.get("power_kw", 0.0)) * 1.341022,
 		str(entry.get("drivetrain", "—")),
-		str(entry.get("kind", "car")).to_upper(), int(entry.get("max_health_points",100))],
+		str(entry.get("kind", "car")).to_upper(), int(entry.get("max_health_points",2000))],
 		Rect2(122, 36, 372, 21), 12, MUTED)
 	var dealer_name := str(site.get("name", "Dealership unavailable"))
 	_label(row, "CarDealer", dealer_name,
