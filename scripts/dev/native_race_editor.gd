@@ -60,6 +60,11 @@ var career_repeatable: CheckBox
 var career_first_cash: SpinBox
 var career_first_driver_xp: SpinBox
 var career_first_car_xp: SpinBox
+var career_heat: SpinBox
+var career_escape: SpinBox
+var career_entry_fee: SpinBox
+var career_street_rep: SpinBox
+var career_required_rep: SpinBox
 var career_require_cars: ItemList
 var career_prerequisites: ItemList
 var _career_car_ids: Array[String]=[]
@@ -374,6 +379,18 @@ func _build_dialog(e) -> void:
 	locks.add_child(career_require_cars)
 	var note:=_form_label(locks,"Ctrl-click to select multiple. Prerequisite chains must be acyclic. First-win bonuses are paid only once; repeat rewards apply on every subsequent win.")
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var underground_tab:=HBoxContainer.new()
+	underground_tab.name="Underground & Stakes"
+	tabs.add_child(underground_tab)
+	var crime:=_form_column(underground_tab,540)
+	_form_label(crime,"ILLEGAL RACE / ESCAPE CHALLENGE")
+	career_heat=e._number(crime,"Wanted level (0 = legal)",0,5,0);career_heat.step=1
+	career_escape=e._number(crime,"Escape deadline (seconds)",30,300,90);career_escape.step=1
+	career_entry_fee=e._number(crime,"Entry fee ($, lost on failure)",0,50000,0);career_entry_fee.step=1
+	career_street_rep=e._number(crime,"Underground reputation reward",0,30,0);career_street_rep.step=1
+	career_required_rep=e._number(crime,"Required underground reputation",0,100000,0);career_required_rep.step=1
+	var crime_hint:=_form_label(crime,"Set wanted level above zero to dispatch police at race start. Winners must clear heat before collecting prizes. Entry fees are paid on staging; legal races remain police-free. Use time trial for a solo escape challenge.")
+	crime_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var multiplayer_tab:=HBoxContainer.new()
 	multiplayer_tab.name="Multiplayer Rewards"
 	multiplayer_tab.add_theme_constant_override("separation",30)
@@ -483,6 +500,11 @@ func open_for(e,id: String) -> void:
 	career_first_cash.value=float(race.get("first_win_reward_cash",0))
 	career_first_driver_xp.value=float(race.get("first_win_reward_player_xp",0))
 	career_first_car_xp.value=float(race.get("first_win_reward_car_xp",0))
+	career_heat.value=float(race.get("race_heat",0))
+	career_escape.value=float(race.get("escape_time_limit",90))
+	career_entry_fee.value=float(race.get("entry_fee",0))
+	career_street_rep.value=float(race.get("underground_rep_reward",0))
+	career_required_rep.value=float(race.get("required_underground_rep",0))
 	_career_race_ids.clear()
 	for other in race.get("prerequisite_races",[]):_career_race_ids.append(str(other))
 	_career_car_ids.clear()
@@ -583,7 +605,12 @@ func _save_dialog(e) -> void:
 		"first_win_reward_player_xp":int(career_first_driver_xp.value),
 		"first_win_reward_car_xp":int(career_first_car_xp.value),
 		"prerequisite_races":_career_race_ids.duplicate(),
-		"required_vehicle_ids":_career_car_ids.duplicate()}
+		"required_vehicle_ids":_career_car_ids.duplicate(),
+		"race_heat":int(career_heat.value),
+		"escape_time_limit":int(career_escape.value),
+		"entry_fee":int(career_entry_fee.value),
+		"underground_rep_reward":int(career_street_rep.value) if career_heat.value>0 else 0,
+		"required_underground_rep":int(career_required_rep.value)}
 	var points: Array[Vector2]=[]
 	for p in race.points:points.append(Vector2(float(p.x),float(p.y)))
 	if e.authoring.save_race(points,options,dialog_race_id).is_empty():
