@@ -92,6 +92,7 @@ func _ready() -> void:
 	scroll.add_child(grid)
 	# Defer card creation until someone actually enters the garage.
 	overlay.visible = false
+	get_node("/root/MenuNavigation").register_scope(overlay,16,close_menu)
 	get_viewport().size_changed.connect(_layout_grid)
 	_layout_grid()
 	_update_garage_access()
