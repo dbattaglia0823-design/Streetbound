@@ -19,7 +19,7 @@ static func valid(marker: Dictionary) -> bool:
 	if properties.has("enabled") and typeof(properties.enabled)!=TYPE_BOOL:return false
 	if properties.has("contract_kind"):
 		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false
-	if properties.has("contact_style") and str(properties.contact_style) not in ["street","business","mechanic","casual"]:return false
+	if properties.has("contact_style") and str(properties.contact_style) not in ["street","business","mechanic","casual","racing"]:return false
 	for pair in [["contact_role",60],["contact_greeting",180],["contact_bio",240]]:
 		var field: String = str(pair[0])
 		if properties.has(field) and (not properties[field] is String or str(properties[field]).length()>int(pair[1])):return false
@@ -56,7 +56,11 @@ static func valid_links(markers: Array,races: Array,dealers: Array) -> bool:
 		for name in ["race_id","required_race"]:
 			if not str(info.get(name,"")).is_empty() and not event_ids.has(str(info[name])):return false
 		if not str(info.get("dealer_id","")).is_empty() and not dealer_ids.has(str(info.dealer_id)):return false
-		if str(marker.type)=="contract_contact" and not Contracts.valid_contact(marker,by_id):return false
+		if str(marker.type)=="contract_contact":
+			if not Contracts.valid_contact(marker,by_id):return false
+			for offer in info.get("offers",[]):
+				var prerequisite:=str(offer.get("required_race_id",""))
+				if not prerequisite.is_empty() and not event_ids.has(prerequisite):return false
 		if str(marker.type)=="contract":
 			var destination_id:=str(info.get("destination_marker_id",""))
 			if not destination_id.is_empty():
