@@ -6,17 +6,18 @@ extends CharacterBody2D
 const PPM := 20.0
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
+# Keep existing model slots stable for seeded parked cars and moving traffic.
 const MODEL_PATHS := [
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
-	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
+	"res://assets/Vehicles/Traffic Vehicles/Electric Traffic.png",
+	"res://assets/Vehicles/Traffic Vehicles/Car1.png",
+	"res://assets/Vehicles/Traffic Vehicles/Sedan.png",
+	"res://assets/Vehicles/Traffic Vehicles/SportSUV.png",
+	"res://assets/Vehicles/Traffic Vehicles/SUV.png",
+	"res://assets/Vehicles/Traffic Vehicles/Minivan.png",
+	"res://assets/Vehicles/Traffic Vehicles/Van.png",
+	"res://assets/Vehicles/Traffic Vehicles/Taxi.png",
+	"res://assets/Vehicles/Traffic Vehicles/Pickup Truck.png",
+	"res://assets/Vehicles/Traffic Vehicles/Box Truck.png"
 ]
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
