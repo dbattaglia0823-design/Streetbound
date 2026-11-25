@@ -303,13 +303,16 @@ func _ready() -> void:
 		police_pursuit.set("traffic", traffic)
 		police_pursuit.set("economy", vehicle_ownership)
 		police_pursuit.set("damage_service", vehicle_damage_service)
-		var illegal_races: Array = []
-		if is_instance_valid(street_race):illegal_races.append(street_race)
-		for race in extra_races:
-			if str(race.get("race_type")).to_lower().contains("street"):
-				illegal_races.append(race)
-		police_pursuit.set("street_races", illegal_races)
+		var career_races: Array = [drag_race,circuit_race,street_race]
+		career_races.append_array(extra_races)
+		police_pursuit.set("street_races",career_races.filter(func(race):return is_instance_valid(race)))
 		add_child(police_pursuit)
+		for race in career_races:
+			if not is_instance_valid(race):continue
+			if race.has_method("configure_underground_career"):
+				race.call("configure_underground_career",vehicle_ownership,police_pursuit)
+			elif race.has_method("manages_race_heat"):
+				race.set("police",police_pursuit)
 		vehicle_damage_service.set("police", police_pursuit)
 		authored_map_markers.set("resources", vehicle_damage_service)
 		driving_contracts = Node2D.new()
