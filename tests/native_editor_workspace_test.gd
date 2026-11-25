@@ -161,8 +161,20 @@ func run() -> void:
 		await process_frame
 		if e.render_tiles.ready_to_show:break
 	check("near_view_switches_to_completed_real_render_tiles",e.render_tiles.ready_to_show and e.render_tiles.tiles.size()<=64)
-	e._fit_map();await process_frame
+	# A draft edit made in detail mode invalidates the overview, but does
+	# not need an expensive atlas render until the next overview transition.
+	e._update_overview_mask()
+	var detail_renders: int=overview.refresh_count
+	e._update_view(true)
+	check("detail_view_defers_dirty_overview",e._overview_dirty and overview.refresh_count==detail_renders)
+	e._fit_map()
+	check("zoom_out_refreshes_dirty_overview_immediately",
+		not e._overview_dirty and overview.refresh_count==detail_renders+1)
+	await process_frame
 	check("zoom_out_preserves_every_district_again",e.overview_sprite.visible and overview.prop_count==scene.ground.data.props.size())
+	var cached_renders: int=overview.refresh_count
+	for i in 4:e._update_view(true)
+	check("overview_stays_cached_after_detail_transition",overview.refresh_count==cached_renders)
 	e.minimap.navigate(e.minimap.map_rect().position+e.minimap.map_rect().size*Vector2(.25,.35))
 	check("minimap_moves_to_clicked_world_location",e.editor_camera.position.distance_to(extent*Vector2(.25,.35))<1.0)
 	var cursor: Vector2=e.canvas_rect.get_center()+Vector2(25,20)

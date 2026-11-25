@@ -8,7 +8,7 @@ jobs:
   # project's older pinned 4.4.1 CI binary. Validate the exact player release.
   godot-463-game-startup:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Verify persistent Godot resource IDs before import
@@ -19,6 +19,7 @@ jobs:
           unzip -q godot463.zip
           chmod +x Godot_v4.6.3-stable_linux.x86_64
       - name: Cold-import clean game resources and verify typed script compilation
+        id: cold_import
         run: |
           set -o pipefail
           test ! -d .godot
@@ -29,7 +30,10 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      # Report every independent test group after a successful import, even
+      # if an earlier test failed. Failed steps still fail this required job.
       - name: Verify underground racing rewards, escape and contact unlocks (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/underground_racing_test.gd 2>&1 | tee /tmp/underground-racing-463.log
@@ -37,6 +41,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/underground-racing-463.log
 
       - name: Verify contact personality, briefing and dedicated screen UI (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/contact_contract_screen_test.gd 2>&1 | tee /tmp/contact-screen-463.log
@@ -44,6 +49,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/contact-screen-463.log
 
       - name: Verify vehicle-only contracts, map links and durable rewards (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_contracts_test.gd 2>&1 | tee /tmp/driving-contracts-463.log
@@ -51,6 +57,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-contracts-463.log
 
       - name: Verify realistic wanted response, off-screen police spawns and last-seen searches (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/police_tactics_test.gd 2>&1 | tee /tmp/police-tactics-463.log
@@ -58,18 +65,21 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/police-tactics-463.log
 
       - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_crime_foundation_test.gd 2>&1 | tee /tmp/driving-crime-463.log
           grep -q 'DRIVING CRIME FOUNDATION: 0 failures' /tmp/driving-crime-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-crime-463.log
       - name: Verify vehicle fuel model and circular dashboard meters (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd 2>&1 | tee /tmp/vehicle-fuel-463.log
           grep -q 'FUEL/RESOURCE HUD: 0 failures' /tmp/vehicle-fuel-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/vehicle-fuel-463.log
       - name: Verify free garages, capped gas station repairs and refueling (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_service_integration_test.gd 2>&1 | tee /tmp/service-rules-463.log
@@ -77,12 +87,14 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/service-rules-463.log
 
       - name: Verify branching sidewalk T, Y and X junctions (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/branching_sidewalk_paths_test.gd 2>&1 | tee /tmp/sidewalk-branches-463.log
           grep -q 'BRANCHING SIDEWALK PATHS: PASS' /tmp/sidewalk-branches-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/sidewalk-branches-463.log
       - name: Verify full circular minimap clipping and square-mode restoration (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           if ! command -v xvfb-run >/dev/null; then
@@ -93,42 +105,49 @@ jobs:
           grep -q 'CIRCULAR MINIMAP MASK: PASS' /tmp/circular-mini-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/circular-mini-463.log
       - name: Verify compact race start hero, real route info and start button (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_start_side_panel_test.gd 2>&1 | tee /tmp/race-start-card-463.log
           grep -q 'RACE START SIDE PANEL: PASS' /tmp/race-start-card-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-start-card-463.log
       - name: Verify compact race HUD can be closed and reopened
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_hud_dismiss_test.gd 2>&1 | tee /tmp/godot463-race-hud.log
           grep -q 'RACE HUD DISMISS AND POSITION: PASS' /tmp/godot463-race-hud.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-hud.log
       - name: Verify pause hub Events, Map, Cars WIP, driver and actions (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pause_dashboard_layout_test.gd 2>&1 | tee /tmp/pause-hub-463.log
           grep -q 'PAUSE HUB LAYOUT: PASS' /tmp/pause-hub-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/pause-hub-463.log
       - name: Verify title screen, shared settings and pause navigation (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/title_navigation_test.gd 2>&1 | tee /tmp/streetbound-title-463.log
           grep -q 'TITLE AND PAUSE NAVIGATION: PASS' /tmp/streetbound-title-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-title-463.log
       - name: Verify low-latency multiplayer smoothing and bounded visual packet recovery (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_network_smoothing_test.gd 2>&1 | tee /tmp/online-smoothing-463.log
           grep -q 'NETWORK SMOOTHING: PASS' /tmp/online-smoothing-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-smoothing-463.log
       - name: Verify host/join menu and online world session lifecycle (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/online_friend_session_test.gd 2>&1 | tee /tmp/online-friends-463.log
           grep -q 'ONLINE FRIEND SESSION: PASS' /tmp/online-friends-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-friends-463.log
       - name: Verify private invite admission, forged-code rejection and disconnect over loopback (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -euo pipefail
           timeout --signal=SIGINT --kill-after=5s 55s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/online_friend_connection_probe.gd -- host > /tmp/online-enet-host.log 2>&1 &
@@ -156,6 +175,7 @@ jobs:
           grep -q 'ONLINE TWO PROCESS INTRUDER: PASS' /tmp/online-enet-intruder.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/online-enet-host.log /tmp/online-enet-guest.log /tmp/online-enet-intruder.log
       - name: Verify opt-in LAN game discovery and actual ENet host/join (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -euo pipefail
           timeout --signal=SIGINT --kill-after=5s 40s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/lan_discovery_probe.gd -- host > /tmp/lan-host.log 2>&1 &
@@ -175,60 +195,70 @@ jobs:
           grep -q 'LAN DISCOVERY GUEST: PASS' /tmp/lan-guest.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/lan-host.log /tmp/lan-guest.log
       - name: Verify existing pause/settings functionality (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pause_menu_test.gd 2>&1 | tee /tmp/streetbound-pause-463.log
           grep -q 'PAUSE MENU TESTS: PASS' /tmp/streetbound-pause-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-pause-463.log
       - name: Verify native map reload recreates playable geometry and restores editor focus (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_reload_test.gd 2>&1 | tee /tmp/native-map-reload-463.log
           grep -q 'NATIVE MAP WORLD RELOAD: PASS' /tmp/native-map-reload-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-map-reload-463.log
       - name: Verify real canvas box drag, Shift selection and baked-scene picking (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_marquee_input_test.gd 2>&1 | tee /tmp/marquee-input-463.log
           grep -q 'NATIVE EDITOR MARQUEE INPUT: PASS' /tmp/marquee-input-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/marquee-input-463.log
       - name: Verify map marquee selection and multi-object undo (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_multi_select_test.gd 2>&1 | tee /tmp/native-multiselect-463.log
           grep -q 'NATIVE MULTI SELECT: PASS' /tmp/native-multiselect-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-multiselect-463.log
       - name: Verify only selected placed assets show editor boxes (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_asset_outline_test.gd 2>&1 | tee /tmp/native-editor-asset-outline-463.log
           grep -q 'NATIVE EDITOR ASSET OUTLINES: PASS' /tmp/native-editor-asset-outline-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-editor-asset-outline-463.log
       - name: Verify native map authoring roads, props, undo and safe previews (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
           grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
       - name: Verify waypoint shortest paths and legal junction routing
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/waypoint_shortest_path_test.gd 2>&1 | tee /tmp/waypoint-shortest-463.log
           grep -q 'WAYPOINT SHORTEST PATHS: PASS' /tmp/waypoint-shortest-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/waypoint-shortest-463.log
       - name: Verify expanded races, circular starts, map markers and player waypoints
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/races_waypoints_test.gd 2>&1 | tee /tmp/races-waypoints-463.log
           grep -q 'RACES AND WAYPOINTS: PASS' /tmp/races-waypoints-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/races-waypoints-463.log
       - name: Verify editable race starting grid, player teleport and physical AI lineup (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_start_grid_test.gd 2>&1 | tee /tmp/race-start-grid.log
           grep -q 'RACE START GRID: PASS' /tmp/race-start-grid.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-start-grid.log
       - name: Verify native race setup, production bake and pause-only race quitting
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_editor_test.gd 2>&1 | tee /tmp/race-editor.log
@@ -239,20 +269,24 @@ jobs:
           grep -q 'RACE PAUSE BEHAVIOR: PASS' /tmp/race-pause.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/race-pause.log
       - name: Verify traffic lanes and car-width clearance against every real road and junction
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_road_alignment_test.gd 2>&1 | tee /tmp/traffic-alignment-463.log
           grep -q 'TRAFFIC ROAD ALIGNMENT: PASS' /tmp/traffic-alignment-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/traffic-alignment-463.log
       - name: Verify native road dragging, creation, panels and draft recovery (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_interaction_test.gd 2>&1 | tee /tmp/native-interactions-463.log
           grep -q 'NATIVE EDITOR INTERACTIONS: PASS' /tmp/native-interactions-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-interactions-463.log
       - name: Bake native editor creations with the production builder in an isolated copy
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: python3 -B tests/native_editor_build_test.py
       - name: Verify existing road point editing and split production bake
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_point_tools_test.gd 2>&1 | tee /tmp/road-point-tools.log
@@ -260,6 +294,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-point-tools.log
           python3 -B tests/road_split_bake_test.py
       - name: Verify exact adopted artwork and independent asset sizing through production bake
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_asset_transform_test.gd 2>&1 | tee /tmp/editor-asset-transforms.log
@@ -267,6 +302,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-asset-transforms.log
           python3 -B tests/editor_asset_bake_test.py
       - name: Verify supplied sprite-sheet crops, editor placement, production bake and game rendering
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           python3 -B tests/map_asset_catalog_test.py
@@ -279,6 +315,7 @@ jobs:
           grep -q 'SPRITE SHEET GAME: PASS' /tmp/sprite-sheet-game.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/sprite-sheet-game.log
       - name: Verify city building snapping and streamed sidewalk authoring
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/city_authoring_test.gd 2>&1 | tee /tmp/city-authoring.log
@@ -286,12 +323,14 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/city-authoring.log
           python3 -B tests/city_authoring_bake_test.py
       - name: Verify nonoverlapping building placement, grid snap, rotation and duplication (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/building_clearance_snap_test.gd 2>&1 | tee /tmp/building-clearance-463.log
           grep -q 'BUILDING CLEARANCE SNAPPING: PASS' /tmp/building-clearance-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/building-clearance-463.log
       - name: Verify per-building road facing, city-block walls, scaled collision previews and saved preferences
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_facing_buildings_test.gd 2>&1 | tee /tmp/road-facing-buildings.log
@@ -299,18 +338,21 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-facing-buildings.log
           python3 -B tests/road_facing_bake_test.py
       - name: Verify independent map library and full-map terrain/water authoring
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/map_library_test.gd 2>&1 | tee /tmp/map-library.log
           grep -q 'MAP LIBRARY: PASS' /tmp/map-library.log
           ! grep -E 'SCRIPT ERROR:|^FAIL ' /tmp/map-library.log
       - name: Verify race career progression, first-win economics and functional marker links
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/authored_career_markers_test.gd 2>&1 | tee /tmp/authored-career-markers.log
           grep -q 'AUTHORED CAREER & MARKERS: PASS' /tmp/authored-career-markers.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/authored-career-markers.log
       - name: Verify full-game custom Test Drive intersections, AI traffic, HUD and safe sandbox
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           python3 -B tests/custom_test_world_bake_test.py
@@ -318,6 +360,7 @@ jobs:
           grep -q 'FULL GAME CUSTOM TEST DRIVE: PASS' /tmp/custom-full-game-test-drive.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/custom-full-game-test-drive.log
       - name: Verify empty custom maps, curve tools, resizable circles and production roundabout geometry
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_shape_tools_test.gd 2>&1 | tee /tmp/road-shape-tools.log
@@ -325,6 +368,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/road-shape-tools.log
           python3 -B tests/road_shape_bake_test.py
       - name: Verify editor picking, live asset visibility, drag cost and arbitrary road junctions
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_integrity_test.gd 2>&1 | tee /tmp/editor-integrity.log
@@ -332,6 +376,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/editor-integrity.log
           python3 -B tests/editor_junction_bake_test.py
       - name: Verify actual archived house and road edits through repeated save transactions
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/editor_basic_changes_test.gd 2>&1 | tee /tmp/basic-editor.log
@@ -339,6 +384,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/basic-editor.log
           python3 -B tests/editor_basic_changes_bake_test.py
       - name: Verify automatic water bridges, collision clearance, streaming and live edits
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/automatic_bridges_test.gd 2>&1 | tee /tmp/automatic-bridges-463.log
@@ -347,6 +393,7 @@ jobs:
           python3 -B tests/automatic_bridges_test.py
           python3 -B tests/automatic_bridges_bake_test.py
       - name: Verify continuous red-white track kerbs and chunk phase
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/track_kerbs_test.gd 2>&1 | tee /tmp/track-kerbs-463.log
@@ -354,18 +401,21 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/track-kerbs-463.log
 
       - name: Verify browser-style native workspace, inspector and persistent full-map zoom
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_editor_workspace_test.gd 2>&1 | tee /tmp/native-workspace-463.log
           grep -q 'NATIVE EDITOR WORKSPACE: PASS' /tmp/native-workspace-463.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/native-workspace-463.log
       - name: Verify native F6 world editor uses real junctions, traffic and restores test drive (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_world_editor_test.gd 2>&1 | tee /tmp/native-editor-463.log
           grep -q 'NATIVE WORLD EDITOR FOUNDATION: PASS' /tmp/native-editor-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-editor-463.log
       - name: Start real Morrow Coast with ownership, wheel rig, HUD and camera
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/game_startup_smoke_test.gd 2>&1 | tee /tmp/godot463-startup.log
@@ -375,6 +425,7 @@ jobs:
             exit 1
           fi
       - name: Launch the normal game scene, not only the test harness
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 35s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --quit-after 90 2>&1 | tee /tmp/godot463-real-game.log
@@ -383,6 +434,7 @@ jobs:
             exit 1
           fi
       - name: Capture real visible startup scene using GPU-compatible display
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           if ! command -v xvfb-run >/dev/null; then
@@ -393,24 +445,28 @@ jobs:
           grep -q 'ACTUAL GAME RENDER DIAGNOSTIC: PASS' /tmp/godot463-render-probe.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-render-probe.log
       - name: Verify real rendered roads and scenery across developed districts
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           LIBGL_ALWAYS_SOFTWARE=1 timeout --signal=SIGINT --kill-after=5s 110s xvfb-run -a ./Godot_v4.6.3-stable_linux.x86_64 --audio-driver Dummy --path . --fixed-fps 60 --script res://tests/world_render_contract_test.gd 2>&1 | tee /tmp/godot463-world-render.log
           grep -q 'WORLD RENDER CONTRACT: PASS' /tmp/godot463-world-render.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/godot463-world-render.log
       - name: Verify real 10000 HP and 10000 lb-ft acceleration, RPM, grip and wheelspin
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 85s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/high_output_powertrain_test.gd 2>&1 | tee /tmp/godot463-high-output.log
           grep -q 'HIGH OUTPUT POWER AND TORQUE PHYSICS: PASS' /tmp/godot463-high-output.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-high-output.log
       - name: Verify 10 percent larger road surfaces, junctions and unchanged car scale
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_width_adaptation_test.gd 2>&1 | tee /tmp/godot463-road-width.log
           grep -q 'MORROW 10 PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
       - name: Validate traffic crash recovery, junction queues and player collision sensing
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_impact_recovery_test.gd 2>&1 | tee /tmp/godot463-traffic-recovery.log
@@ -423,60 +479,70 @@ jobs:
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-safety.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-safety.log
       - name: Verify real drafting physics, wake lines, exhaust and boost camera effects (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_two_effects_test.gd 2>&1 | tee /tmp/driving-phase2-463.log
           grep -q 'DRIVING PHASE 2 FX: PASS' /tmp/driving-phase2-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase2-463.log
       - name: Verify weather, wet grip, spray, debris and reflections (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_three_effects_test.gd 2>&1 | tee /tmp/driving-phase3-463.log
           grep -q 'DRIVING PHASE 3 FX: PASS' /tmp/driving-phase3-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase3-463.log
       - name: Verify shared taillights, brake lights, reverse lights, smoke and multi-car skidmarks (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/driving_phase_one_effects_test.gd 2>&1 | tee /tmp/driving-phase1-463.log
           grep -q 'DRIVING PHASE 1 FX: PASS' /tmp/driving-phase1-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-phase1-463.log
       - name: Verify speed-gated collision sparks, debris and world-space crash flashes (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/crash_effects_test.gd 2>&1 | tee /tmp/crash-effects-463.log
           grep -q 'CRASH EFFECTS: PASS' /tmp/crash-effects-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/crash-effects-463.log
       - name: Verify traffic curve detection and safe offscreen stuck cleanup
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_path_stuck_cleanup_test.gd 2>&1 | tee /tmp/godot463-traffic-stuck.log
           grep -q 'AI PATH DETECTION AND OFFSCREEN CLEANUP: PASS' /tmp/godot463-traffic-stuck.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-traffic-stuck.log
       - name: Verify head-to-head street racing around real moving traffic
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_traffic_overtaking_test.gd 2>&1 | tee /tmp/godot463-racing-traffic.log
           grep -q 'RACING TRAFFIC OVERTAKING: PASS' /tmp/godot463-racing-traffic.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-traffic.log
       - name: Verify traffic graph racing line on city streets and circuit
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_racing_line_test.gd 2>&1 | tee /tmp/godot463-racing-line.log
           grep -q 'TRAFFIC-AWARE RACING LINE: PASS' /tmp/godot463-racing-line.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-line.log
       - name: Check active minimap route and real-speed braking line at Ashford
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_guidance_test.gd 2>&1 | tee /tmp/godot463-race-guidance.log
           grep -q 'RACE ROUTE AND BRAKING GUIDE: PASS' /tmp/godot463-race-guidance.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-race-guidance.log
       - name: Verify head-to-head Ashford AI obeys player physics and race progression
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_ai_test.gd 2>&1 | tee /tmp/godot463-racing-ai.log
           grep -q 'ASHFORD HEAD TO HEAD AI: PASS' /tmp/godot463-racing-ai.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-racing-ai.log
       - name: Verify slimmer and inset wheels across model changes (Godot 4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/wheel_visual_test.gd 2>&1 | tee /tmp/godot463-wheel-visual.log
@@ -486,12 +552,14 @@ jobs:
           grep -q 'MULTI-MODEL WHEEL TESTS: PASS' /tmp/godot463-multi-wheel.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-multi-wheel.log
       - name: Verify stable tire and body alignment without curb suspension (Godot 4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/curb_suspension_animation_test.gd 2>&1 | tee /tmp/godot463-curb.log
           grep -q 'STABLE TIRE VISUALS: PASS' /tmp/godot463-curb.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-curb.log
       - name: Verify 10 percent larger traffic and 20 percent world camera zoom (Godot 4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/camera_comfort_test.gd 2>&1 | tee /tmp/godot463-zoom.log
@@ -501,48 +569,56 @@ jobs:
           grep -q 'TRAFFIC SAFETY / CRASH PHYSICS: PASS' /tmp/godot463-traffic-size.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|FAIL ' /tmp/godot463-traffic-size.log
       - name: Verify directional off-screen vehicle warnings and split-camera views (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/offscreen_vehicle_awareness_test.gd 2>&1 | tee /tmp/offscreen-vehicle-awareness-463.log
           grep -q 'OFFSCREEN VEHICLE AWARENESS: PASS' /tmp/offscreen-vehicle-awareness-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/offscreen-vehicle-awareness-463.log
       - name: Verify all 50 new vehicle assets, specs, prices, dealerships and drivetrains (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/new_vehicle_additions_test.gd 2>&1 | tee /tmp/streetbound-new-vehicles-463.log
           grep -q 'NEW VEHICLE ADDITIONS: PASS' /tmp/streetbound-new-vehicles-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-new-vehicles-463.log
       - name: Audit all 148 cars, reference trims, prices and modeled drivetrains (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/vehicle_realworld_audit_test.gd 2>&1 | tee /tmp/vehicle-spec-audit-463.log
           grep -q 'VEHICLE REAL-WORLD AUDIT: PASS' /tmp/vehicle-spec-audit-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/vehicle-spec-audit-463.log
       - name: Verify 120 balanced four-specialization upgrades, race pools and turbo/nitrous (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 115s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/expanded_upgrade_catalog_test.gd 2>&1 | tee /tmp/streetbound-expanded-upgrades-463.log
           grep -q 'EXPANDED UPGRADE CATALOG: PASS' /tmp/streetbound-expanded-upgrades-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-expanded-upgrades-463.log
       - name: Verify remappable keyboard, mouse and controller bindings (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/remappable_controls_settings_test.gd 2>&1 | tee /tmp/streetbound-controls-463.log
           grep -q 'REMAP SETTINGS CONTROLS: PASS' /tmp/streetbound-controls-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-controls-463.log
       - name: Verify local shared-world split-screen, inputs and restore (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/local_split_screen_test.gd 2>&1 | tee /tmp/local-splitscreen-463.log
           grep -q 'LOCAL SPLIT SCREEN: PASS' /tmp/local-splitscreen-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/local-splitscreen-463.log
       - name: Verify six-slot upgrade overlay works in Godot 4.6.3
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/quick_upgrades_overlay_test.gd 2>&1 | tee /tmp/godot463-quick-upgrades.log
           grep -q 'QUICK UPGRADES OVERLAY: PASS' /tmp/godot463-quick-upgrades.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-quick-upgrades.log
       - name: Validate compact dashboard, vertical meters, zero text overlap and telemetry on Godot 4.6.3
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/live_vehicle_dashboard_test.gd 2>&1 | tee /tmp/streetbound-dashboard-layout.log
@@ -552,6 +628,7 @@ jobs:
             exit 1
           fi
       - name: Verify publishing a saved map into normal game world (Godot 4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -euo pipefail
           python3 -B tests/publish_custom_world_test.py
