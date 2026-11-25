@@ -20,6 +20,9 @@ static func valid(marker: Dictionary) -> bool:
 	if properties.has("contract_kind"):
 		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false
 	if properties.has("contact_style") and str(properties.contact_style) not in ["street","business","mechanic","casual"]:return false
+	for pair in [["contact_role",60],["contact_greeting",180],["contact_bio",240]]:
+		var field: String = str(pair[0])
+		if properties.has(field) and (not properties[field] is String or str(properties[field]).length()>int(pair[1])):return false
 	if properties.has("offers") and (kind != "contract_contact" or not properties.offers is Array or properties.offers.size()>Contracts.MAX_OFFERS):
 		return false
 	if properties.has("destination_marker_id"):
