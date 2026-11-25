@@ -8,6 +8,16 @@ const ContractRuntime = preload("res://scripts/world/driving_contracts.gd")
 const MarkerRuntime = preload("res://scripts/world/authored_map_markers.gd")
 const PoliceRuntime = preload("res://scripts/world/police_pursuit.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
+const ContactEditor = preload("res://scripts/dev/native_contract_contact_editor.gd")
+const ContactVisual = preload("res://scripts/world/contract_contact_visual.gd")
+
+class PoliceStub extends Node2D:
+	signal busted(reason: String)
+	var wanted_level := 0
+	var bust_timer := 0.0
+	func start_pursuit(level: int) -> bool:
+		wanted_level=level
+		return true
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -75,6 +85,54 @@ func run() -> void:
 	check("cross_map_counts_independent",int(economy.completed_driving_contracts.get(
 		"another-world::marker-2",0))==0)
 
+	# A visible roadside person has multiple individually configured jobs.
+	var robbery_offer: Dictionary = {"id":"job_1","title":"Harbor Bank Pickup",
+		"kind":"robbery","difficulty":"pro","destination_marker_id":"marker-12",
+		"robbery_marker_id":"marker-11","cash":4000,"player_xp":650,
+		"car_xp":420,"underground_rep":12,"wanted_level":3,
+		"time_limit_seconds":540,"required_player_level":1,
+		"required_underground_rep":0,"repeatable":false}
+	var courier_offer: Dictionary = {"id":"job_2","title":"Safe Parcel Delivery",
+		"kind":"courier","difficulty":"rookie","destination_marker_id":"marker-12",
+		"repeatable":true}
+	var contact := marker("marker-10","contract_contact",100.0,100.0,
+		{"contact_style":"business","description":"Dispatch agent",
+		 "offers":[robbery_offer,courier_offer]})
+	var robbery_site := marker("marker-11","robbery_target",320.0,200.0)
+	var contact_dropoff := marker("marker-12","contract_dropoff",550.0,350.0)
+	var contact_markers: Array=[contact,robbery_site,contact_dropoff]
+	var by_id := {"marker-10":contact,"marker-11":robbery_site,
+		"marker-12":contact_dropoff}
+	check("npc_contact_multiple_offers_validate",Contracts.valid_contact(contact,by_id)
+		and MarkerRules.valid_links(contact_markers,[],[]))
+	var bad_offer: Dictionary=robbery_offer.duplicate(true)
+	bad_offer.robbery_marker_id="marker-404"
+	check("robbery_requires_real_location",not Contracts.valid_offer(bad_offer,contact,by_id))
+	bad_offer=robbery_offer.duplicate(true)
+	bad_offer.cash=999999
+	check("payout_above_cap_rejected",not Contracts.valid_offer(bad_offer,contact,by_id))
+	var duplicated: Dictionary=contact.duplicate(true)
+	duplicated.properties.offers=[robbery_offer,robbery_offer]
+	check("duplicate_job_ids_rejected",not Contracts.valid_contact(duplicated,by_id))
+	var invalid_type: Dictionary=robbery_offer.duplicate(true)
+	invalid_type.kind="on_foot"
+	check("no_on_foot_job_type",not Contracts.valid_offer(invalid_type,contact,by_id))
+	check("configured_reward_remains_bounded",int(Contracts.configured_reward("robbery",robbery_offer).cash)==4000)
+	var custom_economy := Ownership.new(false)
+	var first_custom := custom_economy.record_driving_contract(
+		"person-job-test-run-001","world-a::marker-10_job_1","robbery",robbery_offer)
+	check("configured_robbery_pays_and_gives_rep",
+		first_custom.get("result","")=="completed" and
+		custom_economy.balance==Ownership.STARTING_CASH+4000 and
+		custom_economy.underground_reputation==12)
+	check("one_shot_robbery_cannot_pay_twice",custom_economy.record_driving_contract(
+		"person-job-test-run-002","world-a::marker-10_job_1","robbery",robbery_offer).get("result","")=="already_completed")
+	bad_offer=robbery_offer.duplicate(true)
+	bad_offer.cash=20000
+	check("economy_rejects_untrusted_over_cap_rewards",
+		custom_economy.record_driving_contract("person-job-test-run-003",
+			"world-b::marker-10_job_1","robbery",bad_offer).get("result","")=="invalid_reward")
+
 	# Real native-editor source validation and undo support for contract links.
 	var session := Session.new()
 	session.doc = {"format":"gdt.racing-world","version":2,"customMap":true,
@@ -82,6 +140,29 @@ func run() -> void:
 		"roads":[],"regions":[],"props":[],"markers":[source,destination],
 		"assets":[],"races":[],"dealerships":[]}
 	check("contract_editor_accepts_source",session._valid_source(session.doc))
+	var contact_session:=Session.new()
+	contact_session.doc=session.doc.duplicate(true)
+	contact_session.doc.markers=contact_markers.duplicate(true)
+	check("native_editor_accepts_contact_with_robbery",contact_session._valid_source(contact_session.doc))
+	var changed_contact: Dictionary=contact.duplicate(true)
+	changed_contact.properties.contact_style="street"
+	check("native_editor_undo_restores_contact",contact_session.update_marker("marker-10",
+		{"properties":changed_contact.properties}) and contact_session.undo() and
+		str(contact_session.marker_at_id("marker-10").properties.contact_style)=="business")
+	var editor: RefCounted=ContactEditor.new()
+	var host:=Control.new()
+	root.add_child(host)
+	editor.build(host)
+	editor.open_for(contact_session,contact)
+	check("npc_contract_editor_loads_two_jobs",editor.offers.size()==2)
+	var visual:=Node2D.new()
+	visual.set_script(ContactVisual)
+	root.add_child(visual)
+	await process_frame
+	check("roadside_person_visual_created",is_instance_valid(visual) and
+		visual.get_script()!=null)
+	visual.queue_free()
+	host.queue_free()
 	check("edit_undo_contract_type",session.update_marker("marker-2",
 		{"properties":{"contract_kind":"smuggling","destination_marker_id":"marker-3"}})
 		and str(session.marker_at_id("marker-2").properties.contract_kind)=="smuggling"
@@ -127,6 +208,44 @@ func run() -> void:
 	runtime.call("_physics_process",0.02)
 	check("busted_job_cannot_pay",economy.balance==after_busted and
 		(runtime.get("active") as Dictionary).is_empty())
+	# Staged robbery requires waiting at the real target, evading police
+	# and stopping at the final dropoff. No reward before those conditions.
+	var test_officer: Node2D=PoliceStub.new()
+	var staged: Node2D=Node2D.new()
+	staged.set_script(ContractRuntime)
+	staged.set("player",vehicle)
+	staged.set("police",test_officer)
+	staged.set("marker_source",source_markers)
+	staged.set("economy",economy)
+	var synthetic:=marker("marker-10_job_1","contract",100.0,100.0,
+		{"contract_kind":"robbery","destination_marker_id":"marker-12",
+		 "robbery_marker_id":"marker-11"})
+	staged.set("active",synthetic)
+	staged.set("destination",contact_dropoff)
+	staged.set("robbery_target",robbery_site)
+	staged.set("offer_settings",robbery_offer)
+	staged.set("stage","robbery")
+	staged.set("remaining_seconds",540.0)
+	staged.set("run_token","person-robbery-stage-run-004")
+	staged.set("started_car_id",str(economy.active_id))
+	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
+	vehicle.linear_velocity=Vector2.ZERO
+	var balance_before_robbery:int=economy.balance
+	staged.call("_physics_process",3.0)
+	check("waiting_for_offscreen_crew_has_no_payout",economy.balance==balance_before_robbery
+		and str(staged.get("stage"))=="robbery")
+	staged.call("_physics_process",5.0)
+	check("robbery_handoff_triggers_police",str(staged.get("stage"))=="delivery"
+		and int(test_officer.get("wanted_level"))==3)
+	vehicle.position=Vector2(contact_dropoff.x,contact_dropoff.y)*20.0
+	staged.call("_physics_process",0.02)
+	check("police_chase_blocks_robbery_payout",economy.balance==balance_before_robbery)
+	test_officer.set("wanted_level",0)
+	staged.call("_physics_process",0.02)
+	check("evade_and_dropoff_completes_robbery",economy.balance==balance_before_robbery+4000
+		and (staged.get("active") as Dictionary).is_empty())
+	staged.free()
+	test_officer.free()
 	runtime.free()
 	source_markers.free()
 	police.free()
