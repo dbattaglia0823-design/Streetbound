@@ -2,6 +2,7 @@ extends RefCounted
 ## Presentation-only contact metadata. No save changes or reward authority.
 const Rules = preload("res://scripts/world/driving_contract_rules.gd")
 const PERSONAS := {
+	"racing": {"role":"RACING PROMOTER","greeting":"Show me what you can do on the track. Good drivers get introductions.","bio":"Organizes underground races and connects proven drivers with higher-paying jobs.","accent":Color("#e9a86e")},
 	"street": {
 		"role": "STREET FIXER",
 		"greeting": "I know the roads, and I know who needs a good driver.",
