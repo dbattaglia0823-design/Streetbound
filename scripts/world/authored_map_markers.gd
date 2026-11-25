@@ -69,6 +69,7 @@ func _ready() -> void:
 	panel.custom_minimum_size=Vector2(480,420)
 	panel.visible=false
 	panel.process_mode=Node.PROCESS_MODE_ALWAYS
+	get_node("/root/MenuNavigation").register_scope(panel,18,_close_travel)
 	canvas.add_child(panel)
 	var box:=VBoxContainer.new()
 	panel.add_child(box)
