@@ -690,8 +690,11 @@ function refreshContactEditor(marker){
     ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
     ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
     ['contact-offer-required-level','required_player_level'],
-    ['contact-offer-required-rep','required_underground_rep']
-  ])$(id).value=offer[key]??defaults[key]??(key==='required_player_level'?1:0);
+    ['contact-offer-required-rep','required_underground_rep'],
+    ['contact-offer-radius','arrival_radius_m'],
+    ['contact-offer-wait','robbery_hold_seconds']
+  ])$(id).value=offer[key]??defaults[key]??(
+    key==='required_player_level'?1:key==='arrival_radius_m'?12:key==='robbery_hold_seconds'?7:0);
   $('contact-editor-help').textContent='Job ID '+offer.id+' stays stable for career progression. '+(kind==='robbery'
     ?'Player waits in car at the target while the crew acts off-screen, then escapes police to the dropoff.'
     :'Reach the configured destination before the timer runs out.');
