@@ -256,6 +256,8 @@ func _load_selected() -> void:
 	_pick(dropoff_input,str(offer.get("destination_marker_id","")))
 	_pick(target_input,str(offer.get("robbery_marker_id","")))
 	repeat_input.button_pressed=bool(offer.get("repeatable",true))
+	arrival_radius_input.value=int(offer.get("arrival_radius_m",12))
+	robbery_wait_input.value=int(offer.get("robbery_hold_seconds",7))
 	var rewards: Dictionary=Rules.configured_reward(kind,offer)
 	cash_input.value=int(rewards.cash)
 	player_xp_input.value=int(rewards.player_xp)
@@ -266,6 +268,7 @@ func _load_selected() -> void:
 	level_input.value=int(offer.get("required_player_level",1))
 	required_rep_input.value=int(offer.get("required_underground_rep",0))
 	target_input.visible=kind=="robbery"
+	robbery_wait_input.visible=kind=="robbery"
 	status.text="Job ID: "+str(offer.get("id",""))+" — stable for saved career progress."
 
 func _commit_selected() -> void:
@@ -290,6 +293,9 @@ func _commit_selected() -> void:
 	offer.underground_rep=int(rep_input.value)
 	offer.wanted_level=int(wanted_input.value)
 	offer.time_limit_seconds=int(duration_input.value)
+	offer.arrival_radius_m=int(arrival_radius_input.value)
+	if offer.kind=="robbery":offer.robbery_hold_seconds=int(robbery_wait_input.value)
+	else:offer.erase("robbery_hold_seconds")
 	offer.required_player_level=int(level_input.value)
 	offer.required_underground_rep=int(required_rep_input.value)
 	offers[selected_index]=offer
@@ -311,6 +317,7 @@ func _on_kind_changed(_index: int) -> void:
 	wanted_input.value=Rules.wanted_level(kind)
 	duration_input.value=Rules.time_limit(kind)
 	target_input.visible=kind=="robbery"
+	robbery_wait_input.visible=kind=="robbery"
 
 func _add_job() -> void:
 	_commit_selected()
@@ -323,13 +330,20 @@ func _add_job() -> void:
 		used[str(offer.get("id",""))]=true
 	while used.has("job_%d"%number):
 		number+=1
+	var target_id:=_value(dropoff_input)
+	if target_id.is_empty() and dropoff_input.item_count>1:
+		target_id=str(dropoff_input.get_item_metadata(1))
+	if target_id.is_empty():
+		status.text="Place a contract drop-off marker before creating a job."
+		return
 	var job:=Rules.configured_reward("courier",{})
 	job.id="job_%d"%number
 	job.title="New Driving Contract"
 	job.kind="courier"
 	job.difficulty="rookie"
-	job.destination_marker_id=""
+	job.destination_marker_id=target_id
 	job.repeatable=true
+	job.arrival_radius_m=12
 	job.wanted_level=0
 	job.time_limit_seconds=270
 	job.required_player_level=1
@@ -340,6 +354,75 @@ func _add_job() -> void:
 	_rebuild_picker()
 	_load_selected()
 	_reloading=false
+
+func _duplicate_job() -> void:
+	_commit_selected()
+	if selected_index<0 or selected_index>=offers.size() or offers.size()>=Rules.MAX_OFFERS:
+		status.text="Select a job to duplicate (maximum eight)."
+		return
+	var source: Dictionary=offers[selected_index]
+	var copy: Dictionary=source.duplicate(true)
+	var number:=1
+	var used: Dictionary={}
+	for offer in offers:used[str(offer.get("id",""))]=true
+	while used.has("job_%d"%number):number+=1
+	copy.id="job_%d"%number
+	copy.title=str(source.get("title","Contract")).substr(0,73)+" Copy"
+	offers.insert(selected_index+1,copy)
+	selected_index+=1
+	_reloading=true
+	_rebuild_picker()
+	_load_selected()
+	_reloading=false
+
+func _move_job(direction: int) -> void:
+	_commit_selected()
+	var next_index:=selected_index+direction
+	if selected_index<0 or next_index<0 or next_index>=offers.size():return
+	var current: Dictionary=offers[selected_index]
+	offers[selected_index]=offers[next_index]
+	offers[next_index]=current
+	selected_index=next_index
+	_reloading=true
+	_rebuild_picker()
+	_load_selected()
+	_reloading=false
+
+func _apply_difficulty_preset() -> void:
+	if selected_index<0 or selected_index>=offers.size():return
+	var difficulty:=_value(difficulty_input)
+	var base:=Rules.configured_reward(_value(type_input),{})
+	var multiplier: float={"rookie":0.7,"amateur":1.0,"pro":1.45,"elite":1.85}.get(difficulty,1.0)
+	for pair in [[cash_input,"cash",10000],[player_xp_input,"player_xp",1500],
+			[car_xp_input,"car_xp",1200],[rep_input,"underground_rep",30]]:
+		var spin: SpinBox=pair[0]
+		spin.value=mini(int(pair[2]),roundi(float(base.get(pair[1],0))*multiplier))
+	var starting_heat:=Rules.wanted_level(_value(type_input))
+	var heat_offset: int={"rookie":-1,"amateur":0,"pro":1,"elite":2}.get(difficulty,0)
+	wanted_input.value=clampi(starting_heat+heat_offset,0,5)
+	level_input.value={"rookie":1,"amateur":8,"pro":20,"elite":40}.get(difficulty,1)
+	status.text="Applied "+difficulty+" values. Job ID, destinations and description remain unchanged."
+
+func validation_errors(contact: Dictionary, available: Array) -> Array[String]:
+	_commit_selected()
+	var map_markers: Dictionary={}
+	for marker in available:
+		if marker is Dictionary:
+			map_markers[str(marker.get("id",""))]=marker
+	var candidate: Dictionary=contact.duplicate(true)
+	var props: Dictionary=candidate.get("properties",{}).duplicate(true)
+	props.merge(save_fields(),true)
+	candidate["properties"]=props
+	map_markers[str(candidate.get("id",""))]=candidate
+	var errors: Array[String]=[]
+	for offer in offers:
+		var title_value:=str(offer.get("title","Contract"))
+		if not Rules.valid_offer(offer,candidate,map_markers):
+			errors.append(title_value+": check job title, rewards, target/drop-off links and 100m spacing.")
+	if not Rules.valid_contact(candidate,map_markers):
+		if errors.is_empty() and not offers.is_empty():
+			errors.append("Duplicate job IDs or invalid contract data.")
+	return errors
 
 func _delete_job() -> void:
 	if selected_index<0 or selected_index>=offers.size():
