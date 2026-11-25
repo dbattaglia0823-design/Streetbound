@@ -97,3 +97,23 @@ test('Race prerequisite edits reject cyclic and missing event links',()=>{
     prerequisite_races:['race-two']
   })));
 });
+
+test('Underground race settings and race-gated contact jobs survive export',()=>{
+  const underground={...race,race_heat:3,entry_fee:2000,escape_time_limit:120,
+    underground_rep_reward:6,required_underground_rep:2};
+  const job={...createOffer([],'getaway','marker-2'),required_race_id:race.id};
+  const doc={...createWorld(),races:[underground],markers:[
+    {...contact,properties:{contact_style:'racing',offers:[job]}},drop,target]};
+  const parsed=parseWorld(serializeWorld(normalizeWorld(doc)));
+  assert.equal(parsed.races[0].race_heat,3);
+  assert.equal(parsed.races[0].entry_fee,2000);
+  assert.equal(parsed.races[0].escape_time_limit,120);
+  assert.equal(parsed.races[0].underground_rep_reward,6);
+  assert.equal(parsed.markers[0].properties.contact_style,'racing');
+  assert.equal(parsed.markers[0].properties.offers[0].required_race_id,race.id);
+  for(const change of [{race_heat:6},{entry_fee:50001},{escape_time_limit:301},
+    {underground_rep_reward:31},{race_heat:0}]){
+    assert.throws(()=>normalizeWorld({...doc,races:[{...underground,...change}]}));
+  }
+  assert.throws(()=>normalizeWorld({...doc,races:[]}));
+});
