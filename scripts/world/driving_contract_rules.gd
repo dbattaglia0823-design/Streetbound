@@ -56,6 +56,8 @@ static func valid_offer(offer: Dictionary, contact: Dictionary, markers_by_id: D
 		return false
 	if offer.has("description") and (not offer.description is String or str(offer.description).length()>400):
 		return false
+	if offer.has("required_race_id") and (not offer.required_race_id is String or str(offer.required_race_id).length()>100 or (not str(offer.required_race_id).is_empty() and not str(offer.required_race_id).begins_with("race-"))):
+		return false
 	var kind := str(offer.get("kind",""))
 	if not valid_kind(kind) or str(offer.get("difficulty","rookie")) not in DIFFICULTIES:
 		return false
