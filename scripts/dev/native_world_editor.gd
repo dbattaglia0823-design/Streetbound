@@ -1783,9 +1783,6 @@ func _update_view(force: bool = false) -> void:
 		return
 	if map_switcher.custom:
 		map_switcher.update_view(self);return
-	if _overview_dirty and pending_drag.is_empty() and is_instance_valid(render_tiles) and not render_tiles.ready_to_show:
-		_overview_dirty=false
-		if is_instance_valid(overview_renderer):overview_renderer.refresh()
 	# Morrow Coast normally streams around the player in _process(), which
 	# is paused in this mode. Load one real, collision-bearing chunk per UI
 	# update instead of creating a fake editor-only representation.
@@ -1802,6 +1799,13 @@ func _update_view(force: bool = false) -> void:
 		render_tiles.configure(editor_camera.get_screen_center_position(),get_viewport().get_visible_rect().size,editor_camera.zoom.x)
 		if is_instance_valid(overview_sprite):overview_sprite.visible=not render_tiles.ready_to_show
 	_sync_editor_preview()
+	# Configure the current zoom's tile coverage and update the preview mask
+	# first. Otherwise a detail-to-overview transition uses the previous
+	# ready_to_show value, leaving a dirty atlas until the next camera update.
+	# Consume the invalidation once, before the overview is displayed.
+	if _overview_dirty and pending_drag.is_empty() and is_instance_valid(overview_renderer) and is_instance_valid(render_tiles) and not render_tiles.ready_to_show:
+		_overview_dirty=false
+		overview_renderer.refresh()
 	gizmos.set_view(editor_camera.get_screen_center_position(),get_viewport().get_visible_rect().size,
 		editor_camera.zoom.x)
 	zoom_label.text="%.1f%%"%[editor_camera.zoom.x*100]
