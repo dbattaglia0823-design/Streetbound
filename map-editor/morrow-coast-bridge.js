@@ -29,7 +29,7 @@ const biomeOf=kind=>BIOMES.has(kind)?kind:kind==='water'?'lake':
   ['town','highland'].includes(kind)?'grass':kind==='riverbank'?'beach':'grass';
 const roadClassOf=kind=>({
   local:'city',arterial:'city',highway:'highway',rural:'country',
-  mountain:'mountain',track:'track',driveway:'service',gravel:'service'
+  mountain:'mountain',track:'track',driveway:'service',gravel:'service',alley:'alley'
 })[kind]||'city';
 const surfaceOf=surface=>surface==='GRAVEL'?'gravel':
   surface==='DIRT'?'dirt':'asphalt';
@@ -61,8 +61,8 @@ export function convertMorrowWorld(raw){
   const roads=raw.roads.map((road,index)=>({
     id:'road-'+index,name:String(road.name||'Road'),roadClass:roadClassOf(road.kind),
     surface:surfaceOf(road.surface),width:clamp(+road.width,6,160),
-    lanes:clamp(road.lanes||2,1,6),shoulder:road.kind==='highway'?4:2,
-    smooth:true,markings:road.surface!=='GRAVEL',
+    lanes:clamp(road.lanes||2,1,6),shoulder:road.kind==='alley'?0:road.kind==='highway'?4:2,
+    smooth:true,markings:road.kind!=='alley'&&road.surface!=='GRAVEL',
     points:pointsOf(road.anchors||road.points)
   }));
   const regions=[];

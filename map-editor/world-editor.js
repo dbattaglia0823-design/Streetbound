@@ -1072,7 +1072,7 @@ function finishDraft(){
       const width=Number($('road-width').value),lanes=Number($('road-lanes').value);
       const shoulder=Number($('road-shoulder').value);
       applied=change(d=>{
-        const created=createEntity(d,'roads',{name:roadClass[0].toUpperCase()+roadClass.slice(1)+' road',roadClass,surface,
+        const created=createEntity(d,'roads',{name:roadClass==='alley'?'Alleyway':roadClass[0].toUpperCase()+roadClass.slice(1)+' road',roadClass,surface,
           width,lanes,shoulder,smooth:$('road-smooth').checked,markings:$('road-markings').checked,points:work.points});
         if(!$('road-smart-snap').checked)return created;
         const newId=created.roads.at(-1).id;
@@ -1572,7 +1572,10 @@ $('scatter').addEventListener('click',()=>{
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
 $('road-class').addEventListener('change',e=>{
-  if(e.target.value==='track')$('road-surface').value='track';
+  if(e.target.value==='alley'){
+    $('road-surface').value='asphalt';$('road-width').value='6';$('road-lanes').value='1';
+    $('road-shoulder').value='0';$('shoulder-label').textContent='0 m';$('road-markings').checked=false;
+  }else if(e.target.value==='track')$('road-surface').value='track';
   else if($('road-surface').value==='track')$('road-surface').value='asphalt';
 });
 $('road-surface').addEventListener('change',e=>{
@@ -1609,7 +1612,8 @@ for(const [elementId,options] of Object.entries(fields)){
       const update={[key]:value};
       if(key==='roadClass'){
         const old=getEntity(doc,selection.id)?.item;
-        if(value==='track')update.surface='track';
+        if(value==='alley'){update.surface='asphalt';update.markings=false;update.shoulder=0;}
+        else if(value==='track')update.surface='track';
         else if(old?.surface==='track')update.surface='asphalt';
       }
       if(key==='surface'){

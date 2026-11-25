@@ -34,6 +34,17 @@ def source():
 
 
 class CustomTestWorldBaker(unittest.TestCase):
+    def test_alleyway_bakes_as_connected_paved_road(self):
+        doc=source()
+        doc['roads'][2].update(roadClass='alley',width=6,lanes=1,shoulder=0,markings=False)
+        archive=make_archive(doc)
+        alley=archive['roads'][2]
+        self.assertEqual(alley['kind'],'alley')
+        self.assertEqual(alley['surface'],'ASPHALT')
+        self.assertEqual(alley['lanes'],1)
+        self.assertTrue(any(2 in j['roads'] for j in archive['junctions']))
+        self.assertTrue(any(s['road']==2 for s in archive['segments']))
+
     def test_full_junction_geometry_and_routing(self):
         archive=make_archive(source())
         self.assertEqual(archive["format"],"streetbound.streamed-world")
