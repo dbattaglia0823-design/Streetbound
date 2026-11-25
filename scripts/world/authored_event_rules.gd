@@ -6,6 +6,7 @@ const CATEGORIES=["street","circuit","time_trial","championship","challenge"]
 const DIFFICULTIES=["rookie","amateur","pro","elite"]
 const MAX_CASH=1000000
 const MAX_XP=100000
+const MAX_ENTRY_FEE=50000
 
 static func valid_event(race: Dictionary) -> bool:
 	if str(race.get("category","street")) not in CATEGORIES:return false
@@ -13,10 +14,13 @@ static func valid_event(race: Dictionary) -> bool:
 	if typeof(race.get("repeatable",true))!=TYPE_BOOL:return false
 	for spec in [["required_player_level",1,100],["required_car_level",1,50],
 		["first_win_reward_cash",0,MAX_CASH],["first_win_reward_player_xp",0,MAX_XP],
-		["first_win_reward_car_xp",0,MAX_XP]]:
+		["first_win_reward_car_xp",0,MAX_XP],["race_heat",0,5],
+		["escape_time_limit",30,300],["entry_fee",0,MAX_ENTRY_FEE],
+		["underground_rep_reward",0,30],["required_underground_rep",0,100000]]:
 		var value: Variant=race.get(spec[0],spec[1])
 		if typeof(value) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(value)) or \
 				float(value)!=floorf(float(value)) or float(value)<spec[1] or float(value)>spec[2]:return false
+	if int(race.get("race_heat",0))==0 and int(race.get("underground_rep_reward",0))>0:return false
 	var predecessors: Variant=race.get("prerequisite_races",[])
 	if not predecessors is Array or predecessors.size()>16:return false
 	var seen: Dictionary={}
@@ -65,6 +69,8 @@ static func lock_reason(race: Dictionary,economy: Object,world_id: String="morro
 		return "REQUIRES DRIVER LEVEL %d"%int(race.required_player_level)
 	if economy.active_car_level()<int(race.get("required_car_level",1)):
 		return "REQUIRES VEHICLE LEVEL %d"%int(race.required_car_level)
+	if int(economy.get("underground_reputation"))<int(race.get("required_underground_rep",0)):
+		return "REQUIRES UNDERGROUND REP %d"%int(race.get("required_underground_rep",0))
 	var allowed: Array=race.get("required_vehicle_ids",[])
 	if not allowed.is_empty() and not allowed.has(str(economy.active_id)):
 		return "CURRENT VEHICLE IS NOT ELIGIBLE"
