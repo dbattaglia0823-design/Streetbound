@@ -12,7 +12,7 @@ const BLOCKADE_MAX_M := 170.0
 
 static func profile(wanted: int) -> Dictionary:
 	var tier := clampi(wanted, 1, 5)
-	var count := [1, 2, 3, 4, 4][tier - 1]
+	var count: int = [1, 2, 3, 4, 4][tier - 1]
 	# Target speeds are requested cruise caps, not magic top-speed boosts.
 	# Every officer has the same ordinary vehicle dynamics as other cars.
 	return {
