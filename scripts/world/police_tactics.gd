@@ -66,6 +66,26 @@ static func intercept_target(last_m: Vector2, known_velocity_mps: Vector2,
 		_:
 			return last_m - direction * 3.0
 
+static func containment_target(known_m: Vector2, heading: Vector2,
+		role_name: String) -> Vector2:
+	# Three real officers drive to a broad triangular ring (120° apart)
+	# only when the suspect has slowed and they are already nearby.
+	# Merely targeting these positions is NOT an arrest: the existing
+	# collision-based proximity/angle/4-second rules remain mandatory.
+	var forward := heading.normalized()
+	if forward.length_squared() < 0.5:
+		forward = Vector2.UP
+	var right := Vector2(-forward.y, forward.x)
+	match role_name:
+		"intercept":
+			return known_m + forward * 5.4
+		"flank_left":
+			return known_m - forward * 2.7 + right * 4.67
+		"flank_right":
+			return known_m - forward * 2.7 + right * 4.67
+		_:
+			return known_m - forward * 2.7 - right * 4.67
+
 static func roadblock_candidate(candidates: Array[Dictionary], last_m: Vector2,
 		heading: Vector2) -> Dictionary:
 	# Roadblocks are assignments for ALREADY-DRIVING officers, never a
