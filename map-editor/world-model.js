@@ -220,9 +220,12 @@ export function normalizeWorld(raw){
       }
       for(const [field,min,max] of [['required_player_level',1,100],['required_car_level',1,50],
         ['first_win_reward_cash',0,1000000],['first_win_reward_player_xp',0,100000],
-        ['first_win_reward_car_xp',0,100000]]){
+        ['first_win_reward_car_xp',0,100000],['race_heat',0,5],['escape_time_limit',30,300],
+        ['entry_fee',0,50000],['underground_rep_reward',0,30],['required_underground_rep',0,100000]]){
         if(r[field]!==undefined)entry[field]=integer(r[field],min,max,field);
       }
+      if((entry.race_heat??0)===0&&(entry.underground_rep_reward??0)>0)
+        throw new TypeError('Underground race reputation requires wanted level above zero');
       for(const field of ['prerequisite_races','required_vehicle_ids']){
         if(r[field]===undefined)continue;
         const items=r[field];
@@ -341,7 +344,7 @@ export function normalizeWorld(raw){
       if(distance<100||distance>15000)
         throw new RangeError('Driving contract distance must be between 100 and 15000 metres');
     }
-    if(info.contact_style!==undefined&&!['street','business','mechanic','casual'].includes(info.contact_style))
+    if(info.contact_style!==undefined&&!['street','business','mechanic','casual','racing'].includes(info.contact_style))
       throw new TypeError('Invalid contact appearance');
     for(const [field,max] of [['contact_role',60],['contact_greeting',180],['contact_bio',240]]){
       if(info[field]!==undefined&&(typeof info[field]!=='string'||info[field].length>max))
@@ -364,6 +367,9 @@ export function normalizeWorld(raw){
         if(!['courier','smuggling','getaway','robbery'].includes(offer.kind)||
            !['rookie','amateur','pro','elite'].includes(offer.difficulty??'rookie'))
           throw new TypeError('Invalid job type or difficulty');
+        if(offer.required_race_id!==undefined&&(typeof offer.required_race_id!=='string'||
+          (offer.required_race_id!==''&&!raceIds.has(offer.required_race_id))))
+          throw new TypeError('Contract requires an existing race victory');
         if(offer.repeatable!==undefined&&typeof offer.repeatable!=='boolean')
           throw new TypeError('Invalid repeatability');
         for(const [key,min,max] of [['cash',0,10000],['player_xp',0,1500],['car_xp',0,1200],
