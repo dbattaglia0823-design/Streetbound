@@ -10,8 +10,23 @@ func run() -> void:
 	var game=load("res://scenes/main.tscn").instantiate();root.add_child(game)
 	for i in 8:await process_frame
 	var player=game.vehicle;player.set_physics_process(false)
+	# Isolate career state and keep the actual entry-fee/heat mechanics.
+	var police: Node=game.police_pursuit
+	police.set_physics_process(false)
+	game.vehicle_ownership.persist_enabled=false
+	game.vehicle_ownership.balance=32000
+	game.vehicle_ownership.underground_reputation=6
+	game.vehicle_damage_service.persist_enabled=false
+	game.vehicle_damage_service.set_physics_process(false)
+	game.vehicle_damage_service.repair_full()
+	game.vehicle_damage_service.fuel.refill()
+	game.vehicle_damage_service._apply_drive_condition()
+	var flow: Node=game.ground.get_node("AmbientTraffic")
+	flow.set_physics_process(false)
+	flow.clear_traffic()
 	var starting_xp: int=game.vehicle_ownership.player_xp
 	var starting_balance: int=game.vehicle_ownership.balance
+	var paid_entry_fees:=0
 	var menu=game.pause_menu
 	check("interaction_speed_is_exactly_15_mph",
 		is_equal_approx(InteractionSpeed.MAX_SPEED_MPS,6.7056) and
@@ -28,10 +43,12 @@ func run() -> void:
 		check(str(race.race_title)+"_blocks_entry_above_15_mph",not race.can_stage())
 		player.linear_velocity=forward*InteractionSpeed.MAX_SPEED_MPS
 		player.velocity=player.linear_velocity*20.0
+		var balance_before_stage: int=game.vehicle_ownership.balance
 		check(str(race.race_title)+"_stages_while_rolling_at_15_mph",
 			race.can_stage() and race.start_race() and
 			player.linear_velocity.is_zero_approx() and
 			player.velocity.is_zero_approx() and race.state=="countdown")
+		paid_entry_fees+=balance_before_stage-int(game.vehicle_ownership.balance)
 		menu.pause_game();check(str(race.race_title)+"_quit_available_during_countdown",menu.quit_race_button.visible)
 		if race == events[0]:
 			menu.pause_screen.controls["main_menu"].pressed.emit()
@@ -43,7 +60,9 @@ func run() -> void:
 		menu.quit_race_button.pressed.emit()
 		check(str(race.race_title)+"_quit_resumes_free_driving",race.state=="idle" and not paused and not menu.quit_race_button.visible)
 		player.global_position=race.start_m*20;player.linear_velocity=Vector2.ZERO;player.rotation=forward.angle()+PI/2
+		balance_before_stage=game.vehicle_ownership.balance
 		check(str(race.race_title)+"_can_restart_after_quitting",race.start_race())
+		paid_entry_fees+=balance_before_stage-int(game.vehicle_ownership.balance)
 		# All race types now teleport to their own starting grid (including
 		# the offset player lane in a head-to-head drag race). Start this
 		# off-course regression from the actual staged grid position.
@@ -60,6 +79,9 @@ func run() -> void:
 		menu.quit_race_button.pressed.emit()
 		check(str(race.race_title)+"_quit_cleans_race_state",race.state=="idle" and not player.is_in_group("race_participant"))
 		if race==game.drag_race or race==game.street_race or race in game.extra_races:check(str(race.race_title)+"_quit_clears_opponent",race.opponent==null)
+		# Quitting a race does not clear an active pursuit. Confirm escape
+		# before staging the next independent test event.
+		if police.wanted_level>0:police._escape()
 	var authored=Authored.new();authored.world=game.ground;authored.player=player
 	authored.definition={"id":"race-test","name":"Editor Sprint","mode":"sprint","laps":1,"checkpoint_radius":4,"start_radius":8,"time_limit":0,"points":[{"x":2400,"y":3200},{"x":2450,"y":3200},{"x":2500,"y":3200}]}
 	game.ground.add_child(authored);authored.set_physics_process(false)
@@ -100,7 +122,7 @@ func run() -> void:
 					if circuit.state=="results":break
 			check("editor_circuit_lap_%d_progresses_in_order"%[lap_index+1],circuit.state==("results" if lap_index==int(circuit.definition.laps)-1 else "running"))
 		check("baked_editor_circuit_completes_all_configured_laps",circuit.state=="results" and circuit.lap==int(circuit.definition.laps))
-	check("quitting_and_editor_time_trials_award_no_unearned_rewards",game.vehicle_ownership.player_xp==starting_xp and game.vehicle_ownership.balance==starting_balance)
+	check("quitting_and_editor_time_trials_award_no_unearned_rewards",game.vehicle_ownership.player_xp==starting_xp and game.vehicle_ownership.balance==starting_balance-paid_entry_fees)
 	if DisplayServer.get_name()!="headless":
 		authored.state="idle";player.global_position=authored.start_m*20;player.linear_velocity=Vector2.ZERO;player.rotation=PI/2;authored.start_race();menu.pause_game()
 		for i in 3:await process_frame

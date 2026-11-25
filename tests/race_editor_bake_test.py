@@ -8,7 +8,10 @@ doc=json.loads((ROOT/'.runtime/race-editor-test/source.json').read_text())
 expected=doc['races'][0]
 with tempfile.TemporaryDirectory(prefix='streetbound-race-') as tmp:
     work=Path(tmp);shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
-    (work/'data').mkdir();shutil.copy2(ROOT/'data/player_vehicle_catalog.json',work/'data/player_vehicle_catalog.json')
+    # Race validation needs the complete live roster in the isolated builder.
+    (work/'data').mkdir(exist_ok=True)
+    for catalog in ('player_vehicle_catalog.json', 'player_vehicle_additions.json'):
+        shutil.copy2(ROOT/'data'/catalog, work/'data'/catalog)
     path=work/'map-editor/maps/morrow-coast.edits.world.json';path.parent.mkdir(parents=True);(work/'worlds').mkdir()
     path.write_text(json.dumps(doc))
     for prop in doc['props']:
