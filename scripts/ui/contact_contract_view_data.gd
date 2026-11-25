@@ -34,15 +34,19 @@ const KIND_DESCRIPTIONS := {
 	"robbery": "Drive to the target, wait in the car for the crew, evade police and reach the getaway point."
 }
 
+static func _with_fallback(properties: Dictionary, field: String, fallback: String) -> String:
+	var value := str(properties.get(field, "")).strip_edges()
+	return fallback if value.is_empty() else value
+
 static func identity(contact: Dictionary) -> Dictionary:
 	var properties: Dictionary = contact.get("properties", {})
 	var style := str(properties.get("contact_style", "street"))
 	var preset: Dictionary = PERSONAS.get(style, PERSONAS["street"])
 	return {
 		"name": str(contact.get("name", "UNKNOWN CONTACT")).strip_edges(),
-		"role": str(properties.get("contact_role", preset["role"])).strip_edges(),
-		"greeting": str(properties.get("contact_greeting", preset["greeting"])).strip_edges(),
-		"bio": str(properties.get("contact_bio", preset["bio"])).strip_edges(),
+		"role": _with_fallback(properties, "contact_role", str(preset["role"])),
+		"greeting": _with_fallback(properties, "contact_greeting", str(preset["greeting"])),
+		"bio": _with_fallback(properties, "contact_bio", str(preset["bio"])),
 		"accent": preset["accent"],
 		"style": style
 	}
