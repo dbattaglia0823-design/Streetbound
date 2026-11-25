@@ -17,6 +17,10 @@ for index,prop in enumerate(native['props']):
 with tempfile.TemporaryDirectory(prefix='sprite-sheets-',dir=ROOT/'.runtime') as temporary:
     work=Path(temporary)
     shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
+    # Race validation needs the complete live roster in the isolated builder.
+    (work/'data').mkdir(exist_ok=True)
+    for catalog in ('player_vehicle_catalog.json', 'player_vehicle_additions.json'):
+        shutil.copy2(ROOT/'data'/catalog, work/'data'/catalog)
     source=work/'map-editor/maps/morrow-coast.edits.world.json';source.parent.mkdir(parents=True)
     source.write_text(json.dumps(doc))
     (work/'worlds').mkdir();shutil.copy2(ROOT/'worlds/morrow-coast.world.json',work/'worlds/morrow-coast.world.json')
