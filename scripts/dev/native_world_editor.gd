@@ -2157,7 +2157,7 @@ func _change_road_type(_index: int) -> void:
 	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
 	if kind=="track":_select_road_option(road_surface,"track")
 	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
-	_change_road_settings()
+	_commit_road_type_and_surface()
 
 func _change_road_surface(_index: int) -> void:
 	if _setting_controls:return
@@ -2165,7 +2165,14 @@ func _change_road_surface(_index: int) -> void:
 	if surface=="track":_select_road_option(road_class,"track")
 	elif _option_value(road_class)=="track" and surface in ["gravel","dirt"]:
 		_select_road_option(road_class,"country")
-	_change_road_settings()
+	_commit_road_type_and_surface()
+
+func _commit_road_type_and_surface() -> void:
+	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
+	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
+		"surface":_option_value(road_surface)}):
+		_refresh_authoring()
+		_notice("Road type and surface updated. Geometry and dimensions preserved.")
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
