@@ -13,6 +13,10 @@ original=edited['sourceAppearance']
 with tempfile.TemporaryDirectory(prefix='streetbound-asset-') as temporary:
     work=Path(temporary)
     shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
+    # Race validation needs the complete live roster in the isolated builder.
+    (work/'data').mkdir(exist_ok=True)
+    for catalog in ('player_vehicle_catalog.json', 'player_vehicle_additions.json'):
+        shutil.copy2(ROOT/'data'/catalog, work/'data'/catalog)
     path=work/'map-editor/maps/morrow-coast.edits.world.json'
     path.parent.mkdir(parents=True);(work/'worlds').mkdir()
     # Reproduce a current generated world first: the checked-in archive may

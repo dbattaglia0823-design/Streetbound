@@ -11,6 +11,18 @@ func run() -> void:
 	var game: Node=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.vehicle.set_physics_process(false)
+	# Drive the real career event and pursuit state machine deterministically.
+	# No real police movement, fuel drain, or persistent reward writes in this fixture.
+	var police: Node = game.police_pursuit
+	police.set_physics_process(false)
+	game.vehicle_ownership.persist_enabled = false
+	game.vehicle_ownership.balance = 32000
+	game.vehicle_ownership.underground_reputation = 0
+	game.vehicle_damage_service.persist_enabled = false
+	game.vehicle_damage_service.set_physics_process(false)
+	game.vehicle_damage_service.repair_full()
+	game.vehicle_damage_service.fuel.refill()
+	game.vehicle_damage_service._apply_drive_condition()
 	var flow: Node=game.ground.get_node("AmbientTraffic")
 	flow.set_physics_process(false);flow.clear_traffic()
 	for race in get_nodes_in_group("streetbound_race"):race.set_physics_process(false)
@@ -49,19 +61,32 @@ func run() -> void:
 		check(str(event.race_title)+"_physical_rival_and_countdown",event.state=="countdown" and is_instance_valid(event.opponent))
 		check("another_event_cannot_stage_during_active_race",not game.street_race.can_stage())
 		event._clear_opponent();event.countdown=.01;event._physics_process(.02)
+		check(str(event.race_title)+"_starts_pursuit_after_countdown",event.state=="running" and police.wanted_level>0)
+		var before_reward: int = game.vehicle_ownership.balance
+		var before_rep: int = game.vehicle_ownership.underground_reputation
 		var distance:=0.0
 		while distance<float(nav.length_m) and event.state=="running":
 			distance=minf(float(nav.length_m),distance+3)
 			game.vehicle.position=nav.point_at(distance)*20
 			game.vehicle.linear_velocity=event.heading*30
 			event._physics_process(.1)
-		check(str(event.race_title)+"_finishes_after_full_course",event.state=="results",event.result)
-		event.state="idle";game.vehicle.position=event.start_m*20;game.vehicle.linear_velocity=Vector2.ZERO
+		check(str(event.race_title)+"_finishes_course_with_escape_pending",event.state=="running" and event.awaiting_escape and police.wanted_level>0,event.result)
+		check(str(event.race_title)+"_no_reward_before_escape",game.vehicle_ownership.balance==before_reward and game.vehicle_ownership.underground_reputation==before_rep)
+		# Simulate a confirmed escape, not a bypass of the career requirement.
+		# The independent police-tactics suite tests actual pursuit detection.
+		if police.wanted_level>0:police._escape()
+		event._physics_process(.1)
+		check(str(event.race_title)+"_finishes_after_full_course_and_escape",event.state=="results" and not event.awaiting_escape,event.result)
+		check(str(event.race_title)+"_escape_awards_cash_and_rep",game.vehicle_ownership.balance>before_reward and game.vehicle_ownership.underground_reputation>before_rep)
+		# Let results expire normally so all active race state is cleaned up.
+		event._physics_process(10.0)
+		game.vehicle.position=event.start_m*20;game.vehicle.linear_velocity=Vector2.ZERO
 		check(str(event.race_title)+"_replayable",event.start_race())
 		event._clear_opponent();event.countdown=.01;event._physics_process(.02)
 		game.vehicle.position=event.finish_m*20;event._physics_process(.1)
 		check(str(event.race_title)+"_rejects_finish_teleport",event.state=="aborted")
-		event.state="idle"
+		if police.wanted_level>0:police._escape()
+		event._physics_process(10.0)
 		await process_frame
 	game.vehicle.position=game.ground.spawn_position();game.vehicle.linear_velocity=Vector2.ZERO
 	var gps: Node=map.waypoints

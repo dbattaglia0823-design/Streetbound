@@ -12,6 +12,10 @@ assert not overlaps({**a,'angle':math.pi/2},{**b,'angle':math.pi/2,'p':[0,10]})
 doc=json.loads((ROOT/'.runtime/road-edit-audit/city-source.json').read_text())
 with tempfile.TemporaryDirectory(prefix='streetbound-city-') as tmp:
     work=Path(tmp);shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
+    # Race validation needs the complete live roster in the isolated builder.
+    (work/'data').mkdir(exist_ok=True)
+    for catalog in ('player_vehicle_catalog.json', 'player_vehicle_additions.json'):
+        shutil.copy2(ROOT/'data'/catalog, work/'data'/catalog)
     path=work/'map-editor/maps/morrow-coast.edits.world.json';path.parent.mkdir(parents=True);(work/'worlds').mkdir()
     path.write_text(json.dumps(doc))
     for p in doc['props']:
