@@ -251,6 +251,7 @@ func _ready() -> void:
 	full_view.view_changed.connect(_update_scale)
 	text(body,"TAB close · Click to set waypoint · Click a race flag to navigate · Right-click clears · Drag to pan · Wheel to zoom",12,Color("c5d0ba"))
 	full.visible=false
+	get_node("/root/MenuNavigation").register_scope(full,17,_controller_close_atlas)
 	set_minimap_shape(minimap_shape)
 	_update_scale()
 	_update_waypoint_label()
@@ -317,11 +318,17 @@ func _update_scale() -> void:
 	if atlas_scale_label==null or full_view==null: return
 	atlas_scale_label.text="NORTH UP    ·    %.1f× detail    ·    Scroll to zoom / drag to pan"%[full_view.pixels_per_m/full_view.fit_scale]
 
+func _controller_close_atlas() -> void:
+	large=false
+	full.hide()
+	get_viewport().gui_release_focus()
+
 func _input(event: InputEvent) -> void:
 	# The F1 input-capture menu no longer exists. Map toggling is only
 	# gated by the pause state, which still protects Settings input.
 	if event.is_action_pressed("map") and not get_tree().paused:
 		large=not large
+		full.visible=large
 		get_viewport().set_input_as_handled()
 
 func _active_race_navigation() -> RefCounted:
