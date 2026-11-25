@@ -41,7 +41,7 @@ func _ready() -> void:
 	_load_resources()
 	current_car_id = str(economy.active_id)
 	_configure_active_car()
-	player.crash_contact.connect(_on_impact)
+	player.damage_contact.connect(_on_impact)
 	player.vehicle_reset.connect(_apply_drive_condition)
 	# The VFX follows the player in world coordinates, not the CanvasLayer.
 	# Keep it separate from exhaust flames and tire smoke.
@@ -103,6 +103,7 @@ func _configure_active_car() -> void:
 	var powertrain := str(entry.get("reference_powertrain", "")).to_lower()
 	fuel.configure(vehicle_kind, float(player.config.mass_kg), float(player.config.engine_power_kw),
 		powertrain == "electric")
+	damage.max_health_points = maxi(1, int(entry.get("max_health_points", player.config.max_health_points)))
 	damage.integrity = clampf(float(integrity_by_car.get(current_car_id, 100.0)), 0.0, 100.0)
 	damage.last_impact_at = -INF
 	fuel.remaining = clampf(float(fuel_by_car.get(current_car_id, fuel.capacity)), 0.0, fuel.capacity)
@@ -131,7 +132,8 @@ func _on_impact(speed_mps: float, _position_px: Vector2,
 	integrity_by_car[current_car_id] = damage.integrity
 	_apply_drive_condition()
 	_update_gauges()
-	_show_notice("IMPACT -%d" % roundi(applied))
+	DamageState.show_damage_number(player, applied)
+	_show_notice("IMPACT -%d" % maxi(1, roundi(applied)))
 
 func _apply_drive_condition() -> void:
 	if not is_instance_valid(player):
@@ -343,8 +345,8 @@ func _process(dt: float) -> void:
 	_update_gauges()
 	notice_remaining = maxf(0.0, notice_remaining - dt)
 	var service := _location_type()
-	var label := "ENGINE %d%%  /  %s %d%%" % [
-		roundi(damage.integrity), "CHARGE" if fuel.electric else "FUEL", roundi(fuel.fraction() * 100.0)]
+	var label := "HEALTH %d/%d  /  %s %d%%" % [
+		ceili(damage.current_health_points()), damage.max_health_points, "CHARGE" if fuel.electric else "FUEL", roundi(fuel.fraction() * 100.0)]
 	if damage.is_disabled():
 		label += "  /  DISABLED"
 	elif fuel.empty():

@@ -1,6 +1,7 @@
 extends SceneTree
 ## Deterministic rules and real controller integration for driving-only police.
 const Damage = preload("res://scripts/vehicle/vehicle_damage.gd")
+const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Containment = preload("res://scripts/world/police_containment.gd")
 const Police = preload("res://scripts/world/police_pursuit.gd")
 const DamageService = preload("res://scripts/world/vehicle_damage_service.gd")
@@ -45,6 +46,26 @@ func run() -> void:
 	check("repair_restores_drivetrain", damage.integrity == 100.0 and
 		damage.drive_fraction() == 1.0 and damage.repair_cost() == 0)
 
+	var light = Damage.new()
+	var heavy = Damage.new()
+	light.max_health_points = 90
+	heavy.max_health_points = 180
+	var light_loss: float = light.register_impact(26.0, 1.0)
+	var heavy_loss: float = heavy.register_impact(26.0, 1.0)
+	check("same_impact_loses_same_points", light_loss == heavy_loss and light_loss == 36.0)
+	check("larger_capacity_survives_more_damage", is_equal_approx(light.integrity, 60.0)
+		and is_equal_approx(heavy.integrity, 80.0))
+	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 144.0))
+	heavy.repair()
+	check("repair_restores_model_capacity", heavy.current_health_points() == 180.0)
+	var roster_ok := not Catalog.all().is_empty()
+	for entry in Catalog.all():
+		var hp := int(entry.get("max_health_points", 0))
+		roster_ok = roster_ok and hp > 0
+		if str(entry.kind) in ["suv", "truck"]:
+			roster_ok = roster_ok and hp >= 140
+	check("all_playable_models_have_capacity", roster_ok)
+
 	var police_ring: Array[Vector2] = [
 		Vector2(5.0, 0.0), Vector2(-2.5, 4.33), Vector2(-2.5, -4.33)]
 	var p := Containment.progress(0.0, 1.0, Vector2.ZERO, 0.0, 0.0, police_ring)
@@ -76,6 +97,12 @@ func run() -> void:
 	car.external_input = true
 	root.add_child(car)
 	await physics_frame
+	var orange := Damage.show_damage_number(car, 36.0)
+	var red := Damage.show_damage_number(car, 18.0, true)
+	check("damage_numbers_match_applied_points_and_role", orange != null and red != null
+		and orange.text == "-36" and red.text == "-18"
+		and orange.get_theme_color("font_color") == Damage.PLAYER_DAMAGE_COLOR
+		and red.get_theme_color("font_color") == Damage.POLICE_DAMAGE_COLOR)
 	car.damage_drive_fraction = 0.0
 	car.reset_vehicle()
 	check("reset_does_not_repair_vehicle", car.damage_drive_fraction == 0.0)

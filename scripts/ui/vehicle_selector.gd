@@ -125,10 +125,10 @@ func _create_card(entry: Dictionary) -> void:
 	button.name = "Car_" + str(entry.id).replace("-", "_")
 	button.custom_minimum_size = Vector2(210, 224)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.tooltip_text = "%s  |  %.0f kg  |  %.0f HP  |  %s\n%s  |  %s" % [
+	button.tooltip_text = "%s  |  %.0f kg  |  %.0f HP  |  %s\n%s  |  %s  |  HEALTH %d" % [
 		str(entry.display_name),float(entry.mass_kg),
 		float(entry.power_kw)*1.34102,str(entry.drivetrain),
-		Catalog.reference_label(entry),str(entry.get("reference_transmission",""))]
+		Catalog.reference_label(entry),str(entry.get("reference_transmission","")),int(entry.get("max_health_points",100))]
 	button.pressed.connect(_choose.bind(entry))
 	grid.add_child(button)
 	var photo := TextureRect.new()
@@ -143,6 +143,15 @@ func _create_card(entry: Dictionary) -> void:
 	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(photo)
+	var health_label := Label.new()
+	health_label.text = "HEALTH %d" % int(entry.get("max_health_points",100))
+	health_label.position = Vector2(12, 12)
+	health_label.add_theme_font_size_override("font_size", 11)
+	health_label.add_theme_color_override("font_color", Color("#e5dbb8"))
+	health_label.add_theme_color_override("font_outline_color", Color("#101a1b"))
+	health_label.add_theme_constant_override("outline_size", 4)
+	health_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(health_label)
 	var label := Label.new()
 	label.name = "VehicleName"
 	label.text = str(entry.display_name)

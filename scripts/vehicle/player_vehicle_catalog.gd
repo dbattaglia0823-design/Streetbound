@@ -113,6 +113,7 @@ static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	var stock: VehicleConfig = load("res://resources/sport_coupe.tres") as VehicleConfig
 	var config := stock.duplicate(true) as VehicleConfig
 	config.mass_kg = float(entry.mass_kg)
+	config.max_health_points = maxi(1, int(entry.get("max_health_points", 100)))
 	config.engine_torque_nm = float(entry.torque_nm)
 	config.engine_power_kw = float(entry.power_kw)
 	var gear_count := int(entry.get("reference_gear_count",6))
