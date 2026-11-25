@@ -1721,17 +1721,22 @@ func _test_drive() -> void:
 			get_tree().remove_meta("streetbound_editor_return_position")
 			_notice("Could not launch this custom map for Test Drive.")
 		return
-	if standalone_mode:
-		if authoring.dirty or bridge.phase != "":
-			_notice("Save to Game or DISCARD before Test Drive.")
-			return
-		get_tree().set_meta("streetbound_editor_test_drive",true)
-		get_tree().set_meta("streetbound_editor_return_position",
-			editor_camera.global_position)
-		get_tree().paused = false
-		get_tree().change_scene_to_file("res://scenes/main.tscn")
-	else:
-		close_editor()
+	# Bundled maps also start a clean production scene instead of
+	# resuming the paused editor-backed vehicle with stale preview geometry.
+	if authoring.dirty or (is_instance_valid(bridge) and bridge.phase != ""):
+		_notice("Save to Game or DISCARD before Test Drive.")
+		return
+	get_tree().set_meta("streetbound_editor_test_drive",true)
+	get_tree().set_meta("streetbound_editor_return_position",editor_camera.global_position)
+	if not standalone_mode:
+		_clear_editor_preview()
+		_restore_gameplay_render()
+	get_tree().paused = false
+	var result:=get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if result!=OK:
+		get_tree().remove_meta("streetbound_editor_test_drive")
+		get_tree().remove_meta("streetbound_editor_return_position")
+		_notice("Could not launch full-game Test Drive.")
 
 
 func _toggle_lanes() -> void:
