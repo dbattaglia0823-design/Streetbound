@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://be71y8k15vdol"
-path="res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png-de5231b4488c7a1bedcecc6faf8aef70.ctex"
+uid="uid://bderdol86qj3v"
+path="res://.godot/imported/SUV.png-0c96baef49d24769f954a47572f17cb9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png"
-dest_files=["res://.godot/imported/ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png-de5231b4488c7a1bedcecc6faf8aef70.ctex"]
+source_file="res://assets/Vehicles/Traffic Vehicles/SUV.png"
+dest_files=["res://.godot/imported/SUV.png-0c96baef49d24769f954a47572f17cb9.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=512
+process/size_limit=0
 detect_3d/compress_to=1
