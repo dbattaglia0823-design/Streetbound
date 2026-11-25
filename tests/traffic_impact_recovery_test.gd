@@ -20,6 +20,22 @@ func check(label: String, valid: bool, detail: Variant = "") -> void:
 
 func run() -> void:
 	check("all_supplied_traffic_models_registered",CarScript.model_count() == 10,CarScript.model_count())
+	var expected_paths := [
+		"res://assets/Vehicles/Traffic Vehicles/Electric Traffic.png",
+		"res://assets/Vehicles/Traffic Vehicles/Car1.png",
+		"res://assets/Vehicles/Traffic Vehicles/Sedan.png",
+		"res://assets/Vehicles/Traffic Vehicles/SportSUV.png",
+		"res://assets/Vehicles/Traffic Vehicles/SUV.png",
+		"res://assets/Vehicles/Traffic Vehicles/Minivan.png",
+		"res://assets/Vehicles/Traffic Vehicles/Van.png",
+		"res://assets/Vehicles/Traffic Vehicles/Taxi.png",
+		"res://assets/Vehicles/Traffic Vehicles/Pickup Truck.png",
+		"res://assets/Vehicles/Traffic Vehicles/Box Truck.png"
+	]
+	check("renamed_traffic_paths_preserve_slots",CarScript.MODEL_PATHS == expected_paths,
+		CarScript.MODEL_PATHS)
+	for path in expected_paths:
+		check("current_texture_imported", ResourceLoader.exists(path, "Texture2D"), path)
 	for i in CarScript.model_count():
 		var car := CharacterBody2D.new()
 		car.set_script(CarScript)
@@ -31,6 +47,8 @@ func run() -> void:
 		check("model_%02d_png_loaded" % i,sprite != null,
 			CarScript.MODEL_PATHS[i])
 		if sprite != null:
+			check("model_%02d_uses_current_texture" % i,
+				sprite.texture.resource_path == expected_paths[i], sprite.texture.resource_path)
 			var image: Image = sprite.texture.get_image()
 			var corner: Color = image.get_pixel(0,0)
 			var middle: Color = image.get_pixel(image.get_width()/2,image.get_height()/2)
