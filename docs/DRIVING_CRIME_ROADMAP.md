@@ -231,6 +231,29 @@ during a wanted pursuit is a bust, not a teleport escape.
   synchronization; live driving, weather, map-coverage and collision
   playtests are still required before merging.
 
+## Racing and underground career integration
+
+- Legal authored races have wanted level zero by default. Existing rewards and
+  career prerequisites remain supported. Underground authored events use
+  explicit wanted levels 1–5, a 30–300 second post-finish escape deadline,
+  optional entry fees up to $50,000, and 0–30 underground reputation per win.
+- A race winner must clear actual police heat before cash, XP, completion,
+  first-win bonuses and reputation are saved together. A failed escape,
+  arrest, reset, disabled vehicle or quit forfeits the prize and entry fee.
+  A legal race is never automatically criminal because its route is a street.
+- Existing career street sprints now pay cash and XP after a successful
+  escape. Parkway Express is a higher-stakes event ($2,000 entry, $7,000
+  base prize, 6 street reputation prerequisite); practice-only sessions
+  retain their original behavior.
+- Native and browser editors expose heat, entry fee, escape deadline,
+  reputation reward and required reputation. A solo timed route with heat
+  is an escape challenge. Racing promoter contacts support per-job required
+  authored race victories in addition to level and reputation locks.
+  Contact locations still need authoring on production maps.
+- Automated coverage: tests/underground_racing_test.gd and browser event
+  authoring round trips. Full live police/race balancing and multiplayer
+  criminal gameplay remain outside this change.
+
 ## Next phases (not yet implemented)
 
 1. Expand the initial map-authored courier/getaway/smuggling contracts
@@ -258,6 +281,7 @@ godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
 godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
 godot --headless --path . --script res://tests/driving_contracts_test.gd
 godot --headless --path . --script res://tests/contact_contract_screen_test.gd
+godot --headless --path . --script res://tests/underground_racing_test.gd
 ```
 
 Also run the repository-wide validation workflow and visually inspect pursuit
