@@ -180,6 +180,55 @@ during a wanted pursuit is a bust, not a teleport escape.
   exercises native job duplication/reordering, schema and mission knobs.
   Do not merge without latest-head Godot and browser test results.
 
+## Wanted-level police pursuit intelligence — driving-only
+
+- **Responsive rather than numerous:** Wanted level 1 deploys **one** cruiser,
+  level 2 **two**, level 3 **three**, and levels 4–5 at most **four**. There
+  are no endless scripted reinforcements or proximity-based vehicle respawns.
+- **Off-screen, non-ambush spawns:** dispatch selects open asphalt lanes
+  **125–245 metres** from the player, behind or well to the side of their
+  actual movement direction. It rejects occupied locations, camera-visible
+  positions and candidates within 45 metres of another responder. Police
+  never materialize directly in the predicted forward travel corridor; if no
+  safe lane exists, a new pursuit fails gracefully rather than cheating.
+- **Physically realistic difficulty:** all cruisers use the existing
+  `VehicleController2D` and shared route driver. Increased wanted tiers
+  modestly increase throttle requests, ordinary speed targets, vision range
+  and search persistence, with no RPM/HP/grip/top-speed multipliers,
+  snap-turning, rubber-banding, teleports or arbitrarily short stopping
+  distances.
+- **Coordinated tactics:** responders have pursuer/interceptor/flank roles.
+  Interceptors extrapolate the most recently **visible** suspect velocity
+  for at most a couple seconds, never consult the player's chosen GPS target.
+  At wanted 3+, nearby officers slow down and drive toward three
+  120°-spaced containment positions. Arrest still requires real police
+  vehicles within 8 metres surrounding a nearly stationary car for four
+  continuous seconds. The target positions alone are never an instant bust.
+- **Roadblocks (wanted 4–5):** one officer may be diverted onto an actual
+  connected asphalt lane 90–170 metres ahead of the *last observed* travel
+  direction, where it must physically drive and brake to hold position.
+  This is an assignment for an already existing vehicle, **not** a new car
+  spawned on the player's route. If the graph has no legal position or the
+  officer cannot drive there in time, no artificial roadblock appears.
+- **Last-sighting searches:** only an unobstructed line of sight from a
+  nearby cruiser refreshes suspect coordinates. After 2.5 seconds without
+  contact, officers search the last known location and nearby possible
+  roads, never the hidden player's true position. Timers vary from
+  **11 seconds at level 1** to **24 seconds at level 5**. An actual sighting
+  resumes pursuit; evading the full search clears wanted status.
+- **Disabled vehicle fairness:** vehicle disablement triggers arrest only
+  when a cruiser actually sees the player and reaches within 24 metres.
+  Vehicle resets during pursuit still count as busts; no free
+  reset-to-escape exploit. Vehicle-only robbery and race outcomes continue
+  to use the existing `busted`/`escaped` signals and wanted state.
+- **Coverage and limitations:** deterministic tests validate tier limits,
+  safe spawn angles/distance/separation, roadblock legality, bounded
+  interception, triangular containment and search/reacquisition.
+  `tests/police_tactics_test.gd` runs in Godot 4.6.3 CI. This does not add
+  realistic police model art, dispatch radio, new precincts or multiplayer
+  synchronization; live driving, weather, map-coverage and collision
+  playtests are still required before merging.
+
 ## Next phases (not yet implemented)
 
 1. Expand the initial map-authored courier/getaway/smuggling contracts
@@ -202,6 +251,7 @@ Run the standalone test after normal import:
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
+godot --headless --path . --script res://tests/police_tactics_test.gd
 godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
 godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
 godot --headless --path . --script res://tests/driving_contracts_test.gd
