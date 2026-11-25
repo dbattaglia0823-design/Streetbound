@@ -6,6 +6,8 @@ const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const InteractionSpeed=preload("res://scripts/world/interaction_speed.gd")
+const ContractRules=preload("res://scripts/world/driving_contract_rules.gd")
+const ContactVisual=preload("res://scripts/world/contract_contact_visual.gd")
 const PPM:=20.0
 var world: Node2D
 var player: VehicleController2D
@@ -39,7 +41,15 @@ func _ready() -> void:
 		if not entry is Dictionary:continue
 		var raw: Dictionary=entry.get("marker",entry)
 		if not raw.has("type") or not raw.has("x") or not raw.has("y"):continue
-		if Rules.valid(raw):markers.append(raw)
+		if Rules.valid(raw):
+			markers.append(raw)
+			if str(raw.type)=="contract_contact":
+				var npc:=Node2D.new()
+				npc.set_script(ContactVisual)
+				npc.position=Vector2(float(raw.x),float(raw.y))*PPM
+				npc.set("contact_name",str(raw.get("name","Contact")))
+				npc.set("contact_style",str(raw.get("properties",{}).get("contact_style","street")))
+				add_child(npc)
 	var canvas:=CanvasLayer.new();canvas.layer=8
 	add_child(canvas)
 	prompt=Button.new()
@@ -93,7 +103,7 @@ func nearest_marker() -> Dictionary:
 	var closest:=INF
 	var found: Dictionary={}
 	for marker in markers:
-		if str(marker.type) in ["player_spawn","traffic_spawn"]:continue
+		if str(marker.type) in ["player_spawn","traffic_spawn","contract_dropoff","robbery_target"]:continue
 		if not _enabled(marker):continue
 		var radius:=float(marker.get("properties",{}).get("radius_m",12.0))
 		var distance: float=player.global_position.distance_to(_point(marker)*PPM)/PPM
@@ -115,13 +125,13 @@ func _process(dt: float) -> void:
 		return
 	var kind: String=str(_nearby.get("type",""))
 	var actionable:=kind in ["garage","dealership","mission","fast_travel","fuel",
-		"race_start","checkpoint","finish","custom","contract"]
+		"race_start","checkpoint","finish","custom","contract","contract_contact"]
 	prompt.visible=actionable and not _is_busy() and not get_tree().paused
 	if prompt.visible:
 		var hint: String={"garage":"GARAGE","dealership":"DEALERSHIP","mission":"START MISSION",
 			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / FUEL", 
 			"race_start":"RACE ROUTE","checkpoint":"CHECKPOINT",
-			"finish":"FINISH","custom":"MAP WAYPOINT","contract":"DRIVING JOB"}.get(kind,"INTERACT")
+			"finish":"FINISH","custom":"MAP WAYPOINT","contract":"DRIVING JOB","contract_contact":"TALK TO CONTACT"}.get(kind,"INTERACT")
 		prompt.text=str(_nearby.get("name",kind)).to_upper()+"  /  "+hint+"  [ F ]"
 		prompt.disabled=not InteractionSpeed.allowed(player.linear_velocity.length())
 
@@ -174,13 +184,15 @@ func activate() -> void:
 			Grid.teleport(player,Grid.player_slot(race.definition))
 			race.call("start_race")
 		"fast_travel":_open_travel()
+		"contract_contact":_open_contact(_nearby)
 		"contract":
 			if is_instance_valid(contracts):
 				var response: Dictionary=contracts.call("try_start",_nearby)
 				if str(response.get("result",""))!="started":
 					_show_info(_nearby,str(response.get("message","Unable to start driving contract")))
 			else:
-				_show_info(_nearby,"Driving contracts are available in the single-player career.")
+				# Never pause the newly started delivery with an info popup.
+				pass
 		"fuel":
 			# In the driving-only career F refuels through the paid station
 			# service and does not unexpectedly open the upgrades overlay.
@@ -203,6 +215,50 @@ func activate() -> void:
 				map_hud.waypoints.set_destination(race.start_m,str(race.race_title))
 			else:
 				_show_info(_nearby,"This marker is available as a map landmark. Link a race to navigate to its start.")
+
+## Reuses the existing pause-safe marker panel as an in-car mission board.
+## A single roadside person can offer multiple independently configured jobs.
+func _open_contact(contact: Dictionary) -> void:
+	if _dialog_open or not is_instance_valid(contracts):
+		return
+	for child in destinations.get_children():
+		destinations.remove_child(child)
+		child.queue_free()
+	dialog_title.text=str(contact.get("name","CONTRACT CONTACT")).to_upper()
+	message.text=str(contact.get("properties",{}).get("description","Choose a vehicle-only contract."))
+	var offers: Array=contact.get("properties",{}).get("offers",[])
+	if offers.is_empty():
+		message.text="This contact has no jobs yet. Configure offers in the map builder."
+	for offer in offers:
+		if not offer is Dictionary:
+			continue
+		var kind:=str(offer.get("kind","courier"))
+		var reward: Dictionary=ContractRules.configured_reward(kind,offer)
+		var wanted: int=ContractRules.configured_wanted(kind,offer)
+		var lock_reason: String=str(contracts.call("offer_lock_reason",contact,offer))
+		var button:=Button.new()
+		button.text="%s  /  %s  /  %s  /  %ds  /  WANTED %d" % [
+			str(offer.get("title","Driving contract")).to_upper(),
+			kind.to_upper(),economy.dollars(int(reward.get("cash",0))),
+			roundi(ContractRules.configured_time(kind,offer)),wanted]
+		if not lock_reason.is_empty():
+			button.text+="  /  "+lock_reason
+			button.disabled=true
+		button.pressed.connect(_accept_contact_offer.bind(contact.duplicate(true),offer.duplicate(true)))
+		destinations.add_child(button)
+	panel.visible=true
+	_dialog_open=true
+	get_tree().paused=true
+
+func _accept_contact_offer(contact: Dictionary, offer: Dictionary) -> void:
+	if not is_instance_valid(contracts):
+		return
+	# Release menu pause before mission setup; close only on success.
+	var result: Dictionary=contracts.call("try_start_offer",contact,offer)
+	if str(result.get("result",""))=="started":
+		_close_travel()
+	else:
+		message.text=str(result.get("message","Contract unavailable"))
 
 func _safe_destination(marker: Dictionary) -> bool:
 	var target: Vector2=_point(marker)*PPM
