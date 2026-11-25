@@ -80,6 +80,15 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 		return "REQUIRES DRIVER LEVEL %d" % int(offer.get("required_player_level",1))
 	if int(economy.get("underground_reputation")) < int(offer.get("required_underground_rep",0)):
 		return "REQUIRES UNDERGROUND REP %d" % int(offer.get("required_underground_rep",0))
+	var prerequisite:=str(offer.get("required_race_id",""))
+	if not prerequisite.is_empty():
+		var event_key:=str(marker_source.get("world_id"))+"::"+prerequisite
+		if int(economy.call("completed_event_count",event_key))<=0:
+			var race_title:=prerequisite
+			for race in marker_source.get("races"):
+				if is_instance_valid(race) and race.get("definition") is Dictionary and str(race.get("definition").get("id",""))==prerequisite:
+					race_title=str(race.get("race_title"));break
+			return "WIN "+race_title.to_upper()+" FIRST"
 	var key := str(marker_source.get("world_id"))+"::"+str(contact.get("id",""))+"_"+str(offer.get("id",""))
 	if not bool(offer.get("repeatable",true)) and int(economy.get("completed_driving_contracts").get(key,0)) > 0:
 		return "CONTRACT COMPLETED"
@@ -135,6 +144,9 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 		return {"result":"unavailable"}
 	if not active.is_empty():
 		return {"result":"busy","message":"Finish or abandon your active driving contract"}
+	for race in get_tree().get_nodes_in_group("streetbound_race"):
+		if str(race.get("state")) in ["countdown","running"]:
+			return {"result":"busy","message":"Finish the active race first"}
 	if int(police.get("wanted_level")) > 0:
 		return {"result":"wanted","message":"Lose police before accepting another job"}
 	if player.linear_velocity.length() > Rules.MAX_ARRIVAL_SPEED_MPS:
