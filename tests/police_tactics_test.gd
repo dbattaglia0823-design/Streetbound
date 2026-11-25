@@ -2,6 +2,7 @@ extends SceneTree
 ## Deterministic police tactics plus the real pursuit state transition seam.
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const Police = preload("res://scripts/world/police_pursuit.gd")
+const Containment = preload("res://scripts/world/police_containment.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
 var failures: Array[String] = []
 
@@ -59,6 +60,15 @@ func run() -> void:
 		not Tactics.visible(30.0,5,true) and Tactics.visible(30.0,1,false))
 	check("out_of_visual_range_is_not_live_tracking",
 		not Tactics.visible(170.0,5,false))
+	var ring: Array[Vector2]=[
+		Tactics.containment_target(Vector2.ZERO,Vector2.RIGHT,"pursuer"),
+		Tactics.containment_target(Vector2.ZERO,Vector2.RIGHT,"intercept"),
+		Tactics.containment_target(Vector2.ZERO,Vector2.RIGHT,"flank_left")]
+	var progress: float=Containment.progress(0.0,1.0,Vector2.ZERO,0.0,0.0,ring)
+	check("three_target_positions_form_real_box_in_geometry",
+		progress>0.0 and ring[0].distance_to(ring[2])>7.0)
+	check("target_coordinates_alone_cannot_instantly_arrest",
+		not Containment.is_busted(progress))
 	var suspect_m:=Vector2(500,200)
 	var velocity_mps:=Vector2(18,0)
 	var chase: Vector2=Tactics.intercept_target(suspect_m,velocity_mps,
