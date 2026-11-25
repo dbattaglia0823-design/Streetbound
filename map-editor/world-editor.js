@@ -666,6 +666,10 @@ function refreshContactEditor(marker){
   }
   const kind=offer.kind??'courier',defaults=contactJobDefaults[kind]??contactJobDefaults.courier;
   $('contact-offer-title').value=offer.title??'';
+  const raceRequirement=$('contact-offer-required-race');
+  raceRequirement.replaceChildren(new Option('No race prerequisite',''));
+  for(const race of doc.races??[])raceRequirement.add(new Option(race.name+' ['+race.id+']',race.id));
+  raceRequirement.value=offer.required_race_id??'';
   $('contact-offer-description').value=offer.description??'';
   $('contact-offer-kind').value=kind;
   $('contact-offer-difficulty').value=offer.difficulty??'rookie';
@@ -742,9 +746,15 @@ function refreshRaceEditor(){
     ['race-edit-level',race.required_player_level??1],['race-edit-car-level',race.required_car_level??1],
     ['race-edit-first-cash',race.first_win_reward_cash??0],
     ['race-edit-first-xp',race.first_win_reward_player_xp??0],
-    ['race-edit-first-car-xp',race.first_win_reward_car_xp??0]
+    ['race-edit-first-car-xp',race.first_win_reward_car_xp??0],
+    ['race-edit-heat',race.race_heat??0],['race-edit-escape',race.escape_time_limit??90],
+    ['race-edit-entry',race.entry_fee??0],['race-edit-rep',race.underground_rep_reward??0],
+    ['race-edit-required-rep',race.required_underground_rep??0]
   ])$(id).value=value;
   $('race-edit-repeatable').checked=race.repeatable!==false;
+  $('race-edit-rep').disabled=!(race.race_heat>0);
+  $('race-edit-escape').disabled=!(race.race_heat>0);
+  $('race-edit-summary').textContent+=' / '+(race.race_heat>0?'UNDERGROUND / WANTED '+race.race_heat:'LEGAL')+' / ENTRY $'+Number(race.entry_fee??0).toLocaleString();
   $('race-edit-laps').disabled=race.mode!=='circuit';
   const prerequisites=$('race-edit-prerequisites');
   const selected=new Set(race.prerequisite_races??[]);
@@ -1665,6 +1675,7 @@ const updateJobField=(id,field,conversion=e=>e.target.value)=>{
   });
 };
 updateJobField('contact-offer-title','title');
+updateJobField('contact-offer-required-race','required_race_id');
 updateJobField('contact-offer-description','description');
 updateJobField('contact-offer-difficulty','difficulty');
 updateJobField('contact-offer-repeatable','repeatable',e=>e.target.checked);
@@ -1731,12 +1742,17 @@ for(const [id,key,format] of [
   ['race-edit-first-cash','first_win_reward_cash','number'],
   ['race-edit-first-xp','first_win_reward_player_xp','number'],
   ['race-edit-first-car-xp','first_win_reward_car_xp','number'],
+  ['race-edit-heat','race_heat','number'],['race-edit-escape','escape_time_limit','number'],
+  ['race-edit-entry','entry_fee','number'],['race-edit-rep','underground_rep_reward','number'],
+  ['race-edit-required-rep','required_underground_rep','number'],
   ['race-edit-repeatable','repeatable','boolean']
 ]){
   $(id).addEventListener('change',e=>{
     const value=format==='number'?Number(e.target.value):
       format==='boolean'?e.target.checked:e.target.value;
-    if(!changeRaceConfiguration({[key]:value},'Updated race '+key+'.'))
+    const patch={[key]:value};
+    if(key==='race_heat'&&value===0)patch.underground_rep_reward=0;
+    if(!changeRaceConfiguration(patch,'Updated race '+key+'.'))
       refreshRaceEditor();
   });
 }
