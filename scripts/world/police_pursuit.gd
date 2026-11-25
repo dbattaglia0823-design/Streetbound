@@ -92,10 +92,9 @@ func _race_trigger() -> void:
 		if race_active_ids.has(identity):
 			continue
 		race_active_ids[identity] = true
-		if race.has_method("manages_race_heat") and bool(race.call("manages_race_heat")):
-			continue
-		if wanted_level == 0 and bust_timer <= 0.0:
-			start_pursuit(1)
+		# The race director alone declares heat. Ordinary sanctioned
+		# races are not criminal merely because their course uses streets.
+		continue
 
 func _travel_heading() -> Vector2:
 	if player.linear_velocity.length() > 3.0:
