@@ -80,3 +80,33 @@ test('Legacy single job marker remains compatible with current marker schema',()
   }));
   assert.equal(normalizeWorld(doc).markers.length,4);
 });
+
+test('Contact personality and bespoke job descriptions survive map save/reload',()=>{
+  const doc=source();
+  const npc=doc.markers[0].properties;
+  npc.contact_role='PRIVATE FIXER';
+  npc.contact_greeting='I only work with reliable drivers.';
+  npc.contact_bio='Coordinates premium driving jobs around the marina.';
+  npc.offers[0]={...npc.offers[0],description:'Stay in the car while the crew collects the money.'};
+  const rebuilt=parseWorld(serializeWorld(normalizeWorld(doc)));
+  assert.equal(rebuilt.markers[0].properties.contact_role,'PRIVATE FIXER');
+  assert.equal(rebuilt.markers[0].properties.contact_greeting,'I only work with reliable drivers.');
+  assert.equal(rebuilt.markers[0].properties.contact_bio,'Coordinates premium driving jobs around the marina.');
+  assert.equal(rebuilt.markers[0].properties.offers[0].description,
+    'Stay in the car while the crew collects the money.');
+});
+test('Oversized and invalid contact personality or briefing metadata are rejected',()=>{
+  for(const [key,value] of [
+    ['contact_role','x'.repeat(61)],['contact_greeting','x'.repeat(181)],
+    ['contact_bio','x'.repeat(241)],['contact_role',12]
+  ]){
+    const doc=source();
+    doc.markers[0].properties[key]=value;
+    assert.throws(()=>normalizeWorld(doc),key);
+  }
+  for(const value of ['x'.repeat(401),123]){
+    const doc=source();
+    doc.markers[0].properties.offers[0]={...robbery,description:value};
+    assert.throws(()=>normalizeWorld(doc));
+  }
+});
