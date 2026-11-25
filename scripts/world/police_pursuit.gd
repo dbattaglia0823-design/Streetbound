@@ -47,6 +47,7 @@ var readout: Label
 
 func _ready() -> void:
 	name = "PolicePursuit"
+	add_to_group("streetbound_police")
 	if not is_instance_valid(player) or not is_instance_valid(world) or not is_instance_valid(traffic):
 		return
 	planner = PlannerScript.new()
@@ -91,6 +92,8 @@ func _race_trigger() -> void:
 		if race_active_ids.has(identity):
 			continue
 		race_active_ids[identity] = true
+		if race.has_method("manages_race_heat") and bool(race.call("manages_race_heat")):
+			continue
 		if wanted_level == 0 and bust_timer <= 0.0:
 			start_pursuit(1)
 
