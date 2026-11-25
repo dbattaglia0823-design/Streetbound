@@ -189,8 +189,10 @@ during a wanted pursuit is a bust, not a teleport escape.
   **125–245 metres** from the player, behind or well to the side of their
   actual movement direction. It rejects occupied locations, camera-visible
   positions and candidates within 45 metres of another responder. Police
-  never materialize directly in the predicted forward travel corridor; if no
-  safe lane exists, a new pursuit fails gracefully rather than cheating.
+  never materialize directly in the predicted forward travel corridor. If no
+  safe lane exists, dispatch keeps the wanted alert and retries every three
+  seconds for up to 18 seconds rather than spawning an ambush or failing a
+  robbery; the alert expires if there is still no safe response route.
 - **Physically realistic difficulty:** all cruisers use the existing
   `VehicleController2D` and shared route driver. Increased wanted tiers
   modestly increase throttle requests, ordinary speed targets, vision range
