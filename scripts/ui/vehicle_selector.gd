@@ -346,7 +346,7 @@ func _process(dt: float) -> void:
 			continue
 		var path := str((item.entry as Dictionary).texture)
 		if not _thumb_cache.has(path):
-			var source := load(path) as Texture2D
+			var source := load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 			if source == null:
 				continue
 			var pixels := source.get_image()
