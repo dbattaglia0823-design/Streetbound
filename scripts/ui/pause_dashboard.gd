@@ -420,7 +420,7 @@ func _refresh_car() -> void:
 	car_power.text = "%.0f HP" % (config.engine_power_kw * 1.341022)
 	car_drive.text = ["FWD", "RWD", "AWD"][clampi(int(config.drivetrain), 0, 2)]
 	car_grip.text = "%.2f μ" % config.tire_grip
-	car_weight.text = "%.0f kg   •   %.0f Nm torque" % [config.mass_kg, config.engine_torque_nm]
+	car_weight.text = "%.0f kg  •  %.0f Nm  •  HEALTH %d" % [config.mass_kg, config.engine_torque_nm, config.max_health_points]
 	var path: String = str(entry.get("texture", ""))
 	car_image.texture = load(path) as Texture2D if not path.is_empty() and ResourceLoader.exists(path, "Texture2D") else null
 
@@ -770,10 +770,10 @@ func _add_car_row(parent: VBoxContainer, entry: Dictionary) -> void:
 	row.add_child(picture)
 	_label(row, "CarName", str(entry.get("display_name", "Unknown vehicle")),
 		Rect2(122, 8, 375, 28), 18, WHITE)
-	_label(row, "CarSpecs", "%.0f HP  •  %s  •  %s" % [
+	_label(row, "CarSpecs", "%.0f HP  •  %s  •  %s  •  HEALTH %d" % [
 		float(entry.get("power_kw", 0.0)) * 1.341022,
 		str(entry.get("drivetrain", "—")),
-		str(entry.get("kind", "car")).to_upper()],
+		str(entry.get("kind", "car")).to_upper(), int(entry.get("max_health_points",2000))],
 		Rect2(122, 36, 372, 21), 12, MUTED)
 	var dealer_name := str(site.get("name", "Dealership unavailable"))
 	_label(row, "CarDealer", dealer_name,

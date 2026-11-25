@@ -118,6 +118,25 @@ func _run() -> void:
 		Awareness.distance_caption(60.0)=="197 FT" and \
 		Awareness.distance_caption(60.0,true)=="197 FT" and \
 		Awareness.distance_caption(182.88)=="600 FT")
+	# Short and long distances should use only the space needed by their
+	# actual glyphs plus the compact directional arrow and fixed padding.
+	var font: Font = ThemeDB.fallback_font
+	var short_chip := Awareness.chip_size(font,"9 FT")
+	var medium_chip := Awareness.chip_size(font,"99 FT")
+	var long_chip := Awareness.chip_size(font,"600 FT")
+	check("indicator_width_shrinks_with_distance_digits",
+		short_chip.x < medium_chip.x and medium_chip.x < long_chip.x)
+	check("indicator_is_smaller_than_previous_fixed_box",
+		long_chip.x < 92.0 and long_chip.y < 27.0,long_chip)
+	var fitted := true
+	var chip_scale := Awareness.chip_scale(font)
+	for caption in ["0 FT","26 FT","99 FT","100 FT","600 FT"]:
+		var chip := Awareness.chip_size(font,caption)
+		var text_width := ceilf(font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,Awareness.CHIP_FONT_SIZE).x)
+		fitted = fitted and is_equal_approx(chip.x,(text_width + Awareness.CHIP_PAD_X * 2.0 +
+			Awareness.CHIP_ARROW_RADIUS * 2.0 + Awareness.CHIP_ARROW_GAP) * chip_scale)
+		fitted = fitted and chip.y + 0.001 >= (font.get_height(Awareness.CHIP_FONT_SIZE) + Awareness.CHIP_PAD_Y * 2.0) * chip_scale
+	check("indicator_has_exact_content_width_and_safe_text_height",fitted)
 	check("on_screen_and_near_edge_suppressed",
 		Awareness.is_on_screen(Vector2(500,250),Vector2(1000,600)) and \
 		Awareness.is_on_screen(Vector2(-20,250),Vector2(1000,600)) and \

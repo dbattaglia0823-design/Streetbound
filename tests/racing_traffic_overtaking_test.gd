@@ -179,6 +179,14 @@ func _run() -> void:
 	var player: VehicleController2D = main.vehicle
 	player.set_physics_process(false)
 	street.set_physics_process(false)
+	var police: Node = main.police_pursuit
+	police.set_physics_process(false)
+	main.vehicle_ownership.persist_enabled=false
+	main.vehicle_damage_service.persist_enabled=false
+	main.vehicle_damage_service.set_physics_process(false)
+	main.vehicle_damage_service.repair_full()
+	main.vehicle_damage_service.fuel.refill()
+	main.vehicle_damage_service._apply_drive_condition()
 	civilian.enabled = false
 	civilian.clear_traffic()
 	player.global_position = street.start_m * 20.0
@@ -222,8 +230,14 @@ func _run() -> void:
 	street._clear_opponent()
 	street.state = "idle"
 	player.global_position = street.start_m * PPM
+	player.rotation = street.heading.angle() + PI / 2.0
 	player.linear_velocity = Vector2.ZERO
 	player.velocity = Vector2.ZERO
+	# Aborting a criminal race does not erase heat. Keep the lock enforced
+	# and simulate a confirmed escape before testing an independent race.
+	check("active_pursuit_blocks_new_street_race",police.wanted_level>0 and not street.can_stage())
+	police._escape()
+	civilian.clear_traffic()
 	check("new_race_can_start_after_completed_cleanup",street.start_race())
 	street._physics_process(3.2)
 	if is_instance_valid(street.opponent):
@@ -237,6 +251,7 @@ func _run() -> void:
 	else:
 		check("unseen_stuck_street_rival_is_released_as_DNF",false)
 	street._abort("RIVAL STUCK TEST COMPLETE")
+	if police.wanted_level>0:police._escape()
 	print("RACING TRAFFIC OVERTAKING: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)

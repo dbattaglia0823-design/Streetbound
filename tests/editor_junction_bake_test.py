@@ -5,6 +5,10 @@ ROOT=Path(__file__).resolve().parents[1]
 doc=json.loads((ROOT/'.runtime/road-edit-audit/junction-source.json').read_text())
 with tempfile.TemporaryDirectory(prefix='streetbound-junction-') as temporary:
     work=Path(temporary);shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
+    # Race validation needs the complete live roster in the isolated builder.
+    (work/'data').mkdir(exist_ok=True)
+    for catalog in ('player_vehicle_catalog.json', 'player_vehicle_additions.json'):
+        shutil.copy2(ROOT/'data'/catalog, work/'data'/catalog)
     path=work/'map-editor/maps/morrow-coast.edits.world.json';path.parent.mkdir(parents=True);(work/'worlds').mkdir()
     path.write_text(json.dumps(doc))
     for prop in doc['props']:

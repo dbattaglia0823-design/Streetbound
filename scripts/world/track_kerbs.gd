@@ -5,6 +5,9 @@ const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const PPM:=20.0
 const STRIPE_LENGTH:=3.0*PPM
 const KERB_WIDTH:=1.0*PPM
+# Prevent subpixel slivers at floating-point stripe boundaries.
+const MIN_STRIPE_PX:=0.01
+const MIN_TRIANGLE_DOUBLE_AREA:=0.001
 const RED:=Color("#cf3438")
 const WHITE:=Color("#f3f1e7")
 const EDGE:=Color("#eeeade")
@@ -20,13 +23,48 @@ static func stripes(path: PackedVector2Array, station: float=0.0) -> Array[Dicti
 		if length<0.001:continue
 		var at:=0.0
 		while at<length-0.001:
-			var phase:=fposmod(cursor+at,STRIPE_LENGTH)
+			var global_station:=cursor+at
+			var boundary:=roundf(global_station/STRIPE_LENGTH)*STRIPE_LENGTH
+			if absf(global_station-boundary)<MIN_STRIPE_PX:
+				global_station=boundary
+			var phase:=fposmod(global_station,STRIPE_LENGTH)
 			var step:=minf(length-at,STRIPE_LENGTH-phase)
-			if step<0.001:step=minf(length-at,0.001)
-			result.append({"segment":i,"from":at/length,"to":(at+step)/length,
-				"red":posmod(floori((cursor+at+0.0001)/STRIPE_LENGTH),2)==0})
+			if step<MIN_STRIPE_PX:step=minf(length-at,MIN_STRIPE_PX)
+			result.append({"segment":i,"from":at/length,"to":minf(1.0,(at+step)/length),
+				"red":posmod(floori((global_station+0.0001)/STRIPE_LENGTH),2)==0})
 			at+=step
 		cursor+=length
+	return result
+
+## Godot may return triangle indices even for coincident/collinear points.
+## Verify every returned triangle has actual area, using local differences
+## to avoid precision loss at large world coordinates.
+static func valid_polygon(polygon: PackedVector2Array) -> bool:
+	if polygon.size()<3:return false
+	for point in polygon:
+		if not point.is_finite():return false
+	var triangles:=Geometry2D.triangulate_polygon(polygon)
+	if triangles.size()!=(polygon.size()-2)*3:return false
+	for i in range(0,triangles.size(),3):
+		var origin:=polygon[triangles[i]]
+		var edge_a:=polygon[triangles[i+1]]-origin
+		var edge_b:=polygon[triangles[i+2]]-origin
+		if absf(edge_a.cross(edge_b))<=MIN_TRIANGLE_DOUBLE_AREA:return false
+	return true
+
+## Offset curves can fold across a very tight bend or collapse at a seam.
+## Keep ordinary strips as quads; split folded strips into drawable triangles.
+## Degenerate zero-area pieces have no visible surface to paint.
+static func stripe_polygons(quad: PackedVector2Array) -> Array[PackedVector2Array]:
+	var result: Array[PackedVector2Array]=[]
+	if quad.size()!=4:return result
+	if valid_polygon(quad):
+		result.append(quad)
+		return result
+	for indices in [[0,1,2],[0,2,3]]:
+		var triangle:=PackedVector2Array([quad[indices[0]],quad[indices[1]],quad[indices[2]]])
+		if valid_polygon(triangle):
+			result.append(triangle)
 	return result
 
 static func paint(canvas: CanvasItem,path: PackedVector2Array,width: float,station: float=0.0) -> void:
@@ -38,8 +76,9 @@ static func paint(canvas: CanvasItem,path: PackedVector2Array,width: float,stati
 		for part in stripe_parts:
 			var i:=int(part.segment)
 			var a:=float(part.from);var b:=float(part.to)
-			canvas.draw_colored_polygon(PackedVector2Array([
+			var quad:=PackedVector2Array([
 				outer[i-1].lerp(outer[i],a),outer[i-1].lerp(outer[i],b),
-				inner[i-1].lerp(inner[i],b),inner[i-1].lerp(inner[i],a)
-			]),RED if bool(part.red) else WHITE)
+				inner[i-1].lerp(inner[i],b),inner[i-1].lerp(inner[i],a)])
+			for polygon in stripe_polygons(quad):
+				canvas.draw_colored_polygon(polygon,RED if bool(part.red) else WHITE)
 		canvas.draw_polyline(Lanes.offset_path(path,float(side)*(width*.5-KERB_WIDTH-3.0)),EDGE,3.0,true)
