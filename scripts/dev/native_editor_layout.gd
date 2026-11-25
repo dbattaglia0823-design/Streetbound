@@ -59,7 +59,7 @@ static func build(e) -> void:
 	var tool_scroll:=ScrollContainer.new();tool_scroll.name="Tool"
 	tool_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	left_tabs.add_child(tool_scroll)
-	var settings:=column(tool_scroll);settings.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var settings:=column(tool_scroll);settings.size_flags_horizontal=Control.SIZE_EXPAND_FILL;tool_scroll.follow_focus=true
 	var world_scroll:=ScrollContainer.new();world_scroll.name="World"
 	world_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	left_tabs.add_child(world_scroll)
@@ -103,12 +103,12 @@ static func build(e) -> void:
 	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])
 	e.terrain_biome.item_selected.connect(func(_index: int)->void:e._change_terrain_settings())
 	e._btn("Draw mountain barrier",e.terrain_settings,e._mountain_tool)
-	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_NONE
+	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_ALL
 	e.terrain_barrier.toggled.connect(e._terrain_barrier_toggled);e.terrain_settings.add_child(e.terrain_barrier)
 	e.terrain_elevation=e._number(e.terrain_settings,"Height m",0,2000,80)
 	e.terrain_elevation.editable=false
 	e.terrain_elevation.value_changed.connect(func(_value: float)->void:e._change_terrain_settings())
-	var mountain_help:=Label.new()
+	var mountain_help:=Label.new();e.mountain_help=mountain_help
 	mountain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	mountain_help.add_theme_font_size_override("font_size",11)
 	mountain_help.text="Solid barriers block vehicles. Draw their outline along a map edge."
@@ -166,7 +166,7 @@ static func build(e) -> void:
 	var inspector_scroll:=ScrollContainer.new();inspector_scroll.name="Inspector"
 	inspector_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
 	e.inspector_tabs.add_child(inspector_scroll)
-	var inspector:=column(inspector_scroll);inspector.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var inspector:=column(inspector_scroll);inspector.size_flags_horizontal=Control.SIZE_EXPAND_FILL;inspector_scroll.follow_focus=true
 	var layer_scroll:=ScrollContainer.new();layer_scroll.name="Layers"
 	layer_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	e.inspector_tabs.add_child(layer_scroll)
@@ -186,7 +186,7 @@ static func build(e) -> void:
 	heading(inspector,"INSPECTOR")
 	e.selected_preview=TextureRect.new();e.selected_preview.name="SelectedAssetPreview"
 	e.selected_preview.custom_minimum_size=Vector2(210,60);e.selected_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview)
+	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview);e.selected_preview.hide()
 	e.details=Label.new();e.details.name="SelectedWorldObject";e.details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.details.add_theme_font_size_override("font_size",12);inspector.add_child(e.details)
 	e.selection_fields=column(inspector)
