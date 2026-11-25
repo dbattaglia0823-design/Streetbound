@@ -63,8 +63,11 @@ export function offerWarnings(contact,offer,markers){
   const location=(id,kind)=>markers.find(x=>x.id===id&&x.type===kind);
   const drop=location(offer.destination_marker_id,'contract_dropoff');
   if(!drop)reasons.push('Choose a valid drop-off marker.');
-  if(drop&&Math.hypot(drop.x-contact.x,drop.y-contact.y)<100)
-    reasons.push('Drop-off must be at least 100 m from the contact.');
+  if(drop){
+    const trip=Math.hypot(drop.x-contact.x,drop.y-contact.y);
+    if(trip<100)reasons.push('Drop-off must be at least 100 m from the contact.');
+    if(trip>15000)reasons.push('Drop-off must be within 15 km of the contact.');
+  }
   if(offer.kind==='robbery'){
     const target=location(offer.robbery_marker_id,'robbery_target');
     if(!target)reasons.push('Choose a robbery target marker.');
@@ -74,6 +77,14 @@ export function offerWarnings(contact,offer,markers){
       reasons.push('Robbery target and escape drop-off must be 100 m apart.');
   }
   if(!(offer.title||'').trim())reasons.push('Enter a job title.');
+  if(offer.kind==='robbery'&&!offer.robbery_marker_id)
+    reasons.push('Select a robbery target for the crew.');
+  if(offer.arrival_radius_m!==undefined&&
+     (!Number.isInteger(offer.arrival_radius_m)||offer.arrival_radius_m<6||
+      offer.arrival_radius_m>30))reasons.push('Arrival radius must be 6–30 metres.');
+  if(offer.robbery_hold_seconds!==undefined&&
+     (!Number.isInteger(offer.robbery_hold_seconds)||offer.robbery_hold_seconds<3||
+      offer.robbery_hold_seconds>30))reasons.push('Crew wait must be 3–30 seconds.');
   return reasons;
 }
 export function updateRaceSettings(world,id,patch){
