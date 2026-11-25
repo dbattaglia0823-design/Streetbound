@@ -112,10 +112,14 @@ func _show_selected_controls(enabled: bool) -> void:
 	for element in [title_input,type_input,difficulty_input,dropoff_input,target_input,
 			repeat_input,cash_input,player_xp_input,car_xp_input,rep_input,
 			wanted_input,duration_input,level_input,required_rep_input]:
-		if element is LineEdit or element is SpinBox:
-			element.editable=enabled
-		elif element is OptionButton or element is CheckBox:
-			element.disabled=not enabled
+		if element is LineEdit:
+			(element as LineEdit).editable=enabled
+		elif element is SpinBox:
+			(element as SpinBox).editable=enabled
+		elif element is OptionButton:
+			(element as OptionButton).disabled=not enabled
+		elif element is CheckBox:
+			(element as CheckBox).disabled=not enabled
 	target_input.visible=enabled and _value(type_input)=="robbery"
 	status.visible=true
 
