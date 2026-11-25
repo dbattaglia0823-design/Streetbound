@@ -18,6 +18,10 @@ const MODEL_PATHS := [
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png",
 	"res://assets/Vehicles/Traffic Vehicles/ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png"
 ]
+# Current model-named artwork is preferred on both normal and test-drive
+# worlds. Older development checkouts still have the previous filenames.
+const NAMED_MODELS := ["Box Truck.png","Car1.png","Electric Traffic.png",
+	"Minivan.png","Pickup Truck.png","SUV.png","Sedan.png","SportSUV.png","Taxi.png","Van.png"]
 static var crop_cache: Dictionary = {}
 ## Shared once-per-model textures and alpha-trimmed rectangles. Used by both
 ## moving traffic and static parked cars; each chunk does not rescan PNG data.
@@ -79,8 +83,11 @@ static func appearance_for(index: int) -> Dictionary:
 	var slot := posmod(index,MODEL_PATHS.size())
 	if art_cache.has(slot):
 		return art_cache[slot]
-	var path: String = MODEL_PATHS[slot]
+	var path: String = "res://assets/Vehicles/Traffic Vehicles/"+str(NAMED_MODELS[slot])
 	var texture: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
+	if texture==null:
+		path=MODEL_PATHS[slot]
+		texture=load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 	if texture == null:
 		# Keep older checkouts working while assets migrate to assets/vehicles.
 		var legacy := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
