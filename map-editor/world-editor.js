@@ -613,6 +613,90 @@ function hitTest(p){
       if(pointInPolygon(p,doc.regions[i].points))return {id:doc.regions[i].id,point:-1,kind:'entity'};
   return null;
 }
+let selectedContactMarkerId='';
+let selectedContactOfferIndex=0;
+const contactJobDefaults={
+  courier:{cash:550,player_xp:180,car_xp:120,underground_rep:0,wanted_level:0,time_limit_seconds:270},
+  smuggling:{cash:950,player_xp:230,car_xp:175,underground_rep:3,wanted_level:1,time_limit_seconds:240},
+  getaway:{cash:1350,player_xp:290,car_xp:200,underground_rep:5,wanted_level:2,time_limit_seconds:210},
+  robbery:{cash:2500,player_xp:450,car_xp:300,underground_rep:8,wanted_level:3,time_limit_seconds:360}
+};
+const contactOffers=marker=>Array.isArray(marker?.properties?.offers)?marker.properties.offers:[];
+const contactEligibleDropoffs=marker=>doc.markers.filter(p=>p.type==='contract_dropoff'&&
+  Math.hypot(p.x-marker.x,p.y-marker.y)>=100&&Math.hypot(p.x-marker.x,p.y-marker.y)<=15000);
+const contactEligibleTargets=(marker,dropoffId)=>doc.markers.filter(p=>p.type==='robbery_target'&&
+  Math.hypot(p.x-marker.x,p.y-marker.y)>=100&&
+  Math.hypot(p.x-(doc.markers.find(t=>t.id===dropoffId)?.x??p.x),
+             p.y-(doc.markers.find(t=>t.id===dropoffId)?.y??p.y))>=100);
+function populateContractChoices(id,options,value){
+  const control=$(id);control.replaceChildren();
+  if(!options.length){
+    const missing=new Option('Place a matching destination marker first','');
+    control.add(missing);
+  }else{
+    for(const marker of options)control.add(new Option(marker.name+' ['+marker.id+']',marker.id));
+  }
+  control.value=value??'';
+}
+function refreshContactEditor(marker){
+  const visible=marker?.type==='contract_contact';
+  $('inspect-contract-contact').hidden=!visible;
+  if(!visible)return;
+  if(selectedContactMarkerId!==marker.id){
+    selectedContactMarkerId=marker.id;selectedContactOfferIndex=0;
+  }
+  $('contact-npc-style').value=marker.properties?.contact_style??'street';
+  const offers=contactOffers(marker);
+  if(selectedContactOfferIndex>=offers.length)selectedContactOfferIndex=Math.max(0,offers.length-1);
+  const pick=$('contact-offer-index');pick.replaceChildren();
+  if(!offers.length)pick.add(new Option('No contracts — add one',''));
+  else offers.forEach((offer,i)=>pick.add(new Option((offer.title||offer.id)+' / '+offer.kind,i)));
+  pick.value=offers.length?String(selectedContactOfferIndex):'';
+  $('contact-remove-offer').disabled=!offers.length;
+  $('contact-add-offer').disabled=offers.length>=8;
+  const offer=offers[selectedContactOfferIndex];
+  $('contact-offer-fields').hidden=!offer;
+  if(!offer){
+    $('contact-editor-help').textContent='Place a contract dropoff marker, then choose Add contract.';
+    return;
+  }
+  const kind=offer.kind??'courier',defaults=contactJobDefaults[kind]??contactJobDefaults.courier;
+  $('contact-offer-title').value=offer.title??'';
+  $('contact-offer-kind').value=kind;
+  $('contact-offer-difficulty').value=offer.difficulty??'rookie';
+  populateContractChoices('contact-offer-destination',contactEligibleDropoffs(marker),offer.destination_marker_id);
+  populateContractChoices('contact-offer-target',contactEligibleTargets(marker,offer.destination_marker_id),offer.robbery_marker_id);
+  $('contact-target-field').hidden=kind!=='robbery';
+  $('contact-offer-repeatable').checked=offer.repeatable!==false;
+  for(const [id,key] of [
+    ['contact-offer-cash','cash'],['contact-offer-player-xp','player_xp'],
+    ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
+    ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
+    ['contact-offer-required-level','required_player_level'],
+    ['contact-offer-required-rep','required_underground_rep']
+  ])$(id).value=offer[key]??defaults[key]??(key==='required_player_level'?1:0);
+  $('contact-editor-help').textContent='Job ID '+offer.id+' stays stable for career progression. '+(kind==='robbery'
+    ?'Player waits in car at the target while the crew acts off-screen, then escapes police to the dropoff.'
+    :'Reach the configured destination before the timer runs out.');
+}
+function changeContactProperties(callback,message){
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='markers'||found.item.type!=='contract_contact')return false;
+  const marker=found.item;
+  try{
+    const properties=callback({...marker.properties,offers:contactOffers(marker).map(o=>({...o}))});
+    return change(d=>updateEntity(d,marker.id,{properties}),message);
+  }catch(e){errorMessage(e);refreshInspector();return false;}
+}
+function changeContactOffer(updater,message='Updated contact job.'){
+  changeContactProperties(properties=>{
+    const list=properties.offers;
+    if(selectedContactOfferIndex<0||selectedContactOfferIndex>=list.length)return properties;
+    const previous=list[selectedContactOfferIndex];
+    list[selectedContactOfferIndex]=updater(previous,properties,list);
+    return properties;
+  },message);
+}
 function refreshInspector(){
   const found=selection?getEntity(doc,selection.id):null;
   if(!found){
@@ -625,6 +709,7 @@ function refreshInspector(){
     $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
+  if(found.type!=='markers')$('inspect-contract-contact').hidden=true;
   $('selected-type').textContent=type==='props'&&item.type==='guardrail'?'GUARDRAIL':
     {roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
   $('inspector-name').value=item.name;
@@ -666,6 +751,7 @@ function refreshInspector(){
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
   }else{
     $('inspect-marker-type').value=item.type;$('inspect-properties').value=JSON.stringify(item.properties,null,2);
+    refreshContactEditor(item);
   }
 }
 function refreshEntities(){
