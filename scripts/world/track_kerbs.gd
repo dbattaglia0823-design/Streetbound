@@ -7,6 +7,7 @@ const STRIPE_LENGTH:=3.0*PPM
 const KERB_WIDTH:=1.0*PPM
 # Prevent subpixel slivers at floating-point stripe boundaries.
 const MIN_STRIPE_PX:=0.01
+const MIN_TRIANGLE_DOUBLE_AREA:=0.001
 const RED:=Color("#cf3438")
 const WHITE:=Color("#f3f1e7")
 const EDGE:=Color("#eeeade")
@@ -35,18 +36,34 @@ static func stripes(path: PackedVector2Array, station: float=0.0) -> Array[Dicti
 		cursor+=length
 	return result
 
+## Godot may return triangle indices even for coincident/collinear points.
+## Verify every returned triangle has actual area, using local differences
+## to avoid precision loss at large world coordinates.
+static func valid_polygon(polygon: PackedVector2Array) -> bool:
+	if polygon.size()<3:return false
+	for point in polygon:
+		if not point.is_finite():return false
+	var triangles:=Geometry2D.triangulate_polygon(polygon)
+	if triangles.size()!=(polygon.size()-2)*3:return false
+	for i in range(0,triangles.size(),3):
+		var origin:=polygon[triangles[i]]
+		var edge_a:=polygon[triangles[i+1]]-origin
+		var edge_b:=polygon[triangles[i+2]]-origin
+		if absf(edge_a.cross(edge_b))<=MIN_TRIANGLE_DOUBLE_AREA:return false
+	return true
+
 ## Offset curves can fold across a very tight bend or collapse at a seam.
 ## Keep ordinary strips as quads; split folded strips into drawable triangles.
 ## Degenerate zero-area pieces have no visible surface to paint.
 static func stripe_polygons(quad: PackedVector2Array) -> Array[PackedVector2Array]:
 	var result: Array[PackedVector2Array]=[]
 	if quad.size()!=4:return result
-	if not Geometry2D.triangulate_polygon(quad).is_empty():
+	if valid_polygon(quad):
 		result.append(quad)
 		return result
 	for indices in [[0,1,2],[0,2,3]]:
 		var triangle:=PackedVector2Array([quad[indices[0]],quad[indices[1]],quad[indices[2]]])
-		if not Geometry2D.triangulate_polygon(triangle).is_empty():
+		if valid_polygon(triangle):
 			result.append(triangle)
 	return result
 
