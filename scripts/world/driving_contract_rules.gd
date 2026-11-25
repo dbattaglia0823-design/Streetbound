@@ -62,12 +62,14 @@ static func valid_offer(offer: Dictionary, contact: Dictionary, markers_by_id: D
 	if typeof(offer.get("repeatable",true)) != TYPE_BOOL:
 		return false
 	for field in ["required_player_level","required_underground_rep",
-			"time_limit_seconds","wanted_level"]:
+			"time_limit_seconds","wanted_level","robbery_hold_seconds",
+			"arrival_radius_m"]:
 		if not offer.has(field):
 			continue
 		var value: Variant = offer[field]
-		var lowest := 1 if field == "required_player_level" else 60 if field == "time_limit_seconds" else 0
-		var highest := 100 if field == "required_player_level" else 100000 if field == "required_underground_rep" else 			MAX_DURATION if field == "time_limit_seconds" else 5
+
+		var lowest := 1 if field == "required_player_level" else 60 if field == "time_limit_seconds" else 3 if field == "robbery_hold_seconds" else 6 if field == "arrival_radius_m" else 0
+		var highest := 100 if field == "required_player_level" else 100000 if field == "required_underground_rep" else MAX_DURATION if field == "time_limit_seconds" else 30 if field == "robbery_hold_seconds" else 30 if field == "arrival_radius_m" else 5
 		if typeof(value) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(value)) or 				float(value) != floorf(float(value)) or int(value) < lowest or int(value) > highest:
 			return false
 	for field in REWARD_LIMITS:
@@ -128,8 +130,15 @@ static func configured_wanted(kind: String, offer: Dictionary) -> int:
 static func configured_time(kind: String, offer: Dictionary) -> float:
 	return clampf(float(offer.get("time_limit_seconds",time_limit(kind))),60.0,float(MAX_DURATION))
 
-static func arrived(distance_m: float, speed_mps: float) -> bool:
-	return is_finite(distance_m) and is_finite(speed_mps) and distance_m <= ARRIVAL_RADIUS_M and 		speed_mps <= MAX_ARRIVAL_SPEED_MPS
+static func configured_robbery_hold(offer: Dictionary) -> float:
+	return clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
+
+static func configured_arrival_radius(offer: Dictionary) -> float:
+	return clampf(float(offer.get("arrival_radius_m", ARRIVAL_RADIUS_M)), 6.0, 30.0)
+
+static func arrived(distance_m: float, speed_mps: float, radius_m: float = ARRIVAL_RADIUS_M) -> bool:
+	return is_finite(distance_m) and is_finite(speed_mps) and distance_m <= clampf(radius_m, 6.0, 30.0) and \
+		speed_mps <= MAX_ARRIVAL_SPEED_MPS
 
 static func reward(kind: String) -> Dictionary:
 	return REWARDS.get(kind, {}).duplicate()
