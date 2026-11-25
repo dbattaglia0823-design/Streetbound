@@ -149,7 +149,10 @@ static func lateral_grip_budget(load_n: float, grip: float, longitudinal_n: floa
 
 
 func _physics_process(dt: float) -> void:
-	if not external_input:
+	if not external_input and get_node_or_null("/root/MenuNavigation")!=null and bool(get_node("/root/MenuNavigation").call("blocks_driving")):
+		command=Vector4.ZERO
+		nitrous_requested=false
+	elif not external_input:
 		nitrous_requested = Input.is_action_pressed("nitrous")
 		command = Vector4(Input.get_action_strength("throttle"), Input.get_action_strength("brake"), Input.get_axis("left", "right"), Input.get_action_strength("handbrake"))
 		if Input.is_action_just_pressed("reset"):
