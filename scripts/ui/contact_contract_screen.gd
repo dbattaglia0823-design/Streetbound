@@ -136,6 +136,7 @@ func _ready() -> void:
 	backdrop.add_child(frame)
 	_build_frame()
 	backdrop.visible = false
+	get_node("/root/MenuNavigation").register_scope(backdrop,19,close_screen)
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 
