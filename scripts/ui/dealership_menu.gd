@@ -326,10 +326,8 @@ func _filter(query: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey or not event.pressed or event.echo:
-		return
-	var key: InputEventKey = event
-	if key.physical_keycode == KEY_F or key.keycode == KEY_F:
+	if event is InputEventKey and (not event.pressed or event.echo):return
+	if event.is_action_pressed("interact"):
 		# Let the Ashford staging area handle F when no dealership is near.
 		if overlay.visible:
 			close_menu()
@@ -337,7 +335,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif is_instance_valid(manager) and manager.can_browse(manager.nearby_shop()):
 			open_menu()
 			get_viewport().set_input_as_handled()
-	elif overlay.visible and (key.physical_keycode == KEY_ESCAPE or key.keycode == KEY_ESCAPE):
+	elif overlay.visible and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause")):
 		close_menu()
 		get_viewport().set_input_as_handled()
 
