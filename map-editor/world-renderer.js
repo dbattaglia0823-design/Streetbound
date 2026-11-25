@@ -170,14 +170,24 @@ function drawRoadBase(ctx,road,points,gameSurface=false){
   // and centerlines the same color to avoid visible overlay patches.
   const pavement=gameSurface&&road.surface==='asphalt'?'#58656c':ROAD_COLORS[road.surface];
   drawRoadStroke(ctx,points,w,pavement,[],cap);
-  if(road.surface==='track')drawRoadStroke(ctx,points,w+5,'#c94e42', [18,18]);
+  // Kerbs belong to the junction-clipped markings pass, not the pavement.
   if(road.roadClass==='mountain'&&w>22){
     drawRoadStroke(ctx,traceOffset(points,w/2+s+5),2.6,'#c3b19a');
   }
 }
 function drawRoadLines(ctx,road,points){
-  if(!road.markings || road.surface==='dirt'||road.surface==='gravel')return;
+  if(road.surface==='dirt'||road.surface==='gravel')return;
   const w=road.width;
+  if(road.roadClass==='track'||road.surface==='track'){
+    for(const side of [-1,1]){
+      const kerb=traceOffset(points,side*(w/2-.5));
+      drawRoadStroke(ctx,kerb,1,'#f3f1e7',[],'butt');
+      drawRoadStroke(ctx,kerb,1,'#cf3438',[3,3],'butt');
+      drawRoadStroke(ctx,traceOffset(points,side*(w/2-1.15)),.15,'#eeeade',[],'butt');
+    }
+    return;
+  }
+  if(!road.markings)return;
   if(road.lanes===1){
     drawRoadStroke(ctx,points,1.5,road.surface==='track'?'#f7f3df':'#ecdfba',[19,16]);
   }else{
