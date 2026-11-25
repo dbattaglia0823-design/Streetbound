@@ -155,6 +155,34 @@ func run() -> void:
 	editor.call("build",host)
 	editor.call("open_for",{"authoring":contact_session},contact)
 	check("npc_contract_editor_loads_two_jobs",(editor.get("offers") as Array).size()==2)
+	editor.call("_duplicate_job")
+	var after_copy: Array=editor.get("offers")
+	check("duplicating_native_contract_assigns_new_id", after_copy.size()==3 and
+		str(after_copy[1].get("id",""))!="job_1" and str(after_copy[0].get("id",""))=="job_1")
+	editor.call("_move_job",1)
+	var reordered: Array=editor.get("offers")
+	check("native_job_ordering_preserves_save_ids",str(reordered[2].get("id",""))==str(after_copy[1].get("id","")))
+	editor.call("_apply_difficulty_preset")
+	check("native_preset_keeps_current_job_identity",
+		str((editor.get("offers") as Array)[2].get("id",""))==str(reordered[2].get("id","")))
+	editor.call("_delete_job")
+	var errors: Array=editor.call("validation_errors",contact,contact_markers)
+	check("native_authoring_links_still_validate",errors.is_empty())
+	check("robbery_wait_and_radius_have_valid_defaults",
+		is_equal_approx(Contracts.configured_robbery_hold({}),7.0)
+		and is_equal_approx(Contracts.configured_arrival_radius({}),12.0)
+		and Contracts.arrived(20.0,0.0,22.0)
+		and not Contracts.arrived(25.0,0.0,22.0))
+	var custom_robbing: Dictionary=robbery_offer.duplicate(true)
+	custom_robbing["robbery_hold_seconds"]=18
+	custom_robbing["arrival_radius_m"]=22
+	check("configurable_robbery_duration_and_stop_radius",
+		Contracts.valid_offer(custom_robbing,contact,by_id)
+		and Contracts.configured_robbery_hold(custom_robbing)==18.0
+		and Contracts.configured_arrival_radius(custom_robbing)==22.0)
+	var invalid_robbing: Dictionary=custom_robbing.duplicate(true)
+	invalid_robbing["robbery_hold_seconds"]=99
+	check("unsafe_wait_rejected",not Contracts.valid_offer(invalid_robbing,contact,by_id))
 	var visual:=Node2D.new()
 	visual.set_script(ContactVisual)
 	root.add_child(visual)
