@@ -9,6 +9,8 @@ var role_input: LineEdit
 var greeting_input: LineEdit
 var bio_input: LineEdit
 var job_description_input: TextEdit
+var arrival_radius_input: SpinBox
+var robbery_wait_input: SpinBox
 var job_picker: OptionButton
 var title_input: LineEdit
 var type_input: OptionButton
@@ -67,74 +69,121 @@ func _choice(parent: Node, title: String, values: Array) -> OptionButton:
 
 func build(parent: Node) -> void:
 	fields=VBoxContainer.new()
-	fields.add_theme_constant_override("separation",6)
 	parent.add_child(fields)
-	_caption(fields,"CONTRACT GIVER / APPEARANCE")
-	style_input=_choice(fields,"NPC style",["street","business","mechanic","casual"])
-	_caption(fields,"CONTACT ROLE / PERSONALITY")
+	var tabs:=TabContainer.new()
+	tabs.name="ContractAuthoringTabs"
+	tabs.custom_minimum_size=Vector2(468,520)
+	fields.add_child(tabs)
+	var identity_scroll:=ScrollContainer.new()
+	identity_scroll.name="Contact & Personality"
+	identity_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(identity_scroll)
+	var persona:=VBoxContainer.new()
+	persona.custom_minimum_size.x=445
+	persona.add_theme_constant_override("separation",8)
+	identity_scroll.add_child(persona)
+	_caption(persona,"CONTRACT GIVER / APPEARANCE")
+	style_input=_choice(persona,"NPC style",["street","business","mechanic","casual"])
+	_caption(persona,"CONTACT ROLE / PERSONALITY")
 	role_input=LineEdit.new()
 	role_input.max_length=60
-	role_input.placeholder_text="e.g. Professional fixer (blank uses personality preset)"
-	fields.add_child(role_input)
-	_caption(fields,"CONTACT GREETING")
+	role_input.placeholder_text="Blank uses the selected personality preset"
+	persona.add_child(role_input)
+	_caption(persona,"CONTACT GREETING")
 	greeting_input=LineEdit.new()
 	greeting_input.max_length=180
-	greeting_input.placeholder_text="First line the player hears (blank uses preset)"
-	fields.add_child(greeting_input)
-	_caption(fields,"CONTACT BIOGRAPHY")
+	greeting_input.placeholder_text="A short greeting heard when opening the jobs screen"
+	persona.add_child(greeting_input)
+	_caption(persona,"CONTACT BIOGRAPHY")
 	bio_input=LineEdit.new()
 	bio_input.max_length=240
-	bio_input.placeholder_text="Background and specialties (blank uses preset)"
-	fields.add_child(bio_input)
-	_caption(fields,"AVAILABLE JOBS / SELECT TO EDIT")
+	bio_input.placeholder_text="Their background and job specialties"
+	persona.add_child(bio_input)
+	var persona_hint:=Label.new()
+	persona_hint.text="The NPC name and interaction radius are on the marker settings.\nStyle presets supply dialogue when fields are blank."
+	persona_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	persona.add_child(persona_hint)
+	var jobs_scroll:=ScrollContainer.new()
+	jobs_scroll.name="Contracts & Rewards"
+	jobs_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	tabs.add_child(jobs_scroll)
+	var jobs:=VBoxContainer.new()
+	jobs.custom_minimum_size.x=445
+	jobs.add_theme_constant_override("separation",7)
+	jobs_scroll.add_child(jobs)
+	_caption(jobs,"CONTRACTS / EACH HAS A PERMANENT SAVE ID")
 	job_picker=OptionButton.new()
-	fields.add_child(job_picker)
+	jobs.add_child(job_picker)
 	job_picker.item_selected.connect(_change_job)
-	var action_bar:=HBoxContainer.new()
-	fields.add_child(action_bar)
+	var actions:=HBoxContainer.new()
+	jobs.add_child(actions)
 	var add:=Button.new()
-	add.text="Add Contract"
+	add.text="New job"
 	add.pressed.connect(_add_job)
-	action_bar.add_child(add)
+	actions.add_child(add)
+	var duplicate:=Button.new()
+	duplicate.text="Duplicate"
+	duplicate.pressed.connect(_duplicate_job)
+	actions.add_child(duplicate)
 	var remove:=Button.new()
-	remove.text="Delete Selected Contract"
+	remove.text="Delete"
 	remove.pressed.connect(_delete_job)
-	action_bar.add_child(remove)
-	_caption(fields,"JOB TITLE")
+	actions.add_child(remove)
+	var ordering:=HBoxContainer.new()
+	jobs.add_child(ordering)
+	var up:=Button.new()
+	up.text="Move up"
+	up.pressed.connect(func():_move_job(-1))
+	ordering.add_child(up)
+	var down:=Button.new()
+	down.text="Move down"
+	down.pressed.connect(func():_move_job(1))
+	ordering.add_child(down)
+	_caption(jobs,"JOB TITLE")
 	title_input=LineEdit.new()
 	title_input.max_length=80
-	fields.add_child(title_input)
-	_caption(fields,"MISSION BRIEFING / DESCRIPTION")
+	jobs.add_child(title_input)
+	_caption(jobs,"MISSION BRIEFING")
 	job_description_input=TextEdit.new()
-	job_description_input.custom_minimum_size.y=72
+	job_description_input.custom_minimum_size.y=82
 	job_description_input.wrap_mode=TextEdit.LINE_WRAPPING_BOUNDARY
-	fields.add_child(job_description_input)
-	type_input=_choice(fields,"Mission type",Rules.KINDS)
+	jobs.add_child(job_description_input)
+	type_input=_choice(jobs,"Mission type",Rules.KINDS)
 	type_input.item_selected.connect(_on_kind_changed)
-	difficulty_input=_choice(fields,"Difficulty",Rules.DIFFICULTIES)
-	dropoff_input=_choice(fields,"Getaway / delivery destination",[])
-	target_input=_choice(fields,"Robbery target (required for robbery jobs)",[])
+	difficulty_input=_choice(jobs,"Difficulty",Rules.DIFFICULTIES)
+	var preset:=Button.new()
+	preset.text="Apply suggested rewards for difficulty"
+	preset.tooltip_text="Overrides reward values and heat, but keeps the job ID, targets and mission description."
+	preset.pressed.connect(_apply_difficulty_preset)
+	jobs.add_child(preset)
+	dropoff_input=_choice(jobs,"Getaway / delivery destination",[])
+	target_input=_choice(jobs,"Robbery target (robbery jobs only)",[])
 	repeat_input=CheckBox.new()
 	repeat_input.text="Repeatable contract"
 	repeat_input.button_pressed=true
-	fields.add_child(repeat_input)
-	cash_input=_number(fields,"Cash reward ($)",0,10000,550)
-	player_xp_input=_number(fields,"Driver XP reward",0,1500,180)
-	car_xp_input=_number(fields,"Vehicle XP reward",0,1200,120)
-	rep_input=_number(fields,"Underground reputation",0,30,0)
-	wanted_input=_number(fields,"Wanted level",0,5,0)
-	duration_input=_number(fields,"Time limit (seconds)",60,900,270)
-	level_input=_number(fields,"Required driver level",1,100,1)
-	required_rep_input=_number(fields,"Required underground reputation",0,100000,0)
+	jobs.add_child(repeat_input)
+	_caption(jobs,"MISSION OBJECTIVES")
+	arrival_radius_input=_number(jobs,"Arrival / drop-off radius (6-30 m)",6,30,12)
+	robbery_wait_input=_number(jobs,"Robbery crew wait (3-30 seconds)",3,30,7)
+	_caption(jobs,"REWARDS & HEAT")
+	cash_input=_number(jobs,"Cash reward ($)",0,10000,550)
+	player_xp_input=_number(jobs,"Driver XP reward",0,1500,180)
+	car_xp_input=_number(jobs,"Vehicle XP reward",0,1200,120)
+	rep_input=_number(jobs,"Underground reputation",0,30,0)
+	wanted_input=_number(jobs,"Wanted level",0,5,0)
+	duration_input=_number(jobs,"Time limit (seconds)",60,900,270)
+	_caption(jobs,"UNLOCK REQUIREMENTS")
+	level_input=_number(jobs,"Required driver level",1,100,1)
+	required_rep_input=_number(jobs,"Required underground reputation",0,100000,0)
 	status=Label.new()
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	status.text="Configure at least one connected road-accessible destination before saving."
-	fields.add_child(status)
+	status.text="Place a drop-off marker first, then create your contract."
+	jobs.add_child(status)
 	_show_selected_controls(false)
 
 func _show_selected_controls(enabled: bool) -> void:
 	for element in [title_input,job_description_input,type_input,difficulty_input,dropoff_input,target_input,
-			repeat_input,cash_input,player_xp_input,car_xp_input,rep_input,
+			repeat_input,arrival_radius_input,robbery_wait_input,cash_input,player_xp_input,car_xp_input,rep_input,
 			wanted_input,duration_input,level_input,required_rep_input]:
 		if element is LineEdit:
 			(element as LineEdit).editable=enabled
@@ -147,6 +196,7 @@ func _show_selected_controls(enabled: bool) -> void:
 		elif element is CheckBox:
 			(element as CheckBox).disabled=not enabled
 	target_input.visible=enabled and _value(type_input)=="robbery"
+	robbery_wait_input.visible=enabled and _value(type_input)=="robbery"
 	status.visible=true
 
 func _populate_locations(e) -> void:
