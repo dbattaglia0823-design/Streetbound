@@ -199,6 +199,7 @@ func _ready() -> void:
 	bridge.completed.connect(_on_apply_completed)
 	add_child(bridge)
 	root_ui.visible = false
+	get_node("/root/MenuNavigation").register_scope(root_ui,31,close_editor)
 	gizmos = Node2D.new()
 	gizmos.set_script(Gizmos)
 	gizmos.world = world
@@ -1506,7 +1507,7 @@ func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 func _btn(text_value: String, parent: Node, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text_value
-	b.focus_mode=Control.FOCUS_NONE
+	b.focus_mode=Control.FOCUS_ALL
 	b.custom_minimum_size = Vector2(104,33)
 	b.add_theme_font_size_override("font_size",12)
 	var normal := StyleBoxFlat.new()
