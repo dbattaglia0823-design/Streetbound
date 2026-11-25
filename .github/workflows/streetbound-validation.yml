@@ -547,6 +547,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Parse browser editor and contract authoring JavaScript
+        run: |
+          node --check map-editor/world-editor.js
+          node --check map-editor/world-model.js
+          node --check map-editor/tests/contract-contacts.test.mjs
       - name: Test map health, safe snaps, recovery and road priority
         run: node --test map-editor/tests/*.test.mjs
       - name: Validate Morrow Coast editable source overlays and road endpoint safety
