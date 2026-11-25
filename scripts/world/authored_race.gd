@@ -235,7 +235,7 @@ func _award_finish() -> String:
 		return "REWARDS NOT SAVED: "+str(awarded.get("result","unknown"))
 	var prefix: String="FIRST WIN  " if bool(awarded.get("first_win",false)) else "REWARDS  "
 	return prefix+OwnershipModel.dollars(int(awarded.get("cash",0)))+" / %d DRIVER XP / %d CAR XP"%[
-		int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]
+		int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]+(" / +%d STREET REP"%int(awarded.get("underground_rep",0)) if int(awarded.get("underground_rep",0))>0 else "")
 
 func _won_course() -> bool:
 	for progress in rival_progress:
@@ -328,13 +328,13 @@ func _physics_process(dt: float) -> void:
 			_gate_armed=true;queue_redraw()
 		_previous_m=at
 		var limit:=float(definition.get("time_limit",0))
-		if state=="running" and limit>0 and elapsed>limit:_finish("TIME LIMIT REACHED")
+		if state=="running" and not awaiting_escape and limit>0 and elapsed>limit:_finish("TIME LIMIT REACHED")
 	elif state=="results":
 		status_timer-=dt
 		if status_timer<=0:
 			_clear_rivals()
 			state="idle";result=""
-	world_guidance.set_guidance(navigation,player,state in ["countdown","running"])
+	world_guidance.set_guidance(navigation,player,state in ["countdown","running"] and not awaiting_escape)
 	_draw_clock+=dt
 	if _draw_clock>=.1:_draw_clock=0;_refresh();queue_redraw()
 func _refresh() -> void:
