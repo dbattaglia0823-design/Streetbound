@@ -42,6 +42,7 @@ var dialog_cash: SpinBox
 var dialog_driver_xp: SpinBox
 var dialog_car_xp: SpinBox
 var dialog_tabs: TabContainer
+var multiplayer_rewards_button: Button
 var online_use_custom: CheckBox
 var online_cash: SpinBox
 var online_driver_xp: SpinBox
@@ -347,7 +348,8 @@ func _build_dialog(e) -> void:
 	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=1
 	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=1
 	dialog_car_xp=e._number(awards,"Vehicle XP",0,100000,0);dialog_car_xp.step=1
-	e._btn("Set Multiplayer Rewards...",awards,func():tabs.current_tab=2).tooltip_text="Configure first-place multiplayer cash, driver XP, car XP and upgrade-part drop chance on this race."
+	multiplayer_rewards_button=e._btn("Set Multiplayer Rewards...",awards,_open_multiplayer_rewards)
+	multiplayer_rewards_button.tooltip_text="Configure first-place multiplayer cash, driver XP, car XP and upgrade-part drop chance on this race."
 	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
 	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var career:=HBoxContainer.new()
@@ -435,6 +437,15 @@ func _build_dialog(e) -> void:
 	dialog_message=_form_label(foot,"")
 	dialog_message.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	e._btn("Save Race Settings",foot,func():_save_dialog(e))
+
+## Resolve the actual tab by title instead of relying on an index that
+## changes when new career tabs are inserted.
+func _open_multiplayer_rewards() -> void:
+	if not is_instance_valid(dialog_tabs):return
+	for index in dialog_tabs.get_tab_count():
+		if dialog_tabs.get_tab_title(index)=="Multiplayer Rewards":
+			dialog_tabs.current_tab=index
+			return
 
 func _update_dialog_type() -> void:
 	var kind:=str(dialog_type.get_selected_metadata())
