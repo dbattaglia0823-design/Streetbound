@@ -115,7 +115,16 @@ var asset_entries: Array[Dictionary] = []
 var active_project_asset: Dictionary = {}
 var finish_button: Button
 var cancel_button: Button
+const EditorContext=preload("res://scripts/dev/native_editor_context.gd")
 var tool_options: Container
+var tool_help: Label
+var sidewalk_settings: Control
+var guardrail_settings: Control
+var race_settings: Control
+var dealership_settings: Control
+var inspector_tabs: TabContainer
+var selection_fields: Control
+var road_layer_settings: Control
 var settings_panel: PanelContainer
 var canvas_bar: PanelContainer
 var canvas_rect:=Rect2()
@@ -495,16 +504,27 @@ func _select_asset(entry: Dictionary) -> void:
 
 func _update_context_panels() -> void:
 	if not is_instance_valid(tool_options):return
-	var road_selected: bool=source_ready and not authoring.road_at_id(source_id).is_empty()
 	var record:=_selected_record()
-	road_settings.visible=tool_name in ["move_prop","anchor","pan","draw_road","place_circle_road"] or road_selected
-	if record.get("category","") in ["regions","races"] or tool_name=="draw_race":road_settings.visible=false
+	var context:=EditorContext.resolve(tool_name,str(record.get("category","")),
+		str(record.get("item",{}).get("type","")),multi_selection.size())
+	road_settings.visible=bool(context.road)
+	terrain_settings.visible=bool(context.terrain)
+	marker_settings.visible=bool(context.marker)
+	race_settings.visible=bool(context.race)
+	sidewalk_settings.visible=bool(context.sidewalk)
+	guardrail_settings.visible=bool(context.guardrail)
+	dealership_settings.visible=bool(context.dealership)
+	grid_button.visible=bool(context.snap)
+	building_snap_button.visible=bool(context.building_snap)
+	tool_help.text=str(context.help)
 	road_shapes.update(self)
 	race_editor.update(self)
-	terrain_settings.visible=tool_name=="draw_terrain" or record.get("category","")=="regions"
-	marker_settings.visible=tool_name=="place_marker" or record.get("category","")=="markers"
 	marker_editor.update(self)
-	asset_dock.visible=tool_name.begins_with("place:")
+	marker_editor.edit_button.visible=bool(context.marker) and record.get("category","")=="markers"
+	asset_dock.visible=bool(context.assets)
+	finish_button.visible=bool(context.shape_actions)
+	cancel_button.visible=bool(context.shape_actions) or not pending_drag.is_empty()
+	var road_selected: bool=bool(context.road) and record.get("category","")=="roads"
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
@@ -517,7 +537,7 @@ func _update_context_panels() -> void:
 			for i in option.item_count:
 				if str(option.get_item_metadata(i))==value:option.select(i);break
 		_setting_controls=false
-	if record.get("category","")=="regions" and tool_name!="draw_terrain":
+	if bool(context.terrain) and record.get("category","")=="regions" and tool_name!="draw_terrain":
 		_setting_controls=true
 		for i in terrain_biome.item_count:
 			if str(terrain_biome.get_item_metadata(i))==str(record.item.biome):terrain_biome.select(i);break
@@ -2143,12 +2163,19 @@ func _record_position(record: Dictionary) -> Vector2:
 func _refresh_inspector() -> void:
 	if not is_instance_valid(inspector_name):return
 	_updating_inspector=true
-	var record:=_selected_record();var exists:=not record.is_empty()
+	var record:=_selected_record()
+	var context:=EditorContext.resolve(tool_name,str(record.get("category","")),str(record.get("item",{}).get("type","")),multi_selection.size())
+	var exists:=bool(context.selected_fields)
+	selection_fields.visible=exists
+	edit_actions.visible=bool(context.selection_actions)
+	if multi_selection.size()>1:
+		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
+		selected_preview.hide()
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
 	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
-	prop_transforms.visible=exists and record.category=="props"
+	prop_transforms.visible=exists and record.category=="props" and str(record.item.get("type","")) not in ["sidewalk","guardrail"]
 	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
@@ -2365,6 +2392,7 @@ func _select_entity(index: int) -> void:
 
 func _set_layer(enabled: bool,key: String) -> void:
 	layer_flags[key]=enabled
+	if is_instance_valid(road_layer_settings):road_layer_settings.visible=bool(layer_flags.roads)
 	if key in ["terrain","roads","scenery"]:
 		if is_instance_valid(overview_renderer):overview_renderer.set_layers(layer_flags)
 		if is_instance_valid(render_tiles):render_tiles.set_layers(layer_flags)
@@ -2413,7 +2441,7 @@ func _update_source_details() -> void:
 	if not source_ready:return
 	if source_id.is_empty():
 		if selected.is_empty():
-			details.text="Select a road, region, marker or scenery object. Edit its properties here, or find it in the list below."
+			details.text="Select an object to inspect its properties. Use the Objects tab to find it by name."
 			selected_preview.texture=null;selected_preview.visible=false
 		return
 	selected_preview.visible=false
@@ -2634,7 +2662,7 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 			float(prop.size[0]),float(prop.size[1]),
 			"yes" if bool(prop.get("solid",false)) else "no"]
 	else:
-		details.text = "Select a road, region, marker or scenery object. Edit its properties here, or find it in the list below."
+		details.text = "Select an object to inspect its properties. Use the Objects tab to find it by name."
 	if not measured.is_empty():
 		details.text += "\n\nSurface: %s  Grip: %.2f" % [
 			str(measured.get("surface","")),float(measured.get("grip",0.0))]
