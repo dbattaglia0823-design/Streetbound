@@ -435,11 +435,12 @@ func _draw_draft() -> void:
 		var road_width := float(road.get("width",10))*road_width_scale*PPM
 		if changed:
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,0)
-			draw_polyline(line,Color("#ccc4ab"),road_width+60.0,true)
+			var alley: bool=str(road.get("roadClass",""))=="alley"
+			draw_polyline(line,Color("#77736b") if alley else Color("#ccc4ab"),road_width+(10.0 if alley else 60.0),true)
 			draw_polyline(line,Color("#a1947d") if str(road.surface) in ["gravel","dirt"] else Color("#58656c"),road_width,true)
 			if preload("res://scripts/world/track_kerbs.gd").is_track(road) and str(road.surface) not in ["gravel","dirt"]:
 				preload("res://scripts/world/track_kerbs.gd").paint(self,line,road_width)
-			elif str(road.surface) not in ["gravel","dirt"]:
+			elif not alley and str(road.surface) not in ["gravel","dirt"]:
 				var layout:=Lanes.layout({"width":road_width/PPM,"lanes":int(road.lanes)})
 				var divider:=float(layout.divider)*PPM
 				draw_polyline(Lanes.offset_path(line,divider),Color("#e5d6a0"),2.0,true)

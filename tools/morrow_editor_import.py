@@ -51,11 +51,11 @@ def world_bounds_from_overlay(filename=EDIT_PATH):
 KIND_TO_CLASS = {
     "local": "city", "arterial": "city", "highway": "highway",
     "rural": "country", "mountain": "mountain", "track": "track",
-    "driveway": "service", "gravel": "service",
+    "driveway": "service", "gravel": "service", "alley": "alley",
 }
 CLASS_TO_KIND = {
     "city": "local", "highway": "highway", "country": "rural",
-    "mountain": "mountain", "track": "track", "service": "driveway",
+    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley",
 }
 PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
@@ -494,7 +494,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             raise ValueError("Invalid new-road width")
         if surf == "TRACK":
             kind = "track"
-        elif surf == "GRAVEL":
+        elif surf == "GRAVEL" and kind != "alley":
             kind = "gravel"
         loose = surf in LOOSE
         endpoint_names = []

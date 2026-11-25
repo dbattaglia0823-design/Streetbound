@@ -7,7 +7,7 @@ import bisect
 import math
 
 PRIORITY = {'highway':5,'track':5,'arterial':4,'rural':3,'mountain':3,
-            'local':2,'gravel':1,'driveway':0}
+            'local':2,'gravel':1,'driveway':0,'alley':0}
 
 
 def distance(a,b):

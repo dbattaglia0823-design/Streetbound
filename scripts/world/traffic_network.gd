@@ -6,7 +6,7 @@ extends RefCounted
 const PPM := 20.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const SPEEDS := {"local": 36.0, "arterial": 51.0, "highway": 82.0,
-	"rural": 60.0, "mountain": 34.0}
+	"rural": 60.0, "mountain": 34.0, "alley": 20.0}
 const CELL_M := 192.0
 var edges: Array[Dictionary] = []
 var candidate_grid: Dictionary = {}

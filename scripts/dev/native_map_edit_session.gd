@@ -346,9 +346,9 @@ func reconcile_runtime(data: Dictionary) -> bool:
 			var points: Array[Dictionary]=[]
 			for p in raw.get("anchors",raw.points):points.append({"x":float(p[0]),"y":float(p[1])})
 			next.roads.append({"id":"road-%d"%i,"name":str(raw.name),
-				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track"}.get(str(raw.kind),"city"),
+				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
-				"lanes":int(raw.lanes),"shoulder":2.0,"smooth":true,"markings":true,"points":points})
+				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
 		next.morrowSourceRoadCount=current
 	if poi_current>poi_basis:
@@ -932,6 +932,12 @@ func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
 		"surface":"asphalt","width":10.0,"lanes":2,"shoulder":2.0,"smooth":true,"markings":true,"points":vertices}
 	for key in ["roadClass","surface","width","lanes"]:
 		if settings.has(key):road[key]=settings[key]
+	if road.roadClass=="alley":
+		road.name="Alleyway"
+		road.shoulder=0.0
+		road.markings=false
+		if not settings.has("width"):road.width=6.0
+		if not settings.has("lanes"):road.lanes=1
 	var next:=doc.duplicate(true)
 	next.roads.append(road)
 	var temporary=get_script().new();temporary.doc=next
@@ -1128,6 +1134,9 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 		if str(road.id)!=identity:continue
 		for key in ["roadClass","surface","width","lanes"]:
 			if settings.has(key):road[key]=settings[key]
+		if road.roadClass=="alley":
+			road.shoulder=0.0
+			road.markings=false
 		return _commit(next)
 	return false
 

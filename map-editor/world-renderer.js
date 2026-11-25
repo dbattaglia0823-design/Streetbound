@@ -164,6 +164,11 @@ function traceOffset(points,offset){
 }
 function drawRoadBase(ctx,road,points,gameSurface=false){
   const w=road.width,s=road.shoulder,cap=isLoose(road)?'butt':'round';
+  if(road.roadClass==='alley'&&!isLoose(road)){
+    drawRoadStroke(ctx,points,w+.5,'#77736b',[],cap);
+    drawRoadStroke(ctx,points,w,gameSurface?'#58656c':'#55595b',[],cap);
+    return;
+  }
   drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760',[],cap);
   drawRoadStroke(ctx,points,w+3,isLoose(road)?'#796d56bb':'#242a2e99',[],cap);
   // The playable coast draws asphalt in #58656c. Keep its paved mouths
@@ -176,7 +181,7 @@ function drawRoadBase(ctx,road,points,gameSurface=false){
   }
 }
 function drawRoadLines(ctx,road,points){
-  if(road.surface==='dirt'||road.surface==='gravel')return;
+  if(road.roadClass==='alley'||road.surface==='dirt'||road.surface==='gravel')return;
   const w=road.width;
   if(road.roadClass==='track'||road.surface==='track'){
     for(const side of [-1,1]){

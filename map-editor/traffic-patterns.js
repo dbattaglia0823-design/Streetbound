@@ -40,7 +40,7 @@ export function lanePatterns(roads,{includeLoose=false}={}){
         }
         patterns.push({roadId:road.id,roadName:road.name,
           lane:index,direction,points:result,kind:road.roadClass,
-          speedKph:({highway:90,country:65,mountain:42,city:40,service:25})[road.roadClass]||40});
+          speedKph:({highway:90,country:65,mountain:42,city:40,service:25,alley:20})[road.roadClass]||40});
       }
     }
   }

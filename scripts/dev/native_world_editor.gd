@@ -2164,7 +2164,14 @@ func _change_road_type(_index: int) -> void:
 	if _setting_controls:return
 	var kind:=_option_value(road_class)
 	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
-	if kind=="track":_select_road_option(road_surface,"track")
+	if kind=="alley":
+		_select_road_option(road_surface,"asphalt")
+		if tool_name in ["draw_road","place_circle_road"]:
+			_setting_controls=true
+			road_width.value=6.0
+			road_lanes.value=1
+			_setting_controls=false
+	elif kind=="track":_select_road_option(road_surface,"track")
 	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
 	_commit_road_type_and_surface()
 

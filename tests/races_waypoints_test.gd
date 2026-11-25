@@ -65,7 +65,7 @@ func run() -> void:
 		var before_reward: int = game.vehicle_ownership.balance
 		var before_rep: int = game.vehicle_ownership.underground_reputation
 		var distance:=0.0
-		while distance<float(nav.length_m) and event.state=="running":
+		while distance<float(nav.length_m) and event.state=="running" and not event.awaiting_escape:
 			distance=minf(float(nav.length_m),distance+3)
 			game.vehicle.position=nav.point_at(distance)*20
 			game.vehicle.linear_velocity=event.heading*30
@@ -80,11 +80,13 @@ func run() -> void:
 		check(str(event.race_title)+"_escape_awards_cash_and_rep",game.vehicle_ownership.balance>before_reward and game.vehicle_ownership.underground_reputation>before_rep)
 		# Let results expire normally so all active race state is cleaned up.
 		event._physics_process(10.0)
-		game.vehicle.position=event.start_m*20;game.vehicle.linear_velocity=Vector2.ZERO
+		game.vehicle.position=event.start_m*20;game.vehicle.rotation=event.heading.angle()+PI/2;game.vehicle.linear_velocity=Vector2.ZERO
 		check(str(event.race_title)+"_replayable",event.start_race())
+		var before_invalid_run: int = game.vehicle_ownership.balance
 		event._clear_opponent();event.countdown=.01;event._physics_process(.02)
+		check(str(event.race_title)+"_replay_launches",event.state=="running" and police.wanted_level>0)
 		game.vehicle.position=event.finish_m*20;event._physics_process(.1)
-		check(str(event.race_title)+"_rejects_finish_teleport",event.state=="aborted")
+		check(str(event.race_title)+"_rejects_finish_teleport",event.state=="aborted" and not event.awaiting_escape and game.vehicle_ownership.balance==before_invalid_run,event.result)
 		if police.wanted_level>0:police._escape()
 		event._physics_process(10.0)
 		await process_frame

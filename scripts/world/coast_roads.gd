@@ -206,6 +206,8 @@ func _roads(stage: int) -> void:
 						var outside := Walkways.urban_sidewalk_outer(
 							section.path, width, float(side))
 						draw_polyline(outside, Color("b5b8a9"), 3.0, true)
+			elif r.kind=="alley":
+				draw_polyline(path,Color("77736b"),width+10.0,true)
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
@@ -283,7 +285,7 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 	if urban:
 		_paver_joints(path,width,station)
 		_street_surface_details(path,r,width,station)
-	if gravel or r.kind == "driveway":
+	if gravel or r.kind in ["driveway","alley"]:
 		return
 	var edge := Color("dcd9c4")
 	if TrackKerbs.is_track(r):
