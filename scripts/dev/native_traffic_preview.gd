@@ -65,6 +65,7 @@ static func build_data(base: Dictionary, source: Array, initial: Array, width_sc
 				"width":float(item.width)/width_scale*float(base.get("road_width_scale",1.0)),
 				"lanes":int(item.lanes),"surface":str(item.surface).to_upper(),
 				"kind":{"city":"local","country":"rural","service":"driveway"}.get(str(item.roadClass),str(item.roadClass))}
+		if road.get("surface","")=="TRACK":road.kind="track"
 		if road.get("surface","") in ["CONCRETE","TRACK"]:road.surface="ASPHALT"
 		# Endpoint identity follows geometry, including new/reversed road joins.
 		for end in ["start","end"]:

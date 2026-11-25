@@ -7,6 +7,7 @@ const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const DrivingContracts=preload("res://scripts/world/driving_contract_rules.gd")
 const OnlineRewards=preload("res://scripts/network/online_race_rewards.gd")
 const SAVE_PATH := "user://streetbound_vehicle_ownership.cfg"
 const OLD_SELECTION_PATH := "user://streetbound_selected_vehicle.cfg"
@@ -22,6 +23,9 @@ var best_quarter_mile := 0.0
 var _claimed_races: Array[String] = []
 var completed_events: Dictionary = {}
 var multiplayer_claims: Dictionary = {} # session nonce -> highest paid race ID.
+var driving_contract_claims: Dictionary = {} # run token -> paid once.
+var completed_driving_contracts: Dictionary = {} # world + marker -> count.
+var underground_reputation := 0
 var upgrade_inventory: Array[Dictionary] = []
 var upgrade_loadouts: Dictionary = {}
 var next_part_uid := 1
@@ -72,6 +76,19 @@ func _init(enable_persistence: bool = true) -> void:
 				var key := str(token)
 				if _valid_multiplayer_session_id(key) and int(online_claims[token]) > 0 and multiplayer_claims.size() < 8192:
 					multiplayer_claims[key] = maxi(0, int(online_claims[token]))
+		var contract_claims: Variant = file.get_value("progression", "driving_contract_claims", {})
+		if contract_claims is Dictionary:
+			for token in contract_claims:
+				var key := str(token)
+				if key.length() >= 12 and key.length() <= 150 and bool(contract_claims[token]) and driving_contract_claims.size() < 4096:
+					driving_contract_claims[key] = true
+		var history_contracts: Variant = file.get_value("progression", "completed_driving_contracts", {})
+		if history_contracts is Dictionary:
+			for event_id in history_contracts:
+				var key := str(event_id)
+				if key.length() <= 160 and int(history_contracts[event_id]) > 0 and completed_driving_contracts.size() < 1024:
+					completed_driving_contracts[key] = clampi(int(history_contracts[event_id]), 1, 100000)
+		underground_reputation = clampi(int(file.get_value("progression", "underground_reputation", 0)), 0, 100000)
 		_load_upgrades(file)
 		return
 	# Migration: previously all cars could be selected anywhere. Retain the
@@ -372,12 +389,14 @@ func completed_event_count(event_key: String) -> int:
 	return int(completed_events.get(event_key,0))
 
 func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictionary,
-		event_key: String="") -> Dictionary:
+		event_key: String="", police_cleared: bool=false) -> Dictionary:
 	if run_id.length()<8 or run_id.length()>150 or _claimed_races.has(run_id) or \
 			not is_finite(elapsed_seconds) or elapsed_seconds<0.1 or elapsed_seconds>7200.0 or not owns(active_id):
 		return {"result":"invalid_or_duplicate"}
 	if not EventRules.valid_event(awards):
 		return {"result":"invalid_event"}
+	if int(awards.get("race_heat",0))>0 and not police_cleared:
+		return {"result":"escape_required"}
 	if event_key.is_empty():event_key="morrow-coast::"+str(awards.get("id","legacy"))
 	var reason: String=EventRules.lock_reason(awards,self,
 		event_key.get_slice("::",0)) if event_key.contains("::") else ""
@@ -402,6 +421,9 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	var previous_car_xp:=int(car_xp.get(active_id,0))
 	var previous_claims: Array[String]=_claimed_races.duplicate()
 	var previous_events: Dictionary=completed_events.duplicate()
+	var previous_rep:=underground_reputation
+	var street_rep:=int(awards.get("underground_rep_reward",0))
+	underground_reputation=mini(100000,underground_reputation+street_rep)
 	balance+=cash
 	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
 	car_xp[active_id]=mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),previous_car_xp+vehicle_xp)
@@ -414,10 +436,12 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 		car_xp[active_id]=previous_car_xp
 		_claimed_races=previous_claims
 		completed_events=previous_events
+		underground_reputation=previous_rep
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
-		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key)}
+		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key),
+		"underground_rep":street_rep}
 
 ## A player may earn career rewards only for a completed, host-verified
 ## multiplayer finish. The network layer validates the final standings and
@@ -490,6 +514,76 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 		"car_level_after":level_for_car(car_id),
 		"part":part, "part_uid":part_uid}
 
+## Fixed game-authored cash/XP/underground reputation, saved with a unique run token.
+## A map marker cannot alter payouts or claim a run twice.
+func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}) -> Dictionary:
+	if run_id.length() < 12 or run_id.length() > 150:
+		return {"result":"invalid_or_duplicate"}
+	if event_key.length() < 5 or event_key.length() > 160:
+		return {"result":"invalid_or_duplicate"}
+	if driving_contract_claims.has(run_id) or not owns(active_id):
+		return {"result":"invalid_or_duplicate"}
+	if not DrivingContracts.valid_kind(kind) or driving_contract_claims.size() >= 4096:
+		return {"result":"invalid_or_duplicate"}
+	# Never trust arbitrary map JSON reward amounts: reject out-of-range values
+	# even when a caller bypasses the editor's schema validation.
+	for field in DrivingContracts.REWARD_LIMITS:
+		if not offer.has(field):
+			continue
+		var amount: Variant = offer[field]
+		if typeof(amount) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(amount)) or \
+				float(amount) != floorf(float(amount)) or int(amount) < 0 or \
+				int(amount) > int(DrivingContracts.REWARD_LIMITS[field]):
+			return {"result":"invalid_reward"}
+	if offer.has("repeatable") and typeof(offer.repeatable) != TYPE_BOOL:
+		return {"result":"invalid_offer"}
+	if not bool(offer.get("repeatable",true)) and int(completed_driving_contracts.get(event_key,0)) > 0:
+		return {"result":"already_completed"}
+	var rewards: Dictionary = DrivingContracts.configured_reward(kind,offer)
+	var cash: int = int(rewards.get("cash",0))
+	var driver_xp: int = int(rewards.get("player_xp",0))
+	var vehicle_xp: int = int(rewards.get("car_xp",0))
+	var reputation: int = int(rewards.get("underground_rep",0))
+	var prior_balance := balance
+	var prior_player_xp := player_xp
+	var prior_car_xp := int(car_xp.get(active_id,0))
+	var prior_rep := underground_reputation
+	var prior_completed := int(completed_driving_contracts.get(event_key,0))
+	balance += cash
+	player_xp = mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL), player_xp + driver_xp)
+	car_xp[active_id] = mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL), prior_car_xp + vehicle_xp)
+	underground_reputation = mini(100000, underground_reputation + reputation)
+	driving_contract_claims[run_id] = true
+	completed_driving_contracts[event_key] = mini(100000, prior_completed + 1)
+	if not save():
+		balance = prior_balance
+		player_xp = prior_player_xp
+		car_xp[active_id] = prior_car_xp
+		underground_reputation = prior_rep
+		driving_contract_claims.erase(run_id)
+		if prior_completed == 0:
+			completed_driving_contracts.erase(event_key)
+		else:
+			completed_driving_contracts[event_key] = prior_completed
+		return {"result":"save_failed"}
+	changed.emit()
+	return {"result":"completed","cash":cash,"player_xp":driver_xp,
+		"car_xp":vehicle_xp,"underground_rep":reputation}
+
+# Entry fee is paid once when a validated race is staged, after the grid
+# has been prepared. Loss, false start, quit or arrest does not refund it.
+func pay_race_entry(awards: Dictionary) -> bool:
+	if not EventRules.valid_event(awards):return false
+	var fee:=int(awards.get("entry_fee",0))
+	if fee==0:return true
+	if fee>balance:return false
+	balance-=fee
+	if not save():
+		balance+=fee
+		return false
+	changed.emit()
+	return true
+
 func credit(amount: int) -> bool:
 	if amount <= 0:
 		return false
@@ -514,6 +608,9 @@ func save() -> bool:
 	file.set_value("progression","claimed_races",_claimed_races)
 	file.set_value("progression","completed_events",completed_events)
 	file.set_value("progression","multiplayer_claims",multiplayer_claims)
+	file.set_value("progression","driving_contract_claims",driving_contract_claims)
+	file.set_value("progression","completed_driving_contracts",completed_driving_contracts)
+	file.set_value("progression","underground_reputation",underground_reputation)
 	file.set_value("upgrades","inventory",upgrade_inventory)
 	file.set_value("upgrades","loadouts",upgrade_loadouts)
 	file.set_value("upgrades","next_uid",next_part_uid)

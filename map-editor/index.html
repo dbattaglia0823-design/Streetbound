@@ -185,7 +185,7 @@
       <div class="field"><label for="marker-type">Gameplay marker</label><select id="marker-type">
         <option value="player_spawn">Player spawn</option><option value="race_start">Race start</option><option value="checkpoint">Checkpoint</option>
         <option value="finish">Race finish</option><option value="garage">Garage</option><option value="dealership">Dealership</option>
-        <option value="fuel">Fuel station</option><option value="mission">Mission</option>
+        <option value="fuel">Fuel station</option><option value="mission">Mission</option><option value="contract">Driving contract</option><option value="contract_dropoff">Contract destination</option><option value="contract_contact">Contract giver (NPC)</option><option value="robbery_target">Robbery target</option>
         <option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic spawn</option><option value="custom">Custom marker</option>
       </select></div>
     </div>
@@ -306,10 +306,39 @@
       <div id="inspect-marker" hidden>
         <div class="field"><label for="inspect-marker-type">Marker type</label><select id="inspect-marker-type">
           <option value="player_spawn">Player spawn</option><option value="race_start">Race start</option><option value="checkpoint">Checkpoint</option><option value="finish">Finish</option>
-          <option value="garage">Garage</option><option value="dealership">Dealership</option><option value="fuel">Fuel</option><option value="mission">Mission</option><option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic</option><option value="custom">Custom</option>
+          <option value="garage">Garage</option><option value="dealership">Dealership</option><option value="fuel">Fuel</option><option value="mission">Mission</option><option value="contract">Driving contract</option><option value="contract_dropoff">Contract destination</option><option value="contract_contact">Contract giver (NPC)</option><option value="robbery_target">Robbery target</option><option value="fast_travel">Fast travel</option><option value="traffic_spawn">Traffic</option><option value="custom">Custom</option>
         </select></div>
+        <div id="inspect-contract-contact" hidden>
+          <h3>Contract Giver — Mission Configuration</h3>
+          <p class="asset-hint">Drive up to this person to see their available jobs. Place destinations and robbery targets first, then configure the offer like a race.</p>
+          <div class="field"><label for="contact-npc-style">Contact appearance</label><select id="contact-npc-style"><option value="street">Street</option><option value="business">Business</option><option value="mechanic">Mechanic</option><option value="casual">Casual</option><option value="racing">Racing Promoter</option></select></div>
+          <div class="field"><label for="contact-role">Contact role</label><input id="contact-role" maxlength="60" placeholder="e.g. Independent Fixer (blank uses style personality)"></div>
+          <div class="field"><label for="contact-greeting">Greeting</label><input id="contact-greeting" maxlength="180" placeholder="What this person says to the player"></div>
+          <div class="field"><label for="contact-bio">Contact biography</label><textarea id="contact-bio" rows="3" maxlength="240" spellcheck="false" placeholder="Background, attitude, specialties"></textarea></div>
+          <div class="field"><label for="contact-offer-index">Contract to edit</label><select id="contact-offer-index"></select></div>
+          <div class="inspector-actions"><button id="contact-add-offer" class="gdt-btn" type="button">+ New job</button><button id="contact-copy-offer" class="gdt-btn" type="button" title="Duplicate current contract with a fresh save identity">Duplicate</button><button id="contact-remove-offer" class="gdt-btn" type="button">Delete</button></div>
+          <div class="inspector-actions"><button id="contact-move-up" class="gdt-btn" type="button">Move up</button><button id="contact-move-down" class="gdt-btn" type="button">Move down</button></div>
+          <p class="muted-copy" id="contact-offer-count">0 / 8 contracts</p>
+          <div id="contact-offer-fields" hidden>
+            <div id="contact-job-preview" class="event-summary" aria-live="polite"></div>
+            <div id="contact-job-validation" class="event-validation" aria-live="polite"></div>
+            <div class="field"><label for="contact-offer-title">Job title</label><input id="contact-offer-title" maxlength="80"></div>
+            <div class="field"><label for="contact-offer-description">Mission briefing</label><textarea id="contact-offer-description" rows="3" maxlength="400" spellcheck="false" placeholder="Explain the job objectives in the contact screen"></textarea></div>
+            <div class="field"><label for="contact-offer-kind">Activity</label><select id="contact-offer-kind"><option value="courier">Courier</option><option value="smuggling">Smuggling</option><option value="getaway">Getaway</option><option value="robbery">Robbery</option></select></div>
+            <div class="field"><label for="contact-offer-difficulty">Difficulty</label><select id="contact-offer-difficulty"><option value="rookie">Rookie</option><option value="amateur">Amateur</option><option value="pro">Pro</option><option value="elite">Elite</option></select></div><button id="contact-apply-preset" class="gdt-btn" type="button" title="Applies difficulty-based recommended cash, XP, wanted level and minimum driver level. Keeps existing job identity, targets and descriptions.">Apply difficulty preset</button>
+            <div class="field"><label for="contact-offer-destination">Delivery / getaway drop-off</label><select id="contact-offer-destination"></select></div>
+            <div class="field" id="contact-target-field"><label for="contact-offer-target">Robbery location</label><select id="contact-offer-target"></select></div><div class="double-fields"><div class="field"><label for="contact-offer-radius">Arrival radius (m)</label><input id="contact-offer-radius" type="number" min="6" max="30" step="1" value="12"></div><div class="field" id="contact-wait-field"><label for="contact-offer-wait">Crew wait (seconds)</label><input id="contact-offer-wait" type="number" min="3" max="30" step="1" value="7"></div></div>
+            <label class="check"><input id="contact-offer-repeatable" type="checkbox"> Repeatable</label>
+            <div class="double-fields"><div class="field"><label for="contact-offer-cash">Cash reward ($)</label><input id="contact-offer-cash" type="number" min="0" max="10000" step="1"></div><div class="field"><label for="contact-offer-time">Time limit (seconds)</label><input id="contact-offer-time" type="number" min="60" max="900" step="1"></div></div>
+            <div class="double-fields"><div class="field"><label for="contact-offer-player-xp">Driver XP</label><input id="contact-offer-player-xp" type="number" min="0" max="1500" step="1"></div><div class="field"><label for="contact-offer-car-xp">Vehicle XP</label><input id="contact-offer-car-xp" type="number" min="0" max="1200" step="1"></div></div>
+            <div class="double-fields"><div class="field"><label for="contact-offer-rep">Underground reputation</label><input id="contact-offer-rep" type="number" min="0" max="30" step="1"></div><div class="field"><label for="contact-offer-wanted">Wanted level</label><input id="contact-offer-wanted" type="number" min="0" max="5" step="1"></div></div>
+            <div class="field"><label for="contact-offer-required-race">Required race victory</label><select id="contact-offer-required-race"></select></div><div class="double-fields"><div class="field"><label for="contact-offer-required-level">Required driver level</label><input id="contact-offer-required-level" type="number" min="1" max="100" step="1"></div><div class="field"><label for="contact-offer-required-rep">Required underground reputation</label><input id="contact-offer-required-rep" type="number" min="0" max="100000" step="1"></div></div>
+          </div>
+          <p class="asset-hint" id="contact-editor-help">Jobs are saved in marker properties and validated before publishing. Changing the title preserves career progression; duplicates use new IDs.</p>
+        </div>
         <div class="field"><label for="inspect-properties">Game properties (JSON)</label><textarea id="inspect-properties" rows="5" spellcheck="false"></textarea></div>
       </div>
+      
       <div id="position-fields" class="double-fields" hidden><div class="field"><label for="inspect-x">X</label><input id="inspect-x" type="number"></div><div class="field"><label for="inspect-y">Y</label><input id="inspect-y" type="number"></div></div>
       <div id="point-coordinate-fields" class="double-fields" hidden>
         <div class="field"><label for="inspect-point-x">Point X</label><input id="inspect-point-x" type="number" step="0.1"></div>
@@ -338,6 +367,51 @@
         </div>
       </div>
     </section>
+    <details id="race-event-config" class="race-event-config" aria-label="Authored race settings">
+        <summary>Races &amp; Events — Configure</summary>
+        <p class="muted-copy">Edit the settings of existing race routes. The native world editor controls checkpoint placement, starting grids and car pools.</p>
+        <div class="field"><label for="race-edit-select">Choose existing race</label><select id="race-edit-select"><option value="">No authored races loaded</option></select></div>
+        <div id="race-edit-form" hidden>
+          <div class="event-summary" id="race-edit-summary"></div>
+          <div class="field"><label for="race-edit-name">Race name</label><input id="race-edit-name" maxlength="80"></div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-category">Career category</label><select id="race-edit-category"><option value="street">Street</option><option value="circuit">Circuit</option><option value="time_trial">Time trial</option><option value="championship">Championship</option><option value="challenge">Challenge</option></select></div>
+            <div class="field"><label for="race-edit-difficulty">Difficulty</label><select id="race-edit-difficulty"><option value="rookie">Rookie</option><option value="amateur">Amateur</option><option value="pro">Pro</option><option value="elite">Elite</option></select></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-laps">Laps</label><input id="race-edit-laps" type="number" min="1" max="20" step="1"></div>
+            <div class="field"><label for="race-edit-time">Time limit (seconds, 0 = off)</label><input id="race-edit-time" type="number" min="0" max="7200" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-checkpoint-radius">Checkpoint radius (m)</label><input id="race-edit-checkpoint-radius" type="number" min="4" max="60" step="1"></div>
+            <div class="field"><label for="race-edit-start-radius">Start circle radius (m)</label><input id="race-edit-start-radius" type="number" min="3" max="30" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-cash">Cash reward</label><input id="race-edit-cash" type="number" min="0" max="1000000" step="1"></div>
+            <div class="field"><label for="race-edit-xp">Driver XP</label><input id="race-edit-xp" type="number" min="0" max="100000" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-car-xp">Car XP</label><input id="race-edit-car-xp" type="number" min="0" max="100000" step="1"></div>
+            <div class="field"><label for="race-edit-level">Driver level requirement</label><input id="race-edit-level" type="number" min="1" max="100" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-car-level">Car level requirement</label><input id="race-edit-car-level" type="number" min="1" max="50" step="1"></div>
+            <div class="field"><label for="race-edit-first-cash">First-win cash bonus</label><input id="race-edit-first-cash" type="number" min="0" max="1000000" step="1"></div>
+          </div>
+          <div class="double-fields">
+            <div class="field"><label for="race-edit-first-xp">First-win driver XP bonus</label><input id="race-edit-first-xp" type="number" min="0" max="100000" step="1"></div>
+            <div class="field"><label for="race-edit-first-car-xp">First-win vehicle XP bonus</label><input id="race-edit-first-car-xp" type="number" min="0" max="100000" step="1"></div>
+          </div>
+          <div class="event-summary">Underground &amp; Stakes</div>
+          <p class="muted-copy">Wanted level 0 is legal. Illegal race winners must clear police to collect rewards. A paid entry fee is lost if the race fails.</p>
+          <div class="double-fields"><div class="field"><label for="race-edit-heat">Wanted level (0 = legal)</label><input id="race-edit-heat" type="number" min="0" max="5" step="1"></div><div class="field"><label for="race-edit-escape">Escape deadline (seconds)</label><input id="race-edit-escape" type="number" min="30" max="300" step="1"></div></div>
+          <div class="double-fields"><div class="field"><label for="race-edit-entry">Entry fee ($)</label><input id="race-edit-entry" type="number" min="0" max="50000" step="1"></div><div class="field"><label for="race-edit-rep">Underground reputation reward</label><input id="race-edit-rep" type="number" min="0" max="30" step="1"></div></div>
+          <div class="field"><label for="race-edit-required-rep">Required underground reputation</label><input id="race-edit-required-rep" type="number" min="0" max="100000" step="1"></div>
+          <label class="check"><input id="race-edit-repeatable" type="checkbox" checked> Repeatable after first victory</label>
+          <div class="field"><label for="race-edit-prerequisites">Prerequisite races (Ctrl-click to multi-select)</label><select id="race-edit-prerequisites" multiple size="4"></select></div>
+          <p class="muted-copy" id="race-edit-hint">More advanced car eligibility, grid formation and multiplayer payout controls are available in the native race editor.</p>
+        </div>
+      </details>
     <div class="panel-head section-divider"><h2>Map assets</h2><span id="entities-count" class="micro-tag">—</span></div>
     <div class="filter-row"><label for="entities-filter">Show</label><select id="entities-filter"><option value="all">All objects</option><option value="roads">Roads</option><option value="regions">Terrain</option><option value="props">Game scenery & edits</option><option value="markers">Markers</option></select></div>
     <div id="entity-list" class="entity-list" aria-label="World entities"></div>

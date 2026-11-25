@@ -118,6 +118,7 @@ func _ready() -> void:
 	_resize_layout()
 	_apply_saved_settings()
 	_update_map_editor_button()
+	get_node("/root/MenuNavigation").register_scope(overlay,20,_controller_back,func():return not capture_action.is_empty())
 
 func _build_dashboard() -> void:
 	# Preserve legacy layout action IDs and tests during this migration, but
@@ -970,6 +971,14 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 				"square" if current == "circle" else "circle")
 			_apply_minimap_shape()
 			_sync_settings()
+
+func _controller_back() -> void:
+	if menu_state=="settings" and settings_tab=="controls":
+		_set_settings_tab("general")
+	elif menu_state in ["settings","multiplayer","confirm"]:
+		back_to_pause()
+	elif not menu_state.is_empty():
+		resume_game()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:

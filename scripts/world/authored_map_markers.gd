@@ -5,7 +5,10 @@ extends Node2D
 const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
+const StartArea=preload("res://scripts/world/race_start_area.gd")
 const InteractionSpeed=preload("res://scripts/world/interaction_speed.gd")
+const ContactScreen = preload("res://scripts/ui/contact_contract_screen.gd")
+const ContactVisual=preload("res://scripts/world/contract_contact_visual.gd")
 const PPM:=20.0
 var world: Node2D
 var player: VehicleController2D
@@ -13,6 +16,9 @@ var economy: Object
 var selector: CanvasLayer
 var dealer_menu: CanvasLayer
 var quick_upgrades: CanvasLayer
+var resources: CanvasLayer
+var contracts: Node2D
+var contact_screen: CanvasLayer
 var traffic: Node2D
 var map_hud: CanvasLayer
 var races: Array[Node2D]=[]
@@ -37,7 +43,15 @@ func _ready() -> void:
 		if not entry is Dictionary:continue
 		var raw: Dictionary=entry.get("marker",entry)
 		if not raw.has("type") or not raw.has("x") or not raw.has("y"):continue
-		if Rules.valid(raw):markers.append(raw)
+		if Rules.valid(raw):
+			markers.append(raw)
+			if str(raw.type)=="contract_contact":
+				var npc:=Node2D.new()
+				npc.set_script(ContactVisual)
+				npc.position=Vector2(float(raw.x),float(raw.y))*PPM
+				npc.set("contact_name",str(raw.get("name","Contact")))
+				npc.set("contact_style",str(raw.get("properties",{}).get("contact_style","street")))
+				add_child(npc)
 	var canvas:=CanvasLayer.new();canvas.layer=8
 	add_child(canvas)
 	prompt=Button.new()
@@ -55,6 +69,7 @@ func _ready() -> void:
 	panel.custom_minimum_size=Vector2(480,420)
 	panel.visible=false
 	panel.process_mode=Node.PROCESS_MODE_ALWAYS
+	get_node("/root/MenuNavigation").register_scope(panel,18,_close_travel)
 	canvas.add_child(panel)
 	var box:=VBoxContainer.new()
 	panel.add_child(box)
@@ -73,6 +88,14 @@ func _ready() -> void:
 	var close:=Button.new();close.text="Close"
 	close.pressed.connect(_close_travel)
 	box.add_child(close)
+	# The contact board is a separate full-screen interface. Fast travel
+	# and informational dialogs retain their smaller existing panel.
+	contact_screen = CanvasLayer.new()
+	contact_screen.set_script(ContactScreen)
+	contact_screen.set("economy", economy)
+	contact_screen.set("contracts", contracts)
+	contact_screen.set("world_id", world_id)
+	add_child(contact_screen)
 
 func _point(marker: Dictionary) -> Vector2:
 	return Vector2(float(marker.x),float(marker.y))
@@ -81,8 +104,11 @@ func _enabled(marker: Dictionary) -> bool:
 	return bool(marker.get("properties",{}).get("enabled",true)) and Rules.unlocked(marker,economy,world_id)
 
 func _is_busy() -> bool:
+	for service in get_tree().get_nodes_in_group("streetbound_police"):
+		if int(service.get("wanted_level"))>0:return true
 	for race in races:
 		if is_instance_valid(race) and str(race.get("state")) in ["countdown","running"]:return true
+	if is_instance_valid(contracts) and not (contracts.get("active") as Dictionary).is_empty():return true
 	return false
 
 func nearest_marker() -> Dictionary:
@@ -90,7 +116,7 @@ func nearest_marker() -> Dictionary:
 	var closest:=INF
 	var found: Dictionary={}
 	for marker in markers:
-		if str(marker.type) in ["player_spawn","traffic_spawn"]:continue
+		if str(marker.type) in ["player_spawn","traffic_spawn","contract_dropoff","robbery_target"]:continue
 		if not _enabled(marker):continue
 		var radius:=float(marker.get("properties",{}).get("radius_m",12.0))
 		var distance: float=player.global_position.distance_to(_point(marker)*PPM)/PPM
@@ -107,30 +133,29 @@ func _process(dt: float) -> void:
 	_nearby=nearest_marker()
 	if is_instance_valid(selector):
 		selector.remote_garage_allowed=not _nearby.is_empty() and str(_nearby.type)=="garage" and not _is_busy() and InteractionSpeed.allowed(player.linear_velocity.length())
-	if _dialog_open:
+	if _dialog_open or (is_instance_valid(contact_screen) and bool(contact_screen.get("is_open"))):
 		prompt.visible=false
 		return
 	var kind: String=str(_nearby.get("type",""))
 	var actionable:=kind in ["garage","dealership","mission","fast_travel","fuel",
-		"race_start","checkpoint","finish","custom"]
+		"race_start","checkpoint","finish","custom","contract","contract_contact"]
 	prompt.visible=actionable and not _is_busy() and not get_tree().paused
 	if prompt.visible:
 		var hint: String={"garage":"GARAGE","dealership":"DEALERSHIP","mission":"START MISSION",
-			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / NITROUS",
+			"fast_travel":"FAST TRAVEL","fuel":"SERVICE / FUEL", 
 			"race_start":"RACE ROUTE","checkpoint":"CHECKPOINT",
-			"finish":"FINISH","custom":"MAP WAYPOINT"}.get(kind,"INTERACT")
+			"finish":"FINISH","custom":"MAP WAYPOINT","contract":"DRIVING JOB","contract_contact":"TALK TO CONTACT"}.get(kind,"INTERACT")
 		prompt.text=str(_nearby.get("name",kind)).to_upper()+"  /  "+hint+"  [ F ]"
 		prompt.disabled=not InteractionSpeed.allowed(player.linear_velocity.length())
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event is InputEventKey:return
-	var key: InputEventKey=event
-	if not key.pressed or key.echo:return
-	if _dialog_open and key.keycode==KEY_ESCAPE:
+	if event is InputEventKey and (not event.pressed or event.echo):return
+	if is_instance_valid(contact_screen) and bool(contact_screen.get("is_open")):return
+	if _dialog_open and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause")):
 		_close_travel()
 		get_viewport().set_input_as_handled()
 		return
-	if key.keycode==KEY_F and not _dialog_open and not _nearby.is_empty() and \
+	if event.is_action_pressed("interact") and not _dialog_open and not _nearby.is_empty() and \
 			not get_tree().paused and not _is_busy() and InteractionSpeed.allowed(player.linear_velocity.length()):
 		activate()
 		get_viewport().set_input_as_handled()
@@ -166,23 +191,55 @@ func activate() -> void:
 			if race==null or not bool(race.get("available")):
 				_show_info(_nearby,"No linked race is ready. Configure the mission's Race ID in the map builder.")
 				return
+			if StartArea.busy(race):return
 			if race.has_method("_lock_reason") and not str(race.call("_lock_reason")).is_empty():return
 			world.stream_at(Grid.point(Grid.player_slot(race.definition))*PPM)
 			Grid.teleport(player,Grid.player_slot(race.definition))
 			race.call("start_race")
 		"fast_travel":_open_travel()
+		"contract_contact":_open_contact(_nearby)
+		"contract":
+			if is_instance_valid(contracts):
+				var response: Dictionary=contracts.call("try_start",_nearby)
+				if str(response.get("result",""))!="started":
+					_show_info(_nearby,str(response.get("message","Unable to start driving contract")))
+			else:
+				# Never pause the newly started delivery with an info popup.
+				pass
 		"fuel":
-			# The base game already recharges nitrous automatically. This
-			# service marker provides an immediate refill for an installed kit.
-			player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
-			if float(player.config.nitrous_capacity_seconds)<=0.0 and is_instance_valid(quick_upgrades):
-				quick_upgrades.open_menu()
+			# In the driving-only career F refuels through the paid station
+			# service and does not unexpectedly open the upgrades overlay.
+			if is_instance_valid(resources):
+				# Police heat and vehicle movement block both paid fuel and
+				# instant kit recharge; F cannot bypass service restrictions.
+				if str(resources.call("_location_type"))=="station":
+					resources.try_refuel()
+					if float(player.config.nitrous_capacity_seconds)>0.0:
+						player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
+			else:
+				# Legacy sandbox/multiplayer behavior remains unchanged
+				# until their own authoritative fuel rules are introduced.
+				player.nitrous_fuel_seconds=maxf(0.0,float(player.config.nitrous_capacity_seconds))
+				if float(player.config.nitrous_capacity_seconds)<=0.0 and is_instance_valid(quick_upgrades):
+					quick_upgrades.open_menu()
 		"race_start","checkpoint","finish","custom":
 			var race:=_linked_race(str(properties.get("race_id","")))
 			if race!=null and is_instance_valid(map_hud) and is_instance_valid(map_hud.waypoints):
 				map_hud.waypoints.set_destination(race.start_m,str(race.race_title))
 			else:
 				_show_info(_nearby,"This marker is available as a map landmark. Link a race to navigate to its start.")
+
+## Open the dedicated contact screen; never reuse the small fast-travel panel.
+func _open_contact(contact: Dictionary) -> void:
+	if _dialog_open or not is_instance_valid(contact_screen) or not is_instance_valid(contracts):
+		return
+	# Authored markers enter the scene tree before the new contract manager.
+	# Refresh the late-bound manager whenever this screen opens.
+	contact_screen.set("contracts", contracts)
+	contact_screen.set("economy", economy)
+	contact_screen.set("world_id", world_id)
+	contact_screen.call("open_contact", contact)
+
 
 func _safe_destination(marker: Dictionary) -> bool:
 	var target: Vector2=_point(marker)*PPM

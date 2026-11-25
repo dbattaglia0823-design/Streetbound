@@ -473,6 +473,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         surf = str(entry.get("surface", road["surface"].lower())).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown road surface " + surf)
+        if surf == "TRACK":
+            road["kind"] = "track"
         road["surface"] = "ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf
     for name, pos in proposed_nodes.items():
         nodes[name] = tuple(pos)
@@ -490,7 +492,9 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road_width = entry.get("width", 9.0)
         if type(road_width) not in (int,float) or not 6 <= road_width <= 160:
             raise ValueError("Invalid new-road width")
-        if surf == "GRAVEL":
+        if surf == "TRACK":
+            kind = "track"
+        elif surf == "GRAVEL":
             kind = "gravel"
         loose = surf in LOOSE
         endpoint_names = []

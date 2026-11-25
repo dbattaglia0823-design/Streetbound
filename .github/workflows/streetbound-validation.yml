@@ -29,6 +29,53 @@ jobs:
             echo "Godot 4.6.3 import reported unresolved script classes" >&2
             exit 1
           fi
+      - name: Verify underground racing rewards, escape and contact unlocks (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/underground_racing_test.gd 2>&1 | tee /tmp/underground-racing-463.log
+          grep -q 'UNDERGROUND RACING: 0 failures' /tmp/underground-racing-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/underground-racing-463.log
+
+      - name: Verify contact personality, briefing and dedicated screen UI (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/contact_contract_screen_test.gd 2>&1 | tee /tmp/contact-screen-463.log
+          grep -q 'CONTACT CONTRACT SCREEN: 0 failures' /tmp/contact-screen-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/contact-screen-463.log
+
+      - name: Verify vehicle-only contracts, map links and durable rewards (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_contracts_test.gd 2>&1 | tee /tmp/driving-contracts-463.log
+          grep -q 'DRIVING CONTRACTS: 0 failures' /tmp/driving-contracts-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-contracts-463.log
+
+      - name: Verify realistic wanted response, off-screen police spawns and last-seen searches (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/police_tactics_test.gd 2>&1 | tee /tmp/police-tactics-463.log
+          grep -q 'POLICE TACTICS: 0 failures' /tmp/police-tactics-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/police-tactics-463.log
+
+      - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_crime_foundation_test.gd 2>&1 | tee /tmp/driving-crime-463.log
+          grep -q 'DRIVING CRIME FOUNDATION: 0 failures' /tmp/driving-crime-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-crime-463.log
+      - name: Verify vehicle fuel model and circular dashboard meters (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd 2>&1 | tee /tmp/vehicle-fuel-463.log
+          grep -q 'FUEL/RESOURCE HUD: 0 failures' /tmp/vehicle-fuel-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/vehicle-fuel-463.log
+      - name: Verify free garages, capped gas station repairs and refueling (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_service_integration_test.gd 2>&1 | tee /tmp/service-rules-463.log
+          grep -q 'GARAGE/FUEL SERVICE: 0 failures' /tmp/service-rules-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/service-rules-463.log
+
       - name: Verify branching sidewalk T, Y and X junctions (4.6.3)
         run: |
           set -o pipefail
@@ -299,6 +346,13 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/automatic-bridges-463.log
           python3 -B tests/automatic_bridges_test.py
           python3 -B tests/automatic_bridges_bake_test.py
+      - name: Verify continuous red-white track kerbs and chunk phase
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/track_kerbs_test.gd 2>&1 | tee /tmp/track-kerbs-463.log
+          grep -q 'TRACK KERBS: 0 failures' /tmp/track-kerbs-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/track-kerbs-463.log
+
       - name: Verify browser-style native workspace, inspector and persistent full-map zoom
         run: |
           set -o pipefail
@@ -521,6 +575,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Parse browser editor and contract authoring JavaScript
+        run: |
+          node --check map-editor/world-editor.js
+          node --check map-editor/world-model.js
+          node --check map-editor/tests/contract-contacts.test.mjs
       - name: Test map health, safe snaps, recovery and road priority
         run: node --test map-editor/tests/*.test.mjs
       - name: Validate Morrow Coast editable source overlays and road endpoint safety

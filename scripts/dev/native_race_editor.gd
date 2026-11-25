@@ -6,6 +6,8 @@ const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const OnlineRewards=preload("res://scripts/network/online_race_rewards.gd")
 const VehicleOwnership=preload("res://scripts/vehicle/vehicle_ownership.gd")
 var panel: VBoxContainer
+var grid_edit_fields: VBoxContainer
+var route_edit_fields: VBoxContainer
 var race_list: OptionButton
 var title: LineEdit
 var mode: OptionButton
@@ -60,6 +62,11 @@ var career_repeatable: CheckBox
 var career_first_cash: SpinBox
 var career_first_driver_xp: SpinBox
 var career_first_car_xp: SpinBox
+var career_heat: SpinBox
+var career_escape: SpinBox
+var career_entry_fee: SpinBox
+var career_street_rep: SpinBox
+var career_required_rep: SpinBox
 var career_require_cars: ItemList
 var career_prerequisites: ItemList
 var _career_car_ids: Array[String]=[]
@@ -89,15 +96,17 @@ func build(e,parent: Node) -> void:
 	opponents=e._number(panel,"AI opponents",1,Grid.MAX_RIVALS,2)
 	opponents.step=1
 	formation=e._options(panel,"Formation",Grid.FORMATIONS)
-	grid_slot=OptionButton.new();grid_slot.tooltip_text="Select the player or a specific AI grid slot to move.";panel.add_child(grid_slot)
-	slot_rotation=e._number(panel,"Facing °",-180,180,0)
+	grid_edit_fields=VBoxContainer.new();panel.add_child(grid_edit_fields)
+	grid_slot=OptionButton.new();grid_slot.tooltip_text="Select the player or a specific AI grid slot to move.";grid_edit_fields.add_child(grid_slot)
+	slot_rotation=e._number(grid_edit_fields,"Facing °",-180,180,0)
 	slot_rotation.step=1
-	e._btn("Place grid slot on map",panel,func():begin_grid(e)).tooltip_text="Click the map to place the chosen player or AI starting position. Drag an existing grid marker to move it."
-	e._btn("Auto-arrange grid",panel,func():auto_grid(e)).tooltip_text="Reset all positions to the selected formation behind/alongside the route start."
-	e._btn("Add checkpoint on road",panel,func():begin_checkpoint(e)).tooltip_text="Select a gate then click a road to insert the next checkpoint in that order. A sprint keeps its finish last."
-	e._btn("Move checkpoint earlier",panel,func():shift_checkpoint(e,-1))
-	e._btn("Move checkpoint later",panel,func():shift_checkpoint(e,1))
-	e._btn("Redraw race route",panel,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
+	e._btn("Place grid slot on map",grid_edit_fields,func():begin_grid(e)).tooltip_text="Click the map to place the chosen player or AI starting position. Drag an existing grid marker to move it."
+	e._btn("Auto-arrange grid",grid_edit_fields,func():auto_grid(e)).tooltip_text="Reset all positions to the selected formation behind/alongside the route start."
+	route_edit_fields=VBoxContainer.new();panel.add_child(route_edit_fields)
+	e._btn("Add checkpoint on road",route_edit_fields,func():begin_checkpoint(e)).tooltip_text="Select a gate then click a road to insert the next checkpoint in that order. A sprint keeps its finish last."
+	e._btn("Move checkpoint earlier",route_edit_fields,func():shift_checkpoint(e,-1))
+	e._btn("Move checkpoint later",route_edit_fields,func():shift_checkpoint(e,1))
+	e._btn("Redraw race route",route_edit_fields,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
 	var help:=Label.new();help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	help.text="Click roads in route order: start, checkpoints, finish. Enter saves. Select a saved race to drag gates or place more checkpoints. Set AI opponents to race, or choose Time trial for a solo run."
 	help.add_theme_font_size_override("font_size",11);panel.add_child(help)
@@ -206,6 +215,9 @@ func update(e) -> void:
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
 	panel.visible=e.tool_name in ["draw_race","race_grid","race_checkpoint"] or not selected.is_empty()
 	edit_button.disabled=selected.is_empty() or e._editing_locked()
+	edit_button.visible=not selected.is_empty() and e.tool_name!="draw_race"
+	grid_edit_fields.visible=not selected.is_empty() and e.tool_name!="draw_race"
+	route_edit_fields.visible=not selected.is_empty() and e.tool_name!="draw_race"
 	updating=true
 	var stamp: int=hash(e.authoring.doc.get("races",[]))
 	if stamp!=list_stamp:
@@ -234,7 +246,10 @@ func update(e) -> void:
 		var slot: Dictionary=Grid.player_slot(selected) if slot_index==-1 else selected.enemy_starts[clampi(slot_index,0,maxi(0,selected.enemy_starts.size()-1))]
 		slot_rotation.value=float(slot.get("rotation",0))
 	laps.editable=e._option_value(mode)=="circuit"
+	laps.visible=laps.editable
 	opponents.editable=e._option_value(competition)=="ai_race"
+	opponents.visible=opponents.editable
+	formation.visible=opponents.editable
 	updating=false
 func commit_settings(e) -> void:
 	if updating or not e.source_ready or e._editing_locked():return
@@ -374,6 +389,18 @@ func _build_dialog(e) -> void:
 	locks.add_child(career_require_cars)
 	var note:=_form_label(locks,"Ctrl-click to select multiple. Prerequisite chains must be acyclic. First-win bonuses are paid only once; repeat rewards apply on every subsequent win.")
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	var underground_tab:=HBoxContainer.new()
+	underground_tab.name="Underground & Stakes"
+	tabs.add_child(underground_tab)
+	var crime:=_form_column(underground_tab,540)
+	_form_label(crime,"ILLEGAL RACE / ESCAPE CHALLENGE")
+	career_heat=e._number(crime,"Wanted level (0 = legal)",0,5,0);career_heat.step=1
+	career_escape=e._number(crime,"Escape deadline (seconds)",30,300,90);career_escape.step=1
+	career_entry_fee=e._number(crime,"Entry fee ($, lost on failure)",0,50000,0);career_entry_fee.step=1
+	career_street_rep=e._number(crime,"Underground reputation reward",0,30,0);career_street_rep.step=1
+	career_required_rep=e._number(crime,"Required underground reputation",0,100000,0);career_required_rep.step=1
+	var crime_hint:=_form_label(crime,"Set wanted level above zero to dispatch police at race start. Winners must clear heat before collecting prizes. Entry fees are paid on staging; legal races remain police-free. Use time trial for a solo escape challenge.")
+	crime_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var multiplayer_tab:=HBoxContainer.new()
 	multiplayer_tab.name="Multiplayer Rewards"
 	multiplayer_tab.add_theme_constant_override("separation",30)
@@ -483,6 +510,11 @@ func open_for(e,id: String) -> void:
 	career_first_cash.value=float(race.get("first_win_reward_cash",0))
 	career_first_driver_xp.value=float(race.get("first_win_reward_player_xp",0))
 	career_first_car_xp.value=float(race.get("first_win_reward_car_xp",0))
+	career_heat.value=float(race.get("race_heat",0))
+	career_escape.value=float(race.get("escape_time_limit",90))
+	career_entry_fee.value=float(race.get("entry_fee",0))
+	career_street_rep.value=float(race.get("underground_rep_reward",0))
+	career_required_rep.value=float(race.get("required_underground_rep",0))
 	_career_race_ids.clear()
 	for other in race.get("prerequisite_races",[]):_career_race_ids.append(str(other))
 	_career_car_ids.clear()
@@ -583,7 +615,12 @@ func _save_dialog(e) -> void:
 		"first_win_reward_player_xp":int(career_first_driver_xp.value),
 		"first_win_reward_car_xp":int(career_first_car_xp.value),
 		"prerequisite_races":_career_race_ids.duplicate(),
-		"required_vehicle_ids":_career_car_ids.duplicate()}
+		"required_vehicle_ids":_career_car_ids.duplicate(),
+		"race_heat":int(career_heat.value),
+		"escape_time_limit":int(career_escape.value),
+		"entry_fee":int(career_entry_fee.value),
+		"underground_rep_reward":int(career_street_rep.value) if career_heat.value>0 else 0,
+		"required_underground_rep":int(career_required_rep.value)}
 	var points: Array[Vector2]=[]
 	for p in race.points:points.append(Vector2(float(p.x),float(p.y)))
 	if e.authoring.save_race(points,options,dialog_race_id).is_empty():

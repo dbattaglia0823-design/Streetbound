@@ -92,6 +92,7 @@ func _ready() -> void:
 	scroll.add_child(grid)
 	# Defer card creation until someone actually enters the garage.
 	overlay.visible = false
+	get_node("/root/MenuNavigation").register_scope(overlay,16,close_menu)
 	get_viewport().size_changed.connect(_layout_grid)
 	_layout_grid()
 	_update_garage_access()
@@ -345,7 +346,7 @@ func _process(dt: float) -> void:
 			continue
 		var path := str((item.entry as Dictionary).texture)
 		if not _thumb_cache.has(path):
-			var source := load(path) as Texture2D
+			var source := load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
 			if source == null:
 				continue
 			var pixels := source.get_image()

@@ -55,6 +55,7 @@ func _ready() -> void:
 		lan_discovery.room_found.connect(_on_lan_room_found)
 		lan_discovery.status_changed.connect(_on_lan_status)
 		lan_discovery.scan_finished.connect(_on_lan_scan_finished)
+	get_node("/root/MenuNavigation").register_scope(shell,0,_controller_back)
 	actions["single_player"].grab_focus()
 
 func _panel_style(color: Color, border: Color, radius: int = 14) -> StyleBoxFlat:
@@ -464,6 +465,14 @@ func _show_lan() -> void:
 	lan_page.visible = true
 	lan_message.text = "LAN visibility is opt-in. A LAN host stays online only while playing."
 	actions["scan_lan_games"].grab_focus()
+
+func _controller_back() -> void:
+	if friends_page.visible or lan_page.visible:
+		lan_discovery.cancel_scan()
+		online_session.leave_session()
+		_show_multiplayer()
+	elif multiplayer_page.visible:
+		_show_main_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):

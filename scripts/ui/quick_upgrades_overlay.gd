@@ -72,6 +72,8 @@ func _ready() -> void:
 	overlay.add_child(frame)
 	_build_layout()
 	overlay.visible = false
+	get_node("/root/MenuNavigation").register_scope(overlay,18,close_menu)
+	get_node("/root/MenuNavigation").register_scope(picker,19,_controller_close_picker)
 	get_viewport().size_changed.connect(_resize)
 	_resize()
 	if is_instance_valid(economy):
@@ -379,6 +381,11 @@ func _open_slot(slot: String) -> void:
 	picker.visible = true
 	refresh()
 
+
+func _controller_close_picker() -> void:
+	_close_picker()
+	var selected: Button=slot_buttons.get(selected_slot) as Button
+	if is_instance_valid(selected):selected.grab_focus()
 
 func _close_picker() -> void:
 	if is_instance_valid(picker):

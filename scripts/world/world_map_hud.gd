@@ -91,6 +91,13 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	var activities:=Node2D.new()
 	activities.set_script(Activities)
 	activities.map_view=node;activities.waypoints=waypoints;activities.races=races
+	for entry in world.data.get("editor_markers",[]):
+		if not entry is Dictionary:
+			continue
+		var marker: Dictionary=entry.get("marker",entry)
+		if str(marker.get("type",""))!="contract_contact" or not bool(marker.get("properties",{}).get("enabled",true)):
+			continue
+		activities.contacts.append(marker)
 	activities.z_index=17
 	node.add_child(activities);node.activity_overlay=activities
 	if miniature:
@@ -244,6 +251,7 @@ func _ready() -> void:
 	full_view.view_changed.connect(_update_scale)
 	text(body,"TAB close · Click to set waypoint · Click a race flag to navigate · Right-click clears · Drag to pan · Wheel to zoom",12,Color("c5d0ba"))
 	full.visible=false
+	get_node("/root/MenuNavigation").register_scope(full,17,_controller_close_atlas)
 	set_minimap_shape(minimap_shape)
 	_update_scale()
 	_update_waypoint_label()
@@ -254,8 +262,15 @@ func _select_race(race: Node2D) -> void:
 
 func _map_destination(point_m: Vector2, local_point: Vector2) -> void:
 	var race: Node2D=full_view.activity_overlay.race_at(local_point)
-	if race!=null:_select_race(race)
-	else:waypoints.set_destination(point_m)
+	if race!=null:
+		_select_race(race)
+		return
+	var contact: Dictionary=full_view.activity_overlay.contact_at(local_point)
+	if not contact.is_empty():
+		waypoints.set_destination(Vector2(float(contact.x),float(contact.y)),
+			str(contact.get("name","Contract Contact")))
+	else:
+		waypoints.set_destination(point_m)
 
 func _update_waypoint_label() -> void:
 	if not is_instance_valid(waypoint_label):return
@@ -303,11 +318,17 @@ func _update_scale() -> void:
 	if atlas_scale_label==null or full_view==null: return
 	atlas_scale_label.text="NORTH UP    ·    %.1f× detail    ·    Scroll to zoom / drag to pan"%[full_view.pixels_per_m/full_view.fit_scale]
 
+func _controller_close_atlas() -> void:
+	large=false
+	full.hide()
+	get_viewport().gui_release_focus()
+
 func _input(event: InputEvent) -> void:
 	# The F1 input-capture menu no longer exists. Map toggling is only
 	# gated by the pause state, which still protects Settings input.
 	if event.is_action_pressed("map") and not get_tree().paused:
 		large=not large
+		full.visible=large
 		get_viewport().set_input_as_handled()
 
 func _active_race_navigation() -> RefCounted:

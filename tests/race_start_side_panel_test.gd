@@ -45,7 +45,7 @@ func _run() -> void:
 	var button: Button = card.get("start_button")
 	check("rolling_at_15_mph_opens_card_and_enables_start",
 		card.visible and not button.disabled and
-		button.text.contains("[F]") and not hud.get("panel").visible)
+		button.text.contains("F") and button.text.contains("R3") and not hud.get("panel").visible)
 	button.pressed.emit()
 	check("click_starts_same_race_as_F_with_zero_rolling_headstart",
 		drag.state == "countdown" and car.linear_velocity.is_zero_approx() and
@@ -64,9 +64,9 @@ func _run() -> void:
 	for race in [game.circuit_race, game.street_race]:
 		var other_hud: Control = race.get("status_strip")
 		var other_card: PanelContainer = other_hud.get("start_panel")
-		check(str(race.race_title) + "_real_route_and_practice_reward",
+		check(str(race.race_title) + "_real_route_and_reward",
 			float(other_card.get("data").get("distance_m", 0)) > 500.0 and
-			str(other_card.get("rewards_label").text) == "PRACTICE" and
+			(str(other_card.get("rewards_label").text) == "PRACTICE" if race==game.circuit_race else str(other_card.get("rewards_label").text).contains("STREET REP")) and
 			other_card.get("route_preview").get("route_m").size() >= 2)
 	print("RACE START SIDE PANEL: ", "PASS" if failures.is_empty() else str(failures))
 	quit(0 if failures.is_empty() else 1)

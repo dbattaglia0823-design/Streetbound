@@ -24,6 +24,8 @@ import {lanePatterns,drawLanePreview} from './traffic-patterns.js';
 import {applyEnvironmentPreset} from './world-environment-presets.js';
 import {encodeSession,decodeSession,shouldRestoreSession} from './world-session.js';
 import {isMountainBarrier} from './world-mountain-barriers.js';
+import {CONTRACT_DEFAULTS,createOffer,duplicateOffer,moveOffer,presetOffer,
+  offerWarnings,updateRaceSettings} from './event-authoring.js';
 import {setProjectAssets,projectAssets,projectArtwork,projectAssetUrl} from './world-project-assets.js';
 import {
   placeBesideRoad,nearestRoadPlacement,placementFootprint,
@@ -613,6 +615,162 @@ function hitTest(p){
       if(pointInPolygon(p,doc.regions[i].points))return {id:doc.regions[i].id,point:-1,kind:'entity'};
   return null;
 }
+let selectedContactMarkerId='';
+let selectedContactOfferIndex=0;
+const contactJobDefaults=CONTRACT_DEFAULTS;
+const contactOffers=marker=>Array.isArray(marker?.properties?.offers)?marker.properties.offers:[];
+const contactEligibleDropoffs=marker=>doc.markers.filter(p=>p.type==='contract_dropoff'&&
+  Math.hypot(p.x-marker.x,p.y-marker.y)>=100&&Math.hypot(p.x-marker.x,p.y-marker.y)<=15000);
+const contactEligibleTargets=(marker,dropoffId)=>doc.markers.filter(p=>p.type==='robbery_target'&&
+  Math.hypot(p.x-marker.x,p.y-marker.y)>=100&&
+  Math.hypot(p.x-(doc.markers.find(t=>t.id===dropoffId)?.x??p.x),
+             p.y-(doc.markers.find(t=>t.id===dropoffId)?.y??p.y))>=100);
+function populateContractChoices(id,options,value){
+  const control=$(id);control.replaceChildren();
+  if(!options.length){
+    const missing=new Option('Place a matching destination marker first','');
+    control.add(missing);
+  }else{
+    for(const marker of options)control.add(new Option(marker.name+' ['+marker.id+']',marker.id));
+  }
+  control.value=value??'';
+}
+function refreshContactEditor(marker){
+  const visible=marker?.type==='contract_contact';
+  $('inspect-contract-contact').hidden=!visible;
+  if(!visible)return;
+  if(selectedContactMarkerId!==marker.id){
+    selectedContactMarkerId=marker.id;selectedContactOfferIndex=0;
+  }
+  $('contact-npc-style').value=marker.properties?.contact_style??'street';
+  $('contact-role').value=marker.properties?.contact_role??'';
+  $('contact-greeting').value=marker.properties?.contact_greeting??'';
+  $('contact-bio').value=marker.properties?.contact_bio??'';
+  const offers=contactOffers(marker);
+  if(selectedContactOfferIndex>=offers.length)selectedContactOfferIndex=Math.max(0,offers.length-1);
+  const pick=$('contact-offer-index');pick.replaceChildren();
+  if(!offers.length)pick.add(new Option('No contracts — add one',''));
+  else offers.forEach((offer,i)=>pick.add(new Option((offer.title||offer.id)+' / '+offer.kind,i)));
+  pick.value=offers.length?String(selectedContactOfferIndex):'';
+  $('contact-remove-offer').disabled=!offers.length;
+  $('contact-add-offer').disabled=offers.length>=8;
+  $('contact-copy-offer').disabled=!offers.length||offers.length>=8;
+  $('contact-move-up').disabled=!offers.length||selectedContactOfferIndex<=0;
+  $('contact-move-down').disabled=!offers.length||selectedContactOfferIndex>=offers.length-1;
+  $('contact-offer-count').textContent=offers.length+' / 8 configured jobs';
+  const offer=offers[selectedContactOfferIndex];
+  $('contact-offer-fields').hidden=!offer;
+  if(!offer){
+    $('contact-editor-help').textContent='Place a contract dropoff marker, then choose Add contract.';
+    return;
+  }
+  const kind=offer.kind??'courier',defaults=contactJobDefaults[kind]??contactJobDefaults.courier;
+  $('contact-offer-title').value=offer.title??'';
+  const raceRequirement=$('contact-offer-required-race');
+  raceRequirement.replaceChildren(new Option('No race prerequisite',''));
+  for(const race of doc.races??[])raceRequirement.add(new Option(race.name+' ['+race.id+']',race.id));
+  raceRequirement.value=offer.required_race_id??'';
+  $('contact-offer-description').value=offer.description??'';
+  $('contact-offer-kind').value=kind;
+  $('contact-offer-difficulty').value=offer.difficulty??'rookie';
+  populateContractChoices('contact-offer-destination',contactEligibleDropoffs(marker),offer.destination_marker_id);
+  populateContractChoices('contact-offer-target',contactEligibleTargets(marker,offer.destination_marker_id),offer.robbery_marker_id);
+  $('contact-target-field').hidden=kind!=='robbery';
+  $('contact-wait-field').hidden=kind!=='robbery';
+  $('contact-offer-radius').value=offer.arrival_radius_m??12;
+  $('contact-offer-wait').value=offer.robbery_hold_seconds??7;
+  const payout=offer.cash??defaults.cash,stars=offer.wanted_level??defaults.wanted_level;
+  $('contact-job-preview').textContent=(offer.title||'Untitled')+' / '+kind.toUpperCase()+
+    ' / '+(offer.difficulty??'rookie').toUpperCase()+
+    ' / $'+Number(payout).toLocaleString()+' / WANTED '+stars+' / 5';
+  const warnings=offerWarnings(marker,offer,doc.markers);
+  const validation=$('contact-job-validation');
+  validation.textContent=warnings.length?'CHECK BEFORE SAVING: '+warnings.join('  •  '):
+    'READY TO PUBLISH: Target and drop-off locations are configured.';
+  validation.classList.toggle('has-errors',warnings.length>0);
+  $('contact-offer-repeatable').checked=offer.repeatable!==false;
+  for(const [id,key] of [
+    ['contact-offer-cash','cash'],['contact-offer-player-xp','player_xp'],
+    ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
+    ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
+    ['contact-offer-required-level','required_player_level'],
+    ['contact-offer-required-rep','required_underground_rep'],
+    ['contact-offer-radius','arrival_radius_m'],
+    ['contact-offer-wait','robbery_hold_seconds']
+  ])$(id).value=offer[key]??defaults[key]??(
+    key==='required_player_level'?1:key==='arrival_radius_m'?12:key==='robbery_hold_seconds'?7:0);
+  $('contact-editor-help').textContent='Job ID '+offer.id+' stays stable for career progression. '+(kind==='robbery'
+    ?'Player waits in car at the target while the crew acts off-screen, then escapes police to the dropoff.'
+    :'Reach the configured destination before the timer runs out.');
+}
+function changeContactProperties(callback,message){
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='markers'||found.item.type!=='contract_contact')return false;
+  const marker=found.item;
+  try{
+    const properties=callback({...marker.properties,offers:contactOffers(marker).map(o=>({...o}))});
+    return change(d=>updateEntity(d,marker.id,{properties}),message);
+  }catch(e){errorMessage(e);refreshInspector();return false;}
+}
+function changeContactOffer(updater,message='Updated contact job.'){
+  changeContactProperties(properties=>{
+    const list=properties.offers;
+    if(selectedContactOfferIndex<0||selectedContactOfferIndex>=list.length)return properties;
+    const previous=list[selectedContactOfferIndex];
+    list[selectedContactOfferIndex]=updater(previous,properties,list);
+    return properties;
+  },message);
+}
+let selectedRaceId='';
+function refreshRaceEditor(){
+  const select=$('race-edit-select'),races=doc.races??[];
+  const previous=selectedRaceId;
+  select.replaceChildren();
+  if(!races.length)select.add(new Option('No authored races loaded',''));
+  else races.forEach(r=>select.add(new Option(r.name+' ['+r.id+']',r.id)));
+  if(!races.some(r=>r.id===previous))selectedRaceId=races[0]?.id??'';
+  select.value=selectedRaceId;
+  const race=races.find(r=>r.id===selectedRaceId);
+  $('race-edit-form').hidden=!race;
+  if(!race)return;
+  $('race-edit-summary').textContent=race.mode.toUpperCase()+' / '+
+    race.points.length+' CHECKPOINTS / '+(race.laps??1)+' LAPS';
+  for(const [id,value] of [
+    ['race-edit-name',race.name],['race-edit-category',race.category??(race.mode==='circuit'?'circuit':'street')],
+    ['race-edit-difficulty',race.difficulty??'rookie'],['race-edit-laps',race.laps??1],
+    ['race-edit-time',race.time_limit??0],
+    ['race-edit-checkpoint-radius',race.checkpoint_radius??16],
+    ['race-edit-start-radius',race.start_radius??8],
+    ['race-edit-cash',race.reward_cash??0],
+    ['race-edit-xp',race.reward_player_xp??0],['race-edit-car-xp',race.reward_car_xp??0],
+    ['race-edit-level',race.required_player_level??1],['race-edit-car-level',race.required_car_level??1],
+    ['race-edit-first-cash',race.first_win_reward_cash??0],
+    ['race-edit-first-xp',race.first_win_reward_player_xp??0],
+    ['race-edit-first-car-xp',race.first_win_reward_car_xp??0],
+    ['race-edit-heat',race.race_heat??0],['race-edit-escape',race.escape_time_limit??90],
+    ['race-edit-entry',race.entry_fee??0],['race-edit-rep',race.underground_rep_reward??0],
+    ['race-edit-required-rep',race.required_underground_rep??0]
+  ])$(id).value=value;
+  $('race-edit-repeatable').checked=race.repeatable!==false;
+  $('race-edit-rep').disabled=!(race.race_heat>0);
+  $('race-edit-escape').disabled=!(race.race_heat>0);
+  $('race-edit-summary').textContent+=' / '+(race.race_heat>0?'UNDERGROUND / WANTED '+race.race_heat:'LEGAL')+' / ENTRY $'+Number(race.entry_fee??0).toLocaleString();
+  $('race-edit-laps').disabled=race.mode!=='circuit';
+  const prerequisites=$('race-edit-prerequisites');
+  const selected=new Set(race.prerequisite_races??[]);
+  prerequisites.replaceChildren();
+  for(const event of races){
+    if(event.id===race.id)continue;
+    const option=new Option(event.name+' ['+event.id+']',event.id);
+    option.selected=selected.has(event.id);
+    prerequisites.add(option);
+  }
+}
+function changeRaceConfiguration(patch,message){
+  if(!selectedRaceId)return false;
+  return change(d=>normalizeWorld(updateRaceSettings(d,selectedRaceId,patch)),message);
+}
+
 function refreshInspector(){
   const found=selection?getEntity(doc,selection.id):null;
   if(!found){
@@ -625,6 +783,7 @@ function refreshInspector(){
     $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
+  if(found.type!=='markers')$('inspect-contract-contact').hidden=true;
   $('selected-type').textContent=type==='props'&&item.type==='guardrail'?'GUARDRAIL':
     {roads:'ROAD',regions:'TERRAIN',props:'SCENERY',markers:'MARKER'}[type];
   $('inspector-name').value=item.name;
@@ -666,6 +825,7 @@ function refreshInspector(){
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
   }else{
     $('inspect-marker-type').value=item.type;$('inspect-properties').value=JSON.stringify(item.properties,null,2);
+    refreshContactEditor(item);
   }
 }
 function refreshEntities(){
@@ -884,7 +1044,7 @@ function refreshSpriteLists(){
     select.value=[...select.options].some(option=>option.value===previous)?previous:'';
   }
 }
-function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshEntities();renderContextPanel();refreshAssetDock();requestRender();}
+function refreshUI(){refreshSpriteLists();refreshHeader();refreshInspector();refreshRaceEditor();refreshEntities();renderContextPanel();refreshAssetDock();requestRender();}
 function startWorld(world,message,{skipRecovery=false,preview=null,restoredDirty=false,worldSha='',view=null}={}){
   clearTimeout(autosaveTimer);
   if(gesture?.mode==='spray')clearInterval(gesture.timer);
@@ -1411,6 +1571,14 @@ $('scatter').addEventListener('click',()=>{
   if(!region){status('Select a terrain region before scattering scenery.');return;}
   change(d=>scatterVegetation(d,id,Number($('scatter-count').value)),'Scattered vegetation while avoiding roads.');
 });
+$('road-class').addEventListener('change',e=>{
+  if(e.target.value==='track')$('road-surface').value='track';
+  else if($('road-surface').value==='track')$('road-surface').value='asphalt';
+});
+$('road-surface').addEventListener('change',e=>{
+  if(e.target.value==='track')$('road-class').value='track';
+  else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='country';
+});
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
 for(const id of ['show-roads','show-junctions','show-road-priority','show-road-gaps',
   'show-road-clearances','show-preset-preview','show-terrain','show-scenery',
@@ -1439,6 +1607,16 @@ for(const [elementId,options] of Object.entries(fields)){
       else if(kind==='json')value=JSON.parse(event.target.value);
       else value=event.target.value;
       const update={[key]:value};
+      if(key==='roadClass'){
+        const old=getEntity(doc,selection.id)?.item;
+        if(value==='track')update.surface='track';
+        else if(old?.surface==='track')update.surface='asphalt';
+      }
+      if(key==='surface'){
+        const old=getEntity(doc,selection.id)?.item;
+        if(value==='track')update.roadClass='track';
+        else if(old?.roadClass==='track'&&['dirt','gravel'].includes(value))update.roadClass='country';
+      }
       if(key==='biome'&&!['mountain','rock'].includes(value))update.barrier=false;
       if(key==='barrier'&&value){const r=getEntity(doc,selection.id)?.item;
         if(!['mountain','rock'].includes(r?.biome))update.biome='mountain';
@@ -1448,6 +1626,160 @@ for(const [elementId,options] of Object.entries(fields)){
     }catch(e){errorMessage(e);refreshInspector();}
   });
 }
+$('contact-npc-style').addEventListener('change',e=>{
+  changeContactProperties(p=>({...p,contact_style:e.target.value}),'Changed roadside contact appearance.');
+});
+for(const [id,field] of [
+  ['contact-role','contact_role'],['contact-greeting','contact_greeting'],
+  ['contact-bio','contact_bio']
+]){
+  $(id).addEventListener('change',e=>
+    changeContactProperties(p=>({...p,[field]:e.target.value.trim()}),
+      'Updated contract giver personality.'));
+}
+$('contact-offer-index').addEventListener('change',e=>{
+  selectedContactOfferIndex=Number(e.target.value)||0;
+  const item=selection?getEntity(doc,selection.id)?.item:null;
+  if(item)refreshContactEditor(item);
+});
+$('contact-add-offer').addEventListener('click',()=>{
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(marker?.type!=='contract_contact')return;
+  const destination=contactEligibleDropoffs(marker)[0]?.id??'';
+  const current=contactOffers(marker);
+  let job;
+  try{job=createOffer(current,'courier',destination);}
+  catch(e){return errorMessage(e);}
+  const previous=selectedContactOfferIndex;selectedContactOfferIndex=current.length;
+  if(!changeContactProperties(p=>({...p,offers:[...p.offers,job]}),'Added driving contract to contact.'))
+    selectedContactOfferIndex=previous;
+});
+$('contact-copy-offer').addEventListener('click',()=>{
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(marker?.type!=='contract_contact')return;
+  const previous=selectedContactOfferIndex;
+  selectedContactOfferIndex=previous+1;
+  if(!changeContactProperties(p=>({...p,offers:duplicateOffer(p.offers,previous)}),
+     'Duplicated job with a new career identity.'))selectedContactOfferIndex=previous;
+});
+for(const [id,direction] of [['contact-move-up',-1],['contact-move-down',1]]){
+  $(id).addEventListener('click',()=>{
+    const old=selectedContactOfferIndex;
+    if(!changeContactProperties(p=>{
+      const moved=moveOffer(p.offers,old,direction);
+      selectedContactOfferIndex=moved.index;
+      return {...p,offers:moved.offers};
+    },'Reordered contact jobs.'))selectedContactOfferIndex=old;
+  });
+}
+$('contact-remove-offer').addEventListener('click',()=>{
+  const previous=selectedContactOfferIndex;
+  selectedContactOfferIndex=Math.max(0,selectedContactOfferIndex-1);
+  if(!changeContactProperties(p=>({...p,offers:p.offers.filter((_,i)=>i!==previous)}),
+      'Deleted selected person contract.'))selectedContactOfferIndex=previous;
+});
+$('contact-apply-preset').addEventListener('click',()=>{
+  const offer=selection?contactOffers(getEntity(doc,selection.id)?.item)[selectedContactOfferIndex]:null;
+  if(!offer)return;
+  const difficulty=$('contact-offer-difficulty').value;
+  if(!window.confirm('Apply '+difficulty+' suggested rewards, heat and driver-level requirements?\nThis changes gameplay values but keeps the job ID and its destinations.'))return;
+  changeContactOffer(existing=>presetOffer(existing,difficulty),
+    'Applied '+difficulty+' contract preset.');
+});
+const updateJobField=(id,field,conversion=e=>e.target.value)=>{
+  $(id).addEventListener('change',e=>{
+    const value=conversion(e);
+    changeContactOffer(offer=>({...offer,[field]:value}),'Updated contract '+field+'.');
+  });
+};
+updateJobField('contact-offer-title','title');
+updateJobField('contact-offer-required-race','required_race_id');
+updateJobField('contact-offer-description','description');
+updateJobField('contact-offer-difficulty','difficulty');
+updateJobField('contact-offer-repeatable','repeatable',e=>e.target.checked);
+for(const [id,field] of [
+  ['contact-offer-cash','cash'],['contact-offer-player-xp','player_xp'],
+  ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
+  ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
+  ['contact-offer-required-level','required_player_level'],
+  ['contact-offer-required-rep','required_underground_rep'],
+  ['contact-offer-radius','arrival_radius_m'],
+  ['contact-offer-wait','robbery_hold_seconds']
+])updateJobField(id,field,e=>Number(e.target.value));
+$('contact-offer-destination').addEventListener('change',e=>{
+  const destId=e.target.value;
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(!marker)return;
+  changeContactOffer(offer=>{
+    const next={...offer,destination_marker_id:destId};
+    if(next.kind==='robbery'&&!contactEligibleTargets(marker,destId).some(t=>t.id===next.robbery_marker_id)){
+      const target=contactEligibleTargets(marker,destId)[0];
+      if(!target)throw new Error('Place a robbery target at least 100m from both contact and dropoff.');
+      next.robbery_marker_id=target.id;
+    }
+    return next;
+  },'Updated contract dropoff.');
+});
+$('contact-offer-target').addEventListener('change',e=>
+  changeContactOffer(offer=>({...offer,robbery_marker_id:e.target.value}),
+    'Changed robbery target.'));
+$('contact-offer-kind').addEventListener('change',e=>{
+  const kind=e.target.value,marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(!marker)return;
+  changeContactOffer(offer=>{
+    const next={...offer,kind,...contactJobDefaults[kind]};
+    if(kind==='robbery'){
+      if(next.robbery_hold_seconds===undefined)next.robbery_hold_seconds=7;
+      const targets=contactEligibleTargets(marker,offer.destination_marker_id);
+      if(!targets.length)throw new Error('Place a robbery target 100m from the contact and dropoff first.');
+      next.robbery_marker_id=targets[0].id;
+    }else delete next.robbery_marker_id;
+    return next;
+  },'Changed contract type and loaded default difficulty rewards.');
+});
+
+// Race configuration is a separate, optional panel: it never moves
+// checkpoints, replaces race IDs or rewrites the native starting grid.
+$('race-edit-select').addEventListener('change',e=>{
+  selectedRaceId=e.target.value;
+  refreshRaceEditor();
+});
+for(const [id,key,format] of [
+  ['race-edit-name','name','text'],
+  ['race-edit-category','category','text'],
+  ['race-edit-difficulty','difficulty','text'],
+  ['race-edit-laps','laps','number'],
+  ['race-edit-time','time_limit','number'],
+  ['race-edit-checkpoint-radius','checkpoint_radius','number'],
+  ['race-edit-start-radius','start_radius','number'],
+  ['race-edit-cash','reward_cash','number'],
+  ['race-edit-xp','reward_player_xp','number'],
+  ['race-edit-car-xp','reward_car_xp','number'],
+  ['race-edit-level','required_player_level','number'],
+  ['race-edit-car-level','required_car_level','number'],
+  ['race-edit-first-cash','first_win_reward_cash','number'],
+  ['race-edit-first-xp','first_win_reward_player_xp','number'],
+  ['race-edit-first-car-xp','first_win_reward_car_xp','number'],
+  ['race-edit-heat','race_heat','number'],['race-edit-escape','escape_time_limit','number'],
+  ['race-edit-entry','entry_fee','number'],['race-edit-rep','underground_rep_reward','number'],
+  ['race-edit-required-rep','required_underground_rep','number'],
+  ['race-edit-repeatable','repeatable','boolean']
+]){
+  $(id).addEventListener('change',e=>{
+    const value=format==='number'?Number(e.target.value):
+      format==='boolean'?e.target.checked:e.target.value;
+    const patch={[key]:value};
+    if(key==='race_heat'&&value===0)patch.underground_rep_reward=0;
+    if(!changeRaceConfiguration(patch,'Updated race '+key+'.'))
+      refreshRaceEditor();
+  });
+}
+$('race-edit-prerequisites').addEventListener('change',e=>{
+  const prerequisites=[...e.target.selectedOptions].map(x=>x.value);
+  if(!changeRaceConfiguration({prerequisite_races:prerequisites},'Updated event prerequisites.'))
+    refreshRaceEditor();
+});
+
 $('world-title').addEventListener('change',e=>change(d=>normalizeWorld({...d,name:e.target.value}),'World renamed.'));
 $('mountain-barrier-tool').addEventListener('click',()=>{
   setTool('terrain');$('biome').value='mountain';$('terrain-barrier').checked=true;$('elevation').value=80;

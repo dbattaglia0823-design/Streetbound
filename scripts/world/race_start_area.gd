@@ -17,6 +17,10 @@ static func settle_for_countdown(player: VehicleController2D) -> void:
 ## One circular interaction shape for race staging and its visible world marker.
 static func busy(race: Node) -> bool:
 	if race.get_tree()==null:return false
+	for service in race.get_tree().get_nodes_in_group("streetbound_police"):
+		if int(service.get("wanted_level"))>0:return true
+	for service in race.get_tree().get_nodes_in_group("streetbound_contracts"):
+		if not (service.get("active") as Dictionary).is_empty():return true
 	for other in race.get_tree().get_nodes_in_group("streetbound_race"):
 		if other!=race and str(other.get("state")) in ["countdown","running"]:return true
 	return false

@@ -7,8 +7,10 @@ from pathlib import Path
 
 @lru_cache(maxsize=1)
 def vehicle_ids():
-    catalog=Path(__file__).resolve().parents[1] / 'data' / 'player_vehicle_catalog.json'
-    return frozenset(str(car['id']) for car in json.loads(catalog.read_text(encoding='utf-8'))['vehicles'])
+    data=Path(__file__).resolve().parents[1] / 'data'
+    return frozenset(str(car['id'])
+        for name in ('player_vehicle_catalog.json','player_vehicle_additions.json')
+        for car in json.loads((data/name).read_text(encoding='utf-8'))['vehicles'])
 
 def authored_races(doc,width,height):
     races=doc.get('races',[])
@@ -82,11 +84,16 @@ def authored_races(doc,width,height):
         for field,lowest,highest in (
             ('required_player_level',1,100),('required_car_level',1,50),
             ('first_win_reward_cash',0,1000000),('first_win_reward_player_xp',0,100000),
-            ('first_win_reward_car_xp',0,100000)):
+            ('first_win_reward_car_xp',0,100000),
+            ('race_heat',0,5),('escape_time_limit',30,300),
+            ('entry_fee',0,50000),('underground_rep_reward',0,30),
+            ('required_underground_rep',0,100000)):
             amount=race.get(field,lowest)
             if type(amount) is not int or not lowest<=amount<=highest:
                 raise ValueError('Invalid race progression: '+field)
             if field in race:entry[field]=amount
+        if entry.get('race_heat',0)==0 and entry.get('underground_rep_reward',0)>0:
+            raise ValueError('Underground reputation requires an illegal race')
         for field in ('prerequisite_races','required_vehicle_ids'):
             choices=race.get(field,[])
             if not isinstance(choices,list) or len(choices)>(16 if field=='prerequisite_races' else 128) or (

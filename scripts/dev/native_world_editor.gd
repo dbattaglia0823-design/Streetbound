@@ -115,7 +115,18 @@ var asset_entries: Array[Dictionary] = []
 var active_project_asset: Dictionary = {}
 var finish_button: Button
 var cancel_button: Button
+const EditorContext=preload("res://scripts/dev/native_editor_context.gd")
 var tool_options: Container
+var tool_help: Label
+var mountain_help: Label
+var sidewalk_settings: Control
+var guardrail_settings: Control
+var race_settings: Control
+var dealership_settings: Control
+var inspector_tabs: TabContainer
+var settings_tabs: TabContainer
+var selection_fields: Control
+var road_layer_settings: Control
 var settings_panel: PanelContainer
 var canvas_bar: PanelContainer
 var canvas_rect:=Rect2()
@@ -158,6 +169,8 @@ var road_surface: OptionButton
 var road_width: SpinBox
 var road_lanes: SpinBox
 var road_class: OptionButton
+var inspector_road_type: OptionButton
+var inspector_road_type_fields: Control
 var terrain_biome: OptionButton
 var terrain_barrier: CheckBox
 var terrain_elevation: SpinBox
@@ -199,6 +212,7 @@ func _ready() -> void:
 	bridge.completed.connect(_on_apply_completed)
 	add_child(bridge)
 	root_ui.visible = false
+	get_node("/root/MenuNavigation").register_scope(root_ui,31,close_editor)
 	gizmos = Node2D.new()
 	gizmos.set_script(Gizmos)
 	gizmos.world = world
@@ -494,16 +508,28 @@ func _select_asset(entry: Dictionary) -> void:
 
 func _update_context_panels() -> void:
 	if not is_instance_valid(tool_options):return
-	var road_selected: bool=source_ready and not authoring.road_at_id(source_id).is_empty()
 	var record:=_selected_record()
-	road_settings.visible=tool_name in ["move_prop","anchor","pan","draw_road","place_circle_road"] or road_selected
-	if record.get("category","") in ["regions","races"] or tool_name=="draw_race":road_settings.visible=false
+	var context:=EditorContext.resolve(tool_name,str(record.get("category","")),
+		str(record.get("item",{}).get("type","")),multi_selection.size())
+	road_settings.visible=bool(context.road)
+	terrain_settings.visible=bool(context.terrain)
+	marker_settings.visible=bool(context.marker)
+	race_settings.visible=bool(context.race)
+	sidewalk_settings.visible=bool(context.sidewalk)
+	guardrail_settings.visible=bool(context.guardrail)
+	dealership_settings.visible=bool(context.dealership)
+	grid_button.visible=bool(context.snap)
+	building_snap_button.visible=bool(context.building_snap)
+	tool_help.text=str(context.help)
 	road_shapes.update(self)
 	race_editor.update(self)
-	terrain_settings.visible=tool_name=="draw_terrain" or record.get("category","")=="regions"
-	marker_settings.visible=tool_name=="place_marker" or record.get("category","")=="markers"
 	marker_editor.update(self)
-	asset_dock.visible=tool_name.begins_with("place:")
+	marker_editor.edit_button.visible=bool(context.marker) and record.get("category","")=="markers"
+	marker_kind.visible=tool_name=="place_marker"
+	asset_dock.visible=bool(context.assets)
+	finish_button.visible=bool(context.shape_actions)
+	cancel_button.visible=bool(context.shape_actions) or not pending_drag.is_empty()
+	var road_selected: bool=bool(context.road) and record.get("category","")=="roads"
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
@@ -512,11 +538,11 @@ func _update_context_panels() -> void:
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
 		for option in [road_class,road_surface]:
-			var value:=str(road.roadClass) if option==road_class else str(road.surface)
+			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
 			for i in option.item_count:
 				if str(option.get_item_metadata(i))==value:option.select(i);break
 		_setting_controls=false
-	if record.get("category","")=="regions" and tool_name!="draw_terrain":
+	if bool(context.terrain) and record.get("category","")=="regions" and tool_name!="draw_terrain":
 		_setting_controls=true
 		for i in terrain_biome.item_count:
 			if str(terrain_biome.get_item_metadata(i))==str(record.item.biome):terrain_biome.select(i);break
@@ -524,6 +550,8 @@ func _update_context_panels() -> void:
 		terrain_elevation.value=float(record.item.get("elevation",0))
 		_setting_controls=false
 	terrain_elevation.editable=terrain_barrier.button_pressed
+	terrain_elevation.visible=terrain_barrier.button_pressed
+	mountain_help.visible=terrain_barrier.button_pressed
 
 
 func _redraw_visible_scenery() -> void:
@@ -871,6 +899,7 @@ func _choose_tool(mode: String) -> void:
 	# selected group. Switching back to V must allow an immediate group drag.
 	var keep_selection: bool=tool_name in ["move_prop","select_box"] and mode in ["move_prop","select_box"]
 	tool_name = mode
+	if is_instance_valid(settings_tabs):settings_tabs.current_tab=0
 	if not keep_selection:_set_multi([])
 	marquee_tracking=false
 	group_moving=false
@@ -1506,7 +1535,7 @@ func _panel(where: Vector2, dimensions: Vector2) -> PanelContainer:
 func _btn(text_value: String, parent: Node, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text_value
-	b.focus_mode=Control.FOCUS_NONE
+	b.focus_mode=Control.FOCUS_ALL
 	b.custom_minimum_size = Vector2(104,33)
 	b.add_theme_font_size_override("font_size",12)
 	var normal := StyleBoxFlat.new()
@@ -1692,17 +1721,22 @@ func _test_drive() -> void:
 			get_tree().remove_meta("streetbound_editor_return_position")
 			_notice("Could not launch this custom map for Test Drive.")
 		return
-	if standalone_mode:
-		if authoring.dirty or bridge.phase != "":
-			_notice("Save to Game or DISCARD before Test Drive.")
-			return
-		get_tree().set_meta("streetbound_editor_test_drive",true)
-		get_tree().set_meta("streetbound_editor_return_position",
-			editor_camera.global_position)
-		get_tree().paused = false
-		get_tree().change_scene_to_file("res://scenes/main.tscn")
-	else:
-		close_editor()
+	# Bundled maps also start a clean production scene instead of
+	# resuming the paused editor-backed vehicle with stale preview geometry.
+	if authoring.dirty or (is_instance_valid(bridge) and bridge.phase != ""):
+		_notice("Save to Game or DISCARD before Test Drive.")
+		return
+	get_tree().set_meta("streetbound_editor_test_drive",true)
+	get_tree().set_meta("streetbound_editor_return_position",editor_camera.global_position)
+	if not standalone_mode:
+		_clear_editor_preview()
+		_restore_gameplay_render()
+	get_tree().paused = false
+	var result:=get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if result!=OK:
+		get_tree().remove_meta("streetbound_editor_test_drive")
+		get_tree().remove_meta("streetbound_editor_return_position")
+		_notice("Could not launch full-game Test Drive.")
 
 
 func _toggle_lanes() -> void:
@@ -2112,6 +2146,39 @@ func _number(parent: Node,title: String,minimum: float,maximum: float,start: flo
 func _option_value(option: OptionButton) -> String:
 	return str(option.get_item_metadata(option.selected))
 
+func _select_road_option(control: OptionButton,value: String) -> void:
+	for i in control.item_count:
+		if str(control.get_item_metadata(i))==value:
+			control.select(i);return
+
+func _change_inspector_road_type(index: int) -> void:
+	if _updating_inspector or _setting_controls:return
+	road_class.select(index)
+	_change_road_type(index)
+
+func _change_road_type(_index: int) -> void:
+	if _setting_controls:return
+	var kind:=_option_value(road_class)
+	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
+	if kind=="track":_select_road_option(road_surface,"track")
+	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
+	_commit_road_type_and_surface()
+
+func _change_road_surface(_index: int) -> void:
+	if _setting_controls:return
+	var surface:=_option_value(road_surface)
+	if surface=="track":_select_road_option(road_class,"track")
+	elif _option_value(road_class)=="track" and surface in ["gravel","dirt"]:
+		_select_road_option(road_class,"country")
+	_commit_road_type_and_surface()
+
+func _commit_road_type_and_surface() -> void:
+	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
+	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
+		"surface":_option_value(road_surface)}):
+		_refresh_authoring()
+		_notice("Road type and surface updated. Geometry and dimensions preserved.")
+
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
 	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
@@ -2142,7 +2209,19 @@ func _record_position(record: Dictionary) -> Vector2:
 func _refresh_inspector() -> void:
 	if not is_instance_valid(inspector_name):return
 	_updating_inspector=true
-	var record:=_selected_record();var exists:=not record.is_empty()
+	var record:=_selected_record()
+	var context:=EditorContext.resolve(tool_name,str(record.get("category","")),str(record.get("item",{}).get("type","")),multi_selection.size())
+	var exists:=bool(context.selected_fields)
+	selection_fields.visible=exists
+	inspector_road_type_fields.visible=exists and record.get("category","")=="roads"
+	if inspector_road_type_fields.visible:
+		var kind:=str(record.item.get("roadClass","city"))
+		if str(record.item.get("surface",""))=="track":kind="track"
+		_select_road_option(inspector_road_type,kind)
+	edit_actions.visible=bool(context.selection_actions)
+	if multi_selection.size()>1:
+		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
+		selected_preview.hide()
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
@@ -2171,6 +2250,8 @@ func _refresh_inspector() -> void:
 		if record.category=="props":
 			var size: Vector2=gizmos._prop_size(item)/PPM
 			asset_dimensions_label.text="Footprint: %.2f × %.2f m"%[size.x,size.y]
+			var path_prop:=str(item.get("type","")) in ["sidewalk","guardrail"]
+			prop_transforms.visible=not path_prop
 			var building:=RoadBuildingSnap.supports(item)
 			inspector_road_facing.visible=building;inspector_road_front.visible=building
 			inspector_road_facing.set_pressed_no_signal(RoadBuildingSnap.enabled(item))
@@ -2233,6 +2314,8 @@ func _change_terrain_settings() -> void:
 	if _setting_controls:return
 	if _option_value(terrain_biome) not in ["mountain","rock"]:terrain_barrier.set_pressed_no_signal(false)
 	terrain_elevation.editable=terrain_barrier.button_pressed
+	terrain_elevation.visible=terrain_barrier.button_pressed
+	mountain_help.visible=terrain_barrier.button_pressed
 	if tool_name=="draw_terrain" or _editing_locked():return
 	var record:=_selected_record()
 	if record.get("category","")!="regions":return
@@ -2361,9 +2444,11 @@ func _select_entity(index: int) -> void:
 	if record.is_empty():return
 	editor_camera.global_position=_record_position(record)*PPM
 	_refresh_authoring();_update_view(true)
+	if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 
 func _set_layer(enabled: bool,key: String) -> void:
 	layer_flags[key]=enabled
+	if is_instance_valid(road_layer_settings):road_layer_settings.visible=bool(layer_flags.roads)
 	if key in ["terrain","roads","scenery"]:
 		if is_instance_valid(overview_renderer):overview_renderer.set_layers(layer_flags)
 		if is_instance_valid(render_tiles):render_tiles.set_layers(layer_flags)
@@ -2412,7 +2497,7 @@ func _update_source_details() -> void:
 	if not source_ready:return
 	if source_id.is_empty():
 		if selected.is_empty():
-			details.text="Select a road, region, marker or scenery object. Edit its properties here, or find it in the list below."
+			details.text="Select an object to inspect its properties. Use the Objects tab to find it by name."
 			selected_preview.texture=null;selected_preview.visible=false
 		return
 	selected_preview.visible=false
@@ -2633,7 +2718,7 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 			float(prop.size[0]),float(prop.size[1]),
 			"yes" if bool(prop.get("solid",false)) else "no"]
 	else:
-		details.text = "Select a road, region, marker or scenery object. Edit its properties here, or find it in the list below."
+		details.text = "Select an object to inspect its properties. Use the Objects tab to find it by name."
 	if not measured.is_empty():
 		details.text += "\n\nSurface: %s  Grip: %.2f" % [
 			str(measured.get("surface","")),float(measured.get("grip",0.0))]

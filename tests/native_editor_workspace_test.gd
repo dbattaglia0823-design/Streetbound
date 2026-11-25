@@ -91,10 +91,58 @@ func run() -> void:
 		 "inspector_min":e.inspector_panel.get_combined_minimum_size(),
 		 "viewport_width":get_root().get_visible_rect().size.x,
 		 "inspector_scroll_min":e.inspector_panel.get_child(0).get_combined_minimum_size()})
-	check("library_is_integrated_with_tool_settings",e.asset_dock.get_parent().get_parent().get_parent()==e.settings_panel)
-	for tool in ["draw_road","draw_terrain","place:house","place_marker","pan","move_prop"]:
+	check("library_is_integrated_with_tool_settings",e.settings_panel.is_ancestor_of(e.asset_dock))
+	check("tool_and_world_settings_are_separate_tabs",
+		e.settings_panel.find_child("ToolAndWorldTabs",true,false) is TabContainer)
+	check("inspector_layers_objects_are_separate_tabs",
+		e.inspector_tabs.get_tab_count()==3 and e.inspector_tabs.get_tab_title(0)=="Inspector"
+		and e.inspector_tabs.get_tab_title(1)=="Layers" and e.inspector_tabs.get_tab_title(2)=="Objects")
+	for tool in ["draw_road","draw_terrain","place:house","place_marker","pan","draw_sidewalk",
+			"draw_guardrail","place_circle_road","draw_race","move_prop"]:
 		e._choose_tool(tool)
 		check("tool_"+tool,e.tool_name==tool and e.settings_panel.visible and e.inspector_panel.visible)
+		check("context_only_"+tool,
+			e.road_settings.visible==(tool in ["draw_road","place_circle_road"])
+			and e.terrain_settings.visible==(tool=="draw_terrain")
+			and e.marker_settings.visible==(tool=="place_marker")
+			and e.asset_dock.visible==(tool=="place:house")
+			and e.sidewalk_settings.visible==(tool=="draw_sidewalk")
+			and e.guardrail_settings.visible==(tool=="draw_guardrail")
+			and e.race_settings.visible==(tool=="draw_race"))
+		check("empty_inspector_"+tool,not e.selection_fields.visible and not e.prop_transforms.visible)
+	check("empty_selection_hides_object_actions",not e.edit_actions.visible)
+	e.source_id="road-0";e.source_anchor=-1;e._refresh_authoring()
+	check("selected_road_only_exposes_road_settings",e.road_settings.visible and
+		not e.terrain_settings.visible and not e.race_settings.visible and e.selection_fields.visible
+		and e.point_picker.visible and not e.prop_transforms.visible)
+	var original_road: Dictionary=e.authoring.road_at_id("road-0").duplicate(true)
+	check("placed_road_has_visible_type_selector",e.inspector_road_type_fields.visible)
+	e._change_inspector_road_type(5)
+	var converted: Dictionary=e.authoring.road_at_id("road-0")
+	check("existing_road_converts_to_track_without_geometry_changes",
+		converted.roadClass=="track" and converted.surface=="track"
+		and converted.points==original_road.points and converted.width==original_road.width
+		and converted.lanes==original_road.lanes)
+	check("road_type_controls_remain_synchronized",e.road_class.selected==5 and e.inspector_road_type.selected==5)
+	e._change_inspector_road_type(0)
+	check("track_can_be_converted_back_to_city",
+		e.authoring.road_at_id("road-0").roadClass=="city" and e.authoring.road_at_id("road-0").surface=="asphalt")
+	e._undo();e._undo()
+	check("road_type_changes_are_undoable",e.authoring.road_at_id("road-0")==original_road)
+	e._choose_tool("pan")
+	check("pan_hides_previous_road_settings",not e.road_settings.visible and not e.selection_fields.visible)
+	e._choose_tool("move_prop")
+	e._set_layer(false,"roads")
+	check("hidden_road_layer_hides_road_debug_controls",not e.road_layer_settings.visible)
+	e._set_layer(true,"roads")
+	check("enabled_road_layer_restores_road_debug_controls",e.road_layer_settings.visible)
+	e.marker_editor.type_input.select(e.marker_editor.type_input.item_count-1)
+	e.marker_editor._refresh_type_fields()
+	check("nontraffic_marker_hides_spawn_priority",not e.marker_editor.weight_input.visible)
+	var contains_contacts:=false
+	for i in e.marker_kind.item_count:
+		if str(e.marker_kind.get_item_metadata(i))=="contract_contact":contains_contacts=true
+	check("marker_tool_includes_contract_contacts",contains_contacts)
 	e._fit_map();await process_frame
 	var overview=e.overview_renderer
 	check("full_map_uses_real_archive_artwork",overview.full_world.content.segments.size()==scene.ground.data.segments.size() and overview.prop_count==scene.ground.data.props.size() and overview.road_count>=scene.ground.data.roads.size())

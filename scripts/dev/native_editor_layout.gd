@@ -54,46 +54,71 @@ static func build(e) -> void:
 		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL;e.mode_buttons[item[1]]=button
 	e.mode_buttons["anchor"]=e._btn("Road points",tools,e._choose_tool.bind("anchor"))
 	e.settings_panel=e._panel(Vector2.ZERO,Vector2.ZERO);e.settings_panel.name="ToolSettings"
-	var settings:=scroll_column(e.settings_panel)
+	var left_tabs:=TabContainer.new();left_tabs.name="ToolAndWorldTabs";e.settings_tabs=left_tabs
+	e.settings_panel.add_child(left_tabs)
+	var tool_scroll:=ScrollContainer.new();tool_scroll.name="Tool"
+	tool_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	left_tabs.add_child(tool_scroll)
+	var settings:=column(tool_scroll);settings.size_flags_horizontal=Control.SIZE_EXPAND_FILL;tool_scroll.follow_focus=true
+	var world_scroll:=ScrollContainer.new();world_scroll.name="World"
+	world_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	left_tabs.add_child(world_scroll)
+	var world_settings:=column(world_scroll);world_settings.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
 	e.grid_button.tooltip_text="Align free placement to 1 m coordinates. Building edge and corner snaps always take precedence over the grid."
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
-	e._btn("Dealership areas & stock",settings,e._open_dealership_editor)
-	e.map_switcher.build_publish_ui(e,settings)
-	e._btn("Draw sidewalk",settings,e._choose_tool.bind("draw_sidewalk"))
-	e.sidewalk_width=e._number(settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
-	e._btn("Draw guardrail",settings,e._choose_tool.bind("draw_guardrail"))
-	e.guardrail_width=e._number(settings,"Rail width m",.35,2.5,.65)
+	var extra:=OptionButton.new();extra.name="AdditionalTools";extra.fit_to_longest_item=false
+	for item in [["More tools…",""],["Draw race route","draw_race"],["Draw sidewalk","draw_sidewalk"],["Draw guardrail","draw_guardrail"],["Circular road","place_circle_road"],["Dealership areas & stock","dealership_manager"]]:
+		extra.add_item(item[0]);extra.set_item_metadata(extra.item_count-1,item[1])
+	extra.item_selected.connect(func(index: int)->void:
+		var tool:=str(extra.get_item_metadata(index))
+		extra.select(0)
+		if tool=="dealership_manager":e._open_dealership_editor()
+		elif tool=="draw_race":e.race_editor.begin_route(e)
+		elif not tool.is_empty():e._choose_tool(tool))
+	settings.add_child(extra)
+	e.map_switcher.build_publish_ui(e,world_settings)
+	e._btn("Dealership areas & stock",world_settings,e._open_dealership_editor)
+	e.sidewalk_settings=column(settings);heading(e.sidewalk_settings,"SIDEWALK")
+	e.sidewalk_width=e._number(e.sidewalk_settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
+	e.guardrail_settings=column(settings);heading(e.guardrail_settings,"GUARDRAIL")
+	e.guardrail_width=e._number(e.guardrail_settings,"Rail width m",.35,2.5,.65)
 	e.guardrail_width.step=.05;e.guardrail_width.value=.65
 	e.tool_options=VBoxContainer.new();settings.add_child(e.tool_options)
-	e.race_editor.build(e,e.tool_options)
+	e.race_settings=column(e.tool_options);e.race_editor.build(e,e.race_settings)
+	e.dealership_settings=column(e.tool_options);heading(e.dealership_settings,"DEALERSHIP PLACEMENT")
+	e._btn("Dealership areas & stock",e.dealership_settings,e._open_dealership_editor)
 	e.road_settings=column(e.tool_options);heading(e.road_settings,"ROAD DESIGNER")
-	e.road_class=e._options(e.road_settings,"Road class",["city","highway","country","mountain","service","track"])
+	heading(e.road_settings,"Road type")
+	e.road_class=e._options(e.road_settings,"Road type",["city","highway","country","mountain","service","track"])
+	e.road_class.set_item_text(5,"Race track")
+	heading(e.road_settings,"Road surface")
 	e.road_surface=e._options(e.road_settings,"Surface",["asphalt","concrete","gravel","dirt","track"])
 	e.road_width=e._number(e.road_settings,"Width (m)",6,160,10)
 	e.road_lanes=e._number(e.road_settings,"Lanes",1,6,2)
-	for option in [e.road_class,e.road_surface]:option.item_selected.connect(func(_index: int)->void:e._change_road_settings())
+	e.road_class.item_selected.connect(e._change_road_type)
+	e.road_surface.item_selected.connect(e._change_road_surface)
 	for spin in [e.road_width,e.road_lanes]:spin.value_changed.connect(func(_value: float)->void:e._change_road_settings())
 	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
 	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])
 	e.terrain_biome.item_selected.connect(func(_index: int)->void:e._change_terrain_settings())
 	e._btn("Draw mountain barrier",e.terrain_settings,e._mountain_tool)
-	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_NONE
+	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_ALL
 	e.terrain_barrier.toggled.connect(e._terrain_barrier_toggled);e.terrain_settings.add_child(e.terrain_barrier)
 	e.terrain_elevation=e._number(e.terrain_settings,"Height m",0,2000,80)
 	e.terrain_elevation.editable=false
 	e.terrain_elevation.value_changed.connect(func(_value: float)->void:e._change_terrain_settings())
-	var mountain_help:=Label.new()
+	var mountain_help:=Label.new();e.mountain_help=mountain_help
 	mountain_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	mountain_help.add_theme_font_size_override("font_size",11)
 	mountain_help.text="Solid barriers block vehicles. Draw their outline along a map edge."
 	e.terrain_settings.add_child(mountain_help)
 	e.marker_settings=column(e.tool_options);heading(e.marker_settings,"GAME MARKER")
-	e.marker_kind=e._options(e.marker_settings,"Marker type",["player_spawn","garage","dealership","mission","fast_travel","traffic_spawn","fuel","checkpoint","race_start","finish","custom"])
+	e.marker_kind=e._options(e.marker_settings,"Marker type",preload("res://scripts/world/authored_marker_rules.gd").TYPES)
 	e.marker_editor.build(e,e.marker_settings)
 	e.asset_dock=PanelContainer.new();e.asset_dock.name="NativeAssetBrowser"
 	e.asset_dock.add_theme_stylebox_override("panel",StyleBoxEmpty.new());settings.add_child(e.asset_dock)
@@ -108,8 +133,8 @@ static func build(e) -> void:
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
 	settings.add_child(HSeparator.new())
-	var help:=heading(settings,"V: drag blank space.\nB: box-select anywhere.\nShift: add/remove.\nV: drag group to move.\nCtrl+D: duplicate; Del: remove.\nCtrl+Z/Y: undo/redo.\nSpace/right drag: pan.")
-	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	e.tool_help=heading(settings,"Select a tool or map object.")
+	e.tool_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.canvas_bar=e._panel(Vector2.ZERO,Vector2.ZERO);e.canvas_bar.name="CanvasActions"
 	var bar:=HBoxContainer.new();bar.add_theme_constant_override("separation",5);e.canvas_bar.add_child(bar)
 	# Keep map zoom/fit actions visible even in a narrow window. Only the
@@ -140,29 +165,44 @@ static func build(e) -> void:
 	e._btn("Fit",zoom_controls,e._fit_map).custom_minimum_size.x=36
 	e._btn("Spawn",zoom_controls,e._recenter).custom_minimum_size.x=52
 	e.inspector_panel=e._panel(Vector2.ZERO,Vector2.ZERO);e.inspector_panel.name="SelectedObjectInspector"
-	var inspector:=scroll_column(e.inspector_panel)
-	# Do not let an inspector row force the entire sidebar beyond the edge
-	# of the display. Keep oversized content reachable via horizontal scroll.
-	var inspector_scroll: ScrollContainer=inspector.get_parent() as ScrollContainer
+	e.inspector_tabs=TabContainer.new();e.inspector_tabs.name="InspectorTabs"
+	e.inspector_panel.add_child(e.inspector_tabs)
+	var inspector_scroll:=ScrollContainer.new();inspector_scroll.name="Inspector"
 	inspector_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
-	inspector_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	heading(inspector,"WORLD LAYERS")
-	var layers:=GridContainer.new();layers.columns=2;inspector.add_child(layers)
+	e.inspector_tabs.add_child(inspector_scroll)
+	var inspector:=column(inspector_scroll);inspector.size_flags_horizontal=Control.SIZE_EXPAND_FILL;inspector_scroll.follow_focus=true
+	var layer_scroll:=ScrollContainer.new();layer_scroll.name="Layers"
+	layer_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	e.inspector_tabs.add_child(layer_scroll)
+	var layer_column:=column(layer_scroll);layer_column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var object_scroll:=ScrollContainer.new();object_scroll.name="Objects"
+	object_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	e.inspector_tabs.add_child(object_scroll)
+	var objects:=column(object_scroll);objects.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	heading(layer_column,"WORLD LAYERS")
+	var layers:=GridContainer.new();layers.columns=2;layer_column.add_child(layers)
 	for item in [["Terrain","terrain"],["Roads","roads"],["Scenery","scenery"],["Markers","markers"],["Grid","grid"]]:
 		var check:=CheckBox.new();check.text=item[0];check.button_pressed=item[1]!="grid"
-		check.focus_mode=Control.FOCUS_NONE;check.toggled.connect(e._set_layer.bind(item[1]));layers.add_child(check)
-	e.lane_button=e._btn("Lanes: on",layers,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
-	e.junction_button=e._btn("Junctions: on",layers,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
-	inspector.add_child(HSeparator.new());heading(inspector,"INSPECTOR")
+		check.focus_mode=Control.FOCUS_ALL;check.toggled.connect(e._set_layer.bind(item[1]));layers.add_child(check)
+	e.road_layer_settings=column(layer_column);heading(e.road_layer_settings,"ROAD DEBUG OVERLAYS")
+	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
+	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
+	heading(inspector,"INSPECTOR")
 	e.selected_preview=TextureRect.new();e.selected_preview.name="SelectedAssetPreview"
 	e.selected_preview.custom_minimum_size=Vector2(210,60);e.selected_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview)
+	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview);e.selected_preview.hide()
 	e.details=Label.new();e.details.name="SelectedWorldObject";e.details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e.details.add_theme_font_size_override("font_size",12);inspector.add_child(e.details)
-	e.inspector_name=LineEdit.new();field(inspector,"Name",e.inspector_name)
+	e.selection_fields=column(inspector)
+	e.inspector_name=LineEdit.new();field(e.selection_fields,"Name",e.inspector_name)
 	e.inspector_name.text_submitted.connect(func(_value: String)->void:e._commit_inspector())
 	e.inspector_name.focus_exited.connect(e._commit_inspector)
-	var xy:=HBoxContainer.new();inspector.add_child(xy)
+	e.inspector_road_type_fields=column(e.selection_fields)
+	heading(e.inspector_road_type_fields,"ROAD TYPE")
+	e.inspector_road_type=e._options(e.inspector_road_type_fields,"Change placed road type",["city","highway","country","mountain","service","track"])
+	e.inspector_road_type.set_item_text(5,"Race track")
+	e.inspector_road_type.item_selected.connect(e._change_inspector_road_type)
+	var xy:=HBoxContainer.new();e.selection_fields.add_child(xy)
 	e.inspector_x=e._number(xy,"X m",0,100000,0);e.inspector_x.custom_minimum_size.x=100
 	e.inspector_y=e._number(xy,"Y m",0,100000,0);e.inspector_y.custom_minimum_size.x=100
 	for spin in [e.inspector_x,e.inspector_y]:TransformArrows.attach(spin)
@@ -225,11 +265,11 @@ static func build(e) -> void:
 	e.edit_actions=HFlowContainer.new();inspector.add_child(e.edit_actions)
 	e._btn("Duplicate  Ctrl+D",e.edit_actions,e._duplicate_selected)
 	e._btn("Delete",e.edit_actions,e._delete_selected)
-	heading(inspector,"OBJECTS")
-	e.entity_search=LineEdit.new();e.entity_search.placeholder_text="Find road, region or object...";inspector.add_child(e.entity_search)
+	heading(objects,"MAP OBJECTS")
+	e.entity_search=LineEdit.new();e.entity_search.placeholder_text="Find road, region or object...";objects.add_child(e.entity_search)
 	e.entity_search.text_changed.connect(func(_value: String)->void:e._refresh_entity_list(true))
 	e.entity_list=ItemList.new();e.entity_list.custom_minimum_size=Vector2(0,150)
-	e.entity_list.item_selected.connect(e._select_entity);inspector.add_child(e.entity_list)
+	e.entity_list.item_selected.connect(e._select_entity);objects.add_child(e.entity_list)
 	var footer=e._panel(Vector2.ZERO,Vector2.ZERO);footer.name="BuilderStatus"
 	footer.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	footer.offset_left=10;footer.offset_right=-10;footer.offset_top=-53;footer.offset_bottom=-8

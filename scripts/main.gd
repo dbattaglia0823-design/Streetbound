@@ -28,6 +28,9 @@ const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
 const OnlineWorldScript = preload("res://scripts/network/online_world.gd")
 const NativeWorldEditorScript = preload("res://scripts/dev/native_world_editor.gd")
 const SpeedOverlayScript = preload("res://scripts/visual/speed_overlay.gd")
+const VehicleDamageServiceScript = preload("res://scripts/world/vehicle_damage_service.gd")
+const PolicePursuitScript = preload("res://scripts/world/police_pursuit.gd")
+const DrivingContractScript = preload("res://scripts/world/driving_contracts.gd")
 static var pending_launch_mode := ""
 var pause_menu
 var player_garage: Node2D
@@ -48,9 +51,13 @@ var local_split_screen
 var online_world: Node2D
 var native_world_editor: CanvasLayer
 var vehicle: VehicleController2D
+var vehicle_damage_service: CanvasLayer
+var police_pursuit: Node2D
+var driving_contracts: Node2D
 @export var proving_ground := false
 var ground: Node2D
 var custom_test_drive:=false
+var map_test_drive:=false
 var published_game_world:=false
 var test_drive_file: String=""
 
@@ -59,11 +66,15 @@ func _ready() -> void:
 	# The editor compiled its map to a user:// streamed archive before entry.
 	custom_test_drive=not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")) and \
 		get_tree().has_meta("streetbound_test_drive_archive")
+	map_test_drive=custom_test_drive or (not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")) and bool(get_tree().get_meta("streetbound_editor_test_drive",false)))
 	test_drive_file=str(get_tree().get_meta("streetbound_test_drive_map","")) if custom_test_drive else ""
+	if map_test_drive and is_instance_valid(online_session) and (online_session.active or online_session.joining):
+		online_session.leave_session()
+		pending_launch_mode=""
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
 	if custom_test_drive:
 		ground.archive_override_path=str(get_tree().get_meta("streetbound_test_drive_archive"))
-	elif not proving_ground:
+	elif not proving_ground and not map_test_drive:
 		var active_world: Dictionary=WorldPublication.current()
 		if bool(active_world.get("published",false)):
 			ground.archive_override_path=str(active_world.archive)
@@ -84,7 +95,7 @@ func _ready() -> void:
 		# Read the player's real owned car, tuning and progression for parity,
 		# then turn off writes before any Test Drive gameplay can earn/spend.
 		vehicle_ownership = OwnershipScript.new()
-		if custom_test_drive:vehicle_ownership.persist_enabled=false
+		if map_test_drive:vehicle_ownership.persist_enabled=false
 	vehicle = VehicleScene.instantiate()
 	vehicle.position = Vector2(0, 500) if proving_ground else ground.spawn_position()
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()
@@ -188,8 +199,8 @@ func _ready() -> void:
 	hud.race = drag_race
 	if not proving_ground:
 		var world_name: String=str(ground.data.get("name","Morrow Coast"))
-		hud.environment_title=("TEST DRIVE    /    "+world_name.to_upper()) if custom_test_drive else world_name.to_upper()+"    /    OPEN ROAD"
-		get_window().title="Streetbound | Test Drive" if custom_test_drive else "Streetbound | "+world_name
+		hud.environment_title=("TEST DRIVE    /    "+world_name.to_upper()) if map_test_drive else world_name.to_upper()+"    /    OPEN ROAD"
+		get_window().title="Streetbound | Test Drive" if map_test_drive else "Streetbound | "+world_name
 	add_child(hud)
 	if not proving_ground:
 		offscreen_vehicle_awareness = Control.new()
@@ -280,6 +291,46 @@ func _ready() -> void:
 				if is_instance_valid(builtin_race):
 					authored_map_markers.races.append(builtin_race)
 		add_child(authored_map_markers)
+	# Single-player only: host-authoritative multiplayer damage/police requires
+	# its own synchronized state and is excluded from this first vertical slice.
+	if not proving_ground and not online_session.active:
+		vehicle_damage_service = CanvasLayer.new()
+		vehicle_damage_service.set_script(VehicleDamageServiceScript)
+		vehicle_damage_service.set("player", vehicle)
+		vehicle_damage_service.set("economy", vehicle_ownership)
+		vehicle_damage_service.set("garage", player_garage)
+		vehicle_damage_service.set("authored_markers", authored_map_markers)
+		vehicle_damage_service.set("persist_enabled", not map_test_drive)
+		add_child(vehicle_damage_service)
+		police_pursuit = Node2D.new()
+		police_pursuit.set_script(PolicePursuitScript)
+		police_pursuit.set("player", vehicle)
+		police_pursuit.set("world", ground)
+		police_pursuit.set("traffic", traffic)
+		police_pursuit.set("economy", vehicle_ownership)
+		police_pursuit.set("damage_service", vehicle_damage_service)
+		var career_races: Array = [drag_race,circuit_race,street_race]
+		career_races.append_array(extra_races)
+		police_pursuit.set("street_races",career_races.filter(func(race):return is_instance_valid(race)))
+		add_child(police_pursuit)
+		for race in career_races:
+			if not is_instance_valid(race):continue
+			if race.has_method("configure_underground_career"):
+				race.call("configure_underground_career",vehicle_ownership,police_pursuit)
+			elif race.has_method("manages_race_heat"):
+				race.set("police",police_pursuit)
+		vehicle_damage_service.set("police", police_pursuit)
+		authored_map_markers.set("resources", vehicle_damage_service)
+		driving_contracts = Node2D.new()
+		driving_contracts.set_script(DrivingContractScript)
+		driving_contracts.set("player", vehicle)
+		driving_contracts.set("world", ground)
+		driving_contracts.set("economy", vehicle_ownership)
+		driving_contracts.set("police", police_pursuit)
+		driving_contracts.set("marker_source", authored_map_markers)
+		driving_contracts.set("map_hud", world_hud_ref)
+		add_child(driving_contracts)
+		authored_map_markers.set("contracts", driving_contracts)
 	# One world, two cars, two cameras. This manager never creates a second
 	# Morrow Coast instance or touches the single-player career save.
 	local_split_screen = CanvasLayer.new()
@@ -295,7 +346,8 @@ func _ready() -> void:
 			hidden.append(node)
 	local_split_screen.hidden_layers = hidden
 	var disabled: Array[Node] = []
-	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race]:
+	for system in [player_garage,dealership_world,drag_race,circuit_race,street_race,
+			police_pursuit,vehicle_damage_service,driving_contracts]:
 		if is_instance_valid(system):
 			disabled.append(system)
 	disabled.append_array(extra_races)
@@ -303,7 +355,7 @@ func _ready() -> void:
 	add_child(local_split_screen)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
 	pause_menu.main_menu_requested.connect(_return_to_main_menu)
-	if custom_test_drive:
+	if map_test_drive:
 		pause_menu.map_editor_requested.connect(_return_from_test_drive)
 		pause_menu.exit_requested.connect(_return_from_test_drive)
 		pause_menu.allow_quit=false
@@ -312,7 +364,7 @@ func _ready() -> void:
 	# This is a developer-only transition workspace. It renders the EXISTING
 	# Morrow Coast scene and visualizes the traffic network already built by
 	# the game. Release players cannot open it, and it never writes map files.
-	if not proving_ground and not custom_game_world and (OS.has_feature("debug") or OS.has_feature("editor")):
+	if not proving_ground and not custom_game_world and not map_test_drive and (OS.has_feature("debug") or OS.has_feature("editor")):
 		native_world_editor = CanvasLayer.new()
 		native_world_editor.set_script(NativeWorldEditorScript)
 		native_world_editor.world = ground
@@ -324,10 +376,10 @@ func _ready() -> void:
 		add_child(native_world_editor)
 	# The title screen supplies one explicit launch target. Tests that
 	# instantiate main.tscn directly still start in normal single-player.
-	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or custom_test_drive)
-	if custom_test_drive:
+	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or map_test_drive)
+	if map_test_drive:
 		_add_test_drive_return_button()
-	if online_session.active and not proving_ground and not custom_test_drive:
+	if online_session.active and not proving_ground and not map_test_drive:
 		# Race controllers supply navigation to the host-authoritative
 		# online event catalog on both bundled and published maps. Local
 		# payouts must never run during a shared multiplayer session.
@@ -386,7 +438,7 @@ func _begin_native_map_editor() -> void:
 
 
 func _return_to_main_menu() -> void:
-	if custom_test_drive:
+	if map_test_drive:
 		_return_from_test_drive()
 		return
 	# Restore the single player state, including its camera and HUD, before
@@ -439,7 +491,7 @@ func _add_test_drive_return_button() -> void:
 func _input(event: InputEvent) -> void:
 	# F6 normally opens tooling; while test driving it always returns to the
 	# authoring session. Escape retains the normal pause/settings behavior.
-	if not custom_test_drive or not event is InputEventKey:return
+	if not map_test_drive or not event is InputEventKey:return
 	var key: InputEventKey=event
 	if key.pressed and not key.echo and (key.keycode==KEY_F6 or key.physical_keycode==KEY_F6):
 		get_viewport().set_input_as_handled()
@@ -447,7 +499,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _return_from_test_drive() -> void:
-	if not custom_test_drive:return
+	if not map_test_drive:return
+	map_test_drive=false
 	custom_test_drive=false
 	if is_instance_valid(pause_menu):
 		pause_menu.resume_game()
@@ -458,6 +511,6 @@ func _return_from_test_drive() -> void:
 		get_tree().set_meta("streetbound_editor_resume_map",test_drive_file)
 	# The original map builder saved its camera before launching Test Drive.
 	# Never write the temporary world into the production source archive.
-	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map"]:
+	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map","streetbound_editor_test_drive"]:
 		if get_tree().has_meta(marker):get_tree().remove_meta(marker)
 	get_tree().change_scene_to_file("res://scenes/world_editor.tscn")

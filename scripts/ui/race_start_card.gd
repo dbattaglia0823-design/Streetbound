@@ -95,7 +95,7 @@ func _ready() -> void:
 	description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	start_button = Button.new()
 	start_button.name = "StartRaceButton"
-	start_button.text = "START RACE   [F]"
+	start_button.text = "START RACE   [F / R3]"
 	start_button.custom_minimum_size.y = 44
 	start_button.add_theme_font_size_override("font_size", 16)
 	start_button.add_theme_color_override("font_color", Color.WHITE)
@@ -106,7 +106,7 @@ func _ready() -> void:
 	start_button.add_theme_stylebox_override("disabled", _style(Color("#253441"), Color("#4b5f6c")))
 	start_button.pressed.connect(_on_start)
 	body.add_child(start_button)
-	hint_label = _label(body, "F START   •   H HIDE", 10, Color("#9fb3c1"))
+	hint_label = _label(body, "F / R3 START   •   H HIDE", 10, Color("#9fb3c1"))
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.custom_minimum_size.y = 19
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -153,7 +153,7 @@ func configure_event(race: Node, info: Dictionary) -> void:
 	description_label.text = str(data.get("description", "Complete the course."))
 	var best: float = float(data.get("best_seconds", 0.0))
 	best_label.text = "BEST  %.2fs" % best if best > 0.0 else "BEST  —"
-	start_button.text = "START LAP   [F]" if bool(data.get("lap", false)) else "START RACE   [F]"
+	start_button.text = "START LAP   [F / R3]" if bool(data.get("lap", false)) else "START RACE   [F / R3]"
 	var course: PackedVector2Array = data.get("route", PackedVector2Array())
 	route_preview.call("set_course", course, bool(data.get("closed", false)))
 	update_eligibility()
@@ -172,7 +172,7 @@ func update_eligibility() -> void:
 	if can_start:
 		can_start = bool(host.call("can_stage"))
 	start_button.disabled = not can_start
-	hint_label.text = "F START   •   H HIDE" if can_start else "START ZONE  •  FACE ROUTE  •  15 MPH MAX"
+	hint_label.text = "F / R3 START   •   H HIDE" if can_start else "START ZONE  •  FACE ROUTE  •  15 MPH MAX"
 
 func _on_start() -> void:
 	if not is_instance_valid(host) or get_tree().paused:

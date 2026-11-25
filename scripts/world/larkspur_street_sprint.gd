@@ -1,7 +1,7 @@
 extends Node2D
 ## Drive-up Larkspur street sprint prototype. Its route uses the actual traffic
 ## navigation graph; the racing line stays on the legally directed street lane.
-## This is a practice run, without AI rewards or a traffic priority exemption.
+## Career-enabled street sprints use the same physical route; sandbox runs remain practice.
 const PPM := 20.0
 const RacingLine = preload("res://scripts/world/race_line_builder.gd")
 const NavigationScript = preload("res://scripts/world/race_navigation.gd")
@@ -47,6 +47,13 @@ var result := ""
 var status_strip: Control
 var panel: PanelContainer
 var label: Label
+var economy: Object
+var police: Node2D
+var career_awards: Dictionary={}
+var career_run_id:=""
+var staged_car_id:=""
+var awaiting_escape:=false
+var escape_remaining:=0.0
 
 
 func _ready() -> void:
@@ -115,7 +122,58 @@ func _ready() -> void:
 	_refresh()
 
 
+func configure_underground_career(model: Object, pursuit: Node2D) -> void:
+	economy=model
+	police=pursuit
+	if not available:return
+	var event_id: String="larkspur-sprint" if definition==null else str(definition.event_id)
+	var heat:=1 if definition==null else (3 if event_id=="parkway-express" else 2)
+	career_awards={"id":"race-builtin-"+event_id,"category":"street","race_heat":heat,
+		"reward_cash":1500+heat*750,"reward_player_xp":180+heat*90,
+		"reward_car_xp":120+heat*60,"underground_rep_reward":heat*2,
+		"first_win_reward_cash":500,"escape_time_limit":90+heat*15}
+	# A real existing route serves as the first high-stakes career event.
+	if event_id=="parkway-express":
+		career_awards["entry_fee"]=2000
+		career_awards["reward_cash"]=7000
+		career_awards["required_underground_rep"]=6
+	race_type="Underground Sprint · 1v1"
+	status_strip.call("configure_event",self,{
+		"title":race_title,"type":race_type,"format":"1v1",
+		"distance_m":float(navigation.get("length_m")),"route":navigation.get("points_m"),
+		"entry":"FREE" if int(career_awards.get("entry_fee",0))==0 else "$%d"%int(career_awards.entry_fee),"rewards":"$%d / DRIVER + CAR XP / +%d STREET REP"%[int(career_awards.reward_cash),int(career_awards.underground_rep_reward)],
+		"description":"Win the sprint and lose the police to collect your prize. Wanted level %d."%heat})
+	player.vehicle_reset.connect(_on_career_reset)
+	_refresh()
+
+func _on_career_reset() -> void:
+	if state in ["countdown","running"]:quit_race()
+
+func manages_race_heat() -> bool:
+	return true
+
+func _award_career() -> String:
+	if career_awards.is_empty() or not is_instance_valid(economy):
+		return "STREET PRACTICE / NO REWARDS"
+	if not is_instance_valid(police) or int(police.get("wanted_level"))>0 or float(police.get("bust_timer"))>0.0:
+		return "ESCAPE REQUIRED / NO REWARD"
+	var key: String=str(world.data.get("editor_world_id","morrow-coast"))+"::"+str(career_awards.id)
+	var award: Dictionary=economy.call("record_authored_race",career_run_id,elapsed,career_awards,key,true)
+	if str(award.get("result",""))!="completed":return "REWARDS NOT SAVED"
+	return "$%d / +%d DRIVER XP / +%d CAR XP / +%d STREET REP"%[
+		int(award.cash),int(award.player_xp),int(award.car_xp),int(award.underground_rep)]
+
+func _lock_reason() -> String:
+	if career_awards.is_empty():return ""
+	if not is_instance_valid(economy):return "CAREER UNAVAILABLE"
+	if int(economy.get("balance"))<int(career_awards.get("entry_fee",0)):
+		return "REQUIRES ENTRY FEE $%d"%int(career_awards.get("entry_fee",0))
+	if int(economy.get("underground_reputation"))<int(career_awards.get("required_underground_rep",0)):
+		return "REQUIRES STREET REP %d"%int(career_awards.get("required_underground_rep",0))
+	return ""
+
 func can_stage() -> bool:
+	if not _lock_reason().is_empty():return false
 	if not available or not is_instance_valid(player) or state != "idle":
 		return false
 	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
@@ -128,6 +186,12 @@ func start_race() -> bool:
 		return false
 	if not _spawn_opponent():
 		return false
+	if int(career_awards.get("entry_fee",0))>0 and not bool(economy.call("pay_race_entry",career_awards)):
+		_clear_opponent()
+		return false
+	awaiting_escape=false;escape_remaining=0.0
+	staged_car_id=str(economy.get("active_id")) if is_instance_valid(economy) else ""
+	career_run_id="builtin-%s-%s-%d"%[str(career_awards.get("id","practice")),staged_car_id,Time.get_ticks_usec()]
 	Grid.teleport(player,Grid.pose(start_m,heading))
 	if is_instance_valid(traffic):
 		traffic.call("set_street_race_route", navigation, edge_ids, true)
@@ -262,6 +326,7 @@ func _update_opponent(dt: float = 0.01667) -> void:
 func _abort(message: String) -> void:
 	_finish_race()
 	state = "aborted"
+	awaiting_escape=false
 	result = message
 	status_timer = 5.0
 	_refresh()
@@ -269,7 +334,7 @@ func _abort(message: String) -> void:
 func quit_race() -> bool:
 	if state not in ["countdown","running"]:return false
 	_finish_race();_clear_opponent()
-	state="idle";countdown=0;elapsed=0;result=""
+	state="idle";countdown=0;elapsed=0;result="";awaiting_escape=false
 	if is_instance_valid(world_guidance):world_guidance.call("set_guidance",navigation,player,false)
 	_refresh();return true
 
@@ -277,9 +342,24 @@ func quit_race() -> bool:
 func _physics_process(dt: float) -> void:
 	if not available or not is_instance_valid(player) or dt <= 0.0:
 		return
+	if not career_awards.is_empty() and state in ["countdown","running"]:
+		if player.damage_drive_fraction<=0.0 or player.fuel_drive_fraction<=0.0 or str(economy.get("active_id"))!=staged_car_id or not is_instance_valid(police) or float(police.get("bust_timer"))>0.0:
+			_abort("RUN FAILED / VEHICLE DISABLED, CHANGED OR BUSTED")
+			return
+	if awaiting_escape:
+		escape_remaining-=dt
+		if escape_remaining<=0.0:
+			_abort("ESCAPE FAILED / NO REWARD")
+		elif int(police.get("wanted_level"))==0:
+			awaiting_escape=false
+			_finish_race()
+			state="results";status_timer=9.0
+			result="ESCAPE COMPLETE / "+_award_career()
+		_refresh()
+		return
 	if is_instance_valid(world_guidance):
 		world_guidance.call("set_guidance", navigation, player,
-			state in ["countdown", "running"])
+			state in ["countdown", "running"] and not awaiting_escape)
 	if state == "countdown":
 		if player.linear_velocity.length() > 3.0 or \
 				player.global_position.distance_to(start_m * PPM) > 10.0 * PPM:
@@ -287,6 +367,8 @@ func _physics_process(dt: float) -> void:
 			return
 		countdown -= dt
 		if countdown <= 0.0:
+			if not career_awards.is_empty() and not bool(police.call("start_pursuit",int(career_awards.race_heat))):
+				_abort("DISPATCH UNAVAILABLE / RUN FAILED");return
 			state = "running"
 			if is_instance_valid(opponent_driver):
 				opponent_driver.call("launch")
@@ -314,8 +396,15 @@ func _physics_process(dt: float) -> void:
 			if opponent_elapsed >= 0.0 and opponent_elapsed <= elapsed:
 				result = "RIVAL WINS / %.2f s  |  YOU %.2f s\nSTREET PRACTICE / NO REWARDS" % [opponent_elapsed,elapsed]
 			else:
-				result = "YOU WIN / %.2f s  |  RIVAL %s\nSTREET PRACTICE / NO REWARDS" % [
-					elapsed, "%.2f s" % opponent_elapsed if opponent_elapsed >= 0.0 else "DNF"]
+				if not career_awards.is_empty() and int(police.get("wanted_level"))>0:
+					awaiting_escape=true
+					escape_remaining=float(career_awards.escape_time_limit)
+					state="running"
+					_clear_opponent()
+					if is_instance_valid(world_guidance):world_guidance.call("set_guidance",navigation,player,false)
+					player.add_to_group("race_participant")
+				else:
+					result = "YOU WIN / %.2f s\n%s"%[elapsed,_award_career()]
 			status_timer = 9.0
 	elif state in ["results", "aborted"]:
 		status_timer -= dt
@@ -334,6 +423,9 @@ func _refresh() -> void:
 	# occupying the driving view whenever a race is nearby.
 	nearby = nearby and player.global_position.distance_to(start_m * PPM) < 30.0 * PPM and \
 		StartArea.can_stage_at_speed(player.linear_velocity.length())
+	if awaiting_escape:
+		status_strip.call("set_status","running",false,"%s / FINISH COMPLETE\nLOSE POLICE / %ds / REWARDS PENDING"%[race_title,ceili(escape_remaining)])
+		return
 	match state:
 		"idle":
 			label.text = "%s / 1v1\n%s" % [race_title.to_upper(),
@@ -355,14 +447,10 @@ func _refresh() -> void:
 	status_strip.call("set_status", state, nearby, label.text)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not available or not event is InputEventKey or \
-			not event.pressed or event.echo or get_tree().paused:
-		return
-	var key: InputEventKey = event
-	if key.keycode == KEY_F or key.physical_keycode == KEY_F:
-		if can_stage() and start_race():
-			get_viewport().set_input_as_handled()
-
+	if not available or get_tree().paused:return
+	if event is InputEventKey and (not event.pressed or event.echo):return
+	if event.is_action_pressed("interact") and can_stage():
+		if start_race():get_viewport().set_input_as_handled()
 
 func _draw() -> void:
 	if not available:

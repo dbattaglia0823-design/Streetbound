@@ -8,36 +8,44 @@ var straighten: Button
 var apply_radius: Button
 var smaller: Button
 var larger: Button
+var curve_fields: VBoxContainer
+var circle_fields: VBoxContainer
+var circle_resize_fields: VBoxContainer
 var selected_id:=""
 var revision:=-1
 
 func build(e,parent: Node) -> void:
-	parent.add_child(HSeparator.new())
-	var title:=Label.new();title.text="ROAD SHAPES";parent.add_child(title)
-	bend=e._number(parent,"Bend m",0,2000,25);bend.step=1
-	var row:=HBoxContainer.new();parent.add_child(row)
+	curve_fields=VBoxContainer.new();parent.add_child(curve_fields)
+	var title:=Label.new();title.text="RESHAPE ROAD";curve_fields.add_child(title)
+	bend=e._number(curve_fields,"Bend m",0,2000,25);bend.step=1
+	var row:=HBoxContainer.new();curve_fields.add_child(row)
 	left=e._btn("Curve left",row,func():curve(e,1))
 	right=e._btn("Curve right",row,func():curve(e,-1))
 	for button in [left,right]:
 		button.custom_minimum_size.x=80;button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		button.tooltip_text="Reshape the selected road between its first and last point. Bend is the sideways offset at the middle. Attached junction endpoints follow."
-	straighten=e._btn("Straighten road",parent,func():curve(e,0))
-	e._btn("Place circular road",parent,func():e._choose_tool("place_circle_road"))
-	radius=e._number(parent,"Radius m",8,6000,30);radius.step=1
-	row=HBoxContainer.new();parent.add_child(row)
+		button.tooltip_text="Reshape the selected road between its endpoints."
+	straighten=e._btn("Straighten road",curve_fields,func():curve(e,0))
+	circle_fields=VBoxContainer.new();parent.add_child(circle_fields)
+	title=Label.new();title.text="CIRCULAR ROAD";circle_fields.add_child(title)
+	radius=e._number(circle_fields,"Radius m",8,6000,30);radius.step=1
+	circle_resize_fields=VBoxContainer.new();circle_fields.add_child(circle_resize_fields)
+	row=HBoxContainer.new();circle_resize_fields.add_child(row)
 	smaller=e._btn("− 5 m",row,func():resize(e,-5))
 	larger=e._btn("+ 5 m",row,func():resize(e,5))
 	for button in [smaller,larger]:button.custom_minimum_size.x=60;button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	apply_radius=e._btn("Apply radius to circle",parent,func():resize(e))
-	var help:=Label.new();help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;help.add_theme_font_size_override("font_size",11)
-	help.text="Select a road to curve it. Left/right follows point 1 → last. To make a roundabout, set its radius and click its center. Select a circle to resize it. All shape edits support Undo."
-	parent.add_child(help)
+	apply_radius=e._btn("Apply radius to circle",circle_resize_fields,func():resize(e))
+	curve_fields.hide();circle_fields.hide()
 
 func update(e) -> void:
-	if radius==null or not e.source_ready:return
+	if radius==null:return
 	var road: Dictionary=e.authoring.road_at_id(e.source_id) if e.source_ready else {}
 	var circle:=Shapes.circle(road.get("points",[]))
 	var closed: bool=not road.is_empty() and Shapes.point(road.points[0]).distance_to(Shapes.point(road.points[-1]))<2
+	var editing: bool=e.tool_name in ["move_prop","anchor","select_box","inspect"]
+	curve_fields.visible=editing and not road.is_empty() and not closed
+	circle_fields.visible=e.tool_name=="place_circle_road" or (editing and not circle.is_empty())
+	circle_resize_fields.visible=editing and not circle.is_empty()
+	if not e.source_ready:return
 	for button in [left,right,straighten]:button.disabled=road.is_empty() or closed
 	for button in [smaller,larger,apply_radius]:button.disabled=circle.is_empty()
 	if selected_id!=e.source_id or revision!=e.authoring.edit_revision:

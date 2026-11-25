@@ -7,7 +7,7 @@ const ACTIONS := [
 	"throttle", "brake", "left", "right", "handbrake", "nitrous",
 	"shift_up", "shift_down", "transmission", "reset", "camera",
 	"map", "garage", "upgrades", "mute", "pause",
-	"zoom_in", "zoom_out"
+	"zoom_in", "zoom_out", "interact"
 ]
 const LABELS := {
 	"throttle":"Accelerate", "brake":"Brake / Reverse",
@@ -19,7 +19,7 @@ const LABELS := {
 	"garage":"Garage", "upgrades":"Upgrades",
 	"mute":"Mute audio",
 	"pause":"Pause / Menu", "zoom_in":"Zoom in",
-	"zoom_out":"Zoom out"
+	"zoom_out":"Zoom out", "interact":"Interact / Start event"
 }
 const KEYS := {
 	"throttle":KEY_W, "brake":KEY_S, "left":KEY_A, "right":KEY_D,
@@ -27,7 +27,7 @@ const KEYS := {
 	"shift_up":KEY_E, "shift_down":KEY_Q,
 	"transmission":KEY_M, "reset":KEY_R, "camera":KEY_C,
 	"map":KEY_TAB, "garage":KEY_G, "upgrades":KEY_U,
-	"mute":KEY_V, "pause":KEY_ESCAPE
+	"mute":KEY_V, "pause":KEY_ESCAPE, "interact":KEY_F
 }
 const BUTTONS := {
 	"handbrake":JOY_BUTTON_A, "nitrous":JOY_BUTTON_B,
@@ -36,7 +36,7 @@ const BUTTONS := {
 	"upgrades":JOY_BUTTON_LEFT_SHOULDER,
 	"shift_up":JOY_BUTTON_DPAD_UP, "shift_down":JOY_BUTTON_DPAD_DOWN,
 	"garage":JOY_BUTTON_DPAD_RIGHT, "mute":JOY_BUTTON_DPAD_LEFT,
-	"map":JOY_BUTTON_BACK, "pause":JOY_BUTTON_START
+	"map":JOY_BUTTON_BACK, "pause":JOY_BUTTON_START, "interact":JOY_BUTTON_RIGHT_STICK
 }
 const MOUSE := {
 	"zoom_in":MOUSE_BUTTON_WHEEL_UP, "zoom_out":MOUSE_BUTTON_WHEEL_DOWN
