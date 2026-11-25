@@ -259,8 +259,18 @@ func _refresh_unit_route(index: int) -> void:
 		driver.call("stop")
 		car.command = Vector4(0.0,1.0,0.0,0.0)
 		return
+	var role_name := str(entry.get("role","pursuer"))
+	var approach_distance_m := car.global_position.distance_to(last_seen_position_m*PPM)/PPM
+	var boxing := phase=="chase" and wanted_level>=3 and role_name!="roadblock" and \
+		last_seen_velocity_mps.length()<5.0 and approach_distance_m<28.0
+	var profile: Dictionary=Tactics.profile(wanted_level)
+	# Search and box-in are careful low-speed maneuvers. Never boost engines.
+	driver.set("cruise_speed_mps",5.5 if boxing else \
+		(13.0 if phase=="search" else float(profile["cruise_mps"])))
 	var goal_m := last_seen_position_m
-	if phase == "search":
+	if boxing:
+		goal_m=Tactics.containment_target(last_seen_position_m,last_seen_heading,role_name)
+	elif phase == "search":
 		goal_m = Tactics.search_target(last_seen_position_m,last_seen_heading,index,search_round)
 	elif str(entry.get("role","pursuer"))=="roadblock":
 		if roadblock_position_m.is_finite():
