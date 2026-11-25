@@ -69,7 +69,7 @@ static func lock_reason(race: Dictionary,economy: Object,world_id: String="morro
 		return "REQUIRES DRIVER LEVEL %d"%int(race.required_player_level)
 	if economy.active_car_level()<int(race.get("required_car_level",1)):
 		return "REQUIRES VEHICLE LEVEL %d"%int(race.required_car_level)
-	if int(economy.get("underground_reputation"))<int(race.get("required_underground_rep",0)):
+	if int(race.get("required_underground_rep",0))>0 and int(economy.get("underground_reputation"))<int(race.get("required_underground_rep",0)):
 		return "REQUIRES UNDERGROUND REP %d"%int(race.get("required_underground_rep",0))
 	var allowed: Array=race.get("required_vehicle_ids",[])
 	if not allowed.is_empty() and not allowed.has(str(economy.active_id)):
