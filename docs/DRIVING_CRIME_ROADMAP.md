@@ -77,6 +77,42 @@ during a wanted pursuit is a bust, not a teleport escape.
 - Before merging, validate Godot import, contract reward/authoring tests,
   and in-game pickup, arrival, pursuit loss, box-in and dropoff UX.
 
+## Contract givers and robbery jobs — first authoring implementation
+
+- Add `contract_contact` in the map builder for a visible roadside person.
+  Each character can offer **up to 8 configurable jobs**. The contact is
+  visible in-world and on the minimap/pause map, which also supports waypoint
+  routing to the contact. Interactions occur through the stationary vehicle
+  by pressing **F**; the player never moves on foot.
+- Place a `contract_dropoff` marker for the escape/delivery destination.
+  For robberies, add a separate `robbery_target` marker at the store,
+  bank, warehouse or other building and at least 100 metres from the
+  contact and the dropoff. Both legs need drivable road navigation.
+- Configure jobs in the native map builder's **Edit Selected Marker** panel
+  or the browser map editor's **Contract Giver — Mission Configuration**
+  inspector. The job editor supports title, kind (courier, smuggling,
+  getaway or robbery), difficulty, target, destination, wanted level,
+  timer, driver/car XP, cash, underground reputation, repeatability,
+  minimum driver level and minimum criminal reputation.
+- Each contract has a stable ID. On the map, selecting the person opens a
+  vehicle-only contract board showing the available options, their
+  payouts and locked requirements.
+- **Robbery loop:** accept a job from the person, drive to the specified
+  building, stop and wait in the car for the off-screen crew for 7 seconds,
+  then escape an actual police pursuit and reach the configured dropoff
+  while stopped. Arrest, engine failure, expired timer, resetting or
+  abandoning the vehicle contract cancels its payout.
+- Author-defined cash, XP, reputation and heat are strictly bounded, and
+  the economy verifies the bounds again before paying. Saved one-time
+  jobs cannot pay repeatedly, while repeatable contracts record run
+  counts and anti-duplicate tokens. Older single-job `contract` markers
+  remain valid.
+- No generic person AI, weapons, pedestrian controls or accessible
+  interiors have been added. Contact artwork is an original lightweight
+  overhead marker and does not block collision or traffic.
+- The new features are on the draft PR until the complete CI and
+  in-game route/interaction/escape playtests pass.
+
 ## Next phases (not yet implemented)
 
 1. Expand the initial map-authored courier/getaway/smuggling contracts
