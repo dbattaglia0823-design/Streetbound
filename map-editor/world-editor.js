@@ -646,6 +646,9 @@ function refreshContactEditor(marker){
     selectedContactMarkerId=marker.id;selectedContactOfferIndex=0;
   }
   $('contact-npc-style').value=marker.properties?.contact_style??'street';
+  $('contact-role').value=marker.properties?.contact_role??'';
+  $('contact-greeting').value=marker.properties?.contact_greeting??'';
+  $('contact-bio').value=marker.properties?.contact_bio??'';
   const offers=contactOffers(marker);
   if(selectedContactOfferIndex>=offers.length)selectedContactOfferIndex=Math.max(0,offers.length-1);
   const pick=$('contact-offer-index');pick.replaceChildren();
@@ -662,6 +665,7 @@ function refreshContactEditor(marker){
   }
   const kind=offer.kind??'courier',defaults=contactJobDefaults[kind]??contactJobDefaults.courier;
   $('contact-offer-title').value=offer.title??'';
+  $('contact-offer-description').value=offer.description??'';
   $('contact-offer-kind').value=kind;
   $('contact-offer-difficulty').value=offer.difficulty??'rookie';
   populateContractChoices('contact-offer-destination',contactEligibleDropoffs(marker),offer.destination_marker_id);
@@ -1537,6 +1541,14 @@ for(const [elementId,options] of Object.entries(fields)){
 $('contact-npc-style').addEventListener('change',e=>{
   changeContactProperties(p=>({...p,contact_style:e.target.value}),'Changed roadside contact appearance.');
 });
+for(const [id,field] of [
+  ['contact-role','contact_role'],['contact-greeting','contact_greeting'],
+  ['contact-bio','contact_bio']
+]){
+  $(id).addEventListener('change',e=>
+    changeContactProperties(p=>({...p,[field]:e.target.value.trim()}),
+      'Updated contract giver personality.'));
+}
 $('contact-offer-index').addEventListener('change',e=>{
   selectedContactOfferIndex=Number(e.target.value)||0;
   const item=selection?getEntity(doc,selection.id)?.item:null;
@@ -1570,6 +1582,7 @@ const updateJobField=(id,field,conversion=e=>e.target.value)=>{
   });
 };
 updateJobField('contact-offer-title','title');
+updateJobField('contact-offer-description','description');
 updateJobField('contact-offer-difficulty','difficulty');
 updateJobField('contact-offer-repeatable','repeatable',e=>e.target.checked);
 for(const [id,field] of [
