@@ -5,6 +5,10 @@ extends RefCounted
 const Rules = preload("res://scripts/world/driving_contract_rules.gd")
 var fields: VBoxContainer
 var style_input: OptionButton
+var role_input: LineEdit
+var greeting_input: LineEdit
+var bio_input: LineEdit
+var job_description_input: TextEdit
 var job_picker: OptionButton
 var title_input: LineEdit
 var type_input: OptionButton
@@ -67,6 +71,21 @@ func build(parent: Node) -> void:
 	parent.add_child(fields)
 	_caption(fields,"CONTRACT GIVER / APPEARANCE")
 	style_input=_choice(fields,"NPC style",["street","business","mechanic","casual"])
+	_caption(fields,"CONTACT ROLE / PERSONALITY")
+	role_input=LineEdit.new()
+	role_input.max_length=60
+	role_input.placeholder_text="e.g. Professional fixer (blank uses personality preset)"
+	fields.add_child(role_input)
+	_caption(fields,"CONTACT GREETING")
+	greeting_input=LineEdit.new()
+	greeting_input.max_length=180
+	greeting_input.placeholder_text="First line the player hears (blank uses preset)"
+	fields.add_child(greeting_input)
+	_caption(fields,"CONTACT BIOGRAPHY")
+	bio_input=LineEdit.new()
+	bio_input.max_length=240
+	bio_input.placeholder_text="Background and specialties (blank uses preset)"
+	fields.add_child(bio_input)
 	_caption(fields,"AVAILABLE JOBS / SELECT TO EDIT")
 	job_picker=OptionButton.new()
 	fields.add_child(job_picker)
@@ -85,6 +104,11 @@ func build(parent: Node) -> void:
 	title_input=LineEdit.new()
 	title_input.max_length=80
 	fields.add_child(title_input)
+	_caption(fields,"MISSION BRIEFING / DESCRIPTION")
+	job_description_input=TextEdit.new()
+	job_description_input.custom_minimum_size.y=72
+	job_description_input.wrap_mode=TextEdit.LINE_WRAPPING_BOUNDARY
+	fields.add_child(job_description_input)
 	type_input=_choice(fields,"Mission type",Rules.KINDS)
 	type_input.item_selected.connect(_on_kind_changed)
 	difficulty_input=_choice(fields,"Difficulty",Rules.DIFFICULTIES)
@@ -109,13 +133,15 @@ func build(parent: Node) -> void:
 	_show_selected_controls(false)
 
 func _show_selected_controls(enabled: bool) -> void:
-	for element in [title_input,type_input,difficulty_input,dropoff_input,target_input,
+	for element in [title_input,job_description_input,type_input,difficulty_input,dropoff_input,target_input,
 			repeat_input,cash_input,player_xp_input,car_xp_input,rep_input,
 			wanted_input,duration_input,level_input,required_rep_input]:
 		if element is LineEdit:
 			(element as LineEdit).editable=enabled
 		elif element is SpinBox:
 			(element as SpinBox).editable=enabled
+		elif element is TextEdit:
+			(element as TextEdit).editable=enabled
 		elif element is OptionButton:
 			(element as OptionButton).disabled=not enabled
 		elif element is CheckBox:
@@ -144,6 +170,9 @@ func open_for(e, marker: Dictionary) -> void:
 		if job is Dictionary:
 			offers.append(job.duplicate(true))
 	_pick(style_input,str(info.get("contact_style","street")))
+	role_input.text=str(info.get("contact_role",""))
+	greeting_input.text=str(info.get("contact_greeting",""))
+	bio_input.text=str(info.get("contact_bio",""))
 	_populate_locations(e)
 	selected_index=0 if not offers.is_empty() else -1
 	_rebuild_picker()
@@ -171,6 +200,7 @@ func _load_selected() -> void:
 	var offer: Dictionary=offers[selected_index]
 	var kind:=str(offer.get("kind","courier"))
 	title_input.text=str(offer.get("title","New Contract"))
+	job_description_input.text=str(offer.get("description",""))
 	_pick(type_input,kind)
 	_pick(difficulty_input,str(offer.get("difficulty","rookie")))
 	_pick(dropoff_input,str(offer.get("destination_marker_id","")))
@@ -193,6 +223,9 @@ func _commit_selected() -> void:
 		return
 	var offer: Dictionary=offers[selected_index]
 	offer.title=title_input.text.strip_edges()
+	var detail:=job_description_input.text.strip_edges()
+	if detail.is_empty():offer.erase("description")
+	else:offer.description=detail
 	offer.kind=_value(type_input)
 	offer.difficulty=_value(difficulty_input)
 	offer.repeatable=repeat_input.button_pressed
@@ -270,4 +303,10 @@ func _delete_job() -> void:
 
 func save_fields() -> Dictionary:
 	_commit_selected()
-	return {"contact_style":_value(style_input),"offers":offers.duplicate(true)}
+	return {
+		"contact_style":_value(style_input),
+		"contact_role":role_input.text.strip_edges(),
+		"contact_greeting":greeting_input.text.strip_edges(),
+		"contact_bio":bio_input.text.strip_edges(),
+		"offers":offers.duplicate(true)
+	}
