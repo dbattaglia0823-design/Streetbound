@@ -35,8 +35,20 @@ func run() -> void:
 			complete = complete and float(entry.get("boost_max_psi",0.0)) > 0.05
 	check("all_playable_cars_have_valid_sound_profile",
 		entries.size() >= 89 and complete,entries.size())
-	check("engine_layout_profiles_are_individually_distinct",
-		families.size() == 13 and families.has("i5") and families.has("electric") and families.has("v16"),families.keys())
+	# Compare with the supported profile set instead of the retired 13-family
+	# roster. Verify all families actually generate distinct waveforms.
+	var coverage := true
+	for family in Synth.FAMILIES:
+		coverage = coverage and families.has(family)
+	check("all_supported_engine_layouts_present_in_roster",
+		coverage and families.size() == Synth.FAMILIES.size(),families.keys())
+	var waveforms: Array[PackedByteArray] = []
+	var distinct := true
+	for family in families:
+		var waveform: PackedByteArray = Synth.engine_loop(str(family),2,0.8,0.5).data
+		distinct = distinct and not waveform.is_empty() and not waveforms.has(waveform)
+		waveforms.append(waveform)
+	check("engine_layout_profiles_are_individually_distinct",distinct,families.keys())
 	var v8 := Synth.engine_loop("v8_cross",2,0.9,0.7)
 	var v12 := Synth.engine_loop("v12",2,0.9,0.2)
 	var i4 := Synth.engine_loop("i4",2,0.7,0.3)

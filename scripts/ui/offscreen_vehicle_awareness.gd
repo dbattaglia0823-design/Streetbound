@@ -29,6 +29,7 @@ const CHIP_PAD_X := 4.0
 const CHIP_PAD_Y := 2.0
 const CHIP_ARROW_RADIUS := 5.5
 const CHIP_ARROW_GAP := 3.0
+const CHIP_MAX_SIZE := Vector2(80.0, 22.0)
 const INK := Color("#e8f0e9")
 const ROAD := Color("#ffa85e")
 const RIVAL := Color("#83cefd")
@@ -130,12 +131,29 @@ static func distance_caption(distance_m: float, _rival: bool = false) -> String:
 
 ## Font measurement uses the very same font and size as the draw call.
 ## The arrow fits within its radius at every rotation.
-static func chip_size(font: Font, caption: String) -> Vector2:
+static func natural_chip_size(font: Font, caption: String) -> Vector2:
 	var text_width := ceilf(font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, CHIP_FONT_SIZE).x)
 	var text_height := ceilf(font.get_height(CHIP_FONT_SIZE))
 	return Vector2(
 		CHIP_PAD_X * 2.0 + CHIP_ARROW_RADIUS * 2.0 + CHIP_ARROW_GAP + text_width,
 		CHIP_PAD_Y * 2.0 + maxf(CHIP_ARROW_RADIUS * 2.0, text_height))
+
+
+## One uniform scale per font keeps the warning compact on both Godot 4.4
+## and 4.6 without clipping glyphs or making shorter captions change font size.
+static func chip_scale(font: Font) -> float:
+	var widest := Vector2.ZERO
+	for caption in ["000 FT", "111 FT", "222 FT", "333 FT", "444 FT",
+			"555 FT", "666 FT", "777 FT", "888 FT", "999 FT"]:
+		var measured := natural_chip_size(font,caption)
+		widest.x = maxf(widest.x, measured.x)
+		widest.y = maxf(widest.y, measured.y)
+	return minf(1.0, minf(CHIP_MAX_SIZE.x / maxf(1.0,widest.x),
+		CHIP_MAX_SIZE.y / maxf(1.0,widest.y)))
+
+
+static func chip_size(font: Font, caption: String) -> Vector2:
+	return natural_chip_size(font,caption) * chip_scale(font)
 
 
 func _process(dt: float) -> void:
@@ -357,6 +375,7 @@ func _draw() -> void:
 	if markers.is_empty() or get_tree().paused:
 		return
 	var font: Font = ThemeDB.fallback_font
+	var scale_factor := chip_scale(font)
 	for entry in markers:
 		var position: Vector2 = entry.position
 		var near := float(entry.distance_m) < 55.0
@@ -370,8 +389,9 @@ func _draw() -> void:
 		color.a *= opacity
 		var caption := distance_caption(
 			float(entry.distance_m),bool(entry.rival))
-		var dimensions := chip_size(font,caption)
-		var bounds := Rect2((position - dimensions * 0.5).round(),dimensions)
+		var dimensions := natural_chip_size(font,caption)
+		draw_set_transform(position.round(),0.0,Vector2.ONE * scale_factor)
+		var bounds := Rect2(-dimensions * 0.5,dimensions)
 		var background := Color(0.032,0.047,0.056,0.88 * opacity)
 		var outline := color.darkened(0.3)
 		draw_rect(bounds,background,true)
@@ -390,3 +410,4 @@ func _draw() -> void:
 		var baseline := center_y - font.get_height(CHIP_FONT_SIZE) * 0.5 + font.get_ascent(CHIP_FONT_SIZE)
 		draw_string(font,Vector2(text_x,baseline),
 			caption,HORIZONTAL_ALIGNMENT_LEFT,-1,CHIP_FONT_SIZE,ink)
+	draw_set_transform(Vector2.ZERO)
