@@ -373,6 +373,14 @@ func close_screen() -> void:
 	job_buttons.clear()
 	closed.emit()
 
+func _exit_tree() -> void:
+	# Leaving the world or removing the overlay must never strand the game
+	# in a paused state. Only release pauses that this screen acquired.
+	if _owns_pause and get_tree() != null and get_tree().paused:
+		get_tree().paused = false
+	_owns_pause = false
+	is_open = false
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_open:
 		return
