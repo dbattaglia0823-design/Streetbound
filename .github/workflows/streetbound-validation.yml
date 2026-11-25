@@ -43,6 +43,13 @@ jobs:
           grep -q 'DRIVING CONTRACTS: 0 failures' /tmp/driving-contracts-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-contracts-463.log
 
+      - name: Verify realistic wanted response, off-screen police spawns and last-seen searches (4.6.3)
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/police_tactics_test.gd 2>&1 | tee /tmp/police-tactics-463.log
+          grep -q 'POLICE TACTICS: 0 failures' /tmp/police-tactics-463.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/police-tactics-463.log
+
       - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
         run: |
           set -o pipefail
