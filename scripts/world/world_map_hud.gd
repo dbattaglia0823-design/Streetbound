@@ -91,6 +91,13 @@ func map_view(parent: Node, dimensions: Vector2, miniature: bool) -> Control:
 	var activities:=Node2D.new()
 	activities.set_script(Activities)
 	activities.map_view=node;activities.waypoints=waypoints;activities.races=races
+	for entry in world.data.get("editor_markers",[]):
+		if not entry is Dictionary:
+			continue
+		var marker: Dictionary=entry.get("marker",entry)
+		if str(marker.get("type",""))!="contract_contact" or not bool(marker.get("properties",{}).get("enabled",true)):
+			continue
+		activities.contacts.append(marker)
 	activities.z_index=17
 	node.add_child(activities);node.activity_overlay=activities
 	if miniature:
@@ -254,8 +261,15 @@ func _select_race(race: Node2D) -> void:
 
 func _map_destination(point_m: Vector2, local_point: Vector2) -> void:
 	var race: Node2D=full_view.activity_overlay.race_at(local_point)
-	if race!=null:_select_race(race)
-	else:waypoints.set_destination(point_m)
+	if race!=null:
+		_select_race(race)
+		return
+	var contact: Dictionary=full_view.activity_overlay.contact_at(local_point)
+	if not contact.is_empty():
+		waypoints.set_destination(Vector2(float(contact.x),float(contact.y)),
+			str(contact.get("name","Contract Contact")))
+	else:
+		waypoints.set_destination(point_m)
 
 func _update_waypoint_label() -> void:
 	if not is_instance_valid(waypoint_label):return
