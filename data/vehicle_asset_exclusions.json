@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "notes": "Vehicle images with intentional non-playable roles. Traffic images are loaded by TrafficCar.MODEL_PATHS; unidentified artwork is tracked but cannot be sold under an invented model.",
+  "assets": [
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Electric Traffic.png",
+      "role": "traffic",
+      "slot": 0
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Car1.png",
+      "role": "traffic",
+      "slot": 1
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Sedan.png",
+      "role": "traffic",
+      "slot": 2
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/SportSUV.png",
+      "role": "traffic",
+      "slot": 3
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/SUV.png",
+      "role": "traffic",
+      "slot": 4
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Minivan.png",
+      "role": "traffic",
+      "slot": 5
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Van.png",
+      "role": "traffic",
+      "slot": 6
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Taxi.png",
+      "role": "traffic",
+      "slot": 7
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Pickup Truck.png",
+      "role": "traffic",
+      "slot": 8
+    },
+    {
+      "texture": "res://assets/Vehicles/Traffic Vehicles/Box Truck.png",
+      "role": "traffic",
+      "slot": 9
+    },
+    {
+      "texture": "res://assets/Vehicles/Lotus/ChatGPT Image Nov 11, 2026, 06_48_04 AM.png",
+      "role": "unidentified",
+      "brand": "Lotus",
+      "reason": "Exact model not established from available artwork; identify before creating real vehicle entry."
+    }
+  ]
+}

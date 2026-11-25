@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dw83ysed8o78k"
-path="res://.godot/imported/Skyline GTR V-Spec.png-0d98a6c06b493a5cd14c0757443c1556.ctex"
+uid="uid://23puio402fig"
+path="res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Nissan/Skyline GTR V-Spec.png"
-dest_files=["res://.godot/imported/Skyline GTR V-Spec.png-0d98a6c06b493a5cd14c0757443c1556.ctex"]
+source_file="res://assets/Vehicles/Acura/Integra Type S.png"
+dest_files=["res://.godot/imported/Integra Type S.png-72ab90ae801834300150942859c17a53.ctex"]
 
 [params]
 

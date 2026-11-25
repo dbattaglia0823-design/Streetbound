@@ -10,6 +10,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from project_asset_catalog import catalog,asset_id,building_file
 from morrow_editor_import import _authoring_props
 import morrow_editor_import as importer
+from vehicle_asset_coverage_test import VehicleAssetCoverage  # also run strict vehicle inventory in CI
 
 
 class ProjectAssetTests(unittest.TestCase):

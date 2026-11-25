@@ -17,7 +17,7 @@ func check(title: String, valid: bool, details: Variant = "") -> void:
 
 func run() -> void:
 	var vehicles: Array[Dictionary] = Catalog.all()
-	check("all_148_playable_vehicle_assets_cataloged", vehicles.size() == 148, vehicles.size())
+	check("all_256_playable_vehicle_assets_cataloged", vehicles.size() == 256, vehicles.size())
 	var ids := {}
 	var brands := {}
 	var all_resources := true
@@ -27,7 +27,7 @@ func run() -> void:
 		var id := str(entry.id)
 		ids[id] = true
 		brands[str(entry.brand)] = true
-		all_resources = all_resources and (ResourceLoader.exists(str(entry.texture)) or bool(entry.source_model_unverified))
+		all_resources = all_resources and ResourceLoader.exists(str(entry.texture))
 		all_metrics = all_metrics and float(entry.length_m) > 3.0 and \
 			float(entry.width_m) > 1.6 and float(entry.wheelbase_m) > 2.0 and \
 			float(entry.mass_kg) > 450.0 and float(entry.brake_force_n) > 9000.0 \
@@ -80,7 +80,7 @@ func run() -> void:
 	for card in selector.cards:
 		if (card.button as Button).visible:
 			visible_ferrari += 1
-	check("vehicle_search_filters_grid", visible_ferrari == 10, visible_ferrari)
+	check("vehicle_search_filters_grid", visible_ferrari == 12, visible_ferrari)
 	selector._apply_filter("")
 	var player: VehicleController2D = main.vehicle
 	var first_location := player.global_transform

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgrmtyvgjhhr7"
-path="res://.godot/imported/Alfa Romeo 33 Stradale Overhead.png-d8aedb563b6391f106793e96e2ee15aa.ctex"
+path="res://.godot/imported/33 Stradale.png-9695c81e56e4567fc753e58e8b8c9f40.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Vehicles/Alfa Romeo/Alfa Romeo 33 Stradale Overhead.png"
-dest_files=["res://.godot/imported/Alfa Romeo 33 Stradale Overhead.png-d8aedb563b6391f106793e96e2ee15aa.ctex"]
+source_file="res://assets/Vehicles/Alfa Romeo/33 Stradale.png"
+dest_files=["res://.godot/imported/33 Stradale.png-9695c81e56e4567fc753e58e8b8c9f40.ctex"]
 
 [params]
 

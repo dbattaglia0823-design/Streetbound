@@ -14,8 +14,8 @@ func check(label: String, valid: bool, value: Variant = "") -> void:
 
 func _run() -> void:
 	var roster: Array[Dictionary] = Catalog.all()
-	check("all_148_cars_loaded",roster.size() == 148,roster.size())
-	if roster.size() != 148:
+	check("all_256_cars_loaded",roster.size() == 256,roster.size())
+	if roster.size() != 256:
 		quit(1)
 		return
 	var car := Vehicle.instantiate() as VehicleController2D
@@ -67,7 +67,7 @@ func _run() -> void:
 	check("unchanged_real_world_factory_specs",bad_specs.is_empty(),bad_specs)
 	check("all_cars_have_bounded_calibration",bad_load.is_empty(),bad_load)
 	check("distinct_per_model_handling_profiles",unique_profiles.size() > 100,unique_profiles.size())
-	check("all_148_cars_brake_with_forward_transfer",bad_brakes.is_empty(),bad_brakes)
+	check("all_256_cars_brake_with_forward_transfer",bad_brakes.is_empty(),bad_brakes)
 	car.queue_free()
 	print("148 VEHICLE AXLE CALIBRATION: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

@@ -7,7 +7,7 @@ STREETBOUND — VEHICLE LIST (BY MANUFACTURER)
 
 Acura-
   Integra
-  Integra TypeS
+  Integra Type S
   NSX
   TLX
 
@@ -40,7 +40,7 @@ Audi-
   RS4
   RS5
   RS6
-  RS6 Avante
+  RS6 Avant
   RS7
   RSQ8
   RSQ5
