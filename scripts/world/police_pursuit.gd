@@ -12,6 +12,8 @@ const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const ROUTE_INTERVAL := 0.75
 const SEARCH_SWEEP_INTERVAL := 4.5
+const DISPATCH_RETRY_SECONDS := 3.0
+const DISPATCH_TIMEOUT_SECONDS := 18.0
 const BLOCK_REEVALUATE_M := 100.0
 var player: VehicleController2D
 var world: Node2D
@@ -25,6 +27,8 @@ var planner: RefCounted
 var route_clock := 0.0
 var next_unit := 0
 var search_clock := 0.0
+var dispatch_clock := 0.0
+var dispatch_retry_clock := 0.0
 var lost_sight_clock := 0.0
 var search_round := 0
 var phase := "clear"
@@ -328,6 +332,8 @@ func start_pursuit(level: int = 1) -> bool:
 	last_seen_heading = _travel_heading()
 	lost_sight_clock = 0.0
 	search_clock = 0.0
+	dispatch_clock = 0.0
+	dispatch_retry_clock = DISPATCH_RETRY_SECONDS
 	search_round = 0
 	containment_seconds = 0.0
 	route_clock = 0.0
@@ -337,11 +343,11 @@ func start_pursuit(level: int = 1) -> bool:
 	_choose_roadblock()
 	_spawn_units()
 	if units.is_empty():
-		wanted_level = 0
-		phase = "clear"
-		message = "NO SAFE POLICE SPAWN AVAILABLE"
+		# Do not cancel a robbery or materialize an ambush simply because
+		# the local roads/camera offer no safe initial response lane.
+		phase = "dispatch"
+		message = "POLICE DISPATCH / UNITS RESPONDING"
 		message_timer = 3.0
-		return false
 	return true
 
 func _despawn_units() -> void:
@@ -360,6 +366,7 @@ func _escape() -> void:
 	containment_seconds = 0.0
 	search_clock = 0.0
 	lost_sight_clock = 0.0
+	dispatch_clock = 0.0
 	message = "ESCAPED / POLICE LOST CONTACT"
 	message_timer = 3.0
 	escaped.emit()
@@ -401,6 +408,7 @@ func _recover_busted() -> void:
 	containment_seconds = 0.0
 	search_clock = 0.0
 	lost_sight_clock = 0.0
+	dispatch_clock = 0.0
 
 func _update_search_state(dt: float, seen: bool) -> void:
 	if seen:
@@ -444,6 +452,18 @@ func _physics_process(dt: float) -> void:
 	if wanted_level <= 0 or dt <= 0.0:
 		return
 	if units.is_empty():
+		if phase == "dispatch":
+			dispatch_clock += dt
+			dispatch_retry_clock -= dt
+			if dispatch_retry_clock <= 0.0:
+				dispatch_retry_clock = DISPATCH_RETRY_SECONDS
+				_spawn_units()
+				if not units.is_empty():
+					phase = "chase"
+					lost_sight_clock = 0.0
+			if units.is_empty() and dispatch_clock >= DISPATCH_TIMEOUT_SECONDS:
+				_escape()
+			return
 		_escape()
 		return
 	var seen := _line_of_sight()
@@ -506,6 +526,8 @@ func _process(dt: float) -> void:
 		return
 	if bust_timer > 0.0:
 		readout.text = message
+	elif wanted_level > 0 and phase == "dispatch":
+		readout.text = "WANTED %d / POLICE DISPATCH / NO SAFE UNITS YET" % wanted_level
 	elif wanted_level > 0 and phase == "search":
 		var duration := float(Tactics.profile(wanted_level)["search_seconds"])
 		readout.text = "WANTED %d / SEARCHING LAST SIGHTING / %ds / %d OFFICERS" % [
