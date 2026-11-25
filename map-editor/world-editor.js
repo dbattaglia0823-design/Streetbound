@@ -1534,6 +1534,82 @@ for(const [elementId,options] of Object.entries(fields)){
     }catch(e){errorMessage(e);refreshInspector();}
   });
 }
+$('contact-npc-style').addEventListener('change',e=>{
+  changeContactProperties(p=>({...p,contact_style:e.target.value}),'Changed roadside contact appearance.');
+});
+$('contact-offer-index').addEventListener('change',e=>{
+  selectedContactOfferIndex=Number(e.target.value)||0;
+  const item=selection?getEntity(doc,selection.id)?.item:null;
+  if(item)refreshContactEditor(item);
+});
+$('contact-add-offer').addEventListener('click',()=>{
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(!marker||marker.type!=='contract_contact')return;
+  const destinations=contactEligibleDropoffs(marker);
+  if(!destinations.length)return status('Place a contract dropoff 100m–15km from this contact before adding a job.');
+  const offers=contactOffers(marker),used=new Set(offers.map(o=>o.id));
+  if(offers.length>=8)return status('Maximum eight contracts per person.');
+  let id=1;while(used.has('job_'+id))id++;
+  const entry={id:'job_'+id,title:'New Driving Contract',kind:'courier',difficulty:'rookie',
+    destination_marker_id:destinations[0].id,repeatable:true,required_player_level:1,
+    required_underground_rep:0,...contactJobDefaults.courier};
+  const prior=selectedContactOfferIndex;selectedContactOfferIndex=offers.length;
+  if(!changeContactProperties(p=>({...p,offers:[...p.offers,entry]}),'Added driving contract to person.'))
+    selectedContactOfferIndex=prior;
+});
+$('contact-remove-offer').addEventListener('click',()=>{
+  const previous=selectedContactOfferIndex;
+  selectedContactOfferIndex=Math.max(0,selectedContactOfferIndex-1);
+  if(!changeContactProperties(p=>({...p,offers:p.offers.filter((_,i)=>i!==previous)}),
+      'Deleted selected person contract.'))selectedContactOfferIndex=previous;
+});
+const updateJobField=(id,field,conversion=e=>e.target.value)=>{
+  $(id).addEventListener('change',e=>{
+    const value=conversion(e);
+    changeContactOffer(offer=>({...offer,[field]:value}),'Updated contract '+field+'.');
+  });
+};
+updateJobField('contact-offer-title','title');
+updateJobField('contact-offer-difficulty','difficulty');
+updateJobField('contact-offer-repeatable','repeatable',e=>e.target.checked);
+for(const [id,field] of [
+  ['contact-offer-cash','cash'],['contact-offer-player-xp','player_xp'],
+  ['contact-offer-car-xp','car_xp'],['contact-offer-rep','underground_rep'],
+  ['contact-offer-wanted','wanted_level'],['contact-offer-time','time_limit_seconds'],
+  ['contact-offer-required-level','required_player_level'],
+  ['contact-offer-required-rep','required_underground_rep']
+])updateJobField(id,field,e=>Number(e.target.value));
+$('contact-offer-destination').addEventListener('change',e=>{
+  const destId=e.target.value;
+  const marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(!marker)return;
+  changeContactOffer(offer=>{
+    const next={...offer,destination_marker_id:destId};
+    if(next.kind==='robbery'&&!contactEligibleTargets(marker,destId).some(t=>t.id===next.robbery_marker_id)){
+      const target=contactEligibleTargets(marker,destId)[0];
+      if(!target)throw new Error('Place a robbery target at least 100m from both contact and dropoff.');
+      next.robbery_marker_id=target.id;
+    }
+    return next;
+  },'Updated contract dropoff.');
+});
+$('contact-offer-target').addEventListener('change',e=>
+  changeContactOffer(offer=>({...offer,robbery_marker_id:e.target.value}),
+    'Changed robbery target.'));
+$('contact-offer-kind').addEventListener('change',e=>{
+  const kind=e.target.value,marker=selection?getEntity(doc,selection.id)?.item:null;
+  if(!marker)return;
+  changeContactOffer(offer=>{
+    const next={...offer,kind,...contactJobDefaults[kind]};
+    if(kind==='robbery'){
+      const targets=contactEligibleTargets(marker,offer.destination_marker_id);
+      if(!targets.length)throw new Error('Place a robbery target 100m from the contact and dropoff first.');
+      next.robbery_marker_id=targets[0].id;
+    }else delete next.robbery_marker_id;
+    return next;
+  },'Changed contract type and loaded default difficulty rewards.');
+});
+
 $('world-title').addEventListener('change',e=>change(d=>normalizeWorld({...d,name:e.target.value}),'World renamed.'));
 $('mountain-barrier-tool').addEventListener('click',()=>{
   setTool('terrain');$('biome').value='mountain';$('terrain-barrier').checked=true;$('elevation').value=80;
