@@ -113,6 +113,39 @@ during a wanted pursuit is a bust, not a teleport escape.
 - The new features are on the draft PR until the complete CI and
   in-game route/interaction/escape playtests pass.
 
+## Dedicated contact screen — in-game job selection
+
+- Press **F** at a stationary roadside contract contact to open a separate
+  responsive, full-screen **Contract Contact** screen. It replaces the generic
+  map-marker/fast-travel popup for contacts while leaving the existing
+  fast-travel menu unchanged. Press **Escape** or Close to return to driving.
+- The contact screen shows their authored name, role, biography and greeting
+  alongside an original portrait monogram. Four default personalities
+  (**street fixer**, **contract broker**, **garage connection**, **local insider**)
+  have distinct accents, greetings and dialogue. Map creators may override the
+  role, greeting and biography for individually named contacts.
+- The left column lists each available job with its type, difficulty and
+  progress status. The selected right-hand briefing gives a mission description,
+  cash, driver/car XP, criminal reputation, wanted level, timer, required
+  driver level and underground reputation, and repeatability.
+- Completion indicators come from the existing persistent
+  `completed_driving_contracts` save, keyed by the world, contact and stable
+  offer ID. One-time finished jobs appear **COMPLETED** and cannot be accepted;
+  repeatable jobs show **N COMPLETE** and remain available; unmet progression
+  requirements show **LOCKED**.
+- The map builder (native and browser) now has fields for contact role,
+  greeting, biography and each contract's mission briefing. Empty fields
+  keep the built-in personality/briefing defaults, ensuring older maps and
+  saves display correctly. Text sizes are validated on import.
+- The board consumes the existing contract runtime and economy API; it
+  never calculates or pays rewards itself. Successful acceptance closes
+  the board and releases world pause. Failed acceptance shows an error
+  without discarding the selected contract.
+- Validate `tests/contact_contract_screen_test.gd` plus the
+  browser `contract-contacts.test.mjs` round-trip tests before merging.
+  Verify mouse, keyboard, viewport scaling and contact-specific layouts
+  visually in a real driving session.
+
 ## Next phases (not yet implemented)
 
 1. Expand the initial map-authored courier/getaway/smuggling contracts
@@ -138,6 +171,7 @@ godot --headless --path . --script res://tests/driving_crime_foundation_test.gd
 godot --headless --path . --script res://tests/vehicle_fuel_gauges_test.gd
 godot --headless --path . --script res://tests/vehicle_service_integration_test.gd
 godot --headless --path . --script res://tests/driving_contracts_test.gd
+godot --headless --path . --script res://tests/contact_contract_screen_test.gd
 ```
 
 Also run the repository-wide validation workflow and visually inspect pursuit
