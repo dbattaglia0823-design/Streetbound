@@ -50,6 +50,12 @@ static func all() -> Array[Dictionary]:
 				_vehicles.clear()
 				return _vehicles
 			ids[id] = true
+			# Never expose retired/missing artwork as a playable entry. The
+			# same catalog is used by pause, garage, dealerships and AI.
+			var artwork := str(value.get("texture", ""))
+			if artwork.is_empty() or not ResourceLoader.exists(artwork, "Texture2D"):
+				push_warning("Skipping unavailable vehicle artwork: " + id)
+				continue
 			_vehicles.append(value)
 	return _vehicles
 
@@ -252,8 +258,7 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	# Avoid calling load() on a non-existent asset: on Godot 4.6 it logs a
 	# resource ERROR even if the caller handles null, breaking render CI.
 	var texture: Texture2D = null
-	if not path.is_empty() and FileAccess.file_exists(path) and \
-			ResourceLoader.exists(path, "Texture2D"):
+	if not path.is_empty() and ResourceLoader.exists(path, "Texture2D"):
 		texture = load(path) as Texture2D
 	if texture == null:
 		push_warning("Using provisional silhouette for missing artwork: " + path)
