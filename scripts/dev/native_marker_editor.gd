@@ -2,6 +2,7 @@ extends RefCounted
 ## Editor-specific, undoable marker configuration. Game play uses the same
 ## authored ID links, not approximated marker/category labels.
 const Rules=preload("res://scripts/world/authored_marker_rules.gd")
+const ContactEditor=preload("res://scripts/dev/native_contract_contact_editor.gd")
 var dialog: AcceptDialog
 var marker_id: String=""
 var name_input: LineEdit
@@ -13,6 +14,7 @@ var weight_input: SpinBox
 var race_input: OptionButton
 var required_input: OptionButton
 var dealer_input: OptionButton
+var contact_editor=ContactEditor.new()
 var contract_fields: VBoxContainer
 var contract_kind_input: OptionButton
 var contract_destination_input: OptionButton
@@ -60,8 +62,10 @@ func build(e,panel: Node) -> void:
 	_text_label(contract_fields,"Contract destination marker (place a dropoff first)")
 	contract_destination_input=OptionButton.new()
 	contract_fields.add_child(contract_destination_input)
+	contact_editor.build(form)
 	type_input.item_selected.connect(func(_index: int)->void:
-		contract_fields.visible=str(type_input.get_selected_metadata())=="contract")
+		contract_fields.visible=str(type_input.get_selected_metadata())=="contract"
+		contact_editor.fields.visible=str(type_input.get_selected_metadata())=="contract_contact")
 	enabled_input=CheckBox.new()
 	enabled_input.text="Enabled in gameplay"
 	enabled_input.button_pressed=true
@@ -133,6 +137,8 @@ func open_for(e,id: String) -> void:
 	radius_input.value=float(info.get("radius_m",12))
 	weight_input.value=float(info.get("traffic_weight",3))
 	_populate_links(e,marker)
+	contact_editor.fields.visible=str(type_input.get_selected_metadata())=="contract_contact"
+	contact_editor.open_for(e,marker)
 	feedback.text="Contract markers offer vehicle-only courier/getaway jobs. Place a contract dropoff first, then select it here."
 	dialog.popup_centered()
 
@@ -165,6 +171,11 @@ func save(e) -> void:
 	else:
 		info.erase("contract_kind")
 		info.erase("destination_marker_id")
+	if str(type_input.get_selected_metadata())=="contract_contact":
+		info.merge(contact_editor.save_fields(),true)
+	else:
+		info.erase("offers")
+		info.erase("contact_style")
 	if e.authoring.update_marker(marker_id,{
 		"name":name_input.text.strip_edges(),
 		"type":str(type_input.get_selected_metadata()),
