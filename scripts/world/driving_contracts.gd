@@ -272,11 +272,12 @@ func _physics_process(dt: float) -> void:
 	if stage == "robbery":
 		var robbery_pos := Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM
 		var robbery_distance := player.global_position.distance_to(robbery_pos) / PPM
-		if Rules.arrived(robbery_distance,player.linear_velocity.length()):
+		if Rules.arrived(robbery_distance,player.linear_velocity.length(),
+				Rules.configured_arrival_radius(offer_settings)):
 			robbery_progress += dt
 		else:
 			robbery_progress = 0.0
-		if robbery_progress >= Rules.ROBBERY_HOLD_SECONDS:
+		if robbery_progress >= Rules.configured_robbery_hold(offer_settings):
 			# Crew action happens inside the building; the player remains
 			# inside the getaway vehicle throughout the timed handoff.
 			var next_heat := Rules.configured_wanted("robbery",offer_settings)
@@ -293,7 +294,8 @@ func _physics_process(dt: float) -> void:
 		return
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
-	if not Rules.arrived(dist_m, player.linear_velocity.length()):
+	if not Rules.arrived(dist_m, player.linear_velocity.length(),
+			Rules.configured_arrival_radius(offer_settings)):
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	if int(police.get("wanted_level")) > 0:
@@ -314,7 +316,7 @@ func _process(dt: float) -> void:
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
-	var objective := "WAIT FOR CREW %ds" % maxi(0,ceili(Rules.ROBBERY_HOLD_SECONDS-robbery_progress)) if stage=="robbery" else \
+	var objective := "WAIT FOR CREW %ds" % maxi(0,ceili(Rules.configured_robbery_hold(offer_settings)-robbery_progress)) if stage=="robbery" else \
 		("EVADE POLICE & DELIVER" if Rules.configured_wanted(kind,offer_settings) > 0 else "DELIVER")
 	if stage=="robbery":
 		dist_m = player.global_position.distance_to(
