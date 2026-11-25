@@ -132,11 +132,16 @@ func configure_underground_career(model: Object, pursuit: Node2D) -> void:
 		"reward_cash":1500+heat*750,"reward_player_xp":180+heat*90,
 		"reward_car_xp":120+heat*60,"underground_rep_reward":heat*2,
 		"first_win_reward_cash":500,"escape_time_limit":90+heat*15}
+	# A real existing route serves as the first high-stakes career event.
+	if event_id=="parkway-express":
+		career_awards["entry_fee"]=2000
+		career_awards["reward_cash"]=7000
+		career_awards["required_underground_rep"]=6
 	race_type="Underground Sprint · 1v1"
 	status_strip.call("configure_event",self,{
 		"title":race_title,"type":race_type,"format":"1v1",
 		"distance_m":float(navigation.get("length_m")),"route":navigation.get("points_m"),
-		"entry":"FREE","rewards":"$%d / DRIVER + CAR XP / +%d STREET REP"%[int(career_awards.reward_cash),int(career_awards.underground_rep_reward)],
+		"entry":"FREE" if int(career_awards.get("entry_fee",0))==0 else "$%d"%int(career_awards.entry_fee),"rewards":"$%d / DRIVER + CAR XP / +%d STREET REP"%[int(career_awards.reward_cash),int(career_awards.underground_rep_reward)],
 		"description":"Win the sprint and lose the police to collect your prize. Wanted level %d."%heat})
 	player.vehicle_reset.connect(_on_career_reset)
 	_refresh()
@@ -158,7 +163,17 @@ func _award_career() -> String:
 	return "$%d / +%d DRIVER XP / +%d CAR XP / +%d STREET REP"%[
 		int(award.cash),int(award.player_xp),int(award.car_xp),int(award.underground_rep)]
 
+func _lock_reason() -> String:
+	if career_awards.is_empty():return ""
+	if not is_instance_valid(economy):return "CAREER UNAVAILABLE"
+	if int(economy.get("balance"))<int(career_awards.get("entry_fee",0)):
+		return "REQUIRES ENTRY FEE $%d"%int(career_awards.get("entry_fee",0))
+	if int(economy.get("underground_reputation"))<int(career_awards.get("required_underground_rep",0)):
+		return "REQUIRES STREET REP %d"%int(career_awards.get("required_underground_rep",0))
+	return ""
+
 func can_stage() -> bool:
+	if not _lock_reason().is_empty():return false
 	if not available or not is_instance_valid(player) or state != "idle":
 		return false
 	return not StartArea.busy(self) and player.global_position.distance_to(start_m * PPM) <= start_radius_m * PPM and \
@@ -170,6 +185,9 @@ func start_race() -> bool:
 	if not can_stage() or get_tree().paused:
 		return false
 	if not _spawn_opponent():
+		return false
+	if int(career_awards.get("entry_fee",0))>0 and not bool(economy.call("pay_race_entry",career_awards)):
+		_clear_opponent()
 		return false
 	awaiting_escape=false;escape_remaining=0.0
 	staged_car_id=str(economy.get("active_id")) if is_instance_valid(economy) else ""
