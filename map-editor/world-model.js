@@ -10,7 +10,7 @@ export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
 export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
-export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','custom']);
+export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','contract_contact','robbery_target','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
 const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
@@ -340,6 +340,43 @@ export function normalizeWorld(raw){
       const distance=Math.hypot(marker.x-dest.x,marker.y-dest.y);
       if(distance<100||distance>15000)
         throw new RangeError('Driving contract distance must be between 100 and 15000 metres');
+    }
+    if(info.contact_style!==undefined&&!['street','business','mechanic','casual'].includes(info.contact_style))
+      throw new TypeError('Invalid contact appearance');
+    if(info.offers!==undefined){
+      if(marker.type!=='contract_contact'||!Array.isArray(info.offers)||info.offers.length>8)
+        throw new TypeError('Contact must have no more than eight jobs');
+      const seenOffers=new Set();
+      for(const offer of info.offers){
+        if(!offer||typeof offer!=='object'||Array.isArray(offer))throw new TypeError('Invalid job');
+        if(typeof offer.id!=='string'||!/^[A-Za-z_][A-Za-z0-9_]{0,55}$/.test(offer.id)||
+           seenOffers.has(offer.id))throw new TypeError('Duplicate/invalid contract job ID');
+        seenOffers.add(offer.id);
+        if(typeof offer.title!=='string'||!offer.title.trim()||offer.title.length>80)
+          throw new TypeError('Invalid contract title');
+        if(!['courier','smuggling','getaway','robbery'].includes(offer.kind)||
+           !['rookie','amateur','pro','elite'].includes(offer.difficulty??'rookie'))
+          throw new TypeError('Invalid job type or difficulty');
+        if(offer.repeatable!==undefined&&typeof offer.repeatable!=='boolean')
+          throw new TypeError('Invalid repeatability');
+        for(const [key,min,max] of [['cash',0,10000],['player_xp',0,1500],['car_xp',0,1200],
+             ['underground_rep',0,30],['wanted_level',0,5],['required_player_level',1,100],
+             ['required_underground_rep',0,100000],['time_limit_seconds',60,900]]){
+          if(offer[key]!==undefined)integer(offer[key],min,max,key);
+        }
+        const destination=byMarkerId.get(offer.destination_marker_id);
+        if(!destination||destination.type!=='contract_dropoff'||
+           Math.hypot(destination.x-marker.x,destination.y-marker.y)<100||
+           Math.hypot(destination.x-marker.x,destination.y-marker.y)>15000)
+          throw new TypeError('Job requires connected dropoff marker between 100m and 15km');
+        if(offer.kind==='robbery'){
+          const target=byMarkerId.get(offer.robbery_marker_id);
+          if(!target||target.type!=='robbery_target'||target.id===destination.id||
+             Math.hypot(target.x-marker.x,target.y-marker.y)<100||
+             Math.hypot(target.x-destination.x,target.y-destination.y)<100)
+            throw new TypeError('Robbery requires a separate target at least 100m from pickup and dropoff');
+        }else if(offer.robbery_marker_id)throw new TypeError('Non-robbery job has robbery target');
+      }
     }
     if(info.enabled!==undefined&&typeof info.enabled!=='boolean')throw new TypeError('Invalid marker enabled flag');
     if(info.radius_m!==undefined)real(info.radius_m,4,50,'marker radius');
