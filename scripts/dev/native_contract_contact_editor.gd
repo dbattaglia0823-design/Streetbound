@@ -392,13 +392,13 @@ func _apply_difficulty_preset() -> void:
 	if selected_index<0 or selected_index>=offers.size():return
 	var difficulty:=_value(difficulty_input)
 	var base:=Rules.configured_reward(_value(type_input),{})
-	var multiplier: float={"rookie":0.7,"amateur":1.0,"pro":1.45,"elite":1.85}.get(difficulty,1.0)
+	var multiplier: float=float({"rookie":0.7,"amateur":1.0,"pro":1.45,"elite":1.85}.get(difficulty,1.0))
 	for pair in [[cash_input,"cash",10000],[player_xp_input,"player_xp",1500],
 			[car_xp_input,"car_xp",1200],[rep_input,"underground_rep",30]]:
 		var spin: SpinBox=pair[0]
 		spin.value=mini(int(pair[2]),roundi(float(base.get(pair[1],0))*multiplier))
 	var starting_heat:=Rules.wanted_level(_value(type_input))
-	var heat_offset: int={"rookie":-1,"amateur":0,"pro":1,"elite":2}.get(difficulty,0)
+	var heat_offset: int=int({"rookie":-1,"amateur":0,"pro":1,"elite":2}.get(difficulty,0))
 	wanted_input.value=clampi(starting_heat+heat_offset,0,5)
 	level_input.value={"rookie":1,"amateur":8,"pro":20,"elite":40}.get(difficulty,1)
 	status.text="Applied "+difficulty+" values. Job ID, destinations and description remain unchanged."
