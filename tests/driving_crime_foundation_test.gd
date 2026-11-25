@@ -56,6 +56,24 @@ func run() -> void:
 	check("larger_capacity_survives_more_damage", is_equal_approx(light.integrity, 60.0)
 		and is_equal_approx(heavy.integrity, 80.0))
 	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 2880.0))
+	check("different_capacities_normalize_same_absolute_damage",
+		is_equal_approx(light.health_fraction(), 0.6) and is_equal_approx(heavy.health_fraction(), 0.8))
+	light.register_impact(11.0, 2.0)
+	heavy.register_impact(11.0, 2.0)
+	check("smaller_car_smokes_first_for_equal_points",
+		is_equal_approx(light.health_percentage(), 50.0)
+		and is_equal_approx(heavy.health_percentage(), 75.0)
+		and DamageSmoke.smoke_strength(light.health_percentage()) > 0.0
+		and DamageSmoke.smoke_strength(heavy.health_percentage()) == 0.0)
+	light.integrity = 10.0
+	heavy.integrity = 10.0
+	check("equal_percentage_equal_smoke_and_power_regardless_of_capacity",
+		is_equal_approx(light.current_health_points(), 180.0)
+		and is_equal_approx(heavy.current_health_points(), 360.0)
+		and is_equal_approx(light.drive_fraction(), 0.9)
+		and is_equal_approx(heavy.drive_fraction(), 0.9)
+		and is_equal_approx(DamageSmoke.smoke_strength(light.health_percentage()),
+			DamageSmoke.smoke_strength(heavy.health_percentage())))
 	heavy.repair()
 	check("repair_restores_model_capacity", heavy.current_health_points() == 3600.0)
 	var upgraded = Damage.new()

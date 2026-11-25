@@ -11,6 +11,7 @@ const PlannerScript = preload("res://scripts/world/road_route_planner.gd")
 const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
+const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
 ## Current unmarked prototype cruiser. Future police model configs set their own capacity.
 const PROTOTYPE_POLICE_HEALTH := 2600
 const ROUTE_INTERVAL := 0.75
@@ -241,7 +242,11 @@ func _spawn_units() -> void:
 		car.config.max_health_points = PROTOTYPE_POLICE_HEALTH
 		var health = DamageState.new()
 		health.max_health_points = car.config.max_health_points
-		car.damage_contact.connect(_on_officer_impact.bind(car, health))
+		var smoke := Node2D.new()
+		smoke.set_script(DamageSmoke)
+		smoke.set("vehicle", car)
+		car.add_child(smoke)
+		car.damage_contact.connect(_on_officer_impact.bind(car, health, smoke))
 		var identifier := Label.new()
 		identifier.text = "POLICE"
 		identifier.position = Vector2(-27,-61)
@@ -261,13 +266,15 @@ func _spawn_units() -> void:
 		_refresh_unit_route(index)
 
 func _on_officer_impact(speed_mps: float, _contact: Vector2, _normal: Vector2,
-		_velocity: Vector2, car: VehicleController2D, health: RefCounted) -> void:
+		_velocity: Vector2, car: VehicleController2D, health: RefCounted, smoke: Node2D) -> void:
 	if not is_instance_valid(car):
 		return
 	var applied: float = health.call("register_impact", speed_mps, Time.get_ticks_msec() / 1000.0)
 	if applied <= 0.0:
 		return
 	car.damage_drive_fraction = float(health.call("drive_fraction"))
+	if is_instance_valid(smoke):
+		smoke.call("set_health_percentage", health.call("health_percentage"))
 	DamageState.show_damage_number(car, applied, true)
 
 func _refresh_unit_route(index: int) -> void:

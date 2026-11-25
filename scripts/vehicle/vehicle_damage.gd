@@ -14,6 +14,13 @@ const POLICE_DAMAGE_COLOR := Color("#ff4545")
 
 func current_health_points() -> float:
 	return clampf(integrity, 0.0, 100.0) * float(maxi(1, max_health_points)) / 100.0
+## All gameplay thresholds use these normalized accessors, never raw HP.
+func health_fraction() -> float:
+	return clampf(current_health_points() / float(maxi(1, max_health_points)), 0.0, 1.0)
+
+func health_percentage() -> float:
+	return health_fraction() * 100.0
+
 var last_impact_at := -INF
 
 ## Optional outgoing multiplier is an extension point for future impact upgrades.
@@ -41,15 +48,16 @@ const POWER_LOSS_START_HEALTH := 20.0
 const MAX_RUNNING_POWER_LOSS := 0.20
 
 func drive_fraction() -> float:
-	if integrity <= 0.0:
+	var percent := health_percentage()
+	if percent <= 0.0:
 		return 0.0
-	if integrity >= POWER_LOSS_START_HEALTH:
+	if percent >= POWER_LOSS_START_HEALTH:
 		return 1.0
 	return 1.0 - MAX_RUNNING_POWER_LOSS * (
-		(POWER_LOSS_START_HEALTH - integrity) / POWER_LOSS_START_HEALTH)
+		(POWER_LOSS_START_HEALTH - percent) / POWER_LOSS_START_HEALTH)
 
 func is_disabled() -> bool:
-	return integrity <= 0.0
+	return health_fraction() <= 0.0
 
 func repair_cost() -> int:
 	return ceili((100.0 - integrity) * 35.0)

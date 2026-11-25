@@ -141,11 +141,11 @@ func _apply_drive_condition() -> void:
 	player.damage_drive_fraction = damage.drive_fraction()
 	player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
 	if is_instance_valid(engine_smoke):
-		engine_smoke.call("set_health", damage.integrity)
+		engine_smoke.call("set_health_percentage", damage.health_percentage())
 
 func _update_gauges() -> void:
 	if is_instance_valid(gauges):
-		gauges.call("update_levels", damage.integrity / 100.0, fuel.fraction(), fuel.electric)
+		gauges.call("update_levels", damage.health_fraction(), fuel.fraction(), fuel.electric)
 
 func _show_notice(value: String) -> void:
 	notice = value
