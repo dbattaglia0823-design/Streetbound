@@ -80,6 +80,25 @@ class CustomTestWorldBaker(unittest.TestCase):
             "x":500,"y":500,"properties":{"race_id":"race-404"}})
         with self.assertRaises(ValueError):make_archive(broken)
 
+    def test_contracts_and_underground_race_survive_playtest_bake(self):
+        doc=source()
+        doc['races'][0].update(race_heat=3,escape_time_limit=90,entry_fee=2000,
+                                underground_rep_reward=6,required_underground_rep=2)
+        doc['markers'] += [
+            {'id':'marker-contact','type':'contract_contact','name':'Fixer','x':160,'y':500,
+             'properties':{'contact_style':'racing','offers':[{'id':'job_1','title':'Getaway',
+                'kind':'robbery','required_race_id':'race-0','destination_marker_id':'marker-drop',
+                'robbery_marker_id':'marker-target','arrival_radius_m':18,'robbery_hold_seconds':12}]}},
+            {'id':'marker-target','type':'robbery_target','name':'Target','x':500,'y':500},
+            {'id':'marker-drop','type':'contract_dropoff','name':'Drop','x':800,'y':500}]
+        data=make_archive(doc)
+        self.assertEqual(data['editor_races'][0]['race_heat'],3)
+        self.assertEqual(data['editor_races'][0]['entry_fee'],2000)
+        self.assertEqual(data['editor_races'][0]['escape_time_limit'],90)
+        self.assertEqual(data['editor_game_markers'],doc['markers'])
+        doc['markers'][1]['properties']['offers'][0]['robbery_marker_id']='missing'
+        with self.assertRaises(ValueError):make_archive(doc)
+
     def test_empty_map_remains_drivable_and_has_terrain_chunks(self):
         doc=source()
         doc["roads"]=[]
