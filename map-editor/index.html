@@ -338,8 +338,37 @@
         </div>
         <div class="field"><label for="inspect-properties">Game properties (JSON)</label><textarea id="inspect-properties" rows="5" spellcheck="false"></textarea></div>
       </div>
-      <section id="race-event-config" class="race-event-config" aria-label="Authored race settings">
-        <h3>Race &amp; Event configuration</h3>
+      
+      <div id="position-fields" class="double-fields" hidden><div class="field"><label for="inspect-x">X</label><input id="inspect-x" type="number"></div><div class="field"><label for="inspect-y">Y</label><input id="inspect-y" type="number"></div></div>
+      <div id="point-coordinate-fields" class="double-fields" hidden>
+        <div class="field"><label for="inspect-point-x">Point X</label><input id="inspect-point-x" type="number" step="0.1"></div>
+        <div class="field"><label for="inspect-point-y">Point Y</label><input id="inspect-point-y" type="number" step="0.1"></div>
+      </div>
+      <p id="point-help" class="muted-copy" hidden>Drag the road or region body to move the whole shape. Drag its handles to reshape it; Shift-click or double-click to insert a point.</p>
+      <div class="inspector-actions">
+        <button id="remove-point" class="gdt-btn" hidden>Remove point</button>
+        <button id="duplicate-entity" class="gdt-btn" type="button">Duplicate</button>
+        <button id="move-forward" class="gdt-btn">Bring forward</button>
+        <button id="move-backward" class="gdt-btn">Send backward</button>
+      </div>
+      <div class="transform-editor">
+        <div class="field"><label for="nudge-step">Move step (world units)</label><input id="nudge-step" type="number" min="1" max="500" value="20"></div>
+        <div class="nudge-buttons" aria-label="Move selected entity">
+          <button class="gdt-btn" data-nudge="0,-1" type="button">↑</button>
+          <button class="gdt-btn" data-nudge="-1,0" type="button">←</button>
+          <button class="gdt-btn" data-nudge="0,1" type="button">↓</button>
+          <button class="gdt-btn" data-nudge="1,0" type="button">→</button>
+        </div>
+        <div id="prop-transform-buttons" class="inspector-actions" hidden>
+          <button id="rotate-prop-left" class="gdt-btn" type="button">Rotate −15°</button>
+          <button id="rotate-prop-right" class="gdt-btn" type="button">Rotate +15°</button>
+          <button id="scale-prop-down" class="gdt-btn" type="button">Scale −</button>
+          <button id="scale-prop-up" class="gdt-btn" type="button">Scale +</button>
+        </div>
+      </div>
+    </section>
+    <details id="race-event-config" class="race-event-config" aria-label="Authored race settings">
+        <summary>Races &amp; Events — Configure</summary>
         <p class="muted-copy">Edit the settings of existing race routes. The native world editor controls checkpoint placement, starting grids and car pools.</p>
         <div class="field"><label for="race-edit-select">Choose existing race</label><select id="race-edit-select"><option value="">No authored races loaded</option></select></div>
         <div id="race-edit-form" hidden>
@@ -369,35 +398,7 @@
           <div class="field"><label for="race-edit-prerequisites">Prerequisite races (Ctrl-click to multi-select)</label><select id="race-edit-prerequisites" multiple size="4"></select></div>
           <p class="muted-copy" id="race-edit-hint">More advanced car eligibility, grid formation and multiplayer payout controls are available in the native race editor.</p>
         </div>
-      </section>
-      <div id="position-fields" class="double-fields" hidden><div class="field"><label for="inspect-x">X</label><input id="inspect-x" type="number"></div><div class="field"><label for="inspect-y">Y</label><input id="inspect-y" type="number"></div></div>
-      <div id="point-coordinate-fields" class="double-fields" hidden>
-        <div class="field"><label for="inspect-point-x">Point X</label><input id="inspect-point-x" type="number" step="0.1"></div>
-        <div class="field"><label for="inspect-point-y">Point Y</label><input id="inspect-point-y" type="number" step="0.1"></div>
-      </div>
-      <p id="point-help" class="muted-copy" hidden>Drag the road or region body to move the whole shape. Drag its handles to reshape it; Shift-click or double-click to insert a point.</p>
-      <div class="inspector-actions">
-        <button id="remove-point" class="gdt-btn" hidden>Remove point</button>
-        <button id="duplicate-entity" class="gdt-btn" type="button">Duplicate</button>
-        <button id="move-forward" class="gdt-btn">Bring forward</button>
-        <button id="move-backward" class="gdt-btn">Send backward</button>
-      </div>
-      <div class="transform-editor">
-        <div class="field"><label for="nudge-step">Move step (world units)</label><input id="nudge-step" type="number" min="1" max="500" value="20"></div>
-        <div class="nudge-buttons" aria-label="Move selected entity">
-          <button class="gdt-btn" data-nudge="0,-1" type="button">↑</button>
-          <button class="gdt-btn" data-nudge="-1,0" type="button">←</button>
-          <button class="gdt-btn" data-nudge="0,1" type="button">↓</button>
-          <button class="gdt-btn" data-nudge="1,0" type="button">→</button>
-        </div>
-        <div id="prop-transform-buttons" class="inspector-actions" hidden>
-          <button id="rotate-prop-left" class="gdt-btn" type="button">Rotate −15°</button>
-          <button id="rotate-prop-right" class="gdt-btn" type="button">Rotate +15°</button>
-          <button id="scale-prop-down" class="gdt-btn" type="button">Scale −</button>
-          <button id="scale-prop-up" class="gdt-btn" type="button">Scale +</button>
-        </div>
-      </div>
-    </section>
+      </details>
     <div class="panel-head section-divider"><h2>Map assets</h2><span id="entities-count" class="micro-tag">—</span></div>
     <div class="filter-row"><label for="entities-filter">Show</label><select id="entities-filter"><option value="all">All objects</option><option value="roads">Roads</option><option value="regions">Terrain</option><option value="props">Game scenery & edits</option><option value="markers">Markers</option></select></div>
     <div id="entity-list" class="entity-list" aria-label="World entities"></div>
