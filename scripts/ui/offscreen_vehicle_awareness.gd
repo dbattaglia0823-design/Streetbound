@@ -23,8 +23,12 @@ const MAX_ONSCREEN_HOLD_S := 1.0
 const MIN_ONSCREEN_HOLD_S := 0.25
 const VISIBLE_MARGIN_PX := 45.0
 const EDGE_MARGIN := Vector2(58.0, 76.0)
-const CHIP_WIDTH := 92.0
-const CHIP_HEIGHT := 27.0
+# Measure each distance caption instead of reserving a fixed-width box.
+const CHIP_FONT_SIZE := 10
+const CHIP_PAD_X := 4.0
+const CHIP_PAD_Y := 2.0
+const CHIP_ARROW_RADIUS := 5.5
+const CHIP_ARROW_GAP := 3.0
 const INK := Color("#e8f0e9")
 const ROAD := Color("#ffa85e")
 const RIVAL := Color("#83cefd")
@@ -122,6 +126,16 @@ static func edge_position(from_screen: Vector2, toward_screen: Vector2,
 static func distance_caption(distance_m: float, _rival: bool = false) -> String:
 	# Show only the distance, rounded to individual feet for live updates.
 	return "%d FT" % roundi(maxf(0.0,distance_m)*3.28084)
+
+
+## Font measurement uses the very same font and size as the draw call.
+## The arrow fits within its radius at every rotation.
+static func chip_size(font: Font, caption: String) -> Vector2:
+	var text_width := ceilf(font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, CHIP_FONT_SIZE).x)
+	var text_height := ceilf(font.get_height(CHIP_FONT_SIZE))
+	return Vector2(
+		CHIP_PAD_X * 2.0 + CHIP_ARROW_RADIUS * 2.0 + CHIP_ARROW_GAP + text_width,
+		CHIP_PAD_Y * 2.0 + maxf(CHIP_ARROW_RADIUS * 2.0, text_height))
 
 
 func _process(dt: float) -> void:
@@ -354,22 +368,25 @@ func _draw() -> void:
 			opacity = clampf(float(entry.get("hold_remaining_s",0.0)) /
 				maxf(float(entry.get("hold_total_s",1.0)),0.001),0.0,1.0)
 		color.a *= opacity
-		var bounds := Rect2(position - Vector2(CHIP_WIDTH*0.5,CHIP_HEIGHT*0.5),
-			Vector2(CHIP_WIDTH,CHIP_HEIGHT))
+		var caption := distance_caption(
+			float(entry.distance_m),bool(entry.rival))
+		var dimensions := chip_size(font,caption)
+		var bounds := Rect2((position - dimensions * 0.5).round(),dimensions)
 		var background := Color(0.032,0.047,0.056,0.88 * opacity)
 		var outline := color.darkened(0.3)
 		draw_rect(bounds,background,true)
-		draw_rect(bounds,outline,false,1.2)
-		var tip := position + Vector2(-32.0,0.0)
+		draw_rect(bounds,outline,false,1.0)
+		var center_y := bounds.get_center().y
+		var tip := Vector2(bounds.position.x + CHIP_PAD_X + CHIP_ARROW_RADIUS,center_y)
 		var angle: float = (entry.direction as Vector2).angle() + PI*0.5
 		var triangle := PackedVector2Array([
-			tip+Vector2(0.0,-7.0).rotated(angle),
-			tip+Vector2(-5.0,6.0).rotated(angle),
-			tip+Vector2(5.0,6.0).rotated(angle)])
+			tip+Vector2(0.0,-CHIP_ARROW_RADIUS).rotated(angle),
+			tip+Vector2(-3.5,4.0).rotated(angle),
+			tip+Vector2(3.5,4.0).rotated(angle)])
 		draw_colored_polygon(triangle,color)
-		var caption := distance_caption(
-			float(entry.distance_m),bool(entry.rival))
 		var ink := INK
 		ink.a *= opacity
-		draw_string(font,position + Vector2(-17.0,4.0),
-			caption,HORIZONTAL_ALIGNMENT_LEFT,58.0,11,ink)
+		var text_x := bounds.position.x + CHIP_PAD_X + CHIP_ARROW_RADIUS * 2.0 + CHIP_ARROW_GAP
+		var baseline := center_y - font.get_height(CHIP_FONT_SIZE) * 0.5 + font.get_ascent(CHIP_FONT_SIZE)
+		draw_string(font,Vector2(text_x,baseline),
+			caption,HORIZONTAL_ALIGNMENT_LEFT,-1,CHIP_FONT_SIZE,ink)
