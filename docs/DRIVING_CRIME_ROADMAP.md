@@ -146,6 +146,40 @@ during a wanted pursuit is a bust, not a teleport escape.
   Verify mouse, keyboard, viewport scaling and contact-specific layouts
   visually in a real driving session.
 
+## Map Builder usability — contract & race authoring
+
+- **Native contact editor:** Identity and dialogue now have their own tab,
+  separate from contract configuration. Job tabs expose a list of up to eight
+  contracts, safe *new/duplicate/delete/reorder* commands, a difficulty preset,
+  mission objectives, rewards, wanted level and progression requirements.
+  Duplicating a job issues a fresh stable ID (it never reuses the original
+  completion history); changing a title or order preserves existing job IDs.
+- **Browser contact editor:** displays a live mission summary, descriptive
+  marker-link validation messages, job count, duplicate and ordering controls,
+  difficulty presets, arrival tolerance and crew wait controls. Invalid
+  destination links are surfaced before export; the full world schema
+  remains authoritative on save/import.
+- **Gameplay customization:** the robbery crew wait defaults to 7 seconds but
+  can be authored between **3–30 seconds**. A job's delivery/robbery stop
+  radius defaults to 12 m and can be set to **6–30 m**. The mission runtime
+  actually honors these settings, and both native Godot and browser world
+  validation enforce the same bounds. Older maps keep their old defaults.
+- **Browser race editor:** an always-accessible collapsible *Races & Events*
+  panel edits existing races' name, category, difficulty, laps (circuits),
+  time limit, checkpoint/start radii, solo cash/driver/car XP, first-win
+  cash/driver/car XP, required driver/car level, repeatability and
+  prerequisite event links. All changes pass the existing world normalization
+  rules; cyclic/missing prerequisites and out-of-bounds rewards are rejected.
+  Race IDs, route checkpoints, starting grids and opponent pools are retained.
+- **Native race editor:** already provides a mature tabbed race form
+  (race settings, enemy vehicles, career progression and multiplayer
+  payouts). It remains the preferred tool for designing new routes and
+  arranging race-specific starting grids.
+- Testing: `node --test map-editor/tests/*.test.mjs` includes the new
+  `event-authoring.test.mjs` and `tests/driving_contracts_test.gd`
+  exercises native job duplication/reordering, schema and mission knobs.
+  Do not merge without latest-head Godot and browser test results.
+
 ## Next phases (not yet implemented)
 
 1. Expand the initial map-authored courier/getaway/smuggling contracts
