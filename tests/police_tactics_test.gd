@@ -112,6 +112,18 @@ func run() -> void:
 		str(police.get("phase"))=="chase"
 		and is_equal_approx(float(police.get("search_clock")),0.0)
 		and (police.get("last_seen_position_m") as Vector2)==Vector2(45,45))
+	# Dispatch retries instead of materializing a cruiser on top of the
+	# player or prematurely failing a legitimate robbery contract.
+	police.set("wanted_level",3)
+	police.set("phase","dispatch")
+	police.set("dispatch_clock",0.0)
+	police.set("dispatch_retry_clock",100.0)
+	police.call("_physics_process",1.0)
+	check("no_safe_spawn_keeps_alert_active_during_dispatch",
+		int(police.get("wanted_level"))==3 and str(police.get("phase"))=="dispatch")
+	police.call("_physics_process",Police.DISPATCH_TIMEOUT_SECONDS)
+	check("no_safe_spawn_alert_eventually_expires_without_ambush",
+		int(police.get("wanted_level"))==0 and str(police.get("phase"))=="clear")
 	police.free()
 	car.queue_free()
 	print("POLICE TACTICS: %d failures" % failures.size())
