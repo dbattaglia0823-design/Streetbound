@@ -361,5 +361,5 @@ func _draw() -> void:
 	draw_arc(gate,radius,0,TAU,64,Color("#ffcf76"),5,true)
 	draw_circle(gate,10,Color("#ffcf76"))
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode==KEY_F and can_stage():
+	if event.is_action_pressed("interact") and not event.is_echo() and can_stage():
 		if start_race():get_viewport().set_input_as_handled()
