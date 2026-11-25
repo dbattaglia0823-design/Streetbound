@@ -5,6 +5,7 @@ extends Node2D
 const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
+const StartArea=preload("res://scripts/world/race_start_area.gd")
 const InteractionSpeed=preload("res://scripts/world/interaction_speed.gd")
 const ContactScreen = preload("res://scripts/ui/contact_contract_screen.gd")
 const ContactVisual=preload("res://scripts/world/contract_contact_visual.gd")
@@ -102,6 +103,8 @@ func _enabled(marker: Dictionary) -> bool:
 	return bool(marker.get("properties",{}).get("enabled",true)) and Rules.unlocked(marker,economy,world_id)
 
 func _is_busy() -> bool:
+	for service in get_tree().get_nodes_in_group("streetbound_police"):
+		if int(service.get("wanted_level"))>0:return true
 	for race in races:
 		if is_instance_valid(race) and str(race.get("state")) in ["countdown","running"]:return true
 	if is_instance_valid(contracts) and not (contracts.get("active") as Dictionary).is_empty():return true
@@ -189,6 +192,7 @@ func activate() -> void:
 			if race==null or not bool(race.get("available")):
 				_show_info(_nearby,"No linked race is ready. Configure the mission's Race ID in the map builder.")
 				return
+			if StartArea.busy(race):return
 			if race.has_method("_lock_reason") and not str(race.call("_lock_reason")).is_empty():return
 			world.stream_at(Grid.point(Grid.player_slot(race.definition))*PPM)
 			Grid.teleport(player,Grid.player_slot(race.definition))
