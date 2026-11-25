@@ -230,6 +230,11 @@ func activate() -> void:
 func _open_contact(contact: Dictionary) -> void:
 	if _dialog_open or not is_instance_valid(contact_screen) or not is_instance_valid(contracts):
 		return
+	# Authored markers enter the scene tree before the new contract manager.
+	# Refresh the late-bound manager whenever this screen opens.
+	contact_screen.set("contracts", contracts)
+	contact_screen.set("economy", economy)
+	contact_screen.set("world_id", world_id)
 	contact_screen.call("open_contact", contact)
 
 
