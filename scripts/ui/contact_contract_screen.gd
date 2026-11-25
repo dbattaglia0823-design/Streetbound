@@ -387,7 +387,7 @@ func _exit_tree() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_open:
 		return
-	var close_key := event.is_action_pressed("pause") or (
+	var close_key: bool = event.is_action_pressed("pause") or (
 		event is InputEventKey and event.pressed and not event.echo and
 		(event.keycode == KEY_ESCAPE or event.physical_keycode == KEY_ESCAPE))
 	if close_key:
