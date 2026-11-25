@@ -41,6 +41,17 @@ func run() -> void:
 	await process_frame
 	service.set_physics_process(false)
 	check("station_detected", service._location_type() == "station")
+	var original_capacity: int = service.damage.max_health_points
+	service.damage.max_health_points = 3600
+	service.damage.integrity = 15.0
+	service._apply_drive_condition()
+	service._update_gauges()
+	check("large_car_normalized_visual_and_drive_condition",
+		is_equal_approx(service.damage.current_health_points(), 540.0)
+		and is_equal_approx(float(service.engine_smoke.get("engine_health")), 15.0)
+		and is_equal_approx(float(service.gauges.get("engine_fraction")), 0.15)
+		and is_equal_approx(player.damage_drive_fraction, 0.95))
+	service.damage.max_health_points = original_capacity
 
 	service.damage.integrity = 10.0
 	var original_balance: int = inventory.balance

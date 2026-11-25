@@ -2,6 +2,9 @@ class_name VehicleConfig
 extends Resource
 ## SI units throughout; the controller alone converts metres to world pixels.
 enum Drivetrain { FWD, RWD, AWD }
+@export_group("Durability")
+## Stock structural health in gameplay points, not a crash safety rating.
+@export_range(1, 10000, 1) var max_health_points: int = 2000
 @export_group("Powertrain")
 @export var mass_kg: float = 1450.0
 @export var engine_torque_nm: float = 470.0

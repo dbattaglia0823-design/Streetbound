@@ -1,5 +1,5 @@
 extends Node2D
-## Lightweight world-space hood smoke for damaged player vehicles.
+## Lightweight world-space hood smoke for damaged vehicles.
 ## Health controls ONLY visuals; VehicleDamage handles drivetrain effects.
 ## Puffs remain where emitted instead of rotating with the moving car.
 const PPM := 20.0
@@ -14,10 +14,11 @@ var _accumulator := 0.0
 var _last_vehicle_position := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
 
-static func smoke_strength(health: float) -> float:
-	if not is_finite(health) or health >= SMOKE_START_HEALTH:
+## Input is remaining health percentage (0–100), never raw hit points.
+static func smoke_strength(health_percentage: float) -> float:
+	if not is_finite(health_percentage) or health_percentage >= SMOKE_START_HEALTH:
 		return 0.0
-	return pow(clampf((SMOKE_START_HEALTH - maxf(0.0, health)) /
+	return pow(clampf((SMOKE_START_HEALTH - maxf(0.0, health_percentage)) /
 		SMOKE_START_HEALTH, 0.0, 1.0), 0.75)
 
 func _ready() -> void:
@@ -37,8 +38,12 @@ func _ready() -> void:
 	vehicle.vehicle_reset.connect(clear_puffs)
 	set_process(smoke_strength(engine_health) > 0.0)
 
+## Compatibility for existing callers/tests that already pass percentages.
 func set_health(health: float) -> void:
-	engine_health = clampf(health, 0.0, 100.0) if is_finite(health) else 100.0
+	set_health_percentage(health)
+
+func set_health_percentage(percent: float) -> void:
+	engine_health = clampf(percent, 0.0, 100.0) if is_finite(percent) else 100.0
 	# Existing smoke fades naturally after repairs. New emissions stop at
 	# healthy condition or when changing to a healthy vehicle.
 	set_process(smoke_strength(engine_health) > 0.0 or not puffs.is_empty())

@@ -4,6 +4,8 @@ signal impacted(strength: float)
 ## World-space collision details for speed-dependent crash visuals.
 signal crash_contact(closing_speed_mps: float, contact_point_px: Vector2,
 	surface_normal: Vector2, pre_impact_velocity_mps: Vector2)
+## Damage-only contact signal; existing crash VFX/audio signals stay unchanged.
+signal damage_contact(closing_speed_mps: float, contact_point_px: Vector2, surface_normal: Vector2, pre_impact_velocity_mps: Vector2)
 signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
@@ -554,6 +556,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 							PIXELS_PER_METER * 1.25 * weight_factor)
 					impacted.emit(impact_speed)
 					crash_contact.emit(impact_speed,collision.get_position(),normal,pre_impact_velocity)
+					var damage_speed := impact_speed
+					if other is VehicleController2D:
+						var other_car := other as VehicleController2D
+						damage_speed = maxf(0.0, -(pre_impact_velocity - other_car.linear_velocity).dot(normal))
+						other_car.damage_contact.emit(damage_speed, collision.get_position(), -normal, other_car.linear_velocity)
+					damage_contact.emit(damage_speed, collision.get_position(), normal, pre_impact_velocity)
 			else:
 				# Buildings and barriers stay hard, with the original response.
 				linear_velocity += normal * impact_speed * (1.0 + config.collision_restitution)
@@ -561,6 +569,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 				yaw_rate *= 0.4
 				impacted.emit(impact_speed)
 				crash_contact.emit(impact_speed,collision.get_position(),normal,pre_impact_velocity)
+				damage_contact.emit(impact_speed, collision.get_position(), normal, pre_impact_velocity)
 		move_and_collide(collision.get_remainder().slide(normal))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
 		linear_velocity = Vector2.ZERO

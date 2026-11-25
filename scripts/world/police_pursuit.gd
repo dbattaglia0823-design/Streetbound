@@ -10,6 +10,10 @@ const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const PlannerScript = preload("res://scripts/world/road_route_planner.gd")
 const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
+const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
+const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
+## Current unmarked prototype cruiser. Future police model configs set their own capacity.
+const PROTOTYPE_POLICE_HEALTH := 2600
 const ROUTE_INTERVAL := 0.75
 const SEARCH_SWEEP_INTERVAL := 4.5
 const DISPATCH_RETRY_SECONDS := 3.0
@@ -235,6 +239,14 @@ func _spawn_units() -> void:
 		car.z_index = 8
 		car.add_to_group("police_vehicle")
 		add_child(car)
+		car.config.max_health_points = PROTOTYPE_POLICE_HEALTH
+		var health = DamageState.new()
+		health.max_health_points = car.config.max_health_points
+		var smoke := Node2D.new()
+		smoke.set_script(DamageSmoke)
+		smoke.set("vehicle", car)
+		car.add_child(smoke)
+		car.damage_contact.connect(_on_officer_impact.bind(car, health, smoke))
 		var identifier := Label.new()
 		identifier.text = "POLICE"
 		identifier.position = Vector2(-27,-61)
@@ -248,10 +260,22 @@ func _spawn_units() -> void:
 		add_child(driver)
 		units.append({"car":car,"driver":driver,
 			"role":Tactics.role(units.size(),wanted_level),
-			"blocking":false,"label":identifier})
+			"blocking":false,"label":identifier,"damage":health})
 		selected.append(position_m)
 	for index in units.size():
 		_refresh_unit_route(index)
+
+func _on_officer_impact(speed_mps: float, _contact: Vector2, _normal: Vector2,
+		_velocity: Vector2, car: VehicleController2D, health: RefCounted, smoke: Node2D) -> void:
+	if not is_instance_valid(car):
+		return
+	var applied: float = health.call("register_impact", speed_mps, Time.get_ticks_msec() / 1000.0)
+	if applied <= 0.0:
+		return
+	car.damage_drive_fraction = float(health.call("drive_fraction"))
+	if is_instance_valid(smoke):
+		smoke.call("set_health_percentage", health.call("health_percentage"))
+	DamageState.show_damage_number(car, applied, true)
 
 func _refresh_unit_route(index: int) -> void:
 	if planner == null or index < 0 or index >= units.size():
@@ -261,7 +285,7 @@ func _refresh_unit_route(index: int) -> void:
 	var driver: Node = entry["driver"]
 	if not is_instance_valid(car) or not is_instance_valid(driver):
 		return
-	if bool(entry.get("blocking",false)):
+	if car.damage_drive_fraction <= 0.0 or bool(entry.get("blocking",false)):
 		driver.call("stop")
 		car.command = Vector4(0.0,1.0,0.0,0.0)
 		return
@@ -310,7 +334,7 @@ func _line_of_sight() -> bool:
 			exclusion.append(officer.get_rid())
 	for item in units:
 		var officer: VehicleController2D=item["car"]
-		if not is_instance_valid(officer):
+		if not is_instance_valid(officer) or officer.damage_drive_fraction <= 0.0:
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
 		if distance_m>sight_m:
@@ -490,6 +514,10 @@ func _physics_process(dt: float) -> void:
 		var entry: Dictionary=units[index]
 		var officer: VehicleController2D=entry["car"]
 		if not is_instance_valid(officer):
+			continue
+		if officer.damage_drive_fraction <= 0.0:
+			entry["driver"].call("stop")
+			officer.command = Vector4(0.0, 1.0, 0.0, 0.0)
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
 		nearest = minf(nearest,distance_m)
