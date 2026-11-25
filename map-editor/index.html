@@ -311,7 +311,7 @@
         <div id="inspect-contract-contact" hidden>
           <h3>Contract Giver — Mission Configuration</h3>
           <p class="asset-hint">Drive up to this person to see their available jobs. Place destinations and robbery targets first, then configure the offer like a race.</p>
-          <div class="field"><label for="contact-npc-style">Contact appearance</label><select id="contact-npc-style"><option value="street">Street</option><option value="business">Business</option><option value="mechanic">Mechanic</option><option value="casual">Casual</option></select></div>
+          <div class="field"><label for="contact-npc-style">Contact appearance</label><select id="contact-npc-style"><option value="street">Street</option><option value="business">Business</option><option value="mechanic">Mechanic</option><option value="casual">Casual</option><option value="racing">Racing Promoter</option></select></div>
           <div class="field"><label for="contact-role">Contact role</label><input id="contact-role" maxlength="60" placeholder="e.g. Independent Fixer (blank uses style personality)"></div>
           <div class="field"><label for="contact-greeting">Greeting</label><input id="contact-greeting" maxlength="180" placeholder="What this person says to the player"></div>
           <div class="field"><label for="contact-bio">Contact biography</label><textarea id="contact-bio" rows="3" maxlength="240" spellcheck="false" placeholder="Background, attitude, specialties"></textarea></div>
@@ -332,7 +332,7 @@
             <div class="double-fields"><div class="field"><label for="contact-offer-cash">Cash reward ($)</label><input id="contact-offer-cash" type="number" min="0" max="10000" step="1"></div><div class="field"><label for="contact-offer-time">Time limit (seconds)</label><input id="contact-offer-time" type="number" min="60" max="900" step="1"></div></div>
             <div class="double-fields"><div class="field"><label for="contact-offer-player-xp">Driver XP</label><input id="contact-offer-player-xp" type="number" min="0" max="1500" step="1"></div><div class="field"><label for="contact-offer-car-xp">Vehicle XP</label><input id="contact-offer-car-xp" type="number" min="0" max="1200" step="1"></div></div>
             <div class="double-fields"><div class="field"><label for="contact-offer-rep">Underground reputation</label><input id="contact-offer-rep" type="number" min="0" max="30" step="1"></div><div class="field"><label for="contact-offer-wanted">Wanted level</label><input id="contact-offer-wanted" type="number" min="0" max="5" step="1"></div></div>
-            <div class="double-fields"><div class="field"><label for="contact-offer-required-level">Required driver level</label><input id="contact-offer-required-level" type="number" min="1" max="100" step="1"></div><div class="field"><label for="contact-offer-required-rep">Required underground reputation</label><input id="contact-offer-required-rep" type="number" min="0" max="100000" step="1"></div></div>
+            <div class="field"><label for="contact-offer-required-race">Required race victory</label><select id="contact-offer-required-race"></select></div><div class="double-fields"><div class="field"><label for="contact-offer-required-level">Required driver level</label><input id="contact-offer-required-level" type="number" min="1" max="100" step="1"></div><div class="field"><label for="contact-offer-required-rep">Required underground reputation</label><input id="contact-offer-required-rep" type="number" min="0" max="100000" step="1"></div></div>
           </div>
           <p class="asset-hint" id="contact-editor-help">Jobs are saved in marker properties and validated before publishing. Changing the title preserves career progression; duplicates use new IDs.</p>
         </div>
@@ -402,6 +402,11 @@
             <div class="field"><label for="race-edit-first-xp">First-win driver XP bonus</label><input id="race-edit-first-xp" type="number" min="0" max="100000" step="1"></div>
             <div class="field"><label for="race-edit-first-car-xp">First-win vehicle XP bonus</label><input id="race-edit-first-car-xp" type="number" min="0" max="100000" step="1"></div>
           </div>
+          <div class="event-summary">Underground &amp; Stakes</div>
+          <p class="muted-copy">Wanted level 0 is legal. Illegal race winners must clear police to collect rewards. A paid entry fee is lost if the race fails.</p>
+          <div class="double-fields"><div class="field"><label for="race-edit-heat">Wanted level (0 = legal)</label><input id="race-edit-heat" type="number" min="0" max="5" step="1"></div><div class="field"><label for="race-edit-escape">Escape deadline (seconds)</label><input id="race-edit-escape" type="number" min="30" max="300" step="1"></div></div>
+          <div class="double-fields"><div class="field"><label for="race-edit-entry">Entry fee ($)</label><input id="race-edit-entry" type="number" min="0" max="50000" step="1"></div><div class="field"><label for="race-edit-rep">Underground reputation reward</label><input id="race-edit-rep" type="number" min="0" max="30" step="1"></div></div>
+          <div class="field"><label for="race-edit-required-rep">Required underground reputation</label><input id="race-edit-required-rep" type="number" min="0" max="100000" step="1"></div>
           <label class="check"><input id="race-edit-repeatable" type="checkbox" checked> Repeatable after first victory</label>
           <div class="field"><label for="race-edit-prerequisites">Prerequisite races (Ctrl-click to multi-select)</label><select id="race-edit-prerequisites" multiple size="4"></select></div>
           <p class="muted-copy" id="race-edit-hint">More advanced car eligibility, grid formation and multiplayer payout controls are available in the native race editor.</p>
