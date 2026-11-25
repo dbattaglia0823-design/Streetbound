@@ -337,6 +337,8 @@ func _select_job(index: int) -> void:
 		int(offer.get("required_underground_rep", 0)),
 		"REPEATABLE" if repeatable else "ONE-TIME"]
 	status_label.text = "STATUS: " + ViewData.offer_state(count, repeatable, lock)
+	if not lock.is_empty() and not (count>0 and not repeatable):
+		status_label.text += " / "+lock
 	accept_button.disabled = not ViewData.can_accept(count, repeatable, lock)
 	accept_button.text = "ACCEPT CONTRACT" if not accept_button.disabled else 		("COMPLETED" if count > 0 and not repeatable else "CONTRACT LOCKED")
 	feedback_label.text = ""
