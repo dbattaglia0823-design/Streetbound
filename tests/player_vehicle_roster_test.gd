@@ -32,6 +32,8 @@ func run() -> void:
 			float(entry.width_m) > 1.6 and float(entry.wheelbase_m) > 2.0 and \
 			float(entry.mass_kg) > 450.0 and float(entry.brake_force_n) > 9000.0 \
 			and float(entry.power_kw) > 70.0
+		var capacity := Catalog.mission_capacity(entry)
+		all_metrics = all_metrics and capacity.x>=1 and capacity.x<=9 and capacity.y>=0 and capacity.y<=2000
 		if bool(entry.source_model_unverified):
 			unverified += 1
 	check("all_vehicle_pictures_exist", all_resources)
@@ -39,6 +41,9 @@ func run() -> void:
 	check("twelve_vehicle_brands", brands.size() >= 12, brands.size())
 	check("plausible_vehicle_baseline_data", all_metrics)
 	check("unknown_images_remain_flagged", unverified >= 0 and unverified < vehicles.size(), unverified)
+	check("truck_has_more_cargo_than_hypercar",Catalog.mission_capacity(Catalog.find_by_id("ford-f150")).y>Catalog.mission_capacity(Catalog.find_by_id("bugatti-chiron")).y)
+	check("single_seater_and_three_seat_exceptions",Catalog.mission_capacity(Catalog.find_by_id("bac-mono"))==Vector2i(1,0) and Catalog.mission_capacity(Catalog.find_by_id("mclaren-f1")).x==3)
+	check("escalade_capacity_propagates_to_config",Catalog.make_configuration(Catalog.find_by_id("cadillac-escalade")).seating_capacity==7)
 	# Calibration fields must reject malformed values, and individual
 	# axle hubs stay independent from neighboring car selections.
 	var default_front := Vector2(0.075, 0.25)

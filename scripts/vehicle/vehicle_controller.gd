@@ -60,6 +60,30 @@ var _traffic_impact_cooldown := 0.0
 var damage_drive_fraction := 1.0
 ## Fuel is a separate drivetrain constraint, including battery-electric cars.
 var fuel_drive_fraction := 1.0
+## Transient contract payload; never modify the shared stock/upgrade config.
+var mission_cargo_kg := 0.0
+var mission_passengers := 0
+const PASSENGER_MASS_KG := 75.0
+
+func can_carry_mission(passengers: int, cargo_kg: float) -> bool:
+	return config != null and passengers >= 0 and passengers < config.seating_capacity and is_finite(cargo_kg) and cargo_kg >= 0.0 and cargo_kg <= float(config.cargo_capacity_kg)
+
+func load_mission_payload(passengers: int, cargo_kg: float) -> bool:
+	if not can_carry_mission(passengers,cargo_kg):
+		return false
+	mission_passengers = passengers
+	mission_cargo_kg = cargo_kg
+	return true
+
+func clear_mission_payload() -> void:
+	mission_passengers = 0
+	mission_cargo_kg = 0.0
+
+func mission_payload_mass_kg() -> float:
+	return mission_cargo_kg + float(mission_passengers)*PASSENGER_MASS_KG
+
+func effective_mass_kg() -> float:
+	return maxf(config.mass_kg + mission_payload_mass_kg(),20.0)
 
 func _ready() -> void:
 	# World ink samples every physical racer (player, AI, remote peers).
@@ -78,6 +102,7 @@ func drafting_effect_strength() -> float:
 	return draft_strength
 
 func reset_vehicle() -> void:
+	clear_mission_payload()
 	transform = spawn_transform
 	linear_velocity = Vector2.ZERO
 	velocity = Vector2.ZERO
@@ -134,8 +159,8 @@ func on_upgrade_config_changed(_previous_capacity: float = 0.0) -> void:
 ## Two-axle longitudinal load transfer; no invented left/right wheel model.
 ## Signed forward acceleration unloads the nose, braking loads it. Keep a
 ## nonzero contact patch on each axle even during hard impacts/upgrades.
-static func axle_loads_n(vehicle_config: VehicleConfig, forward_accel_mps2: float) -> Vector2:
-	var mass := maxf(vehicle_config.mass_kg, 20.0)
+static func axle_loads_n(vehicle_config: VehicleConfig, forward_accel_mps2: float, payload_mass_kg: float = 0.0) -> Vector2:
+	var mass := maxf(vehicle_config.mass_kg + maxf(payload_mass_kg,0.0), 20.0)
 	var total := mass * 9.81
 	var front_fraction := clampf(vehicle_config.front_weight, 0.3, 0.7)
 	var height := clampf(vehicle_config.center_of_gravity_height_m, 0.25, 1.1)
@@ -305,11 +330,11 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	else:
 		var steer_target := steer_input * max_steer + assist * signf(longitudinal_speed)
 		steering = lerpf(steering, steer_target, 1.0 - exp(-config.steering_response * dt))
-	var mass := maxf(config.mass_kg, 20.0)
+	var mass := effective_mass_kg()
 	var grip := config.tire_grip * surface_grip
 	# One tick of filtered acceleration gives stable, frame-rate independent
 	# pitch-load response without predicting tire forces in a feedback loop.
-	var loads := axle_loads_n(config, longitudinal_accel_mps2)
+	var loads := axle_loads_n(config, longitudinal_accel_mps2, mission_payload_mass_kg())
 	var front_load := loads.x
 	var rear_load := loads.y
 	front_axle_load_n = front_load

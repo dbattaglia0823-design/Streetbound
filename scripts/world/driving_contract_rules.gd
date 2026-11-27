@@ -62,6 +62,25 @@ const ROBBERY_RISK_RULES := {
 	"maximum":{"cash_factor":1.45,"hold_factor":1.5,"heat_delta":1,"rep_factor":1.25}
 }
 const MAX_PROFILE_CASH := 250000
+## Crew count excludes the driver. Cargo is a fictional mission load in kg.
+const ROBBERY_PAYLOADS := {
+	"convenience":Vector2i(1,25),"pawn":Vector2i(1,75),
+	"jewelry":Vector2i(2,120),"warehouse":Vector2i(3,350),"bank":Vector2i(3,500)}
+const CARGO_FACTORS := {"quick":0.65,"standard":1.0,"maximum":1.35}
+
+static func robbery_payload(offer: Dictionary) -> Vector2i:
+	var payload: Vector2i = ROBBERY_PAYLOADS.get(str(offer.get("robbery_tier","")),Vector2i.ZERO)
+	return Vector2i(payload.x,ceili(float(payload.y)*float(CARGO_FACTORS.get(robbery_risk(offer),1.0))))
+
+static func capacity_reason(offer: Dictionary, seats: int, cargo_capacity: int) -> String:
+	var payload := robbery_payload(offer)
+	if payload == Vector2i.ZERO:
+		return ""
+	if seats < payload.x+1:
+		return "NEEDS %d SEATS (INCLUDING DRIVER)" % (payload.x+1)
+	if cargo_capacity < payload.y:
+		return "NEEDS %d KG CARGO CAPACITY" % payload.y
+	return ""
 
 static func robbery_profile(offer: Dictionary) -> Dictionary:
 	return ROBBERY_TIERS.get(str(offer.get("robbery_tier","")),{}).duplicate(true)

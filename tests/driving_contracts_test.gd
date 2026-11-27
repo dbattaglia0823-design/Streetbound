@@ -318,6 +318,8 @@ func run() -> void:
 	check("evade_and_dropoff_completes_robbery",economy.balance==balance_before_robbery+4000
 		and (staged.get("active") as Dictionary).is_empty())
 	# Exercise a real in-game stage transition with a selected maximum mode.
+	vehicle.config.seating_capacity=5
+	vehicle.config.cargo_capacity_kg=300
 	economy.underground_reputation=60
 	staged.set("active",synthetic.duplicate(true))
 	staged.set("destination",contact_dropoff.duplicate(true))
@@ -330,6 +332,8 @@ func run() -> void:
 	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
 	vehicle.linear_velocity=Vector2.ZERO
 	var before_risk: int = economy.balance
+	check("payload_capacity_required_for_maximum", Contracts.robbery_payload(maximum)==Vector2i(2,162) and Contracts.capacity_reason(maximum,2,300)!="" and Contracts.capacity_reason(maximum,5,100)!="" and Contracts.capacity_reason(maximum,5,300)=="")
+	check("no_payload_before_handoff", vehicle.mission_payload_mass_kg()==0.0)
 	staged.call("_physics_process",4.0)
 	staged.call("_request_early_finish")
 	staged.call("_physics_process",0.01)
@@ -344,12 +348,21 @@ func run() -> void:
 	staged.call("_request_early_finish")
 	staged.call("_physics_process",0.01)
 	check("early_finish_commits_completed_standard_checkpoint", str(staged.get("stage"))=="delivery" and Contracts.robbery_risk(staged.get("offer_settings"))=="standard" and int(test_officer.get("wanted_level"))==3)
+	check("actual_checkpoint_loads_only_completed_cargo", vehicle.mission_cargo_kg==120.0 and vehicle.mission_passengers==2 and vehicle.mission_payload_mass_kg()==270.0)
 	vehicle.position=Vector2(contact_dropoff.x,contact_dropoff.y)*20.0
 	staged.call("_physics_process",0.01)
 	check("risk_job_does_not_pay_until_heat_cleared", economy.balance==before_risk)
 	test_officer.set("wanted_level",0)
 	staged.call("_physics_process",0.01)
 	check("risk_settlement_uses_actual_completed_checkpoint", economy.balance==before_risk+25000)
+	check("delivery_clears_payload", vehicle.mission_payload_mass_kg()==0.0)
+	check("payload_load_does_not_mutate_stock_mass", vehicle.load_mission_payload(2,120.0) and is_equal_approx(vehicle.effective_mass_kg(),vehicle.config.mass_kg+270.0))
+	var loaded_mass := vehicle.effective_mass_kg()
+	var loads := VehicleController2D.axle_loads_n(vehicle.config,0.0,vehicle.mission_payload_mass_kg())
+	check("loaded_axle_forces_match_physical_mass", is_equal_approx(loads.x+loads.y,loaded_mass*9.81))
+	check("over_capacity_load_rejected", not vehicle.load_mission_payload(5,0.0) and not vehicle.load_mission_payload(1,301.0) and not vehicle.load_mission_payload(1,-1.0))
+	vehicle.reset_vehicle()
+	check("reset_clears_payload", vehicle.mission_payload_mass_kg()==0.0)
 	staged.call("_physics_process",0.01)
 	check("risk_settlement_cannot_pay_twice", economy.balance==before_risk+25000)
 	staged.free()

@@ -47,6 +47,11 @@ var feedback_label: Label
 var accept_button: Button
 var risk_selector: OptionButton
 var selected_risk := "standard"
+
+func _capacity_lock(offer: Dictionary) -> String:
+	if is_instance_valid(contracts) and contracts.has_method("vehicle_requirement"):
+		return str(contracts.call("vehicle_requirement",offer))
+	return ""
 var selected_accent := HIGHLIGHT
 
 func _panel_style(bg: Color, edge: Color, thick: int = 1, rounding: int = 12) -> StyleBoxFlat:
@@ -347,12 +352,17 @@ func _select_job(index: int) -> void:
 	var wanted: int = Rules.configured_wanted(kind, offer)
 	var time_seconds: float = Rules.configured_time(kind, offer)
 	var lock := _lock_reason(offers[index])
+	if lock.is_empty():
+		lock = _capacity_lock(offer)
 	var count := _completion_count(offers[index])
 	var repeatable := bool(offer.get("repeatable", true))
 	job_title.text = str(offer.get("title", "Driving Contract")).to_upper()
 	job_subtitle.text = "%s   /   %s DIFFICULTY" % [
 		kind.to_upper(), str(offer.get("difficulty", "rookie")).to_upper()]
 	description_label.text = ViewData.description(offer)
+	var payload := Rules.robbery_payload(offer)
+	if payload != Vector2i.ZERO:
+		description_label.text += "\nVehicle: %d seats including driver / %d kg cargo / +%d kg loaded mass." % [payload.x+1,payload.y,payload.y+payload.x*75]
 	payout_label.text = "%s CASH" % economy.call("dollars", int(rewards.get("cash", 0)))
 	xp_label.text = "+%d DRIVER XP   /   +%d CAR XP\n+%d UNDERGROUND REP" % [
 		int(rewards.get("player_xp", 0)),
@@ -379,6 +389,9 @@ func _accept_selected() -> void:
 	var offer: Dictionary = offers[selected_index]
 	if not ViewData.can_accept(_completion_count(offer),
 			bool(offer.get("repeatable", true)), _lock_reason(offer)):
+		_select_job(selected_index)
+		return
+	if not Rules.robbery_profile(offer).is_empty() and not _capacity_lock(Rules.with_robbery_risk(offer,selected_risk)).is_empty():
 		_select_job(selected_index)
 		return
 	var response: Dictionary

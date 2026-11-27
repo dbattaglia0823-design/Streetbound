@@ -26,3 +26,5 @@
 - Robbery career phase 1: five game-owned payout/heat/reputation tiers, race reputation progression, stock Morrow Coast solo contact board using existing road anchors and regression coverage. No crew hiring or cargo yet; CI and live validation pending.
 
 - Robbery career phase 2: selectable Quick/Standard/Maximum profile risks, bounded risk-dependent cash/rep and heat, live crew progress meter and optional lower completed checkpoint, with regression tests. Existing legacy offers unchanged. CI and visual playtest pending.
+
+- Robbery career phase 3: seating/cargo stats for 256 vehicles, mission capacity locks and transient physical load after pickup; regression tests added, live handling and CI unverified.

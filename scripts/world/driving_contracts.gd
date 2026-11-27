@@ -92,6 +92,13 @@ func _find_robbery_target(id: String) -> Dictionary:
 			return item
 	return {}
 
+func vehicle_requirement(offer: Dictionary) -> String:
+	if Rules.robbery_payload(offer) == Vector2i.ZERO:
+		return ""
+	if not is_instance_valid(player) or player.config == null:
+		return "VEHICLE UNAVAILABLE"
+	return Rules.capacity_reason(offer,player.config.seating_capacity,player.config.cargo_capacity_kg)
+
 func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	if not is_instance_valid(economy):
 		return "CONTRACTS UNAVAILABLE"
@@ -151,6 +158,9 @@ func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "
 			return {"result":"invalid","message":"Invalid robbery risk selection"}
 	elif risk != "standard":
 		return {"result":"invalid","message":"This contract does not support risk selection"}
+	var capacity_lock := vehicle_requirement(chosen)
+	if not capacity_lock.is_empty():
+		return {"result":"vehicle_capacity","message":capacity_lock}
 	return try_start(source,chosen)
 
 func _waypoints() -> Node:
@@ -189,6 +199,9 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 		return {"result":"invalid","message":"Invalid robbery profile or risk"}
 	if not Rules.robbery_profile(authored_offer).is_empty() and int(economy.get("underground_reputation")) < Rules.required_rep(authored_offer):
 		return {"result":"locked","message":"Insufficient underground reputation"}
+	var capacity_lock := vehicle_requirement(authored_offer)
+	if not capacity_lock.is_empty():
+		return {"result":"vehicle_capacity","message":capacity_lock}
 	var robbery: Dictionary = {}
 	if kind == "robbery":
 		robbery = _find_robbery_target(str(props.get("robbery_marker_id","")))
@@ -252,6 +265,8 @@ func _clear_route() -> void:
 		guide.call("clear_destination")
 
 func _end(message: String) -> void:
+	if is_instance_valid(player):
+		player.clear_mission_payload()
 	_clear_route()
 	active.clear()
 	destination.clear()
@@ -277,6 +292,10 @@ func _on_police_busted(_reason: String) -> void:
 func abandon() -> void:
 	if not active.is_empty():
 		_end("CONTRACT ABANDONED")
+
+func _exit_tree() -> void:
+	if is_instance_valid(player) and not active.is_empty():
+		player.clear_mission_payload()
 
 func _request_early_finish() -> void:
 	if not active.is_empty() and stage == "robbery":
@@ -334,6 +353,10 @@ func _physics_process(dt: float) -> void:
 		if robbery_progress >= Rules.configured_robbery_hold(offer_settings):
 			# Crew action happens inside the building; the player remains
 			# inside the getaway vehicle throughout the timed handoff.
+			var payload := Rules.robbery_payload(offer_settings)
+			if payload != Vector2i.ZERO and not player.load_mission_payload(payload.x,float(payload.y)):
+				_end("ROBBERY FAILED / VEHICLE CAPACITY")
+				return
 			var next_heat := Rules.configured_wanted("robbery",offer_settings)
 			if next_heat > 0 and not bool(police.call("start_pursuit",next_heat)):
 				_end("ROBBERY FAILED / NO POLICE ROUTE")
@@ -398,5 +421,7 @@ func _process(dt: float) -> void:
 			Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM) / PPM
 	readout.text = "%s / %s / %dm / %ds" % [
 		kind.to_upper(), objective, roundi(dist_m), ceili(remaining_seconds)]
+	if stage == "delivery" and player.mission_payload_mass_kg() > 0.0:
+		readout.text += "\nCREW %d / CARGO %.0f KG / +%.0f KG LOAD" % [player.mission_passengers,player.mission_cargo_kg,player.mission_payload_mass_kg()]
 	if notice_seconds > 0.0:
 		readout.text += " / " + notice
