@@ -56,16 +56,16 @@ func _prepare() -> void:
 	for prop in props:
 		if str(prop.kind)!="lamp" or Scenery.editor_hidden.has(Scenery.editor_key(prop)):continue
 		var p: Vector2=Vector2(float(prop.p[0]),float(prop.p[1]))
-		_add((p-origin_m)*PPM,Rules.style_at(world.data,p))
+		_add((p-origin_m)*PPM,world.environment_style_at(p,Rules.classify(str(prop.get("editor_name","")),"residential")))
 	if is_instance_valid(details):
 		for lamp in details.lamp_positions():
 			var p: Vector2=lamp.p
-			_add(p,Rules.style_at(world.data,origin_m+p/PPM,Rules.road_fallback(str(lamp.kind))))
+			_add(p,world.environment_style_at(origin_m+p/PPM,Rules.road_fallback(str(lamp.kind))))
 	for prop in props:
 		if not Rules.building_kind(str(prop.kind)) or Scenery.editor_hidden.has(Scenery.editor_key(prop)):continue
 		var center:=Vector2(float(prop.p[0]),float(prop.p[1]))
 		var size:=Vector2(float(prop.size[0]),float(prop.size[1]))*PPM
-		var style:=Rules.style_at(world.data,center)
+		var style: String=world.environment_style_at(center)
 		# A top-down entrance/roof-edge glow, not fabricated window geometry.
 		# Stable seed leaves some homes dark at night.
 		if style=="residential" and posmod(int(prop.get("seed",0)),4)==0:continue

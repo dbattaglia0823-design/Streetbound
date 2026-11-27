@@ -430,7 +430,7 @@ func _finish_decals(path: PackedVector2Array,road: Dictionary,width: float,stati
 			var p:=a+tangent*(at-passed)
 			if not Finish.owns(p,extent_px):continue
 			var n:=roundi(at/940.0)
-			var style:=Finish.style_at(world.data,origin_m+p/PPM,Finish.road_fallback(str(road.kind)))
+			var style: String=world.environment_style_at(origin_m+p/PPM,Finish.road_fallback(str(road.kind))) if world.has_method("environment_style_at") else Finish.style_at(world.data,origin_m+p/PPM,Finish.road_fallback(str(road.kind)))
 			var weight:=float(Finish.palette(style).wear)
 			var side: float=-1.0 if n%2==0 else 1.0
 			var shoulder:=p+normal*side*(width*.5-13.0)

@@ -589,6 +589,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                                 color=PALETTES.get(biome, PALETTES["grass"]),
                                 points=_polygon_points(entry["points"],width,height),authoring_id=str(entry["id"]))
             terrain.append(target)
+        target["editor_name"]=str(entry.get("name",""))[:120]
         if elevation>0:target["elevation"]=float(elevation)
         if barrier:
             from mountain_barriers import validate_polygon

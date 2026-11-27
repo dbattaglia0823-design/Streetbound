@@ -16,6 +16,7 @@ const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
+const FinishRules=preload("res://scripts/world/environment_finishing_rules.gd")
 const PPM := 20.0
 var data: Dictionary
 # Override is set before add_child(): either an isolated Test Drive in
@@ -67,6 +68,8 @@ var mark_clock := 0.0
 var rain_intensity := 0.0
 var _finish_clock:=0.0
 var _environment_night:=0.0
+var _environment_regions: Array[Dictionary]=[]
+var _finish_preview: CanvasModulate
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -138,6 +141,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	RoadWidthAdaptation.adapt(data)
 	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
 	mountain_diagnostics=Mountains.apply(data)
+	_environment_regions=FinishRules.region_profiles(data)
 	_index_terrain_cutouts()
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
@@ -326,6 +330,9 @@ func set_geometry_debug(enabled: bool) -> void:
 			overlay.set_enabled(enabled)
 
 
+func environment_style_at(p: Vector2,fallback: String="residential") -> String:
+	return FinishRules.style_at(data,p,fallback,_environment_regions)
+
 func get_rain_intensity() -> float:
 	return rain_intensity
 
@@ -340,6 +347,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
 			set_geometry_debug(not debug_geometry_enabled)
+			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and (key.keycode == KEY_F9 or key.physical_keycode == KEY_F9) and bool(data.get("editor_custom_test_drive",false)) and get_parent().get_node_or_null("WorldDaylight")==null:
+			# Isolated custom Test Drive preview only. Do not create a second
+			# ambient modulator when Phase 8 already provides one.
+			if is_instance_valid(_finish_preview):
+				_finish_preview.queue_free();_finish_preview=null
+			else:
+				_finish_preview=CanvasModulate.new();_finish_preview.color=Color(.48,.54,.72);add_child(_finish_preview)
 			get_viewport().set_input_as_handled()
 		elif key.pressed and not key.echo and (key.keycode == KEY_F7 or key.physical_keycode == KEY_F7):
 			set_performance_debug(not performance_debug_enabled)
@@ -626,8 +641,8 @@ func _process(dt: float) -> void:
 	if _finish_clock>=.25:
 		_finish_clock=0.0
 		var ambient: CanvasModulate=get_parent().get_node_or_null("WorldDaylight") as CanvasModulate
-		var finish=preload("res://scripts/world/environment_finishing_rules.gd")
-		_environment_night=finish.darkness(ambient.color) if is_instance_valid(ambient) and not editor_render_only else 0.0
+		if not is_instance_valid(ambient):ambient=_finish_preview
+		_environment_night=FinishRules.darkness(ambient.color) if is_instance_valid(ambient) and not editor_render_only else 0.0
 		for chunk in chunks.values():
 			if chunk.stream_active:chunk.set_environment_night(_environment_night)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.

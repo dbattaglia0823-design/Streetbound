@@ -25,7 +25,7 @@ func _near_junction(p: Vector2, radius: float) -> bool:
 	return false
 
 func _lamp(p: Vector2, heading: Vector2) -> void:
-	var style:=Rules.style_at(world.data,origin_m+p/PPM) if is_instance_valid(world) else "residential"
+	var style: String=world.environment_style_at(origin_m+p/PPM) if is_instance_valid(world) and world.has_method("environment_style_at") else "residential"
 	var colors:=Rules.palette(style)
 	# Warm street lantern with northwest sun shadow; a tiny deterministic
 	# illustrated element instead of an expensive real-time light source.

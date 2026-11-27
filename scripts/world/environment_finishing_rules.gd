@@ -22,7 +22,22 @@ static func classify(label: String,fallback: String="residential") -> String:
 		if token in value:return "residential"
 	return fallback
 
-static func style_at(data: Dictionary,p: Vector2,fallback: String="residential") -> String:
+## Named source parcels are already editable terrain regions. Build the
+## bounds once at load; prefer an exact interior, then the nearest frontage.
+static func region_profiles(data: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary]=[]
+	for terrain in data.get("terrain",[]):
+		var style:=classify(str(terrain.get("editor_name","")),"")
+		if style.is_empty():continue
+		var poly:=PackedVector2Array()
+		for p in terrain.get("points",[]):poly.append(Vector2(float(p[0]),float(p[1])))
+		if poly.size()<3:continue
+		var bounds:=Rect2(poly[0],Vector2.ZERO)
+		for point in poly:bounds=bounds.expand(point)
+		result.append({"style":style,"bounds":bounds,"poly":poly})
+	return result
+
+static func style_at(data: Dictionary,p: Vector2,fallback: String="residential",regions: Array[Dictionary]=[]) -> String:
 	var zones: Array=data.get("gameplay_zones",[])
 	for i in range(zones.size()-1,-1,-1):
 		var z: Dictionary=zones[i]
@@ -30,6 +45,21 @@ static func style_at(data: Dictionary,p: Vector2,fallback: String="residential")
 			var named:=classify(str(z.get("name","")),"")
 			if not named.is_empty():return named
 			if str(z.get("models",""))=="commercial":return "industrial"
+	var closest:=32.0
+	var frontage: String=""
+	for i in range(regions.size()-1,-1,-1):
+		var item: Dictionary=regions[i]
+		var bounds: Rect2=item.bounds
+		if not bounds.grow(32.0).has_point(p):continue
+		var poly: PackedVector2Array=item.poly
+		if bounds.has_point(p) and Geometry2D.is_point_in_polygon(p,poly):return str(item.style)
+		for j in poly.size():
+			var a:=poly[j];var b:=poly[(j+1)%poly.size()]
+			if a.distance_squared_to(b)<.001:continue
+			var distance:=p.distance_to(Geometry2D.get_closest_point_to_segment(p,a,b))
+			if distance<closest:
+				closest=distance;frontage=str(item.style)
+	if not frontage.is_empty():return frontage
 	var best:=1.0
 	var selected:=fallback
 	for district in data.get("districts",[]):
