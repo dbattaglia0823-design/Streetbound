@@ -3,6 +3,7 @@ extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
 const RoadJump = preload("res://scripts/world/road_jump.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const TunnelTerrainArt = preload("res://scripts/world/coast_tunnel_terrain.gd")
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
@@ -585,13 +586,12 @@ func _index_terrain_cutouts() -> void:
 ## of the collider and terrain cut mask. Index all touched cells, including
 ## the roof brow and outer banks beyond the excavation itself.
 func _build_tunnel_terrain_plans() -> void:
-	var TerrainArt = preload("res://scripts/world/coast_tunnel_terrain.gd")
 	if data.get("terrain_cuts",[]).is_empty():return
-	var regions:=TerrainArt.terrain_regions(data.terrain)
+	var regions:=TunnelTerrainArt.terrain_regions(data.terrain)
 	for cut in data.terrain_cuts:
 		var road_id:=int(cut.road)
 		if tunnel_terrain_plans.has(road_id):continue
-		var plan:=TerrainArt.build(data.roads[road_id],regions,tunnel_portals.has(road_id))
+		var plan:=TunnelTerrainArt.build(data.roads[road_id],regions,tunnel_portals.has(road_id))
 		if plan.is_empty():continue
 		tunnel_terrain_plans[road_id]=plan
 		for key in Mountains.cells(plan.bounds,data):
