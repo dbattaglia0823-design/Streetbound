@@ -12,8 +12,6 @@ static func valid(doc: Dictionary) -> bool:
 	var junctions: Variant=doc.get("junctionControls",[])
 	if not zones is Array or not junctions is Array:return false
 	if zones.size()>32 or junctions.size()>128:return false
-	if not zones.is_empty() or not junctions.is_empty():
-		if not doc.get("customMap",false):return false
 	var width:=float(doc.world.get("width",0))
 	var height:=float(doc.world.get("height",0))
 	for z in zones:
@@ -34,6 +32,11 @@ static func valid(doc: Dictionary) -> bool:
 		if not j.get("turns") is Array or j.turns.is_empty():return false
 		for turn in j.turns:
 			if turn not in ["left","straight","right"]:return false
+		for key in ["approach","lane"]:
+			var value: Variant=j.get(key,-1)
+			if not value is int and not value is float:return false
+			if not is_finite(float(value)) or float(value)!=floorf(float(value)) or float(value)<-1 or float(value)>(31 if key=="approach" else 5):return false
+		if int(j.get("lane",-1))>=0 and int(j.get("approach",-1))<0:return false
 	return true
 
 static func model_for(serial: int,count: int,models: String) -> int:

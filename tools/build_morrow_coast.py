@@ -10,6 +10,7 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from gameplay_authoring import validate as validate_gameplay, apply as apply_gameplay
 from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
 from elevation_map_audit import audit_elevated_objectives
@@ -1115,6 +1116,8 @@ length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 dealer_source = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
 authored_source = json.loads(dealer_source.read_text(encoding="utf-8")) if dealer_source.exists() else {}
 authored_dealers = authored_source.get("dealerships", [])
+gameplay_zones, junction_controls=validate_gameplay(authored_source,WIDTH,HEIGHT)
+apply_gameplay(JUNCTIONS,junction_controls,ROADS)
 from authored_markers import validate_markers
 from authored_races import authored_races
 authored_game_markers = validate_markers(authored_source.get("markers", []),
@@ -1139,6 +1142,8 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 # Apply the same once-only pavement/junction/scenery transform as runtime.
 # Legacy geometry and its chunk index keep the original road centerlines,
 # and future rebakes are explicitly marked so Godot never scales twice.
+if gameplay_zones:data['gameplay_zones']=gameplay_zones
+if junction_controls:data['editor_junction_controls']=junction_controls
 adapt_road_widths(data)
 apply_automatic_bridges(data)
 validate_open_cuts(data)

@@ -119,7 +119,9 @@ export function convertMorrowWorld(raw){
     morrowSourcePoiCount:raw.editor_source_poi_count??15,
     morrowRoadWidthScale:raw.road_width_scale??1,
     world:{width,height,seed:28114,base:'grass'},
-    roads,regions,props,markers,assets:[]
+    roads,regions,props,markers,assets:[],
+    ...(raw.gameplay_zones?{gameplayZones:raw.gameplay_zones}:{}),
+    ...(raw.editor_junction_controls?{junctionControls:raw.editor_junction_controls}:{})
   });
   return {doc:result,raw,stats:{roads:roads.length,regions:regions.length,
     landmarkMarkers:markers.length,proceduralProps:raw.props?.length||0,

@@ -30,7 +30,9 @@ func _ready(e) -> bool:
 	return e.source_ready and not e._editing_locked() and e.pending_drag.is_empty() and e.draft_points.is_empty()
 
 func _graph(e) -> Dictionary:
-	if not e.authoring.doc.get("junctionControls",[]).is_empty():return {}
+	if e.authoring.doc.get("junctionControls",[])!=e.authoring.initial.get("junctionControls",[]):return {}
+	if not e.map_switcher.custom and e.traffic_preview.wanted_key.is_empty():
+		return {"network":e.traffic_network,"data":e.world.data}
 	if e.traffic_preview.is_current():
 		# Draft preview currently does not split individual grade pieces.
 		# Never use its flattened topology to author a stacked crossing.
@@ -46,7 +48,7 @@ func _graph(e) -> Dictionary:
 func _race_graph(e) -> Dictionary:
 	if not e.map_switcher.custom:return _graph(e)
 	var doc: Dictionary=e.authoring.doc
-	var key:=JSON.stringify(doc).sha256_text()
+	var key:=JSON.stringify([doc.get("world",{}),doc.get("roads",[]),doc.get("regions",[]),doc.get("terrainHeight",{}),doc.get("junctionControls",[])]).sha256_text()
 	if key==compiled_key and not compiled_graph.is_empty():return compiled_graph
 	var root:=ProjectSettings.globalize_path("user://gameplay-authoring-%d"%OS.get_process_id())
 	var source:=root+".world.json"
@@ -237,12 +239,10 @@ func _control_choice(panel: Node,caption: String,options: Array) -> OptionButton
 func open_controls(e,junction: bool) -> void:
 	if not _ready(e):return
 	var panel:=_panel(e,"Intersection controls" if junction else "Traffic and police districts")
-	if not e.map_switcher.custom:
-		_label(panel,"These controls are available on custom maps.");dialog.popup_centered();return
 	var category: String="junctionControls" if junction else "gameplayZones"
 	var records: Array=e.authoring.doc.get(category,[]).duplicate(true)
 	var list:=ItemList.new();list.custom_minimum_size=Vector2(460,100);panel.add_child(list)
-	for z in records:list.add_item("%s @ %d, %d"%[str(z.get("name",z.get("control",""))),int(z.x),int(z.y)])
+	for z in records:list.add_item("%s @ %d, %d%s"%[str(z.get("name",z.get("control",""))),int(z.x),int(z.y)," / arm %d lane %d"%[int(z.get("approach",-1)),int(z.get("lane",-1))] if junction else ""])
 	var bounds: Dictionary=e.authoring.doc.world
 	var center: Vector2=e.editor_camera.global_position/20.0
 	var x:=_control_field(panel,"X (m)",center.x,0,float(bounds.width))
@@ -254,6 +254,8 @@ func open_controls(e,junction: bool) -> void:
 	if junction:
 		_label(panel,"Use the centre of a real intersection; matched during bake within 8 m on the selected level.")
 		fields["layer"]=_control_field(panel,"Road level",0 if e.road_selection_layer==99 else e.road_selection_layer,-2,2)
+		fields["approach"]=_control_field(panel,"Approach index (-1 all)",-1,-1,31)
+		fields["lane"]=_control_field(panel,"Lane index (-1 all; turns only)",-1,-1,5)
 		choices=_control_choice(panel,"Control",["stop","yield","signal","uncontrolled"])
 		var row:=HBoxContainer.new();panel.add_child(row)
 		for turn in ["left","straight","right"]:
@@ -267,8 +269,18 @@ func open_controls(e,junction: bool) -> void:
 		fields["patrol"]=_control_field(panel,"Patrol interval (0 off)",7,0,30)
 		fields["response"]=_control_field(panel,"Police response capacity (%)",100,50,150)
 		choices=_control_choice(panel,"Vehicles",["all","passenger","commercial"])
-	var status:=_label(panel,"Later overlapping districts take precedence. Remove a selected row to replace it.")
-	e._btn("Add control",panel,func():
+	var status:=_label(panel,"Later overlapping districts take precedence. Select a row to edit or use Add control.")
+	list.item_selected.connect(func(index: int):
+		var item: Dictionary=records[index]
+		x.value=float(item.x);y.value=float(item.y)
+		for key in fields:fields[key].value=float(item.get(key,-1))
+		if junction:
+			choices.select(["stop","yield","signal","uncontrolled"].find(str(item.control)))
+			for check in turns:check.button_pressed=check.text in item.turns
+		else:
+			name_field.text=str(item.name);choices.select(["all","passenger","commercial"].find(str(item.models))))
+	var save_control:=func(replace: bool):
+		if not _ready(e):return
 		var z: Dictionary={"x":x.value,"y":y.value}
 		for key in fields:z[key]=fields[key].value
 		if junction:
@@ -278,12 +290,18 @@ func open_controls(e,junction: bool) -> void:
 				if check.button_pressed:z.turns.append(check.text)
 		else:
 			z["name"]=name_field.text;z["models"]=choices.get_item_text(choices.selected)
-		var next:=records.duplicate(true);next.append(z)
-		if e.authoring.set_gameplay_controls(category,next):e._update_view(true);open_controls(e,junction)
-		else:status.text="Invalid control or district outside map bounds.")
+		var next:=records.duplicate(true)
+		if replace:
+			if list.get_selected_items().is_empty():status.text="Select an existing rule.";return
+			next[list.get_selected_items()[0]]=z
+		else:next.append(z)
+		if e.authoring.set_gameplay_controls(category,next):e._refresh_authoring();open_controls(e,junction)
+		else:status.text="Invalid control or district outside map bounds."
+	e._btn("Add control",panel,func():save_control.call(false))
+	e._btn("Update selected",panel,func():save_control.call(true))
 	e._btn("Remove selected",panel,func():
 		var selected:=list.get_selected_items()
 		if selected.is_empty():return
 		var next:=records.duplicate(true);next.remove_at(selected[0])
-		if e.authoring.set_gameplay_controls(category,next):e._update_view(true);open_controls(e,junction))
+		if e.authoring.set_gameplay_controls(category,next):e._refresh_authoring();open_controls(e,junction))
 	dialog.popup_centered()

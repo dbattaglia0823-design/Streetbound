@@ -180,7 +180,7 @@ def make_archive(doc):
                 grid[key].append(sid)
 
     junctions,connections,crossings=build_junctions(roads,nodes,segments,grid)
-    apply_gameplay(junctions,junction_controls)
+    apply_gameplay(junctions,junction_controls,roads)
     terrain=[]
     base=str(world.get("base","grass"))
     terrain.append(dict(kind=base,color=PALETTES.get(base,"a3b789"),

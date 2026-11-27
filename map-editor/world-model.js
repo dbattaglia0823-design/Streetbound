@@ -180,6 +180,26 @@ export function normalizeWorld(raw){
   // Otherwise an exported starter silently becomes an unpublished demo and
   // cannot be imported for native Test Drive / production publishing.
   if(raw.customMap===true)result.customMap=true;
+  // Native gameplay controls must survive browser import/export unchanged.
+  if(raw.gameplayZones!==undefined){
+    if(!Array.isArray(raw.gameplayZones)||raw.gameplayZones.length>32)throw new RangeError('Invalid gameplay districts');
+    result.gameplayZones=raw.gameplayZones.map(z=>{
+      if(!z||typeof z.name!=='string'||!z.name.trim()||!['all','passenger','commercial'].includes(z.models))throw new RangeError('Invalid district');
+      const x=real(z.x,0,width,'district x'),y=real(z.y,0,height,'district y');
+      return {name:z.name,x,y,w:real(z.w,1,width-x,'district width'),h:real(z.h,1,height-y,'district height'),density:real(z.density,0,200,'density'),speed:real(z.speed,0,160,'speed cap'),patrol:real(z.patrol,0,30,'patrol interval'),response:real(z.response,50,150,'response capacity'),models:z.models};
+    });
+  }
+  if(raw.junctionControls!==undefined){
+    if(!Array.isArray(raw.junctionControls)||raw.junctionControls.length>128)throw new RangeError('Invalid intersection rules');
+    result.junctionControls=raw.junctionControls.map(j=>{
+      if(!j||!['stop','yield','signal','uncontrolled'].includes(j.control)||!Array.isArray(j.turns)||!j.turns.length||j.turns.some(t=>!['left','straight','right'].includes(t)))throw new RangeError('Invalid intersection rule');
+      const record={x:real(j.x,0,width,'intersection x'),y:real(j.y,0,height,'intersection y'),layer:integer(j.layer,-2,2,'road level'),control:j.control,turns:[...j.turns]};
+      if(j.approach!==undefined)record.approach=integer(j.approach,-1,31,'approach index');
+      if(j.lane!==undefined)record.lane=integer(j.lane,-1,5,'lane index');
+      if((record.lane??-1)>=0&&(record.approach??-1)<0)throw new RangeError('Lane rule requires an approach');
+      return record;
+    });
+  }
   if(raw.editorLayers!==undefined){
     const layers=raw.editorLayers,seen=new Set(),names=new Set();
     if(!result.customMap||!Array.isArray(layers)||layers.length>64)throw new RangeError("Invalid editor layers");

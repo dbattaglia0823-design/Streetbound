@@ -23,4 +23,9 @@ assert junctions[1]["allowed_turns"]==["straight"]
 assert [a["signal_slot"] for a in junctions[1]["approaches"]]==[0,1,2]
 rejects(lambda:apply(junctions,[dict(c,layer=-1)]))
 rejects(lambda:apply(junctions,[c,c]))
+j2=[dict(p=[40,50],road_layer=1,control="priority",approaches=[{} for _ in range(3)])]
+apply(j2,[c,dict(c,approach=1,lane=-1,control="yield",turns=["right"]),dict(c,approach=1,lane=0,turns=["straight"])])
+assert j2[0]["approaches"][1]["control"]=="yield"
+assert j2[0]["approaches"][1]["allowed_turns"]==["right"]
+assert j2[0]["approaches"][1]["lane_turns"]=={"0":["straight"]}
 print("GAMEPLAY AUTHORING BAKE: PASS")

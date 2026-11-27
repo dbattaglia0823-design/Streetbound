@@ -5,6 +5,7 @@ const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
 const Car = preload("res://scripts/world/traffic_car.gd")
 const Gameplay=preload("res://scripts/world/authored_gameplay_controls.gd")
+const SignalDisplay=preload("res://scripts/world/authored_signal_display.gd")
 const PPM := 20.0
 const COMFORT_BRAKE := PPM * 9.0
 const HARD_BRAKE := PPM * 24.0
@@ -38,6 +39,7 @@ var _id_serial := 0
 var patrol_spawns_enabled := true
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
+var signal_display: Node2D
 var show_routes := false
 # Street races do not despawn, freeze or ghost regular cars. Prefer some
 # ambient spawns ahead on the active route while all traffic uses the same
@@ -80,6 +82,10 @@ func _ready() -> void:
 	network = Network.new()
 	if world != null:
 		network.build(world.data)
+		if world.data.get("junctions",[]).any(func(j: Dictionary)->bool:return int(j.get("signal_count",0))>0):
+			signal_display=SignalDisplay.new()
+			signal_display.flow=self;signal_display.world=world
+			add_child(signal_display)
 		for source in world.data.get("editor_game_markers",[]):
 			if not source is Dictionary or str(source.get("type",""))!="traffic_spawn":continue
 			var props: Dictionary=source.get("properties",{})
@@ -748,7 +754,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 			var owner := int(active_junctions.get(junction,-1))
 			var control := str(next.control)
 			var should_yield := junction>=0 and owner>=0 and owner!=int(agent.uid)
-			if control=="signal" and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
+			if int(next.get("signal_count",0))>0 and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
 				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*2.0)))
 			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*8.0:
 				desired=minf(desired,maxf(0.0,(remaining-PPM*1.3)*0.5))
@@ -932,6 +938,7 @@ func _physics_process(dt: float) -> void:
 		return
 	var step := minf(dt,0.05)
 	_simulation_clock+=step
+	if is_instance_valid(signal_display) and int(_simulation_clock*5.0)!=int((_simulation_clock-step)*5.0):signal_display.queue_redraw()
 	_prune_junction_claims()
 	for i in range(agents.size()-1,-1,-1):
 		var alive := _tick_agent(i,step)
