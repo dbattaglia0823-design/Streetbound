@@ -24,6 +24,7 @@ var _clock := 0.0
 var _active_shop: Dictionary = {}
 var _paused_here := false
 var _marker_access: Callable
+var _marker_shop:=false
 
 
 func _ready() -> void:
@@ -134,6 +135,7 @@ func open_menu() -> void:
 	if not manager.can_browse(site):
 		return
 	_marker_access=Callable()
+	_marker_shop=false
 	_show_shop(site)
 
 ## Marker-only showrooms retain the same cards, prices, levels, purchases,
@@ -141,6 +143,7 @@ func open_menu() -> void:
 func open_marker_menu(site: Dictionary,access: Callable) -> void:
 	if overlay.visible or get_tree().paused or not access.is_valid() or not bool(access.call()):return
 	_marker_access=access
+	_marker_shop=true
 	_show_shop(site)
 
 func _show_shop(site: Dictionary) -> void:
@@ -163,6 +166,7 @@ func close_menu() -> void:
 	overlay.visible = false
 	_active_shop = {}
 	_marker_access=Callable()
+	_marker_shop=false
 	get_viewport().gui_release_focus()
 	if _paused_here:
 		get_tree().paused = false
@@ -304,8 +308,8 @@ func _refresh_cards() -> void:
 
 func _purchase(id: String) -> void:
 	if _active_shop.is_empty():return
-	if _marker_access.is_valid():
-		if not bool(_marker_access.call()):return
+	if _marker_shop:
+		if not _marker_access.is_valid() or not bool(_marker_access.call()):return
 	elif not is_instance_valid(manager) or not manager.can_browse(_active_shop):return
 	var entry := Catalog.find_by_id(id)
 	if entry.is_empty() or not DealerConfig.sells(_active_shop,id):

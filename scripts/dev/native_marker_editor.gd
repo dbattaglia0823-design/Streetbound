@@ -118,7 +118,7 @@ func _build_stock(e) -> void:
 	stock_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	e.add_child(stock_dialog)
 	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(590,450);stock_dialog.add_child(panel)
-	_text_label(panel,"Select vehicles from the full playable catalog. Ctrl-click or click to toggle entries.")
+	_text_label(panel,"Select vehicles from the full playable catalog. Ctrl-click to add or remove entries.")
 	stock_search=LineEdit.new();stock_search.placeholder_text="Search vehicle name or model ID";panel.add_child(stock_search)
 	stock_search.text_changed.connect(func(_text: String):_refresh_stock_list())
 	var buttons:=HBoxContainer.new();panel.add_child(buttons)
@@ -132,14 +132,18 @@ func _build_stock(e) -> void:
 	stock_list=ItemList.new();stock_list.select_mode=ItemList.SELECT_MULTI
 	stock_list.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	panel.add_child(stock_list)
-	stock_list.multi_selected.connect(func(index: int,chosen: bool):
+	stock_list.multi_selected.connect(func(_index: int,_chosen: bool):
 		if stock_syncing:return
-		var id:=str(stock_list.get_item_metadata(index))
-		if chosen:stock_ids[id]=true
-		else:stock_ids.erase(id)
+		# Synchronize all visible rows; hidden search results stay selected.
+		for i in stock_list.item_count:
+			var id:=str(stock_list.get_item_metadata(i))
+			if stock_list.is_selected(i):stock_ids[id]=true
+			else:stock_ids.erase(id)
 		stock_count.text="%d vehicles selected"%stock_ids.size())
 	stock_count=Label.new();panel.add_child(stock_count)
 	stock_dialog.confirmed.connect(func():_apply_stock(e))
+	stock_dialog.canceled.connect(func():
+		if e.authoring==stock_session and e.authoring.edit_revision==stock_revision:open_for(e,stock_marker_id))
 
 func _refresh_stock_list() -> void:
 	if not is_instance_valid(stock_list):return
