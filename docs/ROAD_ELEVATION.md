@@ -49,7 +49,10 @@ same cutout mask; mountain collision polygons are geometrically subtracted.
 Retaining walls protect both surface and first underground collision bands.
 The covered end has a surface-only physical cap; the tunnel beneath remains
 open. Covered tunnels and deeper ramps retain the surface roof. Ordinary maps
-without negative ramps allocate no cutout resources. Non-ground objective
+without negative ramps allocate no cutout resources. The bake rejects open
+cuts reaching the map edge or water; covered tunnel sections can remain beneath
+water. Scenery remains authored rather than being deleted automatically.
+Non-ground objective
 authoring remains pending. Multiplayer friend
 replicas receive host-owned signed road height in the existing timestamped
 movement history, so remote deck and tunnel drawing order follows the host.

@@ -84,6 +84,19 @@ class ElevationBakeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"Crossing Across Ramp.*4.5 m vertical clearance"):
             make_archive(source)
 
+    def test_open_cut_rejects_water_but_covered_tunnel_keeps_roof(self):
+        source = fixture()
+        lake = dict(id="region-lake",name="Portal lake",biome="lake",elevation=0,
+                    points=[{"x":480,"y":190},{"x":520,"y":190},
+                            {"x":520,"y":230},{"x":480,"y":230}])
+        source["regions"].append(lake)
+        with self.assertRaisesRegex(ValueError,"open terrain cut intersects water"):
+            make_archive(source)
+        lake["points"] = [{"x":480,"y":300},{"x":520,"y":300},
+                          {"x":520,"y":345},{"x":480,"y":345}]
+        archive = make_archive(source)
+        self.assertEqual(archive["roads"][2]["elevation"],{"start_layer":-1,"end_layer":-1})
+
     def test_bad_profiles_fail_before_archive_output(self):
         source = fixture()
         for profile in [None, {"start_layer":True,"end_layer":1},

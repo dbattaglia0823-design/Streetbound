@@ -16,7 +16,7 @@ from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WI
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
-from mountain_barriers import validate_barriers
+from mountain_barriers import validate_barriers, validate_open_cuts
 from road_shape_geometry import circle_path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1139,6 +1139,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 # and future rebakes are explicitly marked so Godot never scales twice.
 adapt_road_widths(data)
 apply_automatic_bridges(data)
+validate_open_cuts(data)
 bake_jumps(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")

@@ -2,7 +2,7 @@ import {roadJumpPreview} from './world-road-jump.js';
 import {roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
 import {buildRoadJunctions} from './world-junctions.js';
-import {roadPieces,isLoose} from './world-road-priority.js';
+import {roadPieces,isLoose,denseRoadPath} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
 import {projectArtwork} from './world-project-assets.js';
 import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
@@ -565,7 +565,7 @@ export function drawWorld(ctx,doc,options={}){
     const {start_layer,end_layer}=roadElevation(road);
     if(Math.min(start_layer,end_layer)!==-1||Math.max(start_layer,end_layer)!==0)continue;
     if(!visible(expand(boundsOf(road.points),road.width+4),bounds))continue;
-    const path=road.points;
+    const path=denseRoadPath(road,18);
     drawRoadStroke(ctx,path,road.width+2.4,'#655b4f',[],'butt');
     drawRoadStroke(ctx,path,road.width,'#424c52',[],'butt');
     if(road.markings)drawRoadStroke(ctx,path,.15,'#d8c59a',[3,3],'butt');

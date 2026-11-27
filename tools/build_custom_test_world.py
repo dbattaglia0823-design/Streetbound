@@ -15,6 +15,7 @@ import sys
 from junction_bake import build_junctions
 from road_jumps import set_jump, bake_into as bake_jumps
 from road_elevation import set_profile
+from mountain_barriers import validate_open_cuts
 from authored_races import authored_races
 from authored_markers import validate_markers
 from morrow_editor_import import _authoring_props, CLASS_TO_KIND, PALETTES
@@ -279,6 +280,7 @@ def make_archive(doc):
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
+    validate_open_cuts(result)
     bake_jumps(result)
     return result
 

@@ -54,3 +54,38 @@ def validate_barriers(roads,terrain,pois,spawn,width_scale=1.0):
                         if len(cuts)>2 or min(nearest(a,c,d),nearest(b,c,d),nearest(c,a,b),nearest(d,a,b))<radius:
                             blocked=True;break
                 if blocked:raise ValueError(f"{title} blocks {road['name']}. Leave room for the road or move the mountain outline.")
+
+
+def validate_open_cuts(data):
+    """Reject flooded trenches and cuts extending beyond the playable map.
+
+    An excavation may pass through solid mountain terrain: that is the
+    intended use. Covered tunnels are exempt and keep their surface roof.
+    Do not silently remove authored buildings, fences or other scenery.
+    """
+    roads = [road for road in data['roads']
+             if {road.get('elevation', {}).get('start_layer', 0),
+                 road.get('elevation', {}).get('end_layer', 0)} == {-1, 0}]
+    if not roads:
+        return
+    from road_bridges import WaterMask
+    wet = WaterMask(data['terrain'])
+    width, height = data['size']
+    for road in roads:
+        radius = road['width']*.5+1.2
+        path = road['points']
+        for a,b in zip(path,path[1:]):
+            length = distance(a,b)
+            if length < .01:
+                continue
+            normal = (-(b[1]-a[1])/length,(b[0]-a[0])/length)
+            steps = max(1,math.ceil(length/2))
+            across = max(1,math.ceil(radius/2))
+            for step in range(steps+1):
+                p = lerp(a,b,step/steps)
+                for k in range(-across,across+1):
+                    at = [p[i]+normal[i]*radius*k/across for i in (0,1)]
+                    if not 1 <= at[0] <= width-1 or not 1 <= at[1] <= height-1:
+                        raise ValueError(f"{road['name']}: terrain cut reaches the map boundary")
+                    if wet.is_water(at):
+                        raise ValueError(f"{road['name']}: open terrain cut intersects water; move the portal onto dry land")
