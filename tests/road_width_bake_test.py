@@ -1,4 +1,4 @@
-"""Validate the source rebake's 10% physical roadway without touching any car."""
+"""Validate physical roadway migration without touching any car."""
 import copy
 import json
 import math
@@ -9,16 +9,15 @@ from road_widths import adapt, ROAD_WIDTH_SCALE, SCENERY_FACTORS
 
 ROOT = Path(__file__).resolve().parents[1]
 data = json.loads((ROOT / "worlds" / "morrow-coast.world.json").read_text(encoding="utf-8"))
-if "road_width_scale" not in data:
-    adapt(data)  # Legacy checked-in maps receive this same migration at load.
-assert math.isclose(data["road_width_scale"], 1.10)
+adapt(data)  # Legacy checked-in maps receive this same migration at load.
+assert math.isclose(data["road_width_scale"], 1.265)
 assert len(data["roads"]) > 60
 assert all(r["width"] > 0 for r in data["roads"])
 by_kind = {}
 for r in data["roads"]:
     by_kind.setdefault(r["kind"], []).append(r["width"])
-for kind, width in {"local": 9.9, "arterial": 13.2,
-                    "highway": 19.8, "track": 15.4}.items():
+for kind, width in {"local": 9*1.265, "arterial": 12*1.265,
+                    "highway": 18*1.265, "track": 14*1.265}.items():
     assert any(abs(x-width) < .005 for x in by_kind[kind]), (kind, by_kind[kind][:4])
 assert all(math.isclose(bridge["width"], data["roads"][bridge["road"]]["width"], abs_tol=.01)
            for bridge in data["bridges"])
@@ -43,13 +42,32 @@ fixture = {"roads":[{"width":10.0}], "bridges":[{"width":10.0}],
                     {"kind":"garage","size":[30.0,25.0],"radius":20.0},
                     {"kind":"house","authoring_id":"prop-test","size":[19.0,11.0],"radius":12.0}]}
 adapt(fixture)
-assert fixture["roads"][0]["width"] == 11.0
-assert fixture["bridges"][0]["width"] == 11.0
-assert fixture["junctions"][0]["approaches"][0]["width"] == 11.0
+assert fixture["roads"][0]["width"] == 12.65
+assert fixture["bridges"][0]["width"] == 12.65
+assert fixture["junctions"][0]["approaches"][0]["width"] == 12.65
 assert all(math.isclose(a, b) for a, b in zip(fixture["props"][0]["size"], [18.8,28.2]))
 assert fixture["props"][1]["size"] == [2.0,5.0]
 assert fixture["props"][2]["size"] == [30.0,25.0]
 assert fixture["props"][3]["size"] == [19.0,11.0]
 adapt(fixture)
-assert fixture["roads"][0]["width"] == 11.0
+assert fixture["roads"][0]["width"] == 12.65
+# Migration of a previously 10%-widened archive must not shrink its scenery
+# twice, and must update coverage into newly touched cells.
+legacy = {"road_width_scale":1.1,"roads":[{"width":110.0}],
+          "bridges":[],"junctions":[],"props":[{"kind":"building","size":[18.8,28.2]}],
+          "segments":[{"a":[130,100],"b":[130,110],"road":0}],
+          "surface_cell":64,"chunk_size":192,"surface_index":{},
+          "chunks":{"0,0":{"segments":[],"props":[0]},"1,0":{"segments":[],"props":[]}}}
+adapt(legacy)
+assert math.isclose(legacy["roads"][0]["width"],126.5)
+assert legacy["props"][0]["size"] == [18.8,28.2]
+assert legacy["chunks"]["1,0"]["segments"] == [0]
+assert legacy["chunks"]["0,0"]["props"] == [0]
+assert legacy["surface_index"]["3,1"] == [0]
+snapshot=copy.deepcopy(legacy)
+adapt(legacy)
+assert legacy == snapshot
+custom={"editor_custom_test_drive":True,"road_width_scale":1.1,"roads":[{"width":9}]}
+adapt(custom)
+assert custom["roads"][0]["width"] == 9
 print("MORROW ROAD WIDTH REBAKE: PASS")
