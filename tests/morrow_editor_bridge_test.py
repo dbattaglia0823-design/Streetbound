@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from morrow_editor_import import apply_edits
+from morrow_editor_import import apply_edits, _authoring_props
 
 
 def fixture():
@@ -59,6 +59,18 @@ class SourceBridgeTests(unittest.TestCase):
             source.write_text(json.dumps(doc), encoding="utf-8")
             extras = apply_edits(*data, filename=source, **options)
         return data, extras
+
+    def test_asset_draw_order_bakes_without_changing_collision_or_transform(self):
+        source = dict(id="prop-layer", type="house", x=500, y=600, scale=1, rotation=0)
+        normal = _authoring_props({"props": [source]})[0]
+        for order in (-5, -1, 1, 10):
+            layered = _authoring_props({"props": [dict(source, drawOrder=order)]})[0]
+            self.assertEqual(layered.pop("editor_draw_order"), order)
+            self.assertEqual(layered, normal)
+        self.assertEqual(_authoring_props({"props": [dict(source, drawOrder=0)]})[0], normal)
+        for invalid in (-6, 11, 0.5, True, "1"):
+            with self.assertRaisesRegex(ValueError, "Draw order"):
+                _authoring_props({"props": [dict(source, drawOrder=invalid)]})
 
     def test_road_elevation_uses_explicit_profile_without_touching_legacy_grade(self):
         source = editor_doc()
