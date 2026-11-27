@@ -211,6 +211,7 @@ var road_surface: OptionButton
 var road_width: SpinBox
 var road_lanes: SpinBox
 var road_elevation_controls: VBoxContainer
+var road_structure: OptionButton
 var road_start_layer: SpinBox
 var road_jump_apply: Button
 var road_jump_enabled: CheckBox
@@ -616,6 +617,9 @@ func _update_context_panels() -> void:
 		for key in road_jump_fields:
 			road_jump_fields[key].value = float(jump.get(key,fields[key][2]))
 		var elevation: Dictionary=road.get("elevation",{})
+		var structure: String=EditSession.Elevation.structure_kind(road)
+		for i in road_structure.item_count:
+			if str(road_structure.get_item_metadata(i))==structure:road_structure.select(i);break
 		road_start_layer.value=float(elevation.get("start_layer",0))
 		road_end_layer.value=float(elevation.get("end_layer",0))
 		_refresh_point_elevation_fields(road)
@@ -2543,6 +2547,18 @@ func _apply_point_elevations() -> void:
 		road_point_profile_key=""
 		_refresh_authoring()
 		_notice("Saved individual elevations on the selected road.")
+	else:_notice(authoring.last_error)
+
+
+func _apply_road_structure() -> void:
+	if not source_ready or _editing_locked():return
+	var kind:=str(road_structure.get_item_metadata(road_structure.selected))
+	if kind=="legacy":return
+	if authoring.set_road_structure(source_id,kind):
+		source_anchor=-1
+		road_point_profile_key=""
+		_refresh_authoring()
+		_notice("Road structure updated. Heights and approaches are automatic.")
 	else:_notice(authoring.last_error)
 
 
