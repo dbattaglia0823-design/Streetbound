@@ -611,6 +611,11 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             label=str(entry.get("name",""))[:120]
             if label:
                 target["editor_name"]=label
+        order=entry.get("drawOrder",0)
+        if type(order) not in (int,float) or not math.isfinite(order) or int(order)!=order or not -5<=order<=10:
+            raise ValueError("Invalid terrain draw order")
+        if order:target["editor_draw_order"]=int(order)
+        else:target.pop("editor_draw_order",None)
         if elevation>0:target["elevation"]=float(elevation)
         if barrier:
             from mountain_barriers import validate_polygon
