@@ -24,6 +24,11 @@ def _outward(point, center, ratio):
             for k in (0, 1)]
 
 
+def junction_clearance_polygon(junction, ratio=JUNCTION_APRON_SCALE):
+    """The final apron footprint, also used before procedural scenery placement."""
+    return [_outward(p, junction["p"], ratio) for p in junction["polygon"]]
+
+
 def adapt(world):
     if world.get("editor_custom_test_drive"):
         return world
@@ -38,7 +43,7 @@ def adapt(world):
         bridge["width"] = round(float(bridge["width"]) * ratio, 3)
     for junction in world.get("junctions", []):
         center = junction["p"]
-        junction["polygon"] = [_outward(p, center, apron_ratio) for p in junction["polygon"]]
+        junction["polygon"] = junction_clearance_polygon(junction, apron_ratio)
         junction["curbs"] = [[_outward(p, center, apron_ratio) for p in curve]
                              for curve in junction.get("curbs", [])]
         for approach in junction.get("approaches", []):
