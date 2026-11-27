@@ -1,0 +1,200 @@
+extends RefCounted
+## Deterministic source-only city construction. The session validates and
+## commits the entire plan at once; never mutate the live runtime archive.
+const Session=preload("res://scripts/dev/native_map_edit_session.gd")
+const PALETTES={"residential":["house","house","coastal_house"],"commercial":["shop","shop","garage"],
+	"industrial":["garage","garage","warehouse"],"downtown":["shop","warehouse","shop"]}
+const BLOCKED=["ocean","lake","water","river","reservoir","mountain","rock"]
+const SIZES={"house":Vector2(12,17),"coastal_house":Vector2(12,17),"shop":Vector2(22,29),
+	"garage":Vector2(20,21),"warehouse":Vector2(28,37),"tree":Vector2(7,7),
+	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4)}
+const CELL:=48.0
+
+static func _point(p: Vector2) -> Dictionary:return {"x":p.x,"y":p.y}
+static func _error(message: String) -> Dictionary:return {"error":message}
+static func _road(id: int,a: Vector2,b: Vector2,width: float,lanes: int,alley: bool=false) -> Dictionary:
+	return {"id":"road-%d"%id,"name":"Generated alley" if alley else "Generated city street",
+		"roadClass":"alley" if alley else "city","surface":"asphalt","width":width,
+		"lanes":lanes,"shoulder":0 if alley else 2,"smooth":false,"markings":not alley,
+		"points":[_point(a),_point(b)]}
+
+static func _prop(kind: String,position: Vector2,rotation: float,scale: float) -> Dictionary:
+	var art: Dictionary=Session.ART.get(kind,{})
+	return {"name":"Generated "+kind,"type":str(art.get("type",kind)),"assetId":str(art.get("assetId","")),
+		"x":position.x,"y":position.y,"rotation":rotation,"scale":scale}
+
+static func _bounds(points: PackedVector2Array) -> Rect2:
+	var rect:=Rect2(points[0],Vector2.ZERO)
+	for p in points:rect=rect.expand(p)
+	return rect
+
+static func _prop_radius(prop: Dictionary) -> float:
+	var size:=Vector2(30,40)
+	if prop.has("assetSize") and prop.assetSize is Array and prop.assetSize.size()==2:
+		size=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
+	else:
+		for kind in SIZES:
+			var art: Dictionary=Session.ART.get(kind,{})
+			if str(art.get("type",kind))==str(prop.get("type","")):size=SIZES[kind];break
+	return size.length()*.5*absf(float(prop.get("scale",1)))*maxf(absf(float(prop.get("scaleX",1))),absf(float(prop.get("scaleY",1))))
+
+static func _keys(rect: Rect2) -> Array[Vector2i]:
+	var keys: Array[Vector2i]=[]
+	var first:=Vector2i((rect.position/CELL).floor())
+	var last:=Vector2i((rect.end/CELL).floor())
+	for x in range(first.x,last.x+1):
+		for y in range(first.y,last.y+1):keys.append(Vector2i(x,y))
+	return keys
+
+static func _index(doc: Dictionary) -> Dictionary:
+	var index: Dictionary={}
+	for road in doc.roads:
+		var path:=Session.road_path(road)
+		var pad:=float(road.width)*.5+float(road.get("shoulder",2))+2.0
+		for i in range(1,path.size()):
+			var a:=path[i-1];var b:=path[i]
+			for key in _keys(Rect2(a,b-a).abs().grow(pad)):
+				if not index.has(key):index[key]=[]
+				index[key].append({"a":a,"b":b,"pad":pad})
+	for prop in doc.props:
+		if bool(prop.get("hidden",false)):continue
+		var p:=Vector2(prop.x,prop.y);var r:=_prop_radius(prop)
+		for key in _keys(Rect2(p-Vector2.ONE*r,Vector2.ONE*r*2)):
+			if not index.has(key):index[key]=[]
+			index[key].append({"p":p,"radius":r})
+	return index
+
+static func _blocked_terrain(doc: Dictionary,area: Rect2) -> bool:
+	if str(doc.world.get("base","grass")) in BLOCKED:return true
+	for region in doc.regions:
+		if str(region.get("biome","")) not in BLOCKED and not bool(region.get("barrier",false)):continue
+		var polygon:=PackedVector2Array()
+		for p in region.points:polygon.append(Vector2(p.x,p.y))
+		if polygon.size()>=3 and _bounds(polygon).intersects(area,true):return true
+	return false
+
+static func _free(index: Dictionary,p: Vector2,r: float) -> bool:
+	for key in _keys(Rect2(p-Vector2.ONE*r,Vector2.ONE*r*2)):
+		for item in index.get(key,[]):
+			if item.has("a"):
+				if p.distance_to(Geometry2D.get_closest_point_to_segment(p,item.a,item.b))<r+float(item.pad):return false
+			elif p.distance_to(item.p)<r+float(item.radius):return false
+	return true
+
+static func _place(doc: Dictionary,index: Dictionary,props: Array,kind: String,p: Vector2,angle: float,scale: float,limit: int) -> bool:
+	if doc.props.size()+props.size()>=limit:return false
+	var prop:=_prop(kind,p,angle,scale)
+	var radius:=_prop_radius(prop)+2.0
+	var box:=Rect2(p-Vector2.ONE*radius,Vector2.ONE*radius*2)
+	var world:=Rect2(Vector2(3,3),Vector2(doc.world.width,doc.world.height)-Vector2(6,6))
+	if not world.encloses(box) or _blocked_terrain(doc,box) or not _free(index,p,radius):return false
+	props.append(prop)
+	for key in _keys(box):
+		if not index.has(key):index[key]=[]
+		index[key].append({"p":p,"radius":radius})
+	return true
+
+static func _next_road(doc: Dictionary) -> int:
+	var next:=0
+	for road in doc.roads:next=maxi(next,int(str(road.id).trim_prefix("road-"))+1)
+	return next
+
+static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_limit: int,prop_limit: int) -> Dictionary:
+	if not doc.get("customMap",false):return _error("City construction is initially available on custom maps only.")
+	var columns:=int(settings.get("columns",3));var rows:=int(settings.get("rows",3))
+	var block:=float(settings.get("block",120));var width:=float(settings.get("width",12))
+	var lanes:=int(settings.get("lanes",2));var alleys:=bool(settings.get("alleys",false))
+	if columns<1 or rows<1 or columns>12 or rows>12 or block<70 or block>300 or width<8 or width>24 or lanes<1 or lanes>4:return _error("Invalid block or street dimensions.")
+	var extent:=Vector2(columns,rows)*block
+	var area:=Rect2(center-extent*.5,extent)
+	var margin:=width*.5+5
+	var reserved:=area.grow(margin)
+	if not Rect2(Vector2.ZERO,Vector2(doc.world.width,doc.world.height)).encloses(reserved):return _error("Move the city grid farther inside the map.")
+	if _blocked_terrain(doc,reserved):return _error("The grid overlaps water, rock or mountain terrain.")
+	# Conservative empty-area rule: never erase existing geometry, or create
+	# surprise parallel roads through an existing district.
+	for road in doc.roads:
+		if _bounds(Session.road_path(road)).grow(float(road.width)*.5+3).intersects(reserved,true):return _error("Choose an empty area away from existing roads.")
+	for prop in doc.props:
+		if bool(prop.get("hidden",false)):continue
+		var p:=Vector2(prop.x,prop.y);var r:=_prop_radius(prop)
+		if Rect2(p-Vector2.ONE*r,Vector2.ONE*r*2).intersects(reserved,true):return _error("Choose an area without existing scenery.")
+	var roads: Array=[]
+	var id:=_next_road(doc)
+	for x in columns+1:
+		var at:=area.position+Vector2(x*block,0)
+		roads.append(_road(id,at,at+Vector2(0,extent.y),width,lanes));id+=1
+	for y in rows+1:
+		var at:=area.position+Vector2(0,y*block)
+		roads.append(_road(id,at,at+Vector2(extent.x,0),width,lanes));id+=1
+	if alleys:
+		for y in rows:
+			var at:=area.position+Vector2(0,(y+.5)*block)
+			roads.append(_road(id,at,at+Vector2(extent.x,0),6,1,true));id+=1
+	if doc.roads.size()+roads.size()>road_limit:return _error("Not enough remaining road capacity.")
+	var draft:=doc.duplicate(false)
+	draft.roads=doc.roads+roads
+	var props: Array=[]
+	if bool(settings.get("buildings",true)):
+		var index:=_index(draft)
+		var rng:=RandomNumberGenerator.new();rng.seed=int(settings.get("seed",1847))
+		var palette: Array=PALETTES.get(str(settings.get("district","residential")),PALETTES.residential)
+		var density:=clampf(float(settings.get("density",.7)),0,1)
+		for y in rows:
+			for x in columns:
+				var base:=area.position+Vector2(x,y)*block
+				var count:=maxi(1,floori((block-30)/38))
+				for side in [0,1]:
+					for n in count:
+						if rng.randf()>density:continue
+						var kind: String=palette[rng.randi_range(0,palette.size()-1)]
+						var scale:=rng.randf_range(.85,1.1)
+						var setback:=width*.5+5+SIZES[kind].length()*.5*scale
+						var p:=base+Vector2((n+.5)*block/count,setback if side==0 else block-setback)
+						_place(draft,index,props,kind,p,0.0 if side==0 else 180.0,scale,prop_limit)
+	return {"roads":roads,"props":props,"area":area,"label":"City grid"}
+
+static func plan_district(doc: Dictionary,center: Vector2,settings: Dictionary,prop_limit: int) -> Dictionary:
+	if not doc.get("customMap",false):return _error("District generation is initially available on custom maps only.")
+	var size:=Vector2(clampi(int(settings.get("columns",3)),1,12),clampi(int(settings.get("rows",3)),1,12))*clampf(float(settings.get("block",120)),70,300)
+	var area:=Rect2(center-size*.5,size)
+	if not Rect2(Vector2.ZERO,Vector2(doc.world.width,doc.world.height)).encloses(area):return _error("District area crosses map bounds.")
+	var index:=_index(doc)
+	var props: Array=[]
+	var rng:=RandomNumberGenerator.new();rng.seed=int(settings.get("seed",1847))
+	var palette: Array=PALETTES.get(str(settings.get("district","residential")),PALETTES.residential)
+	var density:=clampf(float(settings.get("density",.7)),0,1)
+	var step:=30.0 if str(settings.get("district",""))=="residential" else 48.0
+	for y in range(floori(size.y/step)):
+		for x in range(floori(size.x/step)):
+			if rng.randf()>density:continue
+			var kind: String=palette[rng.randi_range(0,palette.size()-1)]
+			var p:=area.position+Vector2(x+.5,y+.5)*step
+			_place(doc,index,props,kind,p,float(rng.randi_range(0,3)*90),rng.randf_range(.85,1.1),prop_limit)
+	return {"roads":[],"props":props,"area":area,"label":"District"}
+
+static func plan_roadside(doc: Dictionary,road_id: String,settings: Dictionary,prop_limit: int) -> Dictionary:
+	var road: Dictionary={}
+	for item in doc.roads:
+		if str(item.id)==road_id:road=item;break
+	if road.is_empty():return _error("Select one road before opening roadside construction.")
+	if road.has("elevation") or road.has("jump"):return _error("Roadside generation currently requires a ground-level road without jumps.")
+	var index:=_index(doc);var props: Array=[]
+	var path:=Session.road_path(road)
+	var spacing:=clampf(float(settings.get("spacing",40)),15,150)
+	var kind:=str(settings.get("decoration","streetlight"))
+	if kind not in ["streetlight","tree","sign"]:return _error("Unsupported decoration.")
+	var offset:=float(road.width)*.5+float(road.get("shoulder",2))+SIZES[kind].length()*.5+5.0
+	var station:=spacing*.5;var travelled:=0.0
+	for i in range(1,path.size()):
+		var a:=path[i-1];var b:=path[i]
+		var span:=a.distance_to(b)
+		if span<.001:continue
+		var tangent: Vector2=(b-a)/span
+		while station<=travelled+span:
+			var p:=a+tangent*(station-travelled)
+			for side in [-1,1]:
+				_place(doc,index,props,kind,p+tangent.orthogonal()*offset*side,rad_to_deg(tangent.angle()),1.0,prop_limit)
+			station+=spacing
+		travelled+=span
+	return {"roads":[],"props":props,"area":_bounds(path),"label":"Roadside decoration"}

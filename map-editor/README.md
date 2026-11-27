@@ -642,3 +642,7 @@ coastal edits and custom checkpoints without modifying the playable map.
 All new checks and helpers are original code adapted to Streetbound's existing
 JS model and geometry; no third-party source code was copied from the above
 projects.
+
+### Native city construction (Phase 2)
+
+On a custom map, pan to an empty area and choose **Build city**. City grid generates streets with configurable block rows/columns, spacing, lanes and optional alleys, plus seeded residential/commercial/industrial/downtown scenery. District fill creates scenery inside the same rectangular area, avoiding existing authored roads, objects and restricted terrain. Roadside decoration uses the selected ground-level road and places lamps, signs or trees at adjustable intervals on both sides. Preview reports the proposed counts before applying; every generated item is a normal editable source entity and the complete edit is undoable. This initial pass does not connect a new grid automatically to existing streets, generate sidewalks, or include interchange templates or gameplay-linked property kits. Production bake remains authoritative for junctions and traffic.

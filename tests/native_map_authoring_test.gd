@@ -69,6 +69,25 @@ func _run() -> void:
 	check("automatic_stock_tracks_new_catalog_cars",
 		DealerConfig.sells(dealer_session.dealership_at_id("budget"),str(new_vehicle.id)))
 	Catalog.all().erase(new_vehicle)
+	var City=preload("res://scripts/dev/native_city_construction.gd")
+	var Library=preload("res://scripts/dev/native_map_library.gd")
+	var city_session=Session.new()
+	city_session.doc=Library.create("City construction test",1800,1800,"grass")
+	var city_before: Dictionary=city_session.doc.duplicate(true)
+	var config: Dictionary={"columns":2,"rows":2,"block":140,"width":12,"lanes":2,"alleys":true,"density":1.0,"seed":42}
+	var plan: Dictionary=City.plan_grid(city_session.doc,Vector2(900,900),config,city_session.road_limit(),city_session.prop_limit())
+	check("city_grid_preview_deterministic",not plan.has("error") and plan.roads.size()==8 and plan.props.size()>0
+		and plan==City.plan_grid(city_session.doc,Vector2(900,900),config,city_session.road_limit(),city_session.prop_limit())
+		and city_session.doc==city_before)
+	var generated: Array[String]=city_session.apply_construction(plan)
+	check("city_grid_single_undo",generated.size()>8 and city_session.history.size()==1 and city_session.doc.roads.size()==8)
+	check("grid_rejects_existing_roads",City.plan_grid(city_session.doc,Vector2(900,900),config,360,8000).has("error"))
+	var decoration: Dictionary=City.plan_roadside(city_session.doc,"road-0",{"spacing":35,"decoration":"streetlight"},8000)
+	check("roadside_preview_produces_props",not decoration.has("error") and decoration.props.size()>0)
+	check("city_grid_undo_restores_document",city_session.undo() and city_session.doc==city_before)
+	check("grid_rejects_out_of_bounds",City.plan_grid(city_session.doc,Vector2(10,10),config,360,8000).has("error"))
+	var district: Dictionary=City.plan_district(city_session.doc,Vector2(900,900),config,8000)
+	check("district_generation",district.props.size()>0 and not city_session.apply_construction(district).is_empty())
 	var bulk_session=Session.new()
 	check("bulk_fixture_loads",bulk_session.load_source())
 	var bulk_ids: Array[String]=["road-0","road-1"]

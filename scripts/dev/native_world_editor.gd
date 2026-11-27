@@ -68,6 +68,16 @@ var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
 const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
+const Construction=preload("res://scripts/dev/native_city_construction.gd")
+var construction_dialog: AcceptDialog
+var construction_mode: OptionButton
+var construction_fields: Dictionary={}
+var construction_summary: Label
+var construction_plan: Dictionary={}
+var construction_revision:=-1
+var construction_session: RefCounted
+var construction_center:=Vector2.ZERO
+var construction_road_id:=""
 var multi_selection: Array[String]=[]
 var marquee_start:=Vector2.ZERO
 var marquee_tracking:=false
@@ -2771,6 +2781,83 @@ func _copy_selected_group() -> void:
 	_notice("Copied %d objects. Pan to a destination or switch maps, then Paste."%group.entries.size())
 
 const PREFAB_PATH="user://streetbound-prefabs.json"
+
+func _open_construction() -> void:
+	if _editing_locked() or not source_ready:return
+	if not draft_points.is_empty() or not pending_drag.is_empty():
+		_notice("Finish or cancel the current edit first.");return
+	construction_center=_snap_point(editor_camera.global_position/PPM)
+	construction_road_id=source_id
+	construction_plan={};construction_revision=-1
+	if not is_instance_valid(construction_dialog):
+		construction_dialog=AcceptDialog.new()
+		construction_dialog.title="City construction tools"
+		construction_dialog.ok_button_text="Apply preview"
+		construction_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(construction_dialog)
+		var panel:=VBoxContainer.new();construction_dialog.add_child(panel)
+		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration"])
+		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
+		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
+		construction_fields["columns"]=_number(dimensions,"Columns",1,12,3)
+		construction_fields["rows"]=_number(dimensions,"Rows",1,12,3)
+		construction_fields["block"]=_number(panel,"Block spacing m",70,300,120)
+		construction_fields["width"]=_number(panel,"Street width m",8,24,12)
+		construction_fields["lanes"]=_number(panel,"Lanes",1,4,2)
+		construction_fields["density"]=_number(panel,"Building density %",0,100,70)
+		construction_fields["seed"]=_number(panel,"Layout seed",0,2147483647,1847)
+		var buildings:=CheckBox.new();buildings.text="Fill blocks with buildings";buildings.button_pressed=true;panel.add_child(buildings);construction_fields["buildings"]=buildings
+		var alleys:=CheckBox.new();alleys.text="Add central alleyways";panel.add_child(alleys);construction_fields["alleys"]=alleys
+		construction_fields["decoration"]=_options(panel,"Roadside decoration",["streetlight","tree","sign"])
+		construction_fields["spacing"]=_number(panel,"Decoration spacing m",15,150,40)
+		construction_summary=Label.new();construction_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		construction_summary.custom_minimum_size=Vector2(480,60);panel.add_child(construction_summary)
+		_btn("Preview generation",panel,_preview_construction)
+		construction_dialog.confirmed.connect(_apply_construction)
+		construction_mode.item_selected.connect(func(_i: int)->void:_invalidate_construction())
+		for control in construction_fields.values():
+			if control is SpinBox:control.value_changed.connect(func(_v: float)->void:_invalidate_construction())
+			elif control is OptionButton:control.item_selected.connect(func(_i: int)->void:_invalidate_construction())
+			elif control is CheckBox:control.toggled.connect(func(_v: bool)->void:_invalidate_construction())
+	_invalidate_construction()
+	construction_dialog.popup_centered(Vector2i(540,600))
+
+func _invalidate_construction() -> void:
+	construction_plan={};construction_revision=-1
+	construction_summary.text="Centre: %.0f, %.0f m. Preview before applying. Roadside uses the selected road."%[construction_center.x,construction_center.y]
+	construction_dialog.get_ok_button().disabled=true
+
+func _preview_construction() -> void:
+	if _editing_locked():return
+	var settings: Dictionary={}
+	for key in construction_fields:
+		var control: Control=construction_fields[key]
+		if control is SpinBox:settings[key]=control.value
+		elif control is OptionButton:settings[key]=_option_value(control)
+		elif control is CheckBox:settings[key]=control.button_pressed
+	settings.density=float(settings.density)/100.0
+	match _option_value(construction_mode):
+		"city grid":construction_plan=Construction.plan_grid(authoring.doc,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+		"district fill":construction_plan=Construction.plan_district(authoring.doc,construction_center,settings,authoring.prop_limit())
+		"roadside decoration":construction_plan=Construction.plan_roadside(authoring.doc,construction_road_id,settings,authoring.prop_limit())
+	if construction_plan.has("error"):
+		construction_summary.text=str(construction_plan.error)
+		construction_dialog.get_ok_button().disabled=true
+		return
+	construction_revision=authoring.edit_revision;construction_session=authoring
+	var count: int=construction_plan.roads.size()+construction_plan.props.size()
+	construction_summary.text="%s: %d roads and %d scenery objects. Existing objects will be preserved. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size()]
+	construction_dialog.get_ok_button().disabled=count==0
+
+func _apply_construction() -> void:
+	if _editing_locked() or construction_plan.is_empty() or construction_session!=authoring or construction_revision!=authoring.edit_revision:
+		_notice("Map changed; preview construction again.");return
+	var ids: Array[String]=authoring.apply_construction(construction_plan)
+	if ids.is_empty():_notice(authoring.last_error);return
+	_set_multi(ids.slice(0,MultiSelect.LIMIT));source_anchor=-1
+	source_id=ids[0] if ids.size()==1 else ""
+	construction_plan={}
+	_refresh_authoring();_notice("Created %d editable objects. Ctrl+Z undoes the entire construction."%ids.size())
 
 func _open_prefabs() -> void:
 	if _editing_locked() or not source_ready:return

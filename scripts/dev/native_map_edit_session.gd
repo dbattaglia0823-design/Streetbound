@@ -1441,6 +1441,28 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 	return _commit(next)
 
 
+## Commit an externally generated, validated source plan in one history step.
+func apply_construction(plan: Dictionary) -> Array[String]:
+	var ids: Array[String]=[]
+	if plan.has("error"):last_error=str(plan.error);return ids
+	var roads: Array=plan.get("roads",[])
+	var props: Array=plan.get("props",[])
+	if roads.is_empty() and props.is_empty():last_error="Nothing fits in the selected area.";return ids
+	if doc.roads.size()+roads.size()>road_limit() or doc.props.size()+props.size()>prop_limit():
+		last_error="Construction exceeds map capacity.";return ids
+	if not roads.is_empty() and unlocked_road_layer not in [0,99]:
+		last_error="Unlock ground roads before generating streets.";return ids
+	var next:=doc.duplicate(true)
+	for road in roads:
+		next.roads.append(road.duplicate(true));ids.append(str(road.id))
+	var number:=int(next_id("props","prop").trim_prefix("prop-"))
+	for prop in props:
+		var item: Dictionary=prop.duplicate(true)
+		item.id="prop-%d"%number;number+=1
+		next.props.append(item);ids.append(str(item.id))
+	if not _commit(next):return []
+	return ids
+
 ## Align or distribute ordinary scenery centres. Road and path geometry is
 ## not moved implicitly, protecting shared junctions and continuous rails.
 func arrange_props(ids: Array[String],mode: String,axis: int) -> bool:

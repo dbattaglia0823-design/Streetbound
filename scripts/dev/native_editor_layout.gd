@@ -195,6 +195,7 @@ static func build(e) -> void:
 	e._btn("Copy",actions,e._copy_selected_group).tooltip_text="Copy selected roads, regions and scenery (Ctrl+C)"
 	e._btn("Paste",actions,e._paste_selected_group).tooltip_text="Paste group at camera centre (Ctrl+V)"
 	e._btn("Prefabs",actions,e._open_prefabs)
+	e._btn("Build city",actions,e._open_construction)
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()
