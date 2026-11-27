@@ -132,3 +132,16 @@ test('simple road structures derive heights and retain stable identity',()=>{
   assert.equal(regular.roads[0].id,source.roads[0].id);
   assert.equal(source.roads[0].elevation,undefined);
 });
+
+
+test('a tunnel approach automatically joins a previously authored underground area',()=>{
+  const doc=fixture(),base=doc.roads[0];
+  const source=normalizeWorld({...doc,roads:[
+    {...base,id:'road-0',points:[{x:100,y:700},{x:500,y:700}]},
+    {...base,id:'road-1',points:[{x:500,y:700},{x:750,y:700}]}
+  ]});
+  const area=setRoadStructure(source,'road-1','underground');
+  const entrance=setRoadStructure(area,'road-0','tunnel');
+  assert.deepEqual(entrance.roads[0].elevation,{start_layer:0,end_layer:-1});
+  assert.equal(roadStructure(entrance.roads[0]),'tunnel');
+});
