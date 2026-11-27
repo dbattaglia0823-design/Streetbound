@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createWorld,createEntity,parseWorld,serializeWorld} from '../world-model.js';
+import {createWorld,createEntity,parseWorld,serializeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
 import {roadPieces,isLoose,pavedVsLoose} from '../world-road-priority.js';
 import {buildRoadNetwork,buildWorldZip} from '../world-export.js';
@@ -150,4 +150,20 @@ test('explicit on-ramp survives serialization and labels its merge',()=>{
   assert.equal(restored.roads[1].roadClass,'onramp');
   assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
   assert.throws(()=>createEntity(doc,'roads',{...base,name:'Invalid',roadClass:'onramp',lanes:2,points:coords([600,680],[800,600])}),/one lane/);
+});
+
+test('existing branch end swaps connection mode without changing geometry',()=>{
+  let doc=build(['Main','asphalt',coords([100,600],[1500,600]),16],
+    ['Branch','asphalt',coords([800,600],[800,850]),8]);
+  const branch=doc.roads[1];
+  doc=updateEntity(doc,branch.id,{junctionStart:'merge'});
+  assert.deepEqual(doc.roads[1].points,branch.points);
+  assert.equal(doc.roads[1].lanes,branch.lanes);
+  const restored=parseWorld(serializeWorld(doc));
+  assert.equal(restored.roads[1].junctionStart,'merge');
+  assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
+  doc=updateEntity(doc,branch.id,{junctionStart:'intersection'});
+  assert.ok(!buildRoadJunctions(doc.roads).some(j=>j.kind==='merge'));
+  doc=updateEntity(doc,branch.id,{junctionStart:'auto'});
+  assert.equal(doc.roads[1].junctionStart,undefined);
 });

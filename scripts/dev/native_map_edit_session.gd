@@ -1140,7 +1140,9 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	for road in next.roads:
 		if str(road.id)!=identity:continue
 		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd"]:
-			if settings.has(key):road[key]=settings[key]
+			if settings.has(key):
+				if key in ["junctionStart","junctionEnd"] and settings[key]=="auto":road.erase(key)
+				else:road[key]=settings[key]
 		if road.roadClass=="onramp":
 			road.lanes=1
 			road.surface="asphalt"
@@ -1402,6 +1404,9 @@ func split_road(identity: String,index: int) -> String:
 		if index==0 or index==road.points.size()-1:
 			road["independentEnds"]=true
 			return identity if _commit(next) else ""
+		if road.has("junctionStart") or road.has("junctionEnd") or str(road.get("roadClass",""))=="onramp":
+			last_error="Reset connection modes to Automatic and use a regular road type before splitting."
+			return ""
 		if road.points.size()==2:
 			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]
 			road.points.insert(1,{"x":(float(a.x)+float(b.x))*.5,"y":(float(a.y)+float(b.y))*.5});index=1

@@ -64,6 +64,23 @@ class CustomTestWorldBaker(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'On-ramp'):
             make_archive(doc)
 
+    def test_existing_branch_connection_can_hot_swap_without_geometry_changes(self):
+        doc=source()
+        branch=doc['roads'][2]
+        before=make_archive(doc)
+        branch['junctionStart']='merge'
+        merged=make_archive(doc)
+        target=next(j for j in merged['junctions'] if j['kind']=='merge')
+        self.assertEqual(target['ramp_road'],2)
+        self.assertEqual(target['ramp_side'],1)
+        self.assertEqual(merged['roads'][2]['points'],before['roads'][2]['points'])
+        self.assertEqual(merged['roads'][2]['lanes'],before['roads'][2]['lanes'])
+        self.assertEqual(merged['roads'][2]['kind'],before['roads'][2]['kind'])
+        branch['junctionStart']='intersection'
+        restored=make_archive(doc)
+        self.assertFalse(any(j['kind']=='merge' for j in restored['junctions']))
+        self.assertEqual(restored['roads'][2]['points'],before['roads'][2]['points'])
+
     def test_full_junction_geometry_and_routing(self):
         archive=make_archive(source())
         self.assertEqual(archive["format"],"streetbound.streamed-world")

@@ -343,7 +343,7 @@ func _draw() -> void:
 		if str(j.get("control",""))=="merge":
 			var through := PackedVector2Array()
 			for arm in j.approaches:
-				if int(arm.road)==int(j.get("main_road",-1)):through.append(point(arm.p))
+				if int(arm.road)!=int(j.get("ramp_road",-1)):through.append(point(arm.p))
 			if through.size()==2:
 				through.insert(1,point(j.p))
 				draw_polyline(through,Color("d8c69a"),4,true)

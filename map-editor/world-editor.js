@@ -812,6 +812,8 @@ function refreshInspector(){
       ?(pointInsertMode.mode==='split'?'Click on the road where it should separate.':pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
       :'Insert points on the curve, or extend either endpoint. Shift-click a selected road to insert directly.';
     $('inspect-road-class').value=item.roadClass;$('inspect-road-surface').value=item.surface;
+    $('inspect-junction-start').value=item.junctionStart??'auto';
+    $('inspect-junction-end').value=item.junctionEnd??'auto';
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
     $('inspect-road-shoulder').value=item.shoulder;$('inspect-road-smooth').checked=item.smooth;
     $('inspect-road-markings').checked=item.markings;
@@ -1594,6 +1596,7 @@ $('entities-filter').addEventListener('change',refreshEntities);
 const fields={
   'inspector-name':{name:'name'},
   'inspect-road-class':{roadClass:'string'},'inspect-road-surface':{surface:'string'},
+  'inspect-junction-start':{junctionStart:'string'},'inspect-junction-end':{junctionEnd:'string'},
   'inspect-road-width':{width:'number'},'inspect-road-lanes':{lanes:'number'},
   'inspect-road-shoulder':{shoulder:'number'},'inspect-road-smooth':{smooth:'boolean'},
   'inspect-road-markings':{markings:'boolean'},'inspect-biome':{biome:'string'},

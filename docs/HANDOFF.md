@@ -42,3 +42,5 @@
 - Compact HUD refresh: minimal minimap frame, pause-only progression, integrated real HP/fuel, contextual service feedback and dynamic pursuit/contract cards. Preserved full atlas and network-specific wanted indicators; regression assertions updated. CI/live layout verification pending.
 
 - On-ramp authoring: explicit one-way paved road class, terminal right-side merge, directional outside-lane connectors, yield control, no crosswalk/signal at merge, browser/native options and bake/graph tests. Existing map unchanged. CI and driving verification pending.
+
+- Per-end connection modes allow undoable Intersection/On-ramp/Automatic changes on existing and future branch roads in both editors, without altering points or dimensions. Split through-road approaches supported. Invalid junction geometry rejects bake. CI pending.

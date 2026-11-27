@@ -96,8 +96,8 @@ def rounded_hull(points):
 
 
 def endpoint_mode(road, end):
-    return road.get('junctionEnd' if end else 'junctionStart',
-                    'merge' if end and road['kind']=='onramp' else 'auto')
+    mode=road.get('junctionEnd' if end else 'junctionStart','auto')
+    return ('merge' if end and road['kind']=='onramp' else 'auto') if mode=='auto' else mode
 
 
 def ramp_merge(roads, arms):

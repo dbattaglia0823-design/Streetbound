@@ -55,8 +55,8 @@ function validEntity(item,type,w,h){
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
       markings:typeof item.markings==='boolean'?item.markings:true,
       ...(item.independentEnds===true?{independentEnds:true}:{}),
-      ...(item.junctionStart!==undefined?{junctionStart:oneOf(item.junctionStart,['auto','intersection','merge'],'start junction mode')}:{}),
-      ...(item.junctionEnd!==undefined?{junctionEnd:oneOf(item.junctionEnd,['auto','intersection','merge'],'end junction mode')}:{}),
+      ...(item.junctionStart!==undefined&&item.junctionStart!=='auto'?{junctionStart:oneOf(item.junctionStart,['intersection','merge'],'start junction mode')}:{}),
+      ...(item.junctionEnd!==undefined&&item.junctionEnd!=='auto'?{junctionEnd:oneOf(item.junctionEnd,['intersection','merge'],'end junction mode')}:{}),
       points};
   }
   if(type==='regions'){
