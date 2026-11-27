@@ -116,8 +116,8 @@ func build(e) -> void:
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func open() -> void:
-	if not editor.source_ready or editor.map_switcher.custom:
-		editor._notice("Dealership editing is available on Morrow Coast.")
+	if not editor.source_ready:
+		editor._notice("Open a map to edit its dealerships.")
 		return
 	placing_new = false
 	_refresh_dealers()
@@ -150,7 +150,7 @@ func _refresh_dealers() -> void:
 		dealers.set_item_metadata(dealers.item_count-1,id)
 		if id==selected_id:
 			dealers.select(dealers.item_count-1)
-	if selected_id.is_empty() and dealers.item_count>0:
+	if _source().is_empty() and dealers.item_count>0:
 		selected_id = str(dealers.get_item_metadata(0))
 		dealers.select(0)
 	_syncing = false
@@ -283,6 +283,8 @@ func _start_move() -> void:
 	_place_mode()
 
 func _place_mode() -> void:
+	if editor.map_switcher.custom:
+		editor._notice("Use a dealership marker for custom-map stock, or edit an existing placed shop.");return
 	dialog.hide()
 	editor._choose_tool("place_dealership")
 	editor._notice("Click on the map for the dealership center. Keep at least 35 m from a road, with room for the forecourt.")

@@ -146,7 +146,14 @@ func _ready() -> void:
 			player_garage.world = ground
 			player_garage.player = vehicle
 			ground.add_child(player_garage)
-		if not custom_game_world or not ground.data.get("editor_dealerships",[]).is_empty():
+		# Marker-only shops need the normal dealership menu, but maps with
+		# neither type of shop still avoid creating the dealership system.
+		var has_marker_shop: bool=false
+		for entry in ground.data.get("editor_markers",[]):
+			if entry is Dictionary:
+				var point: Dictionary=entry.get("marker",entry)
+				if str(point.get("type",""))=="dealership" and point.get("properties",{}).has("dealer_inventory"):has_marker_shop=true;break
+		if not custom_game_world or has_marker_shop or not ground.data.get("editor_dealerships",[]).is_empty():
 			dealership_world = Node2D.new()
 			dealership_world.set_script(DealerWorldScript)
 			dealership_world.world = ground

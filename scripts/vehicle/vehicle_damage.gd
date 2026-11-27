@@ -3,7 +3,9 @@ extends RefCounted
 ## Repeated contact in one crash cannot consume the whole integrity bar.
 const MIN_DAMAGING_IMPACT_MPS := 6.0
 const IMPACT_COOLDOWN_SECONDS := 0.25
-## 20x point scale preserves the normalized stock damage balance.
+## Global collision damage tuning: vehicles take 30% of the former impact damage.
+const IMPACT_DAMAGE_SCALE := 0.30
+## Preserve the existing HP scale and pre-multiplier cap.
 const DAMAGE_POINTS_PER_MPS := 36.0
 const MAX_BASE_IMPACT_POINTS := 1300.0
 ## Keep normalized integrity for existing saves, repairs and smoke thresholds.
@@ -34,7 +36,7 @@ func register_impact(closing_speed_mps: float, now_seconds: float, outgoing_mult
 	if base_damage <= 0.0:
 		return 0.0
 	last_impact_at = now_seconds
-	var damage := base_damage * clampf(outgoing_multiplier, 0.0, 3.0)
+	var damage := base_damage * IMPACT_DAMAGE_SCALE * clampf(outgoing_multiplier, 0.0, 3.0)
 	var capacity := float(maxi(1, max_health_points))
 	var remaining := current_health_points()
 	var applied := minf(remaining, maxf(1.0, roundf(damage)))

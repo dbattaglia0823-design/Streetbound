@@ -40,7 +40,9 @@ func _run() -> void:
 		{"id":"marker-4","type":"traffic_spawn","name":"Traffic Start","x":620,"y":500,
 			"rotation":0.0,"properties":{"traffic_weight":8}},
 		{"id":"marker-5","type":"garage","name":"Test Garage","x":700,"y":500,
-			"rotation":0.0,"properties":{"radius_m":12}}]
+			"rotation":0.0,"properties":{"radius_m":12}},
+		{"id":"marker-6","type":"dealership","name":"Test showroom","x":950,"y":500,"rotation":0.0,
+			"properties":{"radius_m":12,"dealer_inventory":[str(Catalog.all()[0].id)]}}]
 	doc["props"]=[{"id":"prop-house","name":"House","type":"house","assetId":"game-house",
 		"x":280,"y":280,"scale":1.0,"rotation":0.0}]
 	doc["races"]=[{"id":"race-0","name":"Map Race","mode":"sprint","laps":1,
@@ -88,7 +90,7 @@ func _run() -> void:
 		main.extra_races.size()==1 and main.extra_races[0].get("definition").name=="Map Race")
 	check("no_morrow_only_dealers_or_fixed_track_races_spawn",
 		main.drag_race==null and main.street_race==null and main.circuit_race==null and
-		main.dealership_world==null)
+		is_instance_valid(main.dealership_world) and main.dealership_world.sites.is_empty())
 	check("test_driver_cannot_modify_real_player_progression",
 		not main.vehicle_ownership.persist_enabled)
 	check("real_single_player_damage_fuel_police_contracts_present",
@@ -110,7 +112,7 @@ func _run() -> void:
 	check("real_traffic_artwork_is_available",all_traffic_art)
 	var mark: Node=main.authored_map_markers
 	check("game_instantiates_all_authored_marker_types",
-		is_instance_valid(mark) and mark.markers.size()==6)
+		is_instance_valid(mark) and mark.markers.size()==7)
 	check("traffic_markers_drive_actual_lane_spawner",
 		ambient.authored_spawn_sources.size()>=1)
 	mark._nearby=mark.nearest_marker()
@@ -135,6 +137,15 @@ func _run() -> void:
 	check("garage_marker_unlocks_actual_owned_car_selector",
 		mark._nearby.get("type","")=="garage" and main.get_node("VehicleSelector").remote_garage_allowed)
 
+	# The authored stock uses the real dealership menu without spawning any
+	# default Morrow Coast shop or requiring an artificial forecourt.
+	if is_instance_valid(world.living_world):world.living_world.set("seconds",43200.0)
+	main.vehicle.global_position=Vector2(950,500)*20
+	main.vehicle.linear_velocity=Vector2.ZERO
+	mark._nearby=mark.nearest_marker()
+	mark.activate()
+	check("custom_dealership_marker_opens_real_stock",is_instance_valid(main.dealership_menu) and main.dealership_menu.overlay.visible and main.dealership_menu.cards.size()==1 and str(main.dealership_menu.cards[0].entry.id)==str(Catalog.all()[0].id))
+	if is_instance_valid(main.dealership_menu):main.dealership_menu.close_menu()
 	check("test_drive_has_clear_return_to_builder",
 		main.has_node("TestDriveReturn/ReturnToMapEditor"))
 	main.vehicle_damage_service.damage.integrity=42.0
