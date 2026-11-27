@@ -20,6 +20,12 @@ var weather_option: OptionButton
 var publish_button: Button
 var restore_button: Button
 var import_published_button: Button
+var delete_button: Button
+var delete_dialog: ConfirmationDialog
+var delete_file:=""
+var delete_sha:=""
+var delete_revision:=-1
+var delete_session: RefCounted
 var publication_status: Label
 var publish_dialog: ConfirmationDialog
 var restore_dialog: ConfirmationDialog
@@ -79,6 +85,15 @@ func build_publish_ui(e,parent: Node) -> void:
 	publication_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(publication_status)
 	e._btn("World Release Center...",parent,func():open_release_center(e))
+	delete_button=e._btn("Delete current map...",parent,func():_show_delete(e))
+	delete_button.tooltip_text="Remove this local custom map from the map selector. A recovery copy is retained."
+	delete_dialog=ConfirmationDialog.new()
+	delete_dialog.title="Delete custom map?"
+	delete_dialog.ok_button_text="Delete map"
+	delete_dialog.min_size=Vector2i(460,220)
+	delete_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	delete_dialog.confirmed.connect(func():_delete_current(e))
+	e.add_child(delete_dialog)
 	publish_button=e._btn("Build Game World...",parent,func():_show_publish(e))
 	publish_button.tooltip_text="Package the selected saved custom map as the main playable world. Test Drive remains a sandbox."
 	import_published_button=e._btn("Open Published Source...",parent,func():_open_published_source(e))
@@ -107,7 +122,47 @@ func _refresh_publication_ui() -> void:
 	publication_status.text="PLAY loads: "+str(active.name)+("\nCustom map ready to publish." if custom else "\nSelect a saved custom map to publish.")
 	publish_button.disabled=not custom
 	import_published_button.disabled=not bool(active.get("published",false))
+	if is_instance_valid(delete_button):delete_button.disabled=not custom or current_file==str(active.get("id",""))
 	restore_button.disabled=not bool(active.get("published",false))
+
+func _can_delete(e) -> bool:
+	if not e.active or not e.source_ready or not custom or current_file.is_empty():
+		e._notice("Select a saved custom map. The bundled Morrow Coast cannot be deleted.");return false
+	if current_file==str(WorldPublication.current().get("id","")):
+		e._notice("Restore Morrow Coast or publish another world before deleting the active game's source.");return false
+	if e._editing_locked() or not e.draft_points.is_empty() or not e.pending_drag.is_empty():
+		e._notice("Finish or cancel the current edit before deleting a map.");return false
+	return true
+
+func _show_delete(e) -> void:
+	if not _can_delete(e):return
+	delete_file=current_file
+	delete_session=e.authoring
+	delete_revision=e.authoring.edit_revision
+	delete_sha=FileAccess.get_sha256(Library.folder().path_join(current_file))
+	if delete_sha.is_empty():
+		e._notice("The saved map could not be read.");return
+	delete_dialog.dialog_text="Remove '%s' from your map library?\n\nThe map and its current edits will be moved to a recovery folder. Existing backups, bundled presets, published archives and career saves are kept. The editor will return to Morrow Coast."%str(e.authoring.doc.get("name",current_file))
+	delete_dialog.popup_centered()
+
+func _delete_current(e) -> void:
+	if not _can_delete(e):return
+	if current_file!=delete_file or e.authoring!=delete_session or e.authoring.edit_revision!=delete_revision or FileAccess.get_sha256(Library.folder().path_join(current_file))!=delete_sha:
+		e._notice("The map changed after confirmation. Reopen Delete current map.");return
+	var file:=current_file
+	var label:=str(e.authoring.doc.get("name",file))
+	# Preserve the latest in-memory edits in the recoverable copy. On a write
+	# error leave the current session open; no deletion is attempted.
+	if e.authoring.dirty and not save_current(e):return
+	var result:=Library.trash_map(file,str(WorldPublication.current().get("id","")),FileAccess.get_sha256(Library.folder().path_join(file)))
+	if not bool(result.get("ok",false)):
+		e._notice(str(result.get("error","Map deletion failed.")));return
+	delete_session=null
+	delete_file="";delete_sha=""
+	restore(e)
+	e._refresh_authoring()
+	e._fit_map()
+	e._notice("Deleted "+label+". Recovery copy: "+str(result.folder))
 
 func _open_published_source(e) -> void:
 	var current: Dictionary=WorldPublication.current()
