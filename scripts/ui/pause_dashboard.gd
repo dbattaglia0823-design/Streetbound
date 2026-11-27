@@ -4,6 +4,7 @@ extends Control
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
+const CrimeCareer = preload("res://scripts/world/driving_contract_rules.gd")
 const RouteGraphic = preload("res://scripts/ui/race_route_preview.gd")
 const DESIGN := Vector2(1440, 800)
 const CAR_BATCH_SIZE := 18
@@ -162,14 +163,14 @@ func _build_frame() -> void:
 	_label(rail, "BrowseCaption", "EXPLORE", Rect2(18, 16, 177, 23), 12, LIME)
 	var definitions := [
 		["resume", "▷  Resume"], ["map", "⌖  Map"],
-		["events", "⚑  Events"], ["cars", "▣  Cars"],
+		["events", "⚑  Events"], ["career", "Career"], ["cars", "▣  Cars"],
 		["upgrades", "⚒  Upgrades"], ["settings", "⚙  Settings"],
 		["quit", "↪  Quit"]
 	]
 	for i in definitions.size():
 		var key: String = str(definitions[i][0])
 		var button: Button = _button(rail, "Nav_" + key, str(definitions[i][1]),
-			Rect2(13, 47 + i * 72, 184, 59), _navigate.bind(key))
+			Rect2(13, 47 + i * 65, 184, 55), _navigate.bind(key))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.add_theme_constant_override("h_separation", 11)
 		button.add_theme_font_size_override("font_size", 21)
@@ -343,7 +344,7 @@ func _navigate(destination: String) -> void:
 			show_section(destination)
 
 func show_section(which: String) -> void:
-	section = which if which in ["map", "events", "cars", "upgrades", "more"] else "events"
+	section = which if which in ["map", "events", "career", "cars", "upgrades", "more"] else "events"
 	_style_navigation()
 	car_rows.clear()
 	car_filtered.clear()
@@ -359,6 +360,8 @@ func show_section(which: String) -> void:
 	match section:
 		"events":
 			_show_events()
+		"career":
+			_show_career()
 		"map":
 			_show_map()
 		"cars":
@@ -488,6 +491,59 @@ func _matches_filter(race: Node) -> bool:
 		"challenges":
 			return str(_event_definition(race).get("category","")) in ["challenge","championship"]
 	return true
+
+func _career_contact() -> Dictionary:
+	var contracts := get_tree().get_first_node_in_group("streetbound_contracts")
+	if is_instance_valid(contracts) and contracts.has_method("career_contact"):
+		return contracts.call("career_contact")
+	return {}
+
+func _career_route() -> void:
+	var contact := _career_contact()
+	if contact.is_empty() or not is_instance_valid(map_hud):
+		return
+	var waypoints: Node = map_hud.get("waypoints") as Node
+	if is_instance_valid(waypoints) and bool(waypoints.call("set_destination",
+			Vector2(float(contact.x),float(contact.y)),str(contact.name))):
+		show_section("map")
+		_refresh_map()
+
+func _show_career() -> void:
+	_heading("UNDERGROUND CAREER", "Build Your Reputation",
+		"Finish races and contracts to unlock higher-tier jobs. Capacity and mission requirements still apply.")
+	if not is_instance_valid(economy):
+		_label(content,"CareerUnavailable","Career progression is unavailable in this mode.",Rect2(25,150,720,44),18,MUTED)
+		return
+	var rep_value := int(economy.get("underground_reputation"))
+	var state := CrimeCareer.career_state(rep_value)
+	var summary := _panel(content,"CareerRank",Rect2(25,137,731,106))
+	_label(summary,"RankName",str(state.rank).to_upper(),Rect2(17,8,470,33),23,LIME)
+	_label(summary,"Reputation","%d REP" % rep_value,Rect2(520,8,195,33),20,WHITE)
+	var bar := _progress(summary,Rect2(17,48,696,12))
+	bar.name = "RankProgress"
+	bar.value = float(state.progress)
+	_label(summary,"NextRank","MAX RANK" if bool(state.max_rank) else "%d REP TO %s (%d TOTAL)" % [
+		int(state.remaining),str(state.next_rank).to_upper(),int(state.next_rep)],
+		Rect2(17,69,696,29),14,MUTED)
+	_label(content,"UnlockHeading","ROBBERY UNLOCKS / REP ELIGIBILITY",Rect2(27,252,717,27),15,LIME)
+	var rows := CrimeCareer.robbery_unlocks(rep_value)
+	for i in rows.size():
+		var row: Dictionary = rows[i]
+		var eligible := bool(row.eligible)
+		var card := _panel(content,"Robbery_"+str(row.tier),Rect2(26,286+i*44,729,40),
+			Color("#143038"),Color("#5b7f77"))
+		_label(card,"Job",str(row.title),Rect2(12,3,343,34),15,WHITE)
+		_label(card,"Requirement","%d REP" % int(row.required_rep),Rect2(365,3,116,34),14,MUTED)
+		_label(card,"State","ELIGIBLE" if eligible else "%d REP TO GO" % int(row.remaining),
+			Rect2(488,3,225,34),14,LIME if eligible else MUTED)
+	var next_features := "FUTURE UNLOCKS (NOT YET AVAILABLE): Crew 25 / 120 / 500 REP; black market 60 / 250 REP."
+	_label(content,"FutureUnlocks",next_features,Rect2(28,511,725,47),13,MUTED,true)
+	var contact := _career_contact()
+	var route := _button(content,"FindFixer","SET GPS TO UNDERGROUND FIXER",Rect2(28,569,723,49),_career_route,true)
+	route.disabled = contact.is_empty() or not is_instance_valid(map_hud) or not is_instance_valid(map_hud.get("waypoints") as Node)
+	if route.disabled:
+		route.text = "FIXER UNAVAILABLE ON THIS MAP"
+		route.tooltip_text = "The current world or game mode has no active stock campaign contact."
 
 func _show_events() -> void:
 	filter_buttons.clear()

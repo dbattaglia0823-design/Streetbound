@@ -28,3 +28,5 @@
 - Robbery career phase 2: selectable Quick/Standard/Maximum profile risks, bounded risk-dependent cash/rep and heat, live crew progress meter and optional lower completed checkpoint, with regression tests. Existing legacy offers unchanged. CI and visual playtest pending.
 
 - Robbery career phase 3: seating/cargo stats for 256 vehicles, mission capacity locks and transient physical load after pickup; regression tests added, live handling and CI unverified.
+
+- Robbery career phase 4: derived ranks and future access gates, pause Career view with real fixer GPS, contact rank/lock display and post-settlement promotions. Existing save format unchanged; crew and black-market content remain later phases. CI/visual validation pending.

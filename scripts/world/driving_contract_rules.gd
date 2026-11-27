@@ -55,6 +55,64 @@ const ROBBERY_TIERS := {
 }
 const ROBBERY_ORDER := ["convenience","pawn","jewelry","warehouse","bank"]
 const RACE_REPUTATION := 5
+## Ranks are derived from the saved reputation, never stored independently.
+## The actual robbery thresholds remain the single source of truth.
+const CAREER_RANKS := [
+	{"name":"Unknown","rep":0,"tier":"","future":""},
+	{"name":"Street Prospect","rep":5,"tier":"convenience","future":""},
+	{"name":"Wheelman","rep":25,"tier":"pawn","future":"Entry-level crew"},
+	{"name":"Professional","rep":60,"tier":"jewelry","future":"Basic black-market upgrades"},
+	{"name":"Veteran","rep":120,"tier":"warehouse","future":"Veteran crew"},
+	{"name":"Mastermind","rep":250,"tier":"bank","future":"Advanced black-market upgrades"},
+	{"name":"Underground Legend","rep":500,"tier":"","future":"Elite crew"}
+]
+## Future consumers use stable IDs; eligibility does not imply implementation.
+const CAREER_ACCESS := {"entry_crew":25,"basic_black_market":60,"veteran_crew":120,
+	"advanced_black_market":250,"elite_crew":500}
+
+static func rank_threshold(index: int) -> int:
+	var row: Dictionary = CAREER_RANKS[clampi(index,0,CAREER_RANKS.size()-1)]
+	var tier := str(row["tier"])
+	return int(ROBBERY_TIERS[tier]["required_rep"]) if not tier.is_empty() else int(row["rep"])
+
+static func rank_index(reputation: int) -> int:
+	var index := 0
+	for i in CAREER_RANKS.size():
+		if reputation >= rank_threshold(i):
+			index = i
+	return index
+
+static func rank_name(reputation: int) -> String:
+	return str(CAREER_RANKS[rank_index(reputation)]["name"])
+
+static func career_state(reputation: int) -> Dictionary:
+	var rep_value := clampi(reputation,0,100000)
+	var index := rank_index(rep_value)
+	var at_max := index == CAREER_RANKS.size()-1
+	var floor_value := rank_threshold(index)
+	var next_value := floor_value if at_max else rank_threshold(index+1)
+	return {"rank":rank_name(rep_value),"index":index,"rep":rep_value,
+		"next_rank":"" if at_max else str(CAREER_RANKS[index+1]["name"]),
+		"next_rep":next_value,"remaining":maxi(0,next_value-rep_value),
+		"progress":1.0 if at_max else clampf(float(rep_value-floor_value)/float(maxi(1,next_value-floor_value)),0.0,1.0),
+		"max_rank":at_max}
+
+static func has_career_access(key: String, reputation: int) -> bool:
+	return CAREER_ACCESS.has(key) and reputation >= int(CAREER_ACCESS.get(key,100001))
+
+static func promotion_text(previous: int, current: int) -> String:
+	if rank_index(current) <= rank_index(previous):
+		return ""
+	return "RANK UP / "+rank_name(current).to_upper()
+
+static func robbery_unlocks(reputation: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for tier in ROBBERY_ORDER:
+		var profile: Dictionary = ROBBERY_TIERS[tier]
+		var threshold := int(profile["required_rep"])
+		result.append({"tier":tier,"title":profile["title"],"required_rep":threshold,
+			"remaining":maxi(0,threshold-reputation),"eligible":reputation>=threshold})
+	return result
 const ROBBERY_RISKS := ["quick","standard","maximum"]
 const ROBBERY_RISK_RULES := {
 	"quick":{"cash_factor":0.6,"hold_factor":0.65,"heat_delta":-1,"rep_factor":0.75},

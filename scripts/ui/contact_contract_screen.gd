@@ -276,8 +276,10 @@ func open_contact(contact: Dictionary) -> bool:
 	avatar.add_theme_color_override("font_color", selected_accent)
 	portrait_panel.add_theme_stylebox_override("panel",
 		_panel_style(Color("#192b30"), selected_accent, 2, 12))
-	reputation_label.text = "UNDERGROUND REP  %d" % int(economy.get("underground_reputation"))
-	stats_label.text = "%d JOBS AVAILABLE  /  VEHICLE-ONLY CONTACT" % offers.size()
+	var rep_value := int(economy.get("underground_reputation"))
+	reputation_label.text = "%s / %d REP" % [Rules.rank_name(rep_value).to_upper(),rep_value]
+	var career := Rules.career_state(rep_value)
+	stats_label.text = "%d JOBS / %s" % [offers.size(),"MAX RANK" if bool(career.max_rank) else "%d REP TO %s" % [int(career.remaining),str(career.next_rank).to_upper()]]
 	feedback_label.text = ""
 	_rebuild_jobs()
 	_select_job(selected_index)

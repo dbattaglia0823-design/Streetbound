@@ -85,6 +85,16 @@ func run() -> void:
 	check("cross_map_counts_independent",int(economy.completed_driving_contracts.get(
 		"another-world::marker-2",0))==0)
 
+	# Phase-four ranks are derived from saved reputation, never separately persisted.
+	check("career_rank_boundaries", Contracts.rank_name(0)=="Unknown" and Contracts.rank_name(4)=="Unknown" and Contracts.rank_name(5)=="Street Prospect" and Contracts.rank_name(24)=="Street Prospect" and Contracts.rank_name(25)=="Wheelman" and Contracts.rank_name(60)=="Professional" and Contracts.rank_name(120)=="Veteran" and Contracts.rank_name(250)=="Mastermind" and Contracts.rank_name(500)=="Underground Legend")
+	var rank_state := Contracts.career_state(40)
+	check("rank_progress_uses_current_rank_interval", int(rank_state.remaining)==20 and is_equal_approx(float(rank_state.progress),15.0/35.0))
+	check("max_rank_has_no_remaining_requirement", bool(Contracts.career_state(100000).max_rank) and int(Contracts.career_state(100000).remaining)==0)
+	check("future_access_gates_and_unknown_keys", not Contracts.has_career_access("entry_crew",24) and Contracts.has_career_access("entry_crew",25) and not Contracts.has_career_access("elite_crew",499) and Contracts.has_career_access("elite_crew",500) and not Contracts.has_career_access("invalid",100000))
+	check("promotion_only_on_rank_boundary", Contracts.promotion_text(4,5).contains("STREET PROSPECT") and Contracts.promotion_text(5,24)=="" and Contracts.promotion_text(25,250).contains("MASTERMIND"))
+	var unlocks := Contracts.robbery_unlocks(60)
+	check("career_unlocks_match_robbery_profiles", unlocks.size()==5 and bool(unlocks[2].eligible) and not bool(unlocks[3].eligible) and int(unlocks[3].remaining)==60)
+
 	# Stock phase-one robbery progression uses game-owned presets and actual
 	# marker validation, not arbitrary increased map reward bounds.
 	var board: Array[Dictionary] = Contracts.morrow_robbery_board()
@@ -98,6 +108,7 @@ func run() -> void:
 	check("starter_robbery_locked_until_racing", progression.record_driving_contract("tier-locked-run-0001","morrow-coast::starter","robbery",first_tier).get("result")=="locked")
 	var race_reward: Dictionary = progression.record_completed_race("rep-race-run-0001",14.0)
 	check("valid_race_earns_reputation", race_reward.get("underground_rep")==5 and progression.underground_reputation==5)
+	check("saved_race_result_announces_promotion",str(race_reward.get("rank_up","")).contains("STREET PROSPECT") and str(progression.underground_career().rank)=="Street Prospect")
 	progression.record_completed_race("rep-race-run-0001",14.0)
 	check("duplicate_race_cannot_earn_more_rep", progression.underground_reputation==5)
 	var actual_tier: Dictionary = progression.record_driving_contract("tier-starter-run-0002","morrow-coast::starter","robbery",first_tier)

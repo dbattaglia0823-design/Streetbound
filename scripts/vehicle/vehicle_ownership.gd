@@ -336,6 +336,13 @@ func equip(id: String) -> bool:
 	return true
 
 
+## No migration needed: career rank and access are derived from the existing saved rep.
+func underground_career() -> Dictionary:
+	return DrivingContracts.career_state(underground_reputation)
+
+func underground_access(key: String) -> bool:
+	return DrivingContracts.has_career_access(key,underground_reputation)
+
 func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionary:
 	# The race coordinator calls this only after a timed, completed 1/4-mile
 	# run. Race tokens are saved to prevent double payout, even on restart.
@@ -383,6 +390,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		"car_level_before":old_car_level,"car_level_after":active_car_level(),
 		"car_id":active_id,"seconds":elapsed_seconds,
 		"underground_rep":underground_reputation-prior_rep,
+		"rank_up":DrivingContracts.promotion_text(prior_rep,underground_reputation),
 		"part":earned_part,"part_uid":"up-%d" % prior_serial if not earned_part.is_empty() else ""}
 
 
@@ -447,7 +455,8 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
 		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key),
-		"underground_rep":street_rep}
+		"underground_rep":underground_reputation-previous_rep,
+		"rank_up":DrivingContracts.promotion_text(previous_rep,underground_reputation)}
 
 ## A player may earn career rewards only for a completed, host-verified
 ## multiplayer finish. The network layer validates the final standings and
@@ -578,7 +587,8 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
-		"car_xp":vehicle_xp,"underground_rep":reputation}
+		"car_xp":vehicle_xp,"underground_rep":underground_reputation-prior_rep,
+		"rank_up":DrivingContracts.promotion_text(prior_rep,underground_reputation)}
 
 # Entry fee is paid once when a validated race is staged, after the grid
 # has been prepared. Loss, false start, quit or arrest does not refund it.

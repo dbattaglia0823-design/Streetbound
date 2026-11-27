@@ -105,7 +105,7 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	if int(economy.call("player_level")) < int(offer.get("required_player_level",1)):
 		return "REQUIRES DRIVER LEVEL %d" % int(offer.get("required_player_level",1))
 	if int(economy.get("underground_reputation")) < Rules.required_rep(offer):
-		return "REQUIRES UNDERGROUND REP %d" % Rules.required_rep(offer)
+		return "REQUIRES REP %d / %d MORE" % [Rules.required_rep(offer),Rules.required_rep(offer)-int(economy.get("underground_reputation"))]
 	var prerequisite:=str(offer.get("required_race_id",""))
 	if not prerequisite.is_empty():
 		var event_key:=str(marker_source.get("world_id"))+"::"+prerequisite
@@ -162,6 +162,15 @@ func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "
 	if not capacity_lock.is_empty():
 		return {"result":"vehicle_capacity","message":capacity_lock}
 	return try_start(source,chosen)
+
+## Career navigation uses the real active contact, not a fabricated waypoint.
+func career_contact() -> Dictionary:
+	if not is_instance_valid(marker_source):
+		return {}
+	for item in marker_source.get("markers"):
+		if str(item.get("id","")) == "marker-campaign-robbery-contact" and str(item.get("type","")) == "contract_contact" and bool(marker_source.call("_enabled",item)):
+			return item.duplicate(true)
+	return {}
 
 func _waypoints() -> Node:
 	if not is_instance_valid(map_hud):
@@ -308,9 +317,13 @@ func _complete() -> void:
 	var event_key := str(marker_source.get("world_id")) + "::" + str(active.get("id",""))
 	var payout: Dictionary = economy.call("record_driving_contract",run_token, event_key, kind, offer_settings)
 	if str(payout.get("result","")) == "completed":
-		_end("JOB COMPLETE / +%s / +%d DRIVER XP / +%d STREET REP" % [
+		var result_text := "JOB COMPLETE / +%s / +%d DRIVER XP / +%d STREET REP" % [
 			economy.dollars(int(payout.get("cash",0))), int(payout.get("player_xp",0)),
-			int(payout.get("underground_rep",0))])
+			int(payout.get("underground_rep",0))]
+		var promotion := str(payout.get("rank_up",""))
+		if not promotion.is_empty():
+			result_text += "\n"+promotion
+		_end(result_text)
 	else:
 		_end("JOB NOT PAID / " + str(payout.get("result","save_failed")))
 
