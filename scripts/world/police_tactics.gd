@@ -17,10 +17,10 @@ static func profile(wanted: int) -> Dictionary:
 	# Every officer has the same ordinary vehicle dynamics as other cars.
 	return {
 		"units": count,
-		"throttle": [0.68, 0.72, 0.77, 0.81, 0.85][tier - 1],
-		"cruise_mps": [20.0, 22.0, 23.0, 24.0, 25.0][tier - 1],
+		"throttle": [0.64, 0.70, 0.76, 0.81, 0.85][tier - 1],
+		"cruise_mps": [18.5, 21.0, 23.0, 24.0, 25.0][tier - 1],
 		"sight_m": [100.0, 110.0, 120.0, 130.0, 140.0][tier - 1],
-		"search_seconds": [11.0, 14.0, 17.0, 20.0, 24.0][tier - 1]
+		"search_seconds": [10.0, 13.0, 17.0, 21.0, 24.0][tier - 1]
 	}
 
 static func role(index: int, wanted: int) -> String:

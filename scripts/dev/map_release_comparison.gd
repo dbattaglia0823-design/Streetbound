@@ -4,7 +4,12 @@ const COLLECTIONS=["roads","regions","props","markers","races","dealerships"]
 # A JSON round trip may represent integral source values as floats.
 static func equal_value(a: Variant,b: Variant) -> bool:
 	if typeof(a) in [TYPE_INT,TYPE_FLOAT] and typeof(b) in [TYPE_INT,TYPE_FLOAT]:
-		return float(a)==float(b)
+		if typeof(a)==TYPE_INT and typeof(b)==TYPE_INT:return a==b
+		var left:=float(a);var right:=float(b)
+		if left==right:return true
+		if not is_finite(left) or not is_finite(right):return false
+		# JSON decimal decoding can differ by a few floating-point ULPs.
+		return absf(left-right)<=maxf(1.0, maxf(absf(left),absf(right)))*0.00000000000001
 	if typeof(a)!=typeof(b):return false
 	if a is Dictionary:
 		if a.size()!=b.size():return false

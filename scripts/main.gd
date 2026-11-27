@@ -368,6 +368,7 @@ func _ready() -> void:
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
 	if not proving_ground and not online_session.active and not cursor.has("validation"):
+		# Keep validation scenarios isolated from daily traffic and weather.
 		living_world=LivingWorldScript.new()
 		living_world.host=self;living_world.world=ground;living_world.player=vehicle
 		living_world.traffic=traffic;living_world.garage=player_garage;living_world.markers=authored_map_markers

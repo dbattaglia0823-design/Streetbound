@@ -131,7 +131,7 @@ func configure_underground_career(model: Object, pursuit: Node2D) -> void:
 	career_awards={"id":"race-builtin-"+event_id,"category":"street","race_heat":heat,
 		"reward_cash":1500+heat*750,"reward_player_xp":180+heat*90,
 		"reward_car_xp":120+heat*60,"underground_rep_reward":heat*2,
-		"first_win_reward_cash":500,"escape_time_limit":90+heat*15}
+		"first_win_reward_cash":500+heat*250,"escape_time_limit":90+heat*15}
 	# A real existing route serves as the first high-stakes career event.
 	if event_id=="parkway-express":
 		career_awards["entry_fee"]=2000

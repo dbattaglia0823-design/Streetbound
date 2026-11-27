@@ -54,6 +54,8 @@ func _ready() -> void:
 	clock_label.offset_top=8;clock_label.offset_bottom=32
 	clock_label.custom_minimum_size=Vector2(300,24)
 	clock_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	clock_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	clock_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	clock_label.add_theme_color_override("font_color",Color("#ecf1f6"))
 	clock_label.add_theme_color_override("font_shadow_color",Color("#172027"))
 	clock_label.add_theme_constant_override("shadow_offset_x",1)
@@ -70,14 +72,18 @@ func _ready() -> void:
 	dialog.confirmed.connect(_close_rest)
 	dialog.canceled.connect(_close_rest)
 	add_child(dialog)
-	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(340,230);dialog.add_child(panel)
+	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(360,240);dialog.add_child(panel)
 	rest_status=Label.new();rest_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(rest_status)
+	var waits:=GridContainer.new();waits.columns=2;panel.add_child(waits)
 	for hours in [1,3,6,12]:
 		var button:=Button.new();button.text="Wait %d hour%s"%[hours,"" if hours==1 else "s"]
-		button.pressed.connect(_skip.bind(float(hours)*3600.0));panel.add_child(button)
+		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_skip.bind(float(hours)*3600.0));waits.add_child(button)
+	var targets:=GridContainer.new();targets.columns=2;panel.add_child(targets)
 	for target in [6,12,18,0]:
 		var button:=Button.new();button.text="Rest until %02d:00"%target
-		button.pressed.connect(_skip_until.bind(target));panel.add_child(button)
+		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_skip_until.bind(target));targets.add_child(button)
 	_refresh()
 
 func _shared() -> bool:
@@ -127,7 +133,7 @@ func _allowed() -> bool:
 
 func open_rest() -> void:
 	if get_tree().paused or not _allowed():return
-	rest_status.text=rest_location()+"\n"+Rules.clock_text(seconds)+"\nTime skip does not refill fuel, repair your car, pay rewards or clear cooldowns."
+	rest_status.text=rest_location()+"\n"+Rules.clock_text(seconds)+"\nResting is free. Fuel, repairs, rewards and cooldowns are unchanged."
 	_rest_open=true
 	dialog.popup_centered()
 	get_tree().paused=true
@@ -164,7 +170,8 @@ func _exit_tree() -> void:
 	if not save_path.is_empty():_save()
 
 func rain_at(point_px: Vector2) -> float:
-	return original_rain if _shared() else Rules.rain(seconds,point_px/PPM,seed_value,original_rain)
+	var floor_rain: float=float(world.get("rain_intensity")) if is_instance_valid(world) else original_rain
+	return floor_rain if _shared() else Rules.rain(seconds,point_px/PPM,seed_value,floor_rain)
 
 func business_open(kind: String) -> bool:
 	return _shared() or Rules.open_at(seconds,kind)
@@ -205,10 +212,11 @@ func _refresh() -> void:
 ## A bounded traffic diversion on a nearby, ordinary road. Never inject
 ## solid blockers into live physics, race checkpoints or police routes.
 func _update_event(shared: bool) -> void:
-	if not is_instance_valid(traffic):return
+	if not is_instance_valid(traffic) or not is_instance_valid(event_sign):return
 	if shared or _busy():
-		traffic.set("event_closed_road",-1);event={};event_slot=-1
-		event_sign.queue_redraw();return
+		traffic.set("event_closed_road",-1)
+		if not event.is_empty():event={};event_sign.queue_redraw()
+		event_slot=-1;return
 	var slot:=floori(seconds/7200.0)
 	if slot==event_slot:return
 	event_slot=slot
@@ -223,8 +231,9 @@ func _update_event(shared: bool) -> void:
 	var locations: Dictionary={}
 	for raw in graph.nearby_edges(player.global_position,400.0):
 		var edge: Dictionary=graph.edges[int(raw)]
-		if bool(edge.connector) or str(edge.kind) not in ["local","arterial","rural"] or absf(float(edge.get("start_height_m",0)))>.1 or absf(float(edge.get("end_height_m",0)))>.1:continue
+		if int(edge.get("road",-1))<0 or int(edge.road)>=world.data.roads.size() or bool(edge.connector) or str(edge.kind) not in ["local","arterial","rural"] or absf(float(edge.get("start_height_m",0)))>.1 or absf(float(edge.get("end_height_m",0)))>.1:continue
 		var path: PackedVector2Array=edge.points
+		if path.size()<2:continue
 		var distance:=path[path.size()/2].distance_to(player.global_position)/PPM
 		if distance>=140.0 and distance<=400.0 and not choices.has(int(edge.road)):
 			choices.append(int(edge.road))

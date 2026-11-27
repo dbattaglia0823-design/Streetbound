@@ -432,7 +432,7 @@ func open_commands() -> void:
 	commands=[["Named layers",open_layers],["Select by filter",open_filters],["Replace assets",open_replace],
 		["Camera bookmarks",open_bookmarks],["Version snapshots",open_snapshots],["World Release Center",func():e.map_switcher.open_release_center(e)],["Resize map",open_resize],
 		["Reference overlay",open_reference],["Measure distance area angles",begin_measure],["Road grade and clearance",measure_roads],
-		["Environmental finishing",open_environment_finishing],["Build city",e._open_construction],["Landscape terrain",e._open_landscape],["Bulk edit",e._open_bulk_edit],
+		["World Validation Center",func():e.gameplay_authoring.open_validation(e)],["Environmental finishing",open_environment_finishing],["Build city",e._open_construction],["Landscape terrain",e._open_landscape],["Bulk edit",e._open_bulk_edit],
 		["Prefabs",e._open_prefabs],["Edit history",e._open_history],["Fit map",e._fit_map],["Undo",e._undo],["Redo",e._redo],
 		["Test Drive",e._test_drive]]
 	query.text_changed.connect(func(_v: String)->void:_fill_commands())

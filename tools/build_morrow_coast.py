@@ -3,6 +3,7 @@
 Original world. Atlas Coast is reference only and is never read or overwritten.
 Run with Python 3, no third-party dependencies.
 """
+import argparse
 import collections
 import json
 import math
@@ -14,7 +15,7 @@ from gameplay_authoring import validate as validate_gameplay, apply as apply_gam
 from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
 from elevation_map_audit import audit_elevated_objectives
-from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
+from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT, EDIT_PATH
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
@@ -24,7 +25,16 @@ from road_shape_geometry import circle_path
 ROOT = Path(__file__).resolve().parents[1]
 # Source coordinates retain their original origin. Only grow the east and
 # south edges; never multiply or translate the legacy 6400x4800 layout.
-WIDTH, HEIGHT = world_bounds_from_overlay()
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--overlay",type=Path,default=EDIT_PATH)
+parser.add_argument("--output-dir",type=Path,default=ROOT/"worlds")
+args=parser.parse_args()
+OVERLAY=args.overlay.resolve()
+OUTPUT_DIR=args.output_dir.resolve()
+if OVERLAY!=EDIT_PATH.resolve() and OUTPUT_DIR==(ROOT/"worlds").resolve():
+    parser.error("A draft overlay must be baked into a separate output directory")
+OUTPUT_DIR.mkdir(parents=True,exist_ok=True)
+WIDTH, HEIGHT = world_bounds_from_overlay(OVERLAY)
 CHUNK, CELL = 192, 64
 LEGACY_LAYOUT = True
 RNG = random.Random(28114)
@@ -390,7 +400,7 @@ add_poi("Juniper Roadside Fuel", "FUEL", "mwest", (1,-1), "fuel")
 
 EDITOR_SOURCE_ROAD_COUNT = len(ROADS)
 EDITOR_MARKERS = apply_edits(ROADS, NODES, TERRAIN, POIS, SPAWN, PROPS,
-                             width=WIDTH, height=HEIGHT,
+                             filename=OVERLAY,width=WIDTH, height=HEIGHT,
                              legacy_source_count=LEGACY_SOURCE_ROAD_COUNT,
                              legacy_source_poi_count=LEGACY_SOURCE_POI_COUNT)
 
@@ -1113,7 +1123,7 @@ assert all(distance(NODES[r["start"]],r["points"][0])<.01 and distance(NODES[r["
 length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 # Keep native dealership stock and placement edits inside the shipped playable
 # archive. Runtime exports need not contain the developer-only editor source.
-dealer_source = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
+dealer_source = OVERLAY
 authored_source = json.loads(dealer_source.read_text(encoding="utf-8")) if dealer_source.exists() else {}
 authored_dealers = authored_source.get("dealerships", [])
 gameplay_zones, junction_controls=validate_gameplay(authored_source,WIDTH,HEIGHT)
@@ -1154,7 +1164,7 @@ if "terrainHeight" in authored_source:
     data["terrainHeight"]=field
 data['editor_warnings'].extend(audit_elevated_objectives(data))
 bake_jumps(data)
-destination=ROOT/"worlds"/"morrow-coast.world.json"
+destination=OUTPUT_DIR/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
 
 # A reviewable vector atlas uses exactly the playable road geometry.
@@ -1174,6 +1184,6 @@ for p in POIS:
     x,y=p["position"]
     svg.append(f'<circle cx="{x}" cy="{y}" r="18" fill="#f4dfaa" stroke="#3d6255" stroke-width="6"/>')
 svg.append('<text x="230" y="4620" font-family="sans-serif" font-size="90" fill="#344f44">MORROW COAST / STREETBOUND</text></svg>')
-(ROOT/"worlds"/"morrow-coast-overview.svg").write_text("\n".join(svg),encoding="utf-8")
+(OUTPUT_DIR/"morrow-coast-overview.svg").write_text("\n".join(svg),encoding="utf-8")
 print(json.dumps(data["stats"],indent=2))
 print(f"World: {WIDTH/1000} × {HEIGHT/1000} km; {destination.stat().st_size/1024/1024:.2f} MiB")

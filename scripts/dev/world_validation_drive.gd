@@ -19,6 +19,8 @@ var result: Dictionary={}
 var elapsed:=0.0
 var next_sample:=0.0
 var progress:=0.0
+var last_sample_position:=Vector2.ZERO
+var last_station:=0.0
 var active:=false
 
 func _ready() -> void:
@@ -54,6 +56,8 @@ func _ready() -> void:
 	var scenario:=str(spec.get("scenario","Normal"))
 	flow.set("maximum_vehicles",{"Normal":16,"Rush hour":24,"Heavy":30,"Police":16}.get(scenario,16))
 	driver.enable_race_traffic(host.ground,flow)
+	last_sample_position=car.global_position
+	last_station=guide.station_at(car.global_position/20.0)
 	active=true
 	driver.launch()
 	set_physics_process(true)
@@ -69,8 +73,12 @@ func _physics_process(dt: float) -> void:
 	next_sample=elapsed+.25
 	var station: float=guide.station_at(car.global_position/20.0)
 	# Clamp credited progress to what the physical car could traverse.
-	var advance:=maxf(0.0,station-progress)
-	if advance<=maxf(5.0,car.linear_velocity.length()*.5+3.0):progress=maxf(progress,station)
+	var traveled_m:=car.global_position.distance_to(last_sample_position)/20.0
+	var advance:=station-last_station
+	# Re-anchor after projection discontinuities without awarding progress.
+	if absf(advance)<=maxf(2.0,traveled_m*1.5+1.0):
+		progress=clampf(progress+advance,0.0,float(guide.length_m))
+	last_station=station;last_sample_position=car.global_position
 	var cross: float=guide.point_at(station).distance_to(car.global_position/20.0)
 	result.max_cross_track_m=maxf(float(result.max_cross_track_m),cross)
 	var agents: Array=flow.get("agents")
