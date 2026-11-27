@@ -6,7 +6,9 @@ road layers agree. Legacy water bridge grades do not affect connectivity.
 import bisect
 import math
 
-from road_elevation import layer_at_join, validate_profile
+from road_elevation import (
+    MIN_CROSSING_CLEARANCE_M, height_at_station, layer_at_join, validate_profile,
+)
 
 PRIORITY = {'highway':5,'track':5,'arterial':4,'rural':3,'mountain':3,
             'local':2,'gravel':1,'driveway':0,'alley':0}
@@ -128,6 +130,15 @@ def build_junctions(roads,nodes,segments,grid):
                     by_layer.setdefault(layer_at_join(road,station),set()).add(road['id'])
         for layer,ids in by_layer.items():
             if len(ids)>=2:event(p,ids,layer)
+    def check_clearance(ids,p):
+        heights = [height_at_station(roads[road_id],project(roads[road_id],p)[1])
+                   for road_id in ids]
+        if abs(heights[0]-heights[1]) < MIN_CROSSING_CLEARANCE_M:
+            names = " / ".join(roads[road_id]["name"] for road_id in ids)
+            raise ValueError(f"{names}: grade-separated crossing at "
+                             f"{p[0]:.1f}, {p[1]:.1f} needs at least "
+                             f"{MIN_CROSSING_CLEARANCE_M:g} m vertical clearance")
+
     tested=set()
     for indices in grid.values():
         for i in indices:
@@ -142,6 +153,7 @@ def build_junctions(roads,nodes,segments,grid):
                     layer=join_layer(ids[0],p)
                     other=join_layer(ids[1],p)
                     if layer is None or layer!=other:
+                        check_clearance(ids,p)
                         continue
                     crossings.append(dict(p=p,roads=ids))
                     event(p,ids,layer)

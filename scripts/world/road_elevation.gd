@@ -69,3 +69,8 @@ static func artwork_layer(road: Dictionary) -> int:
 
 static func layer_for_height(height_m: float) -> int:
 	return clampi(roundi(height_m / HEIGHT_M), -MAX_LAYER, MAX_LAYER)
+
+
+static func edge_height_at(edge: Dictionary, progress_px: float) -> float:
+	return lerpf(float(edge.get("start_height_m",0)),float(edge.get("end_height_m",0)),
+		clampf(progress_px / maxf(float(edge.length_px),1.0),0.0,1.0))

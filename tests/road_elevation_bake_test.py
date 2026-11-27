@@ -34,6 +34,15 @@ class ElevationBakeTests(unittest.TestCase):
         explicit["roads"][0]["elevation"] = {"start_layer":0,"end_layer":0}
         self.assertEqual(make_archive(source),make_archive(explicit))
 
+    def test_shallow_grade_separation_is_rejected(self):
+        source = fixture()
+        cross = copy.deepcopy(source["roads"][5])
+        cross["points"] = [{"x": 340, "y": 685}, {"x": 650, "y": 685}]
+        cross["name"] = "Crossing Across Ramp"
+        source["roads"].append(cross)
+        with self.assertRaisesRegex(ValueError,"Crossing Across Ramp.*4.5 m vertical clearance"):
+            make_archive(source)
+
     def test_bad_profiles_fail_before_archive_output(self):
         source = fixture()
         for profile in [None, {"start_layer":True,"end_layer":1},

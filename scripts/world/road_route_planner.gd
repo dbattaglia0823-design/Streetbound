@@ -42,7 +42,7 @@ func _candidates(at: Vector2, heading: Vector2, road_name: String, road_layer: i
 			if distance<best:
 				best=distance;nearest=p;tangent=segment.normalized()
 				progress=float(edge.stations[i-1])+segment.length()*t
-		if best==INF or Elevation.layer_for_height(network.edge_height_at(edge,progress))!=road_layer:continue
+		if best==INF or Elevation.layer_for_height(Elevation.edge_height_at(edge,progress))!=road_layer:continue
 		var distance:=sqrt(best)
 		if road_name.is_empty() and distance>PPM*MAX_ACCESS_M:continue
 		# A lane's cost is distance actually traveled, not road rank, speed or

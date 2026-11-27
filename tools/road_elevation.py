@@ -4,6 +4,7 @@ import math
 
 LAYER_HEIGHT_M = 6.0
 MAX_SLOPE = .12
+MIN_CROSSING_CLEARANCE_M = 4.5
 LAYERS = range(-2, 3)
 
 
@@ -40,6 +41,13 @@ def layer_at_join(road, station):
     if road["_stations"][-1] - station <= .12:
         return end
     return None
+
+
+def height_at_station(road, station):
+    first = endpoint_layer(road, "start")
+    last = endpoint_layer(road, "end")
+    fraction = station / max(road["_stations"][-1], .001)
+    return (first + (last - first) * fraction) * LAYER_HEIGHT_M
 
 
 def validate_profile(road, length_m):

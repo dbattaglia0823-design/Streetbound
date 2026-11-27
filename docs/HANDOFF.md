@@ -18,7 +18,9 @@
   [Road elevation](ROAD_ELEVATION.md) for limitations and test commands.
 - Local Godot 4.6.3 passed the road elevation graph and drive tests, the
   original open world, ambient traffic, native authoring, driving contracts
-  and police tactics. Graphical review and GitHub Actions are separate checks.
+  and police tactics. The isolated Morrow rebake matched the 126-road
+  baseline byte for byte. OpenGL Compatibility captures verified deck
+  stacking and the tunnel entrance on Windows.
 
 ## Verification boundaries and remaining work
 

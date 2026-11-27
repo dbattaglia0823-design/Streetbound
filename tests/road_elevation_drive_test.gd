@@ -60,6 +60,11 @@ func _run() -> void:
 		"A ground-level car cannot enter from the middle of a tunnel or overpass")
 	check(world.surface_at(Vector2(495,580)*20).name == "GRASS",
 		"A deck does not paint a second physical road at ground level")
+	check(world.tunnel_portals.get(7) == false and world.tunnel_portals.size() == 1,
+		"Only the connected underground ramp end owns a portal")
+	check(world._overhead_layer_at(Vector2(500,400)*20,0.0) == 1 and
+		world._overhead_layer_at(Vector2(500,400)*20,6.0) == 0,
+		"Only the driver beneath the deck needs the occlusion fade")
 	var car: VehicleController2D = WorldScene.instantiate()
 	car.position = Vector2(500,708)*20
 	car.z_index = 8
@@ -119,6 +124,15 @@ func _run() -> void:
 	check(car.position.y > 410*20 and car.road_layer == -1 and is_equal_approx(car.elevation_m,-6.0),
 		"Tunnel supports travel beneath the same ground obstacle")
 	check(world.viewed_road_layer == -1,"The world reveals its tunnel art when the driver descends")
+	# Start from rest facing the exit, then climb using the same real controls.
+	car.linear_velocity = Vector2.ZERO
+	car.rotation = 0.0
+	for i in 1900:
+		await physics_frame
+		if car.position.y < 142*20:break
+	check(car.position.y < 142*20 and car.road_layer == 0 and
+		car.can_reach_ground_marker() and world.viewed_road_layer == 0,
+		"Leaving the same physical portal restores ground contact and terrain visibility")
 	world.queue_free()
 	car.queue_free()
 	blocker.queue_free()

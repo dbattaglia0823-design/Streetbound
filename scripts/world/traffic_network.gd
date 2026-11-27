@@ -387,14 +387,9 @@ func point_on_edge(edge_id: int, progress_px: float) -> Dictionary:
 	var tangent := (after - before).normalized()
 	if tangent.length_squared() < 0.1:
 		tangent = (points[high] - points[low]).normalized()
-	var height_m := edge_height_at(edge,offset)
+	var height_m := Elevation.edge_height_at(edge,offset)
 	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5,
 		"height_m":height_m,"road_layer":Elevation.layer_for_height(height_m)}
-
-
-static func edge_height_at(edge: Dictionary, progress_px: float) -> float:
-	return lerpf(float(edge.get("start_height_m",0)),float(edge.get("end_height_m",0)),
-		clampf(progress_px / maxf(float(edge.length_px),1.0),0.0,1.0))
 
 
 func curve_speed_limit(edge_id: int, progress_px: float, desired_px: float) -> float:

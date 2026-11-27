@@ -35,6 +35,7 @@ var content: Dictionary
 var origin_m := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
 var tunnel_art: Array[Node2D] = []
+var deck_art: Array[Node2D] = []
 var prop_list: Array[Dictionary] = []
 var ground_polys: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
@@ -154,12 +155,16 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 			roads.road_batches.assign(batches_by_layer.get(layer,[]))
 			roads.junction_list.assign(junctions_by_layer.get(layer,[]))
 			roads.render_stage=stage
+			roads.extent_px = (Vector2.ONE*world.chunk_m if render_extent_m == Vector2.ZERO else render_extent_m)*PPM
 			roads.z_index=stage+1+16*maxi(int(layer),0)
-			if int(layer)<0:
+			if int(layer) != 0:
 				roads.set_meta("road_layer",layer)
-				tunnel_art.append(roads)
+				if int(layer) < 0:
+					tunnel_art.append(roads)
+				else:
+					deck_art.append(roads)
 			add_child(roads)
-	reveal_road_layer(int(world.viewed_road_layer))
+	update_grade_visibility(int(world.viewed_road_layer),int(world.overhead_road_layer))
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.
 	if world.boardwalk_near_cell(cell) or render_extent_m!=Vector2.ZERO:
@@ -280,7 +285,9 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
 
-func reveal_road_layer(layer: int) -> void:
+func update_grade_visibility(layer: int, overhead: int) -> void:
+	for node in deck_art:
+		node.modulate.a = .55 if int(node.get_meta("road_layer")) == overhead else 1.0
 	for node in tunnel_art:
 		node.visible = int(node.get_meta("road_layer")) == layer
 		# Interior is composited above surface pavement but below the car.

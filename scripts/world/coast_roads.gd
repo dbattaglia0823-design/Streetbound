@@ -11,6 +11,7 @@ const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
+var extent_px := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
 func point(raw: Array) -> Vector2:
@@ -183,6 +184,56 @@ func _dealer_curb_gaps(road: Dictionary, side: float) -> Array:
 	return gaps
 
 
+func _deck_supports(path: PackedVector2Array, width: float, phase: float, layer: int) -> void:
+	var station := phase
+	for i in range(1,path.size()):
+		var a := path[i-1]
+		var b := path[i]
+		var length := a.distance_to(b)
+		if length < .01:continue
+		var tangent := (b-a)/length
+		for mark in wear_stations(station,length,PPM*31.0):
+			var center := a+tangent*(mark-station)
+			if not Rect2(Vector2.ZERO,extent_px).has_point(center):continue
+			for side in [-1.0,1.0]:
+				var foot: Vector2 = center+tangent.orthogonal()*width*.47*side+Vector2(12,25)*layer
+				if str(world.surface_at(foot+origin_m*PPM).name) != "GRASS":continue
+				draw_circle(foot+Vector2(12,9),21,Color(.08,.09,.08,.28))
+				draw_circle(foot,14,Color("626b64"))
+				draw_line(foot,foot-Vector2(12,25)*layer,Color("929a93"),20,true)
+		station += length
+
+
+func _portal_art() -> void:
+	for batch in road_batches:
+		var road: Dictionary = batch.road
+		var road_id := int(road.id)
+		if editor_hidden.has(road_id) or not world.tunnel_portals.has(road_id):continue
+		var first: bool = world.tunnel_portals[road_id]
+		var raw: Array = road.points[0 if first else -1]
+		var inner: Array = road.points[1 if first else -2]
+		var mouth := point(raw)
+		if not Rect2(Vector2.ZERO,extent_px).has_point(mouth):continue
+		var outside := (point(inner)-mouth).normalized()
+		var across := outside.orthogonal()
+		var half := float(road.width)*PPM*.52
+		var exit_depth := PPM*2.3
+		var wall_width := PPM*1.3
+		for side in [-1.0,1.0]:
+			var corner: Vector2 = mouth+across*half*side
+			var bank: Vector2 = across*side*wall_width
+			var cut := PackedVector2Array([corner-outside*PPM*1.4,corner+bank*2.7,
+				corner+bank*1.2+outside*PPM*8.0,corner+outside*PPM*5.5])
+			draw_colored_polygon(cut,Color("657c52"))
+			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("675e50"),wall_width,true)
+			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("a89f87"),wall_width*.38,true)
+		draw_line(mouth-across*half,mouth+across*half,Color("242a2e"),PPM*1.35,true)
+		draw_line(mouth-outside*PPM*.42-across*half,mouth-outside*PPM*.42+across*half,
+			Color("b9b4a3"),PPM*.34,true)
+		draw_line(mouth+outside*exit_depth-across*half*.88,mouth+outside*exit_depth+across*half*.88,
+			Color(.03,.04,.04,.32),PPM*2.6,true)
+
+
 func _roads(stage: int) -> void:
 	for batch in road_batches:
 		if editor_hidden.has(int(batch.road.get("id",-1))):continue
@@ -195,10 +246,12 @@ func _roads(stage: int) -> void:
 		if stage == 0:
 			if layer != 0:
 				if layer > 0:
+					_deck_supports(path,width,float(batch.phase),layer)
 					var shadow := PackedVector2Array()
 					for point_px in path:
 						shadow.append(point_px+Vector2(19,30)*layer)
 					draw_polyline(shadow,Color(.09,.12,.14,.38),width+16.0,true)
+					draw_polyline(shadow,Color("69746d"),width-7.0,true)
 				draw_polyline(path,Color("2d3740") if layer > 0 else Color("343931"),width+24.0,true)
 			elif urban:
 				# Both sides are real road-relative paths, not disconnected
@@ -258,7 +311,7 @@ func _roads(stage: int) -> void:
 						var wall := _offset(visible_path,side*width*.5)
 						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
 						if layer < 0:
-							_dashes(wall,5.0,Color("d8ad68"),16.0,174.0,float(piece.phase)*PPM)
+							_dashes(wall,5.0,Color("d8ad68"),16.0,174.0,float(piece.phase))
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
@@ -328,6 +381,7 @@ func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
 		return
+	_portal_art()
 	for j in junction_list:
 		var hidden:=false
 		for road_id in j.get("roads",[]):

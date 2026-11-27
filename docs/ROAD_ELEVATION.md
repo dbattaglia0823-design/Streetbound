@@ -12,7 +12,8 @@ adjacent layers, with at least 50 m of road length per 6 m of rise.
    deck, a level −1 road is a tunnel, and 0 to +1 is an uphill ramp.
 2. Connect ramp ends to roads at their matching layer. A crossing on a
    constant-height deck can make an ordinary same-layer intersection.
-   Each ramp connects at its two ends.
+   Each ramp connects at its two ends. The bake rejects unconnected
+   centerline crossings with less than 4.5 m of clearance.
 3. Use the browser **Road elevation** filter to select stacked roads. Blue
    strokes mark raised roads. Purple strokes mark tunnels. Dashed strokes
    indicate ramps.
@@ -34,11 +35,15 @@ collision bands for stacked decks. Existing authored checkpoints and
 contract stops are ground-level. Dispatch line of sight and containment
 also compare vehicle height.
 
-The first pass draws ordered road decks, edge rails, open-cut approaches,
-and a dim tunnel layer revealed for the primary driver. Terrain portals
-with cutouts, bridge pillars, traffic and police routing on graded roads,
-dedicated grade-aware objectives, jumps, and multiplayer state are still
-pending. Ambient traffic uses the ground lanes in the interim.
+The road renderer draws deck edges, rails, shadows and supports. The deck
+above the player fades while driving below it. A tunnel mouth adds an
+embankment and retaining walls at a connected ramp. The interior reveals
+a dim road and wall lights when the primary driver descends.
+
+Supports and embankments are rendered artwork. Full terrain cutouts,
+traffic and police routing on graded roads, grade-aware objective
+authoring, jumps, and multiplayer state are pending. Ambient traffic uses
+ground lanes in the interim.
 
 ## Reproduce the elevation tests
 

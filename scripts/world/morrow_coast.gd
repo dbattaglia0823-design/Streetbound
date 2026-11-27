@@ -41,6 +41,9 @@ var has_road_elevation := false
 var road_lengths_m := PackedFloat64Array()
 var _elevation_connections: Dictionary = {}
 var viewed_road_layer := 0
+var overhead_road_layer := 0
+var tunnel_portals: Dictionary = {}
+var _last_overhead_check := Vector2.INF
 var bridge_diagnostics: Dictionary={}
 var mountain_diagnostics: Dictionary={}
 var mountain_art_cache: Dictionary={}
@@ -152,7 +155,11 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	has_road_elevation = data.roads.any(func(road: Dictionary) -> bool: return road.has("elevation"))
 	if has_road_elevation:
 		for pair in data.get("road_connections",[]):
-			_elevation_connections[Vector2i(int(pair[0]),int(pair[1]))] = true
+			var first := int(pair[0])
+			var last := int(pair[1])
+			_elevation_connections[Vector2i(first,last)] = true
+			_index_tunnel_portal(first,last)
+			_index_tunnel_portal(last,first)
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -495,15 +502,64 @@ func stream_at(position_px: Vector2) -> void:
 		else:
 			chunks[index].set_stream_active(cell_delta <= 1)
 
+func _index_tunnel_portal(ramp_id: int, tunnel_id: int) -> void:
+	var ramp: Dictionary = data.roads[ramp_id]
+	var tunnel: Dictionary = data.roads[tunnel_id]
+	var layer := Elevation.endpoint_layer(tunnel,true)
+	if layer >= 0 or layer != Elevation.endpoint_layer(tunnel,false):
+		return
+	for first in [true,false]:
+		if Elevation.endpoint_layer(ramp,first) != layer or Elevation.endpoint_layer(ramp,not first) != 0:
+			continue
+		var raw: Array = ramp.points[0 if first else -1]
+		var portal := Vector2(raw[0],raw[1])
+		for endpoint in [tunnel.points[0],tunnel.points[-1]]:
+			if portal.distance_to(Vector2(endpoint[0],endpoint[1])) <= .12:
+				tunnel_portals[ramp_id] = first
+				return
+
+
+func _overhead_layer_at(position_px: Vector2, height_m: float) -> int:
+	var point := position_px/PPM
+	var cell := float(data.surface_cell)
+	var key := "%d,%d" % [floori(point.x/cell),floori(point.y/cell)]
+	var nearest := INF
+	var result := 0
+	for raw_index in data.surface_index.get(key,[]):
+		var index := int(raw_index)
+		var segment: Dictionary = data.segments[index]
+		var road_id := int(segment.road)
+		var road: Dictionary = data.roads[road_id]
+		if not road.has("elevation"):continue
+		var deck_layer := Elevation.artwork_layer(road)
+		if deck_layer <= 0:continue
+		var a := Vector2(segment.a[0],segment.a[1])
+		var b := Vector2(segment.b[0],segment.b[1])
+		var closest := Geometry2D.get_closest_point_to_segment(point,a,b)
+		if point.distance_to(closest) > float(road.width)*.5+2.0:continue
+		var station := float(segment_stations[index]) + a.distance_to(closest)
+		var deck_height := Elevation.height_at(road,station/maxf(road_lengths_m[road_id],.01))
+		var clearance := deck_height-height_m
+		if clearance >= 4.5 and clearance < nearest:
+			nearest = clearance
+			result = deck_layer
+	return result
+
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
 		return
 	if vehicle:
-		if has_road_elevation and vehicle.road_layer != viewed_road_layer:
-			viewed_road_layer = vehicle.road_layer
-			for chunk in chunks.values():
-				chunk.reveal_road_layer(viewed_road_layer)
+		if has_road_elevation and (vehicle.road_layer != viewed_road_layer or
+				vehicle.global_position.distance_squared_to(_last_overhead_check) > pow(PPM*1.5,2)):
+			var overhead := _overhead_layer_at(vehicle.global_position,vehicle.elevation_m)
+			_last_overhead_check = vehicle.global_position
+			if vehicle.road_layer != viewed_road_layer or overhead != overhead_road_layer:
+				viewed_road_layer = vehicle.road_layer
+				overhead_road_layer = overhead
+				for chunk in chunks.values():
+					chunk.update_grade_visibility(viewed_road_layer,overhead_road_layer)
 		stream_at(vehicle.global_position)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
@@ -560,12 +616,24 @@ func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Di
 		var offset := (point-a).dot(direction)
 		var station := float(segment_stations[index])
 		var total := road_lengths_m[road_id]
-		var cap := total-station-length_m
-		if (station < .01 and offset < -.08) or (cap < .01 and offset > length_m+.08):
+		var half_width := float(road.width)*.5
+		# The capsule around the second sample can also reach beyond the
+		# road's mouth. Clip all nearby samples to the real end planes.
+		for first in [true,false]:
+			var to_end := station if first else total-station-length_m
+			if to_end > half_width:continue
+			var raw: Array = road.points[0 if first else -1]
+			var inner: Array = road.points[1 if first else -2]
+			var endpoint := Vector2(raw[0],raw[1])
+			var inward := (Vector2(inner[0],inner[1])-endpoint).normalized()
+			if (point-endpoint).dot(inward) < -.08:
+				offset = INF
+				break
+		if not is_finite(offset):
 			continue
 		var along := clampf(offset,0.0,length_m)
 		var distance := point.distance_to(a+direction*along)
-		if distance > float(road.width)*.5-.85:
+		if distance > half_width-.85:
 			continue
 		var fraction := (station+along)/maxf(total,.001)
 		var grade_height := Elevation.height_at(road,fraction)
