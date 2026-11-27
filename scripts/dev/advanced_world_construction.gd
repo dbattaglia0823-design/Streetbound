@@ -93,6 +93,17 @@ static func _park(doc: Dictionary,index: Dictionary,props: Array,area: Rect2,rng
 				var p:=center+Vector2(sx*area.size.x*rng.randf_range(.15,.34),sy*area.size.y*rng.randf_range(.15,.34))
 				City._place(doc,index,props,"tree" if i<2 else "bush",p,0.0,rng.randf_range(.8,1.2),limit)
 
+## Reserve authored gameplay locations and explicit dealership anchors too.
+static func _protected_area(doc: Dictionary,area: Rect2) -> bool:
+	for marker in doc.get("markers",[]):
+		if area.grow(15.0).has_point(Vector2(float(marker.x),float(marker.y))):return true
+	for race in doc.get("races",[]):
+		for p in race.get("points",[]):
+			if area.grow(15.0).has_point(Vector2(float(p.x),float(p.y))):return true
+	for dealer in doc.get("dealerships",[]):
+		if dealer.has("x") and dealer.has("y") and area.grow(60.0).has_point(Vector2(float(dealer.x),float(dealer.y))):return true
+	return false
+
 static func plan_neighborhood(doc: Dictionary,center: Vector2,settings: Dictionary,road_limit: int,prop_limit: int) -> Dictionary:
 	var columns:=clampi(int(settings.get("columns",3)),2,8)
 	var rows:=clampi(int(settings.get("rows",3)),2,8)
@@ -103,7 +114,7 @@ static func plan_neighborhood(doc: Dictionary,center: Vector2,settings: Dictiona
 	if style!="mixed use" and not PALETTES.has(style):return City._error("Unsupported neighborhood style.")
 	var extent:=Vector2(columns,rows)*spacing
 	var area:=Rect2(center-extent*.5,extent)
-	if not City._vacant(doc,area.grow(width+10.0)):return City._error("Neighborhood needs a clear dry area inside the map.")
+	if not City._vacant(doc,area.grow(width+10.0)) or _protected_area(doc,area):return City._error("Neighborhood needs a clear dry area without existing roads, scenery or gameplay locations.")
 	if not doc.get("customMap",false) and not bool(settings.get("connect",false)):return City._error("Connect the neighborhood to the existing Morrow road network.")
 	var rng:=RandomNumberGenerator.new();rng.seed=int(settings.get("seed",1847))
 	var xs:=_axis(area.position.x,columns,spacing,variation,rng)
@@ -181,7 +192,7 @@ static func plan_diamond(doc: Dictionary,center: Vector2,settings: Dictionary,li
 	if not doc.get("customMap",false):return City._error("Directional diamond generation currently supports custom maps.")
 	var span:=clampf(float(settings.get("interchange_span",240)),180,500)
 	var area:=Rect2(center-Vector2(span*1.5+40,span+40),Vector2(span*3+80,span*2+80))
-	if not City._vacant(doc,area):return City._error("Choose a clear dry interchange area.")
+	if not City._vacant(doc,area) or _protected_area(doc,area):return City._error("Choose a clear dry interchange area without gameplay locations.")
 	if doc.roads.size()+6>limit:return City._error("Not enough remaining road capacity.")
 	var n:=City._next_road(doc)
 	var highway:=City._grade_road(n,center+Vector2(-span*1.5,0),center+Vector2(span*1.5,0),24,4,1,1,"Directional diamond highway")
@@ -191,8 +202,8 @@ static func plan_diamond(doc: Dictionary,center: Vector2,settings: Dictionary,li
 	n+=2
 	for side in [-1,1]:
 		var local:=center+Vector2(0,side*span*.56)
-		var exit_at:=center+Vector2(-side*span*.9,0)
-		var entry_at:=center+Vector2(side*span*.9,0)
+		var exit_at:=center+Vector2(-side*span*.65,0)
+		var entry_at:=center+Vector2(side*span*1.15,0)
 		var exit:=City._grade_road(n,exit_at,local,8,1,1,0,"One-way highway exit")
 		exit.roadClass="onramp";exit.junctionStart="intersection";exit.junctionEnd="intersection"
 		roads.append(exit);n+=1
@@ -229,5 +240,11 @@ static func preflight(doc: Dictionary,plan: Dictionary) -> Dictionary:
 	var merges:=0
 	for junction in raw.get("junctions",[]):
 		if junction.get("kind","")=="merge":merges+=1
-	if plan.label=="Directional diamond interchange" and merges<2:return {"ok":false,"message":"Compiler did not create both entry merges."}
+	if plan.label=="Directional diamond interchange":
+		var first_new:=doc.roads.size()
+		var generated_merges:=0
+		for junction in raw.get("junctions",[]):
+			if junction.get("kind","")=="merge" and int(junction.get("ramp_road",-1))>=first_new:generated_merges+=1
+		if generated_merges!=2:return {"ok":false,"message":"Compiler did not create both new entry merges."}
+		merges=generated_merges
 	return {"ok":true,"message":"Production bake passed: %d roads, %d junctions, %d merges."%[raw.roads.size(),raw.junctions.size(),merges],"merges":merges}

@@ -22,12 +22,16 @@ func _initialize() -> void:
 	check(plan.regions.size()==9 and plan.roads.size()>8,"editable blocks and service roads")
 	check(Advanced.plan_neighborhood(session.doc,Vector2(5,5),settings,360,8000).has("error"),"bounds rejection")
 	check(Advanced.plan_neighborhood(session.doc,center,settings,3,8000).has("error"),"road limit")
+	var protected_doc: Dictionary=before.duplicate(true)
+	protected_doc.markers.append({"x":1200,"y":1200,"type":"fuel"})
+	check(Advanced.plan_neighborhood(protected_doc,center,settings,360,8000).has("error"),"protect existing service markers")
 	check(not session.apply_construction(plan).is_empty() and session.history.size()==1,"transaction")
 	check(Advanced.plan_neighborhood(session.doc,center,settings,360,8000).has("error"),"occupied district rejection")
 	check(session.undo() and session.doc==before,"undo")
 	var diamond:=Advanced.plan_diamond(session.doc,center,{"interchange_span":240},360)
 	check(not diamond.has("error") and diamond.roads.size()==6,"diamond six roads")
 	if not diamond.has("error"):
+		check(absf(float(diamond.roads[2].points[0].x)-float(diamond.roads[5].points[-1].x))>=90.0,"separate entry/exit junctions")
 		check(diamond.roads[0].elevation.start_layer==1 and diamond.roads[2].junctionEnd=="intersection" and diamond.roads[3].junctionEnd=="merge","grade and one-way semantics")
 		check(not session.apply_construction(diamond).is_empty() and session.undo(),"diamond transaction")
 	# This test runs the actual Python compiler for both plans, rather than
