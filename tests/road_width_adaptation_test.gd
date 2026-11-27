@@ -21,7 +21,7 @@ func _run() -> void:
 		FileAccess.get_file_as_string("res://worlds/morrow-coast.world.json"))
 	check("world_archive_loaded", not source.is_empty())
 	var source_scale := float(source.get("road_width_scale", 1.0))
-	var target_factor := 1.10 / source_scale
+	var target_factor := 1.265 / source_scale
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
@@ -29,7 +29,7 @@ func _run() -> void:
 	var car: VehicleController2D = main.vehicle
 	car.set_physics_process(false)
 	check("exactly_one_road_width_migration",
-		is_equal_approx(float(world.data.get("road_width_scale", 0.0)), 1.10))
+		is_equal_approx(float(world.data.get("road_width_scale", 0.0)), 1.265))
 	var width_valid := true
 	var all_centerlines_unchanged := true
 	var lane_counts_unchanged := true
@@ -41,7 +41,7 @@ func _run() -> void:
 		all_centerlines_unchanged = all_centerlines_unchanged and \
 			road.points == old.points and road.anchors == old.anchors
 		lane_counts_unchanged = lane_counts_unchanged and int(road.lanes) == int(old.lanes)
-	check("all_roads_are_exactly_ten_percent_wider",width_valid,
+	check("all_roads_use_1265_width_scale",width_valid,
 		[world.data.roads.size(), float(world.data.roads[0].width)])
 	check("source_centerlines_and_road_endpoints_unchanged",all_centerlines_unchanged)
 	check("traffic_lane_counts_unchanged",lane_counts_unchanged)
@@ -64,7 +64,7 @@ func _run() -> void:
 	for i in source.junctions.size():
 		var old: Dictionary = source.junctions[i]
 		var current: Dictionary = world.data.junctions[i]
-		var radius_factor := 1.05 if source_scale < 1.09 else 1.0
+		var radius_factor := 1.2075 if source_scale < 1.09 else 1.15 if source_scale < 1.2 else 1.0
 		junctions_valid = junctions_valid and \
 			absf(float(current.radius) - float(old.radius) * radius_factor) < 0.005
 		for j in old.approaches.size():
@@ -83,7 +83,7 @@ func _run() -> void:
 		if current.p != old.p:
 			moved_props += 1
 		var asset_factor := float(Widths.SCENERY_FACTORS.get(kind, 1.0))
-		if source_scale > 1.09:
+		if source_scale > 1.09 or old.has("authoring_id") or old.has("asset_path"):
 			asset_factor = 1.0
 		if asset_factor < 1.0:
 			static_scaled += 1
@@ -98,7 +98,7 @@ func _run() -> void:
 	check("no_scenery_moved_across_old_chunk_stream_boundaries", moved_props == 0)
 	check("parked_vehicles_garage_and_parking_aprons_not_shrunk", vehicles_unchanged)
 	check("player_vehicle_visual_scale_unchanged", car.scale == Vector2.ONE)
-	# The physical road surface must occupy the added 5% on EACH side.
+	# The physical road surface must occupy the added width on EACH side.
 	# Prefer road segments away from junctions and compare only candidates
 	# where the sampled road is the nearest one.
 	var widened_edge_samples := 0
@@ -159,6 +159,6 @@ func _run() -> void:
 	check("ambient_traffic_lanes_follow_new_centered_width",width_drives_traffic)
 	var original_prop_count: int = (source.get("props", []) as Array).size()
 	check("no_buildings_or_assets_deleted", world.data.props.size() == original_prop_count)
-	print("MORROW 10 PERCENT WIDER ROADS: ",
+	print("MORROW ROAD WIDTH MIGRATION: ",
 		"PASS" if failures.is_empty() else "FAIL " + str(failures))
 	quit(0 if failures.is_empty() else 1)
