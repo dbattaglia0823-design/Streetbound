@@ -1473,6 +1473,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var at: Vector2 = world_px/PPM
 	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	var hit: Dictionary = {}
+	var best_order: int = -6
 	for index in range(authoring.doc.props.size()-1,-1,-1):
 		var prop: Dictionary=authoring.doc.props[index]
 		if not _workspace_selectable(str(prop.id)):continue
@@ -1497,12 +1498,14 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		var distance := Vector2(maxf(0,absf(local.x)-half.x),
 			maxf(0,absf(local.y)-half.y)).length()
 		# Preserve guardrail centerline picks above; only tighten sprite roofs.
-		if distance<best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
+		if distance<=best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
 			distance=BuildingSelection.hit_gap(at,center,
 				deg_to_rad(float(prop.get("rotation",0.0))),half*2.0,
 				gizmos._prop_texture(prop))
-		if distance < best:
+		var order:=int(prop.get("drawOrder",0))
+		if distance < best or (not hit.is_empty() and is_equal_approx(distance,best) and order>best_order):
 			best = distance
+			best_order=order
 			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
 	return hit
 
