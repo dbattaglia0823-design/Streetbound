@@ -44,8 +44,13 @@ Ambient traffic follows the same grade-aware lane graph. It brakes and
 rejoins a lane on its own level after contact. Police use the last confirmed
 road layer for pursuit and route ordinary ground-level dispatch through
 connected ramps. Supports and embankments are rendered artwork. Full terrain
-cutouts, non-ground objective authoring, and multiplayer elevation
-synchronization are pending.
+cutouts and non-ground objective authoring are pending. Multiplayer friend
+replicas receive host-owned signed road height in the existing timestamped
+movement history, so remote deck and tunnel drawing order follows the host.
+Height is interpolated but not extrapolated; invalid values are rejected and
+legacy snapshots default to ground. Local guest elevation reconciliation,
+police replica grade state, multiplayer jumps and live network validation
+remain pending. This visual-only change does not modify collision authority.
 
 ## Author and test a stunt jump
 
