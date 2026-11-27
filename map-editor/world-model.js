@@ -180,6 +180,16 @@ export function normalizeWorld(raw){
   // Otherwise an exported starter silently becomes an unpublished demo and
   // cannot be imported for native Test Drive / production publishing.
   if(raw.customMap===true)result.customMap=true;
+  if(raw.editorLayers!==undefined){
+    const layers=raw.editorLayers,seen=new Set(),names=new Set();
+    if(!result.customMap||!Array.isArray(layers)||layers.length>64)throw new RangeError("Invalid editor layers");
+    result.editorLayers=layers.map(l=>{
+      if(!l||typeof l.name!=="string"||!l.name.trim()||l.name.length>60||names.has(l.name)||typeof l.visible!=="boolean"||typeof l.locked!=="boolean"||!Array.isArray(l.ids)||l.ids.length>10000)throw new RangeError("Invalid editor layer");
+      names.add(l.name);
+      for(const id of l.ids){if(typeof id!=="string"||id.length>120||seen.has(id))throw new RangeError("Invalid editor layer member");seen.add(id);}
+      return {name:l.name,visible:l.visible,locked:l.locked,ids:[...l.ids]};
+    });
+  }
   if(raw.terrainHeight!==undefined){
     const h=raw.terrainHeight;
     if(!result.customMap||!h||h.size!==129||!Array.isArray(h.values)||h.values.length!==129*129||h.values.some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1200))throw new RangeError('Invalid authored terrain height field');

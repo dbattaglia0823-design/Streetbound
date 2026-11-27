@@ -68,6 +68,7 @@ var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
 const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
+const WorkspaceData=preload("res://scripts/dev/native_editor_workspace.gd")
 const Construction=preload("res://scripts/dev/native_city_construction.gd")
 const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
 var landscape_dialog: AcceptDialog
@@ -780,12 +781,15 @@ func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
 
+func _workspace_selectable(id: String) -> bool:
+	return not layer_flags.get("workspace_excluded",{}).has(id)
+
 func _prune_multi_selection() -> void:
 	if multi_selection.is_empty():return
 	var live: Dictionary={}
 	for category in ["props","markers","regions","roads"]:
 		for entry in authoring.doc.get(category,[]):
-			if not bool(entry.get("hidden",false)):live[str(entry.get("id",""))]=true
+			if not bool(entry.get("hidden",false)) and _workspace_selectable(str(entry.id)):live[str(entry.get("id",""))]=true
 	var valid: Array[String]=[]
 	for id in multi_selection:
 		if live.has(id):valid.append(id)
@@ -997,9 +1001,13 @@ func _choose_tool(mode: String) -> void:
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	if source_ready:
+		layer_flags["workspace_excluded"]=WorkspaceData.excluded(authoring.doc,true)
+		gizmos.layer_flags=layer_flags.duplicate()
+		_prune_multi_selection()
 	if source_ready and not source_id.is_empty():
 		var record:=_selected_record()
-		if record.is_empty() or bool(record.item.get("hidden",false)):source_id="";source_anchor=-1
+		if record.is_empty() or bool(record.item.get("hidden",false)) or not _workspace_selectable(source_id):source_id="";source_anchor=-1
 		elif record.category=="roads" and source_anchor>=record.item.points.size():source_anchor=-1
 	_sync_editor_preview()
 	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag) if source_ready else {}
@@ -1024,7 +1032,7 @@ func _refresh_authoring() -> void:
 		# Only committed road edits trigger topology work, never pointer motion.
 		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
 		_update_traffic_preview()
-		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
+		gizmos.set_draft(WorkspaceData.preview(preview_doc) if map_switcher.custom else preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
 		gizmos.group_selected_ids=multi_selection.duplicate()
@@ -1392,6 +1400,7 @@ func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	var best := 11.0 / maxf(0.003,editor_camera.zoom.x)
 	var result: Dictionary = {}
 	for road in authoring.doc.roads:
+		if not _workspace_selectable(str(road.id)):continue
 		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		for i in road.points.size():
 			var point := Vector2(float(road.points[i].x),
@@ -1434,6 +1443,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var hit: Dictionary = {}
 	for index in range(authoring.doc.props.size()-1,-1,-1):
 		var prop: Dictionary=authoring.doc.props[index]
+		if not _workspace_selectable(str(prop.id)):continue
 		if bool(prop.get("hidden",false)):
 			continue
 		if str(prop.get("type",""))=="guardrail":
@@ -2744,7 +2754,7 @@ func _refresh_entity_list(force: bool=false) -> void:
 	var keyword:=entity_search.text.to_lower()
 	for category in ["roads","regions","props","markers","races"]:
 		for item in authoring.doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or not _workspace_selectable(str(item.id)):continue
 			if road_selection_layer!=99 and (category!="roads" or not MultiSelect.road_matches_layer(item,road_selection_layer)):continue
 			var text: String=str(item.get("name",item.id))+"  ·  "+str(item.id)
 			if not keyword.is_empty() and keyword not in text.to_lower():continue
@@ -3126,6 +3136,7 @@ func _road_draw_point(point: Vector2,any_surface: bool=false,require_road: bool=
 	var result:=_snap_point(point)
 	if not require_road and tool_name=="draw_road" and not draft_points.is_empty():result=_angle_snap_point(draft_points[-1],result)
 	for road in authoring.doc.get("roads",[]):
+		if not _workspace_selectable(str(road.id)):continue
 		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		if not any_surface and (str(road.surface) in ["gravel","dirt"])!=(_option_value(road_surface) in ["gravel","dirt"]):continue
 		var circle:=EditSession.RoadShapes.circle(road.points)
@@ -3217,6 +3228,7 @@ func _pick_source_road(at: Vector2) -> Dictionary:
 	var best:=12.0/maxf(.003,editor_camera.zoom.x)
 	var hit: Dictionary={}
 	for road in authoring.doc.get("roads",[]):
+		if not _workspace_selectable(str(road.id)):continue
 		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		var line:=_source_road_path(road)
 		for i in range(1,line.size()):
@@ -3244,6 +3256,7 @@ func _source_road_path(road: Dictionary) -> PackedVector2Array:
 func _pick_source_marker(at: Vector2) -> Dictionary:
 	if not layer_flags.markers:return {}
 	for item in authoring.doc.get("markers",[]):
+		if not _workspace_selectable(str(item.id)):continue
 		var center:=Vector2(item.x,item.y)*PPM
 		if center.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):
 			return {"kind":"marker","id":str(item.id),"from":center}
@@ -3255,6 +3268,7 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 	# its boundary so no precise edge click is required for whole-piece drags.
 	for index in range(authoring.doc.regions.size()-1,-1,-1):
 		var item: Dictionary=authoring.doc.regions[index]
+		if not _workspace_selectable(str(item.id)):continue
 		var polygon:=PackedVector2Array()
 		for vertex in item.points:
 			polygon.append(Vector2(float(vertex.x),float(vertex.y))*PPM)
@@ -3272,6 +3286,7 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 func _pick_source_mountain(at: Vector2) -> Dictionary:
 	if not layer_flags.terrain:return {}
 	for item in authoring.doc.get("regions",[]):
+		if not _workspace_selectable(str(item.id)):continue
 		if MountainGeometry.solid(item) and Geometry2D.is_point_in_polygon(at/PPM,MountainGeometry.polygon(item)):
 			return {"kind":"region","id":str(item.id),"from":at}
 	return {}

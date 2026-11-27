@@ -4,6 +4,7 @@ extends RefCounted
 ## until the checked-in production builder has completed an Apply operation.
 const RoadJump=preload("res://scripts/world/road_jump.gd")
 const HeightField=preload("res://scripts/world/authored_height_field.gd")
+const Workspace=preload("res://scripts/dev/native_editor_workspace.gd")
 const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 100
@@ -79,6 +80,7 @@ func _valid_source(value: Dictionary) -> bool:
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
+	if value.has("editorLayers") and (not value.get("customMap",false) or not Workspace.valid_layers(value.editorLayers)):return false
 	if value.has("terrainHeight") and (not value.get("customMap",false) or not HeightField.valid(value.terrainHeight)):return false
 	var rain: Variant = value.get("rain_intensity",0.0)
 	if not (rain is int or rain is float) or not is_finite(float(rain)) or \
@@ -280,6 +282,8 @@ static func road_touches_layer(road: Dictionary,layer: int) -> bool:
 	return layer in profile.get("point_layers",[int(profile.get("start_layer",0)),int(profile.get("end_layer",0))])
 
 func _locked_roads_unchanged(next: Dictionary) -> bool:
+	if not Workspace.locks_unchanged(doc,next):
+		last_error="Edit would modify an object in a locked named layer.";return false
 	if unlocked_road_layer==99:return true
 	var after: Dictionary={}
 	for road in next.get("roads",[]):after[str(road.id)]=road
@@ -1442,6 +1446,51 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 		return false
 	return _commit(next)
 
+
+func set_named_layers(layers: Array) -> bool:
+	if not doc.get("customMap",false) or not Workspace.valid_layers(layers):return false
+	var next:=doc.duplicate(true)
+	next.editorLayers=layers.duplicate(true)
+	return _commit(next)
+
+func resize_custom_world(width: int,height: int) -> bool:
+	var next:=Workspace.resize(doc,width,height)
+	if next.is_empty():last_error="Invalid custom map size.";return false
+	# Do not silently delete or clip roads, races, or linked gameplay entities.
+	if not _valid_source(next):
+		last_error="Resize would exclude existing geometry or gameplay markers. Move or delete them first.";return false
+	return _commit(next)
+
+func restore_snapshot(snapshot: Dictionary) -> bool:
+	if not snapshot.get("customMap",false) or not doc.get("customMap",false):return false
+	return _commit(snapshot.duplicate(true))
+
+func replace_assets(ids: Array[String],entry: Dictionary) -> bool:
+	if ids.is_empty():return false
+	var next:=doc.duplicate(true)
+	var count:=0
+	var kind:=str(entry.get("kind",""))
+	for prop in next.props:
+		if str(prop.id) not in ids:continue
+		if prop.has("replaces") or str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			last_error="Select ordinary authored scenery, not adopted or path assets.";return false
+		count+=1
+		for key in ["assetPath","assetSize","assetRegion","assetCollision","roadFront","roadFacing"]:prop.erase(key)
+		if bool(entry.get("project",false)):
+			var path:=str(entry.get("path",""))
+			if not (path.begins_with("Buildings/") or path.begins_with("Map Building Assets/")) or ".." in path or not FileAccess.file_exists("res://assets/"+path):
+				last_error="Project asset not available.";return false
+			var size: Array=entry.get("world_size",[])
+			if size.size()!=2:size=[22.0,29.0] if kind in ["building","warehouse"] else [12.0,17.0]
+			prop.type=kind;prop.assetId=str(entry.get("project_id","project-"+path.sha256_text().substr(0,24)))
+			prop.assetPath=path;prop.assetSize=size.duplicate();prop.assetCollision=str(entry.get("collision","solid"))
+			if entry.get("region",[]).size()==4:prop.assetRegion=entry.region.duplicate()
+		else:
+			if not ART.has(kind):last_error="Select a supported asset.";return false
+			prop.type=ART[kind].type;prop.assetId=ART[kind].assetId
+		prop.name=str(entry.get("name",kind))
+	if count!=ids.size():last_error="Select only scenery objects for asset replacement.";return false
+	return _commit(next)
 
 ## Height-field edits remain a single normal undo step.
 func set_terrain_height(field: Dictionary) -> bool:

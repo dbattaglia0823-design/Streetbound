@@ -49,7 +49,7 @@ static func all_visible(doc: Dictionary,layers: Dictionary) -> Array[String]:
 		var layer: String={"props":"scenery","markers":"markers","regions":"terrain","roads":"roads"}[category]
 		if not bool(layers.get(layer,true)):continue
 		for item in doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or layers.get("workspace_excluded",{}).has(str(item.id)):continue
 			var filter_layer:=int(layers.get("road_selection_layer",99))
 			if filter_layer!=99 and (category!="roads" or not road_matches_layer(item,filter_layer)):continue
 			found.append(str(item.get("id","")))
@@ -74,7 +74,7 @@ static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array
 		var layer: String={"props":"scenery","markers":"markers","regions":"terrain","roads":"roads"}[category]
 		if not bool(layers.get(layer,true)):continue
 		for item in doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or layers.get("workspace_excluded",{}).has(str(item.id)):continue
 			var filter_layer:=int(layers.get("road_selection_layer",99))
 			if filter_layer!=99 and (category!="roads" or not road_matches_layer(item,filter_layer)):continue
 			var matches:=false

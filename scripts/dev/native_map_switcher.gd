@@ -340,7 +340,8 @@ func save_recovery(e) -> void:
 func refresh(e) -> void:
 	var drag_key:=JSON.stringify(e.pending_drag)
 	if revision!=e.authoring.edit_revision or drag_key!=drag_revision:
-		revision=e.authoring.edit_revision;drag_revision=drag_key;terrain.update_map(e.authoring.road_preview_source(e.pending_drag))
+		revision=e.authoring.edit_revision;drag_revision=drag_key;terrain.update_map(preload("res://scripts/dev/native_editor_workspace.gd").preview(e.authoring.road_preview_source(e.pending_drag)))
+		e.world.data.size=[e.authoring.doc.world.width,e.authoring.doc.world.height]
 		# Undo/redo and source switching must update the visible weather preset.
 		_sync_weather(e)
 	terrain.visible=e.layer_flags.terrain
