@@ -3,7 +3,7 @@ extends Node2D
 ## No extra physics or props, and no gaps when 192m chunks stream in/out.
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
 const PPM := 20.0
-const DECK_WIDTH := 112.0
+const DECK_WIDTH := Walkways.BOARDWALK_WIDTH_PX
 var world: Node2D
 var origin_m := Vector2.ZERO
 var render_extent_m:=Vector2.ZERO
