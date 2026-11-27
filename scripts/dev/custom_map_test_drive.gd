@@ -48,6 +48,7 @@ func _fail(file: String,reason: String) -> void:
 	push_error(reason)
 	get_tree().remove_meta("streetbound_test_drive_map")
 	if get_tree().has_meta("streetbound_test_drive_cursor"):get_tree().remove_meta("streetbound_test_drive_cursor")
+	if get_tree().has_meta("streetbound_test_drive_source_hash"):get_tree().remove_meta("streetbound_test_drive_source_hash")
 	if get_tree().has_meta("streetbound_test_drive_archive"):
 		get_tree().remove_meta("streetbound_test_drive_archive")
 	if not file.is_empty():get_tree().set_meta("streetbound_editor_resume_map",file)

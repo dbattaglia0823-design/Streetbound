@@ -14,9 +14,13 @@ func _panel(e,title: String) -> VBoxContainer:
 	dialog.ok_button_text="Close"
 	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	e.root_ui.add_child(dialog)
+	var scroll:=ScrollContainer.new()
+	scroll.custom_minimum_size=Vector2(560,clampf(e.get_viewport().get_visible_rect().size.y-160.0,260.0,540.0))
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	dialog.add_child(scroll)
 	var panel:=VBoxContainer.new()
-	panel.custom_minimum_size=Vector2(520,340)
-	dialog.add_child(panel)
+	panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	scroll.add_child(panel)
 	return panel
 
 func _label(panel: Node,value: String) -> Label:
@@ -83,6 +87,7 @@ func open(e) -> void:
 	e._btn("Generate time trial",panel,func():open_race(e))
 	e._btn("Contract creation wizard",panel,func():open_contract(e))
 	e._btn("Gameplay coverage / performance heatmap",panel,func():open_analysis(e))
+	e._btn("Measured Test Drive performance",panel,func():open_measured(e))
 	_label(panel,"Test Drive from cursor: hover over the map and press Ctrl+F6. Use the road selection layer for elevated pavement.")
 	dialog.popup_centered()
 
@@ -137,21 +142,73 @@ func _marker_choice(panel: Node,doc: Dictionary,kind: String,caption: String) ->
 func _id(choice: OptionButton) -> String:
 	return str(choice.get_item_metadata(choice.selected)) if choice.selected>=0 else ""
 
+## An existing marker or an explicitly placed new location. The editor
+## transaction commits all new markers and the offer together.
+func _location_fields(e,panel: Node,kind: String,caption: String,at: Vector2) -> Dictionary:
+	var section:=VBoxContainer.new();panel.add_child(section)
+	var choice:=_marker_choice(section,e.authoring.doc,kind,caption)
+	choice.set_item_text(0,"Create new "+caption.to_lower())
+	var placement:=VBoxContainer.new();section.add_child(placement)
+	var bounds: Dictionary=e.authoring.doc.world
+	var name_field:=LineEdit.new();name_field.text=caption;name_field.max_length=120;placement.add_child(name_field)
+	var x:=_control_field(placement,"X (m)",clampf(at.x,0,float(bounds.width)),0,float(bounds.width))
+	var y:=_control_field(placement,"Y (m)",clampf(at.y,0,float(bounds.height)),0,float(bounds.height))
+	var level:=_control_field(placement,"Road level",0 if e.road_selection_layer==99 else e.road_selection_layer,-2,2)
+	e._btn("Use selected scenery location",placement,func():
+		var prop: Dictionary=e.authoring.prop_at_id(e.source_id)
+		if prop.is_empty():return
+		var point:=Vector2(float(prop.x),float(prop.y))
+		var road: Vector2=e._road_draw_point(point,true,true)
+		if road.is_finite():point=road
+		x.value=point.x;y.value=point.y;name_field.text=str(prop.get("name",caption)).left(120))
+	choice.item_selected.connect(func(index: int):placement.visible=index==0)
+	return {"choice":choice,"name":name_field,"x":x,"y":y,"layer":level,"kind":kind}
+
+func _resolve_location(fields: Dictionary,draft: Dictionary) -> Dictionary:
+	var chosen:=_id(fields.choice)
+	if not chosen.is_empty():
+		for marker in draft.markers:
+			if str(marker.id)==chosen:return marker
+		return {}
+	var number:=0
+	var used: Dictionary={}
+	for marker in draft.markers:
+		used[str(marker.id)]=true
+		var raw:=str(marker.id).trim_prefix("marker-")
+		if raw.is_valid_int():number=maxi(number,int(raw)+1)
+	while used.has("marker-%d"%number):number+=1
+	var properties: Dictionary={}
+	var layer:=int(fields.layer.value)
+	if layer!=0:properties["road_layer"]=layer
+	var marker: Dictionary={"id":"marker-%d"%number,"name":str(fields.name.text).strip_edges(),"type":fields.kind,
+		"x":fields.x.value,"y":fields.y.value,"rotation":0.0,"properties":properties}
+	if str(marker.name).is_empty():return {}
+	draft.markers.append(marker)
+	return marker
+
 func open_contract(e) -> void:
 	if not _ready(e):return
 	var panel:=_panel(e,"Contract creation wizard")
-	_label(panel,"Place contact, drop-off and optional robbery-target markers at businesses or destinations first. This wizard links those markers into an existing contact.")
-	var contact:=_marker_choice(panel,e.authoring.doc,"contract_contact","Contact")
-	var destination:=_marker_choice(panel,e.authoring.doc,"contract_dropoff","Destination")
-	var target:=_marker_choice(panel,e.authoring.doc,"robbery_target","Robbery target (optional)")
+	_label(panel,"Choose existing markers or create locations directly. Select scenery before opening this wizard to copy its position. Confirm legal pavement access in Test Drive.")
+	var center: Vector2=e.editor_camera.global_position/20.0
+	var contact:=_location_fields(e,panel,"contract_contact","Contact",center)
+	var destination:=_location_fields(e,panel,"contract_dropoff","Destination",center+Vector2(200,0))
 	var kind:=OptionButton.new();kind.add_item("Courier");kind.add_item("Robbery");panel.add_child(kind)
+	var target_container:=VBoxContainer.new();panel.add_child(target_container)
+	var target:=_location_fields(e,target_container,"robbery_target","Robbery target",center+Vector2(100,100))
+	target_container.visible=false
+	kind.item_selected.connect(func(index: int):target_container.visible=index==1)
 	var title:=LineEdit.new();title.text="New driving contract";title.max_length=80;panel.add_child(title)
 	var status:=_label(panel,"")
-	e._btn("Create contract",panel,func():
+	e._btn("Create contract and locations",panel,func():
 		if not _ready(e):return
-		var marker: Dictionary=e.authoring.marker_at_id(_id(contact))
-		if marker.is_empty() or _id(destination).is_empty():
-			status.text="Select a contact and destination.";return
+		var draft: Dictionary=e.authoring.doc.duplicate(true)
+		var marker:=_resolve_location(contact,draft)
+		var dropoff:=_resolve_location(destination,draft)
+		var robbery:=kind.selected==1
+		var robbery_target:=_resolve_location(target,draft) if robbery else {}
+		if marker.is_empty() or dropoff.is_empty() or (robbery and robbery_target.is_empty()):
+			status.text="Select or name each required location.";return
 		var properties: Dictionary=marker.get("properties",{}).duplicate(true)
 		var offers: Array=properties.get("offers",[])
 		if offers.size()>=Rules.MAX_OFFERS:status.text="Contact is full.";return
@@ -159,20 +216,59 @@ func open_contract(e) -> void:
 		for offer in offers:used[str(offer.id)]=true
 		var number:=1
 		while used.has("job_%d"%number):number+=1
-		var job_kind: String="robbery" if kind.selected==1 else "courier"
+		var job_kind: String="robbery" if robbery else "courier"
 		var job:=Rules.configured_reward(job_kind,{})
-		job.merge({"id":"job_%d"%number,"title":title.text.strip_edges(),"kind":job_kind,"difficulty":"rookie","destination_marker_id":_id(destination),"repeatable":true},true)
-		if job_kind=="robbery":job["robbery_marker_id"]=_id(target)
+		job.merge({"id":"job_%d"%number,"title":title.text.strip_edges(),"kind":job_kind,"difficulty":"rookie","destination_marker_id":str(dropoff.id),"repeatable":true},true)
+		if robbery:job["robbery_marker_id"]=str(robbery_target.id)
 		var markers: Dictionary={}
-		for item in e.authoring.doc.markers:markers[str(item.id)]=item
+		for item in draft.markers:markers[str(item.id)]=item
 		if not Rules.valid_offer(job,marker,markers):
-			status.text="Invalid title or marker links. Check target type and minimum/maximum trip distances.";return
-		offers.append(job);properties["offers"]=offers
-		if not e.authoring.update_marker(str(marker.id),{"properties":properties}):
+			status.text="Invalid title or marker links. Check target type and trip distances.";return
+		offers.append(job);properties["offers"]=offers;marker["properties"]=properties
+		if not e.authoring._commit(draft):
 			status.text=e.authoring.last_error;return
 		dialog.hide()
 		e._choose_tool("move_prop");e.source_id=str(marker.id);e.source_anchor=-1;e._refresh_authoring()
-		e._notice("Contract created. Open the contact editor to customize rewards and requirements."))
+		e._notice("Contract and locations created as one undoable edit."))
+	dialog.popup_centered()
+
+func open_measured(e) -> void:
+	if not _ready(e):return
+	var panel:=_panel(e,"Measured Test Drive performance")
+	var report: Dictionary=e.get_tree().get_meta("streetbound_editor_performance_report",{})
+	var hash: String=e.authoring._fingerprint(e.authoring.doc)
+	if report.is_empty() or str(report.get("source_hash",""))!=hash:
+		_label(panel,"No matching Test Drive profile. Drive through the current revision and return with F6.");dialog.popup_centered();return
+	var cells: Dictionary=report.get("cells",{})
+	if cells.is_empty():
+		_label(panel,"No samples collected.");dialog.popup_centered();return
+	var size:=float(report.get("chunk_m",192))
+	_label(panel,"Measured chunk CPU build time and sampled frame/CPU process time. Draw calls are rendering workload, not GPU execution time. Unvisited cells remain blank.")
+	var width:=maxi(1,ceili(float(e.authoring.doc.world.width)/size))
+	var height:=maxi(1,ceili(float(e.authoring.doc.world.height)/size))
+	var image:=Image.create(width,height,false,Image.FORMAT_RGBA8)
+	image.fill(Color("#19222d"))
+	var peak:=1.0
+	for row in cells.values():peak=maxf(peak,maxf(float(row.get("build_usec",0))/1000.0,float(row.get("frame_peak_ms",0))))
+	for key in cells:
+		if key.x<0 or key.y<0 or key.x>=width or key.y>=height:continue
+		var row: Dictionary=cells[key]
+		var cost:=maxf(float(row.get("build_usec",0))/1000.0,float(row.get("frame_peak_ms",0)))
+		image.set_pixel(key.x,key.y,Color("#244d81").lerp(Color("#ff5e39"),clampf(cost/peak,0,1)))
+	var map:=TextureRect.new();map.texture=ImageTexture.create_from_image(image)
+	map.texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST;map.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	map.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;map.custom_minimum_size=Vector2(480,180);panel.add_child(map)
+	var list:=ItemList.new();list.custom_minimum_size=Vector2(480,220);panel.add_child(list)
+	var keys:=cells.keys()
+	keys.sort_custom(func(a,b):return maxf(float(cells[a].get("build_usec",0))/1000.0,float(cells[a].get("frame_peak_ms",0)))>maxf(float(cells[b].get("build_usec",0))/1000.0,float(cells[b].get("frame_peak_ms",0))))
+	for key in keys:
+		var row: Dictionary=cells[key]
+		var count:=int(row.get("frames",0))
+		list.add_item("%s | build %.2f ms | frame %.2f ms avg | CPU %.2f ms avg | draws %d | n=%d"%[str(key),float(row.get("build_usec",0))/1000.0,float(row.get("frame_sum_ms",0))/maxi(1,count),float(row.get("cpu_sum_ms",0))/maxi(1,count),int(row.get("draw_peak",0)),count])
+		list.set_item_metadata(list.item_count-1,key)
+	list.item_activated.connect(func(index: int):
+		var key: Vector2i=list.get_item_metadata(index)
+		dialog.hide();e.editor_camera.global_position=(Vector2(key)+Vector2.ONE*.5)*size*20.0;e._update_view(true))
 	dialog.popup_centered()
 
 func open_analysis(e) -> void:

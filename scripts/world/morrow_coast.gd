@@ -35,6 +35,14 @@ var secondary_stream_vehicle: VehicleController2D
 var secondary_current_cell := Vector2i(-999,-999)
 var tire_marks: TireMarks2D
 var chunks: Dictionary = {}
+# Opt-in editor Test Drive measurements, not active during normal play.
+var profile_enabled:=false
+var profile_cells: Dictionary={}
+
+func _profile_cell(index: Vector2i) -> Dictionary:
+	if not profile_cells.has(index):
+		profile_cells[index]={"build_usec":0,"builds":0,"frames":0,"frame_sum_ms":0.0,"frame_peak_ms":0.0,"cpu_sum_ms":0.0,"draw_peak":0}
+	return profile_cells[index]
 var pending: Array[Vector2i] = []
 var current_cell := Vector2i(-999,-999)
 var surface_queries := 0
@@ -456,6 +464,10 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
 	stream_build_usec += instance.build_microseconds
+	if profile_enabled:
+		var row:=_profile_cell(index)
+		row.build_usec=maxi(int(row.build_usec),instance.build_microseconds)
+		row.builds+=1
 
 func set_secondary_stream_vehicle(target: VehicleController2D) -> void:
 	secondary_stream_vehicle = target
@@ -600,6 +612,13 @@ func _process(dt: float) -> void:
 				for chunk in chunks.values():
 					chunk.update_grade_visibility(viewed_road_layer,overhead_road_layer)
 		stream_at(vehicle.global_position)
+		if profile_enabled and dt>0.0:
+			var index:=Vector2i((vehicle.global_position/PPM/chunk_m).floor())
+			var row:=_profile_cell(index)
+			row.frames+=1;row.frame_sum_ms+=dt*1000.0
+			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
+			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
+			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())

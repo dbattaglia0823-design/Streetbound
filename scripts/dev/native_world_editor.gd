@@ -1947,6 +1947,7 @@ func _test_drive(cursor_spawn: Dictionary={}) -> void:
 		# Saving first guarantees the test and return both use this revision.
 		if not map_switcher.save_current(self):
 			return
+		get_tree().set_meta("streetbound_test_drive_source_hash",authoring._fingerprint(authoring.doc))
 		get_tree().set_meta("streetbound_test_drive_map",map_switcher.current_file)
 		get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 		get_tree().set_meta("streetbound_editor_return_position",
@@ -1956,6 +1957,7 @@ func _test_drive(cursor_spawn: Dictionary={}) -> void:
 		if outcome != OK:
 			get_tree().remove_meta("streetbound_test_drive_map")
 			get_tree().remove_meta("streetbound_test_drive_cursor")
+			get_tree().remove_meta("streetbound_test_drive_source_hash")
 			get_tree().remove_meta("streetbound_editor_return_position")
 			_notice("Could not launch this custom map for Test Drive.")
 		return
@@ -1964,6 +1966,7 @@ func _test_drive(cursor_spawn: Dictionary={}) -> void:
 	if authoring.dirty or (is_instance_valid(bridge) and bridge.phase != ""):
 		_notice("Save to Game or DISCARD before Test Drive.")
 		return
+	get_tree().set_meta("streetbound_test_drive_source_hash",authoring._fingerprint(authoring.doc))
 	get_tree().set_meta("streetbound_editor_test_drive",true)
 	get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 	get_tree().set_meta("streetbound_editor_return_position",editor_camera.global_position)
@@ -1975,6 +1978,7 @@ func _test_drive(cursor_spawn: Dictionary={}) -> void:
 	if result!=OK:
 		get_tree().remove_meta("streetbound_editor_test_drive")
 		get_tree().remove_meta("streetbound_test_drive_cursor")
+		get_tree().remove_meta("streetbound_test_drive_source_hash")
 		get_tree().remove_meta("streetbound_editor_return_position")
 		_notice("Could not launch full-game Test Drive.")
 

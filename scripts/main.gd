@@ -71,6 +71,7 @@ func _ready() -> void:
 		online_session.leave_session()
 		pending_launch_mode=""
 	ground = GroundScript.new() if proving_ground else CoastScript.new()
+	if map_test_drive:ground.profile_enabled=true
 	if custom_test_drive:
 		ground.archive_override_path=str(get_tree().get_meta("streetbound_test_drive_archive"))
 	elif not proving_ground and not map_test_drive:
@@ -508,6 +509,8 @@ func _input(event: InputEvent) -> void:
 
 func _return_from_test_drive() -> void:
 	if not map_test_drive:return
+	if is_instance_valid(ground) and bool(ground.get("initialization_complete")):
+		get_tree().set_meta("streetbound_editor_performance_report",{"source_hash":str(get_tree().get_meta("streetbound_test_drive_source_hash","")),"chunk_m":float(ground.get("chunk_m")),"cells":ground.get("profile_cells").duplicate(true)})
 	map_test_drive=false
 	custom_test_drive=false
 	if is_instance_valid(pause_menu):
@@ -519,6 +522,6 @@ func _return_from_test_drive() -> void:
 		get_tree().set_meta("streetbound_editor_resume_map",test_drive_file)
 	# The original map builder saved its camera before launching Test Drive.
 	# Never write the temporary world into the production source archive.
-	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map","streetbound_editor_test_drive","streetbound_test_drive_cursor"]:
+	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map","streetbound_editor_test_drive","streetbound_test_drive_cursor","streetbound_test_drive_source_hash"]:
 		if get_tree().has_meta(marker):get_tree().remove_meta(marker)
 	get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
