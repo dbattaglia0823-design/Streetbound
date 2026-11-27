@@ -672,7 +672,6 @@ func _process(dt: float) -> void:
 				overhead_road_layer = overhead
 				for chunk in chunks.values():
 					chunk.update_grade_visibility(viewed_road_layer,overhead_road_layer)
-		_update_underground_backdrop()
 		stream_at(vehicle.global_position)
 		if profile_enabled and dt>0.0:
 			var index:=Vector2i((vehicle.global_position/PPM/chunk_m).floor())
@@ -681,6 +680,7 @@ func _process(dt: float) -> void:
 			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
 			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
 			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	_update_underground_backdrop()
 	_finish_clock+=dt
 	if _finish_clock>=.25:
 		_finish_clock=0.0
