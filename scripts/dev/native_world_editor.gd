@@ -102,6 +102,13 @@ var source_anchor := -1
 var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
+var grid_spacing_m := 1.0
+var bulk_dialog: AcceptDialog
+var bulk_category: OptionButton
+var bulk_property: OptionButton
+var bulk_value: LineEdit
+var history_dialog: AcceptDialog
+var history_items: ItemList
 const MIN_EDITOR_ZOOM := 0.00025
 const MAX_EDITOR_ZOOM := 5.0
 var authoring_notice: Label
@@ -1099,11 +1106,115 @@ func _rotate_selected(degrees: float) -> void:
 		_refresh_authoring()
 		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
 
+func _set_grid_spacing(value: float) -> void:
+	grid_spacing_m=value
+	if snap_m>0:snap_m=value
+	_refresh_grid_label()
+
+func _refresh_grid_label() -> void:
+	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: %g m"%snap_m
+
 func _toggle_snap() -> void:
-	snap_m = 0.0 if snap_m > 0.0 else 1.0
-	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: 1 m"
-	_notice("Grid snapping %s; linked endpoints stay connected." % [
-		"disabled" if snap_m == 0.0 else "set to 1 metre"])
+	snap_m = 0.0 if snap_m > 0.0 else grid_spacing_m
+	_refresh_grid_label()
+	_notice("Grid snapping disabled." if snap_m==0 else "Grid snapping set to %g m."%snap_m)
+
+func _bulk_fields() -> void:
+	bulk_property.clear()
+	var category:=_option_value(bulk_category)
+	var fields: Array={"roads":["width","lanes","roadClass","surface","elevation","markings"],"props":["scale","scaleX","scaleY","rotation","roadFacing"],"regions":["biome","elevation","barrier"]}[category]
+	for field in fields:
+		bulk_property.add_item(str(field));bulk_property.set_item_metadata(bulk_property.item_count-1,field)
+	bulk_property.select(0)
+	_bulk_hint()
+
+func _bulk_hint() -> void:
+	var field:=_option_value(bulk_property)
+	var examples: Dictionary={"width":"6–160 metres","lanes":"1–6","roadClass":"city / highway / country / mountain / service / track / alley / onramp","surface":"asphalt / concrete / gravel / dirt / track","elevation":"Road layer -2 to +2; region height in metres","markings":"true / false","roadFacing":"true / false","barrier":"true / false","biome":"grass / forest / rock / mountain / beach / lake / ocean / farmland / city / desert","scale":"0.2–5","scaleX":"0.2–5","scaleY":"0.2–5","rotation":"Degrees"}
+	bulk_value.placeholder_text=str(examples.get(field,"Value"))
+	bulk_value.text=""
+
+func _open_bulk_edit() -> void:
+	if _editing_locked() or not source_ready:return
+	if multi_selection.is_empty() and source_id.is_empty():
+		_notice("Select objects before opening Bulk edit.")
+		return
+	if not is_instance_valid(bulk_dialog):
+		bulk_dialog=AcceptDialog.new()
+		bulk_dialog.title="Bulk edit selected objects"
+		bulk_dialog.ok_button_text="Apply in one undo step"
+		bulk_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(bulk_dialog)
+		var panel:=VBoxContainer.new();bulk_dialog.add_child(panel)
+		bulk_category=_options(panel,"Apply to selected category",["roads","props","regions"])
+		bulk_property=OptionButton.new();panel.add_child(bulk_property)
+		bulk_value=LineEdit.new();panel.add_child(bulk_value)
+		bulk_category.item_selected.connect(func(_i: int)->void:_bulk_fields())
+		bulk_property.item_selected.connect(func(_i: int)->void:_bulk_hint())
+		bulk_dialog.confirmed.connect(_apply_bulk_edit)
+	_bulk_fields()
+	bulk_dialog.popup_centered(Vector2i(540,185))
+
+func _apply_bulk_edit() -> void:
+	if _editing_locked():return
+	var ids: Array[String]=multi_selection.duplicate()
+	if ids.is_empty() and not source_id.is_empty():ids.append(source_id)
+	var category:=_option_value(bulk_category)
+	var key:=_option_value(bulk_property)
+	var raw:=bulk_value.text.strip_edges().to_lower()
+	var value: Variant=raw
+	if key in ["markings","roadFacing","barrier"]:
+		if raw not in ["true","false"]:_notice("Enter true or false.");return
+		value=raw=="true"
+	elif key=="elevation" and category=="roads":
+		if not raw.is_valid_int() or absi(int(raw))>2:_notice("Enter a road layer from -2 to +2.");return
+		value={"start_layer":int(raw),"end_layer":int(raw)}
+	elif key in ["width","lanes","elevation","scale","scaleX","scaleY","rotation"]:
+		if not raw.is_valid_float() or not is_finite(float(raw)):_notice("Enter a finite number.");return
+		if key=="lanes":
+			if not raw.is_valid_int():_notice("Lane count must be a whole number.");return
+			value=int(raw)
+		else:value=float(raw)
+	if key=="biome" and raw not in ["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"]:_notice("Unknown terrain material.");return
+	if key=="elevation" and category=="regions" and (float(value)<0 or float(value)>2000):_notice("Height must be between 0 and 2000 m.");return
+	if authoring.bulk_properties(ids,category,{key:value}):
+		_refresh_authoring();_notice("Bulk property updated in one undo step.")
+	else:_notice(authoring.last_error)
+
+func _open_history() -> void:
+	if _editing_locked() or not source_ready:return
+	if not is_instance_valid(history_dialog):
+		history_dialog=AcceptDialog.new();history_dialog.title="Edit history"
+		history_dialog.ok_button_text="Restore selected state"
+		history_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(history_dialog)
+		history_items=ItemList.new();history_items.custom_minimum_size=Vector2(520,300)
+		history_dialog.add_child(history_items)
+		history_dialog.confirmed.connect(_restore_history)
+	history_items.clear()
+	for i in authoring.history.size():
+		_add_history_row(authoring.history[i],i-authoring.history.size())
+	_add_history_row(authoring.doc,0)
+	history_items.select(history_items.item_count-1)
+	for i in range(authoring.future.size()-1,-1,-1):_add_history_row(authoring.future[i],authoring.future.size()-i)
+	history_dialog.popup_centered(Vector2i(560,370))
+
+func _add_history_row(state: Dictionary,offset: int) -> void:
+	var title: String="Current state" if offset==0 else ("%d edits earlier"%(-offset) if offset<0 else "%d edits later"%offset)
+	history_items.add_item("%s  |  %d roads · %d props · %d regions"%[title,state.roads.size(),state.props.size(),state.regions.size()])
+	history_items.set_item_metadata(history_items.item_count-1,offset)
+
+func _restore_history() -> void:
+	if _editing_locked() or not draft_points.is_empty() or not pending_drag.is_empty():return
+	var selection:=history_items.get_selected_items()
+	if selection.is_empty():return
+	var offset:=int(history_items.get_item_metadata(selection[0]))
+	for i in absi(offset):
+		if offset<0:authoring.undo()
+		else:authoring.redo()
+	_prune_multi_selection();_refresh_authoring()
+	_notice("Restored selected edit history state.")
+
 
 func _delete_selected() -> void:
 	if _editing_locked():

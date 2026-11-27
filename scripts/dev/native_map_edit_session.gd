@@ -5,7 +5,8 @@ extends RefCounted
 const RoadJump=preload("res://scripts/world/road_jump.gd")
 const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
-const MAX_HISTORY := 40
+const MAX_HISTORY := 100
+const HISTORY_BUDGET_BYTES := 32*1024*1024
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
@@ -266,8 +267,11 @@ func _commit(next: Dictionary) -> bool:
 	if _fingerprint(doc) == _fingerprint(next):
 		return true
 	history.append(doc.duplicate(true))
-	if history.size() > MAX_HISTORY:
-		history.pop_front()
+	# Snapshots are deep copies. Estimate their cost from source size and
+	# bound the retained history on dense maps rather than growing without limit.
+	var estimated_bytes := maxi(1024,JSON.stringify(doc).to_utf8_buffer().size()*4)
+	var limit := clampi(HISTORY_BUDGET_BYTES/estimated_bytes,2,MAX_HISTORY)
+	while history.size()>limit:history.pop_front()
 	doc = next
 	edit_revision += 1
 	future.clear()
@@ -1365,6 +1369,49 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 				else:target.erase("barrier")
 		break
 	return _commit(next)
+
+## Bulk edits are atomic and restricted to explicit fields. Mixed selections
+## edit only the chosen category; incompatible values reject the whole edit.
+func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> bool:
+	if ids.is_empty() or patch.is_empty() or category not in ["roads","props","regions"]:return false
+	var allowed: Array={"roads":["roadClass","surface","width","lanes","elevation","markings"],"props":["rotation","scale","scaleX","scaleY","roadFacing"],"regions":["biome","elevation","barrier"]}[category]
+	for key in patch:
+		if key not in allowed:
+			last_error="Unsupported bulk property."
+			return false
+	var next:=doc.duplicate(true)
+	var count:=0
+	for entry in next[category]:
+		if str(entry.id) not in ids or bool(entry.get("hidden",false)):continue
+		count+=1
+		for key in patch:entry[key]=patch[key]
+		if category=="roads":
+			if str(entry.roadClass) not in ["city","highway","country","mountain","service","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
+				last_error="Invalid road type, surface, width or lanes."
+				return false
+			if entry.roadClass=="onramp":
+				entry.lanes=1;entry.surface="asphalt";entry.markings=true
+			if entry.roadClass=="alley":
+				entry.shoulder=0.0;entry.markings=false
+			if patch.has("elevation"):
+				last_error=Elevation.authoring_error(entry)
+				if not last_error.is_empty():return false
+				if int(entry.elevation.start_layer)==0 and int(entry.elevation.end_layer)==0 and not entry.elevation.has("point_layers"):entry.erase("elevation")
+		elif category=="props":
+			if str(entry.get("type","")) in ["sidewalk","guardrail"] and (patch.has("scale") or patch.has("scaleX") or patch.has("scaleY") or patch.has("rotation")):
+				last_error="Path scenery requires its dedicated geometry tools."
+				return false
+			for key in ["scale","scaleX","scaleY"]:
+				if patch.has(key) and (not is_finite(float(patch[key])) or float(patch[key])<.2 or float(patch[key])>5.0):
+					last_error="Asset scale must be between 0.2 and 5."
+					return false
+		elif category=="regions" and str(entry.get("biome","")) not in ["mountain","rock"]:
+			entry.erase("barrier")
+	if count==0:
+		last_error="No selected objects match this category."
+		return false
+	return _commit(next)
+
 
 ## Apply group edits as one validated source mutation and one undo step.
 func batch_entities(ids: Array[String], delta: Vector2, operation: String) -> Array[String]:

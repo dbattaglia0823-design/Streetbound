@@ -67,7 +67,10 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
-	e.grid_button.tooltip_text="Align free placement to 1 m coordinates. Building edge and corner snaps always take precedence over the grid."
+	e.grid_button.tooltip_text="Align free placement to the selected grid spacing. Building edge and corner snaps take precedence."
+	var spacing: SpinBox=e._number(settings,"Grid spacing m",.25,100,1)
+	spacing.step=.25;spacing.value=1
+	spacing.value_changed.connect(e._set_grid_spacing)
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	var extra:=OptionButton.new();extra.name="AdditionalTools";extra.fit_to_longest_item=false
@@ -183,6 +186,8 @@ static func build(e) -> void:
 	action_scroll.add_child(actions)
 	e._btn("Undo",actions,e._undo).custom_minimum_size.x=48
 	e._btn("Redo",actions,e._redo).custom_minimum_size.x=48
+	e._btn("History",actions,e._open_history)
+	e._btn("Bulk edit",actions,e._open_bulk_edit)
 	e._btn("Select all",actions,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
 	e._btn("Duplicate",actions,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80

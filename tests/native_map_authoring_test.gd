@@ -69,6 +69,16 @@ func _run() -> void:
 	check("automatic_stock_tracks_new_catalog_cars",
 		DealerConfig.sells(dealer_session.dealership_at_id("budget"),str(new_vehicle.id)))
 	Catalog.all().erase(new_vehicle)
+	var bulk_session=Session.new()
+	check("bulk_fixture_loads",bulk_session.load_source())
+	var bulk_ids: Array[String]=["road-0","road-1"]
+	var bulk_before: Dictionary=bulk_session.doc.duplicate(true)
+	check("bulk_road_width_changes_both_in_one_undo",bulk_session.bulk_properties(bulk_ids,"roads",{"width":14.0})
+		and float(bulk_session.road_at_id("road-0").width)==14.0 and float(bulk_session.road_at_id("road-1").width)==14.0
+		and bulk_session.history.size()==1 and bulk_session.undo() and bulk_session.doc==bulk_before)
+	check("invalid_bulk_edit_is_atomic",not bulk_session.bulk_properties(bulk_ids,"roads",{"width":500.0})
+		and bulk_session.doc==bulk_before and bulk_session.history.is_empty())
+	check("unknown_bulk_property_is_rejected",not bulk_session.bulk_properties(bulk_ids,"roads",{"points":[]}))
 	var original_hash: String = session.baseline_hash
 	var origin_road: Dictionary = session.road_at_id("road-0")
 	check("stable_source_road_id",not origin_road.is_empty())
