@@ -8,6 +8,8 @@ const VehicleOwnership=preload("res://scripts/vehicle/vehicle_ownership.gd")
 var panel: VBoxContainer
 var grid_edit_fields: VBoxContainer
 var route_edit_fields: VBoxContainer
+var objective_index: SpinBox
+var objective_layer: SpinBox
 var race_list: OptionButton
 var title: LineEdit
 var mode: OptionButton
@@ -105,6 +107,12 @@ func build(e,parent: Node) -> void:
 	e._btn("Auto-arrange grid",grid_edit_fields,func():auto_grid(e)).tooltip_text="Reset all positions to the selected formation behind/alongside the route start."
 	route_edit_fields=VBoxContainer.new();panel.add_child(route_edit_fields)
 	e._btn("Add checkpoint on road",route_edit_fields,func():begin_checkpoint(e)).tooltip_text="Select a gate then click a road to insert the next checkpoint in that order. A sprint keeps its finish last."
+	objective_index=e._number(route_edit_fields,"Objective number (1 = start)",1,100,1)
+	objective_index.step=1
+	objective_layer=e._number(route_edit_fields,"Objective road layer (6 m)",-2,2,0)
+	objective_layer.step=1
+	objective_index.value_changed.connect(func(_value: float)->void:_sync_objective_layer(e))
+	e._btn("Apply objective layer",route_edit_fields,func():apply_objective_layer(e))
 	e._btn("Move checkpoint earlier",route_edit_fields,func():shift_checkpoint(e,-1))
 	e._btn("Move checkpoint later",route_edit_fields,func():shift_checkpoint(e,1))
 	e._btn("Redraw race route",route_edit_fields,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
@@ -211,6 +219,19 @@ func auto_grid(e) -> void:
 		e._refresh_authoring()
 		e._notice("Reset race grid to %s. Ctrl+Z undoes it."%e._option_value(formation))
 	else:e._notice(e.authoring.last_error)
+func _sync_objective_layer(e) -> void:
+	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
+	if selected.is_empty():return
+	var index:=clampi(int(objective_index.value)-1,0,selected.points.size()-1)
+	objective_layer.value=float(selected.points[index].get("road_layer",0))
+
+func apply_objective_layer(e) -> void:
+	if e._editing_locked():return
+	if e.authoring.set_race_objective_layer(e.source_id,int(objective_index.value)-1,int(objective_layer.value)):
+		e._refresh_authoring()
+		e._notice("Updated race objective elevation.")
+	else:e._notice(e.authoring.last_error)
+
 func update(e) -> void:
 	if panel==null or not e.source_ready:return
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
@@ -225,6 +246,7 @@ func update(e) -> void:
 		list_stamp=stamp;race_list.clear();race_list.add_item("Draw a new race");race_list.set_item_metadata(0,"")
 		for race in e.authoring.doc.get("races",[]):race_list.add_item(str(race.name));race_list.set_item_metadata(race_list.item_count-1,str(race.id))
 	if not selected.is_empty() and e.tool_name!="draw_race":
+		objective_index.max_value=selected.points.size()
 		title.text=str(selected.name)
 		mode.select(1 if selected.mode=="circuit" else 0)
 		laps.value=float(selected.get("laps",1));radius.value=float(selected.get("checkpoint_radius",16))

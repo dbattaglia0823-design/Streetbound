@@ -146,10 +146,15 @@ function validEntity(item,type,w,h){
     return entity;
   }
   if(type==='markers'){
+    const properties=validateMetadata(item.properties??{});
+    const layer=properties.road_layer??0;
+    if(!Number.isInteger(layer)||Math.abs(layer)>2)throw new RangeError('Invalid marker road layer');
+    if(layer&&!['contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'].includes(item.type))
+      throw new RangeError('Marker type requires ground level');
     return {id:item.id,name:title(item.name,'Marker'),type:oneOf(item.type,MARKERS,'marker type'),
       x:real(item.x,0,w,'marker x'),y:real(item.y,0,h,'marker y'),
       rotation:real(item.rotation,-360,360,'marker rotation'),
-      properties:validateMetadata(item.properties??{})};
+      properties};
   }
   throw new TypeError('Unsupported entity type');
 }
@@ -187,6 +192,11 @@ export function normalizeWorld(raw){
       ids.add(r.id);
       const mode=oneOf(r.mode,['sprint','circuit'],'race format');
       const points=polygon(r.points,width,height,mode==='circuit'?3:2,100,'race');
+      points.forEach((point,i)=>{
+        const layer=r.points[i].road_layer??0;
+        if(!Number.isInteger(layer)||Math.abs(layer)>2)throw new RangeError('Invalid race checkpoint road layer');
+        if(layer)point.road_layer=layer;
+      });
       if(points.some((p,i)=>i>0&&distance(p,points[i-1])<5))throw new RangeError('Race checkpoints must be at least 5 m apart');
       // Preserve native-editor grid and event configuration on browser import/export.
       const entry={id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),

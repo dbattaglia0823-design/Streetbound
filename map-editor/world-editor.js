@@ -756,6 +756,17 @@ function refreshRaceEditor(){
     ['race-edit-entry',race.entry_fee??0],['race-edit-rep',race.underground_rep_reward??0],
     ['race-edit-required-rep',race.required_underground_rep??0]
   ])$(id).value=value;
+  const fields=$('race-objective-layer-fields');
+  fields.replaceChildren();
+  race.points.forEach((point,i)=>{
+    const label=document.createElement('label');label.className='field';
+    label.textContent=(i===0?'Start':i===race.points.length-1&&race.mode==='sprint'?'Finish':'Checkpoint '+i)+' · '+Math.round(point.x)+', '+Math.round(point.y);
+    const input=document.createElement('select');
+    for(let layer=-2;layer<=2;layer++)input.add(new Option(layer+' ('+(layer*6)+' m)',String(layer)));
+    input.value=String(point.road_layer??0);
+    input.addEventListener('change',()=>changeRaceConfiguration({points:race.points.map((p,j)=>j===i?{...p,road_layer:Number(input.value)}:p)},'Updated objective road layer.'));
+    label.append(input);fields.append(label);
+  });
   $('race-edit-repeatable').checked=race.repeatable!==false;
   $('race-edit-rep').disabled=!(race.race_heat>0);
   $('race-edit-escape').disabled=!(race.race_heat>0);
@@ -858,6 +869,8 @@ function refreshInspector(){
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
   }else{
     $('inspect-marker-type').value=item.type;$('inspect-properties').value=JSON.stringify(item.properties,null,2);
+    $('inspect-marker-layer').value=String(item.properties?.road_layer??0);
+    $('inspect-marker-layer').disabled=!['contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'].includes(item.type);
     refreshContactEditor(item);
   }
 }
@@ -1656,6 +1669,14 @@ $('apply-road-elevation').addEventListener('click',()=>{
   if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
   const elevation={start_layer:$('road-start-layer').valueAsNumber,end_layer:$('road-end-layer').valueAsNumber};
   change(d=>updateEntity(d,selection.id,{elevation}),'Updated road elevation.');
+});
+$('inspect-marker-layer').addEventListener('change',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='markers')return;
+  const properties={...found.item.properties};
+  const layer=Number($('inspect-marker-layer').value);
+  if(layer)properties.road_layer=layer;else delete properties.road_layer;
+  change(d=>updateEntity(d,found.item.id,{properties}),'Updated marker road layer.');
 });
 const fields={
   'inspector-name':{name:'name'},

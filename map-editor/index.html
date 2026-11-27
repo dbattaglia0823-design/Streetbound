@@ -365,6 +365,7 @@
           </div>
           <p class="asset-hint" id="contact-editor-help">Jobs are saved in marker properties and validated before publishing. Changing the title preserves career progression; duplicates use new IDs.</p>
         </div>
+        <div class="field"><label for="inspect-marker-layer">Objective road layer</label><select id="inspect-marker-layer"><option value="-2">-2 (-12 m)</option><option value="-1">-1 (-6 m)</option><option value="0">0 (0 m)</option><option value="1">1 (6 m)</option><option value="2">2 (12 m)</option></select></div>
         <div class="field"><label for="inspect-properties">Game properties (JSON)</label><textarea id="inspect-properties" rows="5" spellcheck="false"></textarea></div>
       </div>
       
@@ -402,6 +403,7 @@
         <div class="field"><label for="race-edit-select">Choose existing race</label><select id="race-edit-select"><option value="">No authored races loaded</option></select></div>
         <div id="race-edit-form" hidden>
           <div class="event-summary" id="race-edit-summary"></div>
+          <details><summary>Individual race objective elevations</summary><div id="race-objective-layer-fields"></div></details>
           <div class="field"><label for="race-edit-name">Race name</label><input id="race-edit-name" maxlength="80"></div>
           <div class="double-fields">
             <div class="field"><label for="race-edit-category">Career category</label><select id="race-edit-category"><option value="street">Street</option><option value="circuit">Circuit</option><option value="time_trial">Time trial</option><option value="championship">Championship</option><option value="challenge">Challenge</option></select></div>

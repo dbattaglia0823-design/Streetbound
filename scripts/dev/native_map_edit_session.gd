@@ -401,7 +401,15 @@ func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String=""
 	race.merge(settings,true)
 	race.id=next_id("races","race") if identity.is_empty() else identity
 	race.points=[]
-	for p in points_m:race.points.append({"x":p.x,"y":p.y})
+	for p in points_m:
+		var point := {"x":p.x,"y":p.y}
+		# Settings edits and unchanged gates preserve authored levels;
+		# a fully redrawn route defaults newly placed gates to ground.
+		for previous in prior.get("points",[]):
+			if Vector2(previous.x,previous.y).distance_to(p)<.01 and int(previous.get("road_layer",0))!=0:
+				point["road_layer"]=int(previous.road_layer)
+				break
+		race.points.append(point)
 	var default_count: int=prior.get("enemy_starts",[]).size()
 	var count: int=int(race.get("opponent_count",default_count))
 	var formation: String=str(race.get("formation",prior.get("formation","single_file")))
@@ -459,12 +467,23 @@ func reset_race_grid(identity: String,formation: String) -> bool:
 	last_error="Select a race first."
 	return false
 
+func set_race_objective_layer(identity: String,index: int,layer: int) -> bool:
+	if absi(layer)>2:return false
+	var next:=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		if index<0 or index>=race.points.size():return false
+		if layer==0:race.points[index].erase("road_layer")
+		else:race.points[index]["road_layer"]=layer
+		return _commit(next)
+	return false
+
 func move_race_point(identity: String,index: int,destination: Vector2) -> bool:
 	var next:=doc.duplicate(true)
 	for race in next.get("races",[]):
 		if str(race.id)!=identity:continue
 		if index<0 or index>=race.points.size():return false
-		race.points[index]={"x":destination.x,"y":destination.y};return _commit(next)
+		race.points[index].x=destination.x;race.points[index].y=destination.y;return _commit(next)
 	return false
 
 func change_race_points(identity: String,index: int,remove: bool) -> bool:
