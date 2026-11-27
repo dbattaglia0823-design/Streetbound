@@ -104,6 +104,13 @@ var drag_position := Vector2.ZERO
 var snap_m := 1.0
 var grid_spacing_m := 1.0
 var road_selection_layer := 99
+var isolate_road_layer:=false
+var lock_other_roads:=false
+var angle_snap_degrees:=0.0
+var prefab_dialog: AcceptDialog
+var prefab_list: ItemList
+var prefab_name: LineEdit
+var prefab_records: Array[Dictionary]=[]
 var copied_group: Dictionary={}
 var bulk_dialog: AcceptDialog
 var bulk_category: OptionButton
@@ -987,6 +994,7 @@ func _refresh_authoring() -> void:
 			BridgeArt.editor_hidden=bridge_preview.hidden.duplicate()
 			_redraw_roads();_update_overview_mask()
 	if not map_switcher.custom:_sync_road_preview(preview_doc)
+	elif is_instance_valid(gizmos):gizmos.layer_flags=layer_flags.duplicate()
 	_update_source_details()
 	_save_recovery()
 	_update_context_panels()
@@ -1105,9 +1113,28 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if not source_ready or source_id.is_empty():
 		return
+	if angle_snap_degrees>0.0 and not Input.is_physical_key_pressed(KEY_ALT):
+		var prop: Dictionary=authoring.prop_at_id(source_id)
+		if not prop.is_empty():degrees=snappedf(float(prop.rotation)+degrees,angle_snap_degrees)-float(prop.rotation)
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
 		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
+
+func _set_angle_spacing(value: float) -> void:
+	angle_snap_degrees=value
+
+func _angle_snap_point(origin: Vector2,target: Vector2) -> Vector2:
+	if angle_snap_degrees<=0.0 or Input.is_physical_key_pressed(KEY_ALT):return target
+	var delta:=target-origin
+	if delta.length()<.01:return target
+	var angle:=snappedf(delta.angle(),deg_to_rad(angle_snap_degrees))
+	return origin+Vector2.RIGHT.rotated(angle)*delta.length()
+
+func _arrange_selection(mode: String,axis: int) -> void:
+	if _editing_locked() or not source_ready:return
+	if authoring.arrange_props(multi_selection,mode,axis):
+		_refresh_authoring();_notice("Aligned selection in one undo step." if mode=="align" else "Distributed selection in one undo step.")
+	else:_notice(authoring.last_error)
 
 func _set_grid_spacing(value: float) -> void:
 	grid_spacing_m=value
@@ -1213,8 +1240,10 @@ func _restore_history() -> void:
 	if selection.is_empty():return
 	var offset:=int(history_items.get_item_metadata(selection[0]))
 	for i in absi(offset):
-		if offset<0:authoring.undo()
-		else:authoring.redo()
+		if offset<0:
+			if not authoring.undo():_notice(authoring.last_error);break
+		else:
+			if not authoring.redo():_notice(authoring.last_error);break
 	_prune_multi_selection();_refresh_authoring()
 	_notice("Restored selected edit history state.")
 
@@ -2240,18 +2269,29 @@ func _update_drag_preview(at: Vector2) -> void:
 func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 	if not source_ready:return
 	var document: Dictionary=authoring.doc if preview_doc.is_empty() else preview_doc
-	var hidden: Dictionary={}
+	var changed_sources: Dictionary={}
+	var current: Dictionary={}
+	for item in document.roads:current[str(item.id)]=item
 	for original in authoring.initial.get("roads",[]):
-		var road: Dictionary={}
-		for item in document.roads:
-			if str(item.id)==str(original.id):road=item;break
-		if not road.is_empty() and JSON.stringify(road)!=JSON.stringify(original):
-			hidden[int(str(original.id).trim_prefix("road-"))]=true
+		var road: Dictionary=current.get(str(original.id),{})
+		if road!=original:changed_sources[int(str(original.id).trim_prefix("road-"))]=true
 	if pending_drag.get("kind","") in ["road","road_move"]:
-		hidden[int(str(pending_drag.id).trim_prefix("road-"))]=true
+		changed_sources[int(str(pending_drag.id).trim_prefix("road-"))]=true
+	var hidden: Dictionary={}
+	for road in world.data.roads:
+		var id:=int(road.id)
+		var source:=int(road.get("editor_grade_source_id",id))
+		if changed_sources.has(source) or (isolate_road_layer and not MultiSelect.road_matches_layer(road,road_selection_layer)):
+			hidden[id]=true
 	if hidden!=Roads.editor_hidden:
+		# Dirty only tiles with a changed road/junction/bridge reference.
+		var dirty: Dictionary={}
+		for id in Roads.editor_hidden:
+			if not hidden.has(id):dirty[id]=true
+		for id in hidden:
+			if not Roads.editor_hidden.has(id):dirty[id]=true
 		Roads.editor_hidden=hidden
-		_redraw_roads()
+		_redraw_roads(dirty)
 		_update_overview_mask()
 
 func _update_traffic_preview() -> void:
@@ -2267,10 +2307,20 @@ func _update_overview_mask() -> void:
 	# The 4096px atlas is expensive. Keep it cached while editing at detail LOD.
 	_overview_dirty=true
 
-func _redraw_roads() -> void:
+func _redraw_roads(dirty: Dictionary={}) -> void:
 	if not is_instance_valid(world):return
 	var loaded: Array=render_tiles.tiles.values() if is_instance_valid(render_tiles) else world.chunks.values()
 	for tile in loaded:
+		if not dirty.is_empty():
+			var touches:=false
+			for batch in tile.road_batches:
+				if dirty.has(int(batch.road.id)):touches=true;break
+			if not touches:
+				for junction in tile.junction_list:
+					for id in junction.get("roads",[]):
+						if dirty.has(int(id)):touches=true;break
+					if touches:break
+			if not touches:continue
 		tile.redraw_bridges()
 		for child in tile.get_children():
 			if child.get_script()==Roads:child.queue_redraw()
@@ -2683,16 +2733,32 @@ func _select_entity(index: int) -> void:
 	_refresh_authoring();_update_view(true)
 	if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 
+func _set_road_isolation(enabled: bool) -> void:
+	if _editing_locked():return
+	isolate_road_layer=enabled
+	layer_flags["road_isolation_layer"]=road_selection_layer if enabled else 99
+	gizmos.layer_flags=layer_flags.duplicate()
+	_refresh_authoring();gizmos.queue_redraw()
+
+func _set_other_road_lock(enabled: bool) -> void:
+	if _editing_locked():return
+	lock_other_roads=enabled
+	authoring.unlocked_road_layer=road_selection_layer if enabled else 99
+	_notice("Other road objects are locked against edits." if enabled and road_selection_layer!=99 else "Road edit lock released.")
+
 func _set_road_selection_layer(index: int) -> void:
 	if _editing_locked():return
 	road_selection_layer=99 if index==0 else index-3
 	layer_flags["road_selection_layer"]=road_selection_layer
+	layer_flags["road_isolation_layer"]=road_selection_layer if isolate_road_layer else 99
+	authoring.unlocked_road_layer=road_selection_layer if lock_other_roads else 99
+	gizmos.layer_flags=layer_flags.duplicate()
 	_set_multi([])
 	source_id="";source_anchor=-1;pending_drag.clear()
 	_update_selection({})
 	_refresh_authoring()
 	_refresh_entity_list(true)
-	_notice("All object types selectable." if road_selection_layer==99 else "Road selection restricted to layer %d; other objects remain visible."%road_selection_layer)
+	_notice("All object types selectable." if road_selection_layer==99 else "Road selection restricted to layer %d."%road_selection_layer)
 
 func _copy_selected_group() -> void:
 	if _editing_locked() or not source_ready:return
@@ -2702,6 +2768,82 @@ func _copy_selected_group() -> void:
 	if group.is_empty():_notice(authoring.last_error);return
 	copied_group=group
 	_notice("Copied %d objects. Pan to a destination or switch maps, then Paste."%group.entries.size())
+
+const PREFAB_PATH="user://streetbound-prefabs.json"
+
+func _open_prefabs() -> void:
+	if _editing_locked() or not source_ready:return
+	if not is_instance_valid(prefab_dialog):
+		prefab_dialog=AcceptDialog.new()
+		prefab_dialog.title="Reusable map groups"
+		prefab_dialog.ok_button_text="Close"
+		prefab_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(prefab_dialog)
+		var panel:=VBoxContainer.new();prefab_dialog.add_child(panel)
+		prefab_name=LineEdit.new();prefab_name.placeholder_text="New prefab name";panel.add_child(prefab_name)
+		_btn("Save copied group",panel,_save_prefab)
+		prefab_list=ItemList.new();prefab_list.custom_minimum_size=Vector2(500,240);panel.add_child(prefab_list)
+		_btn("Load selected into clipboard",panel,_load_prefab)
+		_btn("Delete selected prefab",panel,_delete_prefab)
+	prefab_records.clear()
+	if FileAccess.file_exists(PREFAB_PATH):
+		var file:=FileAccess.open(PREFAB_PATH,FileAccess.READ)
+		if file!=null and file.get_length()<16*1024*1024:
+			var saved: Variant=JSON.parse_string(file.get_as_text())
+			if saved is Array:
+				for entry in saved:
+					if entry is Dictionary and entry.get("group") is Dictionary and entry.get("name") is String:prefab_records.append(entry)
+	_refresh_prefab_list()
+	prefab_dialog.popup_centered(Vector2i(540,420))
+
+func _refresh_prefab_list() -> void:
+	prefab_list.clear()
+	for entry in prefab_records:prefab_list.add_item(str(entry.name))
+
+func _write_prefabs() -> bool:
+	var raw:=JSON.stringify(prefab_records)
+	if raw.to_utf8_buffer().size()>16*1024*1024:
+		_notice("Prefab library exceeds 16 MB.");return false
+	var file:=FileAccess.open(PREFAB_PATH+".tmp",FileAccess.WRITE)
+	if file==null:return false
+	file.store_string(raw);file.flush();file.close()
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(PREFAB_PATH+".tmp"),ProjectSettings.globalize_path(PREFAB_PATH))==OK
+
+func _save_prefab() -> void:
+	var title:=prefab_name.text.strip_edges().left(80)
+	if title.is_empty() or copied_group.is_empty():
+		_notice("Copy a group and enter a prefab name first.");return
+	if prefab_records.size()>=100:
+		_notice("Prefab library supports 100 entries.");return
+	for entry in prefab_records:
+		if str(entry.name).nocasecmp_to(title)==0:
+			_notice("Use a different prefab name.");return
+	var group:=copied_group.duplicate(true)
+	var origin:=Vector2(group.origin)
+	group.origin=[origin.x,origin.y]
+	prefab_records.append({"name":title,"group":group})
+	if not _write_prefabs():
+		prefab_records.pop_back();_notice("Could not save prefab.");return
+	_refresh_prefab_list();_notice("Saved prefab "+title+".")
+
+func _load_prefab() -> void:
+	var ids:=prefab_list.get_selected_items()
+	if ids.is_empty():return
+	var group: Dictionary=prefab_records[ids[0]].group.duplicate(true)
+	var origin: Variant=group.get("origin")
+	if not origin is Array or origin.size()!=2 or not group.get("entries") is Array:
+		_notice("Prefab data is invalid.");return
+	group.origin=Vector2(float(origin[0]),float(origin[1]))
+	copied_group=group
+	prefab_dialog.hide();_notice("Prefab loaded. Paste at the camera centre.")
+
+func _delete_prefab() -> void:
+	var ids:=prefab_list.get_selected_items()
+	if ids.is_empty():return
+	var removed: Dictionary=prefab_records.pop_at(ids[0])
+	if not _write_prefabs():
+		prefab_records.insert(ids[0],removed);_notice("Could not update prefab library.");return
+	_refresh_prefab_list()
 
 func _paste_selected_group() -> void:
 	if _editing_locked() or not source_ready or copied_group.is_empty():return
@@ -2742,7 +2884,9 @@ func _snap_point(point: Vector2) -> Vector2:
 func _road_draw_point(point: Vector2,any_surface: bool=false,require_road: bool=false) -> Vector2:
 	var best:=INF
 	var result:=_snap_point(point)
+	if not require_road and tool_name=="draw_road" and not draft_points.is_empty():result=_angle_snap_point(draft_points[-1],result)
 	for road in authoring.doc.get("roads",[]):
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		if not any_surface and (str(road.surface) in ["gravel","dirt"])!=(_option_value(road_surface) in ["gravel","dirt"]):continue
 		var circle:=EditSession.RoadShapes.circle(road.points)
 		if not circle.is_empty():

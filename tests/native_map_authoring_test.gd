@@ -86,6 +86,9 @@ func _run() -> void:
 	check("clipboard_out_of_bounds_rejected",bulk_session.paste_group(clipboard,Vector2(-10000,-10000)).is_empty() and bulk_session.doc==bulk_before)
 	var Select=preload("res://scripts/dev/native_editor_multiselect.gd")
 	check("selection_filter_distinguishes_stacked_road_levels",Select.road_matches_layer({"elevation":{"start_layer":1,"end_layer":1}},1) and not Select.road_matches_layer({"elevation":{"start_layer":-1,"end_layer":-1}},1))
+	bulk_session.unlocked_road_layer=1
+	check("locked_ground_roads_reject_bulk_edit",not bulk_session.bulk_properties(bulk_ids,"roads",{"width":14.0}) and bulk_session.doc==bulk_before)
+	bulk_session.unlocked_road_layer=99
 	var original_hash: String = session.baseline_hash
 	var origin_road: Dictionary = session.road_at_id("road-0")
 	check("stable_source_road_id",not origin_road.is_empty())

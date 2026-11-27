@@ -39,6 +39,8 @@ var last_error := ""
 var dirty := false
 ## Monotonic editor revision: avoids rescanning 20k runtime props every frame.
 var edit_revision := 0
+# Editor-only guard; never persisted in map files.
+var unlocked_road_layer:=99
 
 func load_source(path: String = SOURCE) -> bool:
 	var content := FileAccess.get_file_as_string(path)
@@ -270,7 +272,23 @@ func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 		p.x >= 0 and p.y >= 0 and \
 		p.x <= float(record.world.width) and p.y <= float(record.world.height)
 
+static func road_touches_layer(road: Dictionary,layer: int) -> bool:
+	if layer==99:return true
+	var profile: Dictionary=road.get("elevation",{})
+	return layer in profile.get("point_layers",[int(profile.get("start_layer",0)),int(profile.get("end_layer",0))])
+
+func _locked_roads_unchanged(next: Dictionary) -> bool:
+	if unlocked_road_layer==99:return true
+	var after: Dictionary={}
+	for road in next.get("roads",[]):after[str(road.id)]=road
+	for road in doc.get("roads",[]):
+		if not road_touches_layer(road,unlocked_road_layer) and after.get(str(road.id),{})!=road:
+			last_error="Edit would change a locked road. Select all levels or unlock other roads first."
+			return false
+	return true
+
 func _commit(next: Dictionary) -> bool:
+	if not _locked_roads_unchanged(next):return false
 	if not _valid_source(next):
 		last_error = "Edit was rejected: invalid world bounds or source geometry."
 		return false
@@ -290,7 +308,7 @@ func _commit(next: Dictionary) -> bool:
 	return true
 
 func undo() -> bool:
-	if history.is_empty():
+	if history.is_empty() or not _locked_roads_unchanged(history[-1]):
 		return false
 	future.append(doc.duplicate(true))
 	doc = history.pop_back()
@@ -299,7 +317,7 @@ func undo() -> bool:
 	return true
 
 func redo() -> bool:
-	if future.is_empty():
+	if future.is_empty() or not _locked_roads_unchanged(future[-1]):
 		return false
 	history.append(doc.duplicate(true))
 	doc = future.pop_back()
@@ -1422,6 +1440,32 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 		return false
 	return _commit(next)
 
+
+## Align or distribute ordinary scenery centres. Road and path geometry is
+## not moved implicitly, protecting shared junctions and continuous rails.
+func arrange_props(ids: Array[String],mode: String,axis: int) -> bool:
+	if axis not in [0,1] or mode not in ["align","distribute"]:return false
+	var next:=doc.duplicate(true)
+	var selected: Array[Dictionary]=[]
+	var key: String="x" if axis==0 else "y"
+	for prop in next.props:
+		if str(prop.id) not in ids or bool(prop.get("hidden",false)):continue
+		if str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			last_error="Select ordinary scenery rather than path objects."
+			return false
+		selected.append(prop)
+	if selected.size()!=ids.size() or selected.size()<(3 if mode=="distribute" else 2):
+		last_error="Select at least %d ordinary scenery objects."%(3 if mode=="distribute" else 2)
+		return false
+	selected.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return float(a[key])<float(b[key]))
+	var first:=float(selected[0][key])
+	var last:=float(selected[-1][key])
+	var mean:=0.0
+	for item in selected:mean+=float(item[key])
+	mean/=selected.size()
+	for i in selected.size():
+		selected[i][key]=mean if mode=="align" else lerpf(first,last,float(i)/float(selected.size()-1))
+	return _commit(next)
 
 ## Internal reusable clipboard, independent of the source map. Do not copy
 ## gameplay IDs or adopted-world replacement links across maps.

@@ -421,6 +421,7 @@ func _draw_draft() -> void:
 		return
 	for road in draft_doc.get("roads",[]):
 		if not layer_flags.get("roads",true):continue
+		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		var id := str(road.id)
 		var original: Dictionary = {}
 		for before in draft_initial.get("roads",[]):
@@ -462,6 +463,7 @@ func _draw_draft() -> void:
 		return
 	for road in draft_doc.get("roads",[]):
 		if not layer_flags.get("roads",true):continue
+		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		if str(road.id)!=selected_source_id:continue
 		var handles:=_draft_anchors(road)
 		for i in handles.size():
@@ -471,6 +473,7 @@ func _draw_draft() -> void:
 	# zoom-aware handles; no prior road selection is necessary.
 	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
 		for road in draft_doc.get("roads",[]):
+			if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 			for point in road.get("points",[]):
 				var at := Vector2(float(point.x),float(point.y))*PPM
 				if not _visible_point(at):
@@ -641,6 +644,8 @@ func _visible_point(p: Vector2) -> bool:
 func _draw_draft_junctions(shoulder: bool) -> void:
 	if not network_is_draft or not layer_flags.get("roads",true):return
 	for junction in preview_junctions:
+		var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+		if filter_layer!=99 and int(junction.get("road_layer",0))!=filter_layer:continue
 		var changed:=false
 		for id in junction.roads:
 			if Roads.editor_hidden.has(int(id)) or int(id)>=world.data.roads.size():changed=true;break
@@ -664,6 +669,8 @@ func _draw() -> void:
 	_draw_draft()
 	if show_lanes and layer_flags.get("roads",true) and is_instance_valid(network):
 		for edge in network.edges:
+			var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+			if filter_layer!=99 and filter_layer not in [roundi(float(edge.get("start_height_m",0))/6.0),roundi(float(edge.get("end_height_m",0))/6.0)]:continue
 			if not network_is_draft:
 				if Roads.editor_hidden.has(int(edge.road)):continue
 				if bool(edge.connector) and not edge.next.is_empty() and Roads.editor_hidden.has(int(network.edges[int(edge.next[0])].road)):continue
@@ -692,6 +699,8 @@ func _draw() -> void:
 		var junctions: Array=preview_junctions if network_is_draft else world.data.junctions
 		for index in junctions.size():
 			var j: Dictionary = junctions[index]
+			var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+			if filter_layer!=99 and int(j.get("road_layer",0))!=filter_layer:continue
 			var hidden:=false
 			for road_id in j.get("roads",[]):
 				if not network_is_draft and Roads.editor_hidden.has(int(road_id)):hidden=true;break

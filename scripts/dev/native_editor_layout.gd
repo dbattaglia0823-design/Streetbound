@@ -71,6 +71,8 @@ static func build(e) -> void:
 	var spacing: SpinBox=e._number(settings,"Grid spacing m",.25,100,1)
 	spacing.step=.25;spacing.value=1
 	spacing.value_changed.connect(e._set_grid_spacing)
+	var angle: SpinBox=e._number(settings,"Angle snap ° (0 = off)",0,90,0)
+	angle.step=5;angle.value=0;angle.value_changed.connect(e._set_angle_spacing)
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	var extra:=OptionButton.new();extra.name="AdditionalTools";extra.fit_to_longest_item=false
@@ -192,6 +194,7 @@ static func build(e) -> void:
 	e._btn("Duplicate",actions,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
 	e._btn("Copy",actions,e._copy_selected_group).tooltip_text="Copy selected roads, regions and scenery (Ctrl+C)"
 	e._btn("Paste",actions,e._paste_selected_group).tooltip_text="Paste group at camera centre (Ctrl+V)"
+	e._btn("Prefabs",actions,e._open_prefabs)
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()
@@ -227,10 +230,18 @@ static func build(e) -> void:
 	for title in ["All objects","Roads -2 (-12 m)","Roads -1 (-6 m)","Roads 0 (ground)","Roads +1 (6 m)","Roads +2 (12 m)"]:road_picker.add_item(title)
 	road_picker.tooltip_text="Restrict selection and marquee to roads on a chosen level; other art stays visible."
 	layer_column.add_child(road_picker);road_picker.item_selected.connect(e._set_road_selection_layer)
+	var isolate:=CheckBox.new();isolate.text="Hide other road levels";layer_column.add_child(isolate);isolate.toggled.connect(e._set_road_isolation)
+	var lock:=CheckBox.new();lock.text="Lock other road objects";layer_column.add_child(lock);lock.toggled.connect(e._set_other_road_lock)
 	e.road_layer_settings=column(layer_column);heading(e.road_layer_settings,"ROAD DEBUG OVERLAYS")
 	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
 	heading(inspector,"INSPECTOR")
+	var align_tools:=OptionButton.new()
+	for title in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(title)
+	inspector.add_child(align_tools)
+	align_tools.item_selected.connect(func(index: int)->void:
+		if index>0:e._arrange_selection("align" if index<=2 else "distribute",0 if index in [1,3] else 1)
+		align_tools.select(0))
 	e.selected_preview=TextureRect.new();e.selected_preview.name="SelectedAssetPreview"
 	e.selected_preview.custom_minimum_size=Vector2(210,60);e.selected_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview);e.selected_preview.hide()
