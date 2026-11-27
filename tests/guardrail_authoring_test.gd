@@ -59,7 +59,6 @@ func run() -> void:
 	check("saved_source_keeps_guardrail_geometry",
 		serialized is Dictionary and
 		(serialized.get("props",[]) as Array).size()==session.doc.props.size())
-	var road_id: String=str(session.doc.roads[0].id)
 	var ground_id: String=""
 	for road in session.doc.roads:
 		if Session.AutoRails.ground(road):ground_id=str(road.id);break

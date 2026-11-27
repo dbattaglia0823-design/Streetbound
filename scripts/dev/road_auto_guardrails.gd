@@ -78,6 +78,9 @@ static func preview(roads: Array, paths: Dictionary, bounds: Rect2, width_scale:
 					if p.distance_to(Geometry2D.get_closest_point_to_segment(p,segment[1],segment[2]))<float(segment[3])+1.0:
 						safe=false;break
 				if safe:
+					if not run.is_empty() and p.distance_to(run[-1])>4:
+						if run.size()>1:output.append(run)
+						run=PackedVector2Array()
 					if run.is_empty() or p.distance_to(run[-1])>=.5:run.append(p)
 				else:
 					if run.size()>1:output.append(run)

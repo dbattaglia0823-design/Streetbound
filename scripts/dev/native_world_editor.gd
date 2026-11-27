@@ -684,6 +684,11 @@ func _sync_editor_preview() -> void:
 	synced_prop_drag=dragging_prop
 	var next_hidden: Dictionary = {}
 	if not dragging_prop.is_empty():next_hidden["authored:"+dragging_prop]=true
+	# Linked guardrails are derived from roads, not editable source props.
+	# Replace baked visuals with the current draft preview while editing.
+	for prop in world.data.props:
+		if str(prop.get("authoring_id","")).begins_with("prop-auto-rail-"):
+			next_hidden[Scenery.editor_key(prop)]=true
 	# Baked archive objects are immutable for this editor session. Avoid
 	# re-hashing thousands of nested prop dictionaries on every committed edit.
 	var runtime_stamp: int=hash([world.get_instance_id(),world.data.props.size(),map_switcher.current_file])

@@ -125,6 +125,15 @@ def props_for(roads, junctions, width, height, width_scale=1.1):
                 # Avoid cutting across the selected pavement on tight inside bends.
                 if safe:
                     safe=not any(point_segment(p,a,b)<road["width"]*width_scale/2+WIDTH/2 for rid,a,b,pad in grid[cell] if rid==road["id"])
+                if safe and run:
+                    # Guard against offset curves jumping across a junction or
+                    # pavement between consecutive sampled stations.
+                    mid=((run[-1][0]+p[0])/2,(run[-1][1]+p[1])/2)
+                    mid_cell=(math.floor(mid[0]/CELL),math.floor(mid[1]/CELL))
+                    if (any(math.dist(mid,c)<pad for c,pad in junction_grid[mid_cell]) or
+                        any(point_segment(mid,a,b)<(road["width"]*width_scale/2+WIDTH/2 if rid==road["id"] else pad)
+                            for rid,a,b,pad in grid[mid_cell])):
+                        flush()
                 if not safe:
                     flush()
                 elif not run or math.dist(p,run[-1])>=.5:

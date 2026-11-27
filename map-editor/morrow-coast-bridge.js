@@ -67,6 +67,7 @@ export function convertMorrowWorld(raw){
     ...(road.junctionEnd!==undefined?{junctionEnd:road.junctionEnd}:{}),
     ...((road.editor_grade_source?.elevation??road.elevation)?{elevation:road.editor_grade_source?.elevation??road.elevation}:{}),
     ...(road.jump?{jump:road.jump}:{}),
+    ...(road.autoGuardrails?{autoGuardrails:road.autoGuardrails}:{}),
     points:pointsOf(road.editor_grade_source?.anchors||road.anchors||road.points)
   }));
   const regions=[];
@@ -98,7 +99,7 @@ export function convertMorrowWorld(raw){
   }
   // Procedural forest/city props remain source-owned. Only explicit
   // authored IDs are editable and survive a production-world rebake.
-  const props=(raw.props||[]).filter(prop=>typeof prop.authoring_id==='string')
+  const props=(raw.props||[]).filter(prop=>typeof prop.authoring_id==='string'&&!prop.authoring_id.startsWith('prop-auto-rail-'))
     .slice(0,4000).map(prop=>({
       id:prop.authoring_id,name:prop.editor_name||prop.editor_type||'Scenery',
       type:prop.editor_type,
@@ -106,6 +107,7 @@ export function convertMorrowWorld(raw){
       scaleX:prop.editor_scale_x??1,scaleY:prop.editor_scale_y??1,
       roadFacing:prop.editor_road_facing,roadFront:prop.editor_road_front,
       sidewalkPoints:prop.sidewalk_points,sidewalkWidth:prop.sidewalk_width,
+      guardrailPoints:prop.guardrail_points,guardrailWidth:prop.guardrail_width,
       rotation:+prop.angle*180/Math.PI,assetId:prop.asset_id||'',
       assetPath:prop.asset_path,assetSize:prop.asset_size||prop.editor_base_size,
       sourceAppearance:prop.source_replacement?prop:undefined,

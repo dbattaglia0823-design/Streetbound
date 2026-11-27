@@ -1,4 +1,3 @@
-from road_auto_guardrails import set_auto_guardrails
 """Apply a validated World Forge Morrow Coast authoring overlay during rebake.
 
 The editor works on human-readable road anchors. ALL derived runtime data
@@ -14,6 +13,7 @@ from authored_races import authored_races
 import math
 
 from road_elevation import set_profile
+from road_auto_guardrails import set_auto_guardrails
 from road_jumps import set_jump
 import re
 from project_asset_catalog import building_file, asset_id, resolve_asset
