@@ -316,3 +316,8 @@ All 256 catalog vehicles have estimated gameplay seating (including driver) and 
 ## Robbery career — phase 4
 
 The existing saved reputation now derives seven ranks (Unknown 0, Street Prospect 5, Wheelman 25, Professional 60, Veteran 120, Mastermind 250, Underground Legend 500). Robbery unlock thresholds are read from the same profiles used by mission acceptance and settlement. The pause hub has a Career tab with current rank, interval progress, next rank, robbery eligibility, and a GPS button that uses the real enabled stock fixer if present. Reputation gates do not supersede vehicle capacity, other contract requirements or map availability. Contact briefings show rank/remaining reputation, and successful saved race/contract settlements show promotions. Reward results report actual awarded reputation at the save cap. Future crew eligibility gates 25/120/500 and black-market eligibility gates 60/250 expose stable economy APIs; neither feature is sold or usable yet. Existing saves need no migration; no reputation is earned by merely free-roaming. Existing solo reward values remain unchanged; multiplayer career reputation is not added. Regression coverage for boundary ranks, unlocks, saved promotion and career UI is added; live validation/CI pending.
+
+
+## Robbery career — phase 5
+
+Eight black-market purchase-only parts in four independent slots are accessible through Upgrades, with 60/250 reputation gates. See [upgrades.md](upgrades.md) for effects, safeguards and scope. Career now shows actual basic/advanced black-market eligibility. Crew hiring remains phase 6. Cargo damage, tire durability and outgoing-impact attribution are not implemented. CI/live verification pending.

@@ -80,7 +80,7 @@ func clear_mission_payload() -> void:
 	mission_cargo_kg = 0.0
 
 func mission_payload_mass_kg() -> float:
-	return mission_cargo_kg + float(mission_passengers)*PASSENGER_MASS_KG
+	return mission_cargo_kg * clampf(config.mission_cargo_mass_factor,0.8,1.0) + float(mission_passengers)*PASSENGER_MASS_KG
 
 func effective_mass_kg() -> float:
 	return maxf(config.mass_kg + mission_payload_mass_kg(),20.0)

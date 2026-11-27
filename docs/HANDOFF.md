@@ -30,3 +30,5 @@
 - Robbery career phase 3: seating/cargo stats for 256 vehicles, mission capacity locks and transient physical load after pickup; regression tests added, live handling and CI unverified.
 
 - Robbery career phase 4: derived ranks and future access gates, pause Career view with real fixer GPS, contact rank/lock display and post-settlement promotions. Existing save format unchanged; crew and black-market content remain later phases. CI/visual validation pending.
+
+- Phase 5: black-market inventory, purchase/equip reputation gates, four slots and real protection/cargo modifiers, upgrade UI and career status. No new tire/cargo damage or outgoing-impact mechanics; CI and live validation pending.

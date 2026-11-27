@@ -143,8 +143,12 @@ func _make_button(parent: Node, title: String, at: Vector2,
 
 func _build_layout() -> void:
 	_label(frame,"╱╱  UPGRADES",31,INK,Vector2(38,24),Vector2(295,50))
-	_label(frame,"↔  HOT SWAP OWNED PARTS ANYWHERE",14,
-		SUBTLE,Vector2(342,30),Vector2(540,40))
+	_label(frame,"BLACK MARKET",12,ORANGE,Vector2(342,10),Vector2(540,20))
+	for i in Parts.BLACK_MARKET_SLOTS.size():
+		var slot: String = Parts.BLACK_MARKET_SLOTS[i]
+		var market_button := _make_button(frame,slot.to_upper(),Vector2(342+i*160,32),Vector2(150,38),_open_slot.bind(slot))
+		market_button.name = "BlackMarket_"+slot
+		market_button.add_theme_font_size_override("font_size",12)
 	_make_button(frame,"CLOSE  ✕",Vector2(1014,28),Vector2(128,38),close_menu)
 	var divider := ColorRect.new()
 	divider.position = Vector2(35,91)
@@ -375,7 +379,7 @@ func refresh() -> void:
 
 
 func _open_slot(slot: String) -> void:
-	if not QUICK_SLOTS.has(slot):
+	if not QUICK_SLOTS.has(slot) and not Parts.BLACK_MARKET_SLOTS.has(slot):
 		return
 	selected_slot = slot
 	picker.visible = true
@@ -395,10 +399,11 @@ func _close_picker() -> void:
 func _refresh_picker() -> void:
 	var car_id := str(economy.active_id)
 	var part := _part_in_slot(selected_slot)
-	picker_title.text = str(SLOT_NAMES[selected_slot])+"  /  OWNED PARTS"
+	var market := selected_slot in Parts.BLACK_MARKET_SLOTS
+	picker_title.text = "BLACK MARKET / "+selected_slot.to_upper() if market else str(SLOT_NAMES[selected_slot])+"  /  OWNED PARTS"
 	picker_status.text = "EQUIPPED: "+(
 		"STOCK" if part.is_empty() else str(part.get("name","UPGRADE")))
-	picker_remove.disabled = economy.equipped_uid(car_id,selected_slot).is_empty()
+	picker_remove.disabled = economy.equipped_uid(car_id,selected_slot).is_empty() or (market and not _market_service_allowed())
 	for child in picker_parts.get_children():
 		picker_parts.remove_child(child)
 		child.queue_free()
@@ -423,6 +428,16 @@ func _refresh_picker() -> void:
 			preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			preview.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			preview.add_theme_font_size_override("font_size",12)
+			if market:
+				var purchase_status := economy.black_market_purchase_status(str(template.id))
+				preview.text = "%s / %s / %d REP\n%s\n%s" % [str(template.name),Ownership.dollars(int(template.price_usd)),int(template.required_rep),Parts.summary(template),"BUY" if purchase_status=="ready" else purchase_status.to_upper().replace("_"," ")]
+				preview.custom_minimum_size.y = 90
+				preview.disabled = purchase_status!="ready" or not _market_service_allowed()
+				preview.pressed.connect(_purchase_market.bind(str(template.id)))
+				preview.tooltip_text = "Purchase into inventory; stop in free roam to install. Requires reputation, not car XP."
+				_style_button(preview,false)
+				picker_parts.add_child(preview)
+				continue
 			var source := "FUTURE EVENT REWARD" if not \
 				bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
 			preview.text = "%s  /  %s\n%s  ·  %s" % [
@@ -443,6 +458,8 @@ func _refresh_picker() -> void:
 				Parts.summary(template)]
 			if currently:
 				label += "   ·  INSTALLED"
+			elif status == "rep_locked":
+				label += "   ·  REPUTATION LOCKED"
 			elif status == "level_locked":
 				label += "   ·  CAR LEVEL LOCKED"
 			elif status == "equipped_elsewhere":
@@ -454,10 +471,33 @@ func _refresh_picker() -> void:
 			option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			option.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			option.add_theme_font_size_override("font_size",12)
-			option.disabled = currently or status!="ready"
+			option.disabled = currently or status!="ready" or (market and not _market_service_allowed())
 			option.pressed.connect(_install_uid.bind(uid))
 			_style_button(option,false)
 			picker_parts.add_child(option)
+
+func _market_service_allowed() -> bool:
+	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length() > 1.5:
+		return false
+	for police in get_tree().get_nodes_in_group("streetbound_police"):
+		if int(police.get("wanted_level")) > 0:
+			return false
+	for contracts in get_tree().get_nodes_in_group("streetbound_contracts"):
+		if not (contracts.get("active") as Dictionary).is_empty():
+			return false
+	for race in get_tree().get_nodes_in_group("streetbound_race"):
+		if str(race.get("state")) in ["countdown","running"]:
+			return false
+	return true
+
+func _purchase_market(template_id: String) -> void:
+	if not _market_service_allowed():
+		last_result = "BLACK MARKET / STOP IN FREE ROAM FIRST"
+		refresh()
+		return
+	var result := economy.purchase_black_market(template_id)
+	last_result = "BLACK MARKET / "+result.to_upper().replace("_"," ")
+	refresh()
 
 func _install_uid(uid: String) -> void:
 	_change_equipment(uid,false)
@@ -469,6 +509,10 @@ func _unequip_selected() -> void:
 
 func _change_equipment(uid: String,remove: bool) -> void:
 	if not is_instance_valid(economy) or not is_instance_valid(vehicle):
+		return
+	if selected_slot in Parts.BLACK_MARKET_SLOTS and not _market_service_allowed():
+		last_result = "BLACK MARKET / STOP IN FREE ROAM FIRST"
+		refresh()
 		return
 	var car_id := str(economy.active_id)
 	var entry := Catalog.find_by_id(car_id)
@@ -500,7 +544,11 @@ func _change_equipment(uid: String,remove: bool) -> void:
 			continue
 		var delta := float(latest)-float(prior)
 		if absf(delta)>0.000001:
-			vehicle.config.set(property,float(vehicle.config.get(property))+delta)
+			var live: Variant = vehicle.config.get(property)
+			if typeof(live)==TYPE_INT:
+				vehicle.config.set(property,roundi(float(live)+delta))
+			else:
+				vehicle.config.set(property,float(live)+delta)
 	# Audio induction is a string, not a numeric modifier. Switch to turbo
 	# sound on a newly boosted N/A car and back to its authored stock voice
 	# when removing the turbo. Other engine-specific profiles remain intact.

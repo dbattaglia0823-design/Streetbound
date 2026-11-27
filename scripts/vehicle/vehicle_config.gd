@@ -9,6 +9,10 @@ enum Drivetrain { FWD, RWD, AWD }
 ## Gameplay estimates, not OEM seating or legal payload ratings. Seats include driver.
 @export_range(1, 9, 1) var seating_capacity: int = 2
 @export_range(0, 2000, 1) var cargo_capacity_kg: int = 100
+## Black-market modifiers are bounded, stock defaults have no bonus.
+@export var impact_damage_factor: float = 1.0
+@export var critical_power_loss_factor: float = 1.0
+@export var mission_cargo_mass_factor: float = 1.0
 @export_group("Powertrain")
 @export var mass_kg: float = 1450.0
 @export var engine_torque_nm: float = 470.0

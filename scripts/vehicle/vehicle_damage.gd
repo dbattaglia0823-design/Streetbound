@@ -47,13 +47,13 @@ func register_impact(closing_speed_mps: float, now_seconds: float, outgoing_mult
 const POWER_LOSS_START_HEALTH := 20.0
 const MAX_RUNNING_POWER_LOSS := 0.20
 
-func drive_fraction() -> float:
+func drive_fraction(power_loss_factor: float = 1.0) -> float:
 	var percent := health_percentage()
 	if percent <= 0.0:
 		return 0.0
 	if percent >= POWER_LOSS_START_HEALTH:
 		return 1.0
-	return 1.0 - MAX_RUNNING_POWER_LOSS * (
+	return 1.0 - MAX_RUNNING_POWER_LOSS * clampf(power_loss_factor,0.5,1.0) * (
 		(POWER_LOSS_START_HEALTH - percent) / POWER_LOSS_START_HEALTH)
 
 func is_disabled() -> bool:

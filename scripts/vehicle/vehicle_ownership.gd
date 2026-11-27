@@ -166,10 +166,10 @@ func _load_upgrades(file: ConfigFile) -> void:
 		for slot in loadouts[car_id]:
 			var uid := str(loadouts[car_id][slot])
 			var item := get_upgrade_item(uid)
-			if Parts.SLOTS.has(str(slot)) and not item.is_empty() and \
+			if Parts.all_slots().has(str(slot)) and not item.is_empty() and \
 				not assigned.has(uid):
 				var part := Parts.get_part(str(item.template))
-				if str(part.slot) == str(slot) and can_use_upgrade(str(car_id),str(part.rarity)):
+				if str(part.slot) == str(slot) and _part_access(str(car_id),part):
 					slots[str(slot)] = uid
 					assigned[uid] = true
 		if not slots.is_empty():
@@ -200,7 +200,7 @@ func installed_templates(car_id: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not owns(car_id):
 		return result
-	for slot in Parts.SLOTS:
+	for slot in Parts.all_slots():
 		var item := get_upgrade_item(equipped_uid(car_id,slot))
 		if not item.is_empty():
 			var template := Parts.get_part(str(item.template))
@@ -213,6 +213,41 @@ func apply_car_upgrades(config: VehicleConfig, car_id: String) -> void:
 	Parts.apply_to_config(config,installed_templates(car_id))
 
 
+func _part_access(car_id: String, template: Dictionary) -> bool:
+	if Parts.is_black_market(template):
+		return owns(car_id) and underground_reputation >= int(template.get("required_rep",100001))
+	return can_use_upgrade(car_id,str(template.get("rarity","")))
+
+func black_market_purchase_status(template_id: String) -> String:
+	var part := Parts.get_part(template_id)
+	if not Parts.is_black_market(part):
+		return "unknown_part"
+	if underground_reputation < int(part.required_rep):
+		return "rep_locked"
+	if upgrade_inventory.size() >= 2500:
+		return "inventory_full"
+	if balance < int(part.price_usd):
+		return "insufficient_funds"
+	return "ready"
+
+func purchase_black_market(template_id: String) -> String:
+	var status := black_market_purchase_status(template_id)
+	if status != "ready":
+		return status
+	var part := Parts.get_part(template_id)
+	var old_balance := balance
+	var old_uid := next_part_uid
+	balance -= int(part.price_usd)
+	upgrade_inventory.append({"uid":"up-%d" % next_part_uid,"template":template_id})
+	next_part_uid += 1
+	if not save():
+		balance = old_balance
+		next_part_uid = old_uid
+		upgrade_inventory.pop_back()
+		return "save_failed"
+	changed.emit()
+	return "purchased"
+
 func can_install_part(car_id: String, uid: String) -> String:
 	if not owns(car_id):
 		return "not_owned"
@@ -222,8 +257,8 @@ func can_install_part(car_id: String, uid: String) -> String:
 	var template := Parts.get_part(str(item.template))
 	if template.is_empty():
 		return "unknown_part"
-	if not can_use_upgrade(car_id,str(template.rarity)):
-		return "level_locked"
+	if not _part_access(car_id,template):
+		return "rep_locked" if Parts.is_black_market(template) else "level_locked"
 	var in_car := equipped_by(uid)
 	if not in_car.is_empty() and in_car != car_id:
 		return "equipped_elsewhere"
@@ -257,7 +292,7 @@ func install_part(car_id: String, uid: String) -> String:
 
 
 func unequip_part(car_id: String, slot: String) -> String:
-	if not owns(car_id) or not Parts.SLOTS.has(slot):
+	if not owns(car_id) or not Parts.all_slots().has(slot):
 		return "not_owned"
 	var original: Dictionary = upgrade_loadouts.get(car_id,{}).duplicate(true)
 	if not original.has(slot):

@@ -536,7 +536,7 @@ func _show_career() -> void:
 		_label(card,"Requirement","%d REP" % int(row.required_rep),Rect2(365,3,116,34),14,MUTED)
 		_label(card,"State","ELIGIBLE" if eligible else "%d REP TO GO" % int(row.remaining),
 			Rect2(488,3,225,34),14,LIME if eligible else MUTED)
-	var next_features := "FUTURE UNLOCKS (NOT YET AVAILABLE): Crew 25 / 120 / 500 REP; black market 60 / 250 REP."
+	var next_features := "BLACK MARKET: %s / %s. CREW (COMING LATER): 25 / 120 / 500 REP." % ["BASIC UNLOCKED" if rep_value>=60 else "BASIC 60 REP","ADVANCED UNLOCKED" if rep_value>=250 else "ADVANCED 250 REP"]
 	_label(content,"FutureUnlocks",next_features,Rect2(28,511,725,47),13,MUTED,true)
 	var contact := _career_contact()
 	var route := _button(content,"FindFixer","SET GPS TO UNDERGROUND FIXER",Rect2(28,569,723,49),_career_route,true)
