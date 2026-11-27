@@ -482,6 +482,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# three pedals while moving must *stop*, not pivot into a powered slide.
 	var handbrake_yaw_input := handbrake * (1.0 - smoothstep(0.05,0.45,stopping_input))
 	var speed := linear_velocity.length()
+	var previous_yaw := yaw_rate
 	# Periodically sample *actual* nearby vehicle positions/speeds. The
 	# interpolation is fast; the neighbor scan is bounded to 10 Hz.
 	_draft_elapsed -= dt
@@ -508,7 +509,13 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		(1.0-rear_sliding) * (1.0-wheel_spin) * settled_tires + \
 		race_stability * 0.16,0.0,1.0)
 	arcade_assist_fraction = arcade
-	var brake_turn := 1.0 + config.brake_turn_boost * stopping_input * arcade
+	# Service braking should not disable arcade steering just because an axle
+	# is near its longitudinal limit. Keep the aid separate from handbrake
+	# drifting and fade it on loose surfaces, at rest and in deep slides.
+	var brake_authority := clampf(config.arcade_steering_assist * surface_grip *
+		(1.0 - rear_sliding) * (1.0 - smoothstep(deg_to_rad(18.0),
+		deg_to_rad(40.0), absf(slip_angle))), 0.0, 1.0)
+	var brake_turn := 1.0 + (config.brake_turn_boost + 0.20) * stopping_input * brake_authority
 	var ratio := transmission.update(dt, longitudinal_speed * (1.0 + wheel_spin * 0.18), drive_input, reversing, config)
 	# Nitrous is temporary additional wheel torque, limited by the same
 	# traction/wheelspin model as ordinary engine power. It has a finite tank
@@ -545,7 +552,11 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var safe_steer := (tire_envelope * lerpf(1.8, 3.5, handbrake) + deg_to_rad(1.5)) * config.high_speed_steer_degrees / 9.0
 	# High-speed grip tuning gently extends usable steer without bypassing
 	# the physical tire envelope or allowing a one-input hairpin at 200 km/h.
-	safe_steer *= 1.0 + race_stability * 0.50
+	# More lock is available at city speeds, with a smaller highway bonus.
+	# Keep the original class-dependent steering limits and zero-assist mode.
+	var arcade_lock := clampf(config.arcade_steering_assist * surface_grip, 0.0, 1.0)
+	safe_steer *= (1.0 + race_stability * 0.50) * (1.0 +
+		arcade_lock * lerpf(0.35, 0.08, smoothstep(22.0, 42.0, speed)))
 	# Sliding tires are no longer artificially locked to the stable-turn envelope.
 	var slide_request := maxf(handbrake * smoothstep(2.0, 7.0, speed),
 		smoothstep(deg_to_rad(9.0), deg_to_rad(24.0), absf(slip_angle)))
@@ -566,8 +577,14 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		if absf(steering) < deg_to_rad(0.05):
 			steering = 0.0
 	else:
-		var steer_target := steer_input * max_steer + assist * signf(longitudinal_speed)
-		steering = lerpf(steering, steer_target, 1.0 - exp(-config.steering_response * dt))
+		# During a slide, assist must not overpower the driver's countersteer.
+		# Ease in opposite lock rather than flipping the chassis in one tick.
+		var requested_steer := steer_input * max_steer
+		var assist_limit := absf(requested_steer) * 0.65
+		var slide_assist := lerpf(assist, clampf(assist * 0.55, -assist_limit, assist_limit), drift_engagement)
+		var steer_target := requested_steer + slide_assist * signf(longitudinal_speed)
+		var response := config.steering_response * lerpf(1.18, 0.48, drift_engagement)
+		steering = lerpf(steering, steer_target, 1.0 - exp(-response * dt))
 	var mass := effective_mass_kg()
 	var grip := config.tire_grip * surface_grip
 	# One tick of filtered acceleration gives stable, frame-rate independent
@@ -673,8 +690,9 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	var rear_budget := lateral_grip_budget(rear_load, grip, rear_longitudinal)
 	# Assistance restores a controlled fraction of cornering authority during
 	# braking; it never changes mass, longitudinal braking, or axle load.
-	front_budget = lerpf(front_budget, 1.0, arcade * stopping_input)
-	rear_budget = lerpf(rear_budget, 1.0, arcade * stopping_input)
+	var brake_grip_assist := maxf(arcade, brake_authority * 0.85) * stopping_input
+	front_budget = lerpf(front_budget, 1.0, brake_grip_assist)
+	rear_budget = lerpf(rear_budget, 1.0, brake_grip_assist)
 	front_cornering_grip_fraction = front_budget
 	rear_cornering_grip_fraction = rear_budget
 	cornering_grip_fraction = front_budget * config.front_weight + \
@@ -729,7 +747,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	# Add a one-time turn initiation impulse; holding the button does not
 	# reapply it each frame. Steering is still required to rotate the car.
 	yaw_rate += turn_sign * absf(steer_input) * handbrake_edge * \
-		moving_lock * 1.17
+		moving_lock * 0.40
 	# Drift suspension/tires preserve steering authority after releasing the
 	# handbrake, instead of snapping the car back onto the original trajectory.
 	oversteer_drive += committed_turn * drift_aid * (1.0 - handbrake) * 0.65
@@ -745,14 +763,24 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		# First-order rear-lock response can overcome the opposing front
 		# axle force at speed, yet decays naturally with tire momentum.
 		yaw_rate = lerpf(yaw_rate,pivot_target,
-			1.0 - exp(-96.0 * moving_lock * dt))
+			1.0 - exp(-18.0 * moving_lock * dt))
 	if absf(steer_input) < 0.05 and breakaway < 0.25:
 		yaw_rate = move_toward(yaw_rate, kinematic_yaw, 0.5 * dt)
-	if arcade > 0.0:
+	var steering_authority := maxf(arcade, brake_authority * stopping_input * 0.85)
+	if steering_authority > 0.0:
 		var arcade_yaw_limit := minf(1.9, config.arcade_cornering_accel * surface_grip * \
 			brake_turn * (1.0 + race_stability * 0.13) / maxf(speed, 4.0))
 		var desired_yaw := clampf(kinematic_yaw, -arcade_yaw_limit, arcade_yaw_limit)
-		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-12.0 * arcade * dt))
+		# Faster normal turn-in; blend gently back to grip driving after a slide.
+		var yaw_response := lerpf(15.0, 3.5, breakaway)
+		yaw_rate = lerpf(yaw_rate, desired_yaw, 1.0 - exp(-yaw_response * steering_authority * dt))
+	# Bound drift initiation and direction changes in radians/sec². The
+	# chassis retains angular momentum through countersteer and release;
+	# a moving handbrake can still build enough yaw for an intentional 180.
+	var slide_blend := maxf(drift_engagement, breakaway)
+	if slide_blend > 0.05:
+		var yaw_accel_limit := lerpf(36.0, 7.0, slide_blend)
+		yaw_rate = move_toward(previous_yaw, yaw_rate, yaw_accel_limit * dt)
 	# A braking tire has less remaining cornering force than a coasting one.
 	# Do not let the arcade steering target demand a yaw rate above the axle
 	# forces' braking envelope. Preserve explicit rear-lock drifting and the
@@ -761,6 +789,11 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		var lateral_accel_budget := maxf(0.0, front_limit + rear_limit) / mass
 		var brake_yaw_envelope := lateral_accel_budget / maxf(speed, 4.0) * \
 			(0.70 + clampf(config.brake_turn_boost, 0.0, 1.0) * arcade * 0.40)
+		# Arcade cars retain a bounded cornering allowance under hard braking.
+		# This raises yaw authority, not longitudinal force or vehicle speed.
+		var arcade_brake_envelope := config.arcade_cornering_accel * 0.64 *
+			brake_authority / maxf(speed, 4.0)
+		brake_yaw_envelope = maxf(brake_yaw_envelope, minf(1.9, arcade_brake_envelope))
 		var brake_blend := smoothstep(0.1, 0.4, stopping_input)
 		var allowed_yaw := lerpf(3.0, brake_yaw_envelope, brake_blend)
 		yaw_rate = clampf(yaw_rate, -allowed_yaw, allowed_yaw)
