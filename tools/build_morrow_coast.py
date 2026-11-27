@@ -927,6 +927,8 @@ for replacement in [p for p in PROPS if p.get("source_replacement")]:
     selected_asset_size = replacement.get("asset_size")
     editor_fields={k:v for k,v in replacement.items() if k.startswith('editor_') or k=='source_replacement'}
     original_fields = original.copy()
+    # The current authored value wins, including an explicit return to default.
+    original_fields.pop('editor_draw_order', None)
     replacement.clear()
     replacement.update(original_fields)
     replacement.update(editor_fields)

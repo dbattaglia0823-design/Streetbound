@@ -105,6 +105,7 @@ export function convertMorrowWorld(raw){
       type:prop.editor_type,
       x:+prop.p[0],y:+prop.p[1],scale:+(prop.editor_scale||1),
       scaleX:prop.editor_scale_x??1,scaleY:prop.editor_scale_y??1,
+      drawOrder:prop.editor_draw_order??0,
       roadFacing:prop.editor_road_facing,roadFront:prop.editor_road_front,
       sidewalkPoints:prop.sidewalk_points,sidewalkWidth:prop.sidewalk_width,
       guardrailPoints:prop.guardrail_points,guardrailWidth:prop.guardrail_width,

@@ -147,6 +147,16 @@ func _run() -> void:
 	workspace.doc=Library.create("Workspace test",1800,1800,"grass")
 	var workspace_road: String=workspace.add_road(Vector2(200,500),Vector2(1400,500))
 	var workspace_prop: String=workspace.add_prop("house",Vector2(1000,800))
+	var draw_order_original: Dictionary=workspace.prop_at_id(workspace_prop).duplicate(true)
+	check("asset_draw_order_is_signed_visual_only",workspace.set_prop_draw_order(workspace_prop,-2)
+		and int(workspace.prop_at_id(workspace_prop).drawOrder)==-2
+		and workspace.set_prop_draw_order(workspace_prop,3)
+		and int(workspace.prop_at_id(workspace_prop).drawOrder)==3
+		and workspace.undo() and int(workspace.prop_at_id(workspace_prop).drawOrder)==-2
+		and workspace.redo() and int(workspace.prop_at_id(workspace_prop).drawOrder)==3
+		and not workspace.set_prop_draw_order(workspace_prop,11)
+		and workspace.set_prop_draw_order(workspace_prop,0)
+		and workspace.prop_at_id(workspace_prop)==draw_order_original)
 	var workspace_ids: Array[String]=[workspace_road]
 	var layer_data: Array=[{"name":"Main streets","visible":false,"locked":true,"ids":[workspace_road]}]
 	check("named_layer_validates_and_hides_only_preview",workspace.set_named_layers(layer_data)

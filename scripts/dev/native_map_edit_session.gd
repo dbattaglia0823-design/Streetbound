@@ -180,6 +180,7 @@ func _valid_source(value: Dictionary) -> bool:
 	for prop in value.props:
 		if not prop is Dictionary or used.has(str(prop.get("id",""))):
 			return false
+		if prop.has("drawOrder") and not _valid_draw_order(prop.drawOrder,str(prop.get("type",""))):return false
 		if prop.has("roadFacing") and not prop.roadFacing is bool:return false
 		if prop.has("roadFront") and prop.roadFront not in [0,90,180,270]:return false
 		used[str(prop.id)] = true
@@ -919,6 +920,24 @@ func move_sidewalk_point(identity: String, index: int, target_m: Vector2,
 	if not _commit(next):
 		last_error="Unable to move sidewalk anchor inside the map.";return false
 	return true
+
+
+static func _valid_draw_order(value: Variant, kind: String) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) and float(value)==floorf(float(value)) and float(value)>=-5 and float(value)<=10 and (int(value)==0 or kind not in ["sidewalk","guardrail"])
+
+
+func set_prop_draw_order(identity: String, order: int) -> bool:
+	var next:=doc.duplicate(true)
+	for prop in next.props:
+		if str(prop.id)!=identity:continue
+		if not _valid_draw_order(order,str(prop.get("type",""))):
+			last_error="Draw order must be -5 to +10 for an ordinary scenery asset."
+			return false
+		if order==0:prop.erase("drawOrder")
+		else:prop["drawOrder"]=order
+		return _commit(next)
+	last_error="Select a scenery asset first."
+	return false
 
 
 func move_prop(prop_id: String, destination_m: Vector2, grid_m: float = 1.0,

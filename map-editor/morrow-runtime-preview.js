@@ -425,13 +425,16 @@ export function drawRuntimeScenery(ctx,preview,bounds,doc,scale=1){
   const x0=Math.max(0,Math.floor(area.minX/cell)-1),y0=Math.max(0,Math.floor(area.minY/cell)-1);
   const x1=Math.min(Math.ceil(doc.world.width/cell),Math.floor(area.maxX/cell)+1);
   const y1=Math.min(Math.ceil(doc.world.height/cell),Math.floor(area.maxY/cell)+1);
+  const visibleProps=[];
   for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){
     for(const prop of preview.buckets.get(x+','+y)||[]){
       if((prop.authoring_id&&ids.has(prop.authoring_id))||replaced.has(sourceKey(prop)))continue;
       const px=Number(prop.p[0]),py=Number(prop.p[1]);
       const pad=Math.max(+prop.size[0],+prop.size[1])*.75+3;
       if(px+pad<area.minX||px-pad>area.maxX||py+pad<area.minY||py-pad>area.maxY)continue;
-      drawNative(ctx,prop,scale);
+      visibleProps.push(prop);
     }
   }
+  visibleProps.sort((a,b)=>(a.editor_draw_order??0)-(b.editor_draw_order??0));
+  for(const prop of visibleProps)drawNative(ctx,prop,scale);
 }

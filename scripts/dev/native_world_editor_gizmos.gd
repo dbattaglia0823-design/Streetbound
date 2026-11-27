@@ -19,6 +19,7 @@ var bridge_overrides: Dictionary={}
 var bridge_redraw_roads: Dictionary={}
 var preview_body: StaticBody2D
 var preview_scenery: Node2D
+var preview_order_batches: Array[Node2D]=[]
 var original_by_id: Dictionary = {}
 var preview_collisions_enabled := false
 
@@ -134,7 +135,9 @@ func _refresh_preview_scenery() -> void:
 		preview_scenery.name = "LiveDraftSceneryArtwork"
 		preview_scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
 		preview_scenery.origin_m = Vector2.ZERO
-		preview_scenery.z_index = -1
+		preview_scenery.z_as_relative=false
+		preview_scenery.z_index = 6
+		preview_scenery.filter_default_draw_order=true
 		preview_scenery.process_mode = Node.PROCESS_MODE_ALWAYS
 		preview_scenery.ignore_editor_mask=true
 		add_child(preview_scenery)
@@ -182,9 +185,31 @@ func _refresh_preview_scenery() -> void:
 			instance["guardrail_points"]=prop.guardrailPoints
 			instance["guardrail_width"]=prop.guardrailWidth
 			instance["guardrail_scale"]=[float(prop.get("scale",1))*float(prop.get("scaleX",1)),float(prop.get("scale",1))*float(prop.get("scaleY",1))]
+		instance["editor_draw_order"]=int(prop.get("drawOrder",0))
 		instance["editor_source_id"]=str(prop.id)
 		preview_indices[str(prop.id)]=rendered.size();rendered.append(instance)
 	preview_scenery.prop_list = rendered
+	for old_batch in preview_order_batches:
+		preview_scenery.remove_child(old_batch)
+		old_batch.queue_free()
+	preview_order_batches.clear()
+	var ordered: Dictionary={}
+	for instance in rendered:
+		var order:=int(instance.get("editor_draw_order",0))
+		if order==0:continue
+		if not ordered.has(order):
+			var batch: Array[Dictionary]=[]
+			ordered[order]=batch
+		ordered[order].append(instance)
+	for order in ordered:
+		var art:=Node2D.new()
+		art.set_script(preload("res://scripts/world/coast_scenery.gd"))
+		art.ignore_editor_mask=true
+		art.z_as_relative=false
+		art.z_index=6+int(order)
+		art.prop_list=ordered[order]
+		preview_scenery.add_child(art)
+		preview_order_batches.append(art)
 	preview_scenery.visible=bool(layer_flags.get("scenery",true))
 	preview_scenery.queue_redraw()
 	_refresh_drag_canvases()
@@ -196,6 +221,9 @@ func _refresh_drag_canvases() -> void:
 		drag_outline=Node2D.new();add_child(drag_outline);drag_outline.draw.connect(_draw_drag_outline)
 	var id:=str(drag_preview.get("id","")) if drag_preview.get("kind","")=="prop" else ""
 	preview_scenery.suppressed_preview_id=id
+	for art in preview_order_batches:
+		art.suppressed_preview_id=id
+		art.queue_redraw()
 	var moving: Array[Dictionary]=[]
 	if preview_indices.has(id):moving.append(preview_scenery.prop_list[int(preview_indices[id])])
 	drag_scenery.prop_list=moving

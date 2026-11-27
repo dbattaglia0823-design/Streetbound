@@ -206,12 +206,22 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		var paved_props: Array[Dictionary] = []
 		var above_road_props: Array[Dictionary] = []
 		var rail_props: Array[Dictionary] = []
+		var ordered_props: Dictionary = {}
+		var shadow_props: Array[Dictionary] = []
 		for prop in prop_list:
 			if str(prop.kind)=="sidewalk":continue
 			if str(prop.kind)=="guardrail":
 				rail_props.append(prop)
 				continue
-			if str(prop.kind) in ["lot", "forecourt"]:
+			var is_pavement: bool = str(prop.kind) in ["lot", "forecourt"]
+			if not is_pavement:shadow_props.append(prop)
+			var order:=int(prop.get("editor_draw_order",0))
+			if order!=0:
+				if not ordered_props.has(order):
+					var batch: Array[Dictionary]=[]
+					ordered_props[order]=batch
+				ordered_props[order].append(prop)
+			elif is_pavement:
 				paved_props.append(prop)
 			else:
 				above_road_props.append(prop)
@@ -247,19 +257,30 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 			rail_art.prop_list=rail_props
 			rail_art.origin_m=origin_m
 			rail_clip.add_child(rail_art)
-		if not above_road_props.is_empty():
+		if not shadow_props.is_empty():
 			var shadows := Node2D.new()
 			shadows.set_script(preload("res://scripts/world/coast_shadows.gd"))
-			shadows.prop_list = above_road_props
+			shadows.prop_list = shadow_props
 			shadows.origin_m = origin_m
 			shadows.z_index = 5
 			add_child(shadows)
+		if not above_road_props.is_empty():
 			var scenery := Node2D.new()
 			scenery.set_script(preload("res://scripts/world/coast_scenery.gd"))
 			scenery.prop_list = above_road_props
 			scenery.origin_m = origin_m
 			scenery.z_index = 6
 			add_child(scenery)
+		# One batch per occupied signed layer per chunk. Canvas Z, rather
+		# than only sorting draw calls, orders sprites across chunk boundaries.
+		for order in ordered_props:
+			var layer_art:=Node2D.new()
+			layer_art.name="AssetDrawOrder_%s"%str(order)
+			layer_art.set_script(Scenery)
+			layer_art.prop_list=ordered_props[order]
+			layer_art.origin_m=origin_m
+			layer_art.z_index=6+int(order)
+			add_child(layer_art)
 	# Furnish curb edges in one static draw node per road-bearing chunk.
 	# Lamps, benches and signs follow the real spline and avoid junctions;
 	# no per-furnishing sprite or physics nodes are created.

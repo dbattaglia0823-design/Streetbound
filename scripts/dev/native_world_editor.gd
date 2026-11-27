@@ -186,6 +186,7 @@ var inspector_road_front: OptionButton
 var inspector_scale: SpinBox
 var inspector_scale_x: SpinBox
 var inspector_scale_y: SpinBox
+var inspector_draw_order: SpinBox
 var point_picker: OptionButton
 var remove_point_button: Button
 var add_point_button: Button
@@ -1472,6 +1473,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var at: Vector2 = world_px/PPM
 	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	var hit: Dictionary = {}
+	var best_order: int = -6
 	for index in range(authoring.doc.props.size()-1,-1,-1):
 		var prop: Dictionary=authoring.doc.props[index]
 		if not _workspace_selectable(str(prop.id)):continue
@@ -1496,12 +1498,14 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 		var distance := Vector2(maxf(0,absf(local.x)-half.x),
 			maxf(0,absf(local.y)-half.y)).length()
 		# Preserve guardrail centerline picks above; only tighten sprite roofs.
-		if distance<best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
+		if distance<=best and BuildingSelection.is_building_kind(str(prop.get("type",""))):
 			distance=BuildingSelection.hit_gap(at,center,
 				deg_to_rad(float(prop.get("rotation",0.0))),half*2.0,
 				gizmos._prop_texture(prop))
-		if distance < best:
+		var order:=int(prop.get("drawOrder",0))
+		if distance < best or (not hit.is_empty() and is_equal_approx(distance,best) and order>best_order):
 			best = distance
+			best_order=order
 			hit = {"kind":"prop","id":str(prop.id),"from":center*PPM}
 	return hit
 
@@ -2664,7 +2668,7 @@ func _refresh_inspector() -> void:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
 		selected_preview.hide()
 	inspector_name.editable=exists
-	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
+	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y,inspector_draw_order]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
 	# Other objects retain their normal coordinate bounds; only terrain may
 	# have a centre outside the world. Inspector writes still use source validation.
@@ -2693,6 +2697,7 @@ func _refresh_inspector() -> void:
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
+		inspector_draw_order.value=int(item.get("drawOrder",0))
 		if record.category=="regions":
 			var region_size: Vector2=_region_bounds(item).size
 			inspector_terrain_width.value=region_size.x
@@ -2746,7 +2751,7 @@ func _commit_inspector(field: String="name") -> void:
 			return
 		destination=snapped_coordinate
 	if record.category=="props":
-		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y}
+		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y,"drawOrder":inspector_draw_order}
 		if controls.has(field):values[field]=controls[field].value
 		if field=="roadFacing":values[field]=inspector_road_facing.button_pressed
 		if field=="roadFront":values[field]=int(inspector_road_front.get_item_metadata(inspector_road_front.selected))
@@ -2756,6 +2761,10 @@ func _commit_inspector(field: String="name") -> void:
 			if field!="roadFacing" or bool(values[field]):
 				var snapped:=_snap_building_transform(adjusted,destination)
 				destination=snapped.position;values["rotation"]=snapped.rotation
+	if field=="drawOrder":
+		if authoring.set_prop_draw_order(source_id,int(inspector_draw_order.value)):_refresh_authoring()
+		else:_notice(authoring.last_error);_refresh_inspector()
+		return
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
