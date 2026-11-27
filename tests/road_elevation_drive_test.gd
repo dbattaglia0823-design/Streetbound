@@ -156,6 +156,24 @@ func _run() -> void:
 		"Elevated ambient recoil is contained on its supported deck")
 	traffic.queue_free()
 
+	# Simulate host-owned contact after reconnect or a large position correction.
+	# Identical XY can represent three distinct supported physical surfaces.
+	car.reset_vehicle()
+	car.global_position = Vector2(500,400)*20
+	check(car.reconcile_road_contact(1,6.0) and car.road_contact_id()==1
+		and car.road_layer==1 and car.collision_mask==Elevation.collision_bits(1,6.0),
+		"Guest correction restores the host's deck and collision band")
+	check(not car.reconcile_road_contact(2,6.0) and car.road_contact_id()==1,
+		"Wrong signed host contact is rejected without changing the current deck")
+	check(not car.reconcile_road_contact(999,6.0) and car.road_contact_id()==1,
+		"Unknown road identity cannot change contact")
+	check(car.reconcile_road_contact(2,-6.0) and car.road_layer==-1
+		and car.collision_mask==Elevation.collision_bits(1,-6.0),
+		"Guest correction restores tunnel contact at the same XY")
+	check(car.reconcile_road_contact(-1,0.0) and car.road_layer==0
+		and car.collision_mask==1 and car.road_contact_id()==-1,
+		"Host ground correction restores original collision mask")
+
 	world.queue_free()
 	car.queue_free()
 	blocker.queue_free()
