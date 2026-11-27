@@ -185,6 +185,13 @@ during a wanted pursuit is a bust, not a teleport escape.
 - **Responsive rather than numerous:** Wanted level 1 deploys **one** cruiser,
   level 2 **two**, level 3 **three**, and levels 4–5 at most **four**. There
   are no endless scripted reinforcements or proximity-based vehicle respawns.
+- **Police fleet:** cumulative model pools unlock Crown Vic and Explorer at
+  wanted 1, F150 and Charger at 2, Challenger and Suburban at 3, and the
+  armored truck at 4–5. Dispatch prioritizes one newly eligible model, then
+  draws the remaining units without replacement. The police-only JSON roster
+  defines artwork orientation, dimensions, estimated driving stats and model
+  health; the shared catalog application path fits sprites and collision shapes.
+  These are gameplay calibrations, not verified factory specifications.
 - **Off-screen, non-ambush spawns:** dispatch selects open asphalt lanes
   **125–245 metres** from the player, behind or well to the side of their
   actual movement direction. It rejects occupied locations, camera-visible
@@ -227,7 +234,7 @@ during a wanted pursuit is a bust, not a teleport escape.
   safe spawn angles/distance/separation, roadblock legality, bounded
   interception, triangular containment and search/reacquisition.
   `tests/police_tactics_test.gd` runs in Godot 4.6.3 CI. This does not add
-  realistic police model art, dispatch radio, new precincts or multiplayer
+  dispatch radio, new precincts or multiplayer
   synchronization; live driving, weather, map-coverage and collision
   playtests are still required before merging.
 

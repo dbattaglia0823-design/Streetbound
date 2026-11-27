@@ -13,6 +13,8 @@
 
 ## Verification boundaries and remaining work
 
+- Police fleet branch: the seven uploaded police PNG hashes match the generated artwork; Crown Vic and armored truck face up, the other five face down. The model roster is cumulative with a four-unit cap. Focused asset/dispatch tests were added; Godot runtime and visual validation remain pending CI.
+
 1. Before changing code, read [INDEX.md](INDEX.md), the relevant system note and the current script/tests. Identify the exact feature branch/PR rather than relying on this snapshot.
 2. For environmental effects, check the **latest commit** in the 4.4.1 and 4.6.3 Godot workflows, then perform actual visual and gameplay evaluation on representative maps, weather levels and vehicles. CI conclusions were not independently established by this documentation edit.
 3. For physics/AI, keep real driving benchmarks; for network changes, check two-process regression plus actual player-hosted LAN/WAN latency and disconnect behavior separately; for macOS, test packaged builds on target hardware.

@@ -12,6 +12,11 @@ class VehicleAssetCoverage(unittest.TestCase):
             catalog += json.loads((ROOT / "data" / (name + ".json")).read_text(encoding="utf-8"))["vehicles"]
         excluded = json.loads((ROOT / "data/vehicle_asset_exclusions.json").read_text(encoding="utf-8"))["assets"]
         paths = [v["texture"].removeprefix("res://") for v in catalog]
+        police = json.loads((ROOT / "data/police_vehicle_catalog.json").read_text(encoding="utf-8"))["vehicles"]
+        paths += [v["texture"].removeprefix("res://") for v in police]
+        self.assertEqual(len(police), 7)
+        self.assertEqual(len(catalog + police), len({v["id"] for v in catalog + police}))
+        self.assertTrue(all(v["texture"].startswith("res://assets/Vehicles/Police/") for v in police))
         exclusions = [v["texture"].removeprefix("res://") for v in excluded]
         actual = {p.relative_to(ROOT).as_posix() for p in (ROOT / "assets/Vehicles").rglob("*.png")}
         self.assertEqual(len(paths + exclusions), len(set(paths + exclusions)))

@@ -12,8 +12,9 @@ const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
 const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
-## Current unmarked prototype cruiser. Future police model configs set their own capacity.
-const PROTOTYPE_POLICE_HEALTH := 2600
+const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const POLICE_CATALOG_PATH := "res://data/police_vehicle_catalog.json"
+static var _police_models: Array[Dictionary] = []
 const ROUTE_INTERVAL := 0.75
 const SEARCH_SWEEP_INTERVAL := 4.5
 const DISPATCH_RETRY_SECONDS := 3.0
@@ -213,13 +214,54 @@ func _choose_roadblock() -> void:
 	if not chosen.is_empty():
 		roadblock_position_m = chosen["position_m"]
 
+## Police-only roster; never added to dealership or player saves.
+static func vehicle_pool(level: int) -> Array[Dictionary]:
+	var pool: Array[Dictionary] = []
+	if level <= 0:
+		return pool
+	if _police_models.is_empty():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(POLICE_CATALOG_PATH))
+		if parsed is Dictionary:
+			for model in parsed.get("vehicles", []):
+				if model is Dictionary:
+					_police_models.append(model)
+	for model in _police_models:
+		if int(model["min_wanted"]) <= level:
+			pool.append(model.duplicate(true))
+	return pool
+
+## Prefer one newly unlocked responder, then sample the cumulative fleet
+## without replacement. At levels 4 and 5 the first responder is armored.
+static func response_order(level: int) -> Array[Dictionary]:
+	var pool := vehicle_pool(level)
+	pool.shuffle()
+	var newest := mini(level, 4)
+	for index in pool.size():
+		if int(pool[index]["min_wanted"]) == newest:
+			var priority: Dictionary = pool.pop_at(index)
+			pool.push_front(priority)
+			break
+	return pool
+
+static func apply_police_model(car: VehicleController2D, model: Dictionary) -> bool:
+	if model.is_empty() or not ResourceLoader.exists(str(model["texture"]), "Texture2D"):
+		return false
+	if not VehicleCatalog.select(car, model):
+		return false
+	# The armored artwork already contains tires; don't draw a second set.
+	var wheels := car.get_node_or_null("Art/Wheels") as Node2D
+	if wheels != null:
+		wheels.visible = not bool(model.get("baked_wheels", false))
+	return true
+
 func _spawn_units() -> void:
 	var options := _spawn_candidates()
 	var selected: Array[Vector2] = []
 	var profile: Dictionary = Tactics.profile(wanted_level)
 	var limit: int = mini(Tactics.MAX_RESPONDERS,int(profile["units"]))
+	var response := response_order(wanted_level)
 	for option in options:
-		if units.size() >= limit:
+		if units.size() >= limit or response.is_empty():
 			break
 		var point_px: Vector2=option["position"]
 		var position_m: Vector2=option["position_m"]
@@ -237,9 +279,14 @@ func _spawn_units() -> void:
 		car.position = point_px
 		car.rotation = Vector2.UP.angle_to(Vector2(option["heading"]))
 		car.z_index = 8
+		var model: Dictionary = response.pop_front()
 		car.add_to_group("police_vehicle")
 		add_child(car)
-		car.config.max_health_points = PROTOTYPE_POLICE_HEALTH
+		if not apply_police_model(car, model):
+			push_warning("Unavailable police model: " + str(model["id"]))
+			remove_child(car)
+			car.queue_free()
+			continue
 		var health = DamageState.new()
 		health.max_health_points = car.config.max_health_points
 		var smoke := Node2D.new()
@@ -260,7 +307,7 @@ func _spawn_units() -> void:
 		add_child(driver)
 		units.append({"car":car,"driver":driver,
 			"role":Tactics.role(units.size(),wanted_level),
-			"blocking":false,"label":identifier,"damage":health})
+			"blocking":false,"label":identifier,"damage":health,"model_id":model["id"]})
 		selected.append(position_m)
 	for index in units.size():
 		_refresh_unit_route(index)
