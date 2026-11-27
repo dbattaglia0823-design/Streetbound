@@ -182,9 +182,20 @@ during a wanted pursuit is a bust, not a teleport escape.
 
 ## Wanted-level police pursuit intelligence — driving-only
 
-- **Responsive rather than numerous:** Wanted level 1 deploys **one** cruiser,
-  level 2 **two**, level 3 **three**, and levels 4–5 at most **four**. There
-  are no endless scripted reinforcements or proximity-based vehicle respawns.
+- **Bounded pursuit response:** Wanted levels 1–5 deploy up to **2, 4, 6, 8, 10** responders. Destroyed responders reserve a replacement slot for 40 seconds; safe dispatch retries every three seconds thereafter while heat remains.
+- **Police fleet:** cumulative model pools unlock Crown Vic and Explorer at
+  wanted 1, F150 and Charger at 2, Challenger and Suburban at 3, and the
+  armored truck at 4–5. Dispatch prioritizes one newly eligible model, then
+  cycles through the shuffled fleet; duplicate models are allowed above the unique-model count. The police-only JSON roster
+  defines artwork orientation, dimensions, estimated driving stats and model
+  health; the shared catalog application path fits sprites and collision shapes.
+  These are gameplay calibrations, not verified factory specifications.
+- **Ambient patrols:** Crown Vic, Explorer, F150, Charger and Challenger
+  also appear as normal moving traffic at zero heat and during pursuits.
+  One in seven successful traffic spawns is eligible, capped at two patrols
+  within the existing traffic budget. They use directional lanes, normal
+  road speeds, junction priority, collision recovery and off-screen recycling.
+  Suburban and armored truck remain pursuit-only. Patrols do not initiate heat, but eligible nearby or sighted patrols join active pursuits if a slot is free. Pursuit units use flashing roof overlays and positional sirens. PIT roles unlock at wanted 3 and use bounded contact-based yaw response. No speeding detection, reckless driving detection or spike strips. Pursuits originate from illegal race/crime events or a confirmed player-initiated collision with a police car, not manual controls. Police crashes start wanted 1 at a minimum 2.5 m/s normal and relative closing speed; minor contact, civilian crashes, and existing pursuit heat do not create new wanted levels. Online heat is host-authoritative.
 - **Off-screen, non-ambush spawns:** dispatch selects open asphalt lanes
   **125–245 metres** from the player, behind or well to the side of their
   actual movement direction. It rejects occupied locations, camera-visible
@@ -227,8 +238,7 @@ during a wanted pursuit is a bust, not a teleport escape.
   safe spawn angles/distance/separation, roadblock legality, bounded
   interception, triangular containment and search/reacquisition.
   `tests/police_tactics_test.gd` runs in Godot 4.6.3 CI. This does not add
-  realistic police model art, dispatch radio, new precincts or multiplayer
-  synchronization; live driving, weather, map-coverage and collision
+  dispatch radio or new precincts; live driving, weather, map-coverage and collision
   playtests are still required before merging.
 
 ## Racing and underground career integration

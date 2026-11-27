@@ -7,6 +7,9 @@ const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const RemoteBuffer = preload("res://scripts/network/remote_snapshot_buffer.gd")
 const FriendRaceScript = preload("res://scripts/network/online_friend_race.gd")
+const Police = preload("res://scripts/world/police_pursuit.gd")
+const Emergency = preload("res://scripts/visual/police_emergency_effects.gd")
+const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
 # Client command response: <=16.7 ms scheduling at 120 Hz physics, rather
 # than the previous 33.3 ms. Hold-state heartbeat avoids idle bandwidth.
 const INPUT_RATE := 1.0 / 60.0
@@ -46,6 +49,12 @@ var quality_label: Label
 var invitation_toolbar: HBoxContainer
 var lock_lobby_button: Button
 var friend_race: Node2D
+var shared_police: Node2D
+var police_target_peer := 0
+var police_target_original_layer := 0
+var police_replicas: Dictionary = {}
+var police_histories: Dictionary = {}
+var police_status: Label
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -89,7 +98,25 @@ func _ready() -> void:
 					lock_lobby_button = action
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
+	police_status = Label.new()
+	police_status.position = Vector2(20, 106)
+	police_status.text = "POLICE / CLEAR"
+	police_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(police_status)
 	add_child(overlay)
+	var traffic: Node2D = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
+	if is_instance_valid(traffic):
+		traffic.set("patrol_spawns_enabled", online_session.hosting)
+		if online_session.hosting:
+			shared_police = Node2D.new()
+			shared_police.set_script(Police)
+			shared_police.set("shared_session", true)
+			shared_police.set("player", local_vehicle)
+			shared_police.set("world", world)
+			shared_police.set("traffic", traffic)
+			add_child(shared_police)
+			shared_police.connect("escaped", _release_police_target)
+			local_vehicle.police_collision.connect(_on_police_collision.bind(local_vehicle), CONNECT_DEFERRED)
 	friend_race = Node2D.new()
 	friend_race.name = "FriendDragRace"
 	friend_race.set_script(FriendRaceScript)
@@ -171,6 +198,8 @@ func _rebind_peer_car(previous_id: int, current_id: int) -> void:
 	if peer_labels.has(current_id):
 		(peer_labels[current_id] as Label).name = "Name_%d" % current_id
 	commands_at.erase(current_id)
+	if police_target_peer == previous_id:
+		police_target_peer = current_id
 	_peer_suspended(current_id)
 
 func _reconnect_started() -> void:
@@ -190,6 +219,7 @@ func _reconnect_finished() -> void:
 	# the host, which has retained the same original car and its state.
 	targets.clear()
 	histories.clear()
+	_clear_police_replicas()
 	_last_received_sequence = -1
 	_first_authoritative_state = true
 	_last_sent_command = Vector4(-1, -1, -1, -1)
@@ -222,6 +252,8 @@ func _add_remote(id: int) -> void:
 	# Only the host advances guest cars through the physical controller.
 	car.set_physics_process(online_session.hosting)
 	peer_cars[id] = car
+	if online_session.hosting:
+		car.police_collision.connect(_on_police_collision.bind(car), CONNECT_DEFERRED)
 	var nameplate := Label.new()
 	nameplate.name = "Name_%d" % id
 	nameplate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -231,6 +263,8 @@ func _add_remote(id: int) -> void:
 	peer_labels[id] = nameplate
 
 func _remove_remote(id: int) -> void:
+	if online_session.hosting and police_target_peer == id and is_instance_valid(shared_police):
+		shared_police.call("_escape")
 	var car: Node = peer_cars.get(id)
 	if is_instance_valid(car):
 		car.queue_free()
@@ -279,6 +313,7 @@ func _physics_process(dt: float) -> void:
 			# protocol stay compatible; no vehicle may have a negative peer ID.
 			states[-1] = lamps
 			states[-2] = exhaust # Optional cosmetic metadata, never physics.
+			states[-3] = _police_snapshot()
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
@@ -324,6 +359,14 @@ func _process(dt: float) -> void:
 		_quality_elapsed = fmod(_quality_elapsed, NETWORK_STATS_INTERVAL)
 		_update_network_quality()
 	var now_ms := Time.get_ticks_msec()
+	if online_session.hosting:
+		if is_instance_valid(shared_police) and int(shared_police.get("wanted_level")) == 0:
+			_release_police_target()
+		if is_instance_valid(police_status) and is_instance_valid(shared_police):
+			var heat := int(shared_police.get("wanted_level"))
+			police_status.text = "POLICE / WANTED %d" % heat
+	else:
+		_render_police_replicas(now_ms)
 	for id in peer_cars:
 		var car := peer_cars[id] as VehicleController2D
 		if not online_session.hosting:
@@ -443,6 +486,9 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		return
 	_last_received_sequence = sequence
 	var now_ms := Time.get_ticks_msec()
+	var police_payload: Variant = states.get(-3, {})
+	if police_payload is Dictionary and police_payload.has("vehicles"):
+		_receive_police_snapshot(police_payload, now_ms)
 	var lamp_payload: Variant=states.get(-1,{})
 	if lamp_payload is Dictionary:
 		for peer_id in lamp_payload:
@@ -511,6 +557,170 @@ func _submit_action(action: String) -> void:
 			car.transmission.shift(1, car.config)
 		"shift_down":
 			car.transmission.shift(-1, car.config)
+
+## Called only by the host's validated race director on GREEN. There is no
+## guest police RPC or manual wanted selector. Physical police impacts use a separate host-local signal.
+func on_illegal_race_started() -> bool:
+	if not online_session.hosting or not is_instance_valid(shared_police) or not is_instance_valid(friend_race):
+		return false
+	if int(shared_police.get("wanted_level")) > 0 or str(friend_race.get("state")) != "running":
+		return false
+	var events: Dictionary = friend_race.get("race_events")
+	var event: Dictionary = events.get(str(friend_race.get("event_id")), {})
+	var level := int(event.get("race_heat", 0))
+	if level < 1 or level > 5:
+		return false
+	var entries: Dictionary = friend_race.get("entries")
+	var suspects: Array[int] = []
+	for id in entries:
+		if str(entries[id].get("status", "")) != "racing" or not online_session.players.has(id):
+			continue
+		if id != 1 and (not online_session.world_ready_peers.has(id) or online_session.disconnected_since.has(id) or not peer_cars.has(id)):
+			continue
+		suspects.append(int(id))
+	if suspects.is_empty():
+		return false
+	suspects.shuffle()
+	return _start_verified_police_pursuit(suspects[0], level)
+
+## This is a host-local physical collision signal, never a guest RPC.
+func _on_police_collision(closing_speed_mps: float, driver: VehicleController2D) -> void:
+	if not online_session.active or not online_session.hosting or not is_instance_valid(driver):
+		return
+	if not is_finite(closing_speed_mps) or closing_speed_mps < VehicleController2D.POLICE_CRASH_THRESHOLD_MPS:
+		return
+	if driver == local_vehicle:
+		_start_verified_police_pursuit(1, 1)
+		return
+	for id in peer_cars:
+		if peer_cars[id] == driver and online_session.world_ready_peers.has(id) and not online_session.disconnected_since.has(id):
+			_start_verified_police_pursuit(int(id), 1)
+			return
+
+func _start_verified_police_pursuit(peer_id: int, level: int) -> bool:
+	if not online_session.hosting or not is_instance_valid(shared_police) or int(shared_police.get("wanted_level")) > 0 or not online_session.players.has(peer_id):
+		return false
+	var target: VehicleController2D = local_vehicle if peer_id == 1 else peer_cars.get(peer_id) as VehicleController2D
+	if not is_instance_valid(target) or not shared_police.call("set_shared_target", target):
+		return false
+	police_target_peer = peer_id
+	police_target_original_layer = target.collision_layer
+	# Dedicated bit lets police contact a guest without enabling collisions
+	# between normal friend cars or changing the existing roster contract.
+	if peer_id != 1:
+		target.collision_layer = 4
+	if not shared_police.call("start_pursuit", clampi(level,1,5)):
+		_release_police_target()
+		return false
+	return true
+
+func _release_police_target() -> void:
+	if police_target_peer > 1:
+		var target := peer_cars.get(police_target_peer) as VehicleController2D
+		if is_instance_valid(target):
+			target.collision_layer = police_target_original_layer
+	police_target_peer = 0
+
+func _police_snapshot() -> Dictionary:
+	var vehicles: Dictionary = {}
+	var level := 0
+	if is_instance_valid(shared_police):
+		level = int(shared_police.get("wanted_level"))
+		for entry in shared_police.get("units"):
+			var car := entry.get("car") as VehicleController2D
+			if is_instance_valid(car) and not car.is_queued_for_deletion():
+				vehicles["u%d" % int(entry["serial"])] = [str(entry["model_id"]), _car_state(car), true, float(entry["damage"].call("health_percentage"))]
+	var traffic: Node = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
+	if is_instance_valid(traffic):
+		for agent in traffic.get("agents"):
+			var patrol := agent.get("node") as CharacterBody2D
+			if not is_instance_valid(patrol) or not patrol.is_in_group("police_patrol") or patrol.is_queued_for_deletion():
+				continue
+			var speed := float(patrol.get("motion_speed_mps"))
+			var model: Dictionary = patrol.get("patrol_model")
+			var state := [patrol.global_position,patrol.rotation,Vector2.UP.rotated(patrol.rotation)*speed,0.0,speed,0.0]
+			vehicles["p%d" % int(agent["uid"])] = [str(model["id"]),state,false,100.0]
+	return {"wanted":level,"target":police_target_peer,"vehicles":vehicles}
+
+func _clear_police_replicas() -> void:
+	for id in police_replicas:
+		var car: Node = police_replicas[id]
+		if is_instance_valid(car):
+			car.queue_free()
+	police_replicas.clear()
+	police_histories.clear()
+
+func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
+	var raw: Variant = payload.get("vehicles", {})
+	if not raw is Dictionary or raw.size() > 12:
+		return
+	var level := clampi(int(payload.get("wanted",0)),0,5)
+	var target := int(payload.get("target",0))
+	if is_instance_valid(police_status):
+		police_status.text = "POLICE / WANTED %d%s" % [level," / YOU" if level > 0 and target == online_session.own_id() else ""]
+	var retained: Dictionary = {}
+	for id in raw:
+		var row: Variant = raw[id]
+		if not id is String or not row is Array or row.size() != 4 or not row[1] is Array or row[1].size() != 6 or not row[2] is bool:
+			continue
+		var state: Array = row[1]
+		if not state[0] is Vector2 or not state[2] is Vector2 or not state[0].is_finite() or not state[2].is_finite():
+			continue
+		var car := police_replicas.get(id) as VehicleController2D
+		if not is_instance_valid(car):
+			var model: Dictionary = {}
+			for candidate in Police.vehicle_pool(5):
+				if str(candidate["id"]) == str(row[0]):
+					model = candidate
+					break
+			if model.is_empty():
+				continue
+			car = VehicleScene.instantiate() as VehicleController2D
+			car.external_input = true
+			car.z_index = 8
+			car.collision_layer = 0
+			car.collision_mask = 0
+			car.position = state[0]
+			car.rotation = float(state[1])
+			car.add_to_group("remote_police")
+			add_child(car)
+			car.set_physics_process(false)
+			if not Police.apply_police_model(car, model):
+				car.queue_free()
+				continue
+			if bool(row[2]):
+				Emergency.attach(car,model)
+				var smoke := Node2D.new()
+				smoke.name = "RemoteDamageSmoke"
+				smoke.set_script(DamageSmoke)
+				smoke.set("vehicle", car)
+				car.add_child(smoke)
+			police_replicas[id] = car
+		var smoke_node := car.get_node_or_null("RemoteDamageSmoke")
+		if is_instance_valid(smoke_node):
+			smoke_node.call("set_health_percentage",clampf(float(row[3]),0.0,100.0))
+		var history: Array = police_histories.get(id, [])
+		RemoteBuffer.add_snapshot(history,now_ms,state)
+		police_histories[id] = history
+		retained[id] = true
+	for id in police_replicas.keys():
+		if not retained.has(id):
+			police_replicas[id].queue_free()
+			police_replicas.erase(id)
+			police_histories.erase(id)
+
+func _render_police_replicas(now_ms: int) -> void:
+	for id in police_replicas:
+		var car := police_replicas[id] as VehicleController2D
+		var state: Array = RemoteBuffer.sample(police_histories.get(id, []),now_ms,_interpolation_delay_ms)
+		if not is_instance_valid(car) or state.size() != 6:
+			continue
+		car.global_position = state[0]
+		car.rotation = float(state[1])
+		car.linear_velocity = state[2]
+		car.steering = float(state[3])
+		car.longitudinal_speed = float(state[4])
+		car.yaw_rate = float(state[5])
 
 func _session_closed(reason: String) -> void:
 	if reason != "Left online session." and get_parent().has_method("_return_to_main_menu"):

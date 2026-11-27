@@ -12,8 +12,12 @@ const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
 const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
-## Current unmarked prototype cruiser. Future police model configs set their own capacity.
-const PROTOTYPE_POLICE_HEALTH := 2600
+const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const EmergencyEffects = preload("res://scripts/visual/police_emergency_effects.gd")
+const REPLACEMENT_DELAY := 40.0
+const PATROL_ASSIST_M := 140.0
+const POLICE_CATALOG_PATH := "res://data/police_vehicle_catalog.json"
+static var _police_models: Array[Dictionary] = []
 const ROUTE_INTERVAL := 0.75
 const SEARCH_SWEEP_INTERVAL := 4.5
 const DISPATCH_RETRY_SECONDS := 3.0
@@ -48,6 +52,11 @@ var race_active_ids: Dictionary = {}
 var message := ""
 var message_timer := 0.0
 var readout: Label
+var replacement_timers: Array[float] = []
+var reinforcement_clock := 0.0
+var _unit_serial := 0
+var shared_session := false
+var pit_cooldown := 0.0
 
 func _ready() -> void:
 	name = "PolicePursuit"
@@ -57,6 +66,8 @@ func _ready() -> void:
 	planner = PlannerScript.new()
 	planner.call("setup", traffic.get("network"), world.get("data"))
 	player.vehicle_reset.connect(_on_player_reset)
+	if not shared_session:
+		player.police_collision.connect(_on_player_police_collision, CONNECT_DEFERRED)
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
@@ -68,15 +79,25 @@ func _ready() -> void:
 	readout.add_theme_font_size_override("font_size", 13)
 	panel.add_child(readout)
 	readout.text = "POLICE / CLEAR"
-	# F7 remains a debug-only smoke-test shortcut; ordinary play uses
-	# illegal racing and authored crime jobs.
+	# Heat originates from race and crime controllers; no player debug shortcut.
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not OS.has_feature("debug") or not event is InputEventKey:
+func set_shared_target(target: VehicleController2D) -> bool:
+	if not shared_session or wanted_level > 0 or not is_instance_valid(target):
+		return false
+	if is_instance_valid(player) and player.vehicle_reset.is_connected(_on_player_reset):
+		player.vehicle_reset.disconnect(_on_player_reset)
+	player = target
+	player.vehicle_reset.connect(_on_player_reset)
+	return true
+
+func _on_player_police_collision(closing_speed_mps: float) -> void:
+	if shared_session or wanted_level > 0 or bust_timer > 0.0 or not is_physics_processing():
 		return
-	if event.pressed and not event.echo and event.keycode == KEY_F7 and wanted_level == 0:
-		start_pursuit(1)
-		get_viewport().set_input_as_handled()
+	if not is_finite(closing_speed_mps) or closing_speed_mps < VehicleController2D.POLICE_CRASH_THRESHOLD_MPS:
+		return
+	if start_pursuit(1):
+		message = "POLICE VEHICLE COLLISION"
+		message_timer = 3.0
 
 func _on_player_reset() -> void:
 	# Reset cannot erase an active pursuit or repair the suspect's car.
@@ -106,6 +127,8 @@ func _travel_heading() -> Vector2:
 	return Vector2.UP.rotated(player.rotation)
 
 func _camera_sees(position_px: Vector2) -> bool:
+	if is_instance_valid(traffic) and traffic.has_method("_visible_to_any_player") and traffic.call("_visible_to_any_player", position_px):
+		return true
 	var camera: Camera2D = get_viewport().get_camera_2d()
 	if camera == null:
 		return false
@@ -213,57 +236,180 @@ func _choose_roadblock() -> void:
 	if not chosen.is_empty():
 		roadblock_position_m = chosen["position_m"]
 
+## Police-only roster; never added to dealership or player saves.
+static func vehicle_pool(level: int) -> Array[Dictionary]:
+	var pool: Array[Dictionary] = []
+	if level <= 0:
+		return pool
+	if _police_models.is_empty():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(POLICE_CATALOG_PATH))
+		if parsed is Dictionary:
+			for model in parsed.get("vehicles", []):
+				if model is Dictionary:
+					_police_models.append(model)
+	for model in _police_models:
+		if int(model["min_wanted"]) <= level:
+			pool.append(model.duplicate(true))
+	return pool
+
+## Prefer one newly unlocked responder, then sample the cumulative fleet
+## without replacement. At levels 4 and 5 the first responder is armored.
+static func response_order(level: int) -> Array[Dictionary]:
+	var pool := vehicle_pool(level)
+	pool.shuffle()
+	var newest := mini(level, 4)
+	for index in pool.size():
+		if int(pool[index]["min_wanted"]) == newest:
+			var priority: Dictionary = pool.pop_at(index)
+			pool.push_front(priority)
+			break
+	return pool
+
+static func apply_police_model(car: VehicleController2D, model: Dictionary) -> bool:
+	if model.is_empty() or not ResourceLoader.exists(str(model["texture"]), "Texture2D"):
+		return false
+	if not VehicleCatalog.select(car, model):
+		return false
+	# The armored artwork already contains tires; don't draw a second set.
+	var wheels := car.get_node_or_null("Art/Wheels") as Node2D
+	if wheels != null:
+		wheels.visible = not bool(model.get("baked_wheels", false))
+	return true
+
+func active_limit() -> int:
+	return int(Tactics.profile(wanted_level)["units"]) if wanted_level > 0 else 0
+
+func available_slots() -> int:
+	return maxi(0, active_limit() - units.size() - replacement_timers.size())
+
+func _advance_replacements(dt: float) -> void:
+	for index in range(replacement_timers.size()-1,-1,-1):
+		replacement_timers[index] -= dt
+		if replacement_timers[index] <= 0.0:
+			replacement_timers.remove_at(index)
+
+func _remove_destroyed_units() -> void:
+	for index in range(units.size()-1,-1,-1):
+		var entry: Dictionary = units[index]
+		var car: VehicleController2D = entry["car"]
+		if is_instance_valid(car) and not entry["damage"].call("is_disabled"):
+			continue
+		if is_instance_valid(entry["driver"]):
+			entry["driver"].queue_free()
+		if is_instance_valid(car):
+			car.queue_free()
+		units.remove_at(index)
+		replacement_timers.append(REPLACEMENT_DELAY)
+	if not units.is_empty():
+		next_unit = posmod(next_unit, units.size())
+
+func _attach_responder(model: Dictionary, pose: Transform2D, speed_mps: float = 0.0) -> bool:
+	var car := VehicleScene.instantiate() as VehicleController2D
+	if car == null:
+		return false
+	car.name = "PoliceUnit%d" % _unit_serial
+	_unit_serial += 1
+	car.external_input = true
+	car.surface_provider = world
+	car.collision_layer = 1
+	car.collision_mask = 7 if shared_session else 3
+	car.transform = pose
+	car.z_index = 8
+	car.add_to_group("police_vehicle")
+	add_child(car)
+	if not apply_police_model(car, model):
+		remove_child(car)
+		car.queue_free()
+		return false
+	car.linear_velocity = Vector2.UP.rotated(car.rotation) * speed_mps
+	car.velocity = car.linear_velocity * PPM
+	car.longitudinal_speed = speed_mps
+	var health = DamageState.new()
+	health.max_health_points = car.config.max_health_points
+	var smoke := Node2D.new()
+	smoke.set_script(DamageSmoke)
+	smoke.set("vehicle", car)
+	car.add_child(smoke)
+	car.damage_contact.connect(_on_officer_impact.bind(car, health, smoke))
+	EmergencyEffects.attach(car, model)
+	var identifier := Label.new()
+	identifier.text = "POLICE"
+	identifier.position = Vector2(-27,-61)
+	identifier.add_theme_font_size_override("font_size",12)
+	car.add_child(identifier)
+	var profile: Dictionary = Tactics.profile(wanted_level)
+	var ai := Node.new()
+	ai.set_script(DriverScript)
+	ai.set("reaction_seconds",0.2)
+	ai.set("throttle_limit",float(profile["throttle"]))
+	ai.set("cruise_speed_mps",float(profile["cruise_mps"]))
+	add_child(ai)
+	var role := Tactics.role(units.size(), wanted_level)
+	if wanted_level >= 4:
+		var has_block := false
+		for entry in units:
+			if entry["role"] == "roadblock":
+				has_block = true
+		if units.size() >= 3 and not has_block:
+			role = "roadblock"
+		elif role == "roadblock" and has_block:
+			role = "intercept"
+	units.append({"car":car,"driver":ai,"role":role,"blocking":false,
+		"label":identifier,"damage":health,"model_id":model["id"],"serial":_unit_serial})
+	_refresh_unit_route(units.size()-1)
+	return true
+
+func _recruit_patrols() -> void:
+	if available_slots() <= 0 or not is_instance_valid(traffic) or not traffic.has_method("release_patrol") or not is_inside_tree():
+		return
+	for node in get_tree().get_nodes_in_group("police_patrol"):
+		if available_slots() <= 0:
+			break
+		if not is_instance_valid(node) or node.is_queued_for_deletion() or bool(node.get("recovering")):
+			continue
+		var model: Dictionary = node.get("patrol_model")
+		if model.is_empty() or int(model["min_wanted"]) > wanted_level:
+			continue
+		var distance_m := (node as Node2D).global_position.distance_to(player.global_position)/PPM
+		if distance_m > PATROL_ASSIST_M:
+			continue
+		var patrol := node as CharacterBody2D
+		if patrol == null:
+			continue
+		var excluded: Array[RID] = [player.get_rid(), patrol.get_rid()]
+		var ray := PhysicsRayQueryParameters2D.create(patrol.global_position, player.global_position, 1, excluded)
+		var visible_now := get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+		if not visible_now and (phase != "chase" or patrol.global_position.distance_to(last_seen_position_m*PPM) > 65.0*PPM):
+			continue
+		var pose: Transform2D = node.global_transform
+		var speed := float(node.get("motion_speed_mps"))
+		if _attach_responder(model, global_transform.affine_inverse()*pose, speed):
+			traffic.call("release_patrol", node)
+
 func _spawn_units() -> void:
+	if available_slots() <= 0:
+		return
 	var options := _spawn_candidates()
 	var selected: Array[Vector2] = []
-	var profile: Dictionary = Tactics.profile(wanted_level)
-	var limit: int = mini(Tactics.MAX_RESPONDERS,int(profile["units"]))
+	for entry in units:
+		if is_instance_valid(entry["car"]):
+			selected.append(entry["car"].global_position/PPM)
+	var response := response_order(wanted_level)
+	if response.is_empty():
+		return
+	var model_index := 0
 	for option in options:
-		if units.size() >= limit:
+		if available_slots() <= 0:
 			break
-		var point_px: Vector2=option["position"]
-		var position_m: Vector2=option["position_m"]
+		var position_m: Vector2 = option["position_m"]
 		if not Tactics.safe_spawn(position_m,player.global_position/PPM,
 				_travel_heading(),selected):
 			continue
-		var car: VehicleController2D = VehicleScene.instantiate() as VehicleController2D
-		if car == null:
-			continue
-		car.name = "PoliceUnit%d" % (units.size()+1)
-		car.external_input = true
-		car.surface_provider = world
-		car.collision_layer = 1
-		car.collision_mask = 3
-		car.position = point_px
-		car.rotation = Vector2.UP.angle_to(Vector2(option["heading"]))
-		car.z_index = 8
-		car.add_to_group("police_vehicle")
-		add_child(car)
-		car.config.max_health_points = PROTOTYPE_POLICE_HEALTH
-		var health = DamageState.new()
-		health.max_health_points = car.config.max_health_points
-		var smoke := Node2D.new()
-		smoke.set_script(DamageSmoke)
-		smoke.set("vehicle", car)
-		car.add_child(smoke)
-		car.damage_contact.connect(_on_officer_impact.bind(car, health, smoke))
-		var identifier := Label.new()
-		identifier.text = "POLICE"
-		identifier.position = Vector2(-27,-61)
-		identifier.add_theme_font_size_override("font_size",12)
-		car.add_child(identifier)
-		var driver := Node.new()
-		driver.set_script(DriverScript)
-		driver.set("reaction_seconds",0.2)
-		driver.set("throttle_limit",float(profile["throttle"]))
-		driver.set("cruise_speed_mps",float(profile["cruise_mps"]))
-		add_child(driver)
-		units.append({"car":car,"driver":driver,
-			"role":Tactics.role(units.size(),wanted_level),
-			"blocking":false,"label":identifier,"damage":health})
-		selected.append(position_m)
-	for index in units.size():
-		_refresh_unit_route(index)
+		var model: Dictionary = response[model_index % response.size()]
+		model_index += 1
+		var pose := Transform2D(Vector2.UP.angle_to(Vector2(option["heading"])), option["position"])
+		if _attach_responder(model, pose):
+			selected.append(position_m)
 
 func _on_officer_impact(speed_mps: float, _contact: Vector2, _normal: Vector2,
 		_velocity: Vector2, car: VehicleController2D, health: RefCounted, smoke: Node2D) -> void:
@@ -298,6 +444,13 @@ func _refresh_unit_route(index: int) -> void:
 	driver.set("cruise_speed_mps",5.5 if boxing else \
 		(13.0 if phase=="search" else float(profile["cruise_mps"])))
 	var goal_m := last_seen_position_m
+	driver.set("pit_target", null)
+	if car.has_meta("police_pit_target"):
+		car.remove_meta("police_pit_target")
+	if role_name == "pit" and phase == "chase" and Tactics.pit_allowed(wanted_level, lost_sight_clock <= 0.0, approach_distance_m, last_seen_velocity_mps.length(), pit_cooldown):
+		driver.set("pit_target", player)
+		car.set_meta("police_pit_target", player.get_instance_id())
+		car.set_meta("police_pit_owner", self)
 	if boxing:
 		goal_m=Tactics.containment_target(last_seen_position_m,last_seen_heading,role_name)
 	elif phase == "search":
@@ -352,6 +505,9 @@ func start_pursuit(level: int = 1) -> bool:
 	if wanted_level > 0 or not is_instance_valid(player) or not is_instance_valid(traffic):
 		return false
 	wanted_level = clampi(level,1,5)
+	replacement_timers.clear()
+	reinforcement_clock = DISPATCH_RETRY_SECONDS
+	pit_cooldown = 0.0
 	phase = "chase"
 	last_seen_position_m = player.global_position / PPM
 	last_seen_velocity_mps = player.linear_velocity
@@ -367,6 +523,7 @@ func start_pursuit(level: int = 1) -> bool:
 	roadblock_position_m = Vector2.INF
 	roadblock_reference_m = Vector2.INF
 	_choose_roadblock()
+	_recruit_patrols()
 	_spawn_units()
 	if units.is_empty():
 		# Do not cancel a robbery or materialize an ambush simply because
@@ -385,6 +542,7 @@ func _despawn_units() -> void:
 		if is_instance_valid(car):
 			car.queue_free()
 	units.clear()
+	replacement_timers.clear()
 
 func _escape() -> void:
 	wanted_level = 0
@@ -429,6 +587,8 @@ func _recover_busted() -> void:
 			else:
 				economy.balance += fee
 	player.reset_vehicle()
+	if shared_session:
+		player.damage_drive_fraction = 1.0
 	if is_instance_valid(damage_service):
 		damage_service.impound_recovery()
 	containment_seconds = 0.0
@@ -477,12 +637,24 @@ func _physics_process(dt: float) -> void:
 		return
 	if wanted_level <= 0 or dt <= 0.0:
 		return
+	_advance_replacements(dt)
+	_remove_destroyed_units()
+	pit_cooldown = maxf(0.0, pit_cooldown-dt)
+	if units.is_empty() and not replacement_timers.is_empty() and available_slots() <= 0:
+		phase = "dispatch"
+		dispatch_clock = 0.0
+		return
+	if units.is_empty() and phase != "dispatch":
+		phase = "dispatch"
+		dispatch_clock = 0.0
+		dispatch_retry_clock = 0.0
 	if units.is_empty():
 		if phase == "dispatch":
 			dispatch_clock += dt
 			dispatch_retry_clock -= dt
 			if dispatch_retry_clock <= 0.0:
 				dispatch_retry_clock = DISPATCH_RETRY_SECONDS
+				_recruit_patrols()
 				_spawn_units()
 				if not units.is_empty():
 					phase = "chase"
@@ -494,6 +666,11 @@ func _physics_process(dt: float) -> void:
 		return
 	var seen := _line_of_sight()
 	_update_search_state(dt,seen)
+	reinforcement_clock -= dt
+	if reinforcement_clock <= 0.0 and phase == "chase":
+		reinforcement_clock = DISPATCH_RETRY_SECONDS
+		_recruit_patrols()
+		_spawn_units()
 	if phase == "search" and search_clock >= float(Tactics.profile(wanted_level)["search_seconds"]):
 		_escape()
 		return
@@ -557,7 +734,7 @@ func _process(dt: float) -> void:
 	if bust_timer > 0.0:
 		readout.text = message
 	elif wanted_level > 0 and phase == "dispatch":
-		readout.text = "WANTED %d / POLICE DISPATCH / NO SAFE UNITS YET" % wanted_level
+		readout.text = "WANTED %d / POLICE DISPATCH / %d REPLACEMENTS PENDING" % [wanted_level,replacement_timers.size()]
 	elif wanted_level > 0 and phase == "search":
 		var duration := float(Tactics.profile(wanted_level)["search_seconds"])
 		readout.text = "WANTED %d / SEARCHING LAST SIGHTING / %ds / %d OFFICERS" % [

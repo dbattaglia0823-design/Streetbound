@@ -15,12 +15,52 @@ func check(label: String, success: bool) -> void:
 		failures.append(label)
 
 func run() -> void:
+	# Verify cumulative availability, actual imported artwork and the production
+	# model application seam (including chassis health, size and orientation).
+	var expected := [[], ["police-crown-vic", "police-explorer"],
+		["police-crown-vic", "police-explorer", "police-f150", "police-charger"],
+		["police-crown-vic", "police-explorer", "police-f150", "police-charger", "police-challenger", "police-suburban"],
+		["police-crown-vic", "police-explorer", "police-f150", "police-charger", "police-challenger", "police-suburban", "police-armored-truck"]]
+	for level in range(6):
+		var pool: Array[Dictionary] = Police.vehicle_pool(level)
+		var ids: Array = []
+		for model in pool:
+			ids.append(model["id"])
+		check("police_pool_%d" % level, ids == expected[mini(level, 4)])
+		if level == 0:
+			continue
+		for iteration in range(8):
+			var ordered: Array[Dictionary] = Police.response_order(level)
+			var selected_ids: Array = []
+			for model in ordered:
+				selected_ids.append(model["id"])
+			selected_ids.sort()
+			var sorted_ids := ids.duplicate()
+			sorted_ids.sort()
+			check("police_dispatch_pool_%d_%d" % [level, iteration],
+				selected_ids == sorted_ids and int(ordered[0]["min_wanted"]) == mini(level, 4))
+	for model in Police.vehicle_pool(5):
+		var officer: VehicleController2D = PlayerScene.instantiate()
+		officer.external_input = true
+		root.add_child(officer)
+		var applied: bool = Police.apply_police_model(officer, model)
+		var sprite := officer.get_node("Art/Sprite") as Sprite2D
+		var shape := (officer.get_node("CollisionShape2D") as CollisionShape2D).shape as CapsuleShape2D
+		var expected_angle := 0.0 if str(model["id"]) in ["police-crown-vic", "police-armored-truck"] else 180.0
+		check("police_model_%s" % model["id"], applied and sprite.texture != null
+			and sprite.texture.resource_path == str(model["texture"])
+			and is_equal_approx(sprite.rotation_degrees, expected_angle)
+			and officer.config.max_health_points == int(model["max_health_points"])
+			and is_equal_approx(officer.config.mass_kg, float(model["mass_kg"]))
+			and is_equal_approx(shape.height, float(model["length_m"]) * 20.0 * 0.88)
+			and (officer.get_node("Art/Wheels") as Node2D).visible != bool(model["baked_wheels"]))
+		officer.free()
 	var low: Dictionary=Tactics.profile(1)
 	var mid: Dictionary=Tactics.profile(3)
 	var high: Dictionary=Tactics.profile(5)
-	check("wanted_level_one_uses_one_officer",int(low["units"])==1)
-	check("wanted_level_three_uses_three_officers",int(mid["units"])==3)
-	check("highest_wanted_level_max_four",int(high["units"])==4
+	check("wanted_level_one_uses_two_officers",int(low["units"])==2)
+	check("wanted_level_three_uses_six_officers",int(mid["units"])==6)
+	check("highest_wanted_level_max_ten",int(high["units"])==10
 		and int(high["units"])<=Tactics.MAX_RESPONDERS)
 	check("police_do_not_gain_arcade_speed_or_throttle",float(high["cruise_mps"])<=25.0
 		and float(high["throttle"])<=0.85 and
@@ -28,6 +68,16 @@ func run() -> void:
 	check("search_longer_at_higher_heat",float(high["search_seconds"])>float(low["search_seconds"]))
 	check("wanted_level_four_has_real_roadblock_driver",Tactics.role(3,4)=="roadblock"
 		and Tactics.role(0,1)=="pursuer")
+	check("full_responder_progression", [Tactics.profile(1)["units"],Tactics.profile(2)["units"],Tactics.profile(3)["units"],Tactics.profile(4)["units"],Tactics.profile(5)["units"]] == [2,4,6,8,10])
+	check("pit_only_at_high_heat_and_visible", Tactics.pit_allowed(3,true,8.0,12.0,0.0) and not Tactics.pit_allowed(2,true,8.0,12.0,0.0) and not Tactics.pit_allowed(3,false,8.0,12.0,0.0))
+	var timer_probe: Node2D = Police.new()
+	timer_probe.set("wanted_level", 1)
+	timer_probe.get("replacement_timers").append(Police.REPLACEMENT_DELAY)
+	timer_probe.call("_advance_replacements",39.9)
+	check("replacement_slot_reserved_for_forty_seconds", timer_probe.call("available_slots")==1)
+	timer_probe.call("_advance_replacements",0.2)
+	check("replacement_slot_released_after_forty_seconds", timer_probe.call("available_slots")==2)
+	timer_probe.free()
 	var selected: Array[Vector2] = []
 	check("safe_rear_spawn_permitted",Tactics.safe_spawn(Vector2(-175,0),
 		Vector2.ZERO,Vector2.RIGHT,selected))

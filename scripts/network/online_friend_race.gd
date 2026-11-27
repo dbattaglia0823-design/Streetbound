@@ -300,6 +300,16 @@ static func make_street_gates(nav: RefCounted,
 
 ## Convert a map-authored route into a host-verifiable multiplayer event.
 ## Coordinates are taken from the locally loaded map, never from an RPC.
+## Only explicitly authored underground events carry heat. Legal street
+## layouts and sanctioned races do not become crimes by road type alone.
+static func authored_race_heat(definition: Dictionary) -> int:
+	var heat: Variant = definition.get("race_heat", 0)
+	if not (heat is int or heat is float) or not is_finite(float(heat)):
+		return 0
+	if float(heat) != floorf(float(heat)) or float(heat) < 1.0 or float(heat) > 5.0:
+		return 0
+	return int(heat)
+
 static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dictionary:
 	if not Rewards.valid_settings(definition):
 		return {}
@@ -334,6 +344,7 @@ static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dict
 		"start":start, "direction":direction, "navigation":nav, "gates":gates,
 		"length":length, "grid":grid, "laps":laps,
 		"reward_settings": definition.duplicate(true),
+		"race_heat": authored_race_heat(definition),
 		"stage_radius":maxf(STAGE_RADIUS_M, float(definition.get("start_radius",8))),
 		"gate_radius":checkpoint_radius,
 		"off_route_limit":maxf(STREET_OFF_ROUTE_LIMIT_M, checkpoint_radius * 1.35),
@@ -592,6 +603,8 @@ func _host_green() -> void:
 		entries[id]["status"] = "racing"
 		entries[id]["prev_position"] = car.global_position
 		entries[id]["prev_progress"] = 0.0
+	if session.hosting and online_world.has_method("on_illegal_race_started"):
+		online_world.call("on_illegal_race_started")
 	match event_kind:
 		"circuit": _status = "GREEN! Complete every circuit checkpoint!"
 		"street": _status = "GREEN! Follow the streets and cross every checkpoint!"

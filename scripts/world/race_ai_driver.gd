@@ -24,6 +24,7 @@ var navigation: RefCounted
 var loop_route := false
 var traffic_planner: RefCounted
 var traffic_mode := "clear"
+var pit_target: VehicleController2D
 
 
 func setup(target: VehicleController2D, waypoints: PackedVector2Array) -> void:
@@ -196,6 +197,15 @@ func _physics_process(dt: float) -> void:
 			var tangent := (after - before).normalized()
 			if tangent.length_squared() > 0.5:
 				target += tangent.orthogonal() * intended_offset * PPM
+	if is_instance_valid(pit_target) and car.has_meta("police_pit_target"):
+		var owner: Node = car.get_meta("police_pit_owner")
+		if is_instance_valid(owner) and float(owner.get("pit_cooldown")) <= 0.0 and float(owner.get("lost_sight_clock")) <= 0.0:
+			var delta := pit_target.global_position - position_px
+			if delta.length() <= PPM*12.0 and pit_target.linear_velocity.length() >= 5.0 and pit_target.linear_velocity.length() <= 24.0:
+				var bearing_to_suspect := wrapf(delta.angle() - Vector2.UP.rotated(car.rotation).angle(), -PI, PI)
+				if absf(bearing_to_suspect) < 0.85:
+					car.command = Vector4(throttle_limit*0.55,0.0,clampf(bearing_to_suspect*2.0,-0.65,0.65),0.0)
+					return
 	var bearing := target - position_px
 	if bearing.length_squared() < 1.0:
 		car.command = Vector4.ZERO
