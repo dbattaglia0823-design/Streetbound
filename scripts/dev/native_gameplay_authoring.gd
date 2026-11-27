@@ -517,8 +517,18 @@ func open_validation_route(e) -> void:
 		state.points=route.points_m;state.route=route
 		state.spec={"start":{"x":x1.value,"y":y1.value,"road_layer":int(l1.value)},"finish":{"x":x2.value,"y":y2.value,"road_layer":int(l2.value)}}
 		state.hash=e.authoring._fingerprint(e.authoring.doc)
+		state["compiled"]=compiled
 		canvas.queue_redraw()
 		status.text="%.0f m | %d directed edges | access %.1f / %.1f m"%[route.length_m,route.edges.size(),route.start_access_distance_m,route.access_distance_m])
+	e._btn("Find alternate route",panel,func():
+		if state.route.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			status.text="Find a route for the current revision first.";return
+		var alternative:=Validation.alternate(state.compiled,state.spec.start,state.spec.finish,state.route)
+		if alternative.is_empty():
+			status.text="No alternate found in the bounded six-edge search.";return
+		state.points=alternative.points_m
+		canvas.queue_redraw()
+		status.text="Alternate %.0f m | primary %.0f m (physical test uses primary)"%[alternative.length_m,state.route.length_m])
 	e._btn("Launch physical AI Test Drive (flat route)",panel,func():
 		if not _ready(e) or state.route.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
 			status.text="Find a route for the current revision first.";return

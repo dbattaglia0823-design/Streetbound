@@ -3,7 +3,7 @@ extends RefCounted
 ## imply that a physical drive, collision test or police dispatch has passed.
 const Elevation=preload("res://scripts/world/road_elevation.gd")
 const Planner=preload("res://scripts/world/road_route_planner.gd")
-const Rules=preload("res://scripts/world/driving_contract_rules.gd")
+const Network=preload("res://scripts/world/traffic_network.gd")
 const Controls=preload("res://scripts/world/authored_gameplay_controls.gd")
 const ACCESS_M:=25.0
 const MAX_ISSUES:=2000
@@ -39,7 +39,7 @@ static func source_audit(doc: Dictionary, report: Dictionary) -> void:
 			if point(pts[i-1]).distance_to(point(pts[i]))<.15:
 				issue(report,"error","short_segment",str(road.id)+": coincident control points",point(pts[i]))
 		for i in [0,pts.size()-1]:
-			endpoints.append({"id":str(road.id),"index":i,"p":point(pts[i]),"layer":Elevation.endpoint_layer(road,i==0),"loose":str(road.get("surface","")) in ["dirt","gravel"],"unsafe":road.has("independentEnds") or road.has("elevation") or str(road.get("roadClass",""))=="onramp" or road.has("connectionModes")})
+			endpoints.append({"id":str(road.id),"index":i,"p":point(pts[i]),"layer":Elevation.endpoint_layer(road,i==0),"loose":str(road.get("surface","")) in ["dirt","gravel"],"unsafe":road.has("independentEnds") or road.has("elevation") or str(road.get("roadClass",""))=="onramp" or road.has("connectionModes") or road.has("connections") or road.has("startConnection") or road.has("endConnection")})
 	var near: Dictionary={}
 	for i in endpoints.size():
 		var a: Dictionary=endpoints[i]
@@ -59,7 +59,7 @@ static func source_audit(doc: Dictionary, report: Dictionary) -> void:
 		var gap: float=Vector2(a.p).distance_to(b.p)
 		if a.id==b.id or gap<.15:continue
 		var fix: Dictionary={}
-		if not a.unsafe and not b.unsafe:
+		if not a.unsafe and not b.unsafe and not _near_other_road(doc,a,b):
 			fix={"id":a.id,"index":a.index,"from":[a.p.x,a.p.y],"to":[b.p.x,b.p.y],"target":b.id,"target_index":b.index}
 		issue(report,"warning","endpoint_gap","Nearby endpoints %s / %s (%.2f m); inspect intended connection"%[a.id,b.id,gap],a.p,fix)
 	# Coincident source props are suspicious, not proof of collision. Spatial
@@ -76,6 +76,19 @@ static func source_audit(doc: Dictionary, report: Dictionary) -> void:
 						issue(report,"warning","prop_overlap","Nearly coincident props %s / %s"%[str(other.get("id","")),str(prop.get("id",""))],p)
 		if not buckets.has(key):buckets[key]=[]
 		buckets[key].append(prop)
+
+## A nearby road interior can already own a junction. Do not snap an
+## endpoint if that relationship is uncertain; leave it for manual review.
+static func _near_other_road(doc: Dictionary,a: Dictionary,b: Dictionary) -> bool:
+	for road in doc.get("roads",[]):
+		if str(road.id) in [str(a.id),str(b.id)]:continue
+		var pts: Array=road.get("points",[])
+		for i in range(1,pts.size()):
+			var first:=point(pts[i-1]);var last:=point(pts[i])
+			if first.distance_squared_to(last)<.001:continue
+			for candidate in [a,b]:
+				if Vector2(candidate.p).distance_to(Geometry2D.get_closest_point_to_segment(candidate.p,first,last))<=3.0:return true
+	return false
 
 ## Recompute the proposal set against the current revision. The session
 ## commits the returned snapshot as one undoable transaction.
@@ -147,6 +160,28 @@ static func route(planner: RefCounted,a: Dictionary,b: Dictionary) -> Dictionary
 	goals=goals.filter(func(c: Dictionary)->bool:return float(c.distance)<=ACCESS_M*20.0)
 	if starts.is_empty() or goals.is_empty():return {}
 	return planner._shortest(planner._local_candidates(starts),planner._local_candidates(goals))
+
+## Bounded alternate search. Remove one interior edge from a private graph
+## copy; the live runtime graph and its edge IDs remain untouched.
+static func alternate(compiled: Dictionary,a: Dictionary,b: Dictionary,primary: Dictionary) -> Dictionary:
+	var original: RefCounted=compiled.get("network")
+	var sequence: Array=primary.get("edges",[])
+	if original==null or sequence.size()<3:return {}
+	var best: Dictionary={}
+	var attempts:=mini(6,sequence.size()-2)
+	for i in attempts:
+		var index:=1+floori(float(i)*float(sequence.size()-2)/float(attempts))
+		var blocked:=int(sequence[index])
+		var graph:=Network.new()
+		graph.edges=original.edges.duplicate(true)
+		for edge in graph.edges:edge.next.erase(blocked)
+		graph.edges[blocked].next.clear()
+		var planner:=Planner.new()
+		planner.setup(graph,compiled.data)
+		var candidate:=route(planner,a,b)
+		if candidate.is_empty() or blocked in candidate.edges or candidate.edges==sequence:continue
+		if best.is_empty() or float(candidate.length_m)<float(best.length_m):best=candidate
+	return best
 
 static func check_leg(planner: RefCounted,a: Dictionary,b: Dictionary,label: String,report: Dictionary) -> void:
 	report.route_checks+=1
