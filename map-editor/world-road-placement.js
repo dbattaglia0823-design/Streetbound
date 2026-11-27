@@ -18,6 +18,7 @@ const buildingTypes=new Set(['house','building','warehouse','garage','gas_statio
 const alignedTypes=new Set(['house','building','warehouse','garage','gas_station','parking',
   'barrier','sign','streetlight','dock']);
 const footprints={
+  stunt_ramp:[5,8],
   oak:[96,96],pine:[56,72],palm:[72,72],bush:[40,40],
   rock:[34,32],boulder:[58,58],house:[66,54],building:[92,104],
   warehouse:[139,86],garage:[100,80],gas_station:[95,70],parking:[139,106],

@@ -27,11 +27,12 @@ func _draw() -> void:
 		return
 	var capsule := body.shape as CapsuleShape2D
 	var height_m := RoadJump.visual_height(vehicle)
-	var spread := height_m*2.4
+	var spread := minf(height_m*3.4,28.0)
 	var width := capsule.radius*1.2+spread
 	var length := capsule.height*0.56+spread
 	for layer in 3:
-		var fade := (0.075-float(layer)*0.018)/(1.0+height_m*.48)
+		var fade := (0.075-float(layer)*0.018)/(1.0+height_m*.16)
+		if height_m>0.0:fade*=1.35
 		var rx := width+float(2-layer)*5.0
 		var ry := length+float(2-layer)*7.0
 		var outline := PackedVector2Array()

@@ -24,6 +24,7 @@ const CUSTOM_MAX_ROADS := 360
 const CUSTOM_MAX_PROPS := 8000
 const MAX_DRAG_M := 350.0
 const ART: Dictionary = {
+	"stunt_ramp":{"type":"stunt_ramp","assetId":"","size":Vector2(5,8)},
 	"house":{"type":"house","assetId":"game-house","size":Vector2(12,17)},
 	"coastal_house":{"type":"house","assetId":"game-coastal_house","size":Vector2(12,17)},
 	"shop":{"type":"building","assetId":"game-shop","size":Vector2(22,29)},
@@ -124,6 +125,7 @@ func _valid_source(value: Dictionary) -> bool:
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if not Elevation.authoring_error(road).is_empty() or not AutoRails.valid(road):return false
+		if str(road.get("roadClass",""))=="onramp" and (int(road.get("lanes",1)) not in [1,2] or str(road.get("surface","")) not in ["asphalt","concrete"]):return false
 		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
 	for category in ["regions","markers"]:
@@ -1032,8 +1034,8 @@ func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
 	for key in ["roadClass","surface","width","lanes"]:
 		if settings.has(key):road[key]=settings[key]
 	if road.roadClass=="onramp":
-		road.name="On-ramp"
-		road.lanes=1
+		road.name="On-ramp / off-ramp"
+		road.lanes=clampi(int(settings.get("lanes",1)),1,2)
 		road.surface="asphalt"
 		road.markings=true
 	if road.roadClass=="alley":
@@ -1288,7 +1290,7 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 				if key in ["junctionStart","junctionEnd"] and settings[key]=="auto":road.erase(key)
 				else:road[key]=settings[key]
 		if road.roadClass=="onramp":
-			road.lanes=1
+			road.lanes=clampi(int(road.get("lanes",1)),1,2)
 			road.surface="asphalt"
 			road.markings=true
 		if settings.has("elevation"):
@@ -1484,7 +1486,7 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 				last_error="Invalid road type, surface, width or lanes."
 				return false
 			if entry.roadClass=="onramp":
-				entry.lanes=1;entry.surface="asphalt";entry.markings=true
+				entry.lanes=clampi(int(entry.get("lanes",1)),1,2);entry.surface="asphalt";entry.markings=true
 			if entry.roadClass=="alley":
 				entry.shoulder=0.0;entry.markings=false
 			if patch.has("elevation"):

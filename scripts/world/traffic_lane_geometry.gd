@@ -3,7 +3,7 @@ extends RefCounted
 ## Positive offsets are right of the authored centreline in screen coordinates.
 
 static func layout(road: Dictionary) -> Dictionary:
-	if str(road.get("kind",""))=="onramp":
+	if str(road.get("kind",""))=="onramp" and int(road.get("lanes",1))==1:
 		var ramp_width := float(road.get("width",8.0))
 		return {"count":1,"forward":1,"reverse":0,"width":ramp_width,"divider":-ramp_width*.5}
 	# A single authored lane is a narrow two-way road; both directions keep right.

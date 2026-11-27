@@ -211,6 +211,7 @@ var road_width: SpinBox
 var road_lanes: SpinBox
 var road_elevation_controls: VBoxContainer
 var road_start_layer: SpinBox
+var road_jump_apply: Button
 var road_jump_enabled: CheckBox
 var road_jump_reverse: CheckBox
 var road_jump_fields: Dictionary = {}
@@ -599,8 +600,11 @@ func _update_context_panels() -> void:
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
 		var road: Dictionary=authoring.road_at_id(source_id)
+		road_lanes.max_value=2 if str(road.roadClass)=="onramp" else 6
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
 		var jump: Dictionary = road.get("jump",{})
+		road_jump_enabled.visible=not jump.is_empty()
+		road_jump_apply.visible=not jump.is_empty()
 		road_jump_enabled.set_pressed_no_signal(not jump.is_empty())
 		road_jump_options.visible = not jump.is_empty()
 		road_jump_reverse.button_pressed = bool(jump.get("reverse",false))
@@ -1014,6 +1018,7 @@ func _choose_tool(mode: String) -> void:
 		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.",
+		"place:stunt_ramp":"Click to place a stunt ramp. Rotate to aim the orange lip toward the landing area. Speed and angle determine airtime.",
 		"place_dealership":"Click a clear lot center at least 35 m from a road.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
 		"anchor":"Drag road or sidewalk anchors to reshape; Alt-drag detaches connected path branches."}.get(mode,"Choose artwork, then click the map to place it."))
@@ -2449,6 +2454,9 @@ func _change_inspector_road_type(index: int) -> void:
 func _change_road_type(_index: int) -> void:
 	if _setting_controls:return
 	var kind:=_option_value(road_class)
+	_setting_controls=true
+	road_lanes.max_value=2 if kind=="onramp" else 6
+	_setting_controls=false
 	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
 	if kind=="alley":
 		_select_road_option(road_surface,"asphalt")
@@ -2463,7 +2471,7 @@ func _change_road_type(_index: int) -> void:
 		road_width.value=8.0
 		road_lanes.value=1
 		_setting_controls=false
-		_notice("Draw toward the merge; snap final point to through-road centerline from the right.")
+		_notice("1 lane: directional highway merge. 2 lanes: two-way ramp or tunnel approach.")
 	elif kind=="track":_select_road_option(road_surface,"track")
 	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
 	_commit_road_type_and_surface()

@@ -11,7 +11,7 @@ export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service','alley','onramp']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland','dirt','asphalt']);
-export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
+export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','stunt_ramp','industrial_prop','road_prop','ground_decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','home','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','contract_contact','robbery_target','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
 export const entityLimit=(doc,type)=>doc.customMap===true&&type==='roads'?360:doc.customMap===true&&type==='props'?8000:LIM[type];
@@ -58,7 +58,7 @@ function validEntity(item,type,w,h){
   if(type==='roads'){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
-    if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||item.lanes!==1))throw new RangeError('On-ramp must be paved and have one lane');
+    if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||![1,2].includes(item.lanes)))throw new RangeError('Ramp must be paved and have one or two lanes');
     const elevation=normalizeRoadElevation(item.elevation,points);
     if(item.roadClass==='onramp'&&elevation?.point_layers?.length>2&&elevation.point_layers.some(l=>l!==elevation.point_layers[0]))throw new RangeError('Use a regular road for a multi-grade on-ramp');
     const road={id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),

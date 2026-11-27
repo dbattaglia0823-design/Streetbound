@@ -150,7 +150,10 @@ test('explicit on-ramp survives serialization and labels its merge',()=>{
   const restored=parseWorld(serializeWorld(doc));
   assert.equal(restored.roads[1].roadClass,'onramp');
   assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
-  assert.throws(()=>createEntity(doc,'roads',{...base,name:'Invalid',roadClass:'onramp',lanes:2,points:coords([600,680],[800,600])}),/one lane/);
+  const twoWay=updateEntity(restored,restored.roads[1].id,{lanes:2});
+  assert.equal(parseWorld(serializeWorld(twoWay)).roads[1].lanes,2);
+  assert.ok(!buildRoadJunctions(twoWay.roads).some(j=>j.kind==='merge'));
+  assert.throws(()=>updateEntity(twoWay,twoWay.roads[1].id,{lanes:3}),/one or two lanes/);
 });
 
 test('existing branch end swaps connection mode without changing geometry',()=>{

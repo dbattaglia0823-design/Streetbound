@@ -15,6 +15,22 @@ def fixture():
 
 
 class JumpBakeTests(unittest.TestCase):
+    def test_standalone_objects_bake_without_road_or_landing_parameters(self):
+        doc=fixture()
+        del doc["roads"][0]["jump"]
+        doc["props"].append(dict(id="prop-ramp",type="stunt_ramp",name="Stunt ramp",x=350,y=320,rotation=90,scale=1,assetId=""))
+        data=make_archive(doc)
+        jump,=data["jumps"]
+        self.assertTrue(jump["object_ramp"])
+        self.assertEqual(jump["prop_id"],"prop-ramp")
+        self.assertAlmostEqual(jump["p"][0],354)
+        self.assertAlmostEqual(jump["p"][1],320)
+        self.assertAlmostEqual(jump["direction"][0],1)
+        self.assertAlmostEqual(jump["height_m"],1.2)
+        self.assertNotIn("max_mps",jump)
+        self.assertNotIn("landing_start_m",jump)
+        self.assertFalse(next(p for p in data["props"] if p.get("authoring_id")=="prop-ramp")["solid"])
+
     def test_baked_landing_contains_speed_envelope(self):
         data = make_archive(fixture())
         jump, = data["jumps"]

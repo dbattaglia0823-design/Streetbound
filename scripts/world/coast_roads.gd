@@ -53,7 +53,7 @@ static func marking_plan(road: Dictionary, width_px: float, include_edges: bool 
 			result.append({"offset":divider+direction*float(layout.width)*lane*PPM,"width":line_width,"color":PAINT_WHITE,"dash":dash,"gap":gap})
 	if include_edges:
 		for side in [-1.0,1.0]:
-			result.append({"offset":float(side)*maxf(0.0,width_px*.5-7.0),"width":line_width,"color":PAINT_YELLOW if kind=="onramp" and side<0 else PAINT_WHITE,"dash":0.0,"gap":0.0})
+			result.append({"offset":float(side)*maxf(0.0,width_px*.5-7.0),"width":line_width,"color":PAINT_YELLOW if kind=="onramp" and int(road.get("lanes",1))==1 and side<0 else PAINT_WHITE,"dash":0.0,"gap":0.0})
 	return result
 
 ## Use centerline station, not offset curve length, across clipped chunks.

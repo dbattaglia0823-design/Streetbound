@@ -133,6 +133,7 @@ def _near_node(nodes, point, tolerance=3.0):
 # Strict source-type mapping: only validated editor props are added to the
 # procedural world, never arbitrary runtime objects or client-provided flags.
 EDITOR_PROP_STYLES = {
+    "stunt_ramp": ("stunt_ramp", (5.0,8.0),False),
     "sidewalk": ("sidewalk", (3.0,10.0),False),
     "guardrail": ("guardrail", (0.65,10.0),False),
     "oak": ("tree", (7.0, 7.0), False),
@@ -504,8 +505,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         surf = str(entry.get("surface", road["surface"].lower())).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown road surface " + surf)
-        if road["kind"] == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or lanes != 1):
-            raise ValueError("On-ramp must be paved and have one lane")
+        if road["kind"] == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or lanes not in (1,2)):
+            raise ValueError("Ramp must be paved and have one or two lanes")
         if surf == "TRACK":
             road["kind"] = "track"
         road["surface"] = "ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf
@@ -525,8 +526,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road_width = entry.get("width", 9.0)
         if type(road_width) not in (int,float) or not 6 <= road_width <= 160:
             raise ValueError("Invalid new-road width")
-        if kind == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or entry.get("lanes",2)!=1):
-            raise ValueError("On-ramp must be paved and have one lane")
+        if kind == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or entry.get("lanes",2) not in (1,2)):
+            raise ValueError("Ramp must be paved and have one or two lanes")
         if surf == "TRACK":
             kind = "track"
         elif surf == "GRAVEL" and kind != "alley":

@@ -199,7 +199,7 @@ function drawRoadLines(ctx,road,points){
 }
 export function roadMarkingPlan(road){
   if(['alley','service','track'].includes(road.roadClass)||['dirt','gravel','track'].includes(road.surface)||!road.markings)return [];
-  const w=road.width,ramp=road.roadClass==='onramp',count=ramp?1:Math.max(2,Math.min(6,road.lanes));
+  const w=road.width,ramp=road.roadClass==='onramp'&&road.lanes===1,count=ramp?1:Math.max(2,Math.min(6,road.lanes));
   const forward=ramp?1:Math.max(1,Math.floor(count/2)),reverse=count-forward,laneWidth=w/count;
   const divider=(reverse-forward)*laneWidth/2,fast=['highway','arterial','onramp'].includes(road.roadClass);
   const lines=[],width=fast ? .15 : .12,dash=[3,fast?9:6],yellow='#e5be65',white='#eeeae0';
@@ -413,6 +413,11 @@ function drawBuilding(ctx,kind,prop={}){
   }
 }
 export function drawProp(ctx,prop,assets=[],gameArt=false){
+  if(prop.type==='stunt_ramp'){
+    ctx.save();ctx.translate(prop.x,prop.y);ctx.rotate(prop.rotation*Math.PI/180);ctx.scale(prop.scale*(prop.scaleX??1),prop.scale*(prop.scaleY??1));
+    ctx.fillStyle='#78868a';ctx.fillRect(-2.5,-4,5,8);ctx.fillStyle='#f1ae5b';ctx.fillRect(-2.5,-4,5,.3);
+    ctx.strokeStyle='#e6d8a8';ctx.lineWidth=.14;for(let y=-3;y<4;y+=1.3){ctx.beginPath();ctx.moveTo(-1,y+.3);ctx.lineTo(0,y-.3);ctx.lineTo(1,y+.3);ctx.stroke();}ctx.restore();return;
+  }
   if(prop.type==='guardrail'){
     ctx.save();
     ctx.translate(prop.x,prop.y);

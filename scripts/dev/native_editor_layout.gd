@@ -76,7 +76,7 @@ static func build(e) -> void:
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	var extra:=OptionButton.new();extra.name="AdditionalTools";extra.fit_to_longest_item=false
-	for item in [["More tools…",""],["Draw race route","draw_race"],["Draw sidewalk","draw_sidewalk"],["Draw guardrail","draw_guardrail"],["Circular road","place_circle_road"],["Dealership areas & stock","dealership_manager"]]:
+	for item in [["More tools…",""],["Draw race route","draw_race"],["Draw sidewalk","draw_sidewalk"],["Draw guardrail","draw_guardrail"],["Place stunt ramp","place:stunt_ramp"],["Circular road","place_circle_road"],["Dealership areas & stock","dealership_manager"]]:
 		extra.add_item(item[0]);extra.set_item_metadata(extra.item_count-1,item[1])
 	extra.item_selected.connect(func(index: int)->void:
 		var tool:=str(extra.get_item_metadata(index))
@@ -104,6 +104,7 @@ static func build(e) -> void:
 	e.road_class=e._options(e.road_settings,"Road type",["city","highway","country","mountain","service","track","alley","onramp"])
 	e.road_class.set_item_text(5,"Race track")
 	e.road_class.set_item_text(6,"Alleyway")
+	e.road_class.set_item_text(7,"On-ramp / off-ramp")
 	heading(e.road_settings,"Road surface")
 	e.road_surface=e._options(e.road_settings,"Surface",["asphalt","concrete","gravel","dirt","track"])
 	e.road_width=e._number(e.road_settings,"Width (m)",6,160,10)
@@ -126,7 +127,7 @@ static func build(e) -> void:
 	e.road_point_elevation_fields=column(point_panel)
 	e._btn("Apply point elevations",point_panel,e._apply_point_elevations)
 	e.road_jump_enabled=CheckBox.new()
-	e.road_jump_enabled.text="Stunt jump"
+	e.road_jump_enabled.text="Legacy road jump"
 	e.road_elevation_controls.add_child(e.road_jump_enabled)
 	e.road_jump_options=column(e.road_elevation_controls)
 	e.road_jump_reverse=CheckBox.new()
@@ -140,7 +141,7 @@ static func build(e) -> void:
 		input.value = float(spec[2])
 		e.road_jump_fields[key] = input
 	e.road_jump_enabled.toggled.connect(func(on: bool)->void:e.road_jump_options.visible=on)
-	e._btn("Apply jump",e.road_elevation_controls,e._change_road_jump)
+	e.road_jump_apply=e._btn("Apply / remove legacy jump",e.road_elevation_controls,e._change_road_jump)
 	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
 	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert","dirt","asphalt"])
@@ -264,6 +265,7 @@ static func build(e) -> void:
 	heading(e.inspector_road_type_fields,"ROAD TYPE")
 	e.inspector_road_type=e._options(e.inspector_road_type_fields,"Change placed road type",["city","highway","country","mountain","service","track","alley","onramp"])
 	e.inspector_road_type.set_item_text(6,"Alleyway")
+	e.inspector_road_type.set_item_text(7,"On-ramp / off-ramp")
 	e.inspector_road_type.set_item_text(5,"Race track")
 	e.inspector_road_type.item_selected.connect(e._change_inspector_road_type)
 	e.inspector_junction_start=e._options(e.inspector_road_type_fields,"Start connection",["auto","intersection","merge"])

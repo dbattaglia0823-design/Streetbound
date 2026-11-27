@@ -323,7 +323,15 @@ func _launch_jump(spec: Dictionary, last_ground: Vector2) -> void:
 	_jump_safe = last_ground
 	jump_height_m = float(spec.height_m)
 	var direction := Vector2(spec.direction[0],spec.direction[1])
-	jump_vertical_mps = linear_velocity.dot(direction)*tan(deg_to_rad(float(spec.angle_deg)))
+	var angle:=deg_to_rad(float(spec.angle_deg))
+	if bool(spec.get("object_ramp",false)):
+		# Rotate the uphill component of the velocity into the ramp plane;
+		# retain transverse momentum and use gravity alone after takeoff.
+		var uphill:=linear_velocity.dot(direction)
+		jump_vertical_mps=uphill*sin(angle)
+		linear_velocity+=direction*uphill*(cos(angle)-1.0)
+		velocity=linear_velocity*PIXELS_PER_METER
+	else:jump_vertical_mps = linear_velocity.dot(direction)*tan(angle)
 	# Preserve the real planar momentum while isolating tire/handbrake forces.
 	surface_grip = 0.0
 	wheel_spin = 0.0
@@ -363,10 +371,11 @@ func _step_jump(dt: float) -> void:
 	var motion := linear_velocity*PIXELS_PER_METER*airborne_dt
 	var next := global_position+motion
 	_jump_seconds += airborne_dt
+	var free_ramp:=bool(_jump.get("object_ramp",false))
 	if (not next.is_finite() or not is_instance_valid(surface_provider)
 			or not surface_provider.has_method("jump_position_allowed")
-			or _jump_seconds > RoadJump.MAX_TIME
-			or _jump_origin.distance_to(next) > RoadJump.MAX_RANGE*PIXELS_PER_METER
+			or (not free_ramp and (_jump_seconds > RoadJump.MAX_TIME
+			or _jump_origin.distance_to(next) > RoadJump.MAX_RANGE*PIXELS_PER_METER))
 			or not surface_provider.jump_position_allowed(_jump,next,false)):
 		_abort_jump()
 		return
@@ -374,11 +383,18 @@ func _step_jump(dt: float) -> void:
 	if collision != null:
 		var closing := maxf(0.0,-linear_velocity.dot(collision.get_normal()))
 		damage_contact.emit(closing,collision.get_position(),collision.get_normal(),linear_velocity)
-		_abort_jump()
+		if free_ramp:
+			# Contact with a solid obstacle ends the stunt at the collision,
+			# not back at an arbitrary author-defined approach checkpoint.
+			_clear_jump()
+			linear_velocity=Vector2.ZERO;velocity=Vector2.ZERO
+			longitudinal_speed=0.0;lateral_speed=0.0
+			impacted.emit(closing);jump_finished.emit(false)
+		else:_abort_jump()
 		return
 	jump_height_m += (jump_vertical_mps-.5*RoadJump.G*airborne_dt)*airborne_dt
 	jump_vertical_mps -= RoadJump.G*airborne_dt
-	if jump_height_m > RoadJump.MAX_RISE:
+	if not free_ramp and jump_height_m > RoadJump.MAX_RISE:
 		_abort_jump()
 		return
 	if hit_ground <= dt:
@@ -855,7 +871,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	longitudinal_speed = linear_velocity.dot(final_forward)
 	lateral_speed = linear_velocity.dot(final_right)
 	slip_angle = atan2(lateral_speed, maxf(absf(longitudinal_speed), 1.0))
-	if collision == null and surface_provider and _elevation_road < 0 and not reversing \
+	if collision == null and surface_provider and _elevation_road < 0 \
 			and surface_provider.has_method("jump_at_motion"):
 		var jump: Dictionary = surface_provider.jump_at_motion(self,launch_from,global_position)
 		if not jump.is_empty():

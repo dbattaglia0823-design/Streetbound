@@ -1639,7 +1639,7 @@ $('road-class').addEventListener('change',e=>{
     $('road-shoulder').value='0';$('shoulder-label').textContent='0 m';$('road-markings').checked=false;
   }else if(e.target.value==='onramp'){
     $('road-surface').value='asphalt';$('road-width').value='8';$('road-lanes').value='1';$('road-shoulder').value='2';$('shoulder-label').textContent='2 m';$('road-markings').checked=true;
-    status('Draw from the entrance toward the through road. Snap the final point to its centerline, approaching from the right.');
+    status('One lane: directional highway merge. Two lanes: bidirectional tunnel approach or exit.');
   }else if(e.target.value==='track')$('road-surface').value='track';
   else if($('road-surface').value==='track')$('road-surface').value='asphalt';
 });

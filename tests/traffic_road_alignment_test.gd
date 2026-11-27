@@ -93,6 +93,11 @@ func run() -> void:
 	check("ambient_has_no_alley_lanes_or_turns",not ambient.edges.is_empty() and ambient.edges.all(func(edge: Dictionary)->bool:return int(edge.road)!=1 and edge.next.all(func(id: int)->bool:return int(ambient.edges[id].road)!=1)))
 	check("police_and_player_navigation_keep_alley_lanes",police.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==1 and not bool(edge.connector)) and navigation.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==1 and not bool(edge.connector)))
 	check("police_can_turn_into_connected_alley",police.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==0 and edge.next.any(func(id: int)->bool:return int(police.edges[id].road)==1 or police.edges[id].next.any(func(next_id: int)->bool:return int(police.edges[next_id].road)==1))))
+	var ramp: Dictionary={"kind":"onramp","surface":"ASPHALT","name":"Two-way tunnel ramp","start":"a","end":"b","width":12,"lanes":2,"points":[[100,100],[250,100]],"elevation":{"start_layer":0,"end_layer":-1}}
+	var ramp_graph:=Network.new();ramp_graph.build({"roads":[ramp],"junctions":[]})
+	check("two_lane_ramp_has_both_directions",ramp_graph.edges.size()==2 and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==1) and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==-1))
+	ramp.lanes=1;ramp_graph.build({"roads":[ramp],"junctions":[]})
+	check("one_lane_ramp_stays_directional",ramp_graph.edges.size()==1 and int(ramp_graph.edges[0].direction)==1)
 	var corner:=Network.new()
 	corner.build({"roads":[{"name":"Hairpin","kind":"mountain","surface":"ASPHALT","width":10,"lanes":2,"start":"a","end":"b","points":[[100,100],[130,100],[140,110],[140,125],[130,135],[100,135]]}],"junctions":[]})
 	check("tight_curves_limit_speed_before_the_corner",corner.curve_speed_limit(0,28*20,35/3.6*20)<35/3.6*20)

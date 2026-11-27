@@ -101,6 +101,9 @@ def rounded_hull(points):
 
 def endpoint_mode(road, end):
     mode=road.get('junctionEnd' if end else 'junctionStart','auto')
+    # A two-way ramp is a grade transition, not a one-way merge arm.
+    if road['kind']=='onramp' and road.get('lanes',1)==2:
+        return 'intersection' if mode=='merge' else 'auto' if mode=='auto' else mode
     return ('merge' if end and road['kind']=='onramp' else 'auto') if mode=='auto' else mode
 
 

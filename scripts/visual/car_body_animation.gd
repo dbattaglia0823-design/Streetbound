@@ -76,7 +76,7 @@ func _process(delta: float) -> void:
 	# Small shared movement keeps steering/impact readable without ever
 	# lifting individual tires or moving the body independently of its wheels.
 	var height_m := RoadJump.visual_height(vehicle)
-	var lift := Vector2(0.0,-height_m*6.0).rotated(-vehicle.global_rotation)
+	var lift := Vector2(0.0,-height_m*9.0).rotated(-vehicle.global_rotation)
 	position = Vector2(-_sway*1.6+jolt*1.2,_pitch*1.3+jolt*1.4)+lift
 	rotation = -_sway*0.012+jolt*0.006
-	scale = Vector2.ONE*(1.0+height_m*.034)
+	scale = Vector2.ONE*(1.0+minf(height_m*.085,.75))

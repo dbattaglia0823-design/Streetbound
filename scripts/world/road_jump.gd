@@ -83,6 +83,12 @@ static func accepts_launch(spec: Dictionary, previous: Vector2, present: Vector2
 	var start := offsets(spec,previous)
 	var finish := offsets(spec,present)
 	var speed := momentum.dot(direction)
+	if bool(spec.get("object_ramp",false)):
+		# Cross the actual uphill lip in the positive direction. No required
+		# facing, speed window or forecast landing strip: momentum is decisive.
+		if start.x>=0.0 or finish.x<0.0 or speed<=0.01:return false
+		var fraction: float=-start.x/(finish.x-start.x)
+		return absf(lerpf(start.y,finish.y,fraction))<=float(spec.width_m)*.5
 	if start.x >= 0.0 or finish.x < 0.0 or speed < float(spec.min_mps) or speed > float(spec.max_mps) \
 			or absf(momentum.dot(direction.orthogonal())) > LATERAL_SPEED or facing.dot(direction)<.98:
 		return false
