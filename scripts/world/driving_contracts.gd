@@ -120,10 +120,13 @@ func vehicle_requirement(offer: Dictionary) -> String:
 		return "VEHICLE UNAVAILABLE"
 	return Rules.capacity_reason(offer,player.config.seating_capacity,player.config.cargo_capacity_kg)
 
+func _rotation_clock() -> int:
+	return int(world.call("rotation_clock")) if is_instance_valid(world) and world.has_method("rotation_clock") else -1
+
 func robbery_availability(offer: Dictionary) -> Dictionary:
 	if not is_instance_valid(economy) or not is_instance_valid(marker_source):
 		return {}
-	return economy.call("robbery_availability",str(marker_source.get("world_id")),offer)
+	return economy.call("robbery_availability",str(marker_source.get("world_id")),offer,-1,_rotation_clock())
 
 func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	if not is_instance_valid(economy):
@@ -286,7 +289,7 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 		guide.call("clear_destination")
 		return {"result":"police_unavailable","message":"Unable to begin getaway pursuit on this road"}
 	if not Rules.robbery_profile(authored_offer).is_empty():
-		var reservation: String = economy.call("reserve_robbery_location",str(marker_source.get("world_id")),authored_offer)
+		var reservation: String = economy.call("reserve_robbery_location",str(marker_source.get("world_id")),authored_offer,-1,_rotation_clock())
 		if reservation != "ready":
 			guide.call("clear_destination")
 			return {"result":reservation,"message":"LOCATION UNAVAILABLE / "+reservation.to_upper().replace("_"," ")}

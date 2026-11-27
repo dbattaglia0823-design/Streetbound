@@ -65,6 +65,7 @@ var stream_build_usec := 0
 var mark_clock := 0.0
 ## 0 = clear, 1 = heavy rain. Optional on any published or Test Drive archive.
 var rain_intensity := 0.0
+var living_world: Node
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -328,6 +329,15 @@ func set_geometry_debug(enabled: bool) -> void:
 
 func get_rain_intensity() -> float:
 	return rain_intensity
+
+func rain_at_position(point_px: Vector2) -> float:
+	return float(living_world.call("rain_at",point_px)) if is_instance_valid(living_world) else rain_intensity
+
+func business_open(kind: String) -> bool:
+	return not is_instance_valid(living_world) or bool(living_world.call("business_open",kind))
+
+func rotation_clock() -> int:
+	return int(living_world.call("rotation_clock")) if is_instance_valid(living_world) else -1
 
 func set_rain_intensity(amount: float) -> void:
 	rain_intensity = clampf(amount, 0.0, 1.0) if is_finite(amount) else 0.0

@@ -137,7 +137,7 @@ func nearest_marker() -> Dictionary:
 	var closest:=INF
 	var found: Dictionary={}
 	for marker in markers:
-		if str(marker.type) in ["player_spawn","traffic_spawn","contract_dropoff","robbery_target"]:continue
+		if str(marker.type) in ["player_spawn","home","traffic_spawn","contract_dropoff","robbery_target"]:continue
 		if not _enabled(marker) or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(marker)):continue
 		var radius:=float(marker.get("properties",{}).get("radius_m",12.0))
 		var distance: float=player.global_position.distance_to(_point(marker)*PPM)/PPM
