@@ -241,7 +241,33 @@
       ]
     }
   ],
-  "regions": [],
+  "regions": [
+    {
+      "id": "region-portal-cut",
+      "name": "Portal Mountain",
+      "biome": "mountain",
+      "barrier": true,
+      "elevation": 30,
+      "points": [
+        {
+          "x": 465,
+          "y": 175
+        },
+        {
+          "x": 535,
+          "y": 175
+        },
+        {
+          "x": 535,
+          "y": 290
+        },
+        {
+          "x": 465,
+          "y": 290
+        }
+      ]
+    }
+  ],
   "props": [],
   "markers": [
     {

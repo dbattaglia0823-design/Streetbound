@@ -53,6 +53,36 @@ func _run() -> void:
 	if not world.initialization_complete:
 		quit(1)
 		return
+	check(world.data.get("terrain_cuts",[]).size()==1,
+		"Only the open surface-to-tunnel ramp creates a terrain excavation")
+	var all_cuts: Array = world.data.get("terrain_cuts",[])
+	var cut: Dictionary = all_cuts[0] if not all_cuts.is_empty() else {}
+	if not cut.is_empty():
+		var outline: PackedVector2Array = cut.polygon
+		check(Geometry2D.is_point_in_polygon(Vector2(500,200),outline)
+			and not Geometry2D.is_point_in_polygon(Vector2(500,270),outline),
+			"Open trench removes the approach but preserves the covered tunnel roof")
+		var subject := PackedVector2Array([Vector2(465,175),Vector2(535,175),Vector2(535,290),Vector2(465,290)])
+		var cuts: Array[PackedVector2Array] = [outline]
+		var pieces := Elevation.subtract_cutouts(subject,cuts)
+		check(not pieces.is_empty() and not pieces.any(func(poly: PackedVector2Array)->bool:return Geometry2D.is_point_in_polygon(Vector2(500,200),poly)),
+			"Mountain collision geometry has a genuine hole through the trench")
+		check(pieces.any(func(poly: PackedVector2Array)->bool:return Geometry2D.is_point_in_polygon(Vector2(520,200),poly))
+			and pieces.any(func(poly: PackedVector2Array)->bool:return Geometry2D.is_point_in_polygon(Vector2(500,270),poly)),
+			"Unexcavated mountain and roof remain solid")
+		world._build_chunk(Vector2i(2,1))
+		var tile: Node2D = world.chunks.get(Vector2i(2,1))
+		check(is_instance_valid(tile) and is_instance_valid(tile.get("excavation_body")) and is_instance_valid(tile.get("excavation_cap_body")),
+			"Streamed chunk owns physical retaining walls and a surface-only portal cap")
+		if is_instance_valid(tile):
+			var walls: StaticBody2D = tile.get("excavation_body")
+			var cap: StaticBody2D = tile.get("excavation_cap_body")
+			if is_instance_valid(walls) and is_instance_valid(cap):
+				check(walls.collision_layer== (1 | Elevation.collision_bits(1,-6.0)) and cap.collision_layer==1,
+					"Portal cap blocks only surface traffic, not tunnel vehicles")
+				tile.set_stream_active(false)
+				check(walls.collision_layer==0 and cap.collision_layer==0,"Dormant trench releases physics contacts")
+				tile.set_stream_active(true)
 	var over := world.elevation_at(Vector2(500,400)*20,1,6.0)
 	var under := world.elevation_at(Vector2(500,400)*20,2,-6.0)
 	check(float(over.get("height_m",0)) == 6.0 and float(under.get("height_m",0)) == -6.0,

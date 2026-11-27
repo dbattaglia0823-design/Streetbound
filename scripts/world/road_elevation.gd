@@ -100,8 +100,9 @@ static func cutout_polygons(road: Dictionary) -> Array[PackedVector2Array]:
 	var origin := path[0]
 	for i in path.size():
 		path[i] -= origin
-	for outline in Geometry2D.offset_polyline(path,float(road.width)*.5+1.2,Geometry2D.JOIN_ROUND,Geometry2D.END_BUTT):
-		if outline.size() < 3 or Geometry2D.is_polygon_clockwise(outline):
+	var outlines := Geometry2D.offset_polyline(path,float(road.width)*.5+1.2,Geometry2D.JOIN_ROUND,Geometry2D.END_BUTT)
+	for outline in outlines:
+		if outline.size() < 3 or (outlines.size()>1 and Geometry2D.is_polygon_clockwise(outline)):
 			continue
 		for i in outline.size():
 			outline[i] += origin
@@ -126,6 +127,18 @@ static func cutout_walls(road: Dictionary, outline: PackedVector2Array) -> Array
 		if a.distance_to(b) > .05:
 			result.append(PackedVector2Array([a,b]))
 	return result
+
+
+## Prevent surface vehicles from falling into the deep end from above;
+## underground traffic crosses the same line without touching this band.
+static func cutout_portal_cap(road: Dictionary) -> PackedVector2Array:
+	var first := endpoint_layer(road,true) < 0
+	var raw: Array = road.points[0 if first else -1]
+	var inner: Array = road.points[1 if first else -2]
+	var p := Vector2(raw[0],raw[1])
+	var direction := (Vector2(inner[0],inner[1])-p).normalized()
+	var side := Vector2(-direction.y,direction.x)*(float(road.width)*.5+1.2)
+	return PackedVector2Array([p-side,p+side])
 
 
 static func polygon_bounds(poly: PackedVector2Array) -> Rect2:

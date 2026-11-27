@@ -524,7 +524,7 @@ func _index_terrain_cutouts() -> void:
 		if not Elevation.is_open_cut(road):
 			continue
 		for outline in Elevation.cutout_polygons(road):
-			var cut := {"road":int(road.id),"polygon":outline,"walls":Elevation.cutout_walls(road,outline)}
+			var cut := {"road":int(road.id),"polygon":outline,"walls":Elevation.cutout_walls(road,outline),"cap":Elevation.cutout_portal_cap(road)}
 			var index := cuts.size()
 			cuts.append(cut)
 			for key in Mountains.cells(Elevation.polygon_bounds(outline).grow(5.0),data):

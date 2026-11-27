@@ -38,6 +38,8 @@ var tunnel_art: Array[Node2D] = []
 var excavation_polygons: Array[PackedVector2Array] = []
 var excavation_walls: Array[PackedVector2Array] = []
 var excavation_body: StaticBody2D
+var excavation_caps: Array[PackedVector2Array] = []
+var excavation_cap_body: StaticBody2D
 var excavation_mask: ImageTexture
 var excavation_bounds: Rect2
 var excavation_collision_bits := 0
@@ -294,6 +296,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	if not map_render_only:
 		_build_collisions()
 		_build_excavation_walls()
+		_build_excavation_caps()
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
 
@@ -326,6 +329,8 @@ func set_stream_active(active: bool) -> void:
 		collider_body.collision_layer = 1 if active else 0
 	if is_instance_valid(excavation_body):
 		excavation_body.collision_layer = excavation_collision_bits if active else 0
+	if is_instance_valid(excavation_cap_body):
+		excavation_cap_body.collision_layer = 1 if active else 0
 
 
 func _setup_excavation() -> void:
@@ -342,6 +347,7 @@ func _setup_excavation() -> void:
 		if Elevation.polygon_bounds(polygon).intersects(excavation_bounds.grow(5.0)):
 			excavation_polygons.append(polygon)
 			excavation_walls.append_array(cut.walls)
+			excavation_caps.append(cut.cap)
 	if not excavation_polygons.is_empty():
 		excavation_mask = Elevation.cutout_mask(excavation_polygons,excavation_bounds)
 
@@ -364,6 +370,24 @@ func _build_excavation_walls() -> void:
 		body.queue_free()
 		return
 	excavation_body = body
+	collision_shape_count += made
+
+
+func _build_excavation_caps() -> void:
+	if excavation_caps.is_empty():
+		return
+	var body := StaticBody2D.new()
+	body.name = "SurfacePortalEdge"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	add_child(body)
+	var made := 0
+	for cap in excavation_caps:
+		made += Guardrails.collision_shapes(body,cap,.35,origin_m,excavation_bounds)
+	if made == 0:
+		body.queue_free()
+		return
+	excavation_cap_body = body
 	collision_shape_count += made
 
 

@@ -37,6 +37,12 @@ def validate_barriers(roads,terrain,pois,spawn,width_scale=1.0):
         for poi in pois:
             if inside(poi['position'],points):raise ValueError(f"{title} covers {poi['name']}")
         for road in roads:
+            # Negative roads have their own collision band. Surface-to-tunnel
+            # ramps excavate the finalized footprint at runtime; covered
+            # tunnels leave the surface mountain intact.
+            profile = road.get('elevation', {})
+            if min(profile.get('start_layer', 0),profile.get('end_layer', 0)) < 0 and max(profile.get('start_layer', 0),profile.get('end_layer', 0)) <= 0:
+                continue
             radius=road['width']*width_scale*.5+2
             padded=(box[0]-radius,box[1]-radius,box[2]+radius,box[3]+radius)
             for a,b in zip(road['points'],road['points'][1:]):

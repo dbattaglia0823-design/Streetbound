@@ -43,8 +43,14 @@ a dim road and wall lights when the primary driver descends.
 Ambient traffic follows the same grade-aware lane graph. It brakes and
 rejoins a lane on its own level after contact. Police use the last confirmed
 road layer for pursuit and route ordinary ground-level dispatch through
-connected ramps. Supports and embankments are rendered artwork. Full terrain
-cutouts and non-ground objective authoring are pending. Multiplayer friend
+connected ramps. Open surface-to-tunnel ramps excavate a continuous corridor
+from final road width. Streamed terrain, solid mountain art and relief use the
+same cutout mask; mountain collision polygons are geometrically subtracted.
+Retaining walls protect both surface and first underground collision bands.
+The covered end has a surface-only physical cap; the tunnel beneath remains
+open. Covered tunnels and deeper ramps retain the surface roof. Ordinary maps
+without negative ramps allocate no cutout resources. Non-ground objective
+authoring remains pending. Multiplayer friend
 replicas receive host-owned signed road height in the existing timestamped
 movement history, so remote deck and tunnel drawing order follows the host.
 Height is interpolated but not extrapolated; invalid values are rejected and

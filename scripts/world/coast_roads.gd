@@ -293,6 +293,10 @@ func _roads(stage: int) -> void:
 		var urban: bool = layer == 0 and r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
 		var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 		if stage == 0:
+			if Elevation.is_open_cut(r):
+				# Excavated ground is absent; the wider foundation is the
+				# exposed trench floor, not a painted-over terrain region.
+				draw_polyline(path,Color("625b50"),width+48.0,true)
 			if layer != 0:
 				if layer > 0:
 					_deck_supports(path,width,float(batch.phase),layer)
@@ -356,6 +360,11 @@ func _roads(stage: int) -> void:
 							draw_polyline(_offset(section.path,
 								float(side) * (width * .5 - 7.0)),
 								PAINT_WHITE, 3.0 if r.kind=="arterial" else 2.4, true)
+				if Elevation.is_open_cut(r):
+					for side in [-1.0,1.0]:
+						var rim := _offset(visible_path,side*(width*.5+24.0))
+						draw_polyline(rim,Color("3d3933"),11.0,true)
+						draw_polyline(rim,Color("b0a38d"),4.0,true)
 				if layer != 0:
 					for side in [-1.0,1.0]:
 						var wall := _offset(visible_path,side*width*.5)

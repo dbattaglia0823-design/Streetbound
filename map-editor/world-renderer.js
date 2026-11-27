@@ -558,6 +558,18 @@ export function drawWorld(ctx,doc,options={}){
   if(options.showTerrain!==false)for(const region of doc.regions){
     if(isMountainBarrier(region)&&visible(expand(boundsOf(region.points),40),bounds))drawMountainRegion(ctx,region);
   }
+  // Show the excavation footprint over solid mountain artwork in authoring.
+  // The production game clips the terrain and collision using the actual
+  // finalized curved road; this is a lightweight draft preview.
+  if(options.showRoads!==false)for(const road of roadsOnLayer(doc.roads,options.roadLayer??'all')){
+    const {start_layer,end_layer}=roadElevation(road);
+    if(Math.min(start_layer,end_layer)!==-1||Math.max(start_layer,end_layer)!==0)continue;
+    if(!visible(expand(boundsOf(road.points),road.width+4),bounds))continue;
+    const path=road.points;
+    drawRoadStroke(ctx,path,road.width+2.4,'#655b4f',[],'butt');
+    drawRoadStroke(ctx,path,road.width,'#424c52',[],'butt');
+    if(road.markings)drawRoadStroke(ctx,path,.15,'#d8c59a',[3,3],'butt');
+  }
   if(options.showMarkers!==false)drawMarkers(ctx,doc.markers,bounds);
   ctx.restore();
 }
