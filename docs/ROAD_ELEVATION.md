@@ -76,6 +76,18 @@ builders also report elevated objective/grid access and disconnected road
 components in `editor_warnings`. Road-component connectivity is a necessary
 condition only; the runtime directed route planner still checks legal turns.
 
+## City-scale regression benchmark
+
+The CI startup job builds a deterministic 6.4 × 4.8 km map with a ground
+street grid and 24 grade highways (12 elevated and 12 underground), their
+entry/exit ramps, and over 700 junctions. The test records bake time, archive
+size, lane graph/startup time, streamed chunk counts and build time, traffic
+counts and police response. It verifies real route connectivity, physical
+elevation support, ambient vehicle spawning, and elevated police dispatch.
+Run the same fixture locally using the commands in the CI job. This is a
+headless smoke/stress benchmark, not a measured Windows/iPhone render-FPS
+guarantee; final hardware playtesting is still required.
+
 ## Driving and boundaries
 
 The controller gets a continuous height and slope from the indexed road

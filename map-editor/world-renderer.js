@@ -270,9 +270,10 @@ function drawRoads(ctx,roads,bounds,options){
   for(const road of order){
     if(!road.elevation||!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
     const {start_layer,end_layer}=roadElevation(road);
-    const color=Math.min(start_layer,end_layer)<0?'#c897f5':'#79d7f5';
+    const layers=road.elevation?.point_layers??[start_layer,end_layer];
+    const color=Math.min(...layers)<0?'#c897f5':'#79d7f5';
     for(const path of displayPaths(road))
-      drawRoadStroke(ctx,path,Math.max(1.4,road.width*.16),color,start_layer===end_layer?[]:[8,5]);
+      drawRoadStroke(ctx,path,Math.max(1.4,road.width*.16),color,layers.every(l=>l===layers[0])?[]:[8,5]);
   }
   for(const road of order){
     if(!road.jump||!visible(expand(boundsOf(road.points),20),bounds))continue;

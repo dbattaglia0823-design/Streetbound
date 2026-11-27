@@ -95,7 +95,7 @@ export function auditWorld(doc,{maxIssues=180}={}){
   // The exact bake is authoritative for curves, so preview findings are
   // warnings except for invalid authored profile values.
   const elevated=doc.roads.filter(r=>r.elevation);
-  if(elevated.length){
+  if(elevated.length||(doc.races??[]).some(r=>r.points.some(p=>p.road_layer))||doc.markers.some(m=>m.properties?.road_layer)){
     const byId=new Map(doc.roads.map(r=>[r.id,r]));
     const parents=new Map(doc.roads.map(r=>[r.id,r.id]));
     const root=id=>{while(parents.get(id)!==id)id=parents.get(id);return id;};

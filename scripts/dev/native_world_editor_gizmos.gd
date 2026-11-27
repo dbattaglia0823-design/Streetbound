@@ -403,7 +403,11 @@ func _draft_line(road: Dictionary,use_baked: bool=false) -> PackedVector2Array:
 		var index:=int(str(road.id).trim_prefix("road-"))
 		if index<world.data.roads.size():
 			var path:=PackedVector2Array()
-			for p in world.data.roads[index].points:path.append(Vector2(p[0],p[1])*PPM)
+			for piece in world.data.roads:
+				if int(piece.get("editor_grade_source_id",piece.id))!=index:continue
+				for p in piece.points:
+					var at:=Vector2(p[0],p[1])*PPM
+					if path.is_empty() or path[-1].distance_to(at)>.001:path.append(at)
 			return path
 	var copy:=road.duplicate(true)
 	copy.points=[]

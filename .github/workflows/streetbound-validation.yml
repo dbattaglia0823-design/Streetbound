@@ -44,6 +44,15 @@ jobs:
             grep -E 'ROAD ELEVATION (GRAPH|DRIVE): PASS' "/tmp/road-elevation-${test}.log"
             if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' "/tmp/road-elevation-${test}.log"; then exit 1; fi
           done
+      - name: Stress-test multilevel city bake, traffic, navigation and police
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          mkdir -p .runtime
+          timeout 240s python3 tests/road_elevation_stress.py --output .runtime/elevation-city.stream.json
+          timeout 150s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/road_elevation_city_stress.gd -- res://.runtime/elevation-city.stream.json 2>&1 | tee /tmp/elevation-city-stress.log
+          grep -q 'ELEVATION CITY RUNTIME: PASS' /tmp/elevation-city-stress.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/elevation-city-stress.log
       - name: Verify authored jump trajectories, contact, and safe recovery (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
