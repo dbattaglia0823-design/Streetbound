@@ -335,6 +335,23 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains
 		mountain.excavation_mask=excavation_mask;mountain.excavation_bounds=excavation_bounds
 		clip.add_child(mountain)
+	# Above mountain meshes, below vehicles; clip to the same cell as the
+	# existing mountain art. The underground composite naturally hides it.
+	var tunnel_ids: Array = content.get("tunnel_terrain",[])
+	if render_extent_m!=Vector2.ZERO:tunnel_ids=world.tunnel_terrain_plans.keys()
+	if not tunnel_ids.is_empty():
+		var tunnel_clip:=Control.new()
+		tunnel_clip.name="TunnelTerrainClip"
+		tunnel_clip.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		tunnel_clip.clip_contents=true
+		tunnel_clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+		tunnel_clip.z_index=7
+		add_child(tunnel_clip)
+		var art:=preload("res://scripts/world/coast_tunnel_terrain.gd").new()
+		art.world=world;art.origin_m=origin_m;art.extent_m=tunnel_clip.size/PPM
+		for id in tunnel_ids:
+			if world.tunnel_terrain_plans.has(int(id)):art.plans.append(world.tunnel_terrain_plans[int(id)])
+		tunnel_clip.add_child(art)
 	var geometry_overlay := Node2D.new()
 	geometry_overlay.name = "GeometryOverlay"
 	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
