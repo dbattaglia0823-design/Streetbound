@@ -744,6 +744,8 @@ func _transition_blocked(agent: Dictionary, connector: Dictionary, remaining: fl
 			# An occupied connector owns the receiving lane until it clears.
 			return true
 		if not merging or bool(other_edge.connector) or int(other_edge.end_j)!=int(connector.start_j):continue
+		# A follower in the very same incoming lane cannot hold up its leader.
+		if other_id==int(agent.edge):continue
 		var other_remaining:=maxf(0.0,float(other_edge.length_px)-float(other.progress))
 		var other_eta:=other_remaining/maxf(PPM*2.0,float(other.speed))
 		if other_eta>own_eta+2.5 or other_remaining>PPM*55.0:continue
@@ -753,7 +755,7 @@ func _transition_blocked(agent: Dictionary, connector: Dictionary, remaining: fl
 				return true
 		# Two disappearing lanes may share a receiver; resolve equal arrival
 		# deterministically without a permanent junction-wide reservation.
-		if int(other.uid)<int(agent.uid):
+		if other_eta<own_eta-.5 or (absf(other_eta-own_eta)<=.5 and int(other.uid)<int(agent.uid)):
 			for option in other_edge.next:
 				var candidate: Dictionary=network.edges[int(option)]
 				if bool(candidate.get("lane_transition",false)) and int(candidate.get("target_lane",-1))==target_id:return true

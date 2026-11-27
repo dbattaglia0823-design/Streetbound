@@ -550,6 +550,11 @@ func _paint_lane_transition(j: Dictionary) -> void:
 	for side in [-1,1]:
 		var count_a:=int(la.forward if side*int(a.side)>0 else la.reverse)
 		var count_b:=int(lb.forward if -side*int(b.side)>0 else lb.reverse)
+		# The edge stripe itself joins the two shoulders and makes the
+		# narrowing/widening visually legible even on equal-width pavement.
+		var edge_a:=center_a+na*float(side)*maxf(0.0,float(count_a)*float(la.width)*PPM-7.0)
+		var edge_b:=center_b-nb*float(side)*maxf(0.0,float(count_b)*float(lb.width)*PPM-7.0)
+		draw_line(edge_a,edge_b,PAINT_WHITE,3.0,true)
 		for lane in range(1,maxi(count_a,count_b)):
 			var offset_a:=minf(float(lane),float(count_a))*float(la.width)
 			var offset_b:=minf(float(lane),float(count_b))*float(lb.width)
