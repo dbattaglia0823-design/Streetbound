@@ -191,7 +191,9 @@ export function roadStructure(road){
   const profile=road.elevation;
   if(!profile)return 'regular';
   const {start_layer:a,end_layer:b,point_layers:layers=[]}=profile;
-  if(a===-1&&b===-1&&layers.every(v=>v===-1))return 'underground';
+  if(a===-1&&b===-1&&layers.every(v=>v===-1))return road.width>=36?'underground':'tunnel';
+  if(!layers.length&&Math.min(a,b)===-1&&Math.max(a,b)===0)return 'tunnel';
+  if(!layers.length&&Math.min(a,b)===0&&Math.max(a,b)===1)return 'overpass';
   if(a===0&&b===0&&layers.includes(-1)&&!layers.includes(1))return 'tunnel';
   if(a===0&&b===0&&layers.includes(1)&&!layers.includes(-1))return 'overpass';
   if(a===1&&b===1&&layers.every(v=>v===1))return 'overpass';
@@ -202,11 +204,15 @@ export function setRoadStructure(doc,roadId,kind){
   const road=doc.roads.find(r=>r.id===roadId);
   if(!road||!['regular','tunnel','underground','overpass'].includes(kind))throw new RangeError('Select a road structure');
   const previous=roadStructure(road);
-  if(kind===previous)return doc;
+  if(kind===previous&&!['tunnel','overpass'].includes(kind))return doc;
   if(kind==='regular')return updateEntity(doc,roadId,{elevation:undefined});
   if(road.jump||road.autoGuardrails||road.roadClass==='onramp'||!['asphalt','concrete'].includes(road.surface))
     throw new RangeError('Use a regular paved road without a legacy jump or auto guardrails');
   if(kind==='underground')return updateEntity(doc,roadId,{width:Math.max(36,road.width),elevation:{start_layer:-1,end_layer:-1}});
+  const deck=kind==='tunnel'?-1:1;
+  const endpoints=[road.points[0],road.points.at(-1)].map(p=>doc.roads.some(other=>other.id!==roadId&&([0,-1].some(end=>distance(p,other.points.at(end))<=.12&&junctionLayer(other,other.points.at(end))===deck)))?deck:0);
+  if(endpoints.some(Boolean))return updateEntity(doc,roadId,{elevation:{start_layer:endpoints[0],end_layer:endpoints[1]}});
+  if(kind===previous)return doc;
   if(['tunnel','overpass'].includes(previous)&&road.elevation.point_layers&&road.elevation.start_layer===0&&road.elevation.end_layer===0)
     return updateEntity(doc,roadId,{elevation:{start_layer:0,end_layer:0,point_layers:road.elevation.point_layers.map(v=>-v)}});
   return convertRoadToGrade(updateEntity(doc,roadId,{elevation:undefined}),roadId,kind==='tunnel'?-1:1);
