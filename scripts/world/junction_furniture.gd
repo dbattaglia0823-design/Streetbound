@@ -1,9 +1,9 @@
 extends RefCounted
 ## Static junction artwork. All lenses are neutral/unlit; no signal phases,
 ## timers, collision or traffic permissions are introduced by these fixtures.
-static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector2.ZERO,ppm: float=20) -> void:
-	# Merge mouths get the ramp yield sign from coast_roads, not traffic signals or crosswalks.
-	if str(junction.get("control",""))=="merge":return
+static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector2.ZERO,ppm: float=20,roads: Array=[]) -> void:
+	var junction_control := str(junction.get("control",""))
+	var merge := junction_control=="merge"
 	var arms: Array=junction.get("approaches",[])
 	for arm in arms:
 		var raw=arm.direction
@@ -11,14 +11,28 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 		var normal:=Vector2(-outward.y,outward.x)
 		var p:=Vector2(arm.p[0],arm.p[1])-origin
 		var width:=float(arm.width)
-		if str(junction.get("control",""))!="roundabout":
-			# Incoming half of a right-hand road; outgoing traffic stays open.
-			canvas.draw_line((p+outward*.8-normal*.3)*ppm,(p+outward*.8-normal*(width*.5-.4))*ppm,Color("#e5e1d1"),.32*ppm,true)
-			if arms.size()>=3:
-				for i in maxi(3,floori((width-1)/1.2)):
-					var across: float=lerpf(-width*.5+.6,width*.5-.6,float(i)/maxf(1,floori((width-1)/1.2)-1))
-					var at:=p-outward*1.8+normal*across
-					canvas.draw_line((at-outward*.45)*ppm,(at+outward*.45)*ppm,Color("#dddacb"),.4*ppm,true)
+		var control := str(arm.get("control","none"))
+		var road_id := int(arm.get("road",-1))
+		var kind := str(roads[road_id].get("kind","")) if road_id>=0 and road_id<roads.size() else ""
+		var urban := kind in ["local","arterial"]
+		var paint := Color("#eeeae0")
+		var incoming_width := width if kind=="onramp" else width*.5
+		if control=="stop" and not merge and incoming_width>1.0:
+			canvas.draw_line((p+outward*.8+normal*(width*.5-incoming_width-.25))*ppm,(p+outward*.8-normal*(width*.5-.35))*ppm,paint,.3*ppm,true)
+		elif control=="yield" and incoming_width>1.0:
+			var count := maxi(1,floori((incoming_width-.7)/.85))
+			for i in count:
+				var across := -width*.5+.35+(float(i)+.5)*(incoming_width-.7)/float(count)
+				var at := p+outward*.8+normal*across
+				var half := minf(.27,(incoming_width-.7)/float(count)*.35)
+				canvas.draw_colored_polygon(PackedVector2Array([(at-outward*.25-normal*half)*ppm,(at-outward*.25+normal*half)*ppm,(at+outward*.35)*ppm]),paint)
+		if urban and arms.size()>=3 and not merge and junction_control!="roundabout" and width>3.0:
+			var count := maxi(2,floori((width-.9)/.85))
+			for i in count:
+				var across := -width*.5+.45+(float(i)+.5)*(width-.9)/float(count)
+				var at := p-outward*1.25+normal*across
+				canvas.draw_line((at-outward*.9)*ppm,(at+outward*.9)*ppm,paint,.38*ppm,true)
+		if merge:continue
 		var pole: Vector2=p+outward*1.5-normal*(width*.5+2.1)
 		canvas.draw_line((pole+Vector2(.3,.4))*ppm,(pole+Vector2(1.7,2.2))*ppm,Color(.04,.09,.10,.28),.45*ppm,true)
 		canvas.draw_circle(pole*ppm,.22*ppm,Color("#b4beb1"))

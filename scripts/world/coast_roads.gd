@@ -20,24 +20,72 @@ func _ready() -> void:
 func _offset(path: PackedVector2Array, amount: float) -> PackedVector2Array:
 	return Lanes.offset_path(path,amount)
 
-func _dashes(path: PackedVector2Array, width: float, color: Color, dash := 55.0, gap := 85.0, station := 0.0, weathered := false) -> void:
-	var cursor := station
-	for i in range(1,path.size()):
-		var a := path[i-1]
-		var b := path[i]
-		var length := a.distance_to(b)
-		var pos := 0.0
-		while pos < length:
-			var phase := fposmod(cursor+pos, dash+gap)
-			var step := minf(length-pos, dash-phase if phase<dash else dash+gap-phase)
-			if phase<dash:
-				var ink := color
-				if weathered:
-					var dash_index := floori((cursor + pos) / (dash + gap))
-					ink.a *= .62 if posmod(dash_index, 11) in [2, 7] else .88
-				draw_line(a.lerp(b,pos/length),a.lerp(b,(pos+step)/length),ink,width,true)
-			pos += maxf(step,0.01)
-		cursor += length
+const PAINT_YELLOW := Color("#e5be65")
+const PAINT_WHITE := Color("#eeeae0")
+const PREVIEW_PAVEMENT := Color("#454e54")
+
+## Metric paint plan from the actual directional lane layout.
+static func marking_plan(road: Dictionary, width_px: float, include_edges: bool = true) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var kind := str(road.get("kind",road.get("roadClass","local")))
+	var surface := str(road.get("surface","ASPHALT")).to_upper()
+	if surface in ["GRAVEL","DIRT"] or kind in ["alley","driveway","service","track"] or not bool(road.get("markings",true)):
+		return result
+	var data := {"kind":kind,"lanes":int(road.get("lanes",2)),"width":width_px/PPM}
+	var layout := Lanes.layout(data)
+	var divider := float(layout.divider)*PPM
+	var fast := kind in ["highway","arterial","onramp"]
+	var line_width := 3.0 if fast else 2.4
+	var dash := 60.0
+	var gap := 180.0 if fast else 120.0
+	if int(layout.reverse)>0 and int(layout.forward)>0:
+		if kind in ["highway","arterial","mountain"]:
+			for side in [-1.0,1.0]:
+				result.append({"offset":divider+float(side)*3.5,"width":line_width,"color":PAINT_YELLOW,"dash":0.0,"gap":0.0})
+		else:
+			result.append({"offset":divider,"width":line_width,"color":PAINT_YELLOW,"dash":dash,"gap":gap})
+	for direction in [1,-1]:
+		for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
+			result.append({"offset":divider+direction*float(layout.width)*lane*PPM,"width":line_width,"color":PAINT_WHITE,"dash":dash,"gap":gap})
+	if include_edges:
+		for side in [-1.0,1.0]:
+			result.append({"offset":float(side)*maxf(0.0,width_px*.5-7.0),"width":line_width,"color":PAINT_YELLOW if kind=="onramp" and side<0 else PAINT_WHITE,"dash":0.0,"gap":0.0})
+	return result
+
+## Use centerline station, not offset curve length, across clipped chunks.
+static func dash_spans(station: float, length: float, dash: float, gap: float) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if length<=.001 or dash<=0.0 or gap<=0.0:return result
+	var at := 0.0
+	var cycle := dash+gap
+	while at<length-.001:
+		var phase := fposmod(station+at,cycle)
+		var step := minf(length-at,dash-phase if phase<dash else cycle-phase)
+		if step<.001:
+			at+=.001
+			continue
+		if phase<dash:
+			result.append({"from":at/length,"to":(at+step)/length,"index":floori((station+at)/cycle)})
+		at+=step
+	return result
+
+static func paint_lane_lines(canvas: CanvasItem,path: PackedVector2Array,road: Dictionary,width_px: float,station: float=0.0,include_edges: bool=true) -> void:
+	if path.size()<2:return
+	for spec in marking_plan(road,width_px,include_edges):
+		var stripe := Lanes.offset_path(path,float(spec.offset))
+		var ink: Color=spec.color
+		if float(spec.dash)<=0.0:
+			canvas.draw_polyline(stripe,ink,float(spec.width),true)
+			continue
+		var cursor := station
+		for i in range(1,path.size()):
+			var length := path[i-1].distance_to(path[i])
+			for span in dash_spans(cursor,length,float(spec.dash),float(spec.gap)):
+				var dash_index := int(span.index)
+				var weathered := ink
+				weathered.a *= .80 if posmod(dash_index,13) in [2,9] else .97
+				canvas.draw_line(stripe[i-1].lerp(stripe[i],float(span.from)),stripe[i-1].lerp(stripe[i],float(span.to)),weathered,float(spec.width),true)
+			cursor+=length
 
 ## Compact world-stationed road wear. Every position is derived from the
 ## baked road phase, so neighboring streamed chunks produce the same rhythm.
@@ -77,7 +125,7 @@ func _road_wear(path: PackedVector2Array, road: Dictionary, width: float, statio
 			var lane_center := center + normal * side * width * .22
 			if index % 4 == 0:
 				# Slightly irregular resurfaced rectangle, kept in a travel lane.
-				var half_long := 35.0 + float(posmod(index, 4)) * 7.0
+				var half_long := 30.0 + float(posmod(floori(float(index)/4.0), 5)) * 9.0
 				var half_wide := minf(34.0, width * .12)
 				var corners := PackedVector2Array([
 					lane_center - tangent * half_long - normal * half_wide,
@@ -85,7 +133,7 @@ func _road_wear(path: PackedVector2Array, road: Dictionary, width: float, statio
 					lane_center + tangent * (half_long - 5.0) + normal * half_wide,
 					lane_center - tangent * (half_long + 3.0) + normal * half_wide
 				])
-				draw_colored_polygon(corners, Color(.16, .22, .25, .21))
+				draw_colored_polygon(corners, Color(.12, .15, .17, .20))
 				draw_line(corners[0], corners[1], Color(.60, .61, .56, .18), 1.7, true)
 			elif index % 3 == 0:
 				# Short sealed cracks follow the wheel-worn portion of the lane.
@@ -209,7 +257,8 @@ func _roads(stage: int) -> void:
 			elif r.kind=="alley":
 				draw_polyline(path,Color("77736b"),width+10.0,true)
 			else:
-				draw_polyline(path,Color("c0bea5"),width+35,true)
+				draw_polyline(path,Color("777a70"),width+35,true)
+				draw_polyline(path,Color("96958a"),width+23,true)
 		elif stage == 1:
 			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
@@ -221,7 +270,7 @@ func _roads(stage: int) -> void:
 						lanes.append(Lanes.lane_offset(r,direction,lane)*PPM)
 				for lane in lanes:
 					for wheel in [-13.0,13.0]:
-						draw_polyline(_offset(path,float(lane)+wheel),Color(.18,.23,.25,.065),10,true)
+						draw_polyline(_offset(path,float(lane)+wheel),Color(.10,.13,.15,.105),14,true)
 		elif stage == 2:
 			# Road junctions and side entrances use the same station-clipped
 			# spans as lane markings. Kerbs must never cross an open junction
@@ -237,10 +286,10 @@ func _roads(stage: int) -> void:
 								float(piece.phase), _dealer_curb_gaps(r, float(side))):
 							draw_polyline(Walkways.offset(section.path,
 								float(side) * (width * 0.5 + 1.5)),
-								Color("f0ebdc"), 5.0, true)
+								Color("c8c5b9"), 4.0, true)
 							draw_polyline(_offset(section.path,
-								float(side) * (width * .5 - 10.0)),
-								Color("dcd9c4"), 3.0, true)
+								float(side) * (width * .5 - 7.0)),
+								PAINT_WHITE, 3.0 if r.kind=="arterial" else 2.4, true)
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
@@ -287,27 +336,10 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 		_street_surface_details(path,r,width,station)
 	if gravel or r.kind in ["driveway","alley"]:
 		return
-	var edge := Color("dcd9c4")
 	if TrackKerbs.is_track(r):
 		TrackKerbs.paint(self,path,width,station)
 		return
-	else:
-		var layout:=Lanes.layout(r)
-		var divider:=float(layout.divider)*PPM
-		if r.kind=="onramp":
-			pass # Single one-way lane: no center divider.
-		elif r.kind in ["highway","arterial","mountain"]:
-			var gap:=8.0 if r.kind=="highway" else 5.0
-			for side in [-1,1]:draw_polyline(_offset(path,divider+side*gap),Color("d8c69a"),3,true)
-		else:_dashes(_offset(path,divider),3,Color("ddd2a7"),55,85,station,true)
-		for direction in [1,-1]:
-			for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
-				_dashes(_offset(path,divider+direction*float(layout.width)*lane*PPM),3.5,edge,60,100,station,true)
-	# Urban road-edge lines are emitted above from dealer/junction-clipped
-	# paths. Non-urban road shoulders retain their original full paint.
-	if not urban:
-		draw_polyline(_offset(path,width/2-10),edge,3,true)
-		draw_polyline(_offset(path,-width/2+10),edge,3,true)
+	paint_lane_lines(self,path,r,width,station,not urban)
 func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
@@ -346,13 +378,14 @@ func _draw() -> void:
 				if int(arm.road)!=int(j.get("ramp_road",-1)):through.append(point(arm.p))
 			if through.size()==2:
 				through.insert(1,point(j.p))
-				draw_polyline(through,Color("d8c69a"),4,true)
+				var main: Dictionary = world.data.roads[int(j.get("main_road",0))]
+				paint_lane_lines(self,through,main,float(main.width)*PPM,0.0,false)
 		# Rounded curb fillets leave vehicle mouths and marked crosswalks open.
 		for curve in j.curbs:
 			var path := PackedVector2Array()
 			for p in curve: path.append(point(p))
-			draw_polyline(path,Color("eee7d5"),6,true)
-		JunctionFurniture.draw_junction(self,j,origin_m)
+			draw_polyline(path,Color("c6c3b8"),4.0,true)
+		JunctionFurniture.draw_junction(self,j,origin_m,PPM,world.data.roads)
 		for arm in j.approaches:
 			if str(arm.get("control","")) not in ["stop","yield"]:continue
 			var direction:=Vector2(arm.direction[0],arm.direction[1])

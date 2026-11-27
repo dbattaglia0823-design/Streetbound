@@ -44,3 +44,5 @@
 - On-ramp authoring: explicit one-way paved road class, terminal right-side merge, directional outside-lane connectors, yield control, no crosswalk/signal at merge, browser/native options and bake/graph tests. Existing map unchanged. CI and driving verification pending.
 
 - Per-end connection modes allow undoable Intersection/On-ramp/Automatic changes on existing and future branch roads in both editors, without altering points or dimensions. Split through-road approaches supported. Invalid junction geometry rejects bake. CI pending.
+
+- Road artwork refresh: charcoal asphalt, stronger world-space grain, refined wear/shoulders, metric lane paint, junction controls, native and browser preview. No geometry/physics changes. CI and GPU validation pending.

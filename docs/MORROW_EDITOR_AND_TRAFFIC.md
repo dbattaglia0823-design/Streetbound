@@ -156,3 +156,6 @@ Choose **On-ramp** in the road type selector (browser or native editor). Draw a 
 ### Swap existing connections
 
 Select the branch road in either editor and use **Start connection** or **End connection** to select Automatic, Intersection, or On-ramp. Each end is independent, persisted in the source JSON, and undoable. Existing road class, dimensions, control points and other junctions are untouched. Explicit overrides accept a right-angle T as a yield-only merge; a gently curved approach is preferable for highway-speed driving. An ordinary road remains two-way along its existing length, but its selected merge admits only incoming branch traffic into the outside through lane. Three-arm geometry is required: a four-way crossing or disconnected end must first be reshaped or split into a valid T. The baker rejects invalid overrides rather than silently converting them. Use Automatic to clear the override; an authored one-way On-ramp road still defaults to merging at its final point. Rebuild/Test Drive to apply to gameplay.
+
+
+Road artwork refresh: native draft roads share the game's lane-paint planner; browser previews use matching metric proportions and colors. Fine aggregate is game-shader-only. No rebake of stock road geometry required.
