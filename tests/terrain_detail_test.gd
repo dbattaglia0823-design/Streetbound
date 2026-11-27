@@ -27,6 +27,7 @@ func run() -> void:
 	check("terrain_shader_avoids_reserved_flat_identifier",not code.contains("float flat=") and code.contains("float level_light"))
 	check("terrain_shadows_are_enabled_by_default",code.contains("terrain_shadow_strength : hint_range(0.0, 1.0) = 1.0"))
 	check("sub_decimetre_detail_is_filtered",code.contains("world_m*22.0") and code.contains("detail_fade(micro_coord)") and code.contains("fwidth(coord)"))
+	check("mid_scale_material_relief",code.contains("surface_visible = detail_fade(surface_coord)") and code.contains("relief_gradient") and code.contains("crossing_crest"))
 	check("mountain_relief_has_slope_and_erosion_detail",code.contains("field.b") and code.contains("ridge_shade") and code.contains("upland"))
 	var types: Dictionary = {}
 	for polygon in world.data.terrain:

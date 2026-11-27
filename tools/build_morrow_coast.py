@@ -18,7 +18,8 @@ from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
 from elevation_map_audit import audit_elevated_objectives
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT, EDIT_PATH
-from road_widths import adapt as adapt_road_widths
+from road_widths import (adapt as adapt_road_widths, ROAD_WIDTH_SCALE,
+                         JUNCTION_APRON_SCALE, junction_clearance_polygon)
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
 from mountain_barriers import validate_barriers, validate_open_cuts
@@ -497,12 +498,16 @@ def in_poly(p, poly):
 # Explicit elevation profiles govern grade separation. Legacy grade=1
 # continues to denote a water bridge.
 JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
-validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=1.10)
+validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=ROAD_WIDTH_SCALE)
 
 JUNCTION_CLEARANCE=collections.defaultdict(list)
 for j in JUNCTIONS:
-    x,y=j["p"]; pad=j["radius"]+25
-    for key in keys_for((x-pad,y-pad,x+pad,y+pad),CELL):JUNCTION_CLEARANCE[key].append(j)
+    # Reserve the final widened turning area BEFORE scenery generation.
+    # The junction bake itself stays in source metres; scaling the same
+    # polygon here and at serialization prevents houses inside new aprons.
+    clearance = {"polygon": junction_clearance_polygon(j)}
+    x,y=j["p"]; pad=j["radius"]*JUNCTION_APRON_SCALE+25
+    for key in keys_for((x-pad,y-pad,x+pad,y+pad),CELL):JUNCTION_CLEARANCE[key].append(clearance)
 
 
 def land(p):

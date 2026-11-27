@@ -213,11 +213,13 @@ class SourceBridgeTests(unittest.TestCase):
 
     def test_baked_widths_are_unscaled_before_the_next_bake(self):
         doc=editor_doc()
-        doc["morrowRoadWidthScale"]=1.1
-        for road in doc["roads"]:
-            road["width"]*=1.1
-        result,_=self.apply(doc)
-        self.assertEqual([r["width"] for r in result[0]],[9,12])
+        for factor in (1.1,1.265):
+            doc=editor_doc()
+            doc["morrowRoadWidthScale"]=factor
+            for road in doc["roads"]:
+                road["width"]*=factor
+            result,_=self.apply(doc)
+            self.assertEqual([r["width"] for r in result[0]],[9,12])
 
     def test_legacy_migration_cannot_exceed_editor_road_limit(self):
         base=fixture()

@@ -1,7 +1,12 @@
 extends RefCounted
 ## Stable paired offsets around bends. Urban sidewalks, their kerbs, and the
 ## seaward boardwalk rail all use the same continuous centreline geometry.
-const SIDEWALK_WIDTH_PX := 66.0
+const PATH_WIDTH_SCALE := 1.12
+const SIDEWALK_WIDTH_PX := 66.0 * PATH_WIDTH_SCALE
+const BOARDWALK_WIDTH_PX := 112.0 * PATH_WIDTH_SCALE
+const SIDEWALK_BASE := Color("c8c6bb")
+const SIDEWALK_EDGE := Color("929b91")
+const SIDEWALK_SEAM := Color("a3a49a")
 
 static func offset(path: PackedVector2Array, distance_px: float) -> PackedVector2Array:
 	var result := PackedVector2Array()

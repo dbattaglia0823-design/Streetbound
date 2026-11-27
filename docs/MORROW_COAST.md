@@ -98,3 +98,8 @@ World-aligned charcoal asphalt, stronger filtered aggregate, subtle resurfacing 
 
 
 Terrain visual detail increased across all material families with finer, derivative-filtered world-space grain and slope-aware mountain shading. Solid mountain footprints retain their collision polygon but use denser, smoothly lit cached meshes. Roadside rock faces and custom-map water use refined shaders. No original terrain, road, or elevation data rebake required. The existing regional hillshade texture remains the low-frequency base; finer detail is shader-generated.
+
+
+## Terrain and street fidelity pass
+
+Morrow Coast road widths are migrated to 1.265 times their original source dimensions (15% wider than the previous 1.10 scale). Junction apron/curb geometry and the spatial index are migrated with the road width, without relocating centerlines, changing lane counts or resizing vehicles. Source bakes accept the new marker and legacy 1.10; already migrated archives do not grow again. Standalone custom-map road dimensions are intentionally left as explicitly authored, to protect narrow courses, fixtures and bespoke layouts. Urban sidewalk widths, authored sidewalk rendering and coastal boardwalks are 12% wider; pavement is muted gray-beige with expansion joints and edge highlights. World-space terrain adds derivative-filtered middle-frequency shading, grass seed heads, rock chip relief, sand, farm, urban, soil/gravel and water detail. Browser terrain tiles receive a corresponding material pass. Existing collision, grade, terrain height and grip rules remain unchanged except for the expanded road/sidewalk extents. CI and GPU visual/performance checks are required before claiming verification.

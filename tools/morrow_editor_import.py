@@ -401,7 +401,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         raise ValueError("Map bounds mismatch between editor and production generator")
     source_count = len(roads)
     width_scale = doc.get("morrowRoadWidthScale", 1.0)
-    if type(width_scale) not in (int,float) or width_scale not in (1.0,1.1):
+    if type(width_scale) not in (int,float) or width_scale not in (1.0,1.1,1.265):
         raise ValueError("Unsupported baked road-width scale.")
     basis_count = doc.get("morrowSourceRoadCount", legacy_source_count if legacy_source_count is not None else source_count)
     if type(basis_count) is not int or not 0 <= basis_count <= source_count:

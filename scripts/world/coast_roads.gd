@@ -284,6 +284,25 @@ func _portal_art() -> void:
 			Color(.03,.04,.04,.32),PPM*2.6,true)
 
 
+## Slab joints and fine edge highlights are stationed along the road.
+func _sidewalk_details(path: PackedVector2Array, phase: float, width: float) -> void:
+	var passed:=phase
+	for i in range(1,path.size()):
+		var a:=path[i-1]
+		var span:=path[i]-a
+		var length:=span.length()
+		if length<.01:continue
+		var tangent:=span/length
+		var normal:=tangent.orthogonal()
+		for station in wear_stations(passed,length,PPM*2.4):
+			var p:=a+tangent*(station-passed)
+			if not Rect2(Vector2.ZERO,extent_px).has_point(p):continue
+			draw_line(p-normal*(width*.5-3),p+normal*(width*.5-3),Walkways.SIDEWALK_SEAM,1.6,true)
+			var highlight:=p+tangent*2
+			draw_line(highlight-normal*(width*.5-3),highlight+normal*(width*.5-3),Color(.92,.91,.85,.23),1.0,true)
+		passed+=length
+
+
 func _roads(stage: int) -> void:
 	for batch in road_batches:
 		if editor_hidden.has(int(batch.road.get("id",-1))):continue
@@ -315,13 +334,14 @@ func _roads(stage: int) -> void:
 							_dealer_curb_gaps(r, float(side))):
 						var walkway := Walkways.urban_sidewalk_center(
 							section.path, width, float(side))
-						draw_polyline(walkway, Color("99a49b"),
+						draw_polyline(walkway, Walkways.SIDEWALK_EDGE,
 							Walkways.SIDEWALK_WIDTH_PX + 16.0, true)
-						draw_polyline(walkway, Color("dedbcc"),
+						draw_polyline(walkway, Walkways.SIDEWALK_BASE,
 							Walkways.SIDEWALK_WIDTH_PX + 2.0, true)
 						var outside := Walkways.urban_sidewalk_outer(
 							section.path, width, float(side))
-						draw_polyline(outside, Color("b5b8a9"), 3.0, true)
+						draw_polyline(outside, Color("aaa99e"), 3.0, true)
+						_sidewalk_details(walkway,float(section.phase),Walkways.SIDEWALK_WIDTH_PX)
 			elif r.kind=="alley":
 				draw_polyline(path,Color("77736b"),width+10.0,true)
 			else:
@@ -526,9 +546,9 @@ func _draw() -> void:
 			for p in j.curbs[i]: corner.append(point(p))
 			if corner.size() < 2:
 				continue
-			draw_polyline(corner, Color("9ba89f"),
+			draw_polyline(corner, Walkways.SIDEWALK_EDGE,
 				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 21.0, true)
-			draw_polyline(corner, Color("dedbcc"),
+			draw_polyline(corner, Walkways.SIDEWALK_BASE,
 				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 3.0, true)
 		draw_colored_polygon(polygon,Color("58656c"))
 		if str(j.get("control",""))=="lane_transition":

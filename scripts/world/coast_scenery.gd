@@ -96,10 +96,10 @@ func _draw_sidewalk_layer(prop: Dictionary, layer_index: int) -> void:
 	var center:=point(prop.p)
 	var axes: Array=prop.get("sidewalk_scale",[1,1])
 	draw_set_transform(center,float(prop.angle),Vector2(float(axes[0]),float(axes[1])))
-	var width: float=float(prop.get("sidewalk_width",3))*PPM
+	var width: float=float(prop.get("sidewalk_width",3))*PPM*1.12
 	if layer_index<3:
 		var thickness: float=width+[6.0,2.0,-4.0][layer_index]
-		var ink: Color=[Color("#777f79"),Color("#d8d5c7"),Color("#bcbdb3")][layer_index]
+		var ink: Color=[Color("#717873"),Color("#c1bfb5"),Color("#aeb0a6")][layer_index]
 		draw_polyline(path,ink,thickness,true)
 		for p in path:
 			draw_circle(p,thickness*.5,ink)
@@ -109,7 +109,7 @@ func _draw_sidewalk_layer(prop: Dictionary, layer_index: int) -> void:
 			var n:=Vector2(-d.y,d.x)
 			for station in range(20,int(path[i].distance_to(path[i-1])),40):
 				var p: Vector2=path[i-1]+d*station
-				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#929a93"),1.0,true)
+				draw_line(p-n*(width*.5-3),p+n*(width*.5-3),Color("#858d85"),1.2,true)
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()
