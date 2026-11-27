@@ -2542,6 +2542,16 @@ func _apply_point_elevations() -> void:
 	else:_notice(authoring.last_error)
 
 
+func _convert_road_to_tunnel() -> void:
+	if not source_ready or _editing_locked():return
+	if authoring.convert_road_to_tunnel(source_id):
+		source_anchor=-1
+		road_point_profile_key=""
+		_refresh_authoring()
+		_notice("Converted the entire road to a tunnel with entry and exit ramps.")
+	else:_notice(authoring.last_error)
+
+
 func _change_road_elevation() -> void:
 	if not source_ready or _editing_locked():return
 	var elevation:={"start_layer":int(road_start_layer.value),"end_layer":int(road_end_layer.value)}

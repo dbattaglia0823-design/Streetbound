@@ -1270,6 +1270,21 @@ func apply_point_elevations(identity: String, layers: Array) -> bool:
 	return false
 
 
+func convert_road_to_tunnel(identity: String) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		var profile:=Elevation.whole_tunnel_profile(road)
+		if profile.has("error"):
+			last_error=str(profile.error)
+			return false
+		road.points=profile.points
+		road.elevation=profile.elevation
+		return _commit(next)
+	last_error="Select a road first."
+	return false
+
+
 func set_auto_guardrails(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:

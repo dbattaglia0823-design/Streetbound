@@ -13,6 +13,18 @@ func check(label: String, valid: bool) -> void:
 		errors.append(label)
 
 func _run() -> void:
+	var Elevation=preload("res://scripts/world/road_elevation.gd")
+	var DrivingCamera=preload("res://scripts/camera/driving_camera.gd")
+	var MarkerEditor=preload("res://scripts/dev/native_marker_editor.gd")
+	var sample_road: Dictionary={"roadClass":"city","surface":"asphalt","points":[{"x":100,"y":700},{"x":500,"y":700}]}
+	var tunnel: Dictionary=Elevation.whole_tunnel_profile(sample_road)
+	check("whole_tunnel_two_portals",not tunnel.has("error") and tunnel.elevation.point_layers==[0,-1,-1,0] and tunnel.points.size()==4 and sample_road.points.size()==2)
+	check("tunnel_camera_zoom_and_surface_restore",is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,0.0),1.0) and is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,-6.0),1.45) and DrivingCamera.tunnel_zoom_for(1.0,-4.5)>1.0 and DrivingCamera.tunnel_zoom_for(1.0,6.0)==1.0)
+	var cars: Array[Dictionary]=[{"id":"b","display_name":"Beta","price_usd":9},{"id":"a","display_name":"alpha","price_usd":100},{"id":"c","display_name":"Gamma","price_usd":9}]
+	check("stock_sort_az",MarkerEditor.sorted_stock(cars,0).map(func(car: Dictionary)->String:return str(car.id))==["a","b","c"])
+	check("stock_sort_za",MarkerEditor.sorted_stock(cars,1).map(func(car: Dictionary)->String:return str(car.id))==["c","b","a"])
+	check("stock_sort_price_high",MarkerEditor.sorted_stock(cars,2).map(func(car: Dictionary)->String:return str(car.id))==["a","b","c"])
+	check("stock_sort_price_low",MarkerEditor.sorted_stock(cars,3).map(func(car: Dictionary)->String:return str(car.id))==["b","c","a"] and cars[0].id=="b")
 	var session = Session.new()
 	check("authored_source_loads",session.load_source())
 	if session.doc.is_empty():

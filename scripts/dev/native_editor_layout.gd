@@ -117,6 +117,7 @@ static func build(e) -> void:
 	e.road_start_layer=e._number(e.road_elevation_controls,"Start layer",-2,2,0)
 	e.road_end_layer=e._number(e.road_elevation_controls,"End layer",-2,2,0)
 	e._btn("Apply road elevation",e.road_elevation_controls,e._change_road_elevation)
+	e._btn("Convert entire road to tunnel",e.road_elevation_controls,e._convert_road_to_tunnel).tooltip_text="Creates both approaches and a covered section on the selected paved road. Undo or apply ground layers to restore."
 	var point_toggle := CheckButton.new()
 	point_toggle.text="Individual point elevations"
 	e.road_elevation_controls.add_child(point_toggle)
