@@ -15,7 +15,7 @@ export const BIOME_COLORS={
   grass:'#728e61',forest:'#456d50',mountain:'#838578',rock:'#9e9580',
   beach:'#d9c28d',ocean:'#417f9a',lake:'#5b9aa9',city:'#95958b',desert:'#bd9e71',farmland:'#9b9d68'
 };
-export const ROAD_COLORS={asphalt:'#3d4550',concrete:'#777a7c',dirt:'#a18359',gravel:'#888476',track:'#4b505a'};
+export const ROAD_COLORS={asphalt:'#454e54',concrete:'#777a7c',dirt:'#a18359',gravel:'#888476',track:'#454e54'};
 /** Real Godot baked terrain colors. World Forge's standalone demo palette is
  * intentionally different and must not recolor the Morrow Coast shoreline. */
 export const GAME_BIOME_COLORS={
@@ -166,14 +166,14 @@ function drawRoadBase(ctx,road,points,gameSurface=false){
   const w=road.width,s=road.shoulder,cap=isLoose(road)?'butt':'round';
   if(road.roadClass==='alley'&&!isLoose(road)){
     drawRoadStroke(ctx,points,w+.5,'#77736b',[],cap);
-    drawRoadStroke(ctx,points,w,gameSurface?'#58656c':'#55595b',[],cap);
+    drawRoadStroke(ctx,points,w,'#454e54',[],cap);
     return;
   }
-  drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#6b6760',[],cap);
+  drawRoadStroke(ctx,points,w+s*2,road.surface==='dirt'?'#baa27a':road.surface==='gravel'?'#a99f8a':'#96958a',[],cap);
   drawRoadStroke(ctx,points,w+3,isLoose(road)?'#796d56bb':'#242a2e99',[],cap);
   // The playable coast draws asphalt in #58656c. Keep its paved mouths
   // and centerlines the same color to avoid visible overlay patches.
-  const pavement=gameSurface&&road.surface==='asphalt'?'#58656c':ROAD_COLORS[road.surface];
+  const pavement=gameSurface&&road.surface==='asphalt'?'#454e54':ROAD_COLORS[road.surface];
   drawRoadStroke(ctx,points,w,pavement,[],cap);
   // Kerbs belong to the junction-clipped markings pass, not the pavement.
   if(road.roadClass==='mountain'&&w>22){
@@ -192,22 +192,25 @@ function drawRoadLines(ctx,road,points){
     }
     return;
   }
-  if(!road.markings)return;
-  if(road.lanes===1){
-    drawRoadStroke(ctx,points,1.5,road.surface==='track'?'#f7f3df':'#ecdfba',[19,16]);
-  }else{
-    const dash=road.surface==='track'?[]:[16,15];
-    if(road.roadClass==='highway'){
-      drawRoadStroke(ctx,traceOffset(points,-1.5),1.7,'#e9c46e');
-      drawRoadStroke(ctx,traceOffset(points,1.5),1.7,'#e9c46e');
-    }else drawRoadStroke(ctx,points,1.7,'#f8d9a0',dash);
-    if(road.lanes>=4){
-      for(let line=1;line<road.lanes;line++)if(line!==road.lanes/2)
-        drawRoadStroke(ctx,traceOffset(points,(line/road.lanes-.5)*w),1.1,'#c9d2cb',[16,15]);
-    }
+  for(const line of roadMarkingPlan(road))
+    drawRoadStroke(ctx,traceOffset(points,line.offset),line.width,line.color,line.dash,'butt');
+}
+export function roadMarkingPlan(road){
+  if(['alley','service','track'].includes(road.roadClass)||['dirt','gravel','track'].includes(road.surface)||!road.markings)return [];
+  const w=road.width,ramp=road.roadClass==='onramp',count=ramp?1:Math.max(2,Math.min(6,road.lanes));
+  const forward=ramp?1:Math.max(1,Math.floor(count/2)),reverse=count-forward,laneWidth=w/count;
+  const divider=(reverse-forward)*laneWidth/2,fast=['highway','arterial','onramp'].includes(road.roadClass);
+  const lines=[],width=fast ? .15 : .12,dash=[3,fast?9:6],yellow='#e5be65',white='#eeeae0';
+  const add=(offset,color,pattern=[])=>lines.push({offset,color,width,dash:pattern});
+  if(forward&&reverse){
+    if(['highway','arterial','mountain'].includes(road.roadClass)){
+      add(divider-.175,yellow);add(divider+.175,yellow);
+    }else add(divider,yellow,dash);
   }
-  drawRoadStroke(ctx,traceOffset(points,-w/2+2.8),1.5,'#dce0d5b8');
-  drawRoadStroke(ctx,traceOffset(points,w/2-2.8),1.5,'#dce0d5b8');
+  for(const [dir,n] of [[1,forward],[-1,reverse]])for(let lane=1;lane<n;lane++)
+    add(divider+dir*laneWidth*lane,white,dash);
+  add(-w/2+.35,ramp?yellow:white);add(w/2-.35,white);
+  return lines;
 }
 function drawRoads(ctx,roads,bounds,options){
   // A shared derived surface plan drives preview AND road-network export.
@@ -291,7 +294,7 @@ function drawRoads(ctx,roads,bounds,options){
         // Destructuring these objects as pairs used to abort every game-map
         // render, including scenery, selection overlays and the zoom label.
         stroke(ctx,j.polygon,true);
-        ctx.fillStyle='#58656c';
+        ctx.fillStyle='#454e54';
         ctx.fill();
       }
       ctx.strokeStyle='#eee7d5';

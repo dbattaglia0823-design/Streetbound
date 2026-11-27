@@ -71,5 +71,17 @@ func run() -> void:
 			var b:=after.get_pixel(x,y)
 			error=maxf(error,absf(a.r-b.r)+absf(a.g-b.g)+absf(a.b-b.b))
 	check("chunk_partition_does_not_change_terrain_pixels",error<.01,error)
+	# Switch off only the new directional shading and compare identical land pixels.
+	(panels[0].material as ShaderMaterial).set_shader_parameter("terrain_shadow_strength",0.0)
+	for i in 3:await process_frame
+	await RenderingServer.frame_post_draw
+	var flat:=root.get_texture().get_image()
+	var shade_delta:=0.0
+	for y in range(40,278,5):
+		for x in range(20,210,5):
+			var lit:=after.get_pixel(x,y)
+			var unlit:=flat.get_pixel(x,y)
+			shade_delta=maxf(shade_delta,absf(lit.r-unlit.r)+absf(lit.g-unlit.g)+absf(lit.b-unlit.b))
+	check("directional_hill_lighting_changes_actual_ground_pixels",shade_delta>.005,shade_delta)
 	print("TERRAIN MATERIALS GPU: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

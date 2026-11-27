@@ -8,11 +8,41 @@ export const TERRAIN_COLORS=Object.freeze({grass:'#647d40',forest:'#405332',
   farmland:'#697343',city:'#87877a',dirt:'#795b3d',gravel:'#827e70'});
 export const terrainFamily=kind=>({town:'grass',meadow:'grass',sand:'beach',water:'lake',
   riverbank:'foam',field:'farmland'})[kind]||kind;
-const tiles=new Map(),patterns=new WeakMap();
+export const TERRAIN_TILE_PIXELS=1024;
+export const TERRAIN_REPEAT_M=64;
+const tiles=new Map(),patterns=new WeakMap(),hillPatterns=new WeakMap();
+export const HILL_REPEAT_M=384;
+export function hillLight(x,y){
+  // Derivatives of a periodic multi-directional height field; opposite edges
+  // match exactly. Same northwest illumination as the game.
+  const a=x*2*Math.PI,b=y*2*Math.PI;
+  const dx=.36*Math.cos(a+b*2)+.23*Math.cos(a*3-b)+.11*Math.cos(a*4+b*3);
+  const dy=.72*Math.cos(a+b*2)-.23*Math.cos(a*3-b)+.0825*Math.cos(a*4+b*3);
+  return Math.max(-1,Math.min(1,(dx*.65+dy*.76)*.92));
+}
+let hillTile=null;
+function hillPattern(ctx){
+  if(hillPatterns.has(ctx))return hillPatterns.get(ctx);
+  if(!hillTile){
+    hillTile=document.createElement('canvas');hillTile.width=hillTile.height=256;
+    const g=hillTile.getContext('2d'),data=g.createImageData(256,256);
+    for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+      const shade=hillLight((x+.5)/256,(y+.5)/256),i=(y*256+x)*4;
+      data.data[i]=shade>=0?245:21;data.data[i+1]=shade>=0?229:38;data.data[i+2]=shade>=0?174:44;
+      data.data[i+3]=Math.round(Math.abs(shade)*(shade>=0?47:76));
+    }
+    g.putImageData(data,0,0);
+  }
+  const pattern=ctx.createPattern(hillTile,'repeat');
+  if(!pattern)return null;
+  pattern.setTransform(new DOMMatrix().scale(HILL_REPEAT_M/256));
+  hillPatterns.set(ctx,pattern);return pattern;
+}
 function makeTile(kind){
   if(tiles.has(kind))return tiles.get(kind);
-  const tile=document.createElement('canvas');tile.width=tile.height=512;
+  const tile=document.createElement('canvas');tile.width=tile.height=TERRAIN_TILE_PIXELS;
   const c=tile.getContext('2d'),rand=seeded(stringSeed('streetbound-terrain-'+kind));
+  c.scale(TERRAIN_TILE_PIXELS/512,TERRAIN_TILE_PIXELS/512);
   c.fillStyle=TERRAIN_COLORS[kind]||TERRAIN_COLORS.grass;c.fillRect(0,0,512,512);
   // Wrapped soft patches remove seams at tile edges; there are no hard grids.
   for(let i=0;i<48;i++){
@@ -24,17 +54,17 @@ function makeTile(kind){
     }
   }
   const grass=['grass','forest','highland'].includes(kind);
-  for(let i=0;i<6500;i++){
+  for(let i=0;i<14000;i++){
     const x=rand()*512,y=rand()*512;
     c.fillStyle=i%2?'rgba(27,29,20,.14)':'rgba(229,220,175,.12)';
-    c.fillRect(x,y,rand()*1.4+.4,rand()*1.2+.4);
-    if(grass&&i%4===0){
+    c.fillRect(x,y,rand()*.85+.25,rand()*.85+.25);
+    if(grass&&i%5===0){
       c.strokeStyle=kind==='forest'?'rgba(131,104,61,.27)':'rgba(27,59,20,.28)';
-      c.lineWidth=.65;c.beginPath();c.moveTo(x-1,y+1);c.lineTo(x,y-2);
+      c.lineWidth=.42;c.beginPath();c.moveTo(x-1,y+1);c.lineTo(x,y-2);
       c.lineTo(x+1,y+1);c.stroke();
     }
   }
-  if(['mountain','rock'].includes(kind))for(let i=0;i<110;i++){
+  if(['mountain','rock'].includes(kind))for(let i=0;i<220;i++){
     const x=rand()*512,y=rand()*512,len=5+rand()*28;
     c.lineWidth=1.2;c.strokeStyle='rgba(34,35,29,.25)';c.beginPath();
     c.moveTo(x,y);c.lineTo(x+len*.55,y-len*.3);c.lineTo(x+len,y-len*.13);c.stroke();
@@ -51,7 +81,7 @@ function makeTile(kind){
       c.stroke();
     }
   }
-  if(['ocean','lake','foam'].includes(kind))for(let i=0;i<160;i++){
+  if(['ocean','lake','foam'].includes(kind))for(let i=0;i<260;i++){
     const x=rand()*512,y=rand()*512,len=3+rand()*13;
     c.strokeStyle=kind==='foam'?'rgba(245,245,215,.32)':'rgba(186,216,207,.20)';
     c.lineWidth=.5+rand()*.6;c.beginPath();c.moveTo(x,y);
@@ -69,11 +99,17 @@ export function textureTerrain(ctx,kind){
     let cache=patterns.get(ctx);if(!cache){cache=new Map();patterns.set(ctx,cache);}
     if(!cache.has(kind)){
       const pattern=ctx.createPattern(makeTile(kind),'repeat');
-      pattern.setTransform(new DOMMatrix().scale(64/512));cache.set(kind,pattern);
+      pattern.setTransform(new DOMMatrix().scale(TERRAIN_REPEAT_M/TERRAIN_TILE_PIXELS));cache.set(kind,pattern);
     }
     ctx.fillStyle=cache.get(kind);
   }
-  ctx.fill();return true;
+  ctx.fill();
+  const strength=({grass:.65,forest:.82,highland:1,mountain:1,rock:.95,desert:.46,beach:.18,farmland:.22,dirt:.50,gravel:.46,city:.08})[kind]||0;
+  if(strength&&Math.hypot(transform.a,transform.b)>=.08){
+    const hill=hillPattern(ctx);
+    if(hill){ctx.save();ctx.globalAlpha*=strength;ctx.fillStyle=hill;ctx.fill();ctx.restore();}
+  }
+  return true;
 }
 export function textureTerrainRect(ctx,kind,x,y,w,h){
   if(typeof document==='undefined'||typeof document.createElement!=='function'||typeof DOMMatrix==='undefined')return false;

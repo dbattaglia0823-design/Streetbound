@@ -40,3 +40,13 @@
 - Phase 8: opt-in co-op stock robbery director with host getaway car, shared physical objectives, individual split reward receipts, online race reputation, protocol 12 and regression tests. Host-only pursuit/cooldown; no NPC specialist bonuses or reconnect resume. CI and real multiplayer testing pending.
 
 - Compact HUD refresh: minimal minimap frame, pause-only progression, integrated real HP/fuel, contextual service feedback and dynamic pursuit/contract cards. Preserved full atlas and network-specific wanted indicators; regression assertions updated. CI/live layout verification pending.
+
+- On-ramp authoring: explicit one-way paved road class, terminal right-side merge, directional outside-lane connectors, yield control, no crosswalk/signal at merge, browser/native options and bake/graph tests. Existing map unchanged. CI and driving verification pending.
+
+- Per-end connection modes allow undoable Intersection/On-ramp/Automatic changes on existing and future branch roads in both editors, without altering points or dimensions. Split through-road approaches supported. Invalid junction geometry rejects bake. CI pending.
+
+- Road artwork refresh: charcoal asphalt, stronger world-space grain, refined wear/shoulders, metric lane paint, junction controls, native and browser preview. No geometry/physics changes. CI and GPU validation pending.
+
+- Terrain fidelity: higher-frequency filtered biome materials, slope-aware regional relief, denser bounded mountain meshes with smooth vertex lighting, sharper cliffs, detailed custom water, and 1024² editor material tiles. Original map and collision data untouched; CI and GPU review pending.
+
+- Directional terrain lighting and shadows: world-aligned hill normals, regional elevation horizon occlusion, soft mountain/cliff shadows and matching browser direction; all visual only. Added shader and editor regression coverage, GPU verification pending.

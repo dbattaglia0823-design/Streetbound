@@ -134,6 +134,8 @@ def make_archive(doc):
         surface = str(item.get("surface","asphalt")).upper()
         if surface not in ("ASPHALT","CONCRETE","TRACK","GRAVEL","DIRT"):
             raise ValueError("Unknown road surface")
+        if kind == "onramp" and (surface not in ("ASPHALT","CONCRETE") or item.get("lanes",2)!=1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surface == "TRACK":
             kind = "track"
         elif surface == "GRAVEL" and kind != "alley":
@@ -146,6 +148,10 @@ def make_archive(doc):
             start=names[0],end=names[1],kind=kind,grade=0,
             lanes=lanes,width=road_width,surface=surface if surface in ("GRAVEL","DIRT") else "ASPHALT",
             anchors=anchors,points=road_points))
+        for key in ("junctionStart","junctionEnd"):
+            if item.get(key,"auto") not in ("auto","intersection","merge"):
+                raise ValueError("Invalid road junction mode")
+            if key in item: roads[-1][key]=item[key]
         for a,b in zip(road_points,road_points[1:]):
             if distance(a,b)<.001:
                 continue

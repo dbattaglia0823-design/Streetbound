@@ -56,6 +56,13 @@ func run() -> void:
 	check("mountain_art_follows_chunk_streaming",rendered>=2,rendered)
 	var cache: Dictionary={};var first:=Geometry.bundle(concave,cache)
 	check("mountain_has_real_shaded_peak_geometry",first.triangles>12 and first.mesh.get_surface_count()>0,first.triangles)
+	check("mountain_sampling_is_bounded_and_denser",Geometry.DETAIL_SPACING_M==12.0 and int(first.grid_samples)<=int(Geometry.DETAIL_SAMPLE_BUDGET) and int(first.samples)>12)
+	var arrays: Array=first.mesh.surface_get_arrays(0)
+	var shades: PackedColorArray=arrays[Mesh.ARRAY_COLOR]
+	var blended:=false
+	for i in range(0,shades.size()-2,3):
+		if shades[i]!=shades[i+1] or shades[i+1]!=shades[i+2]:blended=true;break
+	check("mountain_vertices_have_smooth_shading",blended)
 	var translated:=concave.duplicate(true)
 	for p in translated.points:p[0]+=100;p[1]+=20
 	check("moving_a_mountain_reuses_its_cached_mesh",Geometry.bundle(translated,cache).mesh==first.mesh)

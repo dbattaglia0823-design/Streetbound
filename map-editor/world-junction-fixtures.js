@@ -1,7 +1,7 @@
 /** Decorative, unlit fixtures. This module never changes traffic permissions. */
 export function junctionFixtures(junctions,roads=[]){
   const result=[];
-  for(const j of junctions)for(const arm of j.approaches||[]){
+  for(const j of junctions.filter(j=>j.kind!=="merge"&&j.control!=="merge"))for(const arm of j.approaches||[]){
     if(arm.p&&arm.direction){result.push({p:{x:arm.p[0],y:arm.p[1]},d:{x:arm.direction[0],y:arm.direction[1]},width:arm.width});continue;}
     if(!arm.tangent)continue;
     const road=roads.find(r=>r.id===arm.id),ends=road?.points;

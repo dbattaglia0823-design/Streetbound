@@ -25,12 +25,12 @@ const endpoints=(road)=>[
 export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
   const target=doc.roads.find(r=>r.id===roadId);
   if(!target)throw new TypeError('Select a road to join');
-  if(closed(target))return {doc,joined:false,roadId};
+  if(closed(target)||target.junctionStart||target.junctionEnd||target.roadClass==='onramp')return {doc,joined:false,roadId};
   if(!Number.isFinite(radius)||radius<0||radius>40)throw new RangeError('Invalid snap radius');
   const possibilities=[];
   for(const a of endpoints(target)){
     for(const road of doc.roads){
-      if(road.id===target.id||closed(road)||!compatible(target,road))continue;
+      if(road.id===target.id||closed(road)||road.junctionStart||road.junctionEnd||road.roadClass==='onramp'||!compatible(target,road))continue;
       for(const b of endpoints(road)){
         const gap=distance(a.point,b.point);
         if(gap>radius)continue;
@@ -79,6 +79,7 @@ export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
   const road=doc.roads.find(r=>r.id===roadId);
   if(!road)throw new TypeError('Select a road to split');
   if(doc.roads.length>=180)throw new RangeError('Maximum 180 roads reached');
+  if(road.junctionStart||road.junctionEnd||road.roadClass==='onramp')throw new RangeError('Reset junction modes to Automatic before splitting this road');
   if(closed(road))throw new RangeError('Open the loop by deleting its closing point before splitting');
   let points=road.points.slice(),index;
   if(typeof at==='number'){

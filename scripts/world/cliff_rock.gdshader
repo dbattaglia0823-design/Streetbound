@@ -11,7 +11,11 @@ void fragment() {
 	float is_rock=smoothstep(.24,.38,COLOR.r);
 	float broad=noise(UV*vec2(1.2,6.0));
 	float strata=sin(UV.y*42.0+noise(UV*vec2(.8,2.0))*5.0)*.025;
-	float grain=noise(UV*vec2(27.0,55.0))-.5;
+	vec2 grain_uv=UV*vec2(37.0,75.0);
+	float grain=(noise(grain_uv)-.5)*(1.0-smoothstep(.45,1.4,length(fwidth(grain_uv))));
+	vec2 micro_uv=UV*vec2(140.0,180.0);
+	float micro=(noise(micro_uv)-.5)*(1.0-smoothstep(.4,1.2,length(fwidth(micro_uv))));
+	float strata_fade=1.0-smoothstep(.5,1.5,length(fwidth(UV*42.0)));
 	float crack=1.0-smoothstep(.03,.09,abs(noise(UV*vec2(5.0,1.1))-.5));
-	COLOR.rgb+=(vec3((broad-.5)*.13+strata+grain*.055-crack*.055))*is_rock;
+	COLOR.rgb+=(vec3((broad-.5)*.17+strata*strata_fade+grain*.10+micro*.075-crack*.07))*is_rock;
 }
