@@ -132,6 +132,11 @@ static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_
 			var at:=area.position+Vector2(0,(y+.5)*block)
 			roads.append(_road(id,at,at+Vector2(extent.x,0),6,1,true));id+=1
 	if doc.roads.size()+roads.size()>road_limit:return _error("Not enough remaining road capacity.")
+	if bool(settings.get("connect",false)):
+		var link:=_grid_link(doc,roads,area,width,lanes,id)
+		if link.is_empty():return _error("No clear, compatible ground road endpoint within 300 m of the grid.")
+		roads.append(link)
+		if doc.roads.size()+roads.size()>road_limit:return _error("Not enough room for the grid connector.")
 	var draft:=doc.duplicate(false)
 	draft.roads=doc.roads+roads
 	var props: Array=[]
@@ -149,10 +154,33 @@ static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_
 						if rng.randf()>density:continue
 						var kind: String=palette[rng.randi_range(0,palette.size()-1)]
 						var scale:=rng.randf_range(.85,1.1)
-						var setback:=width*.5+5+SIZES[kind].length()*.5*scale
+						var setback: float=width*.5+8+Vector2(SIZES[kind]).length()*.5*scale
 						var p:=base+Vector2((n+.5)*block/count,setback if side==0 else block-setback)
 						_place(draft,index,props,kind,p,0.0 if side==0 else 180.0,scale,prop_limit)
-	return {"roads":roads,"props":props,"area":area,"label":"City grid"}
+	if bool(settings.get("sidewalks",false)):
+		for y in rows:
+			for x in columns:
+				var base:=area.position+Vector2(x,y)*block
+				var inset:=width*.5+3.5
+				var corner:=width*.5+8.0
+				for dy in [inset,block-inset]:
+					props.append(_walk(base+Vector2(corner,dy),base+Vector2(block-corner,dy)))
+				for dx in [inset,block-inset]:
+					if alleys:
+						props.append(_walk(base+Vector2(dx,corner),base+Vector2(dx,block*.5-7)))
+						props.append(_walk(base+Vector2(dx,block*.5+7),base+Vector2(dx,block-corner)))
+					else:props.append(_walk(base+Vector2(dx,corner),base+Vector2(dx,block-corner)))
+		if doc.props.size()+props.size()>prop_limit:return _error("Not enough scenery capacity for the sidewalks.")
+	var regions: Array=[]
+	if bool(settings.get("plots",false)):
+		if doc.regions.size()+columns*rows>220:return _error("Building plots exceed terrain region capacity.")
+		var inset:=width*.5+6
+		for y in rows:
+			for x in columns:
+				var p:=area.position+Vector2(x,y)*block+Vector2.ONE*inset
+				var size:=Vector2.ONE*(block-2*inset)
+				regions.append({"name":"Building plot","biome":"city","points":[_point(p),_point(p+Vector2(size.x,0)),_point(p+size),_point(p+Vector2(0,size.y))]})
+	return {"roads":roads,"props":props,"regions":regions,"area":area,"label":"City grid"}
 
 static func plan_district(doc: Dictionary,center: Vector2,settings: Dictionary,prop_limit: int) -> Dictionary:
 	if not doc.get("customMap",false):return _error("District generation is initially available on custom maps only.")
@@ -184,7 +212,7 @@ static func plan_roadside(doc: Dictionary,road_id: String,settings: Dictionary,p
 	var spacing:=clampf(float(settings.get("spacing",40)),15,150)
 	var kind:=str(settings.get("decoration","streetlight"))
 	if kind not in ["streetlight","tree","sign"]:return _error("Unsupported decoration.")
-	var offset:=float(road.width)*.5+float(road.get("shoulder",2))+SIZES[kind].length()*.5+5.0
+	var offset: float=float(road.width)*.5+float(road.get("shoulder",2))+Vector2(SIZES[kind]).length()*.5+5.0
 	var station:=spacing*.5;var travelled:=0.0
 	for i in range(1,path.size()):
 		var a:=path[i-1];var b:=path[i]
@@ -198,3 +226,78 @@ static func plan_roadside(doc: Dictionary,road_id: String,settings: Dictionary,p
 			station+=spacing
 		travelled+=span
 	return {"roads":[],"props":props,"area":_bounds(path),"label":"Roadside decoration"}
+
+static func _walk(a: Vector2,b: Vector2) -> Dictionary:
+	var center: Vector2=(a+b)*.5
+	var extent: Vector2=(b-a).abs()+Vector2.ONE*2.0
+	return {"name":"Block sidewalk","type":"sidewalk","assetId":"","x":center.x,"y":center.y,
+		"rotation":0.0,"scale":1.0,"assetSize":[extent.x,extent.y],"sidewalkWidth":2.0,
+		"sidewalkPoints":[[a.x-center.x,a.y-center.y],[b.x-center.x,b.y-center.y]]}
+
+static func _grid_link(doc: Dictionary,roads: Array,area: Rect2,width: float,lanes: int,id: int) -> Dictionary:
+	var index:=_index(doc)
+	var best:=300.0
+	var result: Dictionary={}
+	for old in doc.roads:
+		if old.has("elevation") or old.has("jump") or str(old.surface) in ["gravel","dirt"]:continue
+		for end in [0,old.points.size()-1]:
+			var p:=Vector2(old.points[end].x,old.points[end].y)
+			var neighbour: int=1 if end==0 else old.points.size()-2
+			var outward: Vector2=(p-Vector2(old.points[neighbour].x,old.points[neighbour].y)).normalized()
+			for road in roads:
+				if road.roadClass=="alley":continue
+				for raw in road.points:
+					var q:=Vector2(raw.x,raw.y)
+					var delta:=q-p
+					var distance:=delta.length()
+					if distance<30 or distance>=best or delta.normalized().dot(outward)<.8:continue
+					var entry: Vector2=q-delta.normalized()*15
+					if area.has_point(entry):continue
+					var clear:=true
+					var steps:=ceili(distance/5.0)
+					for i in range(1,steps):
+						var at:=p.lerp(q,float(i)/steps)
+						if at.distance_to(p)<maxf(width,float(old.width))+8:continue
+						if not _free(index,at,width*.5+2) or _blocked_terrain(doc,Rect2(at-Vector2.ONE*width*.5,Vector2.ONE*width)):
+							clear=false;break
+					if clear:
+						best=distance;result=_road(id,p,q,width,lanes)
+	return result
+
+static func _vacant(doc: Dictionary,area: Rect2) -> bool:
+	if not Rect2(Vector2.ZERO,Vector2(doc.world.width,doc.world.height)).encloses(area) or _blocked_terrain(doc,area):return false
+	for road in doc.roads:
+		if _bounds(Session.road_path(road)).grow(float(road.width)*.5+4).intersects(area,true):return false
+	for prop in doc.props:
+		if bool(prop.get("hidden",false)):continue
+		var p:=Vector2(prop.x,prop.y);var radius:=_prop_radius(prop)
+		if Rect2(p-Vector2.ONE*radius,Vector2.ONE*radius*2).intersects(area,true):return false
+	return true
+
+static func _grade_road(id: int,a: Vector2,b: Vector2,width: float,lanes: int,start: int,end: int,name: String) -> Dictionary:
+	var road:=_road(id,a,b,width,lanes)
+	road.name=name
+	if start!=0 or end!=0:road.elevation={"start_layer":start,"end_layer":end}
+	return road
+
+static func plan_interchange(doc: Dictionary,center: Vector2,settings: Dictionary,limit: int) -> Dictionary:
+	if not doc.get("customMap",false):return _error("Use a custom map for interchange generation.")
+	var span:=clampf(float(settings.get("interchange_span",240)),180,500)
+	var style:=str(settings.get("interchange","diamond"))
+	if style not in ["diamond","half diamond","three way"]:return _error("Unknown interchange template.")
+	var area:=Rect2(center-Vector2.ONE*(span+35),Vector2.ONE*(span+35)*2)
+	if not _vacant(doc,area):return _error("Interchange needs a clear area inside the map.")
+	var roads: Array=[]
+	var id:=_next_road(doc)
+	var left:=center+Vector2(-span,0);var right:=center+Vector2(span,0)
+	var main:=_grade_road(id,left,right,24,4,1,1,"Elevated highway")
+	main.roadClass="highway";roads.append(main);id+=1
+	var north:=center+Vector2(0,-span);var south:=center+Vector2(0,span)
+	var local_end:=center if style=="three way" else south
+	roads.append(_grade_road(id,north,local_end,12,2,0,0,"Cross street"));id+=1
+	var ends: Array=[north] if style in ["half diamond","three way"] else [north,south]
+	for target in ends:
+		for origin in [left,right]:
+			roads.append(_grade_road(id,origin,target,8,2,1,0,"Grade connector"));id+=1
+	if doc.roads.size()+roads.size()>limit:return _error("Not enough remaining road capacity.")
+	return {"roads":roads,"props":[],"area":area,"label":style.capitalize()+" interchange"}

@@ -88,6 +88,10 @@ func _run() -> void:
 	check("grid_rejects_out_of_bounds",City.plan_grid(city_session.doc,Vector2(10,10),config,360,8000).has("error"))
 	var district: Dictionary=City.plan_district(city_session.doc,Vector2(900,900),config,8000)
 	check("district_generation",district.props.size()>0 and not city_session.apply_construction(district).is_empty())
+	var interchange: Dictionary=City.plan_interchange(city_before,Vector2(900,900),{"interchange":"diamond"},360)
+	check("diamond_interchange_has_grade_connectors",not interchange.has("error") and interchange.roads.size()==6 and interchange.roads[0].elevation.start_layer==1)
+	var complete_grid: Dictionary=City.plan_grid(city_before,Vector2(900,900),config.merged({"sidewalks":true,"plots":true}),360,8000)
+	check("grid_generates_sidewalks_and_plots",not complete_grid.has("error") and complete_grid.regions.size()==4 and complete_grid.props.any(func(p: Dictionary)->bool:return p.type=="sidewalk"))
 	var bulk_session=Session.new()
 	check("bulk_fixture_loads",bulk_session.load_source())
 	var bulk_ids: Array[String]=["road-0","road-1"]

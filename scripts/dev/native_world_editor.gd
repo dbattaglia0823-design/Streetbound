@@ -2796,7 +2796,7 @@ func _open_construction() -> void:
 		construction_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 		root_ui.add_child(construction_dialog)
 		var panel:=VBoxContainer.new();construction_dialog.add_child(panel)
-		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration"])
+		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange"])
 		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
 		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
 		construction_fields["columns"]=_number(dimensions,"Columns",1,12,3)
@@ -2808,6 +2808,10 @@ func _open_construction() -> void:
 		construction_fields["seed"]=_number(panel,"Layout seed",0,2147483647,1847)
 		var buildings:=CheckBox.new();buildings.text="Fill blocks with buildings";buildings.button_pressed=true;panel.add_child(buildings);construction_fields["buildings"]=buildings
 		var alleys:=CheckBox.new();alleys.text="Add central alleyways";panel.add_child(alleys);construction_fields["alleys"]=alleys
+		for option in [["connect","Connect to existing road"],["sidewalks","Add block sidewalks"],["plots","Add editable building plots"]]:
+			var toggle:=CheckBox.new();toggle.text=option[1];panel.add_child(toggle);construction_fields[option[0]]=toggle
+		construction_fields["interchange"]=_options(panel,"Interchange template",["diamond","half diamond","three way"])
+		construction_fields["interchange_span"]=_number(panel,"Interchange half-span m",180,500,240)
 		construction_fields["decoration"]=_options(panel,"Roadside decoration",["streetlight","tree","sign"])
 		construction_fields["spacing"]=_number(panel,"Decoration spacing m",15,150,40)
 		construction_summary=Label.new();construction_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -2840,13 +2844,14 @@ func _preview_construction() -> void:
 		"city grid":construction_plan=Construction.plan_grid(authoring.doc,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
 		"district fill":construction_plan=Construction.plan_district(authoring.doc,construction_center,settings,authoring.prop_limit())
 		"roadside decoration":construction_plan=Construction.plan_roadside(authoring.doc,construction_road_id,settings,authoring.prop_limit())
+		"interchange":construction_plan=Construction.plan_interchange(authoring.doc,construction_center,settings,authoring.road_limit())
 	if construction_plan.has("error"):
 		construction_summary.text=str(construction_plan.error)
 		construction_dialog.get_ok_button().disabled=true
 		return
 	construction_revision=authoring.edit_revision;construction_session=authoring
-	var count: int=construction_plan.roads.size()+construction_plan.props.size()
-	construction_summary.text="%s: %d roads and %d scenery objects. Existing objects will be preserved. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size()]
+	var count: int=construction_plan.roads.size()+construction_plan.props.size()+construction_plan.get("regions",[]).size()+construction_plan.get("markers",[]).size()
+	construction_summary.text="%s: %d roads, %d scenery, %d plots, %d gameplay markers. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size(),construction_plan.get("regions",[]).size(),construction_plan.get("markers",[]).size()]
 	construction_dialog.get_ok_button().disabled=count==0
 
 func _apply_construction() -> void:
