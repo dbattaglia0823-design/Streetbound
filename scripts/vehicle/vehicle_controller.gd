@@ -279,8 +279,11 @@ func reconcile_road_contact(road_id: int, height_m: float) -> bool:
 	return true
 
 
+func can_reach_road_layer(layer: int) -> bool:
+	return absi(layer)<=Elevation.MAX_LAYER and not is_airborne() and absf(elevation_m-float(layer)*Elevation.HEIGHT_M)<.65
+
 func can_reach_ground_marker() -> bool:
-	return not is_airborne() and absf(elevation_m) < .65
+	return can_reach_road_layer(0)
 
 
 func _elevation_motion(motion: Vector2) -> Vector2:

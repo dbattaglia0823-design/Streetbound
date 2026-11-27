@@ -1,4 +1,5 @@
 extends Node2D
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Vehicle-only world contracts. No player avatars or building interiors.
 ## Uses authoritative map markers, the existing police pursuit, shared car
 ## collection and real road-route planner, rather than custom teleport jobs.
@@ -168,7 +169,8 @@ func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "
 	var props := {
 		"contract_kind":str(selected.get("kind","courier")),
 		"destination_marker_id":str(selected.get("destination_marker_id","")),
-		"radius_m":clampf(float(contact.get("properties",{}).get("radius_m",12.0)),4.0,50.0)
+		"radius_m":clampf(float(contact.get("properties",{}).get("radius_m",12.0)),4.0,50.0),
+		"road_layer":ObjectiveLayer.marker_layer(contact)
 	}
 	if str(selected.get("kind","")) == "robbery":
 		props["robbery_marker_id"] = str(selected.get("robbery_marker_id",""))
@@ -204,7 +206,8 @@ func _waypoints() -> Node:
 	var candidate: Node = map_hud.get("waypoints")
 	return candidate if is_instance_valid(candidate) else null
 
-func _road_accessible(position_m: Vector2) -> bool:
+func _road_accessible(position_m: Vector2, layer: int=0) -> bool:
+	if layer!=0:return ObjectiveLayer.supported(world,position_m,layer)
 	if not is_instance_valid(world) or not world.has_method("nearest_road_at"):
 		return false
 	var road: Dictionary = world.call("nearest_road_at",position_m * PPM, 28.0)
@@ -252,11 +255,11 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 				return {"result":"unavailable","message":Rules.availability_text(availability)}
 	var next_stop: Dictionary = robbery if kind == "robbery" else target
 	var target_pos := Vector2(float(next_stop.x),float(next_stop.y))
-	if not player.can_reach_ground_marker() or player.global_position.distance_to(source_pos * PPM) > clampf(
+	if not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(source)) or player.global_position.distance_to(source_pos * PPM) > clampf(
 			float(props.get("radius_m",12.0)),4.0,50.0) * PPM:
 		return {"result":"out_of_range"}
-	if not _road_accessible(source_pos) or not _road_accessible(target_pos) or \
-			(kind=="robbery" and not _road_accessible(Vector2(float(target.x),float(target.y)))):
+	if not _road_accessible(source_pos,ObjectiveLayer.marker_layer(source)) or not _road_accessible(target_pos,ObjectiveLayer.marker_layer(next_stop)) or \
+			(kind=="robbery" and not _road_accessible(Vector2(float(target.x),float(target.y)),ObjectiveLayer.marker_layer(target))):
 		return {"result":"offroad","message":"The pickup and dropoff must be close to drivable roads"}
 	var guide := _waypoints()
 	if not is_instance_valid(guide):
@@ -266,18 +269,18 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 	if planner == null:
 		return {"result":"navigation_unavailable"}
 	var route: Dictionary = planner.call("plan",player.global_position / PPM,
-		target_pos, Vector2.UP.rotated(player.rotation))
+		target_pos, Vector2.UP.rotated(player.rotation),"","",player.road_layer,ObjectiveLayer.marker_layer(next_stop))
 	if route.is_empty():
 		return {"result":"unreachable","message":"No connected road route to that dropoff"}
 	if not Rules.valid_kind(kind):
 		return {"result":"invalid"}
 	if kind=="robbery":
 		var escape_route: Dictionary=planner.call("plan",target_pos,
-			Vector2(float(target.x),float(target.y)),Vector2.UP)
+			Vector2(float(target.x),float(target.y)),Vector2.UP,"","",ObjectiveLayer.marker_layer(robbery),ObjectiveLayer.marker_layer(target))
 		if escape_route.is_empty():
 			return {"result":"unreachable","message":"Robbery drop-off is disconnected from the target"}
 	var heat: int = Rules.configured_wanted(kind,authored_offer)
-	if not bool(guide.call("set_destination",target_pos, str(next_stop.get("name","Contract destination")))):
+	if not bool(guide.call("set_destination",target_pos, str(next_stop.get("name","Contract destination")),ObjectiveLayer.marker_layer(next_stop))):
 		return {"result":"navigation_unavailable"}
 	if heat > 0 and kind != "robbery" and not bool(police.call("start_pursuit",heat)):
 		guide.call("clear_destination")
@@ -398,7 +401,7 @@ func _physics_process(dt: float) -> void:
 	if stage == "robbery":
 		var robbery_pos := Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM
 		var robbery_distance := player.global_position.distance_to(robbery_pos) / PPM
-		if player.can_reach_ground_marker() and Rules.arrived(robbery_distance,player.linear_velocity.length(),
+		if ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(robbery_target)) and Rules.arrived(robbery_distance,player.linear_velocity.length(),
 				Rules.configured_arrival_radius(offer_settings)):
 			robbery_progress += dt
 		else:
@@ -423,13 +426,13 @@ func _physics_process(dt: float) -> void:
 			var guide := _waypoints()
 			if is_instance_valid(guide):
 				guide.call("set_destination",Vector2(float(destination.x),float(destination.y)),
-					str(destination.get("name","Getaway dropoff")))
+					str(destination.get("name","Getaway dropoff")),ObjectiveLayer.marker_layer(destination))
 			notice = "CREW ON BOARD / EVADE POLICE"
 			notice_seconds = 4.0
 		return
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
-	if not player.can_reach_ground_marker() or not Rules.arrived(dist_m, player.linear_velocity.length(),
+	if not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(destination)) or not Rules.arrived(dist_m, player.linear_velocity.length(),
 			Rules.configured_arrival_radius(offer_settings)):
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))

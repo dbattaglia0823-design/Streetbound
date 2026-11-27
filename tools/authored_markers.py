@@ -28,6 +28,9 @@ def validate_markers(markers,races,dealers,width,height):
             if type(at) not in (int,float) or not math.isfinite(at) or not 0<=at<=bound:
                 raise ValueError('Invalid marker position')
         info=marker.get('properties',{})
+        layer=info.get('road_layer',0) if isinstance(info,dict) else 0
+        if type(layer) not in (int,float) or layer not in range(-2,3):raise ValueError('Invalid marker road layer')
+        if layer and marker['type'] not in ('contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'):raise ValueError('Marker type requires ground level')
         if not isinstance(info,dict):raise ValueError('Marker properties must be an object')
         if not isinstance(info.get('description',''),str) or len(info.get('description',''))>500:
             raise ValueError('Invalid marker help text')

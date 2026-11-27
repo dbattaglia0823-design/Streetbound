@@ -1,4 +1,5 @@
 extends Node
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 signal changed
 const Network=preload("res://scripts/world/traffic_network.gd")
 const Planner=preload("res://scripts/world/road_route_planner.gd")
@@ -9,6 +10,7 @@ var planner:=Planner.new()
 var active:=false
 var destination_m:=Vector2.ZERO
 var destination_name:="Waypoint"
+var destination_layer:=0
 var navigation: RefCounted
 var remaining_m:=0.0
 var destination_access_m:=0.0
@@ -24,10 +26,11 @@ func _ready() -> void:
 	var graph:=Network.new();graph.build(world.data,true)
 	planner.setup(graph,world.data)
 
-func set_destination(point_m: Vector2,title: String="Waypoint") -> bool:
+func set_destination(point_m: Vector2,title: String="Waypoint", layer: int=0) -> bool:
+	if not ObjectiveLayer.valid_layer(layer):return false
 	var extent:=Vector2(world.data.size[0],world.data.size[1])
 	if not point_m.is_finite() or not Rect2(Vector2.ZERO,extent).has_point(point_m):return false
-	destination_m=point_m;destination_name=title;active=true;_clock=0
+	destination_m=point_m;destination_name=title;destination_layer=layer;active=true;_clock=0
 	_reroute()
 	return true
 
@@ -36,7 +39,7 @@ func clear_destination() -> void:
 	changed.emit()
 
 func _reroute() -> void:
-	var result:=planner.plan(player.global_position/20,destination_m,Vector2.UP.rotated(player.rotation),"","",player.road_layer,0)
+	var result:=planner.plan(player.global_position/20,destination_m,Vector2.UP.rotated(player.rotation),"","",player.road_layer,destination_layer)
 	navigation=null;_last_station=0;destination_access_m=0;route_revision+=1;_retry_clock=2.0
 	if result.is_empty():
 		remaining_m=player.global_position.distance_to(destination_m*20)/20
@@ -59,7 +62,7 @@ func _process(dt: float) -> void:
 		if str(race.get("state")) in ["countdown","running"]:suspended=true;break
 	if suspended:return
 	var position_m:=player.global_position/20
-	if player.can_reach_ground_marker() and position_m.distance_to(destination_m)<=16:
+	if ObjectiveLayer.matches(player,destination_layer) and position_m.distance_to(destination_m)<=16:
 		active=false;navigation=null;remaining_m=0;destination_access_m=0;status="Arrived · "+destination_name;route_revision+=1
 		changed.emit();return
 	if navigation==null:

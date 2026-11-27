@@ -36,7 +36,9 @@ def authored_races(doc,width,height):
             x,y=p.get('x'),p.get('y')
             if any(type(v) not in (int,float) or not math.isfinite(v) for v in (x,y)) or not 0<=x<=width or not 0<=y<=height:raise ValueError('Race checkpoint outside map')
             if clean and math.hypot(x-clean[-1]['x'],y-clean[-1]['y'])<5:raise ValueError('Race checkpoints must be at least 5 m apart')
-            clean.append({'x':float(x),'y':float(y)})
+            layer=p.get('road_layer',0)
+            if type(layer) not in (int,float) or layer not in range(-2,3):raise ValueError('Invalid race checkpoint road layer')
+            clean.append({'x':float(x),'y':float(y),**({'road_layer':int(layer)} if layer else {})})
         entry={'id':identity,'name':name.strip(),'mode':mode,'points':clean}
         if kind is not None:entry['race_kind']=kind
         for key,low,high,default in [('laps',1,20,1),('checkpoint_radius',4,60,16),('start_radius',3,30,8),('time_limit',0,7200,0)]:

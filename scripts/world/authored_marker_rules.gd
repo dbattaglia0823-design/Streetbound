@@ -1,4 +1,5 @@
 extends RefCounted
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Canonical map marker schema. Existing saved landmarks with no properties
 ## remain valid; playable marker types acquire typed optional links.
 const TYPES=["player_spawn","garage","dealership","mission","fast_travel",
@@ -12,6 +13,8 @@ static func valid(marker: Dictionary) -> bool:
 	if str(marker.get("name","")).length()>120:return false
 	var properties: Variant=marker.get("properties",{})
 	if not properties is Dictionary:return false
+	if not ObjectiveLayer.valid_layer(properties.get("road_layer",0)):return false
+	if int(properties.get("road_layer",0))!=0 and kind not in ObjectiveLayer.MARKER_TYPES:return false
 	if properties.has("description") and (not properties.description is String or str(properties.description).length()>500):return false
 	for field in ["race_id","dealer_id","required_race"]:
 		if properties.has(field):

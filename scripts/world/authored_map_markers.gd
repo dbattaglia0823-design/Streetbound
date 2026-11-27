@@ -1,4 +1,5 @@
 extends Node2D
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## In-world triggers for saved World Builder markers. Uses the actual car,
 ## garage selector, race coordinator, dealerships, and streamed road network.
 ## No duplicate economy, no fake race completion and no off-road fast travel.
@@ -132,12 +133,12 @@ func _is_busy() -> bool:
 	return false
 
 func nearest_marker() -> Dictionary:
-	if not is_instance_valid(player) or not player.can_reach_ground_marker():return {}
+	if not is_instance_valid(player):return {}
 	var closest:=INF
 	var found: Dictionary={}
 	for marker in markers:
 		if str(marker.type) in ["player_spawn","traffic_spawn","contract_dropoff","robbery_target"]:continue
-		if not _enabled(marker):continue
+		if not _enabled(marker) or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(marker)):continue
 		var radius:=float(marker.get("properties",{}).get("radius_m",12.0))
 		var distance: float=player.global_position.distance_to(_point(marker)*PPM)/PPM
 		if distance<=radius and distance<closest:
@@ -190,7 +191,7 @@ func _linked_race(id: String) -> Node2D:
 	return null
 
 func activate() -> void:
-	if get_tree().paused or _nearby.is_empty() or _is_busy() or not player.can_reach_ground_marker() or \
+	if get_tree().paused or _nearby.is_empty() or _is_busy() or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(_nearby)) or \
 			not InteractionSpeed.allowed(player.linear_velocity.length()):return
 	var kind: String=str(_nearby.type)
 	var properties: Dictionary=_nearby.get("properties",{})
@@ -247,7 +248,7 @@ func activate() -> void:
 		"race_start","checkpoint","finish","custom":
 			var race:=_linked_race(str(properties.get("race_id","")))
 			if race!=null and is_instance_valid(map_hud) and is_instance_valid(map_hud.waypoints):
-				map_hud.waypoints.set_destination(race.start_m,str(race.race_title))
+				map_hud.waypoints.set_destination(race.start_m,str(race.race_title),ObjectiveLayer.point_layer(race.definition.points[0]))
 			else:
 				_show_info(_nearby,"This marker is available as a map landmark. Link a race to navigate to its start.")
 

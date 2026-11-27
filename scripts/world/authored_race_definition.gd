@@ -1,4 +1,5 @@
 extends RefCounted
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Metre-space authoring contract shared by editor and race runtime.
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
@@ -31,6 +32,7 @@ static func valid(race: Dictionary,width: float,height: float) -> bool:
 	if not points is Array or points.size()<(3 if race.mode=="circuit" else 2) or points.size()>100:return false
 	for i in points.size():
 		if not points[i] is Dictionary:return false
+		if not ObjectiveLayer.valid_layer(points[i].get("road_layer",0)):return false
 		var p:=Vector2(float(points[i].get("x",-1)),float(points[i].get("y",-1)))
 		if not p.is_finite() or p.x<0 or p.y<0 or p.x>width or p.y>height:return false
 		if i>0 and p.distance_to(Vector2(points[i-1].x,points[i-1].y))<5:return false
