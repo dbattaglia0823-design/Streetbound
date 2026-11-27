@@ -212,7 +212,7 @@ export function normalizeWorld(raw){
   }
   if(raw.terrainHeight!==undefined){
     const h=raw.terrainHeight;
-    if(!result.customMap||!h||h.size!==129||!Array.isArray(h.values)||h.values.length!==129*129||h.values.some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1200))throw new RangeError('Invalid authored terrain height field');
+    if(!h||h.size!==129||!Array.isArray(h.values)||h.values.length!==129*129||h.values.some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1200))throw new RangeError('Invalid authored terrain height field');
     result.terrainHeight={size:129,values:[...h.values]};
   }
   if(raw.morrowSourceRoadCount!==undefined)

@@ -83,7 +83,7 @@ func _valid_source(value: Dictionary) -> bool:
 		return false
 	if not GameplayControls.valid(value):return false
 	if value.has("editorLayers") and (not value.get("customMap",false) or not Workspace.valid_layers(value.editorLayers)):return false
-	if value.has("terrainHeight") and (not value.get("customMap",false) or not HeightField.valid(value.terrainHeight)):return false
+	if value.has("terrainHeight") and not HeightField.valid(value.terrainHeight):return false
 	var rain: Variant = value.get("rain_intensity",0.0)
 	if not (rain is int or rain is float) or not is_finite(float(rain)) or \
 			float(rain)<0.0 or float(rain)>1.0:
@@ -1518,7 +1518,7 @@ func replace_assets(ids: Array[String],entry: Dictionary) -> bool:
 
 ## Height-field edits remain a single normal undo step.
 func set_terrain_height(field: Dictionary) -> bool:
-	if not doc.get("customMap",false) or not HeightField.valid(field):
+	if not HeightField.valid(field):
 		last_error="Invalid custom terrain height field.";return false
 	var next:=doc.duplicate(true)
 	next.terrainHeight=field.duplicate(true)

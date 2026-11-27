@@ -1147,6 +1147,11 @@ if junction_controls:data['editor_junction_controls']=junction_controls
 adapt_road_widths(data)
 apply_automatic_bridges(data)
 validate_open_cuts(data)
+if "terrainHeight" in authored_source:
+    field=authored_source["terrainHeight"]
+    if not isinstance(field,dict) or field.get("size")!=129 or not isinstance(field.get("values"),list) or len(field["values"])!=129*129 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or abs(v)>1200 for v in field["values"]):
+        raise ValueError("Invalid authored terrain height field")
+    data["terrainHeight"]=field
 data['editor_warnings'].extend(audit_elevated_objectives(data))
 bake_jumps(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"

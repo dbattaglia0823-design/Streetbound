@@ -59,7 +59,7 @@ static func _index(doc: Dictionary) -> Dictionary:
 			for key in _keys(Rect2(a,b-a).abs().grow(pad)):
 				if not index.has(key):index[key]=[]
 				index[key].append({"a":a,"b":b,"pad":pad})
-	for prop in doc.props:
+	for prop in doc.props+doc.get("_runtime_blockers",[]):
 		if bool(prop.get("hidden",false)):continue
 		var p:=Vector2(prop.x,prop.y);var r:=_prop_radius(prop)
 		for key in _keys(Rect2(p-Vector2.ONE*r,Vector2.ONE*r*2)):
@@ -73,7 +73,9 @@ static func _blocked_terrain(doc: Dictionary,area: Rect2) -> bool:
 		if str(region.get("biome","")) not in BLOCKED and not bool(region.get("barrier",false)):continue
 		var polygon:=PackedVector2Array()
 		for p in region.points:polygon.append(Vector2(p.x,p.y))
-		if polygon.size()>=3 and _bounds(polygon).intersects(area,true):return true
+		if polygon.size()>=3 and _bounds(polygon).intersects(area,true):
+			var rectangle:=PackedVector2Array([area.position,Vector2(area.end.x,area.position.y),area.end,Vector2(area.position.x,area.end.y)])
+			if not Geometry2D.intersect_polygons(polygon,rectangle).is_empty():return true
 	return false
 
 static func _free(index: Dictionary,p: Vector2,r: float) -> bool:
@@ -103,7 +105,7 @@ static func _next_road(doc: Dictionary) -> int:
 	return next
 
 static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_limit: int,prop_limit: int) -> Dictionary:
-	if not doc.get("customMap",false):return _error("City construction is initially available on custom maps only.")
+	if not doc.get("customMap",false) and not bool(settings.get("connect",false)):return _error("Morrow Coast grids must connect to an existing road.")
 	var columns:=int(settings.get("columns",3));var rows:=int(settings.get("rows",3))
 	var block:=float(settings.get("block",120));var width:=float(settings.get("width",12))
 	var lanes:=int(settings.get("lanes",2));var alleys:=bool(settings.get("alleys",false))
@@ -118,7 +120,7 @@ static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_
 	# surprise parallel roads through an existing district.
 	for road in doc.roads:
 		if _bounds(Session.road_path(road)).grow(float(road.width)*.5+3).intersects(reserved,true):return _error("Choose an empty area away from existing roads.")
-	for prop in doc.props:
+	for prop in doc.props+doc.get("_runtime_blockers",[]):
 		if bool(prop.get("hidden",false)):continue
 		var p:=Vector2(prop.x,prop.y);var r:=_prop_radius(prop)
 		if Rect2(p-Vector2.ONE*r,Vector2.ONE*r*2).intersects(reserved,true):return _error("Choose an area without existing scenery.")
@@ -186,7 +188,6 @@ static func plan_grid(doc: Dictionary,center: Vector2,settings: Dictionary,road_
 	return {"roads":roads,"props":props,"regions":regions,"area":area,"label":"City grid"}
 
 static func plan_district(doc: Dictionary,center: Vector2,settings: Dictionary,prop_limit: int) -> Dictionary:
-	if not doc.get("customMap",false):return _error("District generation is initially available on custom maps only.")
 	var size:=Vector2(clampi(int(settings.get("columns",3)),1,12),clampi(int(settings.get("rows",3)),1,12))*clampf(float(settings.get("block",120)),70,300)
 	var area:=Rect2(center-size*.5,size)
 	if not Rect2(Vector2.ZERO,Vector2(doc.world.width,doc.world.height)).encloses(area):return _error("District area crosses map bounds.")
@@ -271,7 +272,7 @@ static func _vacant(doc: Dictionary,area: Rect2) -> bool:
 	if not Rect2(Vector2.ZERO,Vector2(doc.world.width,doc.world.height)).encloses(area) or _blocked_terrain(doc,area):return false
 	for road in doc.roads:
 		if _bounds(Session.road_path(road)).grow(float(road.width)*.5+4).intersects(area,true):return false
-	for prop in doc.props:
+	for prop in doc.props+doc.get("_runtime_blockers",[]):
 		if bool(prop.get("hidden",false)):continue
 		var p:=Vector2(prop.x,prop.y);var radius:=_prop_radius(prop)
 		if Rect2(p-Vector2.ONE*radius,Vector2.ONE*radius*2).intersects(area,true):return false
@@ -338,7 +339,6 @@ static func _next_marker(doc: Dictionary) -> int:
 ## A complete roadside site, anchored to an existing straight ground street.
 ## A generous setback keeps building, lot and driveway out of the roadway.
 static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settings: Dictionary,road_limit: int,prop_limit: int) -> Dictionary:
-	if not doc.get("customMap",false):return _error("Use a custom map for property kits.")
 	var kind:=str(settings.get("property","fuel station"))
 	if kind not in ["fuel station","garage","shopping center","convenience store","pawn shop","jewelry store","bank","dealership"]:
 		return _error("Unknown property kit.")
@@ -454,7 +454,6 @@ static func plan_vegetation(doc: Dictionary,center: Vector2,radius: float,densit
 	return {"roads":[],"props":props,"label":"Vegetation brush"}
 
 static func plan_river(doc: Dictionary,points: Array[Vector2],width: float,bank: float,depth: float) -> Dictionary:
-	if not doc.get("customMap",false):return _error("Use a custom map for waterways.")
 	if points.size()<2 or points.size()>60:return _error("River needs 2–60 centreline points.")
 	width=clampf(width,6,160);bank=clampf(bank,2,80)
 	for i in range(1,points.size()):

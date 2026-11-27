@@ -2850,8 +2850,6 @@ const PREFAB_PATH="user://streetbound-prefabs.json"
 
 func _open_landscape() -> void:
 	if _editing_locked() or not source_ready:return
-	if not map_switcher.custom:
-		_notice("Landscape sculpting is currently available on custom maps only.");return
 	if not is_instance_valid(landscape_dialog):
 		landscape_dialog=AcceptDialog.new();landscape_dialog.title="Terrain and landscaping"
 		landscape_dialog.ok_button_text="Activate tool";landscape_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
@@ -2885,7 +2883,7 @@ func _collect_landscape() -> Dictionary:
 	return settings
 
 func _activate_landscape() -> void:
-	if _editing_locked() or not map_switcher.custom:return
+	if _editing_locked():return
 	landscape_settings=_collect_landscape()
 	landscape_session=authoring
 	var mode: String=landscape_settings.mode
@@ -2901,7 +2899,7 @@ func _activate_landscape() -> void:
 	_notice("Click river centreline points; Finish creates channel and banks." if mode=="river" else "Click the map to apply a brush stamp. Each stamp is undoable.")
 
 func _open_heightmap() -> void:
-	if _editing_locked() or not map_switcher.custom:return
+	if _editing_locked():return
 	landscape_settings=_collect_landscape();landscape_session=authoring
 	if not is_instance_valid(landscape_file):
 		landscape_file=FileDialog.new();landscape_file.file_mode=FileDialog.FILE_MODE_OPEN_FILE
@@ -2910,7 +2908,7 @@ func _open_heightmap() -> void:
 	landscape_dialog.hide();landscape_file.popup_centered_ratio(.7)
 
 func _import_heightmap(path: String) -> void:
-	if _editing_locked() or landscape_session!=authoring or not map_switcher.custom:return
+	if _editing_locked() or landscape_session!=authoring:return
 	var image:=Image.load_from_file(path)
 	var field:=TerrainHeight.import_image(image,float(landscape_settings.import_min),float(landscape_settings.import_max))
 	if field.is_empty():_notice("Invalid heightmap image or height range.");return
@@ -2918,7 +2916,7 @@ func _import_heightmap(path: String) -> void:
 	else:_notice(authoring.last_error)
 
 func _landscape_stamp(at: Vector2) -> void:
-	if landscape_session!=authoring or not map_switcher.custom:return
+	if landscape_session!=authoring:return
 	var mode: String=landscape_settings.mode
 	var radius:=float(landscape_settings.radius)
 	if mode=="paint":
@@ -2931,7 +2929,7 @@ func _landscape_stamp(at: Vector2) -> void:
 		else:_notice(authoring.last_error)
 		return
 	if mode=="vegetation":
-		var plan:=Construction.plan_vegetation(authoring.doc,at,radius,float(landscape_settings.density)/100.0,str(landscape_settings.vegetation),int(landscape_settings.seed)+authoring.edit_revision,authoring.prop_limit())
+		var plan:=Construction.plan_vegetation(_construction_source(),at,radius,float(landscape_settings.density)/100.0,str(landscape_settings.vegetation),int(landscape_settings.seed)+authoring.edit_revision,authoring.prop_limit())
 		var ids: Array[String]=authoring.apply_construction(plan)
 		if not ids.is_empty():_refresh_authoring();_notice("Placed %d vegetation objects."%ids.size())
 		else:_notice(authoring.last_error)
@@ -2994,6 +2992,16 @@ func _invalidate_construction() -> void:
 	construction_dialog.get_ok_button().disabled=true
 	if is_instance_valid(construction_canvas):construction_canvas.queue_redraw()
 
+func _construction_source() -> Dictionary:
+	var source: Dictionary=authoring.doc.duplicate(false)
+	if map_switcher.custom:return source
+	var blockers: Array=[]
+	for prop in world.data.get("props",[]):
+		if not bool(prop.get("solid",false)) or prop.get("p",[]).size()!=2 or prop.get("size",[]).size()!=2:continue
+		blockers.append({"x":float(prop.p[0]),"y":float(prop.p[1]),"assetSize":prop.size,"scale":1.0})
+	source["_runtime_blockers"]=blockers
+	return source
+
 func _preview_construction() -> void:
 	if _editing_locked():return
 	var settings: Dictionary={}
@@ -3004,11 +3012,11 @@ func _preview_construction() -> void:
 		elif control is CheckBox:settings[key]=control.button_pressed
 	settings.density=float(settings.density)/100.0
 	match _option_value(construction_mode):
-		"city grid":construction_plan=Construction.plan_grid(authoring.doc,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
-		"district fill":construction_plan=Construction.plan_district(authoring.doc,construction_center,settings,authoring.prop_limit())
-		"roadside decoration":construction_plan=Construction.plan_roadside(authoring.doc,construction_road_id,settings,authoring.prop_limit())
+		"city grid":construction_plan=Construction.plan_grid(_construction_source(),construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+		"district fill":construction_plan=Construction.plan_district(_construction_source(),construction_center,settings,authoring.prop_limit())
+		"roadside decoration":construction_plan=Construction.plan_roadside(_construction_source(),construction_road_id,settings,authoring.prop_limit())
 		"interchange":construction_plan=Construction.plan_interchange(authoring.doc,construction_center,settings,authoring.road_limit())
-		"property kit":construction_plan=Construction.plan_property(authoring.doc,construction_road_id,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+		"property kit":construction_plan=Construction.plan_property(_construction_source(),construction_road_id,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
 	if construction_plan.has("error"):
 		construction_summary.text=str(construction_plan.error)
 		construction_dialog.get_ok_button().disabled=true
@@ -3238,7 +3246,7 @@ func _finish_shape() -> void:
 	if _editing_locked() or not source_ready:return
 	if tool_name=="draw_river":
 		if landscape_session!=authoring:return
-		var plan:=Construction.plan_river(authoring.doc,draft_points,float(landscape_settings.river_width),float(landscape_settings.bank),float(landscape_settings.depth))
+		var plan:=Construction.plan_river(_construction_source(),draft_points,float(landscape_settings.river_width),float(landscape_settings.bank),float(landscape_settings.depth))
 		var ids: Array[String]=authoring.apply_construction(plan)
 		if ids.is_empty():_notice(authoring.last_error);return
 		draft_points.clear();_refresh_authoring();_notice("Created river and banks in one undo step.");return

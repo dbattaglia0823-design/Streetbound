@@ -121,7 +121,8 @@ export function convertMorrowWorld(raw){
     world:{width,height,seed:28114,base:'grass'},
     roads,regions,props,markers,assets:[],
     ...(raw.gameplay_zones?{gameplayZones:raw.gameplay_zones}:{}),
-    ...(raw.editor_junction_controls?{junctionControls:raw.editor_junction_controls}:{})
+    ...(raw.editor_junction_controls?{junctionControls:raw.editor_junction_controls}:{}),
+    ...(raw.terrainHeight?{terrainHeight:raw.terrainHeight}:{})
   });
   return {doc:result,raw,stats:{roads:roads.length,regions:regions.length,
     landmarkMarkers:markers.length,proceduralProps:raw.props?.length||0,
