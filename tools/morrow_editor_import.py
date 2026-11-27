@@ -453,6 +453,22 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             following = any(length(points(candidate["points"],width,height)[0],new)<.05 and
                             length(points(candidate["points"],width,height)[-1],old)<.05
                             for candidate_index,candidate in numbered.items() if candidate_index>=source_count)
+            # Point elevation edits can create several explicit grade sections.
+            # Follow only the generated, same-name section chain, preserving the
+            # stock node at the original endpoint even with no other neighbor.
+            if not following and name == road["end"]:
+                grade_prefix = str(entry.get("name", ""))[:60] + " / grade "
+                chain = [points(candidate["points"],width,height) for candidate_index,candidate in numbered.items()
+                         if candidate_index >= source_count and str(candidate.get("name","")).startswith(grade_prefix)]
+                cursor = new
+                while chain:
+                    choices = [i for i,path in enumerate(chain) if length(path[0],cursor)<.05]
+                    if len(choices)!=1:
+                        break
+                    cursor = chain.pop(choices[0])[-1]
+                    if length(cursor,old)<.05:
+                        following=True
+                        break
             neighbor_stays = any(other["id"]!=index and
                 any(other[end]==name and other["id"] in numbered and
                     length(points(numbered[other["id"]]["points"],width,height)[0 if end=="start" else -1],old)<.05

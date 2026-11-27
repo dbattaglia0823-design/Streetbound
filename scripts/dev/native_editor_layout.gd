@@ -108,6 +108,15 @@ static func build(e) -> void:
 	e.road_start_layer=e._number(e.road_elevation_controls,"Start layer",-2,2,0)
 	e.road_end_layer=e._number(e.road_elevation_controls,"End layer",-2,2,0)
 	e._btn("Apply road elevation",e.road_elevation_controls,e._change_road_elevation)
+	var point_toggle := CheckButton.new()
+	point_toggle.text="Individual point elevations"
+	e.road_elevation_controls.add_child(point_toggle)
+	var point_panel := column(e.road_elevation_controls)
+	point_panel.visible=false
+	point_toggle.toggled.connect(func(on: bool)->void:point_panel.visible=on)
+	heading(point_panel,"Layers -2 to +2; 50 m per layer change")
+	e.road_point_elevation_fields=column(point_panel)
+	e._btn("Apply point elevations",point_panel,e._apply_point_elevations)
 	e.road_jump_enabled=CheckBox.new()
 	e.road_jump_enabled.text="Stunt jump"
 	e.road_elevation_controls.add_child(e.road_jump_enabled)

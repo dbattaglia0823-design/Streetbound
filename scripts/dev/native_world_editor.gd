@@ -175,6 +175,9 @@ var road_jump_reverse: CheckBox
 var road_jump_fields: Dictionary = {}
 var road_jump_options: VBoxContainer
 var road_end_layer: SpinBox
+var road_point_elevation_fields: VBoxContainer
+var road_point_layer_inputs: Array[SpinBox] = []
+var road_point_profile_key := ""
 var road_class: OptionButton
 var inspector_road_type: OptionButton
 var inspector_road_type_fields: Control
@@ -557,6 +560,7 @@ func _update_context_panels() -> void:
 		var elevation: Dictionary=road.get("elevation",{})
 		road_start_layer.value=float(elevation.get("start_layer",0))
 		road_end_layer.value=float(elevation.get("end_layer",0))
+		_refresh_point_elevation_fields(road)
 		for option in [road_class,road_surface]:
 			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
 			for i in option.item_count:
@@ -2229,6 +2233,39 @@ func _change_road_jump() -> void:
 		_notice("Stunt jump updated")
 	else:
 		_notice(authoring.last_error)
+
+
+func _refresh_point_elevation_fields(road: Dictionary) -> void:
+	var key := str(road.id)+str(road.points)+str(road.get("elevation",{}))
+	if key==road_point_profile_key:return
+	road_point_profile_key=key
+	for child in road_point_elevation_fields.get_children():
+		road_point_elevation_fields.remove_child(child)
+		child.queue_free()
+	road_point_layer_inputs.clear()
+	var points: Array=road.points
+	var total:=0.0
+	for i in range(1,points.size()):
+		total+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+	var station:=0.0
+	for i in points.size():
+		if i>0:station+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+		var layer:=roundf(lerpf(road_start_layer.value,road_end_layer.value,station/maxf(total,.001)))
+		var spin:=_number(road_point_elevation_fields,"Point %d (%.0f, %.0f)"%[i+1,float(points[i].x),float(points[i].y)],-2,2,layer)
+		spin.step=1.0
+		spin.value=layer
+		road_point_layer_inputs.append(spin)
+
+
+func _apply_point_elevations() -> void:
+	if not source_ready or _editing_locked():return
+	var layers: Array = []
+	for spin in road_point_layer_inputs:layers.append(int(spin.value))
+	if authoring.apply_point_elevations(source_id,layers):
+		road_point_profile_key=""
+		_refresh_authoring()
+		_notice("Applied point elevations as connected grade sections.")
+	else:_notice(authoring.last_error)
 
 
 func _change_road_elevation() -> void:

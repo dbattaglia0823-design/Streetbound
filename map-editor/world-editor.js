@@ -16,7 +16,7 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {liveRoadAutomation,liveRoadClearances,drawLiveAutomation} from './world-automation-preview.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
-import {joinRoadEndpoints,splitRoadAt} from './world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,pointElevationLayers,applyPointElevations} from './world-road-topology.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
@@ -827,6 +827,19 @@ function refreshInspector(){
     $('road-end-layer').value=profile.end_layer;
     $('road-elevation-summary').textContent=
       (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
+    const pointFields=$('road-point-elevation-fields');
+    pointFields.replaceChildren();
+    pointElevationLayers(item).forEach((layer,index)=>{
+      const field=document.createElement('div');field.className='field';
+      const label=document.createElement('label');
+      label.textContent='Point '+(index+1)+' · '+Math.round(item.points[index].x)+', '+Math.round(item.points[index].y);
+      const input=document.createElement('select');input.id='road-point-layer-'+index;label.htmlFor=input.id;
+      for(let n=-2;n<=2;n++){
+        const option=document.createElement('option');option.value=String(n);
+        option.textContent=(n>0?'+':'')+n+' ('+(n*LAYER_HEIGHT_M)+' m)';input.append(option);
+      }
+      input.value=String(layer);field.append(label,input);pointFields.append(field);
+    });
     $('road-jump-enabled').checked=Boolean(item.jump);
     $('road-jump-reverse').checked=item.jump?.reverse??false;
     for(const [key,[,,fallback]] of Object.entries(JUMP_FIELDS))
@@ -1628,6 +1641,12 @@ $('apply-road-jump').addEventListener('click',()=>{
   const jump=$('road-jump-enabled').checked?{reverse:$('road-jump-reverse').checked}:undefined;
   if(jump)for(const key of Object.keys(JUMP_FIELDS))jump[key]=$('road-jump-'+key).valueAsNumber;
   change(d=>updateEntity(d,selection.id,{jump}),jump?'Updated stunt jump.':'Removed stunt jump.');
+});
+$('apply-road-point-elevations').addEventListener('click',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='roads')return;
+  const layers=found.item.points.map((_,i)=>Number($('road-point-layer-'+i).value));
+  change(d=>applyPointElevations(d,found.item.id,layers),'Applied point elevations as connected grade sections.');
 });
 $('apply-road-elevation').addEventListener('click',()=>{
   if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;

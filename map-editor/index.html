@@ -286,6 +286,12 @@
         </div>
         <button id="apply-road-elevation" class="gdt-btn" type="button">Apply road elevation</button>
         <p id="road-elevation-summary" class="muted-copy"></p>
+        <details id="road-point-elevation-editor">
+          <summary>Individual point elevations</summary>
+          <p class="muted-copy">Set each control point's layer. Apply creates connected grade sections in one undoable edit. Changing one layer needs at least 50 m between points.</p>
+          <div id="road-point-elevation-fields"></div>
+          <button id="apply-road-point-elevations" class="gdt-btn" type="button">Apply point elevations</button>
+        </details>
         <details id="road-jump-editor">
           <summary>Stunt jump</summary>
           <label class="check"><input id="road-jump-enabled" type="checkbox"> Add jump ramp</label>
