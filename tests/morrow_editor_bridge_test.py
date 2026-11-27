@@ -75,6 +75,14 @@ class SourceBridgeTests(unittest.TestCase):
         self.assertEqual(roads[1]["grade"], 1)
         self.assertNotIn("elevation", roads[1])
 
+    def test_explicit_district_label_survives_without_renaming_stock_terrain(self):
+        doc=editor_doc()
+        doc["regions"].append(dict(id="region-1",name="Industrial block",biome="grass",
+            points=[dict(x=x,y=y) for x,y in [[100,300],[200,300],[200,400],[100,400]]]))
+        result,_=self.apply(doc)
+        self.assertEqual(result[2][0],fixture()[2][0])
+        self.assertEqual(result[2][1]["editor_name"],"Industrial block")
+
     def test_unchanged_round_trip_does_not_reduce_coastal_data(self):
         original = fixture()
         result, markers = self.apply(editor_doc(), original)

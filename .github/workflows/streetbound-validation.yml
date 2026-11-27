@@ -283,6 +283,9 @@ jobs:
           timeout 180s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/advanced_world_construction_test.gd 2>&1 | tee /tmp/advanced-world-construction.log
           grep -q 'ADVANCED WORLD CONSTRUCTION: PASS' /tmp/advanced-world-construction.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/advanced-world-construction.log
+          timeout 180s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/integrated_map_editor_test.gd 2>&1 | tee /tmp/integrated-map-editor.log
+          grep -q 'INTEGRATED MAP EDITOR: PASS' /tmp/integrated-map-editor.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/integrated-map-editor.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
       - name: Verify waypoint shortest paths and legal junction routing
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}

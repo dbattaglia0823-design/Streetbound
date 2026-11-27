@@ -2994,7 +2994,11 @@ func _open_construction() -> void:
 
 func _invalidate_construction() -> void:
 	construction_plan={};construction_revision=-1
-	construction_summary.text="Centre: %.0f, %.0f m. Preview before applying. Roadside uses the selected road."%[construction_center.x,construction_center.y]
+	construction_summary.text="Centre: %.0f, %.0f m. Preview before applying."%[construction_center.x,construction_center.y]
+	match _option_value(construction_mode):
+		"advanced neighborhood":construction_summary.text+="\n2–8 blocks per axis, 120–300 m spacing, 10–20 m street width. A custom map must pass production preflight."
+		"directional diamond":construction_summary.text+="\nCustom maps only; production preflight is required."
+		"roadside decoration","property kit":construction_summary.text+="\nUses the selected road."
 	construction_dialog.get_ok_button().disabled=true
 	if is_instance_valid(construction_canvas):construction_canvas.queue_redraw()
 

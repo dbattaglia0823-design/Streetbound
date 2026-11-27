@@ -62,6 +62,8 @@ func run() -> void:
 	var original_velocity: Vector2=main.vehicle.linear_velocity
 	main.vehicle.global_position=(Vector2(old_cell)+Vector2(.90,.5))*world.chunk_m*20.0
 	main.vehicle.linear_velocity=Vector2(25,0)
+	check("slow_vehicle_does_not_prefetch",world._predict_chunk()==Vector2i(-999,-999))
+	main.vehicle.linear_velocity=Vector2(25*20,0)
 	var predicted: Vector2i=world._predict_chunk()
 	if predicted.x!=-999:
 		check("predicted_chunk_in_dormant_ring",world._stream_cell_distance(predicted,world.current_cell,world.secondary_current_cell)==2)

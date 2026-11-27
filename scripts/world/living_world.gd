@@ -72,14 +72,18 @@ func _ready() -> void:
 	dialog.confirmed.connect(_close_rest)
 	dialog.canceled.connect(_close_rest)
 	add_child(dialog)
-	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(340,230);dialog.add_child(panel)
+	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(360,240);dialog.add_child(panel)
 	rest_status=Label.new();rest_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(rest_status)
+	var waits:=GridContainer.new();waits.columns=2;panel.add_child(waits)
 	for hours in [1,3,6,12]:
 		var button:=Button.new();button.text="Wait %d hour%s"%[hours,"" if hours==1 else "s"]
-		button.pressed.connect(_skip.bind(float(hours)*3600.0));panel.add_child(button)
+		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_skip.bind(float(hours)*3600.0));waits.add_child(button)
+	var targets:=GridContainer.new();targets.columns=2;panel.add_child(targets)
 	for target in [6,12,18,0]:
 		var button:=Button.new();button.text="Rest until %02d:00"%target
-		button.pressed.connect(_skip_until.bind(target));panel.add_child(button)
+		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_skip_until.bind(target));targets.add_child(button)
 	_refresh()
 
 func _shared() -> bool:
@@ -125,7 +129,7 @@ func rest_location() -> String:
 	return ""
 
 func _allowed() -> bool:
-	return is_instance_valid(player) and Rules.can_rest(player.linear_velocity.length()<=1.0,not rest_location().is_empty(),_busy(),_shared())
+	return is_instance_valid(player) and Rules.can_rest(player.linear_velocity.length()<=20.0,not rest_location().is_empty(),_busy(),_shared())
 
 func open_rest() -> void:
 	if get_tree().paused or not _allowed():return

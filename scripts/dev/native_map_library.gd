@@ -20,7 +20,7 @@ static func create(name: String,width: int,height: int,biome: String) -> Diction
 static func save(doc: Dictionary,file: String="") -> String:
 	if not doc.get("customMap",false):return ""
 	if file.is_empty():file="map-%s-%s.world.json"%[str(Time.get_unix_time_from_system()).replace(".","-"),str(randi())]
-	if file.get_file()!=file or not file.ends_with(".world.json"):return ""
+	if not _safe_filename(file):return ""
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder()))
 	var path:=folder().path_join(file);var temporary:=path+".tmp"
 	var payload:=JSON.stringify(doc,"\t")
@@ -30,13 +30,21 @@ static func save(doc: Dictionary,file: String="") -> String:
 	var stream:=FileAccess.open(temporary,FileAccess.WRITE)
 	if stream==null:return ""
 	stream.store_string(payload);stream.flush();stream.close()
+	if FileAccess.get_sha256(temporary)!=payload.sha256_text():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(temporary));return ""
 	# Replace only after the complete JSON has reached disk.
 	if DirAccess.rename_absolute(ProjectSettings.globalize_path(temporary),ProjectSettings.globalize_path(path))!=OK:return ""
 	return file
 static func load_map(file: String) -> Dictionary:
-	if file.get_file()!=file:return {}
+	if not _safe_filename(file):return {}
 	var value=JSON.parse_string(FileAccess.get_file_as_string(folder().path_join(file)))
 	return value if value is Dictionary else {}
+
+static func _safe_filename(file: String) -> bool:
+	if file.is_empty() or file.length()>100 or file.get_file()!=file or not file.ends_with(".world.json"):return false
+	for character in file:
+		if not "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-".contains(character):return false
+	return true
 
 static func backup_folder(file: String) -> String:
 	if file.get_file()!=file or not file.ends_with(".world.json"):return ""

@@ -389,7 +389,8 @@ func open_release_center(e) -> void:
 	if not e.active or not e.source_ready:return
 	var window:=AcceptDialog.new();window.title="World Release Center";window.ok_button_text="Close"
 	window.process_mode=Node.PROCESS_MODE_ALWAYS;e.add_child(window)
-	var box:=VBoxContainer.new();box.custom_minimum_size=Vector2(610,470);window.add_child(box)
+	var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(620,520);window.add_child(scroll)
+	var box:=VBoxContainer.new();box.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(box)
 	var status:=RichTextLabel.new();status.custom_minimum_size=Vector2(600,250);status.size_flags_vertical=Control.SIZE_EXPAND_FILL;box.add_child(status)
 	status.text="Read-only release preflight, package export, backup comparison and verified rollback. Publishing still requires explicit confirmation. Static checks do not certify driving or FPS."
 	var revision: int=e.authoring.edit_revision
