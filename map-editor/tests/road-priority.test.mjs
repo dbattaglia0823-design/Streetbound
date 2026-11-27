@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {roadMarkingPlan} from '../world-renderer.js';
 import {createWorld,createEntity,parseWorld,serializeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
 import {roadPieces,isLoose,pavedVsLoose} from '../world-road-priority.js';
@@ -166,4 +167,17 @@ test('existing branch end swaps connection mode without changing geometry',()=>{
   assert.ok(!buildRoadJunctions(doc.roads).some(j=>j.kind==='merge'));
   doc=updateEntity(doc,branch.id,{junctionStart:'auto'});
   assert.equal(doc.roads[1].junctionStart,undefined);
+});
+
+test('metric lane paint follows directional lanes and ramp edges',()=>{
+  const plan=roadMarkingPlan({...base,roadClass:'highway',width:18,lanes:4});
+  assert.equal(plan.length,6);
+  assert.deepEqual(plan.slice(0,2).map(p=>p.color),['#e5be65','#e5be65']);
+  assert.deepEqual(plan.slice(2,4).map(p=>p.dash),[[3,9],[3,9]]);
+  assert.ok(plan.every(p=>p.width===.15));
+  const ramp=roadMarkingPlan({...base,roadClass:'onramp',width:8,lanes:1});
+  assert.equal(ramp.length,2);
+  assert.ok(ramp.every(p=>p.dash.length===0));
+  assert.deepEqual(roadMarkingPlan({...base,roadClass:'alley'}),[]);
+  assert.deepEqual(roadMarkingPlan({...base,markings:false}),[]);
 });
