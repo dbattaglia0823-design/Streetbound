@@ -5,6 +5,7 @@ const MAX_HISTORY := 7
 const MAX_EXTRAPOLATE_MS := 60
 const STALE_FREEZE_MS := 250
 const MAX_LOCAL_FORWARD_MS := 80
+const MAX_ROAD_HEIGHT_M := 12.0
 
 static func interpolation_delay_ms(snapshot_interval_ms: float,
 		rtt_variation_ms: float) -> int:
@@ -14,11 +15,17 @@ static func interpolation_delay_ms(snapshot_interval_ms: float,
 	var jitter_allowance := clampf(rtt_variation_ms * 1.25, 0.0, 60.0)
 	return clampi(roundi(baseline + jitter_allowance), 50, 125)
 
-static func add_snapshot(history: Array, time_ms: int, state: Array) -> void:
+static func valid_grade_height(value: Variant) -> bool:
+	return (value is float or value is int) and is_finite(float(value)) \
+		and absf(float(value)) <= MAX_ROAD_HEIGHT_M
+
+static func add_snapshot(history: Array, time_ms: int, state: Array,
+		grade_height: Variant = 0.0) -> void:
 	if state.size() != 6:
 		return
 	# Only called when a newer authoritative sequence was admitted.
-	history.append({"time": time_ms, "state": state.duplicate()})
+	history.append({"time": time_ms, "state": state.duplicate(),
+		"grade_height": float(grade_height) if valid_grade_height(grade_height) else 0.0})
 	while history.size() > MAX_HISTORY:
 		history.pop_front()
 
@@ -51,6 +58,25 @@ static func sample(history: Array, now_ms: int, delay_ms: int) -> Array:
 	state[0] = (state[0] as Vector2) + (state[2] as Vector2) * advance_seconds
 	state[1] = float(state[1]) + float(state[5]) * advance_seconds
 	return state
+
+# Match the position interpolation clock. Never extrapolate height across
+# a ramp mouth or a missing packet: the next host sample owns the grade.
+static func sample_grade_height(history: Array, now_ms: int, delay_ms: int) -> float:
+	if history.is_empty():
+		return 0.0
+	var render_ms := now_ms - delay_ms
+	var first: Dictionary = history[0]
+	if render_ms <= int(first["time"]):
+		return float(first.get("grade_height", 0.0))
+	for index in range(history.size() - 1):
+		var older: Dictionary = history[index]
+		var newer: Dictionary = history[index + 1]
+		if render_ms <= int(newer["time"]):
+			var duration := maxf(1.0, float(int(newer["time"]) - int(older["time"])))
+			var alpha := clampf(float(render_ms - int(older["time"])) / duration, 0.0, 1.0)
+			return lerpf(float(older.get("grade_height", 0.0)), float(newer.get("grade_height", 0.0)), alpha)
+	var latest: Dictionary = history.back()
+	return float(latest.get("grade_height", 0.0))
 
 static func projected_local_authority(state: Array, rtt_ms: float) -> Vector2:
 	# Do not reconcile the client toward an already-old host snapshot.
