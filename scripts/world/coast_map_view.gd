@@ -83,6 +83,7 @@ func _ready() -> void:
 	scale_bar.dimensions=custom_minimum_size
 	scale_bar.z_index=21
 	add_child(scale_bar)
+	scale_bar.visible = not miniature
 	if miniature:
 		# Border is drawn by the final mask shader, not on the unmasked
 		# world chunks. Keep the documented shape and move the compass.

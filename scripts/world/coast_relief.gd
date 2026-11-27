@@ -55,16 +55,18 @@ func _faces() -> void:
 		var d := point(face.lip[0])
 		var light := float(face.light)
 		# Soft directional cast shade plus a tighter contact strip at the foot.
-		for spread in [1.0,.65,.3]:
-			var cast: Vector2 = Vector2(70,90)*float(spread)
-			_quad(PackedVector2Array([a,b,b+cast,a+cast]),PackedColorArray([Color(.12,.18,.20,.07)]))
-		_stroke(a,b,Color(.14,.20,.20,.26),18,true)
+		# Fade continuously away from the toe, rather than drawing opaque bands.
+		var cast := Vector2(.65,.76)*clampf(a.distance_to(d)*.72,65.0,150.0)
+		var contact:=Color(.07,.12,.15,.27)
+		var soft:=Color(.07,.12,.15,.0)
+		_quad(PackedVector2Array([a,b,b+cast,a+cast]),PackedColorArray([contact,contact,soft,soft]))
+		_stroke(a,b,Color(.09,.14,.16,.29),16,true)
 		var stone := Color("646d64").lerp(Color("aaa18b"),light)
 		if face.get("kind","")=="earth": stone=Color("728366")
 		var station := float(face.station)*.25
 		var end := station+float(face.length)*.25
 		var uv := PackedVector2Array([Vector2(station,0),Vector2(end,0),Vector2(end,1),Vector2(station,1)])
-		var face_colors := PackedColorArray([stone.darkened(.15),stone.darkened(.15),stone.lightened(.10),stone.lightened(.10)])
+		var face_colors := PackedColorArray([stone.darkened(.25),stone.darkened(.25),stone.lightened(.15),stone.lightened(.15)])
 		_quad(PackedVector2Array([a,b,c,d]),face_colors,uv)
 		_stroke(d,c,Color(.69,.68,.53,.46),3,true)
 

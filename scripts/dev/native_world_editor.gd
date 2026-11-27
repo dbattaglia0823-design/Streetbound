@@ -171,6 +171,8 @@ var road_lanes: SpinBox
 var road_class: OptionButton
 var inspector_road_type: OptionButton
 var inspector_road_type_fields: Control
+var inspector_junction_start: OptionButton
+var inspector_junction_end: OptionButton
 var terrain_biome: OptionButton
 var terrain_barrier: CheckBox
 var terrain_elevation: SpinBox
@@ -2171,6 +2173,13 @@ func _change_road_type(_index: int) -> void:
 			road_width.value=6.0
 			road_lanes.value=1
 			_setting_controls=false
+	elif kind=="onramp":
+		_select_road_option(road_surface,"asphalt")
+		_setting_controls=true
+		road_width.value=8.0
+		road_lanes.value=1
+		_setting_controls=false
+		_notice("Draw toward the merge; snap final point to through-road centerline from the right.")
 	elif kind=="track":_select_road_option(road_surface,"track")
 	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
 	_commit_road_type_and_surface()
@@ -2229,6 +2238,8 @@ func _refresh_inspector() -> void:
 		var kind:=str(record.item.get("roadClass","city"))
 		if str(record.item.get("surface",""))=="track":kind="track"
 		_select_road_option(inspector_road_type,kind)
+		_select_road_option(inspector_junction_start,str(record.item.get("junctionStart","auto")))
+		_select_road_option(inspector_junction_end,str(record.item.get("junctionEnd","auto")))
 	edit_actions.visible=bool(context.selection_actions)
 	if multi_selection.size()>1:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
@@ -2370,6 +2381,18 @@ func _redraw_mountains() -> void:
 	if is_instance_valid(render_tiles):nodes.append_array(render_tiles.tiles.values())
 	for chunk in nodes:chunk.redraw_mountains()
 	_update_overview_mask()
+
+func _change_junction_mode(index: int, at_end: bool) -> void:
+	if _updating_inspector or _editing_locked() or not source_ready:return
+	var picker := inspector_junction_end if at_end else inspector_junction_start
+	var mode := str(picker.get_item_metadata(index))
+	var key := "junctionEnd" if at_end else "junctionStart"
+	if authoring.set_road_settings(source_id,{key:mode}):
+		_refresh_authoring()
+		_notice("Connection mode changed. On-ramp requires a valid three-arm merge. Ctrl+Z undoes it.")
+	else:
+		_notice(authoring.last_error)
+		_refresh_inspector()
 
 func _select_point(index: int) -> void:
 	if _updating_inspector:return

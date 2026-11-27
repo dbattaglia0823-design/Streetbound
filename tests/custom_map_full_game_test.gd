@@ -79,7 +79,8 @@ func _run() -> void:
 		is_instance_valid(ambient) and ambient.network.edges.size()>0 and
 		ambient.network.source_road_count==doc.roads.size())
 	check("uses_full_game_hud_and_pause_settings",
-		is_instance_valid(main.pause_menu) and is_instance_valid(main.progression_hud)
+		is_instance_valid(main.pause_menu) and is_instance_valid(main.pause_menu.dashboard)
+		and main.progression_hud == null and is_instance_valid(main.get_node_or_null("DrivingHUD"))
 		and get_first_node_in_group("streetbound_world_map_hud")!=null)
 	check("uses_full_vehicle_system_and_camera",is_instance_valid(main.vehicle) and
 		main.vehicle.surface_provider==world and is_instance_valid(main.local_split_screen))

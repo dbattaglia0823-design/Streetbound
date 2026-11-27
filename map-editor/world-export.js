@@ -16,6 +16,8 @@ export function buildRoadNetwork(doc){
   const roads=world.roads.map(r=>({
     id:r.id,name:r.name,roadClass:r.roadClass,surface:r.surface,
     width:r.width,lanes:r.lanes,shoulder:r.shoulder,
+    ...(r.junctionStart!==undefined?{junctionStart:r.junctionStart}:{}),
+    ...(r.junctionEnd!==undefined?{junctionEnd:r.junctionEnd}:{}),
     // Editable intent is kept separately from physically traversable pieces.
     // Off-road cuts have no navigation edge across the paved highway.
     centerline:coords(sampleRoad(r.points,r.smooth,22)),

@@ -50,7 +50,7 @@ func run() -> void:
 	for child in hud.get_children():
 		if child is PanelContainer:
 			hud_panels += 1
-	check("f1_tuning_panel_removed", hud_panels == 1 and
+	check("f1_tuning_panel_removed", hud_panels == 0 and
 		not InputMap.has_action("tuning"))
 	var viewport_size := dash.get_viewport_rect().size
 	check("dash_fits_inside_visible_game_window",
@@ -58,7 +58,37 @@ func run() -> void:
 		dash.position.x + dash.size.x * dash.scale.x <= viewport_size.x + 1.0 and \
 		dash.position.y + dash.size.y * dash.scale.y <= viewport_size.y + 1.0)
 	check("dashboard_is_substantially_smaller", dash.size.x <= 600.0 and
-		dash.size.y <= 190.0, dash.size)
+		dash.size.y <= 226.0, dash.size)
+	check("resource_gauges_integrated_into_dashboard",dash.resources_available and dash.engine_label.visible and dash.fuel_label.visible and game.vehicle_damage_service.gauges==dash)
+	check("no_idle_status_cards",not game.police_pursuit.pursuit_panel.visible and not game.driving_contracts.contract_panel.visible)
+	var service: CanvasLayer = game.vehicle_damage_service
+	var health_before: float = service.damage.integrity
+	service.damage.integrity = 20.0
+	service._update_gauges()
+	check("dashboard_health_reads_real_condition",is_equal_approx(float(dash.engine_fraction),0.2) and dash.engine_label.text.contains("HP"))
+	service.damage.integrity = health_before
+	service._update_gauges()
+	var police: Node2D = game.police_pursuit
+	police.wanted_level=3
+	police.phase="search"
+	police._process(0.0)
+	check("wanted_card_shows_stars_and_search_meter",police.pursuit_panel.visible and police.wanted_stars.text=="★★★☆☆" and police.pursuit_meter.visible)
+	police.wanted_level=0
+	police.phase="clear"
+	police._process(0.0)
+	check("wanted_card_hides_when_clear",not police.pursuit_panel.visible)
+	var contracts: Node2D = game.driving_contracts
+	contracts.active={"name":"Test contract","properties":{"contract_kind":"courier"}}
+	contracts.destination={"x":100.0,"y":100.0}
+	contracts.remaining_seconds=60.0
+	contracts.initial_seconds=120.0
+	contracts._process(0.0)
+	check("active_contract_shows_objective_and_deadline",contracts.contract_panel.visible and contracts.contract_title.text=="TEST CONTRACT" and is_equal_approx(float(contracts.deadline_bar.value),50.0))
+	contracts.active.clear()
+	contracts.destination.clear()
+	contracts.notice_seconds=0.0
+	contracts._process(0.0)
+	check("contract_panel_hides_when_inactive",not contracts.contract_panel.visible)
 	check("rpm_uses_arc_instead_of_duplicate_horizontal_bar",
 		dash.rpm_bar != null and not dash.rpm_bar.visible)
 	var labels: Array[Label] = []

@@ -47,7 +47,7 @@
       <div class="field"><label for="road-class">Road type</label><select id="road-class">
         <option value="city">City streets</option><option value="highway">Highway / freeway</option>
         <option value="country">Country road</option><option value="mountain">Mountain pass</option>
-        <option value="track">Race circuit</option><option value="service">Service / access</option><option value="alley">Alleyway</option>
+        <option value="track">Race circuit</option><option value="service">Service / access</option><option value="alley">Alleyway</option><option value="onramp">On-ramp (draw toward merge)</option>
       </select></div>
       <div class="field"><label for="road-surface">Surface</label><select id="road-surface">
         <option value="asphalt">Asphalt</option><option value="concrete">Concrete</option>
@@ -267,7 +267,12 @@
     <section id="inspector" hidden>
       <div class="field"><label for="inspector-name">Name</label><input id="inspector-name" maxlength="80"></div>
       <div id="inspect-road" hidden>
-        <div class="field"><label for="inspect-road-class">Road type</label><select id="inspect-road-class"><option value="city">City</option><option value="highway">Highway</option><option value="country">Country</option><option value="mountain">Mountain</option><option value="track">Track</option><option value="service">Service</option><option value="alley">Alleyway</option></select></div>
+        <div class="field"><label for="inspect-road-class">Road type</label><select id="inspect-road-class"><option value="city">City</option><option value="highway">Highway</option><option value="country">Country</option><option value="mountain">Mountain</option><option value="track">Track</option><option value="service">Service</option><option value="alley">Alleyway</option><option value="onramp">On-ramp (draw toward merge)</option></select></div>
+        <div class="double-fields">
+          <div class="field"><label for="inspect-junction-start">Start connection</label><select id="inspect-junction-start"><option value="auto">Automatic</option><option value="intersection">Intersection</option><option value="merge">On-ramp</option></select></div>
+          <div class="field"><label for="inspect-junction-end">End connection</label><select id="inspect-junction-end"><option value="auto">Automatic</option><option value="intersection">Intersection</option><option value="merge">On-ramp</option></select></div>
+        </div>
+        <p class="muted-copy">Change either end of the branch road without moving its points. On-ramp requires a three-arm connection to a through road. Adjust the approach if baking rejects it.</p>
         <div class="field"><label for="inspect-road-surface">Surface</label><select id="inspect-road-surface"><option value="asphalt">Asphalt</option><option value="concrete">Concrete</option><option value="dirt">Dirt</option><option value="gravel">Gravel</option><option value="track">Racing asphalt</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-road-width">Width</label><input id="inspect-road-width" type="number" min="6" max="160"></div><div class="field"><label for="inspect-road-lanes">Lanes</label><input id="inspect-road-lanes" type="number" min="1" max="6"></div></div>
         <div class="field"><label for="inspect-road-shoulder">Shoulder</label><input id="inspect-road-shoulder" type="number" min="0" max="16"></div>

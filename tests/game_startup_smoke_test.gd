@@ -57,7 +57,7 @@ func _run() -> void:
 		for child in hud.get_children():
 			if child is PanelContainer:
 				hud_panel_count += 1
-	check("f1_panel_absent_at_startup", hud_panel_count == 1)
+	check("f1_panel_absent_at_startup", hud_panel_count == 0)
 	check("camera_created_and_current", camera != null and camera.is_current())
 	# The starter parking lot is 42m from the garage and 46m from the first
 	# houses. A 1.272x spawn view hid both even when scenery rendered normally.

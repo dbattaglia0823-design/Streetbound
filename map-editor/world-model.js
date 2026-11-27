@@ -7,7 +7,7 @@ import {validateMountainRegion} from './world-mountain-barriers.js';
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
-export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service','alley']);
+export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service','alley','onramp']);
 export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
 export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','contract_contact','robbery_target','custom']);
@@ -48,12 +48,15 @@ function validEntity(item,type,w,h){
   if(type==='roads'){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
+    if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||item.lanes!==1))throw new RangeError('On-ramp must be paved and have one lane');
     return {id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
       surface:oneOf(item.surface,SURFACES,'road surface'),width:real(item.width,6,160,'road width'),
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
       markings:typeof item.markings==='boolean'?item.markings:true,
       ...(item.independentEnds===true?{independentEnds:true}:{}),
+      ...(item.junctionStart!==undefined&&item.junctionStart!=='auto'?{junctionStart:oneOf(item.junctionStart,['intersection','merge'],'start junction mode')}:{}),
+      ...(item.junctionEnd!==undefined&&item.junctionEnd!=='auto'?{junctionEnd:oneOf(item.junctionEnd,['intersection','merge'],'end junction mode')}:{}),
       points};
   }
   if(type==='regions'){

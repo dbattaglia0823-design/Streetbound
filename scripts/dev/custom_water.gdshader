@@ -14,6 +14,8 @@ void fragment(){
  float ripple=sin(world_m.x*.73-world_m.y*.36+TIME*.9+swell*1.3);
  float fade=1.0-smoothstep(.6,2.0,length(fwidth(world_m)));
  float glint=pow(max(0.0,ripple),18.0)*fade;
+ float small_phase=world_m.x*1.63-world_m.y*.83+TIME*1.05+swell*.6;
+ float short_wave=pow(max(0.0,sin(small_phase)),9.0)*(1.0-smoothstep(.55,1.6,fwidth(small_phase)));
  float lap=pow(max(0.0,sin(shore*1.3-TIME*.8+swell*.3)),10.0)*exp(-shore/4.0)*fade;
- COLOR=vec4(base*(.98+.02*swell)+vec3(.10,.14,.14)*glint*.28+vec3(.20,.24,.20)*lap*.28,1.0);
+ COLOR=vec4(base*(.98+.02*swell)+vec3(.10,.14,.14)*glint*.28+vec3(.045,.075,.08)*short_wave*.45+vec3(.20,.24,.20)*lap*.28,1.0);
 }

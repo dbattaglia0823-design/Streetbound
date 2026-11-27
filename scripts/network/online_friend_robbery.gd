@@ -25,6 +25,7 @@ var police_started := false
 var escaped := false
 var clock := 0.0
 var _last_routed_stage := ""
+var result_until_ms := 0
 var panel: PanelContainer
 var status: Label
 var tier_picker: OptionButton
@@ -55,18 +56,16 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
-	panel = PanelContainer.new()
+	var hud_style = preload("res://scripts/ui/driving_hud.gd")
+	panel = hud_style.status_card(layer,Color("#63d6da"))
 	panel.name = "CoopRobberyPanel"
 	panel.position = Vector2(20,350)
 	panel.custom_minimum_size.x = 440
-	layer.add_child(panel)
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation",4)
 	panel.add_child(body)
-	status = Label.new()
-	status.custom_minimum_size = Vector2(420,72)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_child(status)
+	status = hud_style.status_text(body,"",13,Color("#eaf2e8"))
+	status.custom_minimum_size = Vector2(420,52)
 	var row := HBoxContainer.new()
 	body.add_child(row)
 	tier_picker = OptionButton.new()
@@ -152,6 +151,7 @@ func _host_action() -> void:
 		message = "HOST VEHICLE CAPACITY INSUFFICIENT"
 		return
 	job_id += 1
+	result_until_ms = 0
 	consent_id = job_id
 	participants = {1:{"car_id":economy.active_id}}
 	state = "lobby"
@@ -321,6 +321,7 @@ func _finish(success: bool, reason: String) -> void:
 	if not busy():
 		return
 	state = "results" if success else "aborted"
+	result_until_ms = Time.get_ticks_msec()+5000
 	message = reason
 	_clear_callbacks()
 	if is_instance_valid(_car(1)):
@@ -352,6 +353,8 @@ func _apply(payload: Dictionary) -> void:
 		return
 	if next_id!=job_id:
 		_last_routed_stage = ""
+	if next_state in ["results","aborted"] and (state!=next_state or next_id!=job_id or result_until_ms==0):
+		result_until_ms = Time.get_ticks_msec()+5000
 	job_id = next_id
 	state = next_state
 	tier = next_tier
@@ -401,7 +404,7 @@ func _refresh() -> void:
 		return
 	var me := int(session.own_id())
 	var nearby := _near(_car(me),contact,READY_RADIUS_M)
-	panel.visible = nearby or busy() or (state in ["results","aborted"] and participants.has(me))
+	panel.visible = nearby or state=="lobby" or (busy() and participants.has(me)) or (state in ["results","aborted"] and participants.has(me) and Time.get_ticks_msec()<result_until_ms)
 	tier_picker.visible = session.hosting and not busy()
 	risk_picker.visible = tier_picker.visible
 	host_button.visible = session.hosting and state not in ["pickup","delivery"]
@@ -422,7 +425,8 @@ func _refresh() -> void:
 			detail += " / %.1f of %.0fs" % [progress,Rules.configured_robbery_hold(offer)]
 		if participants.size()>=2:
 			detail += " / "+VehicleOwnership.dollars(floori(float(Rules.configured_reward("robbery",offer).cash)/float(participants.size())))+" EACH"
-	status.text = title+"\n"+detail+"\n"+message
+	var feedback := message if busy() or Time.get_ticks_msec()<result_until_ms or state=="idle" else ""
+	status.text = title+"\n"+detail+("\n"+feedback if not feedback.is_empty() else "")
 
 func _exit_tree() -> void:
 	_clear_callbacks()

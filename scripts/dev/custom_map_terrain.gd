@@ -46,7 +46,7 @@ func update_map(source: Dictionary) -> void:
 func shore_field(points: Array,holes: Array) -> Dictionary:
  var bounds:=Rect2(Vector2(points[0].x,points[0].y),Vector2.ZERO)
  for p in points:bounds=bounds.expand(Vector2(p.x,p.y))
- var cell:=maxf(bounds.size.x,bounds.size.y)/128.0
+ var cell:=maxf(.25,maxf(bounds.size.x,bounds.size.y)/256.0)
  bounds=bounds.grow(cell*2)
  var width:=maxi(4,ceili(bounds.size.x/cell));var height:=maxi(4,ceili(bounds.size.y/cell))
  bounds.size=Vector2(width,height)*cell
