@@ -500,6 +500,9 @@ func _filter_assets() -> void:
 		asset_grid.remove_child(node)
 		node.queue_free()
 	var keyword := asset_search.text.strip_edges().to_lower()
+	var has_sheet_regions: bool=asset_entries.any(func(entry: Dictionary)->bool:return entry.get("region",[]).size()==4)
+	asset_category.set_item_disabled(8,not has_sheet_regions)
+	if not has_sheet_regions and asset_category.selected==8:asset_category.select(0)
 	var category := asset_category.selected
 	var count := 0
 	for entry in asset_entries:

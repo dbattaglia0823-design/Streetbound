@@ -78,7 +78,7 @@ test('ground decals remain collision-free in project metadata',()=>{
 });
 
 test('nature sprites from shared sheets keep crops and non-solid settings',()=>{
-  const sheet='Map Building Assets/Sprite Sheets/Top-Down Nature and Asphalt Asset Sheet-6.png';
+  const sheet='Map Building Assets/Test Fixtures/Synthetic Nature.png';
   const treeId='project-'+'e'.repeat(24),rockId='project-'+'f'.repeat(24);
   setProjectAssets([
     {id:treeId,path:sheet,name:'Tree',type:'oak',width:264,height:264,region:[322,0,264,264],worldSize:[8,8],collision:'none'},
