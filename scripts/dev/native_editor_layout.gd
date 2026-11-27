@@ -304,8 +304,8 @@ static func build(e) -> void:
 	# Terrain size edits change the underlying polygon, not just a display scale.
 	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
 	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
-	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,24000,10)
-	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,24000,10)
+	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,72000,10)
+	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,72000,10)
 	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
 		spin.step=0.5
 	e.inspector_terrain_width.value_changed.connect(func(_value: float)->void:e._commit_terrain_size("x"))

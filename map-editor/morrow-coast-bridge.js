@@ -37,12 +37,12 @@ const clamp=(v,low,high)=>Math.max(low,Math.min(high,v));
 function pointsOf(items){
   return items.map(point=>({x:+point[0],y:+point[1]}));
 }
-function simplifyPolygon(items,max=180,width=MORROW_MIN_WIDTH,height=MORROW_MIN_HEIGHT){
+function simplifyPolygon(items,max=180,width=MORROW_MIN_WIDTH,height=MORROW_MIN_HEIGHT,preserveOverhang=false){
   // Import is intentionally a reviewable proxy, not lossy overwriting of
   // original coast/river masks. The rebaker only changes edited polygons.
   // Original ocean/river masks may intentionally extend past the game map.
   // The editor clamps only its preview; unchanged high-detail source is safe.
-  const pts=pointsOf(items).map(p=>({x:clamp(p.x,0,width),y:clamp(p.y,0,height)}));
+  const pts=pointsOf(items).map(p=>preserveOverhang?p:({x:clamp(p.x,0,width),y:clamp(p.y,0,height)}));
   if(pts.length>1 && Math.hypot(pts[0].x-pts.at(-1).x,pts[0].y-pts.at(-1).y)<.001)pts.pop();
   if(pts.length<=max)return pts;
   return Array.from({length:max},(_,i)=>pts[Math.floor(i*pts.length/max)]);
@@ -76,7 +76,7 @@ export function convertMorrowWorld(raw){
     if(terrain.generated_extension||!terrain.points||terrain.points.length<3)continue;
     // Avoid duplicating riverbank/foam masks with identical footprints.
     if(['foam','riverbank','highland'].includes(terrain.kind))continue;
-    const polygon=simplifyPolygon(terrain.points,180,width,height);
+    const polygon=simplifyPolygon(terrain.points,180,width,height,Boolean(terrain.authoring_id));
     if(polygon.length<3)continue;
     regions.push({id:terrain.authoring_id||'region-'+index,name:(terrain.barrier?'Mountain barrier ':String(terrain.kind)+' ')+index,
       biome:biomeOf(terrain.kind),elevation:Number(terrain.elevation)||0,points:polygon,

@@ -25,7 +25,17 @@ const POSITION_RESPONSE := 5.6
 const MAX_FOLLOW_DISTANCE_PX := 1200.0
 var player_zoom_multiplier := 1.0
 var _smoothed_player_zoom := 1.0
-var follow_heading := false
+var follow_heading := false:
+	set(value):
+		if follow_heading==value:return
+		follow_heading=value
+		# An explicit mode switch is immediate, even at parking speed or
+		# from the paused settings menu. Ordinary heading tracking stays damped.
+		_heading_turn_velocity=0.0
+		if is_instance_valid(target) and is_inside_tree():
+			rotation=wrapf(target.global_rotation,-PI,PI) if follow_heading else 0.0
+			reset_physics_interpolation()
+			force_update_scroll()
 var impact_strength := 0.0
 var _impact_time := 0.0
 var _surge := 0.0
@@ -187,7 +197,7 @@ func _physics_process(dt: float) -> void:
 		reset_physics_interpolation()
 
 func _update_heading_rotation(dt: float, car_heading: float, speed: float) -> void:
-	# North-up retains its original, predictable return-to-zero behavior.
+	# North-up is already aligned on a mode change; retain correction for external transforms.
 	if not follow_heading:
 		_heading_turn_velocity = 0.0
 		rotation = lerp_angle(rotation, 0.0, 1.0 - exp(-3.0 * dt))

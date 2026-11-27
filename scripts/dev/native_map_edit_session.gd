@@ -133,7 +133,8 @@ func _valid_source(value: Dictionary) -> bool:
 			if category=="regions":
 				if not item.get("points") is Array or item.points.size()<3 or item.points.size()>180:return false
 				for point in item.points:
-					if not _in_bounds(Vector2(float(point.get("x",-1)),float(point.get("y",-1))),value):return false
+					if not point is Dictionary or not point.has("x") or not point.has("y"):return false
+					if not _terrain_point_allowed(Vector2(float(point.x),float(point.y)),value):return false
 				if value.get("customMap",false):
 					var polygon:=PackedVector2Array()
 					for point in item.points:polygon.append(Vector2(point.x,point.y))
@@ -274,6 +275,14 @@ func road_limit(source: Dictionary = {}) -> int:
 func prop_limit(source: Dictionary = {}) -> int:
 	var target: Dictionary=doc if source.is_empty() else source
 	return CUSTOM_MAX_PROPS if target.get("customMap",false) else MAX_PROPS
+
+## Terrain alone may overhang the playable map. A generous finite margin
+## limits accidental extreme coordinates and keeps editor geometry stable.
+const TERRAIN_OVERHANG_M:=24000.0
+func _terrain_point_allowed(p: Vector2, source: Dictionary = {}) -> bool:
+	var record: Dictionary=source if not source.is_empty() else doc
+	if record.is_empty() or not p.is_finite():return false
+	return p.x>=-TERRAIN_OVERHANG_M and p.y>=-TERRAIN_OVERHANG_M and p.x<=float(record.world.width)+TERRAIN_OVERHANG_M and p.y<=float(record.world.height)+TERRAIN_OVERHANG_M
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 	var record: Dictionary = source if not source.is_empty() else doc
@@ -1103,8 +1112,8 @@ func resize_region(identity: String, scale_x: float, scale_y: float) -> bool:
 		for point in points:
 			var before:=Vector2(float(point.x),float(point.y))
 			var resized: Vector2=center+(before-center)*Vector2(scale_x,scale_y)
-			if not _in_bounds(resized):
-				last_error="Resized terrain would extend outside the map."
+			if not _terrain_point_allowed(resized):
+				last_error="Terrain exceeds the supported 24 km overhang beyond the map."
 				return false
 			point.x=resized.x;point.y=resized.y
 			outline.append(resized)
@@ -1330,8 +1339,8 @@ func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=
 		last_error = "Terrain needs three points and a supported biome."
 		return ""
 	for p in points_m:
-		if not _in_bounds(p):
-			last_error = "Terrain point outside the map."
+		if not _terrain_point_allowed(p):
+			last_error = "Terrain point exceeds the supported 24 km overhang beyond the map."
 			return ""
 	if points_m.size()>180:
 		last_error="Terrain supports at most 180 vertices."

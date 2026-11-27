@@ -1087,15 +1087,17 @@ for terrain_index,t in enumerate(TERRAIN):
     y1 = min(math.ceil(HEIGHT/CHUNK)-1, int(max(p[1] for p in points)//CHUNK))
     for x in range(x0,x1+1):
         for y in range(y0,y1+1):
-            clipped=clip_rect(points,x*CHUNK,y*CHUNK,(x+1)*CHUNK,(y+1)*CHUNK)
+            clipped=clip_rect(points,x*CHUNK,y*CHUNK,min(WIDTH,(x+1)*CHUNK),min(HEIGHT,(y+1)*CHUNK))
             if len(clipped)>=3:
                 fragment=dict(kind=t["kind"],color=t["color"],points=clipped)
                 for key in ("barrier","elevation","authoring_id"):
                     if key in t:fragment[key]=t[key]
                 CHUNKS[f"{x},{y}"]["terrain"].append(fragment)
     if t.get("barrier"):
-        for key in keys_for((max(0,min(p[0] for p in points)-40),max(0,min(p[1] for p in points)-40),min(WIDTH-.001,max(p[0] for p in points)+40),min(HEIGHT-.001,max(p[1] for p in points)+40)),CHUNK):
-            CHUNKS[key]["mountains"].append(terrain_index)
+        box=(max(0,min(p[0] for p in points)-40),max(0,min(p[1] for p in points)-40),min(WIDTH-.001,max(p[0] for p in points)+40),min(HEIGHT-.001,max(p[1] for p in points)+40))
+        if box[0]<=box[2] and box[1]<=box[3]:
+            for key in keys_for(box,CHUNK):
+                CHUNKS[key]["mountains"].append(terrain_index)
 
 # Validation is performed on actual baked centerlines, including facilities.
 adj=collections.defaultdict(set)

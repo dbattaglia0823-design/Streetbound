@@ -187,11 +187,14 @@ func run() -> void:
 		absf(wrapf(camera.rotation - resting_heading, -PI, PI)) < deg_to_rad(0.1),
 		rad_to_deg(camera.rotation))
 
-	# North-up remains accessible and smoothly returns to zero.
+	# Mode changes snap immediately, including while stationary or paused.
 	camera.follow_heading = false
-	for i in 240:
-		camera._physics_process(1.0 / 60.0)
-	check("north_up_returns_to_zero", absf(camera.rotation) < deg_to_rad(0.2), rad_to_deg(camera.rotation))
+	check("north_up_snaps_to_zero", absf(camera.rotation) < 0.00001, rad_to_deg(camera.rotation))
+	car.rotation=deg_to_rad(123.0)
+	paused=true
+	camera.follow_heading=true
+	check("heading_mode_snaps_while_stationary_and_paused",absf(wrapf(camera.rotation-car.global_rotation,-PI,PI))<0.00001 and camera._heading_turn_velocity==0.0,rad_to_deg(camera.rotation))
+	paused=false
 
 	# Crossing the wrap boundary (+179 to -179) must not trigger a full spin.
 	camera.follow_heading = true
