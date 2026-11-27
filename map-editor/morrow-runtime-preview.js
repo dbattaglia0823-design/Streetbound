@@ -303,7 +303,15 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
     ocean:'#82b5b5',water:'#82b5b5',lake:'#82b5b5',
     riverbank:'#c6d9c9',foam:'#c6d9c9'};
   const sourceIds=new Set(preview.sourceTerrain.filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind)).map(t=>t.editorId||'region-'+t.index));
-  const entries=preview.sourceTerrain.filter(t=>!t.generatedExtension).map(terrain=>({terrain,order:byId.get(terrain.editorId)?.drawOrder??(byId.has(terrain.editorId)?0:terrain.drawOrder??0)}));
+  // Collect full-resolution baked polygons before sorting; layer-only edits
+  // must never replace an unchanged coastline with simplified edit handles.
+  const entries=[];
+  for(const terrain of preview.sourceTerrain){
+    if(terrain.generatedExtension)continue;
+    const id=terrain.editorId||'region-'+terrain.index;
+    const order=byId.has(id)?(byId.get(id).drawOrder??0):(terrain.drawOrder??0);
+    entries.push({terrain,order});
+  }
   for(const region of doc.regions)if(!sourceIds.has(region.id))entries.push({region,order:region.drawOrder??0});
   entries.sort((a,b)=>a.order-b.order);
   for(const entry of entries){
