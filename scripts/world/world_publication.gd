@@ -38,6 +38,11 @@ static func resolve_manifest(value: Variant) -> Dictionary:
 	if not identity.ends_with(".world.json") or identity.get_file()!=identity or \
 			identity.length()>100 or identity.is_empty():return fallback
 	if not FileAccess.file_exists(archive) or not FileAccess.file_exists(source):return fallback
+	# Immutable archive names bind the exact bytes. Reject altered packages
+	# instead of letting a corrupted active pointer enter gameplay.
+	if not FileAccess.get_sha256(archive).begins_with(digest.trim_suffix(".world.json")):return fallback
+	var expected_sha: String=str(value.get("source_sha256",""))
+	if not expected_sha.is_empty() and FileAccess.get_sha256(source)!=expected_sha:return fallback
 	return {"format":"streetbound.active-world","version":1,"mode":"published",
 		"id":identity,"name":str(value.get("name","Published Map")).left(60),
 		"archive":archive,"source":source,"published":true}

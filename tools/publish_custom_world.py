@@ -23,6 +23,7 @@ import sys
 import tempfile
 
 from build_custom_test_world import make_archive
+from world_release_audit import dependencies as dependency_manifest, structural_audit, MAX_ARCHIVE
 
 MANIFEST = "worlds/active-world.json"
 OUTPUT_DIR = "worlds/published"
@@ -147,20 +148,28 @@ def _activate(root, manifest, backup_dir):
     return backup
 
 
-def publish(source, root, backup_dir):
+def prepare(source, root):
+    """Compile the exact saved source without activating or writing any files."""
     source = Path(source).resolve()
     root = Path(root).resolve()
     doc, raw = _read_source(source)
     # Stable event progress IDs depend on the original source filename.
     doc["_source_filename"] = source.name
     compiled = make_archive(doc)
-    dependencies = _production_checks(doc,compiled,root)
+    _production_checks(doc,compiled,root)
+    dependencies = dependency_manifest(compiled,root)
+    audit = structural_audit(compiled)
+    if audit["error_count"]:
+        raise ValueError("Release structural audit failed: "+"; ".join(audit["errors"][:5]))
     compiled["editor_custom_world"] = True
     compiled["editor_custom_test_drive"] = False
     compiled["editor_published_world"] = True
     compiled["editor_source_sha256"] = hashlib.sha256(raw).hexdigest()
-    compiled["editor_required_assets"] = dependencies
+    compiled["editor_required_assets"] = ["res://"+row["path"] for row in dependencies]
+    compiled["editor_asset_manifest"] = dependencies
     binary = _json_bytes(compiled)
+    if len(binary)>MAX_ARCHIVE:
+        raise ValueError("Compiled world exceeds 128 MB release budget")
     # The package ID includes compiler output, not only source text: an
     # upgraded baker may produce different junctions from the same map.
     digest = hashlib.sha256(binary).hexdigest()[:20]
@@ -176,6 +185,20 @@ def publish(source, root, backup_dir):
                   archive="res://"+archive_rel,
                   source="res://"+source_rel,
                   source_sha256=compiled["editor_source_sha256"])
+    return {"doc":doc,"raw":raw,"archive":compiled,"binary":binary,"manifest":active,
+            "dependencies":dependencies,"audit":audit,"archive_rel":archive_rel,"source_rel":source_rel}
+
+
+def publish(source, root, backup_dir):
+    root=Path(root).resolve()
+    prepared=prepare(source,root)
+    raw=prepared["raw"]
+    binary=prepared["binary"]
+    compiled=prepared["archive"]
+    active=prepared["manifest"]
+    dependencies=prepared["dependencies"]
+    archive_rel=prepared["archive_rel"]
+    source_rel=prepared["source_rel"]
     archive_path = root/archive_rel
     source_path = root/source_rel
     # Historical packages are immutable. Never overwrite a different map's

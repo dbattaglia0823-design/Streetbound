@@ -77,6 +77,8 @@ var boardwalk_path := PackedVector2Array()
 var _boardwalk_cells: Dictionary = {}
 var chunk_build_count := 0
 var cached_chunk_reuses := 0
+var predicted_chunk_builds:=0
+var _prefetch_clock:=0.0
 ## Optional developer-only diagnostics; no label or per-frame monitors
 ## are created or sampled until F7 is requested.
 var performance_debug_enabled := false
@@ -407,6 +409,7 @@ func _update_performance_display() -> void:
 		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
 		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
 		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
 	elif not failed_chunks.is_empty():
@@ -506,7 +509,7 @@ func stream_at(position_px: Vector2) -> void:
 		for x in range(focus.x-1,focus.x+2):
 			for y in range(focus.y-1,focus.y+2):
 				var index := Vector2i(x,y)
-				if requested.has(index):
+				if requested.has(index) or not data.chunks.has("%d,%d"%[index.x,index.y]):
 					continue
 				requested[index] = true
 				if not chunks.has(index):
@@ -526,6 +529,7 @@ func stream_at(position_px: Vector2) -> void:
 	for index in chunks.keys():
 		var cell_delta := _stream_cell_distance(index,center,second)
 		if cell_delta > 2:
+			chunks[index].set_stream_active(false)
 			chunks[index].queue_free()
 			chunks.erase(index)
 		else:
@@ -597,6 +601,20 @@ func _overhead_layer_at(position_px: Vector2, height_m: float) -> int:
 	return result
 
 
+## Look ahead only inside the existing dormant ring. Active chunk work
+## always wins and at most one build is issued in a frame.
+func _predict_chunk() -> Vector2i:
+	var none:=Vector2i(-999,-999)
+	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length()<12.0 or editor_render_only:return none
+	if secondary_current_cell.x!=-999:return none
+	var direction:=vehicle.linear_velocity.normalized()
+	var position_m:=vehicle.global_position/PPM
+	var predicted:=Vector2i(((position_m+direction*chunk_m*1.5)/chunk_m).floor())
+	if _stream_cell_distance(predicted,current_cell,secondary_current_cell)!=2:return none
+	var key: String="%d,%d"%[predicted.x,predicted.y]
+	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
+	return predicted
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
@@ -622,6 +640,14 @@ func _process(dt: float) -> void:
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
+	else:
+		_prefetch_clock+=dt
+		if _prefetch_clock>=.15 and dt<.020:
+			_prefetch_clock=0.0
+			var predicted:=_predict_chunk()
+			if predicted.x!=-999:
+				_build_chunk(predicted)
+				if chunks.has(predicted):predicted_chunk_builds+=1
 	if performance_debug_enabled:
 		_performance_clock += dt
 		if _performance_clock >= 0.45:

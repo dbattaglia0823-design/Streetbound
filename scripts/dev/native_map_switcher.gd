@@ -3,6 +3,8 @@ const Library=preload("res://scripts/dev/native_map_library.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const Terrain=preload("res://scripts/dev/custom_map_terrain.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
+const ReleaseComparison=preload("res://scripts/dev/map_release_comparison.gd")
+const RELEASE="res://tools/world_release.py"
 const PUBLISHER="res://tools/publish_custom_world.py"
 const COMPACT_PRESET="res://map-editor/maps/compact-boroughs.world.json"
 const COMPACT_FILE="compact-boroughs.world.json"
@@ -76,6 +78,7 @@ func build_publish_ui(e,parent: Node) -> void:
 	publication_status=Label.new()
 	publication_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(publication_status)
+	e._btn("World Release Center...",parent,func():open_release_center(e))
 	publish_button=e._btn("Build Game World...",parent,func():_show_publish(e))
 	publish_button.tooltip_text="Package the selected saved custom map as the main playable world. Test Drive remains a sandbox."
 	import_published_button=e._btn("Open Published Source...",parent,func():_open_published_source(e))
@@ -367,3 +370,87 @@ func restore(e) -> void:
 
 func dispose() -> void:
 	if is_instance_valid(custom_world):custom_world.free();custom_world=null
+
+func _release_command(arguments: Array[String]) -> Dictionary:
+	if not FileAccess.file_exists(RELEASE):return {"result":"blocked","error":"Missing release tool; use the source project."}
+	var args:=PackedStringArray([ProjectSettings.globalize_path(RELEASE),"--project",ProjectSettings.globalize_path("res://")])
+	args.append_array(PackedStringArray(arguments))
+	var program: String="py" if OS.get_name()=="Windows" else "python3"
+	if OS.get_name()=="Windows":args.insert(0,"-3")
+	var output: Array=[]
+	var code:=OS.execute(program,args,output,true)
+	var parsed: Variant=JSON.parse_string(str(output[0]).strip_edges()) if not output.is_empty() else null
+	if parsed is Dictionary:
+		if code!=0:parsed.result="blocked"
+		return parsed
+	return {"result":"blocked","error":str(output).left(1000)}
+
+func open_release_center(e) -> void:
+	if not e.active or not e.source_ready:return
+	var window:=AcceptDialog.new();window.title="World Release Center";window.ok_button_text="Close"
+	window.process_mode=Node.PROCESS_MODE_ALWAYS;e.add_child(window)
+	var box:=VBoxContainer.new();box.custom_minimum_size=Vector2(610,470);window.add_child(box)
+	var status:=RichTextLabel.new();status.custom_minimum_size=Vector2(600,250);status.size_flags_vertical=Control.SIZE_EXPAND_FILL;box.add_child(status)
+	status.text="Read-only release preflight, package export, backup comparison and verified rollback. Publishing still requires explicit confirmation. Static checks do not certify driving or FPS."
+	var revision: int=e.authoring.edit_revision
+	var session: RefCounted=e.authoring
+	var file: String=current_file
+	var valid:=func()->bool:return e.active and e.source_ready and session==e.authoring and revision==e.authoring.edit_revision and file==current_file and not e._editing_locked()
+	var saved:=func()->bool:
+		return valid.call() and custom and not e.authoring.dirty and not file.is_empty() and e.pending_drag.is_empty() and e.draft_points.is_empty()
+	var show_result:=func(result: Dictionary):
+		if result.get("result","")=="blocked":status.text="BLOCKED: "+str(result.get("error","Unknown failure"));return
+		status.text=JSON.stringify(result,"  ")
+	e._btn("Validate saved map / dependencies",box,func():
+		if not saved.call():status.text="Save the map and reopen Release Center first.";return
+		show_result.call(_release_command(["--preflight",ProjectSettings.globalize_path(Library.folder().path_join(file))])))
+	e._btn("Export portable map ZIP (does not activate)",box,func():
+		if not saved.call():status.text="Save the map and reopen Release Center first.";return
+		var path:=Library.folder().path_join("releases").path_join(file.trim_suffix(".world.json")+"-%d.zip"%Time.get_ticks_usec())
+		show_result.call(_release_command(["--export",ProjectSettings.globalize_path(Library.folder().path_join(file)),"--output",ProjectSettings.globalize_path(path)])))
+	e._btn("Verify a release ZIP",box,func():
+		var picker:=FileDialog.new();picker.file_mode=FileDialog.FILE_MODE_OPEN_FILE;picker.access=FileDialog.ACCESS_FILESYSTEM
+		picker.filters=PackedStringArray(["*.zip ; Streetbound map release"])
+		window.add_child(picker);picker.file_selected.connect(func(path: String):
+			show_result.call(_release_command(["--verify",path]));picker.queue_free())
+		picker.canceled.connect(picker.queue_free);picker.popup_centered_ratio(.7))
+	var versions:=OptionButton.new();box.add_child(versions)
+	for name in Library.backups(file):
+		versions.add_item(name);versions.set_item_metadata(versions.item_count-1,name)
+	var compare_button: Button=e._btn("Compare selected automatic backup → current draft",box,func():
+		if not valid.call() or versions.selected<0:return
+		var before:=Library.load_backup(file,str(versions.get_item_metadata(versions.selected)))
+		if before.is_empty():status.text="Backup unavailable.";return
+		status.text=ReleaseComparison.text(before,e.authoring.doc))
+	compare_button.disabled=versions.item_count==0
+	var recover_button: Button=e._btn("Restore selected backup into draft (undoable)",box,func():
+		if not valid.call() or versions.selected<0:return
+		var before:=Library.load_backup(file,str(versions.get_item_metadata(versions.selected)))
+		if not before.is_empty() and e.authoring.restore_snapshot(before):
+			e._refresh_authoring();e._fit_map();window.hide();window.queue_free()
+		else:status.text="Restore refused; source validation or locked layers prevented it.")
+	recover_button.disabled=versions.item_count==0
+	var published:=OptionButton.new();box.add_child(published)
+	var backups_path: String=Library.folder().path_join("publish-backups")
+	var dir:=DirAccess.open(backups_path)
+	if dir!=null:
+		var names:=dir.get_files();names.sort();names.reverse()
+		for name in names:
+			if name.begins_with("active-world-") and name.ends_with(".json"):
+				published.add_item(name);published.set_item_metadata(published.item_count-1,name)
+	var rollback_button: Button=e._btn("Roll back published PLAY world...",box,func():
+		if not valid.call() or published.selected<0:return
+		var path: String=backups_path.path_join(str(published.get_item_metadata(published.selected)))
+		var confirm:=ConfirmationDialog.new();confirm.title="Restore historical published world?"
+		confirm.dialog_text="Only the active PLAY world selection changes. Drafts and career saves stay unchanged. Archive and artwork integrity will be verified."
+		window.add_child(confirm);confirm.confirmed.connect(func():
+			if valid.call():
+				show_result.call(_release_command(["--rollback",ProjectSettings.globalize_path(path),"--backup-dir",ProjectSettings.globalize_path(backups_path)]))
+				_refresh_publication_ui()
+			confirm.queue_free())
+		confirm.canceled.connect(confirm.queue_free);confirm.popup_centered())
+	rollback_button.disabled=published.item_count==0
+	e._btn("Show current multiplayer world identity",box,func():
+		status.text=JSON.stringify(WorldPublication.network_identity(),"  ")+"\nFriends must use the same game build and exact compiled map. Package checksums are not a live server or automatic download.")
+	window.confirmed.connect(window.queue_free);window.canceled.connect(window.queue_free)
+	window.popup_centered()
