@@ -5,7 +5,8 @@ extends Control
 const Imperial = preload("res://scripts/ui/imperial_units.gd")
 # Compact bottom-left instrument cluster. Each element has a dedicated
 # non-overlapping region; viewport changes only apply a uniform scale.
-const SIZE := Vector2(590.0,184.0)
+const BASE_SIZE := Vector2(590.0,184.0)
+const SIZE := Vector2(590.0,226.0)
 const SPEED_CENTER := Vector2(82.0,99.0)
 const RPM_CENTER := Vector2(211.0,99.0)
 const GAUGE_RADIUS := 49.0
@@ -39,6 +40,12 @@ var tire_value: Label
 var surface_value: Label
 var race_value: Label
 var rpm_bar: ProgressBar
+var engine_label: Label
+var fuel_label: Label
+var engine_fraction := 1.0
+var fuel_fraction := 1.0
+var resources_available := false
+var electric := false
 var boost_visible := false
 var boost_fraction := 0.0
 var _speed_fraction := 0.0
@@ -57,7 +64,7 @@ var _animation_clock := 0.0
 func _ready() -> void:
 	name = "LiveVehicleDashboard"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	size = SIZE
+	size = BASE_SIZE
 	_last_speed_mps = vehicle.longitudinal_speed
 	_build_labels()
 	_refresh_vehicle_configuration()
@@ -136,12 +143,19 @@ func _build_labels() -> void:
 		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
 
 	# Bottom strip: only actionable traction and driving/race information.
-	# Surface is already identified in the top-left HUD.
+	# Keep the compact traction and drivetrain strip.
 	surface_value = _label("GRIP 1.00", Vector2(16,161), Vector2(149,19), 10, MUTED)
 	tire_value = _label("SPIN 0% / SLIP 0°", Vector2(172,161), Vector2(169,19),
 		10, LIGHT)
 	race_value = _label("0.00 G", Vector2(343,161), Vector2(233,19), 10,
 		GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	engine_label = _label("ENGINE",Vector2(16,187),Vector2(266,19),12,MINT)
+	engine_label.name = "EngineHealth"
+	fuel_label = _label("FUEL",Vector2(306,187),Vector2(268,19),12,MINT)
+	fuel_label.name = "FuelLevel"
+	engine_label.hide()
+	fuel_label.hide()
 
 	# Keep the RPMBar compatibility readout for tests and integrations but
 	# do not draw a duplicate horizontal gauge: the RPM arc/shift lights show it.
@@ -156,15 +170,40 @@ func _build_labels() -> void:
 
 func _layout_factor_for(viewport_size: Vector2) -> float:
 	return maxf(0.05, minf(1.0, minf(
-		(viewport_size.x - 32.0) / SIZE.x,
-		(viewport_size.y - 28.0) / SIZE.y)))
+		(viewport_size.x - 32.0) / size.x,
+		(viewport_size.y - 28.0) / size.y)))
 
 
 func _layout() -> void:
 	var viewport_size := get_viewport_rect().size
 	var factor := _layout_factor_for(viewport_size)
 	scale = Vector2.ONE * factor
-	position = Vector2(16.0, maxf(8.0, viewport_size.y - SIZE.y * factor - 12.0))
+	position = Vector2(16.0, maxf(8.0, viewport_size.y - size.y * factor - 12.0))
+
+## Resource readings come exclusively from the single-player condition service.
+func update_levels(engine: float, fuel: float, is_electric: bool = false, current_hp: int = 0, max_hp: int = 0) -> void:
+	engine_fraction = clampf(engine,0.0,1.0)
+	fuel_fraction = clampf(fuel,0.0,1.0)
+	electric = is_electric
+	if not resources_available:
+		resources_available = true
+		size = SIZE
+		engine_label.show()
+		fuel_label.show()
+		_layout()
+	engine_label.text = "ENGINE  %d / %d HP" % [current_hp,max_hp] if max_hp>0 else "ENGINE  %d%%" % roundi(engine_fraction*100.0)
+	fuel_label.text = "%s  %d%%" % ["CHARGE" if electric else "FUEL",roundi(fuel_fraction*100.0)]
+	engine_label.add_theme_color_override("font_color",_condition_color(engine_fraction))
+	fuel_label.add_theme_color_override("font_color",_condition_color(fuel_fraction))
+	queue_redraw()
+
+func _condition_color(fraction: float) -> Color:
+	return ALERT if fraction<=0.2 else (GOLD if fraction<=0.5 else MINT)
+
+func _resource_meter(at: Vector2, fraction: float) -> void:
+	var bounds := Rect2(at,Vector2(268,8))
+	draw_rect(bounds,Color("#263b44"))
+	draw_rect(Rect2(at,Vector2(bounds.size.x*fraction,bounds.size.y)),_condition_color(fraction))
 
 func _refresh_vehicle_configuration() -> void:
 	if not is_instance_valid(vehicle) or vehicle.config == null:
@@ -266,7 +305,11 @@ func _draw() -> void:
 	frame.set_border_width_all(1)
 	frame.set_corner_radius_all(12)
 	frame.set_content_margin_all(8)
-	draw_style_box(frame, Rect2(Vector2.ZERO, SIZE))
+	draw_style_box(frame, Rect2(Vector2.ZERO, size))
+	if resources_available:
+		draw_line(Vector2(14,183),Vector2(576,183),Color("#304952"),1.0,true)
+		_resource_meter(Vector2(16,210),engine_fraction)
+		_resource_meter(Vector2(306,210),fuel_fraction)
 	draw_line(Vector2(14,33),Vector2(576,33),Color("#304952"),1.0,true)
 	draw_line(Vector2(355,41),Vector2(355,152),Color("#304952"),1.0,true)
 	draw_line(Vector2(14,155),Vector2(576,155),Color("#304952"),1.0,true)

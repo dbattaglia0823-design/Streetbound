@@ -63,7 +63,7 @@ func _run() -> void:
 			if child is PanelContainer:
 				panels += 1
 	check("f1_menu_removed_but_driving_hud_preserved", hud != null and
-		hud.dashboard != null and panels == 1)
+		is_instance_valid(hud.dashboard) and panels == 0 and is_instance_valid(hud.status_host))
 	check("f1_input_and_controller_action_removed",
 		not ControlsScript.ACTIONS.has("tuning") and not InputMap.has_action("tuning"))
 	check("legacy_override_not_applied_at_startup",

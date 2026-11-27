@@ -86,30 +86,18 @@ func run() -> void:
 	var vehicle: VehicleController2D = main.vehicle
 	vehicle.set_physics_process(false)
 	var race: Node2D = main.drag_race
-	var level_hud: CanvasLayer = main.progression_hud
-	check("playable_ashford_race_and_progress_hud_exist",
-		race != null and race.available and level_hud != null)
-	var driving_hud: CanvasLayer = main.get_node_or_null("DrivingHUD") as CanvasLayer
-	if driving_hud == null:
-		for child in main.get_children():
-			if child is CanvasLayer and child.has_method("show_unified_progression"):
-				driving_hud = child
-				break
-	check("progression_integrated_into_top_left_hud",
-		driving_hud != null and is_instance_valid(level_hud.host) and
-		level_hud.host == driving_hud.progression_slot and
-		level_hud.player_bar.get_parent() == driving_hud.progression_slot and
-		level_hud.car_bar.get_parent() == driving_hud.progression_slot)
-	check("separate_progression_panel_not_created",
-		level_hud.get_node_or_null("ProgressionPanel") == null)
+	var pause_dash: Control = main.pause_menu.dashboard
+	check("playable_ashford_race_and_pause_progression_exist",race!=null and race.available and pause_dash!=null)
+	check("progression_removed_from_free_roam",main.progression_hud==null and main.get_node_or_null("DrivingHUD")!=null)
 
 	if race == null or not race.available:
 		quit(1)
 		return
 	race.set_physics_process(false)
 	race.economy = neutral
-	level_hud.economy = neutral
-	neutral.changed.connect(level_hud.refresh)
+	pause_dash.economy = neutral
+	neutral.changed.connect(pause_dash._refresh_profile)
+	neutral.changed.connect(pause_dash._refresh_car)
 	check("racing_cannot_start_from_laurel_garage",not race.can_stage())
 	var start: Vector2 = race.start_m * PPM
 	vehicle.global_position = start
@@ -143,9 +131,9 @@ func run() -> void:
 	check("valid_race_updates_driver_and_car_levels",
 		neutral.player_level() > 1 and neutral.active_car_level() > 1)
 	check("valid_race_awards_some_cash",neutral.balance > Ownership.STARTING_CASH)
-	check("race_hud_displays_both_progressions",
-		level_hud.player_label.text.contains("DRIVER LV") and \
-		level_hud.car_label.text.contains("CAR LV"))
+	check("pause_dashboard_displays_both_updated_progressions",
+		pause_dash.driver_level.text == "DRIVER LV %d" % neutral.player_level() and \
+		pause_dash.car_level.text == "CAR LV %d" % neutral.active_car_level())
 	var earned_xp := neutral.player_xp
 	race._complete()
 	check("finish_payout_is_not_repeatable",

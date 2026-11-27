@@ -148,9 +148,10 @@ func run() -> void:
 	check("selected_vehicle_id_persists",
 		saved.load("user://streetbound_selected_vehicle.cfg") == OK and \
 		str(saved.get_value("vehicle", "selected_id", "")) == str(slow.id))
-	check("hud_shows_selected_vehicle",
-		main.get_node("VehicleSelector").driving_hud.active_vehicle_label.text == \
-		str(slow.display_name).to_upper())
+	var pause_dash: Control = main.pause_menu.dashboard
+	pause_dash._refresh_car()
+	check("pause_dashboard_shows_selected_vehicle",
+		pause_dash.car_name.text == str(slow.display_name))
 	if old_save.is_empty():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 	else:

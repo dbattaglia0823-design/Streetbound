@@ -6,6 +6,7 @@ const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
 const FuelState = preload("res://scripts/vehicle/vehicle_fuel.gd")
 const ServiceRules = preload("res://scripts/vehicle/vehicle_service_rules.gd")
 const FuelGauges = preload("res://scripts/ui/vehicle_resource_gauges.gd")
+const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const RESOURCE_PATH := "user://streetbound_vehicle_resources.cfg"
@@ -26,6 +27,9 @@ var fuel_by_car: Dictionary = {}
 var damage = DamageState.new()
 var fuel = FuelState.new()
 var gauges: Control
+var dashboard: Control
+var status_host: VBoxContainer
+var notice_panel: PanelContainer
 var engine_smoke: Node2D
 var readout: Label
 var notice := ""
@@ -51,16 +55,20 @@ func _ready() -> void:
 	engine_smoke.set_script(DamageSmoke)
 	engine_smoke.set("vehicle", player)
 	player.add_child(engine_smoke)
-	gauges = Control.new()
-	gauges.set_script(FuelGauges)
-	add_child(gauges)
-	var box := PanelContainer.new()
-	box.position = Vector2(24, 204)
-	box.custom_minimum_size = Vector2(335, 30)
-	add_child(box)
-	readout = Label.new()
-	readout.add_theme_font_size_override("font_size", 12)
-	box.add_child(readout)
+	if is_instance_valid(dashboard):
+		gauges = dashboard
+	else:
+		gauges = Control.new()
+		gauges.set_script(FuelGauges)
+		add_child(gauges)
+	var parent: Node = status_host if is_instance_valid(status_host) else self
+	notice_panel = HudStyle.status_card(parent,Color("#f2bd78"))
+	if not is_instance_valid(status_host):
+		notice_panel.position = Vector2(16,16)
+	var col := VBoxContainer.new()
+	notice_panel.add_child(col)
+	HudStyle.status_text(col,"VEHICLE CONDITION",11,Color("#f2bd78"))
+	readout = HudStyle.status_text(col,"",13,Color("#eaf2e8"))
 	_apply_drive_condition()
 	_update_gauges()
 
@@ -162,7 +170,10 @@ func _apply_drive_condition() -> void:
 
 func _update_gauges() -> void:
 	if is_instance_valid(gauges):
-		gauges.call("update_levels", damage.health_fraction(), fuel.fraction(), fuel.electric)
+		if gauges == dashboard:
+			gauges.call("update_levels", damage.health_fraction(), fuel.fraction(), fuel.electric,ceili(damage.current_health_points()),damage.max_health_points)
+		else:
+			gauges.call("update_levels", damage.health_fraction(), fuel.fraction(), fuel.electric)
 
 func _show_notice(value: String) -> void:
 	notice = value
@@ -363,21 +374,21 @@ func _process(dt: float) -> void:
 	_update_gauges()
 	notice_remaining = maxf(0.0, notice_remaining - dt)
 	var service := _location_type()
-	var label := "HEALTH %d/%d  /  %s %d%%" % [
-		ceili(damage.current_health_points()), damage.max_health_points, "CHARGE" if fuel.electric else "FUEL", roundi(fuel.fraction() * 100.0)]
+	var messages: PackedStringArray = []
 	if damage.is_disabled():
-		label += "  /  DISABLED"
+		messages.append("ENGINE DISABLED")
 	elif fuel.empty():
-		label += "  /  OUT OF %s" % ("CHARGE" if fuel.electric else "FUEL")
+		messages.append("OUT OF %s" % ("CHARGE" if fuel.electric else "FUEL"))
 	if service == "garage" and damage.integrity < 100.0:
-		label += "  /  K FREE 100% REPAIR"
+		messages.append("[K] FREE FULL REPAIR")
 	elif service == "station" and damage.integrity < ServiceRules.STATION_REPAIR_LIMIT:
-		label += "  /  K 50%% REPAIR %s" % economy.dollars(ServiceRules.station_repair_fee(damage.integrity))
+		messages.append("[K] 50%% REPAIR %s" % economy.dollars(ServiceRules.station_repair_fee(damage.integrity)))
 	if service == "station" and fuel.fraction() < 0.9999:
 		var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
-		label += "  /  J %s" % economy.dollars(fuel.refill_cost(price))
+		messages.append("[J] REFILL %s" % economy.dollars(fuel.refill_cost(price)))
 	if (service.is_empty() or (service == "garage" and damage.integrity >= 100.0)) and _can_tow():
-		label += "  /  K TOW"
+		messages.append("[K] TOW")
 	if notice_remaining > 0.0:
-		label += "  /  " + notice
-	readout.text = label
+		messages.append(notice)
+	readout.text = "\n".join(messages)
+	notice_panel.visible = not messages.is_empty()

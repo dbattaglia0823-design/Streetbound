@@ -38,3 +38,5 @@
 - Phase 7: rotating profile availability and persisted per-target cooldown reserved on acceptance; live countdowns, runtime validation and regression tests. UTC system clock, offline expiry, no multiplayer synchronization yet. CI and visual validation pending.
 
 - Phase 8: opt-in co-op stock robbery director with host getaway car, shared physical objectives, individual split reward receipts, online race reputation, protocol 12 and regression tests. Host-only pursuit/cooldown; no NPC specialist bonuses or reconnect resume. CI and real multiplayer testing pending.
+
+- Compact HUD refresh: minimal minimap frame, pause-only progression, integrated real HP/fuel, contextual service feedback and dynamic pursuit/contract cards. Preserved full atlas and network-specific wanted indicators; regression assertions updated. CI/live layout verification pending.
