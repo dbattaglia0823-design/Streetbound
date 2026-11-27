@@ -1,6 +1,7 @@
 extends RefCounted
 ## Native editor productivity dialogs. Local preferences never enter a bake.
 const FinishPlanner=preload("res://scripts/dev/environment_detail_planner.gd")
+const ReleaseComparison=preload("res://scripts/dev/map_release_comparison.gd")
 const Data=preload("res://scripts/dev/native_editor_workspace.gd")
 const Library=preload("res://scripts/dev/native_map_library.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
@@ -298,6 +299,7 @@ func open_snapshots() -> void:
 	name_field=LineEdit.new();name_field.placeholder_text="Snapshot name";panel.add_child(name_field)
 	e._btn("Create snapshot",panel,_save_snapshot)
 	list=_list(panel);_fill_snapshots()
+	e._btn("Compare selected snapshot",panel,_compare_snapshot)
 	e._btn("Restore selected snapshot",panel,_restore_snapshot)
 	e._btn("Delete selected snapshot",panel,_delete_snapshot)
 	_show()
@@ -327,6 +329,18 @@ func _snapshot_path(item: Dictionary) -> String:
 	var file:=str(item.get("file",""))
 	if file.get_file()!=file or not file.begins_with("snapshot-") or not file.ends_with(".json"):return ""
 	return Library.folder().path_join("snapshots").path_join(file)
+
+func _compare_snapshot() -> void:
+	var i:=_picked()
+	if i<0 or not _ready_to_edit():return
+	var path:=_snapshot_path(_map_prefs().snapshots[i])
+	if path.is_empty():return
+	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not parsed is Dictionary:return
+	var text:=ReleaseComparison.text(parsed,e.authoring.doc)
+	var panel:=_new("Snapshot → current draft",Vector2i(560,440))
+	var report:=RichTextLabel.new();report.custom_minimum_size=Vector2(540,400);report.text=text;panel.add_child(report)
+	_show()
 
 func _restore_snapshot() -> void:
 	var i:=_picked()
@@ -416,7 +430,7 @@ func open_commands() -> void:
 	query=LineEdit.new();query.placeholder_text="Type a command…";panel.add_child(query)
 	list=_list(panel)
 	commands=[["Named layers",open_layers],["Select by filter",open_filters],["Replace assets",open_replace],
-		["Camera bookmarks",open_bookmarks],["Version snapshots",open_snapshots],["Resize map",open_resize],
+		["Camera bookmarks",open_bookmarks],["Version snapshots",open_snapshots],["World Release Center",func():e.map_switcher.open_release_center(e)],["Resize map",open_resize],
 		["Reference overlay",open_reference],["Measure distance area angles",begin_measure],["Road grade and clearance",measure_roads],
 		["Environmental finishing",open_environment_finishing],["Build city",e._open_construction],["Landscape terrain",e._open_landscape],["Bulk edit",e._open_bulk_edit],
 		["Prefabs",e._open_prefabs],["Edit history",e._open_history],["Fit map",e._fit_map],["Undo",e._undo],["Redo",e._redo],
