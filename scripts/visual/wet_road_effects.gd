@@ -30,7 +30,7 @@ static func reflection_opacity(rain: float, pavement: String) -> float:
 func _process(delta: float) -> void:
 	if not is_instance_valid(focus_vehicle):
 		return
-	var wet: float = Weather.rain_at(world)
+	var wet: float = Weather.rain_at(world,focus_vehicle.global_position)
 	if wet <= 0.01:
 		if not drops.is_empty():
 			drops.clear()
@@ -81,7 +81,11 @@ func _draw_reflections(car: Node2D, wet: float) -> void:
 			Color(1.0, 0.42, 0.27, brightness * 0.65), 2.0, true)
 	var span: float = 16.0
 	if car.is_in_group("traffic_vehicle"):
-		span = float(car.get("width_px")) * 0.28
+		var raw_width: Variant = car.get("width_px")
+		if raw_width is float or raw_width is int:
+			var width: float = float(raw_width)
+			if is_finite(width) and width > 0.0:
+				span = width * 0.28
 	for side in [-1.0, 1.0]:
 		var head := car.global_position + Vector2(side * span, -32.0).rotated(car.global_rotation)
 		draw_line(head + front * 4.0, head + front * 78.0,
@@ -90,8 +94,9 @@ func _draw_reflections(car: Node2D, wet: float) -> void:
 			Color(0.95, 0.97, 1.0, brightness), 3.0, true)
 
 func _draw() -> void:
-	var wet: float = Weather.rain_at(world)
-	if wet <= 0.01 or not is_instance_valid(focus_vehicle):
+	if not is_instance_valid(focus_vehicle):return
+	var wet: float = Weather.rain_at(world,focus_vehicle.global_position)
+	if wet <= 0.01:
 		return
 	for drop in drops:
 		var fade := 1.0 - float(drop.age) / float(drop.life)
@@ -111,7 +116,7 @@ func _draw() -> void:
 			if car is VehicleController2D and (car as VehicleController2D).surface_provider != world:
 				continue
 			var material: String = str(world.surface_at(car.global_position).get("name", "GRASS"))
-			var alpha := reflection_opacity(wet, material)
+			var alpha := reflection_opacity(Weather.rain_at(world,car.global_position), material)
 			if alpha <= 0.0:
 				continue
 			_draw_reflections(car, alpha / 0.22)

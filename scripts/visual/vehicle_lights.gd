@@ -32,9 +32,14 @@ static func points_for(body: Node2D) -> Array[Vector2]:
 			left_uv=appearance.get("rear_light_left_uv")
 			right_uv=appearance.get("rear_light_right_uv")
 	elif body.is_in_group("traffic_vehicle"):
-		var width: float=float(body.get("width_px"))
-		var length: float=float(body.get("length_px"))
-		bounds=Rect2(Vector2(-width*.5,-length*.5),Vector2(width,length))
+		var raw_width: Variant=body.get("width_px")
+		var raw_length: Variant=body.get("length_px")
+		# Incomplete traffic proxies may not expose dimensions.
+		if (raw_width is float or raw_width is int) and (raw_length is float or raw_length is int):
+			var width: float=float(raw_width)
+			var length: float=float(raw_length)
+			if is_finite(width) and is_finite(length) and width>0 and length>0:
+				bounds=Rect2(Vector2(-width*.5,-length*.5),Vector2(width,length))
 	return rear_points_from_bounds(bounds,left_uv,right_uv)
 
 func _ready() -> void:
