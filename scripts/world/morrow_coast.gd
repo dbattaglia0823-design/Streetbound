@@ -126,6 +126,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	RoadWidthAdaptation.adapt(data)
 	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
 	mountain_diagnostics=Mountains.apply(data)
+	_index_terrain_cutouts()
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
 			player_garage_prop = prop
@@ -514,6 +515,28 @@ func stream_at(position_px: Vector2) -> void:
 			chunks.erase(index)
 		else:
 			chunks[index].set_stream_active(cell_delta <= 1)
+
+## Index real open trenches after final road width adaptation. Leave legacy
+## maps byte-for-byte unchanged on disk and covered tunnel roofs intact.
+func _index_terrain_cutouts() -> void:
+	var cuts: Array = []
+	for road in data.roads:
+		if not Elevation.is_open_cut(road):
+			continue
+		for outline in Elevation.cutout_polygons(road):
+			var cut := {"road":int(road.id),"polygon":outline,"walls":Elevation.cutout_walls(road,outline)}
+			var index := cuts.size()
+			cuts.append(cut)
+			for key in Mountains.cells(Elevation.polygon_bounds(outline).grow(5.0),data):
+				if not data.chunks.has(key):
+					continue
+				var entry: Dictionary = data.chunks[key]
+				if not entry.has("terrain_cuts"):
+					entry["terrain_cuts"] = []
+				entry.terrain_cuts.append(index)
+	if not cuts.is_empty():
+		data["terrain_cuts"] = cuts
+
 
 func _index_tunnel_portal(ramp_id: int, tunnel_id: int) -> void:
 	var ramp: Dictionary = data.roads[ramp_id]

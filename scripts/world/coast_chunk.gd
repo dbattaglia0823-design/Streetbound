@@ -35,6 +35,12 @@ var content: Dictionary
 var origin_m := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
 var tunnel_art: Array[Node2D] = []
+var excavation_polygons: Array[PackedVector2Array] = []
+var excavation_walls: Array[PackedVector2Array] = []
+var excavation_body: StaticBody2D
+var excavation_mask: ImageTexture
+var excavation_bounds: Rect2
+var excavation_collision_bits := 0
 var deck_art: Array[Node2D] = []
 var prop_list: Array[Dictionary] = []
 var ground_polys: Array[Dictionary] = []
@@ -76,6 +82,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 				return
 	origin_m = Vector2(cell) * world.chunk_m
 	position = origin_m * PPM
+	_setup_excavation()
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	# Merge successive samples into polylines to avoid a draw call per segment.
 	var batches: Dictionary = {}
@@ -134,7 +141,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	var batches_by_layer := {}
 	for batch in road_batches:
 		var layer := Elevation.artwork_layer(batch.road)
-		if layer < 0 and Elevation.endpoint_layer(batch.road,true) != Elevation.endpoint_layer(batch.road,false):
+		if Elevation.is_open_cut(batch.road):
 			layer = 0 # The approach is an open cut, visible from the surface.
 		if not batches_by_layer.has(layer):batches_by_layer[layer] = []
 		batches_by_layer[layer].append(batch)
@@ -185,6 +192,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		relief.origin_m=origin_m
 		relief.content=content
 		relief.render_stage=stage
+		relief.excavation_mask=excavation_mask
+		relief.excavation_bounds=excavation_bounds
 		relief.z_index=5
 		add_child(relief)
 	if not prop_list.is_empty():
@@ -271,7 +280,9 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
 		clip.z_index=7;add_child(clip)
 		var mountain:=Node2D.new();mountain.set_script(MountainArt)
-		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains;clip.add_child(mountain)
+		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains
+		mountain.excavation_mask=excavation_mask;mountain.excavation_bounds=excavation_bounds
+		clip.add_child(mountain)
 	var geometry_overlay := Node2D.new()
 	geometry_overlay.name = "GeometryOverlay"
 	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
@@ -282,6 +293,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	add_child(geometry_overlay)
 	if not map_render_only:
 		_build_collisions()
+		_build_excavation_walls()
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
 
@@ -312,10 +324,52 @@ func set_stream_active(active: bool) -> void:
 	visible = active
 	if is_instance_valid(collider_body):
 		collider_body.collision_layer = 1 if active else 0
+	if is_instance_valid(excavation_body):
+		excavation_body.collision_layer = excavation_collision_bits if active else 0
+
+
+func _setup_excavation() -> void:
+	var all_cuts: Array = world.data.get("terrain_cuts",[])
+	if all_cuts.is_empty():
+		return
+	var indices: Array = content.get("terrain_cuts",[])
+	if render_extent_m != Vector2.ZERO:
+		indices = range(all_cuts.size())
+	excavation_bounds = Rect2(origin_m,Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)
+	for index in indices:
+		var cut: Dictionary = all_cuts[int(index)]
+		var polygon: PackedVector2Array = cut.polygon
+		if Elevation.polygon_bounds(polygon).intersects(excavation_bounds.grow(5.0)):
+			excavation_polygons.append(polygon)
+			excavation_walls.append_array(cut.walls)
+	if not excavation_polygons.is_empty():
+		excavation_mask = Elevation.cutout_mask(excavation_polygons,excavation_bounds)
+
+
+func _build_excavation_walls() -> void:
+	if excavation_walls.is_empty():
+		return
+	var body := StaticBody2D.new()
+	body.name = "ExcavationRetainingWalls"
+	# The open cut spans the surface and the first underground layer.
+	# Deeper tunnels and elevated decks must not collide with its walls.
+	excavation_collision_bits = 1 | Elevation.collision_bits(1,-6.0)
+	body.collision_layer = excavation_collision_bits
+	body.collision_mask = 0
+	add_child(body)
+	var made := 0
+	for wall in excavation_walls:
+		made += Guardrails.collision_shapes(body,wall,.5,origin_m,excavation_bounds)
+	if made == 0:
+		body.queue_free()
+		return
+	excavation_body = body
+	collision_shape_count += made
 
 
 func _ready() -> void:
-	material=preload("res://scripts/world/mountain_ground.tres")
+	var base: ShaderMaterial = preload("res://scripts/world/mountain_ground.tres")
+	material = Elevation.masked_material(base,excavation_mask,excavation_bounds) if excavation_mask != null else base
 
 func _prop_order(prop: Dictionary) -> int:
 	if prop.kind in ["field","garden","lot","forecourt","start_line","finish_line"]:
@@ -396,11 +450,13 @@ func _build_collisions() -> void:
 		var region: Dictionary=world.data.terrain[int(terrain_index)]
 		for piece in Geometry2D.intersect_polygons(MountainGeometry.polygon(region),rect):
 			if piece.size()<3:continue
-			var collider:=CollisionPolygon2D.new()
-			var local:=PackedVector2Array()
-			for p in piece:local.append((p-origin_m)*PPM)
-			collider.polygon=local;collider.set_meta("editor_terrain_key",MountainGeometry.identity(region,int(terrain_index)))
-			body.add_child(collider);collision_shape_count+=1
+			for fragment in Elevation.subtract_cutouts(piece,excavation_polygons):
+				var collider:=CollisionPolygon2D.new()
+				var local:=PackedVector2Array()
+				for p in fragment:local.append((p-origin_m)*PPM)
+				if Geometry2D.triangulate_polygon(local).is_empty():continue
+				collider.polygon=local;collider.set_meta("editor_terrain_key",MountainGeometry.identity(region,int(terrain_index)))
+				body.add_child(collider);collision_shape_count+=1
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()

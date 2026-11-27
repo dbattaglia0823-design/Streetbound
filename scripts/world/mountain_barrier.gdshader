@@ -1,8 +1,20 @@
 shader_type canvas_item;
+uniform bool terrain_cut_enabled = false;
+uniform sampler2D terrain_cut_mask : filter_nearest, repeat_disable;
+uniform vec4 terrain_cut_rect = vec4(0.0,0.0,1.0,1.0);
+
+varying vec2 cut_world_m;
+void vertex() { cut_world_m = (MODEL_MATRIX * vec4(VERTEX,0.0,1.0)).xy/20.0; }
+
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
 void fragment(){
+	if (terrain_cut_enabled) {
+		vec2 cut_uv = (cut_world_m-terrain_cut_rect.xy)/terrain_cut_rect.zw;
+		if (all(greaterThanEqual(cut_uv,vec2(0.0))) && all(lessThan(cut_uv,vec2(1.0))) && texture(terrain_cut_mask,cut_uv).r > .5) { discard; }
+	}
+
  float stone=smoothstep(.22,.40,COLOR.r);
  float grain=noise(UV*32.0)-.5;
  float fine=(noise(UV*120.0)-.5)*(1.0-smoothstep(.4,1.2,length(fwidth(UV*120.0))));

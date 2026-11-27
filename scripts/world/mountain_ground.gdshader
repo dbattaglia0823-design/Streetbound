@@ -1,4 +1,8 @@
 shader_type canvas_item;
+uniform bool terrain_cut_enabled = false;
+uniform sampler2D terrain_cut_mask : filter_nearest, repeat_disable;
+uniform vec4 terrain_cut_rect = vec4(0.0,0.0,1.0,1.0);
+
 // High-detail world-space ground materials; patterns align across 192m chunks.
 uniform sampler2D relief : filter_linear, repeat_disable;
 uniform float terrain_detail : hint_range(0.0, 1.5) = 1.0;
@@ -80,6 +84,11 @@ void vertex() {
 }
 
 void fragment() {
+	if (terrain_cut_enabled) {
+		vec2 cut_uv = (world_m-terrain_cut_rect.xy)/terrain_cut_rect.zw;
+		if (all(greaterThanEqual(cut_uv,vec2(0.0))) && all(lessThan(cut_uv,vec2(1.0))) && texture(terrain_cut_mask,cut_uv).r > .5) { discard; }
+	}
+
     // Untagged grass blades/flowers retain their original transparent ink.
     // Only polygon UVs >= 2 select a terrain material (no color guessing).
     if (UV.x >= 1.5) {
