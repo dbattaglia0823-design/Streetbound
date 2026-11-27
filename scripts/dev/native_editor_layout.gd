@@ -89,6 +89,7 @@ static func build(e) -> void:
 	e._btn("Environmental finishing",world_settings,func():e.workspace_tools.open_environment_finishing())
 	e._btn("Dealership areas & stock",world_settings,e._open_dealership_editor)
 	e._btn("Gameplay authoring",world_settings,func():e.gameplay_authoring.open(e))
+	e._btn("World Validation Center",world_settings,func():e.gameplay_authoring.open_validation(e))
 	e.sidewalk_settings=column(settings);heading(e.sidewalk_settings,"SIDEWALK")
 	e.sidewalk_width=e._number(e.sidewalk_settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.guardrail_settings=column(settings);heading(e.guardrail_settings,"GUARDRAIL")

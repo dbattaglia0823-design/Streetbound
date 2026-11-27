@@ -74,6 +74,7 @@ var workspace_tools:=WorkspaceUI.new()
 const GameplayAuthoring=preload("res://scripts/dev/native_gameplay_authoring.gd")
 var gameplay_authoring:=GameplayAuthoring.new()
 var last_asset_entry: Dictionary={}
+const AdvancedConstruction=preload("res://scripts/dev/advanced_world_construction.gd")
 const Construction=preload("res://scripts/dev/native_city_construction.gd")
 const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
 var landscape_dialog: AcceptDialog
@@ -2953,8 +2954,12 @@ func _open_construction() -> void:
 		root_ui.add_child(construction_dialog)
 		var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(520,540);construction_dialog.add_child(scroll)
 		var panel:=VBoxContainer.new();panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(panel)
-		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange","property kit"])
+		construction_mode=_options(panel,"Construction mode",["advanced neighborhood","directional diamond","city grid","district fill","roadside decoration","interchange","property kit"])
 		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
+		construction_fields["neighborhood_style"]=_options(panel,"Neighborhood style",["mixed use","residential","commercial","industrial","downtown"])
+		construction_fields["variation"]=_number(panel,"Block variation %",0,22,18)
+		for label in [["parks","Include landscaped parks"],["parking","Include connected parking lots"]]:
+			var choice:=CheckBox.new();choice.text=label[1];choice.button_pressed=true;panel.add_child(choice);construction_fields[label[0]]=choice
 		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
 		construction_fields["columns"]=_number(dimensions,"Columns",1,12,3)
 		construction_fields["rows"]=_number(dimensions,"Rows",1,12,3)
@@ -2977,6 +2982,7 @@ func _open_construction() -> void:
 		construction_canvas=Control.new();construction_canvas.custom_minimum_size=Vector2(480,200);panel.add_child(construction_canvas)
 		construction_canvas.draw.connect(_draw_construction_preview)
 		_btn("Preview generation",panel,_preview_construction)
+		_btn("Validate preview with production compiler",panel,_preflight_construction)
 		construction_dialog.confirmed.connect(_apply_construction)
 		construction_mode.item_selected.connect(func(_i: int)->void:_invalidate_construction())
 		for control in construction_fields.values():
@@ -3012,6 +3018,8 @@ func _preview_construction() -> void:
 		elif control is CheckBox:settings[key]=control.button_pressed
 	settings.density=float(settings.density)/100.0
 	match _option_value(construction_mode):
+		"advanced neighborhood":construction_plan=AdvancedConstruction.plan_neighborhood(_construction_source(),construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+		"directional diamond":construction_plan=AdvancedConstruction.plan_diamond(authoring.doc,construction_center,settings,authoring.road_limit())
 		"city grid":construction_plan=Construction.plan_grid(_construction_source(),construction_center,settings,authoring.road_limit(),authoring.prop_limit())
 		"district fill":construction_plan=Construction.plan_district(_construction_source(),construction_center,settings,authoring.prop_limit())
 		"roadside decoration":construction_plan=Construction.plan_roadside(_construction_source(),construction_road_id,settings,authoring.prop_limit())
@@ -3024,8 +3032,17 @@ func _preview_construction() -> void:
 	construction_revision=authoring.edit_revision;construction_session=authoring
 	var count: int=construction_plan.roads.size()+construction_plan.props.size()+construction_plan.get("regions",[]).size()+construction_plan.get("markers",[]).size()
 	construction_summary.text="%s: %d roads, %d scenery, %d plots, %d gameplay markers. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size(),construction_plan.get("regions",[]).size(),construction_plan.get("markers",[]).size()]
-	construction_dialog.get_ok_button().disabled=count==0
+	if construction_plan.has("stats"):construction_summary.text+="\n"+str(construction_plan.stats)
+	construction_dialog.get_ok_button().disabled=count==0 or (map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"])
+	if map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"]:construction_summary.text+="\nValidate the preview with the production compiler before applying."
 	construction_canvas.queue_redraw()
+
+func _preflight_construction() -> void:
+	if _editing_locked() or construction_plan.is_empty() or construction_plan.has("error") or construction_session!=authoring or construction_revision!=authoring.edit_revision:
+		_notice("Preview the current source first.");return
+	var result:=AdvancedConstruction.preflight(authoring.doc,construction_plan)
+	construction_summary.text+="\n"+str(result.message)
+	if map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"]:construction_dialog.get_ok_button().disabled=not bool(result.ok)
 
 func _draw_construction_preview() -> void:
 	var canvas:=construction_canvas
@@ -3040,7 +3057,7 @@ func _draw_construction_preview() -> void:
 	for region in construction_plan.get("regions",[]):
 		var polygon:=PackedVector2Array()
 		for p in region.points:polygon.append(origin+Vector2(p.x,p.y)*scale)
-		canvas.draw_colored_polygon(polygon,Color("#536b59"))
+		canvas.draw_colored_polygon(polygon,Color("#567a51") if str(region.get("biome",""))=="grass" else Color("#65717a"))
 	for road in construction_plan.get("roads",[]):
 		var points:=PackedVector2Array()
 		for p in EditSession.road_path(road):points.append(origin+p*scale)
@@ -3057,7 +3074,11 @@ func _draw_construction_preview() -> void:
 			var footprint:=Vector2(12,17) if prop.type=="house" else Vector2(22,29)
 			if prop.type in ["streetlight","sign","oak"]:footprint=Vector2(5,5)
 			if prop.type=="parking":footprint=Vector2(38,28)
-			canvas.draw_rect(Rect2(p-footprint*scale*.5,footprint*scale),Color("#c4a17d"))
+			if prop.has("assetSize"):footprint=Vector2(float(prop.assetSize[0]),float(prop.assetSize[1]))
+			footprint*=float(prop.get("scale",1))
+			var shape:=PackedVector2Array()
+			for corner in [Vector2(-.5,-.5),Vector2(.5,-.5),Vector2(.5,.5),Vector2(-.5,.5)]:shape.append(p+(corner*footprint).rotated(deg_to_rad(float(prop.get("rotation",0))))*scale)
+			canvas.draw_colored_polygon(shape,Color("#869399") if prop.type=="parking" else (Color("#6d9b64") if prop.type in ["oak","pine","palm","bush"] else Color("#c4a17d")))
 	for marker in construction_plan.get("markers",[]):canvas.draw_circle(origin+Vector2(marker.x,marker.y)*scale,4,Color("#ffc66e"))
 
 func _apply_construction() -> void:
