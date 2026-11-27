@@ -107,6 +107,11 @@ function validEntity(item,type,w,h){
       rotation:real(item.rotation,-360,360,'prop rotation'),
       scale:real(item.scale,.2,5,'prop scale'),assetId:!item.assetId?'':(idOk(item.assetId)?item.assetId:(()=>{throw new TypeError('Invalid asset ID');})())};
     for(const axis of ['scaleX','scaleY'])if(item[axis]!==undefined)entity[axis]=real(item[axis],.2,5,'prop axis scale');
+    if(item.drawOrder!==undefined){
+      const order=integer(item.drawOrder,-5,10,'draw order');
+      if(order&&['sidewalk','guardrail'].includes(entity.type))throw new RangeError('Path assets keep their normal draw order');
+      if(order)entity.drawOrder=order;
+    }
     if(item.roadFacing!==undefined){
       if(typeof item.roadFacing!=='boolean')throw new TypeError('Invalid road-facing preference');
       entity.roadFacing=item.roadFacing;
