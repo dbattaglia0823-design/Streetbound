@@ -140,6 +140,28 @@ class ElevationBakeTests(unittest.TestCase):
         for r in sections:
             if r.get("grade_smooth") is not None:self.assertAlmostEqual(r["grade_smooth"],1.0)
 
+    def test_expanded_custom_map_capacity(self):
+        source=fixture()
+        source["world"].update(width=6400,height=4800)
+        template=copy.deepcopy(source["roads"][0])
+        template.pop("elevation",None)
+        source.update(roads=[],regions=[],props=[],markers=[],races=[])
+        for i in range(360):
+            x=100+(i%20)*280
+            y=100+(i//20)*220
+            road=copy.deepcopy(template)
+            road.update(id=f"road-{i}",name=f"Capacity road {i}",points=[dict(x=x,y=y),dict(x=x+90,y=y)])
+            source["roads"].append(road)
+        for i in range(8000):
+            source["props"].append(dict(id=f"prop-{i}",name="Capacity tree",type="oak",
+                x=50+(i%100)*60,y=50+(i//100)*58,scale=1,rotation=0,assetId="game-tree"))
+        archive=make_archive(source)
+        self.assertEqual(len(archive["roads"]),360)
+        self.assertEqual(len(archive["props"]),8000)
+        source["roads"].append(copy.deepcopy(source["roads"][0]))
+        with self.assertRaisesRegex(ValueError,"road list"):
+            make_archive(source)
+
     def test_bad_profiles_fail_before_archive_output(self):
         source = fixture()
         for profile in [None, {"start_layer":True,"end_layer":1},

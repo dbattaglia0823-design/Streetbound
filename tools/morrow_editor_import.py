@@ -171,8 +171,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
     import zlib
 
     items = doc.get("props", [])
-    if not isinstance(items, list) or len(items) > 4000:
-        raise ValueError("At most 4000 editor-authored props may be baked")
+    limit = 8000 if doc.get("customMap") is True else 4000
+    if not isinstance(items, list) or len(items) > limit:
+        raise ValueError(f"At most {limit} editor-authored props may be baked")
     ids = set()
     result = []
     for raw in items:

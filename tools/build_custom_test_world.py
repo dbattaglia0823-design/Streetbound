@@ -113,11 +113,11 @@ def make_archive(doc):
     if type(rain) not in (int,float) or not math.isfinite(rain) or not 0.0 <= rain <= 1.0:
         raise ValueError("Rain intensity must be between 0 and 1")
     source_roads = doc.get("roads", [])
-    if not isinstance(source_roads, list) or len(source_roads) > 180:
+    if not isinstance(source_roads, list) or len(source_roads) > 360:
         raise ValueError("Invalid custom road list")
     nodes, roads, segments = {}, [], []
     grid = defaultdict(list)
-    endpoint_index = []
+    endpoint_index = defaultdict(list)
     for index, item in enumerate(source_roads):
         anchors = [[float(p["x"]),float(p["y"])] for p in item["points"]]
         if len(anchors) < 2 or len(anchors) > 100 or any(
@@ -127,11 +127,15 @@ def make_archive(doc):
             raise ValueError("Invalid custom road control points")
         names = []
         for end, p in enumerate((anchors[0], anchors[-1])):
-            key = next((name for coord,name in endpoint_index if distance(coord,p)<.12), None)
+            cell = (math.floor(p[0]),math.floor(p[1]))
+            candidates = [entry for dx in (-1,0,1) for dy in (-1,0,1)
+                          for entry in endpoint_index.get((cell[0]+dx,cell[1]+dy),())]
+            # Earliest matching authored endpoint wins, exactly as before.
+            key = next((name for _,coord,name in sorted(candidates) if distance(coord,p)<.12), None)
             if key is None:
                 key = f"custom-node-{index}-{end}"
                 nodes[key] = p
-                endpoint_index.append((p,key))
+                endpoint_index[cell].append((index*2+end,p,key))
             names.append(key)
         road_points = path_of(anchors)
         kind = CLASS_TO_KIND.get(item.get("roadClass","city"),"local")

@@ -16,6 +16,8 @@ const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const DealershipConfig=preload("res://scripts/world/dealership_config.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
+const CUSTOM_MAX_ROADS := 360
+const CUSTOM_MAX_PROPS := 8000
 const MAX_DRAG_M := 350.0
 const ART: Dictionary = {
 	"house":{"type":"house","assetId":"game-house","size":Vector2(12,17)},
@@ -88,7 +90,7 @@ func _valid_source(value: Dictionary) -> bool:
 	for category in ["roads","regions","props","markers","assets"]:
 		if not value.get(category) is Array:
 			return false
-	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
+	if value.roads.size() > road_limit(value) or value.props.size() > prop_limit(value) or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
 	if not value.get("races",[]) is Array or value.get("races",[]).size()>64 or not EventRules.valid_graph(value.get("races",[])):return false
@@ -251,6 +253,14 @@ func delete_dealership(identity: String) -> bool:
 		return _commit(next)
 	last_error="No saved overrides to remove."
 	return false
+
+func road_limit(source: Dictionary = {}) -> int:
+	var target: Dictionary=doc if source.is_empty() else source
+	return CUSTOM_MAX_ROADS if target.get("customMap",false) else MAX_ROADS
+
+func prop_limit(source: Dictionary = {}) -> int:
+	var target: Dictionary=doc if source.is_empty() else source
+	return CUSTOM_MAX_PROPS if target.get("customMap",false) else MAX_PROPS
 
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 	var record: Dictionary = source if not source.is_empty() else doc
@@ -599,14 +609,14 @@ func _new_prop_id() -> String:
 	var used := {}
 	for p in doc.props:
 		used[str(p.id)] = true
-	for i in range(1,MAX_PROPS+1):
+	for i in range(1,prop_limit()+1):
 		var key := "prop-native-%d" % i
 		if not used.has(key):
 			return key
 	return ""
 
 func add_prop(art_kind: String, position_m: Vector2) -> String:
-	if not ART.has(art_kind) or not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS:
+	if not ART.has(art_kind) or not _in_bounds(position_m) or doc.props.size() >= prop_limit():
 		last_error = "Choose a supported game asset inside Morrow Coast."
 		return ""
 	var entry: Dictionary = ART[art_kind]
@@ -633,7 +643,7 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 			art_type not in ["house","building","warehouse","garage","gas_station",
 				"industrial_prop","road_prop","ground_decal","oak","pine","palm","bush","rock","boulder"] or \
 			collision_mode not in ["solid","none"] or \
-			not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS or \
+			not _in_bounds(position_m) or doc.props.size() >= prop_limit() or \
 			footprint.x <= 0.0 or footprint.y <= 0.0 or \
 			footprint.x > 100.0 or footprint.y > 100.0:
 		last_error = "Invalid project asset or placement."
@@ -707,7 +717,7 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
 			runtime.has("authoring_id") or \
-			bool(runtime.get("protected",false)) or doc.props.size()>=MAX_PROPS:
+			bool(runtime.get("protected",false)) or doc.props.size()>=prop_limit():
 		last_error = "This generated item has no safe replaceable source identity."
 		return ""
 	var origin := Vector2(float(place[0]),float(place[1]))
@@ -947,8 +957,8 @@ func next_id(category: String, prefix: String) -> String:
 	return prefix+"-"+str(number)
 
 func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
-	if points_m.size()<2 or points_m.size()>100 or doc.roads.size()>=MAX_ROADS:
-		last_error="Roads need 2–100 control points; at most 180 roads are supported."
+	if points_m.size()<2 or points_m.size()>100 or doc.roads.size()>=road_limit():
+		last_error="Roads need 2–100 control points; this map supports %d roads."%road_limit()
 		return ""
 	var vertices: Array[Dictionary]=[]
 	for point in points_m:

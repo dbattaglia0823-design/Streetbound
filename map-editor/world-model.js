@@ -14,6 +14,7 @@ export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','o
 export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','contract_contact','robbery_target','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
+export const entityLimit=(doc,type)=>doc.customMap===true&&type==='roads'?360:doc.customMap===true&&type==='props'?8000:LIM[type];
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
 const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
   (GAME_ART_KINDS[type]||[]).includes(assetId.slice(5));
@@ -293,7 +294,7 @@ export function normalizeWorld(raw){
     ids.add(asset.id);
   }
   for(const type of ['roads','regions','props','markers']){
-    if(!Array.isArray(raw[type])||raw[type].length>LIM[type])throw new RangeError('Invalid '+type+' count');
+    if(!Array.isArray(raw[type])||raw[type].length>entityLimit(raw,type))throw new RangeError('Invalid '+type+' count');
     result[type]=raw[type].map(item=>{
       const checked=validEntity(item,type,width,height);
       if(ids.has(checked.id))throw new TypeError('Duplicate entity ID: '+checked.id);
@@ -434,7 +435,7 @@ export function getEntity(doc,id){
 }
 export function createEntity(doc,type,input){
   if(!['roads','regions','props','markers'].includes(type))throw new TypeError('Unsupported entity collection');
-  if(doc[type].length>=LIM[type])throw new RangeError('Maximum '+type+' reached');
+  if(doc[type].length>=entityLimit(doc,type))throw new RangeError('Maximum '+type+' reached');
   const id=unique(type==='roads'?'road':type==='regions'?'region':type==='props'?'prop':'marker',
     ['roads','regions','props','markers'].flatMap(t=>doc[t]));
   let item=validEntity({id,...input},type,doc.world.width,doc.world.height);

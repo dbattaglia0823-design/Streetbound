@@ -163,13 +163,14 @@ def build_junctions(roads,nodes,segments,grid):
         road=roads[road_id]
         return layer_at_join(road,project(road,p)[1]) if 'elevation' in road else 0
 
+    # Index endpoints once instead of scanning every road for every node.
+    # Preserve original road/node/layer traversal order for legacy archives.
+    endpoints={}
+    for road in roads:
+        for end,station in [('start',0),('end',road['_stations'][-1])]:
+            endpoints.setdefault(road[end],{}).setdefault(layer_at_join(road,station),set()).add(road['id'])
     for name,p in nodes.items():
-        by_layer={}
-        for road in roads:
-            for end,station in [('start',0),('end',road['_stations'][-1])]:
-                if road[end]==name:
-                    by_layer.setdefault(layer_at_join(road,station),set()).add(road['id'])
-        for layer,ids in by_layer.items():
+        for layer,ids in endpoints.get(name,{}).items():
             if len(ids)>=2:event(p,ids,layer)
     def check_clearance(ids,p):
         heights = [height_at_station(roads[road_id],project(roads[road_id],p)[1])
