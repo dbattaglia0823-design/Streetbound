@@ -195,6 +195,7 @@ var reconnect_road_button: Button
 var connection_label: Label
 var asset_dimensions_label: Label
 var terrain_transforms: VBoxContainer
+var inspector_terrain_draw_order: SpinBox
 var inspector_terrain_width: SpinBox
 var inspector_terrain_height: SpinBox
 var inspector_terrain_percent: SpinBox
@@ -2695,7 +2696,7 @@ func _refresh_inspector() -> void:
 	if terrain_transforms.visible:
 		inspector_terrain_width.max_value=float(authoring.doc.world.width)+2.0*EditSession.TERRAIN_OVERHANG_M
 		inspector_terrain_height.max_value=float(authoring.doc.world.height)+2.0*EditSession.TERRAIN_OVERHANG_M
-	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
+	for spin in [inspector_terrain_width,inspector_terrain_height,inspector_terrain_draw_order]:spin.editable=terrain_transforms.visible
 	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
@@ -2715,6 +2716,7 @@ func _refresh_inspector() -> void:
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
 		inspector_draw_order.value=int(item.get("drawOrder",0))
 		if record.category=="regions":
+			inspector_terrain_draw_order.value=int(item.get("drawOrder",0))
 			var region_size: Vector2=_region_bounds(item).size
 			inspector_terrain_width.value=region_size.x
 			inspector_terrain_height.value=region_size.y
@@ -2778,7 +2780,8 @@ func _commit_inspector(field: String="name") -> void:
 				var snapped:=_snap_building_transform(adjusted,destination)
 				destination=snapped.position;values["rotation"]=snapped.rotation
 	if field=="drawOrder":
-		if authoring.set_prop_draw_order(source_id,int(inspector_draw_order.value)):_refresh_authoring()
+		var order:=int(inspector_terrain_draw_order.value if record.category=="regions" else inspector_draw_order.value)
+		if authoring.set_prop_draw_order(source_id,order):_refresh_authoring()
 		else:_notice(authoring.last_error);_refresh_inspector()
 		return
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
@@ -3463,8 +3466,11 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.terrain:return {}
 	# Last-authored terrain is on top. Pick the filled interior as well as
 	# its boundary so no precise edge click is required for whole-piece drags.
+	var best: Dictionary={}
+	var best_order: int=-6
 	for index in range(authoring.doc.regions.size()-1,-1,-1):
 		var item: Dictionary=authoring.doc.regions[index]
+		if int(item.get("drawOrder",0))<=best_order:continue
 		if not _workspace_selectable(str(item.id)):continue
 		var polygon:=PackedVector2Array()
 		for vertex in item.points:
@@ -3477,8 +3483,10 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 					polygon[(i+1)%polygon.size()]).distance_to(at)<8/maxf(.003,editor_camera.zoom.x):
 				near_edge=true
 				break
-		if inside or near_edge:return {"kind":"region","id":str(item.id),"from":at}
-	return {}
+		if inside or near_edge:
+			best={"kind":"region","id":str(item.id),"from":at}
+			best_order=int(item.get("drawOrder",0))
+	return best
 
 func _pick_source_mountain(at: Vector2) -> Dictionary:
 	if not layer_flags.terrain:return {}
