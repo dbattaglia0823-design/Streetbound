@@ -23,7 +23,7 @@ static func save(doc: Dictionary,file: String="") -> String:
 	if file.get_file()!=file or not file.ends_with(".world.json"):return ""
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder()))
 	var path:=folder().path_join(file);var temporary:=path+".tmp"
-	var payload:=JSON.stringify(doc,"\t")
+	var payload:=JSON.stringify(doc,"\t",true,true)
 	if FileAccess.file_exists(path):
 		var old:=FileAccess.get_file_as_bytes(path)
 		if old!=payload.to_utf8_buffer() and not _backup(file,old):return ""
