@@ -495,6 +495,8 @@ func _on_cancel_pressed() -> void:
 		_request_forfeit.rpc_id(1, race_id)
 
 func _host_offer() -> void:
+	if is_instance_valid(online_world.friend_robbery) and online_world.friend_robbery.call("busy"):
+		return
 	if not session.hosting or not session.active or not available or \
 			state not in ["idle", "results", "aborted"]:
 		return
@@ -545,6 +547,8 @@ func _ready_count() -> int:
 	return n
 
 func _host_start() -> void:
+	if is_instance_valid(online_world.friend_robbery) and online_world.friend_robbery.call("busy"):
+		return
 	if not session.hosting or state != "lobby" or entries.size() < 2 or \
 			not bool(entries.get(1, {}).get("ready", false)):
 		return
@@ -1005,6 +1009,7 @@ func _award_own_finish() -> void:
 			_last_reward_message = "CAREER +%s  +%d DRIVER XP  +%d CAR XP" % [
 				VehicleOwnership.dollars(int(receipt.get("cash",0))),
 				int(receipt.get("player_xp",0)),int(receipt.get("car_xp",0))]
+			_last_reward_message += " / +%d REP" % int(receipt.get("underground_rep",0))
 			if not part.is_empty():
 				_last_reward_message += "  /  PART: %s" % str(part.get("name","UPGRADE"))
 		"already_claimed":

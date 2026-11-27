@@ -159,6 +159,8 @@ func _process(dt: float) -> void:
 	var kind: String=str(_nearby.get("type",""))
 	var actionable:=kind in ["garage","dealership","mission","fast_travel","fuel",
 		"race_start","checkpoint","finish","custom","contract","contract_contact"]
+	if kind in ["contract","contract_contact"] and not is_instance_valid(contracts):
+		actionable = false
 	prompt.visible=actionable and not _is_busy() and not get_tree().paused
 	if prompt.visible:
 		var hint: String={"garage":"GARAGE","dealership":"DEALERSHIP","mission":"START MISSION",

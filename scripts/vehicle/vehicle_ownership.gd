@@ -663,6 +663,8 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 	var previous_part_uid := next_part_uid
 	var old_claims := multiplayer_claims.duplicate()
 	var prior_car_level := level_for_car(car_id)
+	var prior_rep := underground_reputation
+	underground_reputation = mini(100000,underground_reputation+DrivingContracts.RACE_REPUTATION)
 	balance += int(payout.cash)
 	player_xp = mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),
 		player_xp + int(payout.player_xp))
@@ -686,17 +688,28 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 		upgrade_inventory.resize(previous_inventory_count)
 		next_part_uid = previous_part_uid
 		multiplayer_claims = old_claims
+		underground_reputation = prior_rep
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed", "cash":int(payout.cash),
 		"player_xp":int(payout.player_xp), "car_xp":int(payout.car_xp),
 		"car_id":car_id, "car_level_before":prior_car_level,
 		"car_level_after":level_for_car(car_id),
-		"part":part, "part_uid":part_uid}
+		"part":part, "part_uid":part_uid,"underground_rep":underground_reputation-prior_rep}
 
 ## Fixed game-authored cash/XP/underground reputation, saved with a unique run token.
 ## A map marker cannot alter payouts or claim a run twice.
-func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}, crew_ids: Array = []) -> Dictionary:
+## Called only for a host-confirmed participant by the online robbery director.
+## Recompute bounded rewards locally; never accept arbitrary cash from RPCs.
+func record_coop_robbery(session_id: String, job_id: int, tier: String, risk: String, team_size: int, car_id: String) -> Dictionary:
+	if not _valid_multiplayer_session_id(session_id) or job_id<1 or job_id>1000000000 or team_size<2 or team_size>4 or car_id!=active_id or not owns(car_id):
+		return {"result":"invalid"}
+	var offer := DrivingContracts.with_robbery_risk(DrivingContracts.make_robbery_offer(tier,"marker-campaign-robbery-"+tier,"marker-campaign-robbery-dropoff"),risk)
+	if offer.is_empty():
+		return {"result":"invalid"}
+	return record_driving_contract("coop-"+session_id+"-"+str(job_id),"morrow-coast::coop_"+tier,"robbery",offer,[],team_size)
+
+func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}, crew_ids: Array = [], team_size: int = 1) -> Dictionary:
 	if run_id.length() < 12 or run_id.length() > 150:
 		return {"result":"invalid_or_duplicate"}
 	if event_key.length() < 5 or event_key.length() > 160:
@@ -725,8 +738,10 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"already_completed"}
 	if not DrivingContracts.crew_ids_valid(offer,crew_ids,hired_crew,underground_reputation) or (not crew_ids.is_empty() and kind!="robbery"):
 		return {"result":"invalid_crew"}
+	if team_size<1 or team_size>4 or (team_size>1 and (kind!="robbery" or DrivingContracts.robbery_profile(offer).is_empty() or not crew_ids.is_empty())):
+		return {"result":"invalid_team"}
 	var rewards: Dictionary = DrivingContracts.configured_reward(kind,offer)
-	var cash: int = int(rewards.get("cash",0))
+	var cash: int = floori(float(rewards.get("cash",0))/float(team_size))
 	var driver_xp: int = int(rewards.get("player_xp",0))
 	var vehicle_xp: int = int(rewards.get("car_xp",0))
 	var reputation: int = int(rewards.get("underground_rep",0))
