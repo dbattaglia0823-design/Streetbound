@@ -15,6 +15,7 @@ import sys
 from junction_bake import build_junctions
 from road_jumps import set_jump, bake_into as bake_jumps
 from road_elevation import set_profile, expand_point_profiles
+from elevation_map_audit import audit_elevated_objectives
 from mountain_barriers import validate_open_cuts
 from authored_races import authored_races
 from authored_markers import validate_markers
@@ -284,6 +285,7 @@ def make_archive(doc):
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
     validate_open_cuts(result)
+    result['editor_warnings'].extend(audit_elevated_objectives(result))
     bake_jumps(result)
     return result
 

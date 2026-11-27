@@ -120,6 +120,26 @@ class ElevationBakeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"marker road layer"):
             make_archive(bad)
 
+    def test_persistent_profile_bakes_continuous_smoothed_sections(self):
+        source=fixture()
+        road=copy.deepcopy(source["roads"][0])
+        road.update(points=[{"x":100,"y":700},{"x":200,"y":700},{"x":300,"y":700},
+                            {"x":400,"y":700},{"x":500,"y":700},{"x":600,"y":700}],
+                    elevation={"start_layer":0,"end_layer":-1,"point_layers":[0,1,1,0,-1,-1]})
+        source["roads"]=[road]
+        before=copy.deepcopy(source)
+        archive=make_archive(source)
+        self.assertEqual(source,before)
+        sections=archive["roads"]
+        self.assertEqual(len(sections),5)
+        self.assertEqual(sections[0]["editor_grade_source"]["elevation"],road["elevation"])
+        self.assertTrue(all(r["editor_grade_source_id"]==0 for r in sections))
+        for a,b in zip(sections,sections[1:]):
+            self.assertEqual(a["points"][-1],b["points"][0])
+            self.assertEqual(a["end"],b["start"])
+        for r in sections:
+            if r.get("grade_smooth") is not None:self.assertAlmostEqual(r["grade_smooth"],1.0)
+
     def test_bad_profiles_fail_before_archive_output(self):
         source = fixture()
         for profile in [None, {"start_layer":True,"end_layer":1},

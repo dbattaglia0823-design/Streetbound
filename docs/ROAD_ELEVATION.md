@@ -65,6 +65,17 @@ acceptance. Other service markers such as fuel, garage and fast travel stay
 ground-level. Elevated authored races are excluded from online friend races
 until the online gate and start-grid protocol supports verified height.
 
+## Map health and production preflight
+
+The browser Map health panel now reviews authored point slopes, estimated
+crossing clearance, objective pavement access and disconnected components.
+The profile inspector graphs height against control-point distance, marking
+over-steep spans. Preview measurements are approximate; production spline
+baking enforces exact crossing clearance and grade limits. Both production
+builders also report elevated objective/grid access and disconnected road
+components in `editor_warnings`. Road-component connectivity is a necessary
+condition only; the runtime directed route planner still checks legal turns.
+
 ## Driving and boundaries
 
 The controller gets a continuous height and slope from the indexed road

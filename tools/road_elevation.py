@@ -31,6 +31,8 @@ def set_profile(road, source):
             p,q=points[i:i+2]
             if abs(a-b)>1 or (a!=b and math.hypot(p["x"]-q["x"],p["y"]-q["y"])<50):
                 raise ValueError("Adjacent point layers need at least 50 m per layer change")
+        if math.hypot(points[0]["x"]-points[-1]["x"],points[0]["y"]-points[-1]["y"])<.001 and len(set(values))>1:
+            raise ValueError("Variable-height closed road is not supported")
         if any(values):
             road["elevation"]={"start_layer":int(values[0]),"end_layer":int(values[-1]),"point_layers":list(map(int,values))}
         return

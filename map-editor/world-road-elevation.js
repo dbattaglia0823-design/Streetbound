@@ -69,3 +69,28 @@ export function junctionLayer(road,point){
   if(distance(road.points.at(-1),point)<=.12)return end_layer;
   return null;
 }
+
+
+// Approximate authoring preview. The production bake uses exact spline
+// station and remains authoritative for curved geometry and clearance.
+export function previewHeightAt(road,point){
+  const profile=roadElevation(road),values=profile.point_layers;
+  let best=Infinity,height=0,station=0,total=0,at=0;
+  for(let i=1;i<road.points.length;i++){
+    const a=road.points[i-1],b=road.points[i],dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy);
+    if(!L)continue;
+    const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/(L*L)));
+    const d=Math.hypot(point.x-a.x-t*dx,point.y-a.y-t*dy);
+    if(d<best){
+      best=d;at=station+t*L;
+      if(values){
+        const rise=values[i]-values[i-1],blend=rise?Math.max(0,Math.min(1,2*(.12*L/(6*Math.abs(rise))-1))):0;
+        height=6*(values[i-1]+rise*((1-blend)*t+blend*t*t*(3-2*t)));
+      }
+    }
+    station+=L;
+  }
+  total=station;
+  if(!values)height=6*(profile.start_layer+(profile.end_layer-profile.start_layer)*at/Math.max(.001,total));
+  return {height,distance:best};
+}

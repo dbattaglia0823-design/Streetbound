@@ -787,6 +787,20 @@ function changeRaceConfiguration(patch,message){
   return change(d=>normalizeWorld(updateRaceSettings(d,selectedRaceId,patch)),message);
 }
 
+function drawPointProfile(road){
+  const svg=$('road-point-profile'),ns='http://www.w3.org/2000/svg';
+  svg.replaceChildren();
+  let station=0;const positions=road.points.map((p,i)=>{if(i)station+=distance(p,road.points[i-1]);return station;});
+  const layers=road.points.map((_,i)=>Number($('road-point-layer-'+i)?.value??0));
+  const add=(name,attrs,text)=>{const node=document.createElementNS(ns,name);for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);if(text)node.textContent=text;svg.append(node);return node;};
+  for(let l=-2;l<=2;l++){const y=60-l*22;add('line',{x1:30,x2:305,y1:y,y2:y,stroke:'currentColor','stroke-opacity':.18});add('text',{x:2,y:y+3,fill:'currentColor','font-size':9},String(l*6)+'m');}
+  const coords=positions.map((p,i)=>[30+275*p/Math.max(1,station),60-layers[i]*22]);
+  add('polyline',{points:coords.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#e79b39','stroke-width':2});
+  coords.forEach(([x,y],i)=>{add('circle',{cx:x,cy:y,r:3,fill:'#e79b39'});if(i>0&&Math.abs(layers[i]-layers[i-1])*6>0.12*(positions[i]-positions[i-1]))add('line',{x1:coords[i-1][0],y1:coords[i-1][1],x2:x,y2:y,stroke:'#d44','stroke-width':3});});
+  add('text',{x:30,y:119,fill:'currentColor','font-size':10},'0 m');
+  add('text',{x:305,y:119,'text-anchor':'end',fill:'currentColor','font-size':10},Math.round(station)+' m');
+}
+
 function refreshInspector(){
   const found=selection?getEntity(doc,selection.id):null;
   if(!found){
@@ -838,6 +852,7 @@ function refreshInspector(){
     $('road-end-layer').value=profile.end_layer;
     $('road-elevation-summary').textContent=
       (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
+    const profilePlot=$('road-point-profile');
     const pointFields=$('road-point-elevation-fields');
     const pointKey=JSON.stringify([item.id,item.points,item.elevation]);
     if(pointFields.dataset.profileKey!==pointKey){
@@ -852,9 +867,10 @@ function refreshInspector(){
         const option=document.createElement('option');option.value=String(n);
         option.textContent=(n>0?'+':'')+n+' ('+(n*LAYER_HEIGHT_M)+' m)';input.append(option);
       }
-      input.value=String(layer);field.append(label,input);pointFields.append(field);
+      input.value=String(layer);input.addEventListener('change',()=>drawPointProfile(item));field.append(label,input);pointFields.append(field);
     });
     }
+    drawPointProfile(item);
     $('road-jump-enabled').checked=Boolean(item.jump);
     $('road-jump-reverse').checked=item.jump?.reverse??false;
     for(const [key,[,,fallback]] of Object.entries(JUMP_FIELDS))

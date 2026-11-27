@@ -12,6 +12,7 @@ from mountain_field import height_m
 from junction_bake import build_junctions
 from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
+from elevation_map_audit import audit_elevated_objectives
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
@@ -1141,6 +1142,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 adapt_road_widths(data)
 apply_automatic_bridges(data)
 validate_open_cuts(data)
+data['editor_warnings'].extend(audit_elevated_objectives(data))
 bake_jumps(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
