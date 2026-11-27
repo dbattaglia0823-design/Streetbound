@@ -293,10 +293,10 @@ func run() -> void:
 	var synthetic:=marker("marker-10_job_1","contract",100.0,100.0,
 		{"contract_kind":"robbery","destination_marker_id":"marker-12",
 		 "robbery_marker_id":"marker-11"})
-	staged.set("active",synthetic)
-	staged.set("destination",contact_dropoff)
-	staged.set("robbery_target",robbery_site)
-	staged.set("offer_settings",robbery_offer)
+	staged.set("active",synthetic.duplicate(true))
+	staged.set("destination",contact_dropoff.duplicate(true))
+	staged.set("robbery_target",robbery_site.duplicate(true))
+	staged.set("offer_settings",robbery_offer.duplicate(true))
 	staged.set("stage","robbery")
 	staged.set("remaining_seconds",540.0)
 	staged.set("run_token","person-robbery-stage-run-004")
