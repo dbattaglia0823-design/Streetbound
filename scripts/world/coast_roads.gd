@@ -254,36 +254,6 @@ func _deck_supports(path: PackedVector2Array, width: float, phase: float, layer:
 		station += length
 
 
-func _portal_art() -> void:
-	for batch in road_batches:
-		var road: Dictionary = batch.road
-		var road_id := int(road.id)
-		if editor_hidden.has(road_id) or not world.tunnel_portals.has(road_id):continue
-		var first: bool = world.tunnel_portals[road_id]
-		var raw: Array = road.points[0 if first else -1]
-		var inner: Array = road.points[1 if first else -2]
-		var mouth := point(raw)
-		if not Rect2(Vector2.ZERO,extent_px).has_point(mouth):continue
-		var outside := (point(inner)-mouth).normalized()
-		var across := outside.orthogonal()
-		var half := float(road.width)*PPM*.52
-		var exit_depth := PPM*2.3
-		var wall_width := PPM*1.3
-		for side in [-1.0,1.0]:
-			var corner: Vector2 = mouth+across*half*side
-			var bank: Vector2 = across*side*wall_width
-			var cut := PackedVector2Array([corner-outside*PPM*1.4,corner+bank*2.7,
-				corner+bank*1.2+outside*PPM*8.0,corner+outside*PPM*5.5])
-			draw_colored_polygon(cut,Color("657c52"))
-			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("675e50"),wall_width,true)
-			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("a89f87"),wall_width*.38,true)
-		draw_line(mouth-across*half,mouth+across*half,Color("242a2e"),PPM*1.35,true)
-		draw_line(mouth-outside*PPM*.42-across*half,mouth-outside*PPM*.42+across*half,
-			Color("b9b4a3"),PPM*.34,true)
-		draw_line(mouth+outside*exit_depth-across*half*.88,mouth+outside*exit_depth+across*half*.88,
-			Color(.03,.04,.04,.32),PPM*2.6,true)
-
-
 ## Slab joints and fine edge highlights are stationed along the road.
 func _sidewalk_details(path: PackedVector2Array, phase: float, width: float) -> void:
 	var passed:=phase
@@ -501,7 +471,6 @@ func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
 		return
-	_portal_art()
 	for batch in road_batches:
 		var road_id := int(batch.road.id)
 		if editor_hidden.has(road_id):continue
