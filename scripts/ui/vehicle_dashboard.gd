@@ -143,7 +143,7 @@ func _build_labels() -> void:
 		LIGHT, HORIZONTAL_ALIGNMENT_CENTER)
 
 	# Bottom strip: only actionable traction and driving/race information.
-	# Surface is already identified in the top-left HUD.
+	# Keep the compact traction and drivetrain strip.
 	surface_value = _label("GRIP 1.00", Vector2(16,161), Vector2(149,19), 10, MUTED)
 	tire_value = _label("SPIN 0% / SLIP 0°", Vector2(172,161), Vector2(169,19),
 		10, LIGHT)

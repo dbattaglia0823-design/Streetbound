@@ -137,6 +137,7 @@ func _ready() -> void:
 	mini_square_style.set_corner_radius_all(5)
 	mini_square_style.bg_color=Color("#0d2026")
 	mini_square_style.border_color=Color("#6a8588")
+	mini.add_theme_stylebox_override("panel",mini_square_style)
 	mini_round_style=mini_square_style.duplicate()
 	# Circular mode removes the full rectangular card backing so the
 	# transparent corners actually show the driving world behind the map.
