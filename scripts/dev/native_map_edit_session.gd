@@ -1171,63 +1171,19 @@ func insert_road_point(identity: String, position_m: Vector2) -> bool:
 		return _commit(next)
 	return false
 
-## Apply every authored point height in a single validated history transaction.
+## Keep the entire authored road in one undo transaction.
 func apply_point_elevations(identity: String, layers: Array) -> bool:
-	var next := doc.duplicate(true)
+	var next:=doc.duplicate(true)
 	for road in next.roads:
-		if str(road.id) != identity:continue
-		if layers.size() != road.points.size():
-			last_error="Choose a layer for every road point."
-			return false
-		for layer in layers:
-			if not layer is int or absi(layer)>2:
-				last_error="Point layers must be integers from -2 to +2."
-				return false
+		if str(road.id)!=identity:continue
+		if layers.size()!=road.points.size() or layers.size()<2:return false
 		if road.has("jump"):
-			last_error="Remove the stunt jump before applying point elevations."
+			last_error="Remove the stunt jump before setting point heights."
 			return false
-		var points: Array = road.points
-		var first := Vector2(points[0].x,points[0].y)
-		var last := Vector2(points[-1].x,points[-1].y)
-		if first.distance_to(last)<.00001 and layers.any(func(layer: int)->bool:return layer!=layers[0]):
-			last_error="Open the road loop before assigning different point elevations."
-			return false
-		var sections: Array[Dictionary] = []
-		for i in range(1,layers.size()):
-			var a: int = layers[i-1]
-			var b: int = layers[i]
-			var span := Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
-			if absi(a-b)>1 or (a!=b and span<50.0):
-				last_error="Points %d and %d need adjacent layers and at least 50 m per layer change."%[i,i+1]
-				return false
-			if not sections.is_empty() and int(sections[-1].start)==a and int(sections[-1].end)==a and a==b:
-				sections[-1].last=i
-			else:
-				sections.append({"first":i-1,"last":i,"start":a,"end":b})
-		if sections.size()>1 and (str(road.roadClass)=="onramp" or road.has("junctionStart") or road.has("junctionEnd")):
-			last_error="Reset directional junction modes and use a regular road before creating grade sections."
-			return false
-		if next.roads.size()+sections.size()-1>MAX_ROADS:
-			last_error="Grade sections exceed the 180-road limit."
-			return false
-		var number := int(next_id("roads","road").trim_prefix("road-"))
-		var original: Dictionary = road.duplicate(true)
-		for index in sections.size():
-			var section: Dictionary = sections[index]
-			var piece: Dictionary = road if index==0 else original.duplicate(true)
-			piece.points = points.slice(int(section.first),int(section.last)+1)
-			if int(section.start)==0 and int(section.end)==0:
-				piece.erase("elevation")
-			else:
-				piece.elevation={"start_layer":int(section.start),"end_layer":int(section.end)}
-			if sections.size()>1:piece["independentEnds"]=true
-			last_error=Elevation.authoring_error(piece)
-			if not last_error.is_empty():return false
-			if index>0:
-				piece.id="road-%d"%number
-				number+=1
-				piece.name=str(original.name).substr(0,60)+" / grade %d"%(index+1)
-				next.roads.append(piece)
+		road.elevation={"start_layer":layers[0],"end_layer":layers[-1],"point_layers":layers.duplicate()}
+		last_error=Elevation.authoring_error(road)
+		if not last_error.is_empty():return false
+		if layers.all(func(v: Variant)->bool:return int(v)==0):road.erase("elevation")
 		return _commit(next)
 	return false
 

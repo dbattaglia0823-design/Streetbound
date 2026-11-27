@@ -2250,7 +2250,8 @@ func _refresh_point_elevation_fields(road: Dictionary) -> void:
 	var station:=0.0
 	for i in points.size():
 		if i>0:station+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
-		var layer:=floorf(lerpf(road_start_layer.value,road_end_layer.value,station/maxf(total,.001))+.5)
+		var values: Array=road.get("elevation",{}).get("point_layers",[])
+		var layer:=float(values[i]) if values.size()==points.size() else floorf(lerpf(road_start_layer.value,road_end_layer.value,station/maxf(total,.001))+.5)
 		var spin:=_number(road_point_elevation_fields,"Point %d (%.0f, %.0f)"%[i+1,float(points[i].x),float(points[i].y)],-2,2,layer)
 		spin.step=1.0
 		spin.value=layer
@@ -2264,7 +2265,7 @@ func _apply_point_elevations() -> void:
 	if authoring.apply_point_elevations(source_id,layers):
 		road_point_profile_key=""
 		_refresh_authoring()
-		_notice("Applied point elevations as connected grade sections.")
+		_notice("Saved individual elevations on the selected road.")
 	else:_notice(authoring.last_error)
 
 

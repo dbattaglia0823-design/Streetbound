@@ -673,13 +673,14 @@ func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Di
 			continue
 		var fraction := (station+along)/maxf(total,.001)
 		var grade_height := Elevation.height_at(road,fraction)
-		var slope := (Elevation.height_at(road,1.0)-Elevation.height_at(road,0.0))/maxf(total,.001)
+		var slope := Elevation.slope_at(road,fraction,total)
+		var ramp := Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false)
 		var is_mouth := minf(station+along,total-station-along) < 3.0
 		var is_current := road_id == active_road
 		if not is_current:
-			if absf(grade_height-height_m) > .38 or (slope != 0.0 and not is_mouth):
+			if absf(grade_height-height_m) > .38 or (ramp and not is_mouth):
 				continue
-			if layer == 0 and (not is_mouth or slope == 0.0):
+			if layer == 0 and (not is_mouth or not ramp):
 				continue
 			if layer != 0 and (active_road < 0 or not _elevation_connections.has(
 					Vector2i(mini(active_road,road_id),maxi(active_road,road_id)))):

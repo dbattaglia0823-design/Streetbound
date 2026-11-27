@@ -58,16 +58,16 @@ export function convertMorrowWorld(raw){
   if(!raw||raw.format!=='streetbound.streamed-world'||raw.version!==1)
     throw new TypeError('This is not a Streetbound Morrow Coast streamed-world v1 file.');
   const width=raw.size[0],height=raw.size[1];
-  const roads=raw.roads.map((road,index)=>({
+  const roads=raw.roads.filter(r=>r.editor_grade_source_id===undefined||r.editor_grade_source).map((road,index)=>({
     id:'road-'+index,name:String(road.name||'Road'),roadClass:roadClassOf(road.kind),
     surface:surfaceOf(road.surface),width:clamp(+road.width,6,160),
     lanes:clamp(road.lanes||2,1,6),shoulder:road.kind==='alley'?0:road.kind==='highway'?4:2,
     smooth:true,markings:road.kind!=='alley'&&road.surface!=='GRAVEL',
     ...(road.junctionStart!==undefined?{junctionStart:road.junctionStart}:{}),
     ...(road.junctionEnd!==undefined?{junctionEnd:road.junctionEnd}:{}),
-    ...(road.elevation?{elevation:road.elevation}:{}),
+    ...((road.editor_grade_source?.elevation??road.elevation)?{elevation:road.editor_grade_source?.elevation??road.elevation}:{}),
     ...(road.jump?{jump:road.jump}:{}),
-    points:pointsOf(road.anchors||road.points)
+    points:pointsOf(road.editor_grade_source?.anchors||road.anchors||road.points)
   }));
   const regions=[];
   for(const [index,terrain] of raw.terrain.entries()){

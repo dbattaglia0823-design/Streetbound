@@ -13,13 +13,24 @@ static func authoring_error(road: Dictionary) -> String:
 	if not road.has("elevation"):
 		return ""
 	var raw: Variant = road.elevation
-	if not raw is Dictionary or raw.size() != 2:
+	if not raw is Dictionary or raw.size() not in [2,3]:
 		return "Road elevation needs start and end layers."
 	for key in ["start_layer", "end_layer"]:
 		var value: Variant = raw.get(key)
 		if not (value is int or value is float) or not is_finite(float(value)) \
 				or absf(float(value)) > MAX_LAYER or float(value) != floorf(float(value)):
 			return "Road layers must be integers from -2 to 2."
+	if raw.has("point_layers"):
+		var layers: Variant=raw.point_layers
+		if not layers is Array or layers.size()!=road.points.size():return "Choose a layer for every road point."
+		for i in layers.size():
+			var value: Variant=layers[i]
+			if not (value is int or value is float) or not is_finite(float(value)) or absf(float(value))>2 or float(value)!=floorf(float(value)):
+				return "Point layers must be integers from -2 to +2."
+			if i>0 and (absf(float(value)-float(layers[i-1]))>1 or (value!=layers[i-1] and Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<50.0)):
+				return "Adjacent point layers need at least 50 m per layer change."
+		if int(layers[0])!=endpoint_layer(road,true) or int(layers[-1])!=endpoint_layer(road,false):return "Point layers must match endpoints."
+		return ""
 	var delta := absi(endpoint_layer(road, true) - endpoint_layer(road, false))
 	if delta > 1:
 		return "A ramp can connect only adjacent layers."
@@ -39,8 +50,15 @@ static func authoring_error(road: Dictionary) -> String:
 
 static func height_at(road: Dictionary, fraction: float) -> float:
 	var profile: Dictionary = road.get("elevation", {})
-	return HEIGHT_M * lerpf(float(profile.get("start_layer", 0)),
-		float(profile.get("end_layer", 0)), clampf(fraction, 0.0, 1.0))
+	var t:=clampf(fraction,0.0,1.0)
+	t=lerpf(t,t*t*(3.0-2.0*t),float(road.get("grade_smooth",0.0)))
+	return HEIGHT_M * lerpf(float(profile.get("start_layer", 0)),float(profile.get("end_layer", 0)),t)
+
+
+static func slope_at(road: Dictionary,fraction: float,length_m: float) -> float:
+	var t:=clampf(fraction,0.0,1.0)
+	var delta:=float(endpoint_layer(road,false)-endpoint_layer(road,true))*HEIGHT_M/maxf(length_m,.001)
+	return delta*lerpf(1.0,6.0*t*(1.0-t),float(road.get("grade_smooth",0.0)))
 
 
 ## Preserve existing semantics for obstacle, player, and police target
@@ -72,8 +90,10 @@ static func layer_for_height(height_m: float) -> int:
 
 
 static func edge_height_at(edge: Dictionary, progress_px: float) -> float:
-	return lerpf(float(edge.get("start_height_m",0)),float(edge.get("end_height_m",0)),
-		clampf(progress_px / maxf(float(edge.length_px),1.0),0.0,1.0))
+	var t:=clampf(progress_px / maxf(float(edge.length_px),1.0),0.0,1.0)
+	if edge.has("grade_profile"):
+		return height_at(edge.grade_profile,lerpf(float(edge.grade_from),float(edge.grade_to),t))
+	return lerpf(float(edge.get("start_height_m",0)),float(edge.get("end_height_m",0)),t)
 
 
 ## Only the surface-to-underground approach is excavated. Covered tunnels

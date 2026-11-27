@@ -14,7 +14,7 @@ import sys
 
 from junction_bake import build_junctions
 from road_jumps import set_jump, bake_into as bake_jumps
-from road_elevation import set_profile
+from road_elevation import set_profile, expand_point_profiles
 from mountain_barriers import validate_open_cuts
 from authored_races import authored_races
 from authored_markers import validate_markers
@@ -157,6 +157,9 @@ def make_archive(doc):
             if key in item: roads[-1][key]=item[key]
         set_profile(roads[-1], item)
         set_jump(roads[-1], item)
+    expand_point_profiles(roads,nodes)
+    for road in roads:
+        index=road["id"];road_width=road["width"];road_points=road["points"]
         for a,b in zip(road_points,road_points[1:]):
             if distance(a,b)<.001:
                 continue

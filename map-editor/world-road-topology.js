@@ -13,7 +13,7 @@ const roadLength=points=>points.slice(1).reduce((total,p,i)=>total+distance(p,po
 const closed=road=>road.points.length>2&&distance(road.points[0],road.points.at(-1))<EPS;
 const flatLayer=road=>{
   const {start_layer,end_layer}=roadElevation(road);
-  return start_layer===end_layer?start_layer:null;
+  return start_layer===end_layer&&!road.elevation?.point_layers?.some(v=>v!==start_layer)?start_layer:null;
 };
 const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
   a.lanes===b.lanes&&a.smooth===b.smooth&&a.markings===b.markings&&
@@ -127,6 +127,7 @@ export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
  */
 export function pointElevationLayers(road){
   const {start_layer,end_layer}=roadElevation(road);
+  if(road.elevation?.point_layers)return [...road.elevation.point_layers];
   const total=roadLength(road.points);
   let station=0;
   return road.points.map((p,i)=>{
@@ -144,31 +145,7 @@ export function applyPointElevations(doc,roadId,layers){
   if(road.jump)throw new RangeError('Remove the stunt jump before applying point elevations');
   if(closed(road)&&layers.some(n=>n!==layers[0]))
     throw new RangeError('Open the road loop before assigning different point elevations');
-  const sections=[];
-  for(let i=1;i<layers.length;i++){
-    const a=layers[i-1],b=layers[i],span=distance(road.points[i-1],road.points[i]);
-    if(Math.abs(a-b)>1)throw new RangeError('Points '+i+' and '+(i+1)+' must use adjacent layers');
-    if(a!==b&&span<50)throw new RangeError('Points '+i+' and '+(i+1)+' need at least 50 m for a layer change');
-    const previous=sections.at(-1);
-    // Preserve the original curve through every flat run. A changing grade
-    // is kept as its own explicit section so the height at each point is exact.
-    if(previous&&previous.start===a&&previous.end===a&&a===b)previous.last=i;
-    else sections.push({first:i-1,last:i,start:a,end:b});
-  }
-  if(sections.length>1&&(road.roadClass==='onramp'||road.junctionStart||road.junctionEnd))
-    throw new RangeError('Reset directional junction modes and use a regular road before creating grade sections');
-  if(doc.roads.length+sections.length-1>180)throw new RangeError('Grade sections exceed the 180-road limit');
-  // Original Morrow roads use stable IDs; allocate consecutive IDs above the
-  // highest current road number rather than filling a deleted ID.
-  let nextId=Math.max(-1,...doc.roads.map(r=>Number(r.id.slice(5))).filter(Number.isInteger))+1;
-  let next=doc;
-  for(const [index,section] of sections.entries()){
-    const patch={points:road.points.slice(section.first,section.last+1),
-      elevation:{start_layer:section.start,end_layer:section.end}};
-    if(sections.length>1)patch.independentEnds=true;
-    if(index===0)next=updateEntity(next,roadId,patch);
-    else next=createEntity(next,'roads',{...road,...patch,id:'road-'+nextId++,
-      name:(road.name.slice(0,60)+' / grade '+(index+1))});
-  }
-  return next;
+  if(road.roadClass==='onramp'&&layers.length>2&&layers.some(v=>v!==layers[0]))
+    throw new RangeError('Use a regular road for a multi-grade on-ramp');
+  return updateEntity(doc,roadId,{elevation:{start_layer:layers[0],end_layer:layers.at(-1),point_layers:[...layers]}});
 }

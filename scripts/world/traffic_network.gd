@@ -203,6 +203,10 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 						"start_height_m":Elevation.height_at(road,float(start.station)/total),
 						"end_height_m":Elevation.height_at(road,float(ending.station)/total)
 					})
+					if road.has("grade_smooth"):
+						edges[edge_id]["grade_profile"]={"elevation":road.elevation,"grade_smooth":road.grade_smooth}
+						edges[edge_id]["grade_from"]=float(start.station)/total
+						edges[edge_id]["grade_to"]=float(ending.station)/total
 					if int(ending.junction)>=0:
 						var j_key := int(ending.junction)
 						if not incoming.has(j_key):incoming[j_key]=[]

@@ -11,7 +11,7 @@ from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
 from road_jumps import bake_into as bake_jumps
-from road_elevation import endpoint_layer
+from road_elevation import endpoint_layer, expand_point_profiles
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
@@ -446,6 +446,7 @@ for r in ROADS:
             limit=shore_x(p[1])-18
             blend=max(0,4-abs(p[0]-limit))
             p[0]=round(min(p[0],limit)-blend*blend/16,3)
+expand_point_profiles(ROADS,NODES)
 for r in ROADS:
     r["visual_elevation_m"]=[round(height_m(*p),1) for p in r["points"]]
 SEGMENTS, GRID = [], collections.defaultdict(list)
