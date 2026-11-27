@@ -74,11 +74,13 @@ func _run() -> void:
 	var world: Node = game.get("online_world")
 	var car: VehicleController2D = game.get("vehicle") as VehicleController2D
 	if role == "host":
+		# Wait for the explicit guest selection, not the startup default car.
+		var available: Array[Dictionary] = Catalog.all()
+		var expected_id: String = str(available[0].get("id","")) if not available.is_empty() else ""
 		var observed_guest: bool = await _poll(func() -> bool:
-			return session.players.size() == 2 and \
-				session.world_ready_peers.size() == 1 and \
-				world.peer_cars.size() == 1 and \
-				str(session.players[world.peer_cars.keys()[0]].get("car_id", "")) != "")
+			if expected_id.is_empty() or session.players.size()!=2 or session.world_ready_peers.size()!=1 or world.peer_cars.size()!=1:return false
+			var peer: int=int(world.peer_cars.keys()[0])
+			return str(session.players[peer].get("car_id",""))==expected_id and str(world.peer_models.get(peer,""))==expected_id)
 		check("host_sees_guest_world_and_selected_car", observed_guest)
 		if observed_guest:
 			var old_id: int = int(world.peer_cars.keys()[0])
@@ -107,7 +109,7 @@ func _run() -> void:
 					is_instance_valid(hosted_car))
 				check("selected_vehicle_model_survives_reconnect",
 					str(session.players[new_id].get("car_id", "")) == \
-					preserved_car_id)
+					preserved_car_id and str(world.peer_models.get(new_id,""))==preserved_car_id)
 				check("rejoined_guest_has_no_duplicate_host_player",
 					session.players.size() == 2 and world.peer_cars.size() == 1 and \
 					(new_id == old_id or not world.peer_cars.has(old_id)))
