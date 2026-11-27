@@ -237,10 +237,13 @@ jobs:
           set -o pipefail
           timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/gameplay_authoring_analysis_test.gd 2>&1 | tee /tmp/gameplay-authoring-analysis.log
           grep -q 'GAMEPLAY AUTHORING ANALYSIS: PASS' /tmp/gameplay-authoring-analysis.log
+          timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/world_validation_test.gd 2>&1 | tee /tmp/world-validation.log
+          grep -q 'WORLD VALIDATION: PASS' /tmp/world-validation.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/world-validation.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/gameplay-authoring-analysis.log
           timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/map_release_test.gd 2>&1 | tee /tmp/map-release.log
           grep -q 'MAP RELEASE: PASS' /tmp/map-release.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/map-release.log
-          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/gameplay-authoring-analysis.log
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_reload_test.gd 2>&1 | tee /tmp/native-map-reload-463.log
           grep -q 'NATIVE MAP WORLD RELOAD: PASS' /tmp/native-map-reload-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-map-reload-463.log
@@ -271,6 +274,9 @@ jobs:
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
           grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
+          timeout 180s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/advanced_world_construction_test.gd 2>&1 | tee /tmp/advanced-world-construction.log
+          grep -q 'ADVANCED WORLD CONSTRUCTION: PASS' /tmp/advanced-world-construction.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/advanced-world-construction.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
       - name: Verify waypoint shortest paths and legal junction routing
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
