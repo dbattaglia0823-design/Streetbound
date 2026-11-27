@@ -47,6 +47,14 @@ func _initialize() -> void:
 		var layer := 1 if int(edge.road) == 1 else -1
 		check(int(point.road_layer) == layer and is_equal_approx(float(point.height_m),layer*6.0),
 			"Lane sample retains its signed elevation")
+	var ambient := Network.new()
+	ambient.build(data)
+	var raised := ambient.recovery_target(Vector2(502,400)*20,Vector2.DOWN,-1,20.0*9.0,6.0)
+	var tunnel := ambient.recovery_target(Vector2(502,400)*20,Vector2.DOWN,-1,20.0*9.0,-6.0)
+	check(not raised.is_empty() and int(ambient.edges[raised.edge].road)==1,
+		"Ambient traffic reprojects onto the elevated lane at an overlapping crossing")
+	check(not tunnel.is_empty() and int(ambient.edges[tunnel.edge].road)==2,
+		"Ambient traffic reprojects onto the tunnel lane independently")
 	var route := planner.plan(Vector2(500,500),Vector2(350,700),Vector2.DOWN,
 		"Overpass","South Approach",1,0)
 	check(not route.is_empty(),"GPS uses an explicit ramp from deck to ground")

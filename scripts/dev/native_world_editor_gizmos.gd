@@ -4,6 +4,7 @@ extends Node2D
 const PPM := 20.0
 const Art = preload("res://scripts/world/coast_art.gd")
 const EditSession=preload("res://scripts/dev/native_map_edit_session.gd")
+const RoadJump=preload("res://scripts/world/road_jump.gd")
 const Roads=preload("res://scripts/world/coast_roads.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
@@ -449,6 +450,11 @@ func _draw_draft() -> void:
 						draw_polyline(Lanes.offset_path(line,divider+direction*float(layout.width)*lane*PPM),Color("#dcd9c4"),2,true)
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,1,preview_junctions if network_is_draft else world.data.junctions)
 		if not runtime_playtest:
+			if road.has("jump"):
+				var preview := RoadJump.authoring_preview(road)
+				if not preview.is_empty():
+					var spec: Dictionary = road.jump.merged(preview,true)
+					RoadJump.draw_footprint(self,spec,Vector2(preview.lip)*PPM,preview.direction,true)
 			draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
 				3.0,true)
 	_draw_draft_junctions(false)

@@ -10,15 +10,23 @@ signal damage_contact(closing_speed_mps: float, contact_point_px: Vector2, surfa
 signal police_collision(closing_speed_mps: float)
 const POLICE_CRASH_THRESHOLD_MPS := 2.5
 signal vehicle_reset
+signal jump_finished(valid_landing: bool)
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
 const Drafting = preload("res://scripts/vehicle/drafting_aerodynamics.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const RoadJump = preload("res://scripts/world/road_jump.gd")
 const Weather = preload("res://scripts/world/weather_conditions.gd")
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
 var surface_provider: Node
 var road_layer := 0
+var jump_height_m := 0.0
+var jump_vertical_mps := 0.0
+var _jump: Dictionary = {}
+var _jump_seconds := 0.0
+var _jump_origin := Vector2.ZERO
+var _jump_safe := Vector2.ZERO
 var elevation_m := 0.0
 var _elevation_road := -1
 var _elevation_mouth := false
@@ -111,6 +119,7 @@ func drafting_effect_strength() -> float:
 	return draft_strength
 
 func reset_vehicle() -> void:
+	_clear_jump()
 	clear_mission_payload()
 	transform = spawn_transform
 	_set_elevation_contact({})
@@ -196,7 +205,7 @@ func _physics_process(dt: float) -> void:
 	elif not external_input:
 		nitrous_requested = Input.is_action_pressed("nitrous")
 		command = Vector4(Input.get_action_strength("throttle"), Input.get_action_strength("brake"), Input.get_axis("left", "right"), Input.get_action_strength("handbrake"))
-		if Input.is_action_just_pressed("reset"):
+		if Input.is_action_just_pressed("reset") and not is_airborne():
 			reset_vehicle()
 		if Input.is_action_just_pressed("transmission"):
 			transmission.automatic = not transmission.automatic
@@ -231,7 +240,7 @@ func _set_elevation_contact(contact: Dictionary) -> void:
 
 
 func can_reach_ground_marker() -> bool:
-	return absf(elevation_m) < .65
+	return not is_airborne() and absf(elevation_m) < .65
 
 
 func _elevation_motion(motion: Vector2) -> Vector2:
@@ -254,7 +263,96 @@ func _elevation_motion(motion: Vector2) -> Vector2:
 	return safe
 
 
+func is_airborne() -> bool:
+	return not _jump.is_empty()
+
+
+func _clear_jump() -> void:
+	_jump = {}
+	jump_height_m = 0.0
+	jump_vertical_mps = 0.0
+
+
+func _launch_jump(spec: Dictionary, last_ground: Vector2) -> void:
+	_jump = spec
+	_jump_seconds = 0.0
+	_jump_origin = global_position
+	_jump_safe = last_ground
+	jump_height_m = float(spec.height_m)
+	var direction := Vector2(spec.direction[0],spec.direction[1])
+	jump_vertical_mps = linear_velocity.dot(direction)*tan(deg_to_rad(float(spec.angle_deg)))
+	# Preserve the real planar momentum while isolating tire/handbrake forces.
+	surface_grip = 0.0
+	wheel_spin = 0.0
+	steering = 0.0
+	yaw_rate = 0.0
+	handbrake = 0.0
+	throttle = 0.0
+	brake = 0.0
+	nitrous_active = false
+	draft_strength = 0.0
+	traction_limit_n = 0.0
+	delivered_wheel_force_n = 0.0
+	longitudinal_accel_mps2 = 0.0
+
+
+func _abort_jump() -> void:
+	_clear_jump()
+	linear_velocity = Vector2.ZERO
+	velocity = Vector2.ZERO
+	longitudinal_speed = 0.0
+	lateral_speed = 0.0
+	var recovery := global_transform
+	recovery.origin = _jump_safe
+	if test_move(recovery,Vector2.ZERO,null,.08,true):
+		reset_vehicle()
+	else:
+		global_transform = recovery
+		reset_physics_interpolation()
+	jump_finished.emit(false)
+
+
+func _step_jump(dt: float) -> void:
+	if dt <= 0.0:
+		return
+	var hit_ground := RoadJump.flight_time(jump_height_m,jump_vertical_mps)
+	var airborne_dt := minf(dt,hit_ground)
+	var motion := linear_velocity*PIXELS_PER_METER*airborne_dt
+	var next := global_position+motion
+	_jump_seconds += airborne_dt
+	if (not next.is_finite() or not is_instance_valid(surface_provider)
+			or not surface_provider.has_method("jump_position_allowed")
+			or _jump_seconds > RoadJump.MAX_TIME
+			or _jump_origin.distance_to(next) > RoadJump.MAX_RANGE*PIXELS_PER_METER
+			or not surface_provider.jump_position_allowed(_jump,next,false)):
+		_abort_jump()
+		return
+	var collision := move_and_collide(motion)
+	if collision != null:
+		var closing := maxf(0.0,-linear_velocity.dot(collision.get_normal()))
+		damage_contact.emit(closing,collision.get_position(),collision.get_normal(),linear_velocity)
+		_abort_jump()
+		return
+	jump_height_m += (jump_vertical_mps-.5*RoadJump.G*airborne_dt)*airborne_dt
+	jump_vertical_mps -= RoadJump.G*airborne_dt
+	if jump_height_m > RoadJump.MAX_RISE:
+		_abort_jump()
+		return
+	if hit_ground <= dt:
+		if not surface_provider.jump_position_allowed(_jump,global_position,true):
+			_abort_jump()
+			return
+		var landing_impact := maxf(0.0,-jump_vertical_mps-4.0)
+		_clear_jump()
+		if landing_impact > 0.0:
+			damage_contact.emit(landing_impact,global_position,Vector2.ZERO,linear_velocity)
+		jump_finished.emit(true)
+
+
 func step_vehicle(dt: float, controls: Vector4) -> void:
+	if is_airborne():
+		_step_jump(dt)
+		return
 	_traffic_impact_cooldown = maxf(0.0, _traffic_impact_cooldown - dt)
 	var forward := Vector2.UP.rotated(rotation)
 	# Godot's orthogonal() points left for Vector2.UP. Axle forces and slip
@@ -627,6 +725,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	velocity = linear_velocity * PIXELS_PER_METER
 	var desired_motion := velocity * dt
 	var allowed_motion := _elevation_motion(desired_motion)
+	var launch_from := global_position
 	var collision := move_and_collide(allowed_motion)
 	if allowed_motion != desired_motion and collision == null:
 		linear_velocity = Vector2.ZERO
@@ -713,3 +812,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	longitudinal_speed = linear_velocity.dot(final_forward)
 	lateral_speed = linear_velocity.dot(final_right)
 	slip_angle = atan2(lateral_speed, maxf(absf(longitudinal_speed), 1.0))
+	if collision == null and surface_provider and _elevation_road < 0 and not reversing \
+			and surface_provider.has_method("jump_at_motion"):
+		var jump: Dictionary = surface_provider.jump_at_motion(self,launch_from,global_position)
+		if not jump.is_empty():
+			_launch_jump(jump,launch_from)

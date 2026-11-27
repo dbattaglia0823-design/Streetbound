@@ -1,6 +1,7 @@
 extends Node2D
 ## Soft contact shadow stays grounded beneath the vehicle.
 ## Independent visual curb suspension was removed; do not read body_heave.
+const RoadJump=preload("res://scripts/world/road_jump.gd")
 var vehicle: VehicleController2D
 var _clock := 0.0
 
@@ -25,10 +26,12 @@ func _draw() -> void:
 	if not is_instance_valid(body) or not body.shape is CapsuleShape2D:
 		return
 	var capsule := body.shape as CapsuleShape2D
-	var width := capsule.radius*1.2
-	var length := capsule.height*0.56
+	var height_m := RoadJump.visual_height(vehicle)
+	var spread := height_m*2.4
+	var width := capsule.radius*1.2+spread
+	var length := capsule.height*0.56+spread
 	for layer in 3:
-		var fade := 0.075-float(layer)*0.018
+		var fade := (0.075-float(layer)*0.018)/(1.0+height_m*.48)
 		var rx := width+float(2-layer)*5.0
 		var ry := length+float(2-layer)*7.0
 		var outline := PackedVector2Array()

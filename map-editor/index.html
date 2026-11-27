@@ -281,6 +281,14 @@
         </div>
         <button id="apply-road-elevation" class="gdt-btn" type="button">Apply road elevation</button>
         <p id="road-elevation-summary" class="muted-copy"></p>
+        <details id="road-jump-editor">
+          <summary>Stunt jump</summary>
+          <label class="check"><input id="road-jump-enabled" type="checkbox"> Add jump ramp</label>
+          <label class="check"><input id="road-jump-reverse" type="checkbox"> Launch toward road start</label>
+          <div id="road-jump-fields"></div>
+          <button id="apply-road-jump" class="gdt-btn" type="button">Apply jump</button>
+          <p class="muted-copy">Use a straight paved road. The full bake checks obstacles, crossings, and terrain.</p>
+        </details>
         <label class="check"><input id="inspect-road-smooth" type="checkbox"> Smooth curves</label>
         <label class="check"><input id="inspect-road-markings" type="checkbox"> Road markings</label>
         <div class="point-editor">

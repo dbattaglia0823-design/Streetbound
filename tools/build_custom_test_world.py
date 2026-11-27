@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 
 from junction_bake import build_junctions
+from road_jumps import set_jump, bake_into as bake_jumps
 from road_elevation import set_profile
 from authored_races import authored_races
 from authored_markers import validate_markers
@@ -148,6 +149,7 @@ def make_archive(doc):
             lanes=lanes,width=road_width,surface=surface if surface in ("GRAVEL","DIRT") else "ASPHALT",
             anchors=anchors,points=road_points))
         set_profile(roads[-1], item)
+        set_jump(roads[-1], item)
         for a,b in zip(road_points,road_points[1:]):
             if distance(a,b)<.001:
                 continue
@@ -271,6 +273,7 @@ def make_archive(doc):
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
+    bake_jumps(result)
     return result
 
 

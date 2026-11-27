@@ -307,7 +307,8 @@ func route_input(event: InputEvent) -> void:
 	if not event.is_pressed():
 		return
 	if event.is_action_pressed("reset"):
-		car.reset_vehicle()
+		if not car.has_method("is_airborne") or not bool(car.call("is_airborne")):
+			car.reset_vehicle()
 	elif event.is_action_pressed("transmission"):
 		car.transmission.automatic = not car.transmission.automatic
 	elif event.is_action_pressed("shift_up"):

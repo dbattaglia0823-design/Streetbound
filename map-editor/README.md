@@ -48,6 +48,11 @@ Use the browser's **Road elevation** filter for overlapping roads. For ramp
 lengths, connectivity and supported gameplay, see
 [Road elevation](../docs/ROAD_ELEVATION.md).
 
+**Stunt jumps:** Select a straight paved road and enable **Stunt jump**.
+Set the launch point, direction, geometry, and speed range. The preview
+shows where the vehicle may land. Test Drive checks the entire corridor.
+See [road elevation and stunt jumps](../docs/ROAD_ELEVATION.md).
+
 **Automatic bridges:** Roads crossing rivers, lakes or ocean gain a raised deck,
 shadows and guardrails automatically. Bridge width follows road width and the
 rails leave the driving lanes and intersection mouths clear. Road and terrain

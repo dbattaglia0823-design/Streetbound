@@ -1,5 +1,6 @@
 extends Node2D
 const PPM := 20.0
+const RoadJump = preload("res://scripts/world/road_jump.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
 const TrackKerbs=preload("res://scripts/world/track_kerbs.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
@@ -382,6 +383,14 @@ func _draw() -> void:
 		_roads(render_stage)
 		return
 	_portal_art()
+	for batch in road_batches:
+		var road_id := int(batch.road.id)
+		if editor_hidden.has(road_id):continue
+		var jump: Dictionary = world.jumps_by_road.get(road_id,{})
+		if not jump.is_empty():
+			var lip := point(jump.p)
+			if Rect2(Vector2.ZERO,extent_px).has_point(lip):
+				RoadJump.draw_footprint(self,jump,lip,Vector2(jump.direction[0],jump.direction[1]),false)
 	for j in junction_list:
 		var hidden:=false
 		for road_id in j.get("roads",[]):

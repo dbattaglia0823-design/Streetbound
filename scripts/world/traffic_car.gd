@@ -7,6 +7,7 @@ const PPM := 20.0
 const POLICE_CATALOG_PATH := "res://data/police_vehicle_catalog.json"
 static var _patrol_models: Array[Dictionary] = []
 static var _patrol_catalog_loaded := false
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
 # Keep existing model slots stable for seeded parked cars and moving traffic.
@@ -39,6 +40,10 @@ const BASE_WIDTH_PX := 38.0
 var length_px := BASE_LENGTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var width_px := BASE_WIDTH_PX * TRAFFIC_SIZE_MULTIPLIER
 var recovering := false
+var elevation_m := 0.0
+var road_layer := 0
+var _grade_world: Node2D
+var _grade_road := -1
 var recovery_velocity := Vector2.ZERO
 # Actual forward road speed (m/s); drafting never relies on a traffic
 # car's planned cruise speed when it's stopped in a queue or has crashed.
@@ -218,11 +223,42 @@ func receive_impact(impulse_px_per_sec: Vector2) -> void:
 	impact_count += 1
 
 
+func set_lane_grade(world: Node2D, road: int, height_m: float, graded: bool) -> void:
+	var next_road := road if graded else -1
+	if next_road == _grade_road and height_m == elevation_m:
+		refresh_grade_visibility()
+		return
+	_grade_world = world if graded else null
+	_grade_road = next_road
+	elevation_m = height_m
+	road_layer = Elevation.layer_for_height(height_m)
+	collision_layer = Elevation.collision_bits(1,height_m)
+	collision_mask = Elevation.collision_bits(3,height_m)
+	z_index = 2+(36 if road_layer<0 else road_layer*16)
+	set_meta("traffic_height_m",height_m)
+	if graded:
+		refresh_grade_visibility()
+	else:
+		visible = true
+
+
+func refresh_grade_visibility() -> void:
+	if is_instance_valid(_grade_world):
+		visible = road_layer>=0 or int(_grade_world.get("viewed_road_layer"))==road_layer
+
+
 func move_traffic(motion_px: Vector2, dt: float) -> KinematicCollision2D:
 	# This is an actual swept CharacterBody collision, not a sprite teleport.
 	# Knockback is consumed gradually so a collision is visible and cars can
 	# rejoin a path without instantly snapping over buildings or sidewalks.
 	var motion := motion_px + recovery_velocity * dt
+	if _grade_road>=0 and absf(elevation_m)>.15 and is_instance_valid(_grade_world):
+		if _grade_world.elevation_at(global_position+motion,_grade_road,elevation_m).is_empty():
+			# A collision impulse cannot push an ambient car off its deck
+			# and into a road or prop on a different level.
+			motion = Vector2.ZERO
+			recovery_velocity = Vector2.ZERO
+			recovering = true
 	var before := global_position
 	var hit := move_and_collide(motion)
 	var forward := Vector2.UP.rotated(rotation)

@@ -10,6 +10,7 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
@@ -1138,6 +1139,7 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 # and future rebakes are explicitly marked so Godot never scales twice.
 adapt_road_widths(data)
 apply_automatic_bridges(data)
+bake_jumps(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
 

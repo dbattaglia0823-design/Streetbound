@@ -170,6 +170,10 @@ var road_width: SpinBox
 var road_lanes: SpinBox
 var road_elevation_controls: VBoxContainer
 var road_start_layer: SpinBox
+var road_jump_enabled: CheckBox
+var road_jump_reverse: CheckBox
+var road_jump_fields: Dictionary = {}
+var road_jump_options: VBoxContainer
 var road_end_layer: SpinBox
 var road_class: OptionButton
 var inspector_road_type: OptionButton
@@ -541,6 +545,13 @@ func _update_context_panels() -> void:
 		_setting_controls=true
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
+		var jump: Dictionary = road.get("jump",{})
+		road_jump_enabled.set_pressed_no_signal(not jump.is_empty())
+		road_jump_options.visible = not jump.is_empty()
+		road_jump_reverse.button_pressed = bool(jump.get("reverse",false))
+		var fields: Dictionary = preload("res://scripts/world/road_jump.gd").FIELDS
+		for key in road_jump_fields:
+			road_jump_fields[key].value = float(jump.get(key,fields[key][2]))
 		var elevation: Dictionary=road.get("elevation",{})
 		road_start_layer.value=float(elevation.get("start_layer",0))
 		road_end_layer.value=float(elevation.get("end_layer",0))
@@ -2196,6 +2207,20 @@ func _commit_road_type_and_surface() -> void:
 		"surface":_option_value(road_surface)}):
 		_refresh_authoring()
 		_notice("Road type and surface updated. Geometry and dimensions preserved.")
+
+func _change_road_jump() -> void:
+	if not source_ready or _editing_locked():return
+	var jump: Variant = null
+	if road_jump_enabled.button_pressed:
+		jump = {"reverse":road_jump_reverse.button_pressed}
+		for key in road_jump_fields:
+			jump[key] = road_jump_fields[key].value
+	if authoring.set_road_settings(source_id,{"jump":jump}):
+		_refresh_authoring()
+		_notice("Stunt jump updated")
+	else:
+		_notice(authoring.last_error)
+
 
 func _change_road_elevation() -> void:
 	if not source_ready or _editing_locked():return

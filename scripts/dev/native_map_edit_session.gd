@@ -2,6 +2,7 @@ extends RefCounted
 ## Source-safe, undoable authoring draft. This never mutates a live Morrow Coast
 ## Dictionary. Runtime streets, intersections and traffic remain authoritative
 ## until the checked-in production builder has completed an Apply operation.
+const RoadJump=preload("res://scripts/world/road_jump.gd")
 const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
@@ -109,6 +110,7 @@ func _valid_source(value: Dictionary) -> bool:
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if not Elevation.authoring_error(road).is_empty():return false
+		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
 	for category in ["regions","markers"]:
 		for item in value[category]:
@@ -352,6 +354,7 @@ func reconcile_runtime(data: Dictionary) -> bool:
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
 			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
+			if raw.has("jump"):next.roads[-1].jump=raw.jump.duplicate()
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
 		next.morrowSourceRoadCount=current
 	if poi_current>poi_basis:
@@ -1154,6 +1157,14 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 			if not last_error.is_empty():return false
 			if Elevation.endpoint_layer(road,true)==0 and Elevation.endpoint_layer(road,false)==0:
 				road.erase("elevation")
+		if settings.has("jump"):
+			if settings.jump == null:
+				road.erase("jump")
+			else:
+				road.jump = settings.jump
+		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():
+			last_error="Jump needs a straight ground road with room for the approach and landing at all allowed speeds."
+			return false
 		if road.roadClass=="alley":
 			road.shoulder=0.0
 			road.markings=false
@@ -1408,6 +1419,9 @@ func split_road(identity: String,index: int) -> String:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
+		if road.has("jump") and index!=0 and index!=road.points.size()-1:
+			last_error="Remove the jump before splitting its road."
+			return ""
 		if index==0 or index==road.points.size()-1:
 			road["independentEnds"]=true
 			return identity if _commit(next) else ""

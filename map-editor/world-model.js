@@ -2,6 +2,7 @@ import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-
 import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
 import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {projectArtwork,projectAssetId} from './world-project-assets.js';
+import {normalizeRoadJump} from './world-road-jump.js';
 import {normalizeRoadElevation} from './world-road-elevation.js';
 import {validateMountainRegion} from './world-mountain-barriers.js';
 
@@ -50,7 +51,7 @@ function validEntity(item,type,w,h){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
     const elevation=normalizeRoadElevation(item.elevation,points);
-    return {id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
+    const road={id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
       surface:oneOf(item.surface,SURFACES,'road surface'),width:real(item.width,6,160,'road width'),
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
@@ -58,6 +59,8 @@ function validEntity(item,type,w,h){
       ...(item.independentEnds===true?{independentEnds:true}:{}),
       ...(elevation?{elevation}:{}),
       points};
+    const jump=normalizeRoadJump(road,item.jump);
+    return jump?{...road,jump}:road;
   }
   if(type==='regions'){
     let points=polygon(item.points,w,h,3,LIM.regionPoints,'terrain');

@@ -1,6 +1,7 @@
 class_name MorrowCoast
 extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
+const RoadJump = preload("res://scripts/world/road_jump.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
@@ -43,6 +44,8 @@ var _elevation_connections: Dictionary = {}
 var viewed_road_layer := 0
 var overhead_road_layer := 0
 var tunnel_portals: Dictionary = {}
+var jumps_by_road: Dictionary = {}
+var _jump_cells: Dictionary = {}
 var _last_overhead_check := Vector2.INF
 var bridge_diagnostics: Dictionary={}
 var mountain_diagnostics: Dictionary={}
@@ -128,6 +131,16 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 			player_garage_prop = prop
 			break
 	chunk_m = float(data.chunk_size)
+	for spec in data.get("jumps",[]):
+		jumps_by_road[int(spec.road_id)] = spec
+		var lip := Vector2(spec.p[0],spec.p[1])
+		var low := Vector2i(((lip-Vector2.ONE*4.0)/64.0).floor())
+		var high := Vector2i(((lip+Vector2.ONE*4.0)/64.0).floor())
+		for x in range(low.x,high.x+1):
+			for y in range(low.y,high.y+1):
+				var key := Vector2i(x,y)
+				if not _jump_cells.has(key):_jump_cells[key] = []
+				_jump_cells[key].append(spec)
 	# Derive a continuous promenade from the original smoothed coastline.
 	# Beach polygons extend 65m inland; the deck sits 35m inland, never
 	# over open water. No rebake of the multi-megabyte world data required.
@@ -667,6 +680,38 @@ func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Di
 					"gradient":Vector2.ZERO,"road_layer":layer,"is_mouth":false,
 					"name":"ASPHALT","grip":1.0}
 	return {}
+
+
+func jump_at_motion(car: VehicleController2D, previous: Vector2, present: Vector2) -> Dictionary:
+	if _jump_cells.is_empty() or car != vehicle or absf(car.elevation_m) > .01 or car.is_airborne():
+		return {}
+	var cell := Vector2i((present/(PPM*64.0)).floor())
+	for spec in _jump_cells.get(cell,[]):
+		if not RoadJump.accepts_launch(spec,previous,present,car.linear_velocity,Vector2.UP.rotated(car.rotation)):
+			continue
+		# Only free-roam vehicles opt into stunt jumps. Keep current event,
+		# pursuit and network state machines in charge of their normal routes.
+		var session := get_node_or_null("/root/OnlineSession")
+		if session and (session.get("active") or session.get("joining")):
+			return {}
+		for race in get_tree().get_nodes_in_group("streetbound_race"):
+			if str(race.get("state")) in ["countdown","running","racing","staged"]:return {}
+		for pursuit in get_tree().get_nodes_in_group("streetbound_police"):
+			if int(pursuit.get("wanted_level"))>0:return {}
+		for contract in get_tree().get_nodes_in_group("streetbound_contracts"):
+			if not (contract.get("active") as Dictionary).is_empty():return {}
+		return spec
+	return {}
+
+
+func jump_position_allowed(spec: Dictionary, position_px: Vector2, landing: bool) -> bool:
+	var session := get_node_or_null("/root/OnlineSession")
+	if session and (session.get("active") or session.get("joining")):
+		return false
+	var extent := Vector2(data.size[0],data.size[1])*PPM
+	var safe_bounds := Rect2(Vector2.ZERO,extent).grow(-2.6*PPM)
+	return safe_bounds.has_point(position_px) and RoadJump.in_strip(spec,position_px,landing) \
+		and (not landing or str(surface_at(position_px).name)=="ASPHALT")
 
 
 func surface_at(position_px: Vector2) -> Dictionary:

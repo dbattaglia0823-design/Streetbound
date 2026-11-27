@@ -44,6 +44,15 @@ jobs:
             grep -E 'ROAD ELEVATION (GRAPH|DRIVE): PASS' "/tmp/road-elevation-${test}.log"
             if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' "/tmp/road-elevation-${test}.log"; then exit 1; fi
           done
+      - name: Verify authored jump trajectories, contact, and safe recovery (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 tests/road_jump_bake_test.py
+          python3 tools/build_custom_test_world.py --source tests/fixtures/road-jumps.world.json --output .runtime/road-jumps.stream.json
+          timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/road_jump_drive_test.gd -- res://.runtime/road-jumps.stream.json 2>&1 | tee /tmp/road-jump-drive.log
+          grep -q 'ROAD JUMP DRIVE: PASS' /tmp/road-jump-drive.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/road-jump-drive.log
       - name: Verify underground racing rewards, escape and contact unlocks (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |

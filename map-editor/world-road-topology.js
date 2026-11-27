@@ -15,7 +15,7 @@ const flatLayer=road=>{
   const {start_layer,end_layer}=roadElevation(road);
   return start_layer===end_layer?start_layer:null;
 };
-const compatible=(a,b)=>flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
+const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
   a.lanes===b.lanes&&a.smooth===b.smooth&&a.markings===b.markings&&
   Math.abs(a.width-b.width)<EPS&&Math.abs(a.shoulder-b.shoulder)<EPS;
 const endpoints=(road)=>[
@@ -84,6 +84,7 @@ export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
 export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
   const road=doc.roads.find(r=>r.id===roadId);
   if(!road)throw new TypeError('Select a road to split');
+  if(road.jump)throw new RangeError('Remove the jump before splitting its road');
   if(doc.roads.length>=180)throw new RangeError('Maximum 180 roads reached');
   if(flatLayer(road)===null)throw new RangeError('Set the ramp to a flat layer before splitting it');
   if(closed(road))throw new RangeError('Open the loop by deleting its closing point before splitting');

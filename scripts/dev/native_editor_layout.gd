@@ -108,6 +108,22 @@ static func build(e) -> void:
 	e.road_start_layer=e._number(e.road_elevation_controls,"Start layer",-2,2,0)
 	e.road_end_layer=e._number(e.road_elevation_controls,"End layer",-2,2,0)
 	e._btn("Apply road elevation",e.road_elevation_controls,e._change_road_elevation)
+	e.road_jump_enabled=CheckBox.new()
+	e.road_jump_enabled.text="Stunt jump"
+	e.road_elevation_controls.add_child(e.road_jump_enabled)
+	e.road_jump_options=column(e.road_elevation_controls)
+	e.road_jump_reverse=CheckBox.new()
+	e.road_jump_reverse.text="Launch toward road start"
+	e.road_jump_options.add_child(e.road_jump_reverse)
+	var fields: Dictionary = preload("res://scripts/world/road_jump.gd").FIELDS
+	for key in fields:
+		var spec: Array = fields[key]
+		var input: SpinBox = e._number(e.road_jump_options,str(spec[3]),spec[0],spec[1],spec[2])
+		input.step = .05
+		input.value = float(spec[2])
+		e.road_jump_fields[key] = input
+	e.road_jump_enabled.toggled.connect(func(on: bool)->void:e.road_jump_options.visible=on)
+	e._btn("Apply jump",e.road_elevation_controls,e._change_road_jump)
 	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
 	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])

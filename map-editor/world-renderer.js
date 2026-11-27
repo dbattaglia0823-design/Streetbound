@@ -1,3 +1,4 @@
+import {roadJumpPreview} from './world-road-jump.js';
 import {roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
 import {buildRoadJunctions} from './world-junctions.js';
@@ -269,6 +270,14 @@ function drawRoads(ctx,roads,bounds,options){
     const color=Math.min(start_layer,end_layer)<0?'#c897f5':'#79d7f5';
     for(const path of displayPaths(road))
       drawRoadStroke(ctx,path,Math.max(1.4,road.width*.16),color,start_layer===end_layer?[]:[8,5]);
+  }
+  for(const road of order){
+    if(!road.jump||!visible(expand(boundsOf(road.points),20),bounds))continue;
+    const {lip,direction,start,end}=roadJumpPreview(road);
+    const at=m=>({x:lip.x+direction.x*m,y:lip.y+direction.y*m});
+    drawRoadStroke(ctx,[at(-road.jump.length_m),lip],road.jump.width_m,'#efb365',[],'butt');
+    drawRoadStroke(ctx,[lip,at(end)],.75,'#f6d48c',[2,1]);
+    drawRoadStroke(ctx,[at(start),at(end)],road.jump.landing_width_m,'#48c69370',[],'butt');
   }
   // Game-style pavement: road surfaces overlap naturally, without convex
   // hulls or artificial asphalt blobs. Clear road markings only inside the

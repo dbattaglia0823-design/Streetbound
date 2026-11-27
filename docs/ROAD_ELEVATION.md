@@ -40,10 +40,37 @@ above the player fades while driving below it. A tunnel mouth adds an
 embankment and retaining walls at a connected ramp. The interior reveals
 a dim road and wall lights when the primary driver descends.
 
-Supports and embankments are rendered artwork. Full terrain cutouts,
-traffic and police routing on graded roads, grade-aware objective
-authoring, jumps, and multiplayer state are pending. Ambient traffic uses
-ground lanes in the interim.
+Ambient traffic follows the same grade-aware lane graph. It brakes and
+rejoins a lane on its own level after contact. Police use the last confirmed
+road layer for pursuit and route ordinary ground-level dispatch through
+connected ramps. Supports and embankments are rendered artwork. Full terrain
+cutouts, non-ground objective authoring, and multiplayer elevation
+synchronization are pending.
+
+## Author and test a stunt jump
+
+Select a straight, ground-level paved road in either Map Builder, open
+**Stunt jump**, and enable it. The takeoff distance is measured from the
+first road point. Use **Launch toward road start** to reverse the direction.
+Adjust the ramp length, width, height, launch angle, speed range, and
+landing dimensions, then choose **Apply jump**. The colored preview marks
+the launch lip, trajectory, and permitted landing. The full Test Drive or
+publish bake checks scenery, walls, terrain, map edges, and intersecting
+roads. A jump moves and duplicates with its road.
+
+In single-player free roam, cross the lip in the configured direction and
+speed range. The controller preserves planar momentum, sweeps its existing
+collision shape, and validates the touchdown on the marked runway.
+The reset key, throttle, and handbrake cannot change an airborne trajectory.
+A blocked or invalid flight recovers at the last clear approach and emits
+no successful landing. Launches are limited to the primary free-roam driver
+during solo play, with active races, contracts, and police pursuits retaining
+their ordinary ground routes.
+
+Open `tests/fixtures/road-jumps.world.json` for the playable ramp and the
+overpass and tunnel fixture. Unsafe map cases in
+`tests/road_jump_bake_test.py` cover blocking scenery, guardrails, walls,
+water, unsafe speed and landing limits, and stacked crossings.
 
 ## Reproduce the elevation tests
 
@@ -51,10 +78,13 @@ From the project root, after importing Godot 4.6.3 resources:
 
 ```text
 python tests/road_elevation_bake_test.py
+python tests/road_jump_bake_test.py
 node --test map-editor/tests/road-elevation.test.mjs
 python tools/build_custom_test_world.py --source tests/fixtures/road-elevation.world.json --output .runtime/road-elevation.stream.json
 godot --headless --path . --fixed-fps 120 --script res://tests/road_elevation_graph_test.gd -- res://.runtime/road-elevation.stream.json
 godot --headless --path . --fixed-fps 120 --script res://tests/road_elevation_drive_test.gd -- res://.runtime/road-elevation.stream.json
+python tools/build_custom_test_world.py --source tests/fixtures/road-jumps.world.json --output .runtime/road-jumps.stream.json
+godot --headless --path . --fixed-fps 120 --script res://tests/road_jump_drive_test.gd -- res://.runtime/road-jumps.stream.json
 ```
 
 The fixture includes an overpass, a same-height elevated intersection, a

@@ -1,3 +1,4 @@
+import {JUMP_FIELDS} from './world-road-jump.js';
 import {LAYER_HEIGHT_M,roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {
   createWorld,demoWorld,parseWorld,serializeWorld,normalizeWorld,getEntity,
@@ -824,6 +825,10 @@ function refreshInspector(){
     $('road-end-layer').value=profile.end_layer;
     $('road-elevation-summary').textContent=
       (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
+    $('road-jump-enabled').checked=Boolean(item.jump);
+    $('road-jump-reverse').checked=item.jump?.reverse??false;
+    for(const [key,[,,fallback]] of Object.entries(JUMP_FIELDS))
+      $('road-jump-'+key).value=item.jump?.[key]??fallback;
   }else if(type==='regions'){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
@@ -1597,6 +1602,28 @@ for(const id of ['show-roads','visible-road-layer','show-junctions','show-road-p
   'show-markers','show-boundaries','audit-show-overlay','show-traffic'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
+for(const [key,[minimum,maximum,initial,label]] of Object.entries(JUMP_FIELDS)){
+  const field=document.createElement('div');
+  field.className='field';
+  const caption=document.createElement('label');
+  const input=document.createElement('input');
+  input.id='road-jump-'+key;
+  input.type='number';
+  input.min=minimum;
+  input.max=maximum;
+  input.value=initial;
+  input.step='0.05';
+  caption.htmlFor=input.id;
+  caption.textContent=label;
+  field.append(caption,input);
+  $('road-jump-fields').append(field);
+}
+$('apply-road-jump').addEventListener('click',()=>{
+  if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
+  const jump=$('road-jump-enabled').checked?{reverse:$('road-jump-reverse').checked}:undefined;
+  if(jump)for(const key of Object.keys(JUMP_FIELDS))jump[key]=$('road-jump-'+key).valueAsNumber;
+  change(d=>updateEntity(d,selection.id,{jump}),jump?'Updated stunt jump.':'Removed stunt jump.');
+});
 $('apply-road-elevation').addEventListener('click',()=>{
   if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
   const elevation={start_layer:$('road-start-layer').valueAsNumber,end_layer:$('road-end-layer').valueAsNumber};

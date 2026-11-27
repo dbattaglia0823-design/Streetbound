@@ -150,7 +150,7 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 		var kind := str(road.kind)
 		if not SPEEDS.has(kind) and not (for_navigation and kind in ["driveway","track","gravel"]):
 			continue
-		if not for_navigation and (road.has("elevation") or str(road.get("surface","ASPHALT")) in ["GRAVEL","DIRT"]):
+		if not for_navigation and str(road.get("surface","ASPHALT")) in ["GRAVEL","DIRT"]:
 			continue
 		var raw: Array = road.points
 		if raw.size()<2:
@@ -196,6 +196,7 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 						"start_node":str(start.node),"end_node":str(ending.node),
 						"control":str(ending.get("control","none")),
 						"kind":kind,"width_m":float(road.width),
+						"grade_road":road.has("elevation"),
 						"start_height_m":Elevation.height_at(road,float(start.station)/total),
 						"end_height_m":Elevation.height_at(road,float(ending.station)/total)
 					})
@@ -328,6 +329,7 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				"end_side":int(target.start_side),"start_node":"","end_node":"",
 				"control":approach_control,"junction_control":control,
 				"kind":"connector","turn":turn,
+				"grade_road":bool(source.grade_road) or bool(target.grade_road),
 				"start_height_m":source.end_height_m,"end_height_m":target.start_height_m
 			})
 			edges[id]["next"]=[int(to_id)]
@@ -426,7 +428,7 @@ func nearby_edges(position_px: Vector2,range_m := 350.0) -> Array[int]:
 ## so recovery also works after crossing a junction or leaving the current
 ## road entirely. The vehicle physically steers to the lane, never teleports.
 func recovery_target(position_px: Vector2, travel_heading: Vector2,
-		preferred_edge: int = -1, lookahead_px: float = PPM * 9.0) -> Dictionary:
+		preferred_edge: int = -1, lookahead_px: float = PPM * 9.0, height_m: float = 0.0) -> Dictionary:
 	var nearby: Array[int] = nearby_edges(position_px, 110.0)
 	if preferred_edge >= 0 and preferred_edge < edges.size() and not nearby.has(preferred_edge):
 		nearby.append(preferred_edge)
@@ -451,6 +453,9 @@ func recovery_target(position_px: Vector2, travel_heading: Vector2,
 			var dist := position_px.distance_to(p)
 			if dist > PPM * 55.0:
 				continue
+			var progress := float(stations[i-1])+sqrt(len_sq)*t
+			if absf(Elevation.edge_height_at(edge,progress)-height_m) > 1.2:
+				continue
 			var tangent := segment.normalized()
 			var facing := tangent.dot(direction)
 			# Never turn around into oncoming traffic just to choose a
@@ -463,7 +468,6 @@ func recovery_target(position_px: Vector2, travel_heading: Vector2,
 				score -= PPM * 4.0
 			if score < best_score:
 				best_score = score
-				var progress := float(stations[i - 1]) + sqrt(len_sq) * t
 				best = {"edge":id,"progress":progress,"distance_px":dist,
 					"nearest":p,"heading":tangent}
 	if best.is_empty():

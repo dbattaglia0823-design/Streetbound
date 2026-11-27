@@ -2,6 +2,7 @@ extends SceneTree
 ## Drive the normal vehicle controller through the production-baked fixture.
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const WorldScene = preload("res://scenes/vehicle.tscn")
 var failures: Array[String] = []
 
@@ -133,6 +134,28 @@ func _run() -> void:
 	check(car.position.y < 142*20 and car.road_layer == 0 and
 		car.can_reach_ground_marker() and world.viewed_road_layer == 0,
 		"Leaving the same physical portal restores ground contact and terrain visibility")
+	# Ambient chassis retain the layer their lane supplies and collide
+	# with a blocker only on that physical level.
+	var traffic := TrafficCar.new()
+	traffic.position = Vector2(501.8,405)*20
+	traffic.rotation = 0.0
+	root.add_child(traffic)
+	traffic.set_lane_grade(world,1,6.0,true)
+	await physics_frame
+	check(traffic.move_traffic(Vector2(0,-120.0),.1)==null and traffic.position.y<400*20,
+		"Ambient deck traffic crosses the ground obstacle without contact")
+	blocker.collision_layer = Elevation.collision_bits(1,6.0)
+	await physics_frame
+	check(traffic.move_traffic(Vector2(0,120.0),.1)!=null,
+		"Ambient deck traffic still collides with a same-layer obstacle")
+	traffic.receive_impact(Vector2(4000,0))
+	await physics_frame
+	var before_slide := traffic.global_position
+	traffic.move_traffic(Vector2(400.0,0),.1)
+	check(traffic.global_position.distance_to(before_slide)<1.0,
+		"Elevated ambient recoil is contained on its supported deck")
+	traffic.queue_free()
+
 	world.queue_free()
 	car.queue_free()
 	blocker.queue_free()

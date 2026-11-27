@@ -64,6 +64,7 @@ export function convertMorrowWorld(raw){
     lanes:clamp(road.lanes||2,1,6),shoulder:road.kind==='alley'?0:road.kind==='highway'?4:2,
     smooth:true,markings:road.kind!=='alley'&&road.surface!=='GRAVEL',
     ...(road.elevation?{elevation:road.elevation}:{}),
+    ...(road.jump?{jump:road.jump}:{}),
     points:pointsOf(road.anchors||road.points)
   }));
   const regions=[];
