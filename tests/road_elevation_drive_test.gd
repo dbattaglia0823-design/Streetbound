@@ -171,6 +171,12 @@ func _run() -> void:
 	check(car.position.y > 410*20 and car.road_layer == -1 and is_equal_approx(car.elevation_m,-6.0),
 		"Tunnel supports travel beneath the same ground obstacle")
 	check(world.viewed_road_layer == -1,"The world reveals its tunnel art when the driver descends")
+	world.editor_render_only=false
+	world._update_underground_backdrop()
+	check(is_instance_valid(world.underground_backdrop) and world.underground_backdrop.visible and world.underground_backdrop.z_index==41 and world.underground_backdrop.color==Color.BLACK,"Underground backdrop hides the surface below interior art")
+	world.editor_render_only=true
+	world._update_underground_backdrop()
+	check(not world.underground_backdrop.visible,"Editor overview is never blacked out")
 	# Start from rest facing the exit, then climb using the same real controls.
 	car.linear_velocity = Vector2.ZERO
 	car.rotation = 0.0

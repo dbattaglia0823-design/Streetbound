@@ -1289,6 +1289,37 @@ func apply_point_elevations(identity: String, layers: Array) -> bool:
 	return false
 
 
+func set_road_structure(identity: String, kind: String) -> bool:
+	var next:=doc.duplicate(true)
+	for i in next.roads.size():
+		var road: Dictionary=next.roads[i]
+		if str(road.id)!=identity:continue
+		var result: Dictionary
+		# A road ending at an already-authored underground area or deck is
+		# an automatic approach rather than a second isolated full tunnel.
+		var target_layer:= -1 if kind=="tunnel" else 1
+		var endpoints: Array[int]=[0,0]
+		if kind in ["tunnel","overpass"]:
+			for other in next.roads:
+				if other.id==road.id:continue
+				for end in 2:
+					var p: Dictionary=road.points[0 if end==0 else -1]
+					for neighbor_end in 2:
+						if Elevation.endpoint_layer(other,neighbor_end==0)!=target_layer:continue
+						var q: Dictionary=other.points[0 if neighbor_end==0 else -1]
+						if Vector2(p.x,p.y).distance_to(Vector2(q.x,q.y))<=.12:endpoints[end]=target_layer
+		if endpoints[0]!=0 or endpoints[1]!=0:
+			result=Elevation.connected_structure_profile(road,endpoints[0],endpoints[1])
+		else:result=Elevation.structure_profile(road,kind)
+		if result.has("error"):
+			last_error=str(result.error)
+			return false
+		next.roads[i]=result.road
+		return _commit(next)
+	last_error="Select a road first."
+	return false
+
+
 func convert_road_to_tunnel(identity: String) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:

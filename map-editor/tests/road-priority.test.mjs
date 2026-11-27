@@ -184,3 +184,11 @@ test('metric lane paint follows directional lanes and ramp edges',()=>{
   assert.deepEqual(roadMarkingPlan({...base,roadClass:'alley'}),[]);
   assert.deepEqual(roadMarkingPlan({...base,markings:false}),[]);
 });
+
+test('equal-width lane changes create an uncontrolled continuation, not an intersection',()=>{
+  let doc=createWorld({name:'Lane transition',width:1600,height:1200});
+  doc=createEntity(doc,'roads',{...base,name:'Wide',roadClass:'highway',width:18,lanes:6,points:coords([100,600],[800,600])});
+  doc=createEntity(doc,'roads',{...base,name:'Narrow reversed',roadClass:'highway',width:18,lanes:2,points:coords([1500,600],[800,600])});
+  const junctions=buildRoadJunctions(doc.roads);
+  assert.ok(junctions.some(j=>j.kind==='lane_transition'));
+});

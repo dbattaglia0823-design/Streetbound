@@ -325,7 +325,7 @@ func _roads(stage: int) -> void:
 						shadow.append(point_px+Vector2(19,30)*layer)
 					draw_polyline(shadow,Color(.09,.12,.14,.38),width+16.0,true)
 					draw_polyline(shadow,Color("69746d"),width-7.0,true)
-				draw_polyline(path,Color("2d3740") if layer > 0 else Color("343931"),width+24.0,true)
+				draw_polyline(path,Color("2d3740") if layer > 0 else Color("30343a"),width+(24.0 if layer>0 else 58.0),true)
 			elif urban:
 				# Both sides are real road-relative paths, not disconnected
 				# rectangles. Their mitered offsets follow every road bend.
@@ -391,13 +391,24 @@ func _roads(stage: int) -> void:
 				if layer != 0:
 					for side in [-1.0,1.0]:
 						var wall := _offset(visible_path,side*width*.5)
-						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
+						if layer<0:
+							# Concrete wall section outside the usable pavement, with a dark
+							# outer coping, lit inner face and continuous safety stripe.
+							var outer:=_offset(visible_path,side*(width*.5+17.0))
+							draw_polyline(outer,Color("202329"),25.0,true)
+							draw_polyline(outer,Color("77797a"),17.0,true)
+							draw_polyline(wall,Color("b4ada0"),7.0,true)
+						else:
+							draw_polyline(wall,Color("9aa8a8"),7.0,true)
 						if layer < 0 and r.kind!="alley":
 							var cursor := float(piece.phase)
 							for i in range(1,wall.size()):
 								var length := wall[i-1].distance_to(wall[i])
 								for span in dash_spans(cursor,length,16.0,174.0):
-									draw_line(wall[i-1].lerp(wall[i],float(span.from)),wall[i-1].lerp(wall[i],float(span.to)),Color("d8ad68"),5.0,true)
+									var lamp_a:=wall[i-1].lerp(wall[i],float(span.from))
+									var lamp_b:=wall[i-1].lerp(wall[i],float(span.to))
+									draw_line(lamp_a,lamp_b,Color("e7ba70"),9.0,true)
+									draw_line(lamp_a,lamp_b,Color("fff0c8"),3.0,true)
 								cursor += length
 				_paint(visible_path,r,width,float(piece.phase))
 
@@ -506,6 +517,19 @@ func _draw() -> void:
 		if hidden:continue
 		var polygon := PackedVector2Array()
 		for p in j.polygon: polygon.append(point(p))
+		if int(j.get("road_layer",0))<0:
+			# Only the outside corners are walled: junction approaches stay open.
+			draw_colored_polygon(polygon,Color("333b42"))
+			if str(j.get("control",""))=="lane_transition":
+				_paint_lane_transition(j)
+			for curve in j.curbs:
+				var wall_path:=PackedVector2Array()
+				for p in curve:wall_path.append(point(p))
+				if wall_path.size()<2:continue
+				draw_polyline(wall_path,Color("30343a"),26.0,true)
+				draw_polyline(wall_path,Color("77797a"),16.0,true)
+				draw_polyline(wall_path,Color("b4ada0"),5.0,true)
+			continue
 		# The baker provides only OUTSIDE corner fillets, never a line across
 		# a street approach. Extend each eligible corner into a sidewalk
 		# apron, then mask the inside with the actual junction asphalt.
@@ -527,6 +551,8 @@ func _draw() -> void:
 			draw_polyline(corner, Walkways.SIDEWALK_BASE,
 				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 3.0, true)
 		draw_colored_polygon(polygon,Color("58656c"))
+		if str(j.get("control",""))=="lane_transition":
+			_paint_lane_transition(j)
 		if str(j.get("control",""))=="merge":
 			var through := PackedVector2Array()
 			for arm in j.approaches:
@@ -547,6 +573,40 @@ func _draw() -> void:
 			var normal:=Vector2(-direction.y,direction.x)
 			_sign(point(arm.p)+direction*30-normal*(float(arm.width)*PPM*.5+32),direction,str(arm.control)=="yield")
 	draw_set_transform(Vector2.ZERO)
+
+## Match the median and each lane boundary at the two opposing mouths.
+## Excess lane lines taper into the outer edge instead of entering oncoming
+## pavement. The road paint pass already leaves this entire area unmarked.
+func _paint_lane_transition(j: Dictionary) -> void:
+	if j.approaches.size()!=2:return
+	var a: Dictionary=j.approaches[0];var b: Dictionary=j.approaches[1]
+	var ra: Dictionary=world.data.roads[int(a.road)];var rb: Dictionary=world.data.roads[int(b.road)]
+	if not bool(ra.get("markings",true)) or not bool(rb.get("markings",true)):return
+	var da:=Vector2(a.direction[0],a.direction[1]);var db:=Vector2(b.direction[0],b.direction[1])
+	var na:=Vector2(-da.y,da.x);var nb:=Vector2(-db.y,db.x)
+	var la:=Lanes.layout(ra);var lb:=Lanes.layout(rb)
+	var pa:=point(a.p);var pb:=point(b.p)
+	var divider_a:=float(la.divider)*float(a.side)
+	var divider_b:=float(lb.divider)*float(b.side)
+	var center_a:=pa+na*divider_a*PPM
+	var center_b:=pb+nb*divider_b*PPM
+	draw_line(center_a,center_b,PAINT_YELLOW,3.0,true)
+	for side in [-1,1]:
+		var count_a:=int(la.forward if side*int(a.side)>0 else la.reverse)
+		var count_b:=int(lb.forward if -side*int(b.side)>0 else lb.reverse)
+		# The edge stripe itself joins the two shoulders and makes the
+		# narrowing/widening visually legible even on equal-width pavement.
+		var edge_a:=center_a+na*float(side)*maxf(0.0,float(count_a)*float(la.width)*PPM-7.0)
+		var edge_b:=center_b-nb*float(side)*maxf(0.0,float(count_b)*float(lb.width)*PPM-7.0)
+		draw_line(edge_a,edge_b,PAINT_WHITE,3.0,true)
+		for lane in range(1,maxi(count_a,count_b)):
+			var offset_a:=minf(float(lane),float(count_a))*float(la.width)
+			var offset_b:=minf(float(lane),float(count_b))*float(lb.width)
+			var start:=center_a+na*float(side)*offset_a*PPM
+			var finish:=center_b-nb*float(side)*offset_b*PPM
+			var length:=start.distance_to(finish)
+			for dash in dash_spans(0.0,length,60.0,100.0):
+				draw_line(start.lerp(finish,float(dash.from)),start.lerp(finish,float(dash.to)),PAINT_WHITE,3.0,true)
 
 func _sign(p: Vector2,outward: Vector2,yield_sign: bool) -> void:
 	draw_line(p+Vector2(5,7),p+Vector2(16,21),Color(.08,.14,.15,.3),8,true)
