@@ -92,6 +92,14 @@ func _run() -> void:
 	check("diamond_interchange_has_grade_connectors",not interchange.has("error") and interchange.roads.size()==6 and interchange.roads[0].elevation.start_layer==1)
 	var complete_grid: Dictionary=City.plan_grid(city_before,Vector2(900,900),config.merged({"sidewalks":true,"plots":true}),360,8000)
 	check("grid_generates_sidewalks_and_plots",not complete_grid.has("error") and complete_grid.regions.size()==4 and complete_grid.props.any(func(p: Dictionary)->bool:return p.type=="sidewalk"))
+	var property_session=Session.new()
+	property_session.doc=Library.create("Property construction test",1800,1800,"grass")
+	var frontage: String=property_session.add_road(Vector2(200,900),Vector2(1600,900))
+	var property_before: Dictionary=property_session.doc.duplicate(true)
+	var property_plan: Dictionary=City.plan_property(property_session.doc,frontage,Vector2(900,1040),{"property":"bank"},360,8000)
+	check("property_kit_links_robbery_to_contact_and_dropoff",not property_plan.has("error") and property_plan.markers.size()==3
+		and not property_session.apply_construction(property_plan).is_empty()
+		and property_session.doc.markers.size()==3 and property_session.undo() and property_session.doc==property_before)
 	var bulk_session=Session.new()
 	check("bulk_fixture_loads",bulk_session.load_source())
 	var bulk_ids: Array[String]=["road-0","road-1"]

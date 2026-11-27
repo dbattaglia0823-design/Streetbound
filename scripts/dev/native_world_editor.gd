@@ -2796,7 +2796,7 @@ func _open_construction() -> void:
 		construction_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 		root_ui.add_child(construction_dialog)
 		var panel:=VBoxContainer.new();construction_dialog.add_child(panel)
-		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange"])
+		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange","property kit"])
 		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
 		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
 		construction_fields["columns"]=_number(dimensions,"Columns",1,12,3)
@@ -2812,6 +2812,7 @@ func _open_construction() -> void:
 			var toggle:=CheckBox.new();toggle.text=option[1];panel.add_child(toggle);construction_fields[option[0]]=toggle
 		construction_fields["interchange"]=_options(panel,"Interchange template",["diamond","half diamond","three way"])
 		construction_fields["interchange_span"]=_number(panel,"Interchange half-span m",180,500,240)
+		construction_fields["property"]=_options(panel,"Property kit",["fuel station","garage","shopping center","convenience store","pawn shop","jewelry store","bank","dealership"])
 		construction_fields["decoration"]=_options(panel,"Roadside decoration",["streetlight","tree","sign"])
 		construction_fields["spacing"]=_number(panel,"Decoration spacing m",15,150,40)
 		construction_summary=Label.new();construction_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -2845,6 +2846,7 @@ func _preview_construction() -> void:
 		"district fill":construction_plan=Construction.plan_district(authoring.doc,construction_center,settings,authoring.prop_limit())
 		"roadside decoration":construction_plan=Construction.plan_roadside(authoring.doc,construction_road_id,settings,authoring.prop_limit())
 		"interchange":construction_plan=Construction.plan_interchange(authoring.doc,construction_center,settings,authoring.road_limit())
+		"property kit":construction_plan=Construction.plan_property(authoring.doc,construction_road_id,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
 	if construction_plan.has("error"):
 		construction_summary.text=str(construction_plan.error)
 		construction_dialog.get_ok_button().disabled=true

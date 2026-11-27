@@ -1449,6 +1449,7 @@ func apply_construction(plan: Dictionary) -> Array[String]:
 	var props: Array=plan.get("props",[])
 	var regions: Array=plan.get("regions",[])
 	var markers: Array=plan.get("markers",[])
+	var dealers: Array=plan.get("dealerships",[])
 	if roads.is_empty() and props.is_empty() and regions.is_empty() and markers.is_empty():last_error="Nothing fits in the selected area.";return ids
 	if doc.roads.size()+roads.size()>road_limit() or doc.props.size()+props.size()>prop_limit() or doc.regions.size()+regions.size()>220 or doc.markers.size()+markers.size()>400:
 		last_error="Construction exceeds map capacity.";return ids
@@ -1469,6 +1470,9 @@ func apply_construction(plan: Dictionary) -> Array[String]:
 		next.regions.append(item);ids.append(str(item.id))
 	for marker in markers:
 		next.markers.append(marker.duplicate(true));ids.append(str(marker.id))
+	if not dealers.is_empty():
+		if not next.has("dealerships"):next.dealerships=[]
+		for dealer in dealers:next.dealerships.append(dealer.duplicate(true))
 	if not _commit(next):return []
 	return ids
 

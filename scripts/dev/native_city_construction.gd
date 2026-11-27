@@ -2,12 +2,14 @@ extends RefCounted
 ## Deterministic source-only city construction. The session validates and
 ## commits the entire plan at once; never mutate the live runtime archive.
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
+const Contracts=preload("res://scripts/world/driving_contract_rules.gd")
+const DealerConfig=preload("res://scripts/world/dealership_config.gd")
 const PALETTES={"residential":["house","house","coastal_house"],"commercial":["shop","shop","garage"],
 	"industrial":["garage","garage","warehouse"],"downtown":["shop","warehouse","shop"]}
 const BLOCKED=["ocean","lake","water","river","reservoir","mountain","rock"]
 const SIZES={"house":Vector2(12,17),"coastal_house":Vector2(12,17),"shop":Vector2(22,29),
 	"garage":Vector2(20,21),"warehouse":Vector2(28,37),"tree":Vector2(7,7),
-	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4)}
+	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4),"parking":Vector2(38,28),"gas_station":Vector2(18,17),"building":Vector2(22,29),"warehouse":Vector2(28,37)}
 const CELL:=48.0
 
 static func _point(p: Vector2) -> Dictionary:return {"x":p.x,"y":p.y}
@@ -301,3 +303,123 @@ static func plan_interchange(doc: Dictionary,center: Vector2,settings: Dictionar
 			roads.append(_grade_road(id,origin,target,8,2,1,0,"Grade connector"));id+=1
 	if doc.roads.size()+roads.size()>limit:return _error("Not enough remaining road capacity.")
 	return {"roads":roads,"props":[],"area":area,"label":style.capitalize()+" interchange"}
+
+const PROPERTY_ART={"convenience store":"Map Building Assets/Robbery Buildings/Convenience Stores/Convenience1.png",
+	"pawn shop":"Map Building Assets/Robbery Buildings/Pawn Shops/PawnShop1.png",
+	"jewelry store":"Map Building Assets/Robbery Buildings/Jewelry store/Jewelry Store1.png",
+	"bank":"Map Building Assets/Robbery Buildings/Banks/Bank1.png"}
+const PROPERTY_TIERS={"convenience store":"convenience","pawn shop":"pawn","jewelry store":"jewelry","bank":"bank"}
+
+static func _marker(id: String,kind: String,name: String,p: Vector2,properties: Dictionary={}) -> Dictionary:
+	return {"id":id,"type":kind,"name":name,"x":p.x,"y":p.y,"rotation":0.0,"properties":properties}
+
+static func _next_marker(doc: Dictionary) -> int:
+	var next:=0
+	for marker in doc.markers:
+		var suffix:=str(marker.id).trim_prefix("marker-")
+		if suffix.is_valid_int():next=maxi(next,int(suffix)+1)
+	return next
+
+## A complete roadside site, anchored to an existing straight ground street.
+## A generous setback keeps building, lot and driveway out of the roadway.
+static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settings: Dictionary,road_limit: int,prop_limit: int) -> Dictionary:
+	if not doc.get("customMap",false):return _error("Use a custom map for property kits.")
+	var kind:=str(settings.get("property","fuel station"))
+	if kind not in ["fuel station","garage","shopping center","convenience store","pawn shop","jewelry store","bank","dealership"]:
+		return _error("Unknown property kit.")
+	var road: Dictionary={}
+	for item in doc.roads:
+		if str(item.id)==road_id:road=item;break
+	if road.is_empty() or road.has("elevation") or road.has("jump") or str(road.get("surface","")) in ["gravel","dirt"] or road.points.size()!=2:
+		return _error("Select a straight paved ground-level road before placing a property kit.")
+	var a:=Vector2(road.points[0].x,road.points[0].y)
+	var b:=Vector2(road.points[1].x,road.points[1].y)
+	var length:=a.distance_to(b)
+	var robbery:=PROPERTY_TIERS.has(kind)
+	var margin:=160.0 if robbery else 45.0
+	if length<margin*2+10:return _error("Select a longer road to fit this property and its objectives.")
+	var tangent: Vector2=(b-a)/length
+	var station:=clampf((center-a).dot(tangent),margin,length-margin)
+	var access: Vector2=a+tangent*station
+	var normal: Vector2=tangent.orthogonal()
+	if (center-access).dot(normal)<0:normal=-normal
+	var road_edge:=float(road.width)*.5+float(road.get("shoulder",2))
+	var lot_center:=access+normal*(road_edge+25.0)
+	var building_center:=access+normal*(road_edge+69.0)
+	var angle:=rad_to_deg(normal.angle())+90.0
+	angle=wrapf(angle,-180,180)
+	var props: Array=[]
+	var index:=_index(doc)
+	var lot:=_prop("parking",lot_center,wrapf(rad_to_deg(normal.angle()),-180,180),1.0)
+	lot.name=kind.capitalize()+" parking"
+	var building_type: String={"fuel station":"gas_station","garage":"garage","shopping center":"building","dealership":"building"}.get(kind,"building")
+	var building:=_prop(building_type,building_center,angle,1.0)
+	building.name=kind.capitalize()
+	# Use actual shipped robbery-building artwork, with canonical project
+	# identifiers. A missing file falls back to ordinary shop art.
+	if PROPERTY_ART.has(kind):
+		var relative: String=PROPERTY_ART[kind]
+		if FileAccess.file_exists("res://assets/"+relative):
+			building.assetPath=relative
+			building.assetId="project-"+relative.sha256_text().substr(0,24)
+			building.assetSize=[22.0,29.0]
+			building.assetCollision="solid"
+			building.type="building"
+	var extent:=Rect2(access+normal*(road_edge+3),Vector2.ZERO).expand(lot_center).expand(building_center).grow(25)
+	var bounds:=Rect2(Vector2(3,3),Vector2(doc.world.width,doc.world.height)-Vector2(6,6))
+	if not bounds.encloses(extent) or _blocked_terrain(doc,extent):return _error("Property footprint crosses map bounds or restricted terrain.")
+	# Check actual intended footprints rather than the entire site rectangle
+	# against the frontage road, where a driveway is supposed to connect.
+	for candidate in [lot,building]:
+		var p:=Vector2(candidate.x,candidate.y)
+		if not _free(index,p,_prop_radius(candidate)+2):return _error("Property overlaps existing roads or scenery.")
+	var end: Vector2=lot_center-normal*12.0
+	var span:=access.distance_to(end)
+	for i in range(1,ceili(span/3.0)+1):
+		var p:=access.lerp(end,minf(1.0,float(i)*3.0/span))
+		if p.distance_to(access)>road_edge+10 and not _free(index,p,4):return _error("Driveway is obstructed.")
+	props.append(lot)
+	if kind!="dealership":props.append(building)
+	for side in [-1,1]:
+		var lamp:=lot_center+tangent*side*24.0
+		_place(doc,index,props,"streetlight",lamp,angle,1.0,prop_limit)
+	var roads: Array=[_road(_next_road(doc),access,end,8,1)]
+	roads[0].roadClass="service";roads[0].name=kind.capitalize()+" access"
+	var markers: Array=[]
+	var dealers: Array=[]
+	var number:=_next_marker(doc)
+	var marker_id: String="marker-%d"%number
+	if robbery:
+		var target_id:=marker_id
+		var contact_id: String="marker-%d"%(number+1)
+		var drop_id: String="marker-%d"%(number+2)
+		var contact:=access-tangent*150.0
+		var drop:=access+tangent*150.0
+		markers.append(_marker(target_id,"robbery_target",kind.capitalize(),end))
+		markers.append(_marker(drop_id,"contract_dropoff","Getaway drop-off",drop))
+		markers.append(_marker(contact_id,"contract_contact",kind.capitalize()+" contact",contact,
+			{"contact_style":"street","offers":[Contracts.make_robbery_offer(str(PROPERTY_TIERS[kind]),target_id,drop_id)]}))
+	elif kind=="fuel station":
+		markers.append(_marker(marker_id,"fuel","Fuel station",end))
+	elif kind=="garage":
+		markers.append(_marker(marker_id,"garage","Garage",end))
+	elif kind=="dealership":
+		var used: Dictionary={}
+		for dealer in DealerConfig.combined(doc):used[str(dealer.id)]=true
+		if used.size()>=DealerConfig.MAX_SHOPS:return _error("Dealership limit reached.")
+		var n:=1
+		while used.has("custom-dealer-%d"%n):n+=1
+		var dealer_id: String="custom-dealer-%d"%n
+		var defaults:=DealerConfig.defaults()
+		if defaults.size()<4:return _error("Dealership artwork configuration is missing.")
+		var inventory: Array=[]
+		for car in DealerConfig.available_inventory(defaults[3]):inventory.append(str(car.id))
+		dealers.append({"id":dealer_id,"name":"Generated dealership","tier":"CUSTOM SHOWROOM","region":"Custom location",
+			"texture":str(defaults[3].texture),"x":building_center.x,"y":building_center.y,
+			"lot_width_m":32.0,"lot_depth_m":20.0,"inventory_mode":"manual","inventory":inventory})
+		markers.append(_marker(marker_id,"dealership","Dealership",end,{"dealer_id":dealer_id}))
+	else:
+		markers.append(_marker(marker_id,"custom","Shopping center",end))
+	if doc.roads.size()+roads.size()>road_limit or doc.props.size()+props.size()>prop_limit or doc.markers.size()+markers.size()>400:
+		return _error("Property kit exceeds map capacity.")
+	return {"roads":roads,"props":props,"markers":markers,"dealerships":dealers,"area":extent,"label":kind.capitalize()+" kit"}
