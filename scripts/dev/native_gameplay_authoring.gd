@@ -422,8 +422,12 @@ func open_validation(e) -> void:
 			compiled=_graph(e)
 		var profile: Dictionary=e.get_tree().get_meta("streetbound_editor_performance_report",{})
 		var report:=Validation.audit(e.authoring.doc,compiled,profile,hash)
+		var drive: Dictionary=e.get_tree().get_meta("streetbound_validation_drive_report",{})
+		if str(drive.get("source_hash",""))==hash:report["physical_drive"]=drive
 		state.report=report;state.hash=hash
 		summary.text="%s | %d errors, %d warnings | %d/%d route legs | %d road components\nPerformance: %s (physical simulation not run)"%[report.status,report.counts.error,report.counts.warning,report.route_passes,report.route_checks,int(report.get("components",0)),str(report.performance)]
+		if report.has("physical_drive"):
+			summary.text+="\nPhysical drive: "+str(report.physical_drive)
 		list.clear()
 		for row in report.issues:
 			list.add_item("%s · %s"%[str(row.severity).to_upper(),row.message])
@@ -486,7 +490,8 @@ func open_validation_route(e) -> void:
 	var status:=_label(panel,"Select endpoints within 25 m of legal lanes.")
 	var canvas:=Control.new()
 	canvas.custom_minimum_size=Vector2(480,180);panel.add_child(canvas)
-	var state: Dictionary={"points":PackedVector2Array()}
+	var scenario:=_control_choice(panel,"Physical test scenario",["Normal","Rush hour","Heavy","Police"])
+	var state: Dictionary={"points":PackedVector2Array(),"route":{},"spec":{},"hash":""}
 	canvas.draw.connect(func():
 		canvas.draw_rect(Rect2(Vector2.ZERO,canvas.size),Color("#19222d"))
 		var points: PackedVector2Array=state.points
@@ -500,7 +505,7 @@ func open_validation_route(e) -> void:
 		canvas.draw_circle(scaled[0],5,Color.GREEN)
 		canvas.draw_circle(scaled[-1],5,Color.ORANGE))
 	e._btn("Find legal route",panel,func():
-		state.points=PackedVector2Array();canvas.queue_redraw()
+		state.points=PackedVector2Array();state.route={};canvas.queue_redraw()
 		if not _ready(e):return
 		var compiled: Dictionary={}
 		if e.map_switcher.custom:compiled=_race_graph(e)
@@ -509,6 +514,22 @@ func open_validation_route(e) -> void:
 		var planner:=Planner.new();planner.setup(compiled.network,compiled.data)
 		var route:=Validation.route(planner,{"x":x1.value,"y":y1.value,"road_layer":int(l1.value)},{"x":x2.value,"y":y2.value,"road_layer":int(l2.value)})
 		if route.is_empty():status.text="Unreachable on selected road levels.";return
-		state.points=route.points_m;canvas.queue_redraw()
+		state.points=route.points_m;state.route=route
+		state.spec={"start":{"x":x1.value,"y":y1.value,"road_layer":int(l1.value)},"finish":{"x":x2.value,"y":y2.value,"road_layer":int(l2.value)}}
+		state.hash=e.authoring._fingerprint(e.authoring.doc)
+		canvas.queue_redraw()
 		status.text="%.0f m | %d directed edges | access %.1f / %.1f m"%[route.length_m,route.edges.size(),route.start_access_distance_m,route.access_distance_m])
+	e._btn("Launch physical AI Test Drive (flat route)",panel,func():
+		if not _ready(e) or state.route.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			status.text="Find a route for the current revision first.";return
+		if state.spec.start.road_layer!=0 or state.spec.finish.road_layer!=0:
+			status.text="Physical validation currently requires ground-level endpoints.";return
+		var route: Dictionary=state.route
+		if float(route.length_m)<20.0 or float(route.length_m)>5000.0:
+			status.text="Choose a route between 20 and 5000 m.";return
+		var pts: PackedVector2Array=route.points_m
+		var spec: Dictionary=state.spec.duplicate(true)
+		spec["scenario"]=scenario.get_item_text(scenario.selected)
+		dialog.hide()
+		e._test_drive({"position":pts[0]*20.0,"layer":0,"rotation":(pts[1]-pts[0]).angle()+PI*.5,"validation":spec}))
 	dialog.popup_centered()

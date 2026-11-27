@@ -141,8 +141,8 @@ static func topology(graph: RefCounted, report: Dictionary) -> void:
 		issue(report,"warning","road_island","Separate lane component: %d lanes / %.0f lane-metres"%[c.lanes,c.metres],edge_point(graph,int(c.edge)))
 
 static func route(planner: RefCounted,a: Dictionary,b: Dictionary) -> Dictionary:
-	var starts: Array=planner._candidates(point(a)*20.0,Vector2.ZERO,"",layer(a))
-	var goals: Array=planner._candidates(point(b)*20.0,Vector2.ZERO,"",layer(b))
+	var starts: Array[Dictionary]=planner._candidates(point(a)*20.0,Vector2.ZERO,"",layer(a))
+	var goals: Array[Dictionary]=planner._candidates(point(b)*20.0,Vector2.ZERO,"",layer(b))
 	starts=starts.filter(func(c: Dictionary)->bool:return float(c.distance)<=ACCESS_M*20.0)
 	goals=goals.filter(func(c: Dictionary)->bool:return float(c.distance)<=ACCESS_M*20.0)
 	if starts.is_empty() or goals.is_empty():return {}
