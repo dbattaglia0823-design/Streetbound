@@ -1,5 +1,6 @@
 extends SceneTree
 const Library=preload("res://scripts/dev/native_map_library.gd")
+const Publication=preload("res://scripts/world/world_publication.gd")
 const Compare=preload("res://scripts/dev/map_release_comparison.gd")
 var failures:=0
 func check(ok: bool,label: String) -> void:
@@ -25,5 +26,8 @@ func _initialize() -> void:
 	var b: Dictionary={"roads":[{"id":"a","width":14},{"id":"c","width":10}]}
 	var delta:=Compare.compare(a,b)
 	check(delta.entities.roads.added==["c"] and delta.entities.roads.removed==["b"] and delta.entities.roads.changed==["a"],"stable ID comparison")
+	var identity: Dictionary={"id":"release-test.world.json","sha256":"a".repeat(64)}
+	check(Publication.same_network_identity(identity,identity),"identical multiplayer world")
+	check(not Publication.same_network_identity(identity,{"id":identity.id,"sha256":"b".repeat(64)}),"changed archive refused")
 	if failures==0:print("MAP RELEASE: PASS")
 	quit(0 if failures==0 else 1)

@@ -10,7 +10,7 @@ sys.path.insert(0,str(ROOT/"tools"))
 from custom_test_world_bake_test import source
 from publish_custom_world import publish
 from world_release import preflight, export_package, verify_package, compare, rollback, install_package
-from world_release_audit import structural_audit
+from world_release_audit import structural_audit, dependencies
 
 class WorldRelease(unittest.TestCase):
     def setUp(self):
@@ -84,6 +84,21 @@ class WorldRelease(unittest.TestCase):
         old.write_bytes(payload)
         self.assertEqual(rollback(self.root,self.backups,saved)["result"],"rolled_back")
         self.assertEqual(json.loads(self.pointer.read_bytes())["archive"],first["archive"])
+
+    def test_asset_audit_detects_changed_and_missing_art(self):
+        art=self.root/"assets/Buildings/test.png"
+        art.parent.mkdir(parents=True)
+        art.write_bytes(b"original artwork")
+        archive={"props":[{"asset_path":"Buildings/test.png"}],
+                 "editor_dealerships":[]}
+        first=dependencies(archive,self.root)
+        self.assertEqual(len(first),1)
+        self.assertEqual(first[0]["path"],"assets/Buildings/test.png")
+        art.write_bytes(b"updated artwork")
+        self.assertNotEqual(first,dependencies(archive,self.root))
+        art.unlink()
+        with self.assertRaisesRegex(ValueError,"Missing map artwork"):
+            dependencies(archive,self.root)
 
     def test_diff_and_index_failure(self):
         original=source()

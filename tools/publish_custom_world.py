@@ -47,7 +47,7 @@ def _read_source(path):
     doc = json.loads(raw.decode("utf-8"))
     if not isinstance(doc, dict) or doc.get("customMap") is not True:
         raise ValueError("The selected map is not an authored custom map")
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}\.world\.json", path.name):
+    if len(path.name)>100 or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}\.world\.json", path.name):
         raise ValueError("Custom map filename is not safe for publishing")
     return doc, raw
 

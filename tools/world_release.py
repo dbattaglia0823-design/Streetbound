@@ -81,7 +81,7 @@ def _manifest_paths(active):
     source="worlds/published/source-"+match[1]+".world.json"
     if active.get("source")!="res://"+source:
         raise ValueError("Invalid source path")
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}\.world\.json",str(active.get("id",""))):
+    if len(str(active.get("id","")))>100 or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}\.world\.json",str(active.get("id",""))):
         raise ValueError("Invalid map identity")
     return archive,source,match[1]
 
