@@ -364,7 +364,10 @@ func _select_job(index: int) -> void:
 	description_label.text = ViewData.description(offer)
 	var payload := Rules.robbery_payload(offer)
 	if payload != Vector2i.ZERO:
-		description_label.text += "\nVehicle: %d seats including driver / %d kg cargo / +%d kg loaded mass." % [payload.x+1,payload.y,payload.y+payload.x*75]
+		var added_mass := float(payload.y+payload.x*75)
+		if is_instance_valid(contracts) and contracts.has_method("projected_payload_mass"):
+			added_mass = float(contracts.call("projected_payload_mass",offer))
+		description_label.text += "\nVehicle: %d seats including driver / %d kg cargo / +%.0f kg loaded mass." % [payload.x+1,payload.y,added_mass]
 	payout_label.text = "%s CASH" % economy.call("dollars", int(rewards.get("cash", 0)))
 	xp_label.text = "+%d DRIVER XP   /   +%d CAR XP\n+%d UNDERGROUND REP" % [
 		int(rewards.get("player_xp", 0)),

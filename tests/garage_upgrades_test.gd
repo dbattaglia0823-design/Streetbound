@@ -52,6 +52,14 @@ func run() -> void:
 	check("market_unequip_restores_baseline",market.unequip_part(Ownership.STARTER_ID,"chassis")=="removed")
 	market.balance=0
 	check("market_insufficient_funds_no_new_item",market.purchase_black_market("bm-cargo-light")=="insufficient_funds" and market.upgrade_inventory.size()==2)
+	var damage_script := preload("res://scripts/vehicle/vehicle_damage.gd")
+	var baseline_damage = damage_script.new()
+	var market_damage = damage_script.new()
+	check("bumper_reduces_actual_impact_damage",market_damage.register_impact(20.0,1.0,protected_market.impact_damage_factor)<baseline_damage.register_impact(20.0,1.0))
+	market_damage.integrity=10.0
+	check("engine_shield_reduces_critical_loss",market_damage.drive_fraction(0.5)>market_damage.drive_fraction())
+	market_damage.integrity=0.0
+	check("engine_shield_cannot_move_destroyed_vehicle",market_damage.drive_fraction(0.5)==0.0)
 	var economy := Ownership.new(false)
 	check("fresh_ownership_has_no_upgrade_loot",
 		economy.upgrade_inventory.is_empty() and economy.upgrade_loadouts.is_empty())

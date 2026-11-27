@@ -421,7 +421,7 @@ func _refresh_picker() -> void:
 		for item in economy.upgrade_inventory:
 			if str(item.get("template","")) == str(template.id):
 				owned_items.append(item)
-		if owned_items.is_empty():
+		if owned_items.is_empty() or market:
 			var preview := Button.new()
 			preview.name = "Unowned_"+str(template.id).replace("-","_")
 			preview.custom_minimum_size.y = 69
@@ -437,18 +437,19 @@ func _refresh_picker() -> void:
 				preview.tooltip_text = "Purchase into inventory; stop in free roam to install. Requires reputation, not car XP."
 				_style_button(preview,false)
 				picker_parts.add_child(preview)
+				# Owned copies remain below the purchase button.
+			else:
+				var source := "FUTURE EVENT REWARD" if not \
+					bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
+				preview.text = "%s  /  %s\n%s  ·  %s" % [
+					str(template.name),str(template.rarity),Parts.summary(template),
+					source]
+				preview.tooltip_text = "Part not owned. %s. %s. Planned event pools: %s" % [
+					source,str(template.get("role","")),str(template.get("reward_sources",[]))]
+				preview.disabled = true
+				_style_button(preview,false)
+				picker_parts.add_child(preview)
 				continue
-			var source := "FUTURE EVENT REWARD" if not \
-				bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
-			preview.text = "%s  /  %s\n%s  ·  %s" % [
-				str(template.name),str(template.rarity),Parts.summary(template),
-				source]
-			preview.tooltip_text = "Part not owned. %s. %s. Planned event pools: %s" % [
-				source,str(template.get("role","")),str(template.get("reward_sources",[]))]
-			preview.disabled = true
-			_style_button(preview,false)
-			picker_parts.add_child(preview)
-			continue
 		for item in owned_items:
 			var uid := str(item.get("uid",""))
 			var status := economy.can_install_part(car_id,uid)

@@ -92,6 +92,13 @@ func _find_robbery_target(id: String) -> Dictionary:
 			return item
 	return {}
 
+func projected_payload_mass(offer: Dictionary) -> float:
+	var payload := Rules.robbery_payload(offer)
+	var factor := 1.0
+	if is_instance_valid(player) and player.config != null:
+		factor = player.config.mission_cargo_mass_factor
+	return float(payload.x)*75.0 + float(payload.y)*clampf(factor,0.8,1.0)
+
 func vehicle_requirement(offer: Dictionary) -> String:
 	if Rules.robbery_payload(offer) == Vector2i.ZERO:
 		return ""

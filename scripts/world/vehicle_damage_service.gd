@@ -33,6 +33,7 @@ var notice_remaining := 0.0
 var _save_clock := 0.0
 var _low_fuel_warning := false
 var _last_config_hp := -1
+var _last_engine_shield := 1.0
 
 func _ready() -> void:
 	layer = 4
@@ -106,6 +107,7 @@ func _configure_active_car() -> void:
 		powertrain == "electric")
 	damage.max_health_points = maxi(1, player.config.max_health_points)
 	_last_config_hp = damage.max_health_points
+	_last_engine_shield = player.config.critical_power_loss_factor
 	damage.integrity = clampf(float(integrity_by_car.get(current_car_id, 100.0)), 0.0, 100.0)
 	damage.last_impact_at = -INF
 	fuel.remaining = clampf(float(fuel_by_car.get(current_car_id, fuel.capacity)), 0.0, fuel.capacity)
@@ -127,9 +129,10 @@ func _sync_upgrade_health() -> void:
 	if not is_instance_valid(player) or player.config == null:
 		return
 	var capacity := maxi(1,player.config.max_health_points)
-	if capacity != _last_config_hp:
+	if capacity != _last_config_hp or not is_equal_approx(_last_engine_shield,player.config.critical_power_loss_factor):
 		# Normalized integrity is preserved, never repair or refill on swaps.
 		_last_config_hp = capacity
+		_last_engine_shield = player.config.critical_power_loss_factor
 		damage.max_health_points = capacity
 		_apply_drive_condition()
 		_update_gauges()
