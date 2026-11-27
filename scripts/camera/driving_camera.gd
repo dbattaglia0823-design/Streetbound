@@ -20,6 +20,7 @@ const ABSOLUTE_ZOOM_MIN := 0.47
 const ABSOLUTE_ZOOM_MAX := 1.55
 const WHEEL_RESPONSE := 9.0
 const CAMERA_RESPONSE := 3.8
+const TUNNEL_ZOOM_MAX := 2.0
 # Keep the follow camera close without locking it to the vehicle.
 const POSITION_RESPONSE := 5.6
 const MAX_FOLLOW_DISTANCE_PX := 1200.0
@@ -120,6 +121,13 @@ static func target_zoom_for(speed: float, player_magnification: float,
 		ABSOLUTE_ZOOM_MIN, ABSOLUTE_ZOOM_MAX)
 
 
+## Depth comes from actual pavement contact, never the XY map position.
+## Ease in near the covered end of the approach and restore surface zoom on exit.
+static func tunnel_zoom_for(base_zoom: float, height_m: float) -> float:
+	var enclosed := smoothstep(3.0,6.0,-height_m)
+	return lerpf(base_zoom,minf(TUNNEL_ZOOM_MAX,base_zoom*1.45),enclosed)
+
+
 func _on_shift(_gear: int) -> void:
 	# Crisp, short shift impulse. This never touches vehicle motion.
 	if is_instance_valid(target) and target.linear_velocity.length()>8.0:
@@ -180,6 +188,7 @@ func _physics_process(dt: float) -> void:
 		_shift_pulse,_nitrous_pulse,_draft_pulse)
 	if _neighborhood_view_active:
 		target_zoom = minf(target_zoom, STARTUP_NEIGHBORHOOD_ZOOM)
+	target_zoom = tunnel_zoom_for(target_zoom,target.elevation_m)
 	zoom = zoom.lerp(Vector2.ONE * target_zoom,
 		1.0 - exp(-CAMERA_RESPONSE * dt))
 	_impact_time += dt
