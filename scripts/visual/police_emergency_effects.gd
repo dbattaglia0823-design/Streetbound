@@ -3,6 +3,7 @@ extends Node2D
 static var siren_stream: AudioStreamWAV
 var half_width := 10.0
 var roof_y := 0.0
+var blue_on_left := true
 var clock := 0.0
 var voice: AudioStreamPlayer2D
 
@@ -11,6 +12,7 @@ static func attach(car: Node2D, model: Dictionary) -> Node2D:
 	fx.set_script(load("res://scripts/visual/police_emergency_effects.gd"))
 	fx.name = "EmergencyEffects"
 	fx.set("half_width", float(model["width_m"])*20.0*0.30)
+	fx.set("blue_on_left", is_zero_approx(float(model["sprite_rotation_degrees"])))
 	fx.set("roof_y", float(model["length_m"])*20.0*float(model.get("lightbar_offset_fraction", 0.0)))
 	car.add_child(fx)
 	return fx
@@ -41,7 +43,7 @@ func _ready() -> void:
 	z_index = 4
 	voice = AudioStreamPlayer2D.new()
 	voice.stream = _stream()
-	voice.volume_db = -20.0
+	voice.volume_db = -25.0
 	voice.max_distance = 20.0*150.0
 	add_child(voice)
 	voice.play()
@@ -58,11 +60,12 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	var blue := int(clock*8.0)%2 == 0
 	for side in [-1,1]:
-		var active := blue if side == -1 else not blue
+		var blue_side: bool = (side == -1) == blue_on_left
+		var active := blue if blue_side else not blue
 		if not active:
 			continue
 		var center := Vector2(float(side)*half_width*0.55,roof_y)
-		var tint := Color(0.13,0.35,1.0) if side == -1 else Color(1.0,0.08,0.08)
+		var tint := Color(0.13,0.35,1.0) if blue_side else Color(1.0,0.08,0.08)
 		draw_circle(center,half_width*1.5,Color(tint,0.13))
 		draw_circle(center,half_width*0.65,Color(tint,0.42))
 		draw_rect(Rect2(center-Vector2(half_width*0.42,2.0),Vector2(half_width*0.84,4.0)),tint)

@@ -182,7 +182,7 @@ during a wanted pursuit is a bust, not a teleport escape.
 
 ## Wanted-level police pursuit intelligence — driving-only
 
-- **Responsive rather than numerous:** Wanted levels 1–5 deploy up to **2, 4, 6, 8, 10** responders. Destroyed responders reserve a replacement slot for 40 seconds; safe dispatch retries every three seconds thereafter while heat remains.
+- **Bounded pursuit response:** Wanted levels 1–5 deploy up to **2, 4, 6, 8, 10** responders. Destroyed responders reserve a replacement slot for 40 seconds; safe dispatch retries every three seconds thereafter while heat remains.
 - **Police fleet:** cumulative model pools unlock Crown Vic and Explorer at
   wanted 1, F150 and Charger at 2, Challenger and Suburban at 3, and the
   armored truck at 4–5. Dispatch prioritizes one newly eligible model, then

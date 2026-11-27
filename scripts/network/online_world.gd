@@ -55,6 +55,8 @@ var police_target_original_layer := 0
 var police_replicas: Dictionary = {}
 var police_histories: Dictionary = {}
 var police_status: Label
+var police_start_button: Button
+var police_tier_select: OptionButton
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -98,13 +100,23 @@ func _ready() -> void:
 					lock_lobby_button = action
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
+	var police_toolbar := HBoxContainer.new()
+	police_toolbar.position = Vector2(20, 106)
 	police_status = Label.new()
-	police_status.position = Vector2(20, 106)
 	police_status.text = "POLICE / CLEAR"
 	police_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(police_status)
+	police_toolbar.add_child(police_status)
+	police_tier_select = OptionButton.new()
+	for tier in range(1,6):
+		police_tier_select.add_item("HEAT %d" % tier, tier)
+	police_toolbar.add_child(police_tier_select)
+	police_start_button = Button.new()
+	police_start_button.text = "START CHASE"
+	police_start_button.pressed.connect(_request_police_challenge)
+	police_toolbar.add_child(police_start_button)
+	overlay.add_child(police_toolbar)
 	add_child(overlay)
-	var traffic: Node2D = world.get_node_or_null("AmbientTraffic")
+	var traffic: Node2D = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
 	if is_instance_valid(traffic):
 		traffic.set("patrol_spawns_enabled", online_session.hosting)
 		if online_session.hosting:
@@ -360,7 +372,9 @@ func _process(dt: float) -> void:
 		if is_instance_valid(shared_police) and int(shared_police.get("wanted_level")) == 0:
 			_release_police_target()
 		if is_instance_valid(police_status) and is_instance_valid(shared_police):
-			police_status.text = "POLICE / WANTED %d" % int(shared_police.get("wanted_level"))
+			var heat := int(shared_police.get("wanted_level"))
+			police_status.text = "POLICE / WANTED %d" % heat
+			police_start_button.disabled = heat > 0 or not _police_challenge_available()
 	else:
 		_render_police_replicas(now_ms)
 	for id in peer_cars:
@@ -530,7 +544,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if online_session.hosting:
 			start_shared_pursuit(1, 1)
 		else:
-			_request_debug_pursuit.rpc_id(1)
+			_request_police_chase.rpc_id(1, 1)
 		get_viewport().set_input_as_handled()
 		return
 	if online_session.hosting:
@@ -563,12 +577,24 @@ func _submit_action(action: String) -> void:
 		"shift_down":
 			car.transmission.shift(-1, car.config)
 
+func _police_challenge_available() -> bool:
+	return not is_instance_valid(friend_race) or str(friend_race.get("state")) in ["idle","results"]
+
+func _request_police_challenge() -> void:
+	if not online_session.active or not _police_challenge_available():
+		return
+	var tier := police_tier_select.get_selected_id()
+	if online_session.hosting:
+		start_shared_pursuit(1, tier)
+	else:
+		_request_police_chase.rpc_id(1, tier)
+
 # One shared host-authoritative pursuit; target may be any admitted driver.
 # Public host-side seam for future synchronized crime/event triggers.
 func start_shared_pursuit(peer_id: int, level: int) -> bool:
 	if not online_session.hosting or not is_instance_valid(shared_police) or int(shared_police.get("wanted_level")) > 0:
 		return false
-	if not online_session.players.has(peer_id):
+	if not online_session.players.has(peer_id) or not _police_challenge_available():
 		return false
 	var target: VehicleController2D = local_vehicle if peer_id == 1 else peer_cars.get(peer_id) as VehicleController2D
 	if not is_instance_valid(target) or not shared_police.call("set_shared_target", target):
@@ -592,12 +618,12 @@ func _release_police_target() -> void:
 	police_target_peer = 0
 
 @rpc("any_peer", "reliable")
-func _request_debug_pursuit() -> void:
-	if not online_session.hosting or not OS.has_feature("debug"):
+func _request_police_chase(level: int) -> void:
+	if not online_session.hosting or level < 1 or level > 5:
 		return
 	var sender := multiplayer.get_remote_sender_id()
 	if online_session.world_ready_peers.has(sender) and peer_cars.has(sender):
-		start_shared_pursuit(sender, 1)
+		start_shared_pursuit(sender, level)
 
 func _police_snapshot() -> Dictionary:
 	var vehicles: Dictionary = {}
@@ -608,7 +634,7 @@ func _police_snapshot() -> Dictionary:
 			var car := entry.get("car") as VehicleController2D
 			if is_instance_valid(car) and not car.is_queued_for_deletion():
 				vehicles["u%d" % int(entry["serial"])] = [str(entry["model_id"]), _car_state(car), true, float(entry["damage"].call("health_percentage"))]
-	var traffic: Node = world.get_node_or_null("AmbientTraffic")
+	var traffic: Node = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
 	if is_instance_valid(traffic):
 		for agent in traffic.get("agents"):
 			var patrol := agent.get("node") as CharacterBody2D
@@ -636,6 +662,7 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var target := int(payload.get("target",0))
 	if is_instance_valid(police_status):
 		police_status.text = "POLICE / WANTED %d%s" % [level," / YOU" if level > 0 and target == online_session.own_id() else ""]
+		police_start_button.disabled = level > 0 or not _police_challenge_available()
 	var retained: Dictionary = {}
 	for id in raw:
 		var row: Variant = raw[id]
@@ -644,17 +671,18 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 		var state: Array = row[1]
 		if not state[0] is Vector2 or not state[2] is Vector2 or not state[0].is_finite() or not state[2].is_finite():
 			continue
-		var model: Dictionary = {}
-		for candidate in Police.vehicle_pool(5):
-			if str(candidate["id"]) == str(row[0]):
-				model = candidate
-				break
-		if model.is_empty():
-			continue
 		var car := police_replicas.get(id) as VehicleController2D
 		if not is_instance_valid(car):
+			var model: Dictionary = {}
+			for candidate in Police.vehicle_pool(5):
+				if str(candidate["id"]) == str(row[0]):
+					model = candidate
+					break
+			if model.is_empty():
+				continue
 			car = VehicleScene.instantiate() as VehicleController2D
 			car.external_input = true
+			car.z_index = 8
 			car.collision_layer = 0
 			car.collision_mask = 0
 			car.position = state[0]

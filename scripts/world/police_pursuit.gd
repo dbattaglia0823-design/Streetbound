@@ -376,7 +376,7 @@ func _recruit_patrols() -> void:
 		var excluded: Array[RID] = [player.get_rid(), patrol.get_rid()]
 		var ray := PhysicsRayQueryParameters2D.create(patrol.global_position, player.global_position, 1, excluded)
 		var visible_now := get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
-		if not visible_now and (phase != "chase" or node.global_position.distance_to(last_seen_position_m*PPM) > 65.0*PPM):
+		if not visible_now and (phase != "chase" or patrol.global_position.distance_to(last_seen_position_m*PPM) > 65.0*PPM):
 			continue
 		var pose: Transform2D = node.global_transform
 		var speed := float(node.get("motion_speed_mps"))
@@ -637,7 +637,7 @@ func _physics_process(dt: float) -> void:
 	_advance_replacements(dt)
 	_remove_destroyed_units()
 	pit_cooldown = maxf(0.0, pit_cooldown-dt)
-	if units.is_empty() and not replacement_timers.is_empty():
+	if units.is_empty() and not replacement_timers.is_empty() and available_slots() <= 0:
 		phase = "dispatch"
 		dispatch_clock = 0.0
 		return

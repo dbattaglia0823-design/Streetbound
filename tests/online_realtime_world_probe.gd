@@ -1,6 +1,7 @@
 extends SceneTree
 ## Two independent Godot processes run the full Morrow Coast gameplay world.
 ## Verifies that the host's new sequenced RPC actually arrives at the guest.
+const Police = preload("res://scripts/world/police_pursuit.gd")
 const PORT := 28283
 const INVITE_FILE := "user://streetbound_network_world_28283.txt"
 const POLL_SECONDS := 0.06
@@ -79,6 +80,18 @@ func _run() -> void:
 			if peer_ready:
 				# Use the actual input seam and host's 120 Hz car physics.
 				var host_vehicle: VehicleController2D = current_scene.get("vehicle") as VehicleController2D
+				# Isolate the snapshot seam from map-specific safe-spawn availability.
+				# A real model and controller are sent over the existing ENet RPC.
+				var police: Node2D = world.get("shared_police")
+				check("host_has_authoritative_police", is_instance_valid(police))
+				if is_instance_valid(police):
+					police.set("wanted_level",3)
+					police.set_physics_process(false)
+					var model: Dictionary = Police.vehicle_pool(3)[0]
+					check("host_creates_real_police_snapshot_fixture", police.call("_attach_responder",model,Transform2D(0.0,host_vehicle.global_position+Vector2(1200,1200))))
+					var entries: Array = police.get("units")
+					if not entries.is_empty():
+						entries[0]["driver"].set_physics_process(false)
 				host_vehicle.external_input = true
 				host_vehicle.command = Vector4(0.6, 0.0, 0.0, 0.0)
 				await create_timer(2.5).timeout
@@ -107,6 +120,19 @@ func _run() -> void:
 					world.histories.has(1) and
 					(world.histories[1] as Array).size() >= 2 and
 					(world.histories[1] as Array).size() <= 7)
+			var police_received: bool = await _poll_until(func() -> bool:
+				for id in world.police_replicas:
+					if str(id).begins_with("u"):
+						return true
+				return false)
+			check("guest_receives_host_pursuit_vehicle", police_received)
+			if police_received:
+				for id in world.police_replicas:
+					if not str(id).begins_with("u"):
+						continue
+					var unit := world.police_replicas[id] as VehicleController2D
+					check("guest_police_is_render_only_with_emergency_effects", not unit.is_physics_processing() and unit.collision_layer == 0 and unit.has_node("EmergencyEffects"))
+					break
 			var metrics_present: bool = await _poll_until(func() -> bool:
 				return int(session.network_stats().get("rtt_ms", 0)) > 0)
 			check("guest_reads_real_network_rtt", metrics_present)
