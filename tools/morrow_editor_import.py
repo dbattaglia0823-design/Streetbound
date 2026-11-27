@@ -51,11 +51,11 @@ def world_bounds_from_overlay(filename=EDIT_PATH):
 KIND_TO_CLASS = {
     "local": "city", "arterial": "city", "highway": "highway",
     "rural": "country", "mountain": "mountain", "track": "track",
-    "driveway": "service", "gravel": "service", "alley": "alley",
+    "driveway": "service", "gravel": "service", "alley": "alley", "onramp": "onramp",
 }
 CLASS_TO_KIND = {
     "city": "local", "highway": "highway", "country": "rural",
-    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley",
+    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley", "onramp": "onramp",
 }
 PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
@@ -473,6 +473,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         surf = str(entry.get("surface", road["surface"].lower())).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown road surface " + surf)
+        if road["kind"] == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or lanes != 1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surf == "TRACK":
             road["kind"] = "track"
         road["surface"] = "ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf
@@ -492,6 +494,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road_width = entry.get("width", 9.0)
         if type(road_width) not in (int,float) or not 6 <= road_width <= 160:
             raise ValueError("Invalid new-road width")
+        if kind == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or entry.get("lanes",2)!=1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surf == "TRACK":
             kind = "track"
         elif surf == "GRAVEL" and kind != "alley":

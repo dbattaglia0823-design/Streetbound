@@ -294,7 +294,9 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 	else:
 		var layout:=Lanes.layout(r)
 		var divider:=float(layout.divider)*PPM
-		if r.kind in ["highway","arterial","mountain"]:
+		if r.kind=="onramp":
+			pass # Single one-way lane: no center divider.
+		elif r.kind in ["highway","arterial","mountain"]:
 			var gap:=8.0 if r.kind=="highway" else 5.0
 			for side in [-1,1]:draw_polyline(_offset(path,divider+side*gap),Color("d8c69a"),3,true)
 		else:_dashes(_offset(path,divider),3,Color("ddd2a7"),55,85,station,true)
@@ -338,6 +340,13 @@ func _draw() -> void:
 			draw_polyline(corner, Color("dedbcc"),
 				Walkways.SIDEWALK_WIDTH_PX * 2.0 + 3.0, true)
 		draw_colored_polygon(polygon,Color("58656c"))
+		if str(j.get("control",""))=="merge":
+			var through := PackedVector2Array()
+			for arm in j.approaches:
+				if int(arm.road)==int(j.get("main_road",-1)):through.append(point(arm.p))
+			if through.size()==2:
+				through.insert(1,point(j.p))
+				draw_polyline(through,Color("d8c69a"),4,true)
 		# Rounded curb fillets leave vehicle mouths and marked crosswalks open.
 		for curve in j.curbs:
 			var path := PackedVector2Array()

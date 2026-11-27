@@ -1575,6 +1575,9 @@ $('road-class').addEventListener('change',e=>{
   if(e.target.value==='alley'){
     $('road-surface').value='asphalt';$('road-width').value='6';$('road-lanes').value='1';
     $('road-shoulder').value='0';$('shoulder-label').textContent='0 m';$('road-markings').checked=false;
+  }else if(e.target.value==='onramp'){
+    $('road-surface').value='asphalt';$('road-width').value='8';$('road-lanes').value='1';$('road-shoulder').value='2';$('shoulder-label').textContent='2 m';$('road-markings').checked=true;
+    status('Draw from the entrance toward the through road. Snap the final point to its centerline, approaching from the right.');
   }else if(e.target.value==='track')$('road-surface').value='track';
   else if($('road-surface').value==='track')$('road-surface').value='asphalt';
 });
@@ -1613,6 +1616,7 @@ for(const [elementId,options] of Object.entries(fields)){
       if(key==='roadClass'){
         const old=getEntity(doc,selection.id)?.item;
         if(value==='alley'){update.surface='asphalt';update.markings=false;update.shoulder=0;}
+        else if(value==='onramp'){update.surface='asphalt';update.lanes=1;update.markings=true;}
         else if(value==='track')update.surface='track';
         else if(old?.surface==='track')update.surface='asphalt';
       }

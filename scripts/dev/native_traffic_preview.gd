@@ -3,7 +3,7 @@ extends RefCounted
 ## editor lanes use the exact same TrafficNetwork and current road geometry.
 const Network=preload("res://scripts/world/traffic_network.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
-const RANK={"highway":5,"arterial":4,"rural":3,"mountain":3,"local":2}
+const RANK={"highway":5,"arterial":4,"rural":3,"mountain":3,"local":2,"onramp":3}
 var wanted_key:=""
 var shown_key:=""
 var running_key:=""
@@ -141,6 +141,20 @@ static func _junctions(roads: Array) -> Array:
 				if available<.5:continue
 				arms.append({"road":int(identity),"side":side,"origin":station,"available":available,
 					"direction":(_sample(road,station+side*minf(5,available))-center).normalized(),"width":float(road.width)})
+		var merge: Dictionary={}
+		if arms.size()==3:
+			for ramp in arms:
+				var ramp_road: Dictionary=roads[int(ramp.road)]
+				if str(ramp_road.kind)!="onramp" or int(ramp.side)!=-1 or float(ramp_road._stations[-1])-float(ramp.origin)>.15:
+					continue
+				var others: Array=arms.filter(func(a: Dictionary)->bool:return a!=ramp)
+				if int(others[0].road)!=int(others[1].road) or str(roads[int(others[0].road)].kind) not in ["highway","arterial","rural","local"]:
+					continue
+				for target in others:
+					var direction: Vector2=target.direction
+					var approach: Vector2=ramp.direction
+					if direction.dot(-approach)>=.7071 and direction.cross(approach)>=.087:
+						merge={"ramp_road":int(ramp.road),"main_road":int(target.road),"merge_side":int(target.side)}
 		arms.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return a.width>b.width)
 		var unique: Array=[]
 		for arm in arms:
@@ -189,7 +203,12 @@ static func _junctions(roads: Array) -> Array:
 			control="priority" if not pair.is_empty() and not all_way else "all_way_stop"
 			if control=="priority":
 				for index in pair:arms[index].control="none"
-		junctions.append({"p":[center.x,center.y],"roads":event.roads.keys(),"approaches":arms,
-			"polygon":polygon,"control":control,"kind":"draft","curbs":[]})
+		if not merge.is_empty():
+			control="merge"
+			for arm in arms:arm.control="yield" if int(arm.road)==int(merge.ramp_road) else "none"
+		var junction: Dictionary={"p":[center.x,center.y],"roads":event.roads.keys(),"approaches":arms,
+			"polygon":polygon,"control":control,"kind":"merge" if not merge.is_empty() else "draft","curbs":[]}
+		junction.merge(merge)
+		junctions.append(junction)
 	for road in roads:road.erase("_stations")
 	return junctions

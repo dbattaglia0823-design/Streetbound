@@ -40,3 +40,5 @@
 - Phase 8: opt-in co-op stock robbery director with host getaway car, shared physical objectives, individual split reward receipts, online race reputation, protocol 12 and regression tests. Host-only pursuit/cooldown; no NPC specialist bonuses or reconnect resume. CI and real multiplayer testing pending.
 
 - Compact HUD refresh: minimal minimap frame, pause-only progression, integrated real HP/fuel, contextual service feedback and dynamic pursuit/contract cards. Preserved full atlas and network-specific wanted indicators; regression assertions updated. CI/live layout verification pending.
+
+- On-ramp authoring: explicit one-way paved road class, terminal right-side merge, directional outside-lane connectors, yield control, no crosswalk/signal at merge, browser/native options and bake/graph tests. Existing map unchanged. CI and driving verification pending.

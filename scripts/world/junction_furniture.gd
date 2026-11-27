@@ -2,6 +2,8 @@ extends RefCounted
 ## Static junction artwork. All lenses are neutral/unlit; no signal phases,
 ## timers, collision or traffic permissions are introduced by these fixtures.
 static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector2.ZERO,ppm: float=20) -> void:
+	# Merge mouths get the ramp yield sign from coast_roads, not traffic signals or crosswalks.
+	if str(junction.get("control",""))=="merge":return
 	var arms: Array=junction.get("approaches",[])
 	for arm in arms:
 		var raw=arm.direction

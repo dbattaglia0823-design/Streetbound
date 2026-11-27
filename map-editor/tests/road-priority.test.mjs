@@ -141,3 +141,13 @@ test('repo-owned UI has its dependencies and Windows launcher',async()=>{
   assert.ok(serve.includes('IPAddress]::Loopback'));
   assert.ok(serve.includes("TrimEnd([char[]]@("),'local server path must use one char-array argument');
 });
+
+test('explicit on-ramp survives serialization and labels its merge',()=>{
+  let doc=createWorld({name:'Ramp',width:1600,height:1200});
+  doc=createEntity(doc,'roads',{...base,name:'Main',roadClass:'highway',width:16,lanes:4,points:coords([100,600],[1500,600])});
+  doc=createEntity(doc,'roads',{...base,name:'Ramp',roadClass:'onramp',width:8,lanes:1,points:coords([600,680],[800,600])});
+  const restored=parseWorld(serializeWorld(doc));
+  assert.equal(restored.roads[1].roadClass,'onramp');
+  assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
+  assert.throws(()=>createEntity(doc,'roads',{...base,name:'Invalid',roadClass:'onramp',lanes:2,points:coords([600,680],[800,600])}),/one lane/);
+});

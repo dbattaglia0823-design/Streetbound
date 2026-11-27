@@ -33,6 +33,7 @@ func find_lane(network: RefCounted, road_id: int, direction: int) -> Dictionary:
 func _run() -> void:
 	_check_cardinal_lanes()
 	_check_intersection_lanes()
+	_check_onramp()
 	var network := Network.new()
 	network.build({"roads": [
 		road("Eastbound drawn east", "west", "join", 100.0, 300.0),
@@ -155,3 +156,33 @@ func _check_intersection_lanes() -> void:
 	check("four_way_turns_use_correct_lanes_and_join_continuously",legal)
 	check("all_four_approaches_have_left_right_and_straight",right_count==4 and left_count==4 and straight_count==8,
 		[right_count,left_count,straight_count])
+
+func _check_onramp() -> void:
+	var network := Network.new()
+	var main := {"name":"Main","start":"w","end":"e","kind":"highway","surface":"ASPHALT","width":16.0,"lanes":4,"points":[[100,300],[500,300]]}
+	var ramp := {"name":"Ramp","start":"r","end":"merge","kind":"onramp","surface":"ASPHALT","width":8.0,"lanes":1,"points":[[180,350],[300,300]]}
+	var total := Vector2(120,-50).length()
+	var junction := {"p":[300,300],"roads":[0,1],"control":"merge","kind":"merge","ramp_road":1,"main_road":0,"merge_side":1,
+		"polygon":[[260,292],[340,292],[340,308],[270,320],[260,310]],
+		"approaches":[{"road":0,"side":-1,"station":160.0,"control":"none"},{"road":0,"side":1,"station":240.0,"control":"none"},{"road":1,"side":-1,"station":total-40.0,"control":"yield"}]}
+	network.build({"roads":[main,ramp],"junctions":[junction]})
+	var ramp_edges := 0
+	var valid_merge := false
+	var forbidden := false
+	for edge in network.edges:
+		if not bool(edge.connector) and int(edge.road)==1:
+			ramp_edges+=1
+			for id in edge.next:
+				var connector: Dictionary=network.edges[int(id)]
+				if bool(connector.connector):
+					var target: Dictionary=network.edges[int(connector.next[0])]
+					valid_merge = valid_merge or (int(target.road)==0 and int(target.start_side)==1 and int(target.lane)==1 and str(connector.control)=="yield")
+					forbidden = forbidden or int(target.road)!=0 or int(target.start_side)!=1 or int(target.lane)!=1
+			forbidden = forbidden or int(edge.direction)!=1
+		if not bool(edge.connector) and int(edge.road)==0:
+			for id in edge.next:
+				var next: Dictionary=network.edges[int(id)]
+				if bool(next.connector):
+					var target: Dictionary=network.edges[int(next.next[0])]
+					forbidden = forbidden or int(target.road)==1
+	check("onramp_single_direction_outside_lane_yield",ramp_edges==1 and valid_merge and not forbidden)

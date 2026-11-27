@@ -134,6 +134,8 @@ def make_archive(doc):
         surface = str(item.get("surface","asphalt")).upper()
         if surface not in ("ASPHALT","CONCRETE","TRACK","GRAVEL","DIRT"):
             raise ValueError("Unknown road surface")
+        if kind == "onramp" and (surface not in ("ASPHALT","CONCRETE") or item.get("lanes",2)!=1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surface == "TRACK":
             kind = "track"
         elif surface == "GRAVEL" and kind != "alley":

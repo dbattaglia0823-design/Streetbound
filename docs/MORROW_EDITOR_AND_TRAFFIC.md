@@ -148,3 +148,7 @@ The existing model slot order is preserved with the current filenames:
 
 All ten paths must resolve to imported textures; the traffic impact/recovery test
 checks the exact paths, rendered texture identity, alpha bounds and collision.
+
+## On-ramp road type
+
+Choose **On-ramp** in the road type selector (browser or native editor). Draw a paved, single-lane road in its intended travel direction, ending on the centerline of an uninterrupted through road. Approach from the right at a shallow 5–45 degree angle. The entrance can join an ordinary intersection; the final merge requires an interior through-road point, not a multi-road junction or an opposing lane. A successful bake produces a directional merge with a yield-controlled ramp and continuing through lanes, no traffic signals or crosswalk at the merge, and outside-lane-only routing. Invalid or disconnected ramp ends reject the bake with an explanation. Existing roads and junctions are unchanged unless explicitly edited. This is an at-grade ramp; elevation and dedicated acceleration-lane extensions are separate work. Preview and full-game behavior require visual and traffic playtesting.

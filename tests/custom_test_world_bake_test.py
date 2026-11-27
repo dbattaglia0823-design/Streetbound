@@ -45,6 +45,25 @@ class CustomTestWorldBaker(unittest.TestCase):
         self.assertTrue(any(2 in j['roads'] for j in archive['junctions']))
         self.assertTrue(any(s['road']==2 for s in archive['segments']))
 
+    def test_explicit_onramp_bakes_yield_merge(self):
+        doc=source()
+        doc['roads'][0].update(roadClass='highway',width=16,lanes=4)
+        doc['roads'][2].update(roadClass='onramp',width=8,lanes=1,
+                              points=[{'x':720,'y':570},{'x':900,'y':500}])
+        archive=make_archive(doc)
+        self.assertEqual(archive['roads'][2]['kind'],'onramp')
+        merge=next(j for j in archive['junctions'] if j.get('kind')=='merge')
+        self.assertEqual((merge['ramp_road'],merge['main_road'],merge['merge_side']),(2,0,1))
+        self.assertEqual([a['control'] for a in merge['approaches'] if a['road']==2],['yield'])
+        self.assertTrue(all(a['control']=='none' for a in merge['approaches'] if a['road']==0))
+        self.assertTrue(any(j['kind']=='crossroads' for j in archive['junctions']))
+        doc['roads'][2]['points'][0]={'x':900,'y':650}
+        with self.assertRaisesRegex(ValueError,'On-ramp'):
+            make_archive(doc)
+        doc['roads'][2]['points'][0]={'x':720,'y':430}
+        with self.assertRaisesRegex(ValueError,'On-ramp'):
+            make_archive(doc)
+
     def test_full_junction_geometry_and_routing(self):
         archive=make_archive(source())
         self.assertEqual(archive["format"],"streetbound.streamed-world")

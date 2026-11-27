@@ -6,7 +6,7 @@ extends RefCounted
 const PPM := 20.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const SPEEDS := {"local": 36.0, "arterial": 51.0, "highway": 82.0,
-	"rural": 60.0, "mountain": 34.0, "alley": 20.0}
+	"rural": 60.0, "mountain": 34.0, "alley": 20.0, "onramp": 50.0}
 const CELL_M := 192.0
 var edges: Array[Dictionary] = []
 var candidate_grid: Dictionary = {}
@@ -139,7 +139,9 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 				var a: Vector2=road.points[k-1];var b: Vector2=road.points[k]
 				if center.distance_to(Geometry2D.get_closest_point_to_segment(center,a,b))<=radius+road.half_width+PPM*3:
 					segments.append({"a":a,"b":b,"half_width":road.half_width})
-		junction_geometry[i]={"polygon":polygon,"segments":segments}
+		junction_geometry[i]={"polygon":polygon,"segments":segments,
+			"ramp_road":int(junction.get("ramp_road",-1)),"main_road":int(junction.get("main_road",-1)),
+			"merge_side":int(junction.get("merge_side",0))}
 	var incoming: Dictionary = {}
 	var outgoing: Dictionary = {}
 	var incoming_ends: Dictionary = {}
@@ -287,13 +289,23 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 			var first_count := int(source.lanes_in_direction)
 			var target_lane := int(target.lane)
 			var target_count := int(target.lanes_in_direction)
+			var is_merge := control=="merge"
+			if is_merge:
+				var geometry: Dictionary = junction_geometry.get(junction,{})
+				var ramp_id := int(geometry.get("ramp_road",-1))
+				var main_id := int(geometry.get("main_road",-1))
+				if int(source.road)==ramp_id:
+					if int(target.road)!=main_id or int(target.start_side)!=int(geometry.get("merge_side",0)) or target_lane!=target_count-1:
+						continue
+				elif int(source.road)!=main_id or int(target.road)!=main_id or int(source.direction)!=int(target.direction) or first_lane!=target_lane:
+					continue
 			# The outside lane turns right, inside lane turns left; a single
 			# lane accepts all legal approaches.
-			if turn=="left" and (first_lane!=0 or target_lane!=0):
+			if not is_merge and turn=="left" and (first_lane!=0 or target_lane!=0):
 				continue
-			if turn=="right" and (first_lane!=first_count-1 or target_lane!=target_count-1):
+			if not is_merge and turn=="right" and (first_lane!=first_count-1 or target_lane!=target_count-1):
 				continue
-			if turn=="straight" and target_lane!=mini(first_lane,target_count-1):
+			if not is_merge and turn=="straight" and target_lane!=mini(first_lane,target_count-1):
 				continue
 			var from_path: PackedVector2Array=source.points
 			var to_path: PackedVector2Array=target.points
@@ -312,7 +324,7 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				rejected_connector_count+=1
 				continue
 			var approach_control := str(source.control) if junction>=0 else "none"
-			var turn_kph := 17.0 if turn in ["left","right"] else 29.0
+			var turn_kph := 50.0 if is_merge else (17.0 if turn in ["left","right"] else 29.0)
 			var id := _add_edge({
 				"road":int(source.road),"direction":int(source.direction),"lane":first_lane,
 				"lanes_in_direction":first_count,"connector":true,

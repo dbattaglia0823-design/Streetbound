@@ -7,7 +7,7 @@ import bisect
 import math
 
 PRIORITY = {'highway':5,'track':5,'arterial':4,'rural':3,'mountain':3,
-            'local':2,'gravel':1,'driveway':0,'alley':0}
+            'local':2,'gravel':1,'driveway':0,'alley':0,'onramp':3}
 
 
 def distance(a,b):
@@ -95,6 +95,29 @@ def rounded_hull(points):
     return rounded
 
 
+def ramp_merge(roads, arms):
+    """A single forward ramp end merging into an uninterrupted through road.
+    Reject wrong-side, perpendicular and ambiguous joins at bake time."""
+    ramps=[a for a in arms if roads[a['road']]['kind']=='onramp' and a['side']==-1
+           and roads[a['road']]['_stations'][-1]-a['origin_station']<.15]
+    if not ramps:
+        return None
+    if len(ramps)!=1 or len(arms)!=3:
+        raise ValueError('On-ramp end must join the interior of one through road')
+    ramp=ramps[0]
+    main=[a for a in arms if a is not ramp]
+    if main[0]['road']!=main[1]['road'] or roads[main[0]['road']]['kind'] not in ('highway','arterial','rural','local'):
+        raise ValueError('On-ramp end needs one continuous paved through road')
+    incoming=[-v for v in ramp['direction']]
+    target=max(main,key=lambda a:sum(incoming[k]*a['direction'][k] for k in (0,1)))
+    direction=target['direction']
+    dot=sum(incoming[k]*direction[k] for k in (0,1))
+    side=direction[0]*ramp['direction'][1]-direction[1]*ramp['direction'][0]
+    if dot<.7071 or side<.087:
+        raise ValueError('On-ramp must approach from the right at a 5–45 degree angle')
+    return dict(ramp_road=ramp['road'],main_road=target['road'],merge_side=target['side'])
+
+
 def build_junctions(roads,nodes,segments,grid):
     for road in roads:
         stations=[0.0]
@@ -137,7 +160,7 @@ def build_junctions(roads,nodes,segments,grid):
                 seg=segments[index]
                 if seg['road']!=road['id'] and near(p,seg['a'],seg['b'])[0]<.12:ids.add(seg['road'])
             if len(ids)>1:event(p,ids)
-    result=[]
+    result=[]; merged_ramps=set()
     for e in events:
         ids=sorted(e['roads']); center=e['p']
         for a in ids:
@@ -153,6 +176,8 @@ def build_junctions(roads,nodes,segments,grid):
                 out=unit(center,sample(road,station+side*min(5,available)))
                 arms.append(dict(road=road_id,side=side,origin_station=station,
                                  direction=out,available=available,width=road['width']))
+        merge=ramp_merge(roads,arms)
+        if merge:merged_ramps.add(merge['ramp_road'])
         # Coincident route pieces describe one physical approach.
         unique=[]
         for arm in sorted(arms,key=lambda a:-a['width']):
@@ -181,7 +206,10 @@ def build_junctions(roads,nodes,segments,grid):
         ranks=[PRIORITY[roads[a['road']]['kind']] for a in arms]
         roundabout=any(roads[a['road']]['name']=='Civic Roundabout' for a in arms)
         control='none'
-        if len(arms)>=3:
+        if merge:
+            control='merge'
+            for arm in arms:arm['control']='yield' if arm['road']==merge['ramp_road'] else 'none'
+        elif len(arms)>=3:
             if roundabout:
                 control='roundabout'
                 for arm in arms:
@@ -250,7 +278,10 @@ def build_junctions(roads,nodes,segments,grid):
             for key in ['available','origin_station','angle']:arm.pop(key,None)
         radius=max(distance(center,p) for p in polygon)+2
         result.append(dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
-                           radius=radius,control=control,kind='crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')))
+                           radius=radius,control=control,kind='merge' if merge else ('crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')),**(merge or {})))
+    for road in roads:
+        if road['kind']=='onramp' and road['id'] not in merged_ramps:
+            raise ValueError('On-ramp final point must snap to the interior of a through road: '+road['name'])
     for road in roads:
         merged=[]
         for a,b in sorted(road['marking_gaps']):
