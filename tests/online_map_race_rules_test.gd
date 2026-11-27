@@ -17,7 +17,7 @@ func check(label: String, condition: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("published_map_network_protocol_v11", Session.PROTOCOL_VERSION == 11)
+	check("published_map_network_protocol_v12", Session.PROTOCOL_VERSION == 12)
 	var local: Dictionary = Publication.network_identity()
 	check("default_world_has_real_sha256", local.has("id") and
 		str(local.get("sha256","")).length() == 64)
