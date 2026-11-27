@@ -30,7 +30,8 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 		if kind=="alley":continue
 		var urban := kind in ["local","arterial"]
 		var paint := Color("#eeeae0")
-		var incoming_width := width if kind=="onramp" else width*.5
+		var one_way_ramp := kind=="onramp" and int(roads[road_id].get("lanes",1))==1
+		var incoming_width := width if one_way_ramp else width*.5
 		if control in ["stop","signal"] and not merge and incoming_width>1.0:
 			canvas.draw_line((p+outward*.8+normal*(width*.5-incoming_width-.25))*ppm,(p+outward*.8-normal*(width*.5-.35))*ppm,paint,.3*ppm,true)
 		elif control=="yield" and incoming_width>1.0:

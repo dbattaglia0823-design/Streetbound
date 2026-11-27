@@ -199,7 +199,7 @@ function drawRoadLines(ctx,road,points){
 }
 export function roadMarkingPlan(road){
   if(['alley','service','track'].includes(road.roadClass)||['dirt','gravel','track'].includes(road.surface)||!road.markings)return [];
-  const w=road.width,ramp=road.roadClass==='onramp',count=ramp?1:Math.max(2,Math.min(6,road.lanes));
+  const w=road.width,ramp=road.roadClass==='onramp'&&road.lanes===1,count=ramp?1:Math.max(2,Math.min(6,road.lanes));
   const forward=ramp?1:Math.max(1,Math.floor(count/2)),reverse=count-forward,laneWidth=w/count;
   const divider=(reverse-forward)*laneWidth/2,fast=['highway','arterial','onramp'].includes(road.roadClass);
   const lines=[],width=fast ? .15 : .12,dash=[3,fast?9:6],yellow='#e5be65',white='#eeeae0';

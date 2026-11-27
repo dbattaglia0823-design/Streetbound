@@ -151,7 +151,9 @@ static func _junctions(roads: Array) -> Array:
 				var at_end := int(ramp.side)==-1
 				var key := "junctionEnd" if at_end else "junctionStart"
 				var mode := str(ramp_road.get(key,"auto"))
-				if mode=="auto" and at_end and str(ramp_road.kind)=="onramp":mode="merge"
+				if str(ramp_road.kind)=="onramp" and int(ramp_road.get("lanes",1))==2:
+					if mode=="merge":mode="intersection"
+				elif mode=="auto" and at_end and str(ramp_road.kind)=="onramp":mode="merge"
 				if mode!="merge" or absf(float(ramp.origin)-(float(ramp_road._stations[-1]) if at_end else 0.0))>.15:
 					continue
 				var others: Array=arms.filter(func(a: Dictionary)->bool:return a!=ramp)

@@ -2463,7 +2463,7 @@ func _change_road_type(_index: int) -> void:
 		road_width.value=8.0
 		road_lanes.value=1
 		_setting_controls=false
-		_notice("Draw toward the merge; snap final point to through-road centerline from the right.")
+		_notice("1 lane: directional highway merge. 2 lanes: two-way ramp or tunnel approach.")
 	elif kind=="track":_select_road_option(road_surface,"track")
 	elif _option_value(road_surface)=="track":_select_road_option(road_surface,"asphalt")
 	_commit_road_type_and_surface()

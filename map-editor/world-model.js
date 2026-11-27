@@ -53,7 +53,7 @@ function validEntity(item,type,w,h){
   if(type==='roads'){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
-    if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||item.lanes!==1))throw new RangeError('On-ramp must be paved and have one lane');
+    if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||![1,2].includes(item.lanes)))throw new RangeError('Ramp must be paved and have one or two lanes');
     const elevation=normalizeRoadElevation(item.elevation,points);
     if(item.roadClass==='onramp'&&elevation?.point_layers?.length>2&&elevation.point_layers.some(l=>l!==elevation.point_layers[0]))throw new RangeError('Use a regular road for a multi-grade on-ramp');
     const road={id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),

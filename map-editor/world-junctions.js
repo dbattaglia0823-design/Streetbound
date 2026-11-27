@@ -226,7 +226,7 @@ export function buildRoadJunctions(roads){
   }
   const detailed=nodes.map(j=>{
     // Label explicit ramp-end merges separately from conventional intersections.
-    const ramp=j.roads.map(id=>byId.get(id)).find(r=>r&&[
+    const ramp=j.roads.map(id=>byId.get(id)).find(r=>r&&!(r.roadClass==='onramp'&&r.lanes===2)&&[
       [r.points[0],r.junctionStart??'auto'],
       [r.points.at(-1),(!r.junctionEnd||r.junctionEnd==='auto')&&r.roadClass==='onramp'?'merge':r.junctionEnd??'auto']
     ].some(([p,mode])=>mode==='merge'&&distance(p,j)<Math.max(12,r.width)));
