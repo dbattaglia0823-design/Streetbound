@@ -46,6 +46,38 @@ static func _safe_filename(file: String) -> bool:
 		if not "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-".contains(character):return false
 	return true
 
+## Move a local custom source and any recovery journals out of the selector.
+## Never recursively delete files, touch project resources, or overwrite trash.
+static func trash_map(file: String,protected_file: String,expected_sha: String) -> Dictionary:
+	if not _safe_filename(file) or file==protected_file:
+		return {"ok":false,"error":"This map is protected or has an invalid filename."}
+	var source:=folder().path_join(file)
+	var doc:=load_map(file)
+	if doc.get("customMap",false)!=true or doc.get("format","")!="gdt.racing-world" or int(doc.get("version",0))!=2:
+		return {"ok":false,"error":"No valid local custom map exists at this filename."}
+	if expected_sha.is_empty() or FileAccess.get_sha256(source)!=expected_sha:
+		return {"ok":false,"error":"The saved map changed. Reopen the delete confirmation."}
+	var trash:=folder().path_join("deleted-maps").path_join("%s-%d-%d"%[file.sha256_text().left(12),Time.get_ticks_usec(),randi()])
+	var absolute:=ProjectSettings.globalize_path(trash)
+	if DirAccess.dir_exists_absolute(absolute) or DirAccess.make_dir_recursive_absolute(absolute)!=OK:
+		return {"ok":false,"error":"Could not create a recovery folder. Map was kept."}
+	var moved: Array[String]=[]
+	# Move journals first so they cannot resurrect an old preset when reopened.
+	for name in [file+".draft.json",file+".draft.json.tmp",file+".tmp",file]:
+		var origin:=ProjectSettings.globalize_path(folder().path_join(name))
+		if not FileAccess.file_exists(origin):
+			if name!=file:continue
+		elif DirAccess.rename_absolute(origin,ProjectSettings.globalize_path(trash.path_join(name)))==OK:
+			moved.append(name)
+			continue
+		var rollback_ok:=true
+		for previous in moved:
+			if DirAccess.rename_absolute(ProjectSettings.globalize_path(trash.path_join(previous)),ProjectSettings.globalize_path(folder().path_join(previous)))!=OK:
+				rollback_ok=false
+		if rollback_ok:DirAccess.remove_absolute(absolute)
+		return {"ok":false,"error":"Map deletion failed. Map was kept." if rollback_ok else "Map deletion failed; recovery files are retained at "+absolute}
+	return {"ok":true,"folder":absolute}
+
 static func backup_folder(file: String) -> String:
 	if file.get_file()!=file or not file.ends_with(".world.json"):return ""
 	return folder().path_join("automatic-backups").path_join(file.sha256_text().left(32))

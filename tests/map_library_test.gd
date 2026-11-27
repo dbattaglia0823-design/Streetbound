@@ -65,6 +65,28 @@ func run() -> void:
 	switcher.select(e,0)
 	check("morrow_coast_returns_without_modification",not switcher.custom and e.authoring==original and not e.world.data.roads.is_empty() and FileAccess.get_sha256("res://worlds/morrow-coast.world.json")==map_hash)
 	check("publish_disables_when_no_custom_map_is_selected",switcher.publish_button.disabled)
+	check("morrow_delete_disabled",switcher.delete_button.disabled)
+	check("protected_and_traversal_rejected",not Library.trash_map(first,first,FileAccess.get_sha256(Library.folder().path_join(first))).ok and not Library.trash_map("../escape.world.json","","invalid").ok)
+	check("stale_delete_rejected",not Library.trash_map(first,"","stale").ok and not Library.load_map(first).is_empty())
+	for i in switcher.selector.item_count:
+		if str(switcher.selector.get_item_metadata(i))==first:switcher.select(e,i);break
+	check("custom_delete_enabled",not switcher.delete_button.disabled)
+	switcher._show_delete(e)
+	check("delete_requires_confirmation",switcher.delete_dialog.visible and not Library.load_map(first).is_empty())
+	switcher.delete_dialog.hide()
+	check("cancel_keeps_map",not Library.load_map(first).is_empty())
+	switcher._change_weather(e,3)
+	switcher._show_delete(e)
+	switcher._delete_current(e);switcher.delete_dialog.hide()
+	check("delete_returns_to_morrow_and_refreshes_list",not switcher.custom and switcher.selector.item_count==2 and Library.list_maps().size()==1 and Library.load_map(first).is_empty())
+	var trash:=DirAccess.open(Library.folder().path_join("deleted-maps"))
+	var recovered: Dictionary={}
+	if trash!=null:
+		for name in trash.get_directories():
+			var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(Library.folder().path_join("deleted-maps").path_join(name).path_join(first)))
+			if parsed is Dictionary:recovered=parsed
+	check("deleted_map_preserves_latest_edits",recovered.get("name","")=="Lake district" and is_equal_approx(float(recovered.get("rain_intensity",0)),1.0))
+	check("delete_leaves_other_map_and_stock_world",Library.list_maps().size()==1 and FileAccess.get_sha256("res://worlds/morrow-coast.world.json")==map_hash)
 	for i in 5:await process_frame
 	check("new_header_does_not_overlap_toolbar",e.root_ui.get_node("BuilderHeader").get_rect().end.y<=e.root_ui.get_node("BuilderTools").position.y)
 	e._discard_draft();scene.queue_free();await process_frame;await process_frame
