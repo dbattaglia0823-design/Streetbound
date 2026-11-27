@@ -46,7 +46,10 @@ static func locks_unchanged(before: Dictionary,after: Dictionary) -> bool:
 	return true
 
 static func resize(doc: Dictionary,width: int,height: int) -> Dictionary:
-	if not doc.get("customMap",false) or width<600 or width>24000 or height<600 or height>24000:return {}
+	if doc.get("customMap",false):
+		if width<600 or width>24000 or height<600 or height>24000:return {}
+	else:
+		if width<int(doc.world.width) or height<int(doc.world.height) or width>9600 or height>7200:return {}
 	var result:=doc.duplicate(true)
 	# Keep coordinates anchored at the northwest origin; never rescale roads.
 	var old_extent:=Vector2(doc.world.width,doc.world.height)

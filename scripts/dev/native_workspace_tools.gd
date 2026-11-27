@@ -238,11 +238,11 @@ func _replace() -> void:
 	else:e._notice(e.authoring.last_error)
 
 func open_resize() -> void:
-	if not _ready_to_edit() or not e.map_switcher.custom:e._notice("Resize is available on custom maps.");return
-	var panel:=_new("Resize custom map",Vector2i(480,190))
-	_text(panel,"Expand or crop from the east and south edges. Existing coordinates remain unchanged. Crops that exclude objects are rejected.")
-	width=e._number(panel,"Width m",600,24000,e.authoring.doc.world.width)
-	height=e._number(panel,"Height m",600,24000,e.authoring.doc.world.height)
+	if not _ready_to_edit():return
+	var panel:=_new("Resize map",Vector2i(480,190))
+	_text(panel,"Custom maps can expand or crop; Morrow Coast can expand east or south only. Existing coordinates remain unchanged.")
+	width=e._number(panel,"Width m",600 if e.map_switcher.custom else e.authoring.doc.world.width,24000 if e.map_switcher.custom else 9600,e.authoring.doc.world.width)
+	height=e._number(panel,"Height m",600 if e.map_switcher.custom else e.authoring.doc.world.height,24000 if e.map_switcher.custom else 7200,e.authoring.doc.world.height)
 	e._btn("Apply size",panel,_resize)
 	_show()
 
@@ -291,7 +291,7 @@ func _delete_bookmark() -> void:
 	if i>=0:_map_prefs().bookmarks.remove_at(i);_save();_fill_bookmarks()
 
 func open_snapshots() -> void:
-	if not _ready_to_edit() or not e.map_switcher.custom:e._notice("Named snapshots are available on custom maps.");return
+	if not _ready_to_edit():return
 	var panel:=_new("Version snapshots")
 	_text(panel,"Store a full source copy locally. Restore into the current draft; restoring is undoable and does not publish.")
 	name_field=LineEdit.new();name_field.placeholder_text="Snapshot name";panel.add_child(name_field)

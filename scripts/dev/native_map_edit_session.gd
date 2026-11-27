@@ -1481,7 +1481,12 @@ func resize_custom_world(width: int,height: int) -> bool:
 	return _commit(next)
 
 func restore_snapshot(snapshot: Dictionary) -> bool:
-	if not snapshot.get("customMap",false) or not doc.get("customMap",false):return false
+	if bool(snapshot.get("customMap",false))!=bool(doc.get("customMap",false)):return false
+	if not doc.get("customMap",false):
+		if snapshot.get("name")!="Morrow Coast":return false
+		var extent: Dictionary=snapshot.get("world",{})
+		if int(extent.get("width",0))<int(initial.world.width) or int(extent.get("height",0))<int(initial.world.height):return false
+		if snapshot.get("morrowSourceRoadCount",-1)!=doc.get("morrowSourceRoadCount",-2):return false
 	return _commit(snapshot.duplicate(true))
 
 func replace_assets(ids: Array[String],entry: Dictionary) -> bool:

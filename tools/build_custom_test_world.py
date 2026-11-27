@@ -100,6 +100,41 @@ def clip_rect(polygon, x0, y0, x1, y1):
     return poly
 
 
+def _gameplay_payload(doc,roads,width,height):
+    baked_races=authored_races(doc,width,height)
+    dealers=doc.get("dealerships",[])
+    markers=validate_markers(doc.get("markers",[]),baked_races,dealers,width,height)
+    marker_spawn=next((m for m in markers if m.get("type")=="player_spawn"),None)
+    if marker_spawn:
+        spawn=dict(position=[float(marker_spawn["x"]),float(marker_spawn["y"])],
+                   rotation=math.radians(float(marker_spawn.get("rotation",0))))
+    elif (ground_road := next((road for road in roads if "elevation" not in road), None)) is not None:
+        path=ground_road["points"]
+        mid=max(0,(len(path)-2)//2)
+        a,b=path[mid:mid+2]
+        spawn=dict(position=[(a[0]+b[0])*.5,(a[1]+b[1])*.5],
+                   rotation=math.atan2(b[0]-a[0],a[1]-b[1]))
+    else:
+        spawn=dict(position=[width*.5,height*.5],rotation=0.0)
+    # Preserve all original source marker payloads; translate only the common
+    # POI fields used by the normal atlas.
+    pois=[]
+    for marker in markers:
+        if str(marker.get("type",""))=="player_spawn":
+            continue
+        pois.append(dict(name=str(marker.get("name",marker.get("type","Marker"))),
+                         category=str(marker.get("type","MARKER")).upper(),
+                         position=[float(marker["x"]),float(marker["y"])],road=-1))
+    for race in doc.get("races",[]):
+        if not race.get("points"):
+            continue
+        at=race["points"][0]
+        pois.append(dict(name=str(race.get("name","Street Race")),
+                         category="RACE",position=[float(at["x"]),float(at["y"])],
+                         road=-1))
+    return dict(spawn=spawn,pois=pois,editor_markers=markers,editor_races=baked_races,editor_dealerships=dealers,editor_game_markers=markers)
+
+
 def make_archive(doc):
     if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2 or doc.get("customMap") is not True:
         raise ValueError("Not a saved custom World Builder map")
@@ -196,21 +231,7 @@ def make_archive(doc):
             if key in raw:region[key]=raw[key]
         terrain.append(region)
     props=[p for p in _authoring_props(doc,width,height) if not p.get("hidden")]
-    baked_races=authored_races(doc,width,height)
-    dealers=doc.get("dealerships",[])
-    markers=validate_markers(doc.get("markers",[]),baked_races,dealers,width,height)
-    marker_spawn=next((m for m in markers if m.get("type")=="player_spawn"),None)
-    if marker_spawn:
-        spawn=dict(position=[float(marker_spawn["x"]),float(marker_spawn["y"])],
-                   rotation=math.radians(float(marker_spawn.get("rotation",0))))
-    elif (ground_road := next((road for road in roads if "elevation" not in road), None)) is not None:
-        path=ground_road["points"]
-        mid=max(0,(len(path)-2)//2)
-        a,b=path[mid:mid+2]
-        spawn=dict(position=[(a[0]+b[0])*.5,(a[1]+b[1])*.5],
-                   rotation=math.atan2(b[0]-a[0],a[1]-b[1]))
-    else:
-        spawn=dict(position=[width*.5,height*.5],rotation=0.0)
+    gameplay=_gameplay_payload(doc,roads,width,height)
     chunks=defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],
                                   relief=[],rails=[],mountains=[],bridges=[]))
     for index,segment in enumerate(segments):
@@ -260,38 +281,21 @@ def make_archive(doc):
             x=min(math.ceil(width/CHUNK)-1,max(0,int(mid[0]//CHUNK)))
             y=min(math.ceil(height/CHUNK)-1,max(0,int(mid[1]//CHUNK)))
             chunks[f"{x},{y}"]["walls"].append(index)
-    # Preserve all original source marker payloads; translate only the common
-    # POI fields used by the normal atlas.
-    pois=[]
-    for marker in markers:
-        if str(marker.get("type",""))=="player_spawn":
-            continue
-        pois.append(dict(name=str(marker.get("name",marker.get("type","Marker"))),
-                         category=str(marker.get("type","MARKER")).upper(),
-                         position=[float(marker["x"]),float(marker["y"])],road=-1))
-    for race in doc.get("races",[]):
-        if not race.get("points"):
-            continue
-        at=race["points"][0]
-        pois.append(dict(name=str(race.get("name","Street Race")),
-                         category="RACE",position=[float(at["x"]),float(at["y"])],
-                         road=-1))
     result=dict(format="streetbound.streamed-world",version=1,units="metres",
                 name=str(doc.get("name","Custom Test Drive")),pixels_per_metre=20,
                 editor_custom_test_drive=True,road_width_scale=1.10,
                 rain_intensity=float(rain),
                 size=[width,height],original_extent=[width,height],
-                chunk_size=CHUNK,surface_cell=CELL,spawn=spawn,
-                nodes=nodes,roads=roads,segments=segments,props=props,pois=pois,
+                chunk_size=CHUNK,surface_cell=CELL,
+                nodes=nodes,roads=roads,segments=segments,props=props,
                 districts=[],terrain=terrain,walls=walls,junctions=junctions,bridges=[],
                 road_connections=[list(pair) for pair in sorted(connections)],surface_index=dict(grid),
                 chunks=dict(chunks),road_crossings=crossings,relief_faces=[],
-                mountain_rails=[],editor_markers=markers,
-                editor_races=baked_races,editor_dealerships=dealers,
-                editor_game_markers=markers,editor_world_id=Path(doc.get("_source_filename","custom-map.world.json")).name,
+                mountain_rails=[],editor_world_id=Path(doc.get("_source_filename","custom-map.world.json")).name,
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
+    result.update(gameplay)
     if gameplay_zones:result["gameplay_zones"]=gameplay_zones
     if "terrainHeight" in doc:
         field=doc["terrainHeight"]
@@ -326,6 +330,17 @@ def scenery_rebuild(archive, doc):
             chunks.setdefault(key,dict(segments=[],props=[],walls=[],junctions=[],terrain=[],
                                        relief=[],rails=[],mountains=[],bridges=[]))["props"].append(index)
     archive["stats"]["props"]=len(props)
+    rain=doc.get("rain_intensity",0.0)
+    if isinstance(rain,bool) or not isinstance(rain,(int,float)) or not math.isfinite(rain) or not 0<=rain<=1:
+        raise ValueError("Invalid rain intensity")
+    zones,_=validate_gameplay(doc,width,height)
+    archive["rain_intensity"]=float(rain)
+    archive["name"]=str(doc.get("name","Custom Test Drive"))
+    archive.update(_gameplay_payload(doc,archive["roads"],width,height))
+    archive.pop("gameplay_zones",None)
+    if zones:archive["gameplay_zones"]=zones
+    validate_open_cuts(archive)
+    archive["editor_warnings"]=audit_elevated_objectives(archive)
     archive.pop("jumps",None)
     bake_jumps(archive)
     return archive
@@ -333,7 +348,7 @@ def scenery_rebuild(archive, doc):
 
 def geometry_cache_key(doc):
     digest=hashlib.sha256()
-    geometry={key:value for key,value in doc.items() if key!="props"}
+    geometry={key:value for key,value in doc.items() if key not in {"props","assets","markers","races","dealerships","rain_intensity","gameplayZones","editorLayers","name"}}
     digest.update(json.dumps(geometry,sort_keys=True,separators=(",",":"),allow_nan=False).encode())
     # Any compiler source change invalidates this optional local cache.
     for path in sorted(Path(__file__).resolve().parent.glob("*.py")):
