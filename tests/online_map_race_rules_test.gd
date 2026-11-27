@@ -52,6 +52,11 @@ func _run() -> void:
 	check("authored_route_carries_same_local_prize_configuration_on_host_and_guest",
 		record.get("reward_settings",{}).get("multiplayer_reward_cash",0)==8600 and
 		record.get("reward_settings",{}).get("multiplayer_reward_part_chance",0)==45)
+	check("legal_authored_street_race_has_no_heat", int(record.get("race_heat",-1)) == 0)
+	var illegal: Dictionary = sprint.duplicate(true)
+	illegal["race_heat"] = 3
+	check("underground_race_preserves_host_authored_heat", int(Race.authored_event_spec(illegal,nav).get("race_heat",0)) == 3)
+	check("invalid_heat_does_not_start_pursuit", Race.authored_race_heat({"race_heat":99}) == 0 and Race.authored_race_heat({"race_heat":"5"}) == 0 and Race.authored_race_heat({"race_heat":2.5}) == 0)
 	var invalid_rewards: Dictionary=sprint.duplicate(true)
 	invalid_rewards["multiplayer_reward_cash"]=9007199254740992
 	check("online_controller_rejects_unrepresentable_published_reward_profiles",

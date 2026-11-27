@@ -3,9 +3,11 @@ extends SceneTree
 ## return from actual displacement. No wall-clock or rendered screenshot needed.
 const CarScript = preload("res://scripts/world/traffic_car.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
+const Flow = preload("res://scripts/world/traffic_flow.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
 const PPM := 20.0
 var failures: Array[String] = []
+var police_contacts := 0
 
 
 func _initialize() -> void:
@@ -65,6 +67,42 @@ func run() -> void:
 		car.queue_free()
 		await physics_frame
 
+	# Patrols are a moving-traffic role, not a pursuit or a parked-car slot.
+	var patrols: Array[Dictionary] = CarScript.patrol_models()
+	var expected_patrols := ["police-crown-vic", "police-explorer", "police-f150",
+		"police-charger", "police-challenger"]
+	var patrol_ids: Array = []
+	for model in patrols:
+		patrol_ids.append(model["id"])
+		var patrol := CharacterBody2D.new()
+		patrol.set_script(CarScript)
+		patrol.set("patrol_model", model)
+		patrol.position = Vector2(8000, 18000)
+		root.add_child(patrol)
+		await physics_frame
+		var sprite := patrol.get_node_or_null("VehicleArtwork") as Sprite2D
+		var collider := patrol.get_node_or_null("VehicleCollider") as CollisionShape2D
+		check("patrol_art_%s" % model["id"], sprite != null and
+			sprite.texture.resource_path == str(model["texture"]) and
+			is_equal_approx(sprite.rotation_degrees, float(model["sprite_rotation_degrees"])))
+		check("patrol_role_%s" % model["id"], patrol.is_in_group("traffic_vehicle") and
+			patrol.is_in_group("police_patrol") and not patrol.is_in_group("police_vehicle") and
+			collider != null and not collider.disabled and
+			is_equal_approx(float(patrol.get("length_px")), float(model["length_m"]) * PPM))
+		var origin := patrol.position
+		patrol.call("move_traffic", Vector2.UP * 12.0, 0.1)
+		check("patrol_physical_movement_%s" % model["id"], patrol.position.distance_to(origin) > 1.0)
+		patrol.queue_free()
+		await physics_frame
+	check("only_five_patrol_models", patrol_ids == expected_patrols, patrol_ids)
+	var spawn_ids: Array = []
+	for serial in range(Flow.PATROL_INTERVAL * 5):
+		var selection: Dictionary = Flow.patrol_for_spawn(serial, 0)
+		if not selection.is_empty():
+			spawn_ids.append(selection["id"])
+		check("patrol_cap_%d" % serial, Flow.patrol_for_spawn(serial, Flow.MAX_AMBIENT_PATROLS).is_empty())
+	check("patrol_rotation_and_frequency", spawn_ids == expected_patrols, spawn_ids)
+	check("civilian_slots_unchanged", CarScript.model_count() == 10)
 	# This car is deliberately pushed away from a legal lane.
 	var flow: Node2D = Node2D.new()
 	flow.set_script(preload("res://scripts/world/traffic_flow.gd"))
@@ -84,6 +122,8 @@ func run() -> void:
 	var initial: Dictionary = graph.point_on_edge(0,300.0*20.0)
 	var actor := CharacterBody2D.new()
 	actor.set_script(CarScript)
+	if not patrols.is_empty():
+		actor.set("patrol_model", patrols[0])
 	actor.position=initial.position
 	actor.rotation=float(initial.angle)
 	root.add_child(actor)
@@ -145,6 +185,7 @@ func run() -> void:
 	player2.position=Vector2(9000,9400)
 	root.add_child(player2)
 	player2.set_physics_process(false)
+	player2.police_collision.connect(func(_speed: float): police_contacts += 1)
 	await physics_frame
 	# Test the exact same collision callback used by the player controller:
 	# impact physically displaces the traffic car without disabling collision.
@@ -159,5 +200,23 @@ func run() -> void:
 		player2.linear_velocity.length() > 4.5,player2.linear_velocity)
 	check("collision_keeps_player_velocity_synced",player2.velocity.distance_to(
 		player2.linear_velocity*20.0)<0.02,player2.velocity)
+	check("civilian_crash_does_not_report_police_contact", police_contacts == 0)
+	# Repeat the real physics collision with a police patrol, not a synthetic signal.
+	var police_car := CharacterBody2D.new()
+	police_car.set_script(CarScript)
+	if not patrols.is_empty():
+		police_car.set("patrol_model", patrols[0])
+	police_car.position = Vector2(15000,15000)
+	root.add_child(police_car)
+	player2.position = Vector2(15000,15400)
+	player2.rotation = 0.0
+	player2.linear_velocity = Vector2.UP*18.0
+	await physics_frame
+	for frame in 100:
+		await physics_frame
+		player2.step_vehicle(1.0/60.0,Vector4.ZERO)
+		if police_contacts > 0:
+			break
+	check("real_police_patrol_crash_reports_contact", police_contacts > 0, police_contacts)
 	print("TRAFFIC ART / COLLISION / RECOVERY: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

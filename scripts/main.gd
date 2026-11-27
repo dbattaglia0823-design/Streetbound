@@ -190,6 +190,7 @@ func _ready() -> void:
 	var audio := Node.new()
 	audio.set_script(AudioScript)
 	audio.vehicle = vehicle
+	audio.add_to_group("streetbound_player_audio")
 	add_child(audio)
 	var hud := CanvasLayer.new()
 	hud.layer = 2
