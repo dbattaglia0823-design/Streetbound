@@ -589,10 +589,14 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                                 color=PALETTES.get(biome, PALETTES["grass"]),
                                 points=_polygon_points(entry["points"],width,height),authoring_id=str(entry["id"]))
             terrain.append(target)
-        # Preserve unmodified stock terrain metadata.
-        label=str(entry.get("name",""))[:120]
-        if label and label.lower() not in {str(target["kind"]).lower(), str(biome).lower(), "ocean","water","lake","grass","town","highland","forest","mountain","rock","beach","city","farmland","field","meadow","desert","sand"}:
-            target["editor_name"]=label
+        # Stock terrain names in the editor are generated presentation
+        # labels, not authored runtime metadata. Keep the original entries
+        # byte-for-byte unless their actual geometry or biome was edited.
+        # New authored parcels carry their names for district styling.
+        if index >= base_terrain_count:
+            label=str(entry.get("name",""))[:120]
+            if label:
+                target["editor_name"]=label
         if elevation>0:target["elevation"]=float(elevation)
         if barrier:
             from mountain_barriers import validate_polygon
