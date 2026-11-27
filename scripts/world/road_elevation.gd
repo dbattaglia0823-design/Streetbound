@@ -170,70 +170,96 @@ static func polygon_bounds(poly: PackedVector2Array) -> Rect2:
 	return box
 
 
+## Use signed distance in metres and a tiny overlap between the excluded
+## half planes. Float32 intersections on a triangulation diagonal must not
+## leave a collision sliver inside the excavation.
 static func _half_plane(poly: PackedVector2Array, a: Vector2, b: Vector2, inside: bool) -> PackedVector2Array:
 	var result := PackedVector2Array()
-	if poly.is_empty():
-		return result
+	if poly.is_empty():return result
+	var axis := (b-a).normalized()
+	if axis.length_squared()<.5:return result
 	var sign_value := 1.0 if inside else -1.0
 	for i in poly.size():
 		var p := poly[i]
 		var q := poly[(i+1)%poly.size()]
-		var dp := (b-a).cross(p-a)*sign_value
-		var dq := (b-a).cross(q-a)*sign_value
-		if dp >= 0.0:
-			result.append(p)
-		if (dp >= 0.0) != (dq >= 0.0):
-			result.append(p.lerp(q,dp/(dp-dq)))
+		var dp := axis.cross(p-a)*sign_value + (.002 if inside else -.002)
+		var dq := axis.cross(q-a)*sign_value + (.002 if inside else -.002)
+		if dp >= 0.0:result.append(p)
+		if (dp >= 0.0) != (dq >= 0.0):result.append(p.lerp(q,dp/(dp-dq)))
+	return _clean_piece(result)
+
+
+static func _clean_piece(poly: PackedVector2Array) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for p in poly:
+		if result.is_empty() or result[-1].distance_to(p)>.001:result.append(p)
+	if result.size()>1 and result[0].distance_to(result[-1])<=.001:result.remove_at(result.size()-1)
 	return result
 
 
 static func _valid_piece(poly: PackedVector2Array) -> bool:
-	if poly.size() < 3:
-		return false
+	if poly.size() < 3:return false
 	var area := 0.0
 	for i in range(1,poly.size()-1):
 		area += (poly[i]-poly[0]).cross(poly[i+1]-poly[0])
 	return absf(area) > .0001
 
 
-## Subtract convex triangles from triangulated terrain. Unlike treating
-## Geometry2D.clip_polygons' hole contours as filled collision polygons,
-## this also handles an excavation completely enclosed by a mountain.
+static func _convex_parts(poly: PackedVector2Array) -> Array[PackedVector2Array]:
+	var result: Array[PackedVector2Array]=[]
+	var clean:=_clean_piece(poly)
+	if not _valid_piece(clean):return result
+	# Straight/convex trenches are handled in one pass, not as adjacent
+	# triangles with an artificial internal diagonal.
+	var hull:=Geometry2D.convex_hull(clean)
+	if hull.size()>1 and hull[0].distance_to(hull[-1])<.001:hull.remove_at(hull.size()-1)
+	var area:=0.0
+	var hull_area:=0.0
+	for i in range(1,clean.size()-1):area+=(clean[i]-clean[0]).cross(clean[i+1]-clean[0])
+	for i in range(1,hull.size()-1):hull_area+=(hull[i]-hull[0]).cross(hull[i+1]-hull[0])
+	if absf(absf(area)-absf(hull_area))<.001 and _valid_piece(hull):
+		if hull_area<0:hull.reverse()
+		result.append(hull)
+		return result
+	var indices:=Geometry2D.triangulate_polygon(clean)
+	for i in range(0,indices.size(),3):
+		var triangle:=PackedVector2Array([clean[indices[i]],clean[indices[i+1]],clean[indices[i+2]]])
+		if not _valid_piece(triangle):continue
+		if (triangle[1]-triangle[0]).cross(triangle[2]-triangle[0])<0:triangle.reverse()
+		result.append(triangle)
+	return result
+
+
+## Convex decomposition in local coordinates avoids large-world precision
+## loss and preserves enclosed holes without filling clip_polygons contours.
 static func subtract_cutouts(subject: PackedVector2Array, cuts: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
-	var result: Array[PackedVector2Array] = []
-	if subject.size() < 3:
-		return result
-	var relevant: Array[PackedVector2Array] = []
-	var box := polygon_bounds(subject)
+	var result: Array[PackedVector2Array]=[]
+	if subject.size()<3:return result
+	var box:=polygon_bounds(subject)
+	var origin:=subject[0]
+	var local_subject:=PackedVector2Array()
+	for p in subject:local_subject.append(p-origin)
+	result=_convex_parts(local_subject)
 	for cut in cuts:
-		if cut.size() >= 3 and box.intersects(polygon_bounds(cut)):
-			relevant.append(cut)
-	if relevant.is_empty():
-		result.append(subject)
-		return result
-	var subject_indices := Geometry2D.triangulate_polygon(subject)
-	for i in range(0,subject_indices.size(),3):
-		result.append(PackedVector2Array([subject[subject_indices[i]],subject[subject_indices[i+1]],subject[subject_indices[i+2]]]))
-	for cut in relevant:
-		var indices := Geometry2D.triangulate_polygon(cut)
-		for i in range(0,indices.size(),3):
-			var triangle := PackedVector2Array([cut[indices[i]],cut[indices[i+1]],cut[indices[i+2]]])
-			if (triangle[1]-triangle[0]).cross(triangle[2]-triangle[0]) < 0.0:
-				triangle.reverse()
-			var next: Array[PackedVector2Array] = []
+		if cut.size()<3 or not box.intersects(polygon_bounds(cut)):continue
+		var local_cut:=PackedVector2Array()
+		for p in cut:local_cut.append(p-origin)
+		for convex in _convex_parts(local_cut):
+			var next: Array[PackedVector2Array]=[]
 			for piece in result:
-				if not polygon_bounds(piece).intersects(polygon_bounds(triangle)):
-					next.append(piece)
-					continue
-				var remainder := piece
-				for edge in 3:
-					var outside := _half_plane(remainder,triangle[edge],triangle[(edge+1)%3],false)
-					if _valid_piece(outside):
-						next.append(outside)
-					remainder = _half_plane(remainder,triangle[edge],triangle[(edge+1)%3],true)
-					if not _valid_piece(remainder):
-						break
-			result = next
+				if not polygon_bounds(piece).intersects(polygon_bounds(convex)):
+					next.append(piece);continue
+				var remainder:=piece
+				for edge in convex.size():
+					var outside:=_half_plane(remainder,convex[edge],convex[(edge+1)%convex.size()],false)
+					if _valid_piece(outside):next.append(outside)
+					remainder=_half_plane(remainder,convex[edge],convex[(edge+1)%convex.size()],true)
+					if not _valid_piece(remainder):break
+			result=next
+	for i in result.size():
+		var piece:=result[i]
+		for j in piece.size():piece[j]+=origin
+		result[i]=piece
 	return result
 
 
