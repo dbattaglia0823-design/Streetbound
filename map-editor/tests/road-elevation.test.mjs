@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {normalizeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
-import {joinRoadEndpoints,splitRoadAt,applyPointElevations,pointElevationLayers} from '../world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,applyPointElevations,pointElevationLayers,convertRoadToTunnel} from '../world-road-topology.js';
 
 const fixture=()=>normalizeWorld(JSON.parse(readFileSync(
   new URL('../../tests/fixtures/road-elevation.world.json',import.meta.url),'utf8')));
@@ -91,4 +91,25 @@ test('named layers survive browser round trip and reject duplicate membership',(
   const result=normalizeWorld({...doc,editorLayers});
   assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).editorLayers,editorLayers);
   assert.throws(()=>normalizeWorld({...doc,editorLayers:[...editorLayers,{name:'Other',ids:['road-0'],visible:true,locked:false}]}),/layer member/);
+});
+
+test('whole-road tunnel conversion retains identity and creates two ground-level portals',()=>{
+  const doc=fixture();
+  const source=normalizeWorld({...doc,roads:[{...doc.roads[0],points:[{x:100,y:700},{x:500,y:700}]}]});
+  const before=JSON.stringify(source);
+  const result=convertRoadToTunnel(source,'road-0'),road=result.roads[0];
+  assert.equal(JSON.stringify(source),before);
+  assert.equal(result.roads.length,1);
+  assert.equal(road.id,'road-0');
+  assert.equal(road.lanes,source.roads[0].lanes);
+  assert.deepEqual(road.elevation,{start_layer:0,end_layer:0,point_layers:[0,-1,-1,0]});
+  assert.deepEqual(road.points,[{x:100,y:700},{x:175,y:700},{x:425,y:700},{x:500,y:700}]);
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).roads,result.roads);
+  assert.throws(()=>convertRoadToTunnel(result,'road-0'),/Reset existing/);
+  const short=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:200,y:700}]});
+  assert.throws(()=>convertRoadToTunnel(short,'road-0'),/110 m/);
+  const curved=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:200,y:700},{x:300,y:750},{x:500,y:750}]});
+  const converted=convertRoadToTunnel(curved,'road-0').roads[0];
+  assert.ok(curved.roads[0].points.every(p=>converted.points.some(q=>p.x===q.x&&p.y===q.y)));
+  assert.deepEqual(converted.elevation.point_layers,[0,-1,-1,-1,-1,0]);
 });
