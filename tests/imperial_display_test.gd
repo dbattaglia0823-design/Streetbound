@@ -47,7 +47,7 @@ func _run() -> void:
 		for child in hud.get_children():
 			if child is PanelContainer:
 				panel_count += 1
-		check("removed_f1_controls_do_not_appear", panel_count == 1 and
+		check("removed_f1_controls_do_not_appear", panel_count == 0 and is_instance_valid(dash) and
 			not InputMap.has_action("tuning"))
 		var stock_mass: float = car.config.mass_kg
 		var stock_torque: float = car.config.engine_torque_nm

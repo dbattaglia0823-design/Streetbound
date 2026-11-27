@@ -97,6 +97,7 @@ func run() -> void:
 	race.economy = neutral
 	pause_dash.economy = neutral
 	neutral.changed.connect(pause_dash._refresh_profile)
+	neutral.changed.connect(pause_dash._refresh_car)
 	check("racing_cannot_start_from_laurel_garage",not race.can_stage())
 	var start: Vector2 = race.start_m * PPM
 	vehicle.global_position = start
@@ -130,9 +131,9 @@ func run() -> void:
 	check("valid_race_updates_driver_and_car_levels",
 		neutral.player_level() > 1 and neutral.active_car_level() > 1)
 	check("valid_race_awards_some_cash",neutral.balance > Ownership.STARTING_CASH)
-	check("race_hud_displays_both_progressions",
-		pause_dash.driver_level.text.contains("DRIVER LV") and \
-		pause_dash.car_level.text.contains("CAR LV"))
+	check("pause_dashboard_displays_both_updated_progressions",
+		pause_dash.driver_level.text == "DRIVER LV %d" % neutral.player_level() and \
+		pause_dash.car_level.text == "CAR LV %d" % neutral.active_car_level())
 	var earned_xp := neutral.player_xp
 	race._complete()
 	check("finish_payout_is_not_repeatable",
