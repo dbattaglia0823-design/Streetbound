@@ -160,7 +160,7 @@ export function buildRuntimePreview(raw){
   }));
   const sourceTerrain=(raw.terrain||[]).map((t,index)=>({
     index,editorId:t.authoring_id||'region-'+index,kind:String(t.kind),color:String(t.color||''),barrier:t.barrier===true,elevation:Number(t.elevation)||0,
-    generatedExtension:t.generated_extension===true,
+    generatedExtension:t.generated_extension===true,drawOrder:t.editor_draw_order??0,
     points:(t.points||[]).map(([x,y])=>({x:+x,y:+y}))
   }));
   const extensionTerrain=(raw.terrain||[]).filter(t=>t.generated_extension);
@@ -302,8 +302,13 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
     farmland:'#b4bd8a',city:'#b1b6a0',town:'#a3b789',beach:'#e3d4aa',
     ocean:'#82b5b5',water:'#82b5b5',lake:'#82b5b5',
     riverbank:'#c6d9c9',foam:'#c6d9c9'};
-  for(const terrain of preview.sourceTerrain){
-    if(terrain.generatedExtension)continue;
+  const sourceIds=new Set(preview.sourceTerrain.filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind)).map(t=>t.editorId||'region-'+t.index));
+  const entries=preview.sourceTerrain.filter(t=>!t.generatedExtension).map(terrain=>({terrain,order:byId.get(terrain.editorId)?.drawOrder??(byId.has(terrain.editorId)?0:terrain.drawOrder??0)}));
+  for(const region of doc.regions)if(!sourceIds.has(region.id))entries.push({region,order:region.drawOrder??0});
+  entries.sort((a,b)=>a.order-b.order);
+  for(const entry of entries){
+    if(entry.region){drawEdited(entry.region);continue;}
+    const terrain=entry.terrain;
     const edited=byId.get(terrain.editorId||'region-'+terrain.index);
     if(edited){
       const source=simplified(terrain.points);
@@ -332,12 +337,6 @@ export function drawRuntimeTerrain(ctx,preview,doc,drawEdited){
   // The ID format alone cannot identify a new region: the editor allocates
   // numeric region-N IDs too. Compare against actual source terrain indices.
   // Derived foam/riverbank/highland are not independent editable regions.
-  const sourceIds=new Set(preview.sourceTerrain
-    .filter(t=>!t.generatedExtension&&!['foam','riverbank','highland'].includes(t.kind))
-    .map(t=>t.editorId||'region-'+t.index));
-  for(const region of doc.regions){
-    if(!sourceIds.has(region.id))drawEdited(region);
-  }
   return true;
 }
 
