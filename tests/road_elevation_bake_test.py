@@ -44,6 +44,14 @@ class ElevationBakeTests(unittest.TestCase):
         stacked = [j for j in archive["junctions"] if j["p"] == [500,450]]
         self.assertEqual([(j["road_layer"],j["roads"]) for j in stacked],[(1,[1,3])])
 
+    def test_two_way_portal_ramp_keeps_tunnel_connection(self):
+        source=fixture()
+        source["roads"][7].update(roadClass="onramp",lanes=2)
+        archive=make_archive(source)
+        self.assertEqual(archive["roads"][7]["lanes"],2)
+        self.assertIn((2,7),{tuple(pair) for pair in archive["road_connections"]})
+        self.assertFalse(any(j["control"]=="merge" and j.get("ramp_road")==7 for j in archive["junctions"]))
+
     def test_directional_merge_does_not_connect_to_overlapping_deck(self):
         source = fixture()
         ground = copy.deepcopy(source["roads"][0])

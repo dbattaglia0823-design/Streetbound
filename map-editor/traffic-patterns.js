@@ -9,9 +9,10 @@ export function lanePatterns(roads,{includeLoose=false}={}){
   const patterns=[];
   for(const road of roads){
     if(['track','service','alley'].includes(road.roadClass)||(!includeLoose&&isLoose(road)))continue;
-    const count=Math.max(2,Math.min(6,road.lanes||2));
+    const oneWay=road.roadClass==='onramp'&&road.lanes===1;
+    const count=oneWay?1:Math.max(2,Math.min(6,road.lanes||2));
     const forward=Math.max(1,Math.floor(count/2));
-    const reverse=Math.max(1,count-forward);
+    const reverse=oneWay?0:Math.max(1,count-forward);
     const divider=(reverse-forward)*road.width/count*.5;
     const points=sampleRoad(road.points,road.smooth,20);
     if(points.length<2)continue;

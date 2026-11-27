@@ -28,3 +28,12 @@ test('A narrow runway, unsafe trajectory or split leaves the draft intact',()=>{
   assert.throws(()=>splitRoadAt(doc,road.id,{x:300,y:400}),/Remove the jump/);
   assert.equal(road.jump.at_m,100);
 });
+
+test('standalone stunt ramp is independent of road geometry and survives round-trip',async()=>{
+  const {parseWorld,serializeWorld,createEntity}=await import('../world-model.js');
+  const {readFile}=await import('node:fs/promises');
+  const map=parseWorld(await readFile(new URL('../../tests/fixtures/road-jumps.world.json',import.meta.url),'utf8'));
+  const next=createEntity(map,'props',{name:'Stunt ramp',type:'stunt_ramp',x:350,y:320,rotation:90,scale:1,assetId:''});
+  assert.deepEqual(next.roads,map.roads);
+  assert.deepEqual(parseWorld(serializeWorld(next)).props.at(-1),next.props.at(-1));
+});

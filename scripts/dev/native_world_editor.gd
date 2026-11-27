@@ -600,6 +600,7 @@ func _update_context_panels() -> void:
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
 		var road: Dictionary=authoring.road_at_id(source_id)
+		road_lanes.max_value=2 if str(road.roadClass)=="onramp" else 6
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
 		var jump: Dictionary = road.get("jump",{})
 		road_jump_enabled.visible=not jump.is_empty()
@@ -2453,6 +2454,9 @@ func _change_inspector_road_type(index: int) -> void:
 func _change_road_type(_index: int) -> void:
 	if _setting_controls:return
 	var kind:=_option_value(road_class)
+	_setting_controls=true
+	road_lanes.max_value=2 if kind=="onramp" else 6
+	_setting_controls=false
 	# Racing asphalt is a paved track, not a dirt road with painted kerbs.
 	if kind=="alley":
 		_select_road_option(road_surface,"asphalt")

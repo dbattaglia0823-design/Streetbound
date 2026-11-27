@@ -21,6 +21,7 @@ export const GAME_ART_KINDS = Object.freeze({
   gas_station:['shop','garage'],rock:['rock'],boulder:['rock']
 });
 export const BASE_SIZE = Object.freeze({
+  stunt_ramp:[5,8],
   oak:[7,7],pine:[7,7],palm:[6.5,6.5],bush:[2.5,2.5],
   rock:[3,2.5],boulder:[4.5,3.4],house:[12,17],
   building:[22,29],warehouse:[28,37],garage:[20,21],
