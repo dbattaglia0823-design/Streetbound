@@ -146,6 +146,20 @@ class CustomTestWorldBaker(unittest.TestCase):
         doc['markers'][1]['properties']['offers'][0]['robbery_marker_id']='missing'
         with self.assertRaises(ValueError):make_archive(doc)
 
+    def test_terrain_draw_order_is_persisted_and_sorts_clipped_chunks(self):
+        doc=source()
+        doc["regions"][0]["drawOrder"]=3
+        doc["regions"].append(dict(doc["regions"][0],id="region-1",biome="forest",drawOrder=-2))
+        data=make_archive(doc)
+        self.assertEqual([t.get("editor_draw_order",0) for t in data["terrain"]],[0,3,-2])
+        overlaps=[cell["terrain"] for cell in data["chunks"].values()
+                  if any(t.get("editor_draw_order")==3 for t in cell["terrain"])]
+        self.assertTrue(overlaps)
+        for terrain in overlaps:
+            self.assertEqual([t.get("editor_draw_order",0) for t in terrain],[0,-2,3])
+        doc["regions"][0]["drawOrder"]=11
+        with self.assertRaises(ValueError):make_archive(doc)
+
     def test_empty_map_remains_drivable_and_has_terrain_chunks(self):
         doc=source()
         doc["roads"]=[]
