@@ -53,6 +53,7 @@ var has_road_elevation := false
 var road_lengths_m := PackedFloat64Array()
 var _elevation_connections: Dictionary = {}
 var viewed_road_layer := 0
+var underground_backdrop: Polygon2D
 var overhead_road_layer := 0
 var tunnel_portals: Dictionary = {}
 var jumps_by_road: Dictionary = {}
@@ -635,6 +636,28 @@ func _predict_chunk() -> Vector2i:
 	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
 	return predicted
 
+## A world-space black plane above surface artwork, below the underground
+## road batches and vehicles. No terrain/prop masks or per-frame texture work.
+func _update_underground_backdrop() -> void:
+	var enclosed: bool = not editor_render_only and is_instance_valid(vehicle) and viewed_road_layer < 0
+	if not enclosed:
+		if is_instance_valid(underground_backdrop):underground_backdrop.hide()
+		return
+	if not is_instance_valid(underground_backdrop):
+		underground_backdrop=Polygon2D.new()
+		underground_backdrop.name="UndergroundBlackout"
+		underground_backdrop.z_as_relative=false
+		underground_backdrop.z_index=41
+		underground_backdrop.color=Color.BLACK
+		underground_backdrop.polygon=PackedVector2Array([Vector2(-100000,-100000),Vector2(100000,-100000),Vector2(100000,100000),Vector2(-100000,100000)])
+		var unlit:=CanvasItemMaterial.new()
+		unlit.light_mode=CanvasItemMaterial.LIGHT_MODE_UNSHADED
+		underground_backdrop.material=unlit
+		add_child(underground_backdrop)
+	underground_backdrop.global_position=vehicle.global_position
+	underground_backdrop.show()
+
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
@@ -649,6 +672,7 @@ func _process(dt: float) -> void:
 				overhead_road_layer = overhead
 				for chunk in chunks.values():
 					chunk.update_grade_visibility(viewed_road_layer,overhead_road_layer)
+		_update_underground_backdrop()
 		stream_at(vehicle.global_position)
 		if profile_enabled and dt>0.0:
 			var index:=Vector2i((vehicle.global_position/PPM/chunk_m).floor())
