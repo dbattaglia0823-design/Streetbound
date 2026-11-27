@@ -61,6 +61,9 @@ def bake_into(data):
     # Standalone ramps are non-solid props. Their orientation and dimensions
     # define the takeoff lip; no authored speed envelope or landing zone.
     objects = [p for p in data.get("props",[]) if p.get("kind")=="stunt_ramp"]
+    # A caller may rebake the same archive after removing or resizing props.
+    # Never leave stale jump records behind.
+    data.pop("jumps",None)
     if not candidates and not objects:
         return
     if len(candidates) > 16:

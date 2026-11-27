@@ -176,6 +176,34 @@ func _run() -> void:
 		check(is_equal_approx(initial_momentum.y,1.0),"Ramp preserves transverse momentum")
 		distances.append(car.position.x/20.0-200.0)
 	check(distances[1]>distances[0]*2.0,"Faster car travels farther without landing parameters")
+	# Exercise the actual indexed world, including a rotated, oversized lip
+	# crossing several spatial cells and intentionally stale baked metadata.
+	world.data.props.append({"kind":"stunt_ramp","authoring_id":"prop-wide-test","p":[300,320],"angle":PI*.5,"size":[100.0,24.0]})
+	world.data.jumps.append(object_spec)
+	world._rebuild_jump_index()
+	place(car,Vector2(311.9,320),PI*.5,Vector2(20,0))
+	for offset in [-49.9,0.0,49.9]:
+		var start:=Vector2(311.9,320+offset)*20
+		var finish:=Vector2(312.1,320+offset)*20
+		var detected:=world.jump_at_motion(car,start,finish)
+		check(str(detected.get("prop_id",""))=="prop-wide-test" and is_equal_approx(float(detected.get("width_m",0)),100.0),"Scaled ramp launches at center and both far edges")
+	var reach:=RoadJump.footprint_reach(car,Vector2.DOWN)
+	check(reach>0.0,"Vehicle has a physical lateral footprint")
+	check(not world.jump_at_motion(car,Vector2(311.9,370+reach*.5)*20,Vector2(312.1,370+reach*.5)*20).is_empty(),"Body overlap at ramp edge launches")
+	check(world.jump_at_motion(car,Vector2(311.9,371+reach)*20,Vector2(312.1,371+reach)*20).is_empty(),"Driving fully outside the ramp does not launch")
+	# Lights follow the animated Art transform, while the shadow stays grounded.
+	var art: Node2D=car.get_node("Art")
+	var lamps: Node2D=car.get_node("RearLights")
+	var shadow: Node2D=car.get_node("GroundShadow")
+	car.jump_height_m=3.0
+	art.call("_process",1.0/60.0)
+	lamps.call("_refresh")
+	check(art.scale.x>1.0 and lamps.transform.is_equal_approx(art.transform),"Airborne rear light anchors and glow scale follow Art")
+	check(shadow.scale.is_equal_approx(Vector2.ONE),"Ground shadow is not enlarged with the body")
+	car.jump_height_m=0.0
+	art.call("_process",1.0/60.0)
+	lamps.call("_refresh")
+	check(lamps.scale.is_equal_approx(Vector2.ONE) and lamps.transform.is_equal_approx(art.transform),"Lights restore their normal size after landing")
 	world.queue_free()
 	car.queue_free()
 	await process_frame
