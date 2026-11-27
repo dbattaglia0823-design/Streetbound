@@ -508,7 +508,7 @@ jobs:
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 65s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/road_width_adaptation_test.gd 2>&1 | tee /tmp/godot463-road-width.log
-          grep -q 'MORROW 10 PERCENT WIDER ROADS: PASS' /tmp/godot463-road-width.log
+          grep -q 'MORROW ROAD WIDTH MIGRATION: PASS' /tmp/godot463-road-width.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/godot463-road-width.log
       - name: Validate traffic crash recovery, junction queues and player collision sensing
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
