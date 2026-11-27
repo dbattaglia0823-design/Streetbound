@@ -445,6 +445,9 @@ func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String=""
 	race.merge(settings,true)
 	var generated_layer: int=int(settings.get("objective_layer",0))
 	race.erase("objective_layer")
+	var generated_layers: Array=settings.get("objective_layers",[])
+	race.erase("objective_layers")
+	if not generated_layers.is_empty() and generated_layers.size()!=points_m.size():return ""
 	race.id=next_id("races","race") if identity.is_empty() else identity
 	race.points=[]
 	for p in points_m:
@@ -458,6 +461,11 @@ func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String=""
 		if settings.has("objective_layer"):
 			if generated_layer==0:point.erase("road_layer")
 			else:point["road_layer"]=generated_layer
+		if not generated_layers.is_empty():
+			var layer:=int(generated_layers[race.points.size()])
+			if absi(layer)>2:return ""
+			if layer==0:point.erase("road_layer")
+			else:point["road_layer"]=layer
 		race.points.append(point)
 	var default_count: int=prior.get("enemy_starts",[]).size()
 	var count: int=int(race.get("opponent_count",default_count))

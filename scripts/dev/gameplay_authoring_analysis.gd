@@ -76,3 +76,43 @@ static func checkpoints(route: Dictionary,graph: RefCounted,layer: int) -> Array
 	elif result.size()>1:result[-1]=path[-1]
 	if result.size()<2 or result.size()>100:result.clear()
 	return result
+
+
+## Use the exact directed graph spans, not nearest-XY guesses at stacked roads.
+## Intermediate gates are placed only on supported, essentially level pavement.
+static func graded_checkpoints(route: Dictionary,graph: RefCounted,start_layer: int,finish_layer: int) -> Array[Dictionary]:
+	var result: Array[Dictionary]=[]
+	if graph==null or route.is_empty() or float(route.get("length_m",0))<20.0:return result
+	if float(route.get("start_access_distance_m",INF))>15.0 or float(route.get("access_distance_m",INF))>15.0:return result
+	var spans: Array=route.get("spans",[])
+	if spans.is_empty():return result
+	var first: Dictionary=spans[0]
+	var last: Dictionary=spans[-1]
+	var start: Dictionary=graph.point_on_edge(int(first.edge),float(first.begin))
+	var finish: Dictionary=graph.point_on_edge(int(last.edge),float(last.end))
+	if absf(float(start.height_m)-start_layer*6.0)>.2 or absf(float(finish.height_m)-finish_layer*6.0)>.2:return result
+	var interval:=maxf(25.0,float(route.length_m)/80.0)
+	var start_m: Vector2=start.position/20.0
+	var finish_m: Vector2=finish.position/20.0
+	result.append({"position":start_m,"layer":start_layer})
+	var distance:=0.0
+	var last_gate_station:=0.0
+	for span in spans:
+		var edge: Dictionary=graph.edges[int(span.edge)]
+		var span_m:=maxf(0.0,float(span.end)-float(span.begin))/20.0
+		var steps:=maxi(1,ceili(span_m/5.0))
+		for i in range(1,steps+1):
+			var fraction:=float(i)/steps
+			var station:=distance+span_m*fraction
+			if station-last_gate_station<interval or float(route.length_m)-station<8.0 or bool(edge.connector):continue
+			var sample: Dictionary=graph.point_on_edge(int(span.edge),lerpf(float(span.begin),float(span.end),fraction))
+			var layer:=int(sample.road_layer)
+			if absf(float(sample.height_m)-layer*6.0)>.2:continue
+			var point: Vector2=sample.position/20.0
+			if point.distance_to(result[-1].position)<5.0 or point.distance_to(finish_m)<5.0:continue
+			result.append({"position":point,"layer":layer})
+			last_gate_station=station
+		distance+=span_m
+	if finish_m.distance_to(result[-1].position)<5.0 or result.size()>=100:return []
+	result.append({"position":finish_m,"layer":finish_layer})
+	return result

@@ -150,16 +150,18 @@ func _shortest(starts: Array[Dictionary],goals: Array[Dictionary]) -> Dictionary
 				_push(heap,[proposed,next])
 	if best_ids.is_empty():return {}
 	var points:=PackedVector2Array();var length:=0.0
+	var spans: Array[Dictionary]=[]
 	for i in best_ids.size():
 		var edge: Dictionary=network.edges[best_ids[i]]
 		var begin:=float(best_start.progress) if i==0 else 0.0
 		var end:=float(best_goal.progress) if i==best_ids.size()-1 else float(edge.length_px)
+		spans.append({"edge":best_ids[i],"begin":begin,"end":end})
 		for p in Lanes.slice_path(edge.points,edge.stations,begin,end):
 			if not points.is_empty() and points[-1].distance_to(p/PPM)<.01:continue
 			if not points.is_empty():length+=points[-1].distance_to(p/PPM)
 			points.append(p/PPM)
 	if points.size()<2:return {}
-	return {"points_m":points,"edges":best_ids,"length_m":length,
+	return {"points_m":points,"edges":best_ids,"length_m":length,"spans":spans,
 		"start_access_distance_m":float(best_start.distance)/PPM,
 		"road_destination_m":Vector2(best_goal.nearest)/PPM,
 		"access_distance_m":float(best_goal.distance)/PPM}

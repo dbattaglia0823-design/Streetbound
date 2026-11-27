@@ -2,6 +2,9 @@ extends RefCounted
 const Analysis=preload("res://scripts/dev/gameplay_authoring_analysis.gd")
 const Planner=preload("res://scripts/world/road_route_planner.gd")
 const Rules=preload("res://scripts/world/driving_contract_rules.gd")
+const Network=preload("res://scripts/world/traffic_network.gd")
+var compiled_key: String=""
+var compiled_graph: Dictionary={}
 var dialog: AcceptDialog
 
 func _panel(e,title: String) -> VBoxContainer:
@@ -38,6 +41,37 @@ func _graph(e) -> Dictionary:
 		return {"network":e.traffic_network,"data":e.world.data}
 	return {}
 
+## Build a private scratch archive using the production compiler. Never publish
+## or overwrite the current source. Reuse the compiler's validated cache.
+func _race_graph(e) -> Dictionary:
+	if not e.map_switcher.custom:return _graph(e)
+	var doc: Dictionary=e.authoring.doc
+	var key:=JSON.stringify(doc).sha256_text()
+	if key==compiled_key and not compiled_graph.is_empty():return compiled_graph
+	var root:=ProjectSettings.globalize_path("user://gameplay-authoring-%d"%OS.get_process_id())
+	var source:=root+".world.json"
+	var output:=root+".stream.json"
+	var stream:=FileAccess.open(source,FileAccess.WRITE)
+	if stream==null:return {}
+	stream.store_string(JSON.stringify(doc));stream.close()
+	if FileAccess.file_exists(output):DirAccess.remove_absolute(output)
+	var python: String="py" if OS.get_name()=="Windows" else "python3"
+	var args:=PackedStringArray([ProjectSettings.globalize_path("res://tools/build_custom_test_world.py"),"--source",source,"--output",output,"--cache",root+".cache.json"])
+	if OS.get_name()=="Windows":args.insert(0,"-3")
+	var logs: Array=[]
+	var code:=OS.execute(python,args,logs,true)
+	DirAccess.remove_absolute(source)
+	if code!=0 or not FileAccess.file_exists(output):
+		e._notice("Route compile failed: "+str(logs).left(240));return {}
+	var archive: Variant=JSON.parse_string(FileAccess.get_file_as_string(output))
+	DirAccess.remove_absolute(output)
+	if not archive is Dictionary:return {}
+	var graph:=Network.new()
+	graph.build(archive)
+	compiled_key=key
+	compiled_graph={"network":graph,"data":archive}
+	return compiled_graph
+
 func open(e) -> void:
 	if not _ready(e):return
 	var panel:=_panel(e,"Gameplay authoring")
@@ -53,7 +87,7 @@ func open(e) -> void:
 func open_race(e) -> void:
 	if not _ready(e):return
 	var panel:=_panel(e,"Generate connected time trial")
-	_label(panel,"Choose start and finish coordinates in metres. Both must be within 15 m of a legal directed lane. Only single-level routes are generated.")
+	_label(panel,"Choose start and finish coordinates and levels. Both must be within 15 m of a legal directed lane on supported pavement. Custom routes compile the exact current draft.")
 	var center: Vector2=e.editor_camera.global_position/20.0
 	var w:=float(e.authoring.doc.world.width);var h:=float(e.authoring.doc.world.height)
 	var x1: SpinBox=e._number(panel,"Start X",0,w,clampf(center.x,0,w))
@@ -62,20 +96,26 @@ func open_race(e) -> void:
 	var y2: SpinBox=e._number(panel,"Finish Y",0,h,clampf(center.y,0,h))
 	var level: SpinBox=e._number(panel,"Road layer",-2,2,0 if e.road_selection_layer==99 else e.road_selection_layer)
 	level.step=1
+	var finish_level: SpinBox=e._number(panel,"Finish road layer",-2,2,level.value)
+	finish_level.step=1
 	var title:=LineEdit.new();title.text="Generated time trial";title.max_length=80;panel.add_child(title)
 	var status:=_label(panel,"")
 	e._btn("Generate and save draft race",panel,func():
 		if not _ready(e):return
-		var graph:=_graph(e)
+		var graph:=_race_graph(e)
 		if graph.is_empty() or graph.network==null:
 			status.text="Wait for the current road preview, or bake elevated road edits before generating.";return
 		var planner:=Planner.new()
 		planner.setup(graph.network,graph.data)
-		var route:=planner.plan(Vector2(x1.value,y1.value),Vector2(x2.value,y2.value),Vector2.ZERO,"","",int(level.value),int(level.value))
-		var points:=Analysis.checkpoints(route,graph.network,int(level.value))
-		if points.is_empty():
-			status.text="No supported connected route. Select nearby legal lanes on the same road level.";return
-		var id: String=e.authoring.save_race(points,{"name":title.text.strip_edges(),"mode":"sprint","race_kind":"time_trial","laps":1,"opponent_count":0,"formation":"single_file","checkpoint_radius":12,"start_radius":8,"objective_layer":int(level.value)})
+		var route:=planner.plan(Vector2(x1.value,y1.value),Vector2(x2.value,y2.value),Vector2.ZERO,"","",int(level.value),int(finish_level.value))
+		var gates:=Analysis.graded_checkpoints(route,graph.network,int(level.value),int(finish_level.value))
+		if gates.is_empty():
+			status.text="No supported connected route. Select nearby legal lanes and valid level endpoints.";return
+		var points: Array[Vector2]=[]
+		var layers: Array=[]
+		for gate in gates:
+			points.append(gate.position);layers.append(gate.layer)
+		var id: String=e.authoring.save_race(points,{"name":title.text.strip_edges(),"mode":"sprint","race_kind":"time_trial","laps":1,"opponent_count":0,"formation":"single_file","checkpoint_radius":12,"start_radius":8,"objective_layers":layers})
 		if id.is_empty():status.text=e.authoring.last_error;return
 		dialog.hide()
 		e._choose_tool("move_prop");e.source_id=id;e.source_anchor=-1;e._refresh_authoring()

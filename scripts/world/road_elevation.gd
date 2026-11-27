@@ -236,6 +236,12 @@ static func subtract_cutouts(subject: PackedVector2Array, cuts: Array[PackedVect
 	var result: Array[PackedVector2Array]=[]
 	if subject.size()<3:return result
 	var box:=polygon_bounds(subject)
+	var relevant:=false
+	for cut in cuts:
+		if cut.size()>=3 and box.intersects(polygon_bounds(cut)):
+			relevant=true;break
+	if not relevant:
+		result.append(subject);return result
 	var origin:=subject[0]
 	var local_subject:=PackedVector2Array()
 	for p in subject:local_subject.append(p-origin)
