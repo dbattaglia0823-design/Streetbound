@@ -237,7 +237,11 @@ func run() -> void:
 	var original_chunks: Array=game.ground.chunks.values()
 	check("gameplay_chunks_are_hidden_while_editor_renders",original_chunks.all(func(node: Node)->bool:return not node.visible))
 	e._set_layer(false,"scenery");e.close_editor()
-	check("leaving_editor_restores_gameplay_and_landmarks",not paused and game.ground.dealerships.visible and original_chunks.any(func(node: Node)->bool:return is_instance_valid(node) and node.visible))
+	# An old editor-camera chunk may legitimately have been evicted.
+	# Require a real, visible collision-bearing player chunk on return.
+	var player_cell:=Vector2i((game.vehicle.global_position/20.0/float(game.ground.chunk_m)).floor())
+	var player_chunk: Node=game.ground.chunks.get(player_cell)
+	check("leaving_editor_restores_gameplay_and_landmarks",not paused and game.ground.dealerships.visible and is_instance_valid(player_chunk) and player_chunk.visible and player_chunk.stream_active and is_instance_valid(player_chunk.collider_body) and player_chunk.collider_body.collision_layer==1)
 	e.open_editor()
 	check("reopening_editor_preserves_layer_selection",not game.ground.dealerships.visible and not e.overview_renderer.layer_flags.scenery)
 	e.close_editor()

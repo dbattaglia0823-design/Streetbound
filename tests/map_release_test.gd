@@ -13,10 +13,13 @@ func _initialize() -> void:
 	check(not file.is_empty() and Library.backups(file).is_empty(),"first save")
 	check(Library.save(doc,file)==file and Library.backups(file).is_empty(),"unchanged save does not duplicate")
 	var original:=doc.duplicate(true)
+	var original_bytes:=FileAccess.get_file_as_bytes(Library.folder().path_join(file))
 	doc.name="After"
 	check(Library.save(doc,file)==file and Library.backups(file).size()==1,"changed save backs up previous bytes")
 	var backup:=Library.load_backup(file,Library.backups(file)[0])
-	check(backup==original,"exact previous source")
+	check(Compare.equal_value(backup,original),"previous source content")
+	check(FileAccess.get_file_as_bytes(Library.backup_folder(file).path_join(Library.backups(file)[0]))==original_bytes,"exact previous source bytes")
+	check(Compare.compare({"roads":[{"id":"a","width":12}]},{"roads":[{"id":"a","width":12.0}]}).entities.roads.changed.is_empty(),"JSON integral floats do not create false changes")
 	for i in 15:
 		doc.name="Version %d"%i
 		check(Library.save(doc,file)==file,"repeated save")

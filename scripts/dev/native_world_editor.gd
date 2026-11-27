@@ -1915,6 +1915,13 @@ func close_editor() -> void:
 		driving_camera.make_current()
 	# Restore normal stream focus before letting traffic/physics tick.
 	world.stream_at(player.global_position)
+	# Restore actual player collision geometry before physics resumes.
+	var player_cell:=Vector2i((player.global_position/PPM/float(world.chunk_m)).floor())
+	if not world.chunks.has(player_cell):
+		world.pending.erase(player_cell)
+		world._build_chunk(player_cell)
+	for index in world.chunks:
+		world.chunks[index].set_stream_active(world._stream_cell_distance(index,world.current_cell,world.secondary_current_cell)<=1)
 	if _owns_pause:
 		get_tree().paused = false
 	_owns_pause = false

@@ -62,7 +62,7 @@ func _initialize() -> void:
 	if not backups.is_empty():
 		var prior:=Library.load_backup(file,backups[0])
 		var delta:=Compare.compare(prior,session.doc)
-		check(prior==before and delta.entities.props.added.size()>0,"version comparison")
+		check(Compare.equal_value(prior,before) and delta.entities.props.added.size()>0,"version comparison")
 	check(Light.darkness(Day.tint(0))>0.9 and Light.darkness(Day.tint(43200))==0.0,"clock drives light response")
 	var source:=ProjectSettings.globalize_path(Library.folder().path_join(file))
 	var destination:=ProjectSettings.globalize_path(Library.folder().path_join("integrated.zip"))
