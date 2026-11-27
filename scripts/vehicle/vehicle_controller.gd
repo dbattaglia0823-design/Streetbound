@@ -429,7 +429,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			_set_elevation_contact({})
 		var info: Dictionary = surface_provider.surface_at(global_position) if contact.is_empty() else contact
 		surface = info.name
-		surface_grip = float(info.grip) * Weather.grip_multiplier(surface, Weather.rain_at(surface_provider))
+		surface_grip = float(info.grip) * Weather.grip_multiplier(surface, Weather.rain_at(surface_provider,global_position))
 	else:
 		surface = "ASPHALT"
 		surface_grip = 1.0

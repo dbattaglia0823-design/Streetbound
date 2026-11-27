@@ -270,6 +270,9 @@ func try_repair() -> bool:
 		_show_notice("GARAGE / FULL REPAIR FREE")
 		return true
 	if service == "station":
+		var provider: Node=player.surface_provider
+		if is_instance_valid(provider) and provider.has_method("business_open") and not bool(provider.call("business_open","workshop")):
+			_show_notice("WORKSHOP CLOSED / 07:00–19:00");return false
 		if damage.integrity >= ServiceRules.STATION_REPAIR_LIMIT:
 			if _can_tow():
 				return _try_tow()

@@ -2,7 +2,7 @@ extends RefCounted
 const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Canonical map marker schema. Existing saved landmarks with no properties
 ## remain valid; playable marker types acquire typed optional links.
-const TYPES=["player_spawn","garage","dealership","mission","fast_travel",
+const TYPES=["player_spawn","home","garage","dealership","mission","fast_travel",
 	"traffic_spawn","fuel","checkpoint","race_start","finish","contract","contract_dropoff","contract_contact","robbery_target","custom"]
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Contracts=preload("res://scripts/world/driving_contract_rules.gd")

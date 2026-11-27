@@ -37,6 +37,8 @@ var random := RandomNumberGenerator.new()
 var active_junctions: Dictionary = {}
 var _id_serial := 0
 var patrol_spawns_enabled := true
+var time_density_factor:=1.0
+var event_closed_road: int=-1
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
 var signal_display: Node2D
@@ -216,7 +218,7 @@ func _spawn_one() -> bool:
 		var candidates: Array[int] = preferred if on_race_route else ids
 		var id: int = candidates[random.randi_range(0,candidates.size()-1)]
 		var edge: Dictionary = network.edges[id]
-		if bool(edge.connector) or not bool(edge.get("through_route",true)) or float(edge.length_px)<PPM*35.0:
+		if bool(edge.connector) or int(edge.road)==event_closed_road or not bool(edge.get("through_route",true)) or float(edge.length_px)<PPM*35.0:
 			continue
 		var progress := random.randf_range(PPM*7.0,maxf(PPM*8.0,float(edge.length_px)-PPM*8.0))
 		var sample: Dictionary=network.point_on_edge(id,progress)
@@ -304,6 +306,9 @@ func _choose_next(edge: Dictionary) -> int:
 		# network offers no other connection (e.g., a cul-de-sac).
 		var alignment := incoming.dot(next_heading)
 		var score := alignment * 3.0
+		if event_closed_road>=0:
+			if int(candidate.road)==event_closed_road:score-=100.0
+			elif bool(candidate.connector) and candidate.next.any(func(k: int)->bool:return int(network.edges[k].road)==event_closed_road):score-=100.0
 		match str(candidate.get("turn", "straight")):
 			"straight":
 				score += 3.0
@@ -733,6 +738,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var previous_edge := int(agent.edge)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	if int(edge.road)==event_closed_road:desired=minf(desired,PPM*8.0)
 	var zone_speed:=float(_gameplay_zone(node.global_position).get("speed",0))
 	if zone_speed>0:desired=minf(desired,zone_speed/3.6*PPM)
 	desired=network.curve_speed_limit(int(agent.edge),float(agent.progress),desired)
@@ -953,7 +959,7 @@ func _physics_process(dt: float) -> void:
 			agents.remove_at(i)
 	_spawn_clock+=step
 	var limit := maxi(maximum_vehicles, RACE_TRAFFIC_CAP) if street_race_active else maximum_vehicles
-	limit=clampi(roundi(float(limit)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
+	limit=clampi(roundi(float(limit)*(1.0 if street_race_active else time_density_factor)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
 	if _spawn_clock>0.6 and agents.size()<limit:
 		_spawn_clock=0.0
 		_spawn_one()

@@ -1,6 +1,7 @@
 extends Node2D
 @onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
+const LivingWorldScript=preload("res://scripts/world/living_world.gd")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
@@ -55,6 +56,7 @@ var police_pursuit: Node2D
 var driving_contracts: Node2D
 @export var proving_ground := false
 var ground: Node2D
+var living_world: Node
 var custom_test_drive:=false
 var map_test_drive:=false
 var published_game_world:=false
@@ -362,6 +364,12 @@ func _ready() -> void:
 	disabled.append_array(extra_races)
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
+	if not proving_ground and not online_session.active:
+		living_world=LivingWorldScript.new()
+		living_world.host=self;living_world.world=ground;living_world.player=vehicle
+		living_world.traffic=traffic;living_world.garage=player_garage;living_world.markers=authored_map_markers
+		living_world.persist=not map_test_drive
+		add_child(living_world)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
 	pause_menu.main_menu_requested.connect(_return_to_main_menu)
 	if map_test_drive:

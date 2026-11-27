@@ -237,6 +237,9 @@ jobs:
           set -o pipefail
           timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/gameplay_authoring_analysis_test.gd 2>&1 | tee /tmp/gameplay-authoring-analysis.log
           grep -q 'GAMEPLAY AUTHORING ANALYSIS: PASS' /tmp/gameplay-authoring-analysis.log
+          timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/living_world_test.gd 2>&1 | tee /tmp/living-world.log
+          grep -q 'LIVING WORLD: PASS' /tmp/living-world.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/living-world.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/gameplay-authoring-analysis.log
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_reload_test.gd 2>&1 | tee /tmp/native-map-reload-463.log
           grep -q 'NATIVE MAP WORLD RELOAD: PASS' /tmp/native-map-reload-463.log

@@ -30,7 +30,7 @@ static func reflection_opacity(rain: float, pavement: String) -> float:
 func _process(delta: float) -> void:
 	if not is_instance_valid(focus_vehicle):
 		return
-	var wet: float = Weather.rain_at(world)
+	var wet: float = Weather.rain_at(world,focus_vehicle.global_position)
 	if wet <= 0.01:
 		if not drops.is_empty():
 			drops.clear()
@@ -90,7 +90,7 @@ func _draw_reflections(car: Node2D, wet: float) -> void:
 			Color(0.95, 0.97, 1.0, brightness), 3.0, true)
 
 func _draw() -> void:
-	var wet: float = Weather.rain_at(world)
+	var wet: float = Weather.rain_at(world,focus_vehicle.global_position)
 	if wet <= 0.01 or not is_instance_valid(focus_vehicle):
 		return
 	for drop in drops:
