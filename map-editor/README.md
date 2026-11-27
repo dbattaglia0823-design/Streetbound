@@ -234,8 +234,22 @@ the clipboard survives map switches. Gameplay markers/races and replacement
 links are deliberately excluded. The Layers tab's **Road selection filter**
 restricts road picking, marquee and the object list to the chosen signed
 level. It does not hide baked art or physically lock connected junction
-anchors. Profiled curves use an approximate control-point filter. Full
-layer isolation, expanded capacity, and incremental bake remain future work.
+anchors. Profiled curves use an approximate control-point filter. **Hide other road levels** hides nonmatching road artwork and draft roads;
+**Lock other road objects** rejects source edits, including undo/redo, that
+would modify an existing nonmatching road. Ramps remain visible/selectable on
+the levels they touch; this is road-object isolation, not per-pixel section
+clipping. Terrain remains visible. **Angle snap** applies to road drawing and
+rotation buttons, with radial guide lines while drawing. The Arrange menu
+aligns or evenly distributes ordinary scenery centres, excluding path assets
+and roads. **Prefabs** saves named clipboard groups in a local persistent
+library for reuse after restarting. Custom maps support up to 360 authored
+roads and 8,000 authored scenery objects; legacy Morrow limits stay unchanged.
+Road visibility changes redraw affected loaded tiles rather than every tile.
+Custom Test Drive can reuse a fingerprinted local geometry cache on scenery-only
+changes and revalidates all scenery and jump corridors; road, terrain, event
+or compiler changes trigger a full bake. Publishing and Morrow Coast Apply
+retain the authoritative full production rebuild. Capacity and cache-equivalence
+regression tests are included; hardware performance remains to be measured.
 
 ## Publish a custom map as the real game world
 

@@ -29,7 +29,8 @@ func _ready() -> void:
 	var args: PackedStringArray=PackedStringArray([
 		ProjectSettings.globalize_path(Builder),"--source",
 		ProjectSettings.globalize_path(input_path),"--output",
-		ProjectSettings.globalize_path(output_path)])
+		ProjectSettings.globalize_path(output_path),"--cache",
+		ProjectSettings.globalize_path(output_path+".cache.json")])
 	if OS.get_name()=="Windows":args.insert(0,"-3")
 	# Never start on an archive from a prior saved revision if Python fails.
 	if FileAccess.file_exists(output_path):

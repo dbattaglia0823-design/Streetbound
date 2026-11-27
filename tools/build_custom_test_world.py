@@ -6,6 +6,7 @@ turn restrictions, road marks and lane routing use the SAME junction baker as
 the normal game. No in-game approximation of intersections.
 """
 import argparse
+import hashlib
 from collections import defaultdict
 import json
 import math
@@ -294,18 +295,84 @@ def make_archive(doc):
     return result
 
 
-def build_file(source_path, output_path):
+def scenery_rebuild(archive, doc):
+    """Reuse previously validated road, terrain, junction and wall geometry.
+
+    Only call when the entire non-scenery source and compiler fingerprint
+    match. Revalidate all scenery and jump corridors; regenerate positional
+    prop indices because changing array order would otherwise break streaming.
+    """
+    width,height=archive["size"]
+    props=[p for p in _authoring_props(doc,width,height) if not p.get("hidden")]
+    archive["props"]=props
+    chunks=archive["chunks"]
+    for key in list(chunks):
+        chunks[key]["props"]=[]
+        if not any(chunks[key].values()):
+            del chunks[key]
+    for index,prop in enumerate(props):
+        p=prop["p"]
+        radius=math.hypot(*prop["size"])*.5+2 if prop["kind"] in ("sidewalk","guardrail") else 0
+        for key in cells((p[0]-radius,p[1]-radius,p[0]+radius,p[1]+radius),CHUNK):
+            chunks.setdefault(key,dict(segments=[],props=[],walls=[],junctions=[],terrain=[],
+                                       relief=[],rails=[],mountains=[],bridges=[]))["props"].append(index)
+    archive["stats"]["props"]=len(props)
+    archive.pop("jumps",None)
+    bake_jumps(archive)
+    return archive
+
+
+def geometry_cache_key(doc):
+    digest=hashlib.sha256()
+    geometry={key:value for key,value in doc.items() if key!="props"}
+    digest.update(json.dumps(geometry,sort_keys=True,separators=(",",":"),allow_nan=False).encode())
+    # Any compiler source change invalidates this optional local cache.
+    for path in sorted(Path(__file__).resolve().parent.glob("*.py")):
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _atomic_json(destination, value):
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    temporary=destination.with_suffix(destination.suffix+".tmp")
+    temporary.write_text(json.dumps(value,separators=(",",":"),allow_nan=False),encoding="utf-8")
+    temporary.replace(destination)
+
+
+def build_file(source_path, output_path, cache_path=None):
     source=Path(source_path)
     destination=Path(output_path)
     if not source.is_file() or source.stat().st_size>MAX_SOURCE_BYTES:
         raise ValueError("Missing or oversized saved custom map")
     doc=json.loads(source.read_text(encoding="utf-8"))
     doc["_source_filename"]=source.name
-    result=make_archive(doc)
-    destination.parent.mkdir(parents=True,exist_ok=True)
-    temporary=destination.with_suffix(destination.suffix+".tmp")
-    temporary.write_text(json.dumps(result,separators=(",",":"),allow_nan=False),encoding="utf-8")
-    temporary.replace(destination)
+    result=None
+    cache=Path(cache_path) if cache_path else None
+    key=geometry_cache_key(doc) if cache else None
+    if cache and cache.is_file() and cache.stat().st_size<128_000_000:
+        try:
+            prior=json.loads(cache.read_text(encoding="utf-8"))
+            if prior["key"]==key:
+                archive=prior["archive"]
+                encoded=json.dumps(archive,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
+                if hashlib.sha256(encoded).hexdigest()==prior["checksum"] and archive.get("format")=="streetbound.streamed-world":
+                    result=scenery_rebuild(archive,doc)
+                    print("Reused validated geometry; updated scenery and streaming membership.")
+        except (OSError,ValueError,TypeError,KeyError,IndexError,AttributeError):
+            # A damaged cache or changed scenery cannot bypass a full bake.
+            result=None
+    if result is None:
+        result=make_archive(doc)
+    _atomic_json(destination,result)
+    if cache:
+        try:
+            encoded=json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
+            if len(encoded)<120_000_000:
+                _atomic_json(cache,{"key":key,"checksum":hashlib.sha256(encoded).hexdigest(),"archive":result})
+        except (OSError,ValueError,TypeError):
+            # An unavailable cache must not invalidate a successful bake.
+            pass
     return result
 
 
@@ -313,9 +380,10 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source",required=True)
     parser.add_argument("--output",required=True)
+    parser.add_argument("--cache",help="Optional local Test Drive geometry cache; omit for authoritative publish builds")
     args=parser.parse_args()
     try:
-        result=build_file(args.source,args.output)
+        result=build_file(args.source,args.output,args.cache)
         print(json.dumps(result["stats"]))
     except (OSError,ValueError,TypeError,KeyError,IndexError,AssertionError) as error:
         print("TEST DRIVE BAKE FAILED:",error,file=sys.stderr)

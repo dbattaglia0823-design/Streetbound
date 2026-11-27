@@ -1122,6 +1122,7 @@ func _rotate_selected(degrees: float) -> void:
 
 func _set_angle_spacing(value: float) -> void:
 	angle_snap_degrees=value
+	if is_instance_valid(gizmos):gizmos.angle_guide_degrees=value;gizmos.queue_redraw()
 
 func _angle_snap_point(origin: Vector2,target: Vector2) -> Vector2:
 	if angle_snap_degrees<=0.0 or Input.is_physical_key_pressed(KEY_ALT):return target

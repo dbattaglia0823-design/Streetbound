@@ -227,7 +227,7 @@ static func build(e) -> void:
 		check.focus_mode=Control.FOCUS_ALL;check.toggled.connect(e._set_layer.bind(item[1]));layers.add_child(check)
 	heading(layer_column,"ROAD SELECTION FILTER")
 	var road_picker:=OptionButton.new()
-	for title in ["All objects","Roads -2 (-12 m)","Roads -1 (-6 m)","Roads 0 (ground)","Roads +1 (6 m)","Roads +2 (12 m)"]:road_picker.add_item(title)
+	for layer_caption in ["All objects","Roads -2 (-12 m)","Roads -1 (-6 m)","Roads 0 (ground)","Roads +1 (6 m)","Roads +2 (12 m)"]:road_picker.add_item(layer_caption)
 	road_picker.tooltip_text="Restrict selection and marquee to roads on a chosen level; other art stays visible."
 	layer_column.add_child(road_picker);road_picker.item_selected.connect(e._set_road_selection_layer)
 	var isolate:=CheckBox.new();isolate.text="Hide other road levels";layer_column.add_child(isolate);isolate.toggled.connect(e._set_road_isolation)
@@ -237,7 +237,7 @@ static func build(e) -> void:
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
 	heading(inspector,"INSPECTOR")
 	var align_tools:=OptionButton.new()
-	for title in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(title)
+	for arrange_caption in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(arrange_caption)
 	inspector.add_child(align_tools)
 	align_tools.item_selected.connect(func(index: int)->void:
 		if index>0:e._arrange_selection("align" if index<=2 else "distribute",0 if index in [1,3] else 1)

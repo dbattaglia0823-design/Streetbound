@@ -51,6 +51,7 @@ var drag_redraw_count:=0
 var static_redraw_count:=0
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
+var angle_guide_degrees:=0.0
 var pending_tool := ""
 var source_anchor_mode := false
 var zoom_level := 1.0
@@ -748,6 +749,12 @@ func _draw() -> void:
 			draw_rect(marquee_rect,Color(0.45,0.87,0.69,0.14),true)
 			draw_rect(marquee_rect,Color("#8effbf"),false,2.0/maxf(.003,zoom_level),true)
 	if not pending_shape.is_empty():
+		if pending_tool=="draw_road" and angle_guide_degrees>0.0:
+			var anchor: Vector2=pending_shape[-1]*PPM
+			var length_px:=140.0/maxf(.003,zoom_level)
+			var step:=deg_to_rad(angle_guide_degrees)
+			for i in mini(72,ceili(TAU/step)):
+				draw_line(anchor,anchor+Vector2.RIGHT.rotated(i*step)*length_px,Color(.53,.82,.93,.28),1.0/maxf(.003,zoom_level),true)
 		var path := PackedVector2Array()
 		for item in pending_shape:
 			path.append(item*PPM)

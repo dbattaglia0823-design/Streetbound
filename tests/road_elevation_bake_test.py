@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT / "tools"))
-from build_custom_test_world import make_archive
+from build_custom_test_world import make_archive, scenery_rebuild, geometry_cache_key
 
 
 def fixture():
@@ -139,6 +139,20 @@ class ElevationBakeTests(unittest.TestCase):
             self.assertEqual(a["end"],b["start"])
         for r in sections:
             if r.get("grade_smooth") is not None:self.assertAlmostEqual(r["grade_smooth"],1.0)
+
+    def test_incremental_scenery_bake_matches_clean_build(self):
+        doc=fixture()
+        initial=make_archive(doc)
+        changed=copy.deepcopy(doc)
+        changed["props"].append(dict(id="prop-incremental-tree",name="Tree",type="oak",
+                                     x=120,y=120,scale=1,rotation=0,assetId="game-tree"))
+        self.assertEqual(geometry_cache_key(doc),geometry_cache_key(changed))
+        self.assertEqual(scenery_rebuild(copy.deepcopy(initial),changed),make_archive(changed))
+        moved=copy.deepcopy(changed)
+        moved["props"][-1]["x"]=850
+        self.assertEqual(scenery_rebuild(make_archive(changed),moved),make_archive(moved))
+        moved["roads"][0]["points"][0]["x"]+=5
+        self.assertNotEqual(geometry_cache_key(moved),geometry_cache_key(changed))
 
     def test_expanded_custom_map_capacity(self):
         source=fixture()
