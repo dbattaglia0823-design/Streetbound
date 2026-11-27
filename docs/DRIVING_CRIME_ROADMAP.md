@@ -195,7 +195,7 @@ during a wanted pursuit is a bust, not a teleport escape.
   One in seven successful traffic spawns is eligible, capped at two patrols
   within the existing traffic budget. They use directional lanes, normal
   road speeds, junction priority, collision recovery and off-screen recycling.
-  Suburban and armored truck remain pursuit-only. Patrols do not initiate heat, but eligible nearby or sighted patrols join active pursuits if a slot is free. Pursuit units use flashing roof overlays and positional sirens. PIT roles unlock at wanted 3 and use bounded contact-based yaw response. No speeding detection, reckless driving detection or spike strips.
+  Suburban and armored truck remain pursuit-only. Patrols do not initiate heat, but eligible nearby or sighted patrols join active pursuits if a slot is free. Pursuit units use flashing roof overlays and positional sirens. PIT roles unlock at wanted 3 and use bounded contact-based yaw response. No speeding detection, reckless driving detection or spike strips. Pursuits originate from illegal race/crime events, not manual controls; online heat is host-triggered only for explicitly underground authored races.
 - **Off-screen, non-ambush spawns:** dispatch selects open asphalt lanes
   **125–245 metres** from the player, behind or well to the side of their
   actual movement direction. It rejects occupied locations, camera-visible

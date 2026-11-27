@@ -77,15 +77,7 @@ func _ready() -> void:
 	readout.add_theme_font_size_override("font_size", 13)
 	panel.add_child(readout)
 	readout.text = "POLICE / CLEAR"
-	# F7 remains a debug-only smoke-test shortcut; ordinary play uses
-	# illegal racing and authored crime jobs.
-
-func _unhandled_input(event: InputEvent) -> void:
-	if shared_session or not OS.has_feature("debug") or not event is InputEventKey:
-		return
-	if event.pressed and not event.echo and event.keycode == KEY_F7 and wanted_level == 0:
-		start_pursuit(1)
-		get_viewport().set_input_as_handled()
+	# Heat originates from race and crime controllers; no player debug shortcut.
 
 func set_shared_target(target: VehicleController2D) -> bool:
 	if not shared_session or wanted_level > 0 or not is_instance_valid(target):

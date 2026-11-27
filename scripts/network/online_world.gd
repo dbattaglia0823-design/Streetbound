@@ -55,8 +55,6 @@ var police_target_original_layer := 0
 var police_replicas: Dictionary = {}
 var police_histories: Dictionary = {}
 var police_status: Label
-var police_start_button: Button
-var police_tier_select: OptionButton
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -100,21 +98,11 @@ func _ready() -> void:
 					lock_lobby_button = action
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
-	var police_toolbar := HBoxContainer.new()
-	police_toolbar.position = Vector2(20, 106)
 	police_status = Label.new()
+	police_status.position = Vector2(20, 106)
 	police_status.text = "POLICE / CLEAR"
 	police_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	police_toolbar.add_child(police_status)
-	police_tier_select = OptionButton.new()
-	for tier in range(1,6):
-		police_tier_select.add_item("HEAT %d" % tier, tier)
-	police_toolbar.add_child(police_tier_select)
-	police_start_button = Button.new()
-	police_start_button.text = "START CHASE"
-	police_start_button.pressed.connect(_request_police_challenge)
-	police_toolbar.add_child(police_start_button)
-	overlay.add_child(police_toolbar)
+	overlay.add_child(police_status)
 	add_child(overlay)
 	var traffic: Node2D = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
 	if is_instance_valid(traffic):
@@ -374,7 +362,6 @@ func _process(dt: float) -> void:
 		if is_instance_valid(police_status) and is_instance_valid(shared_police):
 			var heat := int(shared_police.get("wanted_level"))
 			police_status.text = "POLICE / WANTED %d" % heat
-			police_start_button.disabled = heat > 0 or not _police_challenge_available()
 	else:
 		_render_police_replicas(now_ms)
 	for id in peer_cars:
@@ -538,16 +525,7 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		local_vehicle.reset_physics_interpolation()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not online_session.active or get_tree().paused:
-		return
-	if OS.has_feature("debug") and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F7:
-		if online_session.hosting:
-			start_shared_pursuit(1, 1)
-		else:
-			_request_police_chase.rpc_id(1, 1)
-		get_viewport().set_input_as_handled()
-		return
-	if online_session.hosting:
+	if not online_session.active or online_session.hosting or get_tree().paused:
 		return
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return
@@ -577,25 +555,30 @@ func _submit_action(action: String) -> void:
 		"shift_down":
 			car.transmission.shift(-1, car.config)
 
-func _police_challenge_available() -> bool:
-	return not is_instance_valid(friend_race) or str(friend_race.get("state")) in ["idle","results"]
-
-func _request_police_challenge() -> void:
-	if not online_session.active or not _police_challenge_available():
-		return
-	var tier := police_tier_select.get_selected_id()
-	if online_session.hosting:
-		start_shared_pursuit(1, tier)
-	else:
-		_request_police_chase.rpc_id(1, tier)
-
-# One shared host-authoritative pursuit; target may be any admitted driver.
-# Public host-side seam for future synchronized crime/event triggers.
-func start_shared_pursuit(peer_id: int, level: int) -> bool:
-	if not online_session.hosting or not is_instance_valid(shared_police) or int(shared_police.get("wanted_level")) > 0:
+## Called only by the host's validated race director on GREEN. There is no
+## guest police RPC, manual wanted selector, or free-roam violation trigger.
+func on_illegal_race_started() -> bool:
+	if not online_session.hosting or not is_instance_valid(shared_police) or not is_instance_valid(friend_race):
 		return false
-	if not online_session.players.has(peer_id) or not _police_challenge_available():
+	if int(shared_police.get("wanted_level")) > 0 or str(friend_race.get("state")) != "running":
 		return false
+	var events: Dictionary = friend_race.get("race_events")
+	var event: Dictionary = events.get(str(friend_race.get("event_id")), {})
+	var level := int(event.get("race_heat", 0))
+	if level < 1 or level > 5:
+		return false
+	var entries: Dictionary = friend_race.get("entries")
+	var suspects: Array[int] = []
+	for id in entries:
+		if str(entries[id].get("status", "")) != "racing" or not online_session.players.has(id):
+			continue
+		if id != 1 and (not online_session.world_ready_peers.has(id) or online_session.disconnected_since.has(id) or not peer_cars.has(id)):
+			continue
+		suspects.append(int(id))
+	if suspects.is_empty():
+		return false
+	suspects.shuffle()
+	var peer_id: int = suspects[0]
 	var target: VehicleController2D = local_vehicle if peer_id == 1 else peer_cars.get(peer_id) as VehicleController2D
 	if not is_instance_valid(target) or not shared_police.call("set_shared_target", target):
 		return false
@@ -616,14 +599,6 @@ func _release_police_target() -> void:
 		if is_instance_valid(target):
 			target.collision_layer = police_target_original_layer
 	police_target_peer = 0
-
-@rpc("any_peer", "reliable")
-func _request_police_chase(level: int) -> void:
-	if not online_session.hosting or level < 1 or level > 5:
-		return
-	var sender := multiplayer.get_remote_sender_id()
-	if online_session.world_ready_peers.has(sender) and peer_cars.has(sender):
-		start_shared_pursuit(sender, level)
 
 func _police_snapshot() -> Dictionary:
 	var vehicles: Dictionary = {}
@@ -662,7 +637,6 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var target := int(payload.get("target",0))
 	if is_instance_valid(police_status):
 		police_status.text = "POLICE / WANTED %d%s" % [level," / YOU" if level > 0 and target == online_session.own_id() else ""]
-		police_start_button.disabled = level > 0 or not _police_challenge_available()
 	var retained: Dictionary = {}
 	for id in raw:
 		var row: Variant = raw[id]

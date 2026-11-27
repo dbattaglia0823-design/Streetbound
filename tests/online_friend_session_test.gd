@@ -76,6 +76,8 @@ func _run() -> void:
 				not game.vehicle.external_input)
 			check("host_owns_shared_police_controller", is_instance_valid(network.shared_police) and network.shared_police.get("shared_session"))
 			check("host_police_snapshot_has_bounded_fleet", network.call("_police_snapshot").get("vehicles", {}).size() <= 12)
+			check("no_manual_police_challenge_or_rpc", not network.has_method("_request_police_chase") and not network.has_method("_request_police_challenge") and not network.has_method("start_shared_pursuit"))
+			check("free_roam_cannot_start_illegal_race_heat", not bool(network.call("on_illegal_race_started")) and int(network.shared_police.get("wanted_level")) == 0)
 			check("host_has_private_lobby_controls",
 				network.invitation_toolbar != null and
 				network.lock_lobby_button != null)
