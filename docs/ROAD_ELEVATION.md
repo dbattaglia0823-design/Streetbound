@@ -171,3 +171,9 @@ preview and junction-mode toggle. The fixture includes an overpass, a same-heigh
 tunnel, a ground-level intersection, and overlapping endpoints with no road
 connection. The drive test uses the real controller and verifies collision
 isolation, same-deck impacts, lateral containment, and ground reset.
+
+## Whole-road tunnel conversion
+
+In either Map Builder, select a regular ground-level asphalt or concrete road and choose **Convert entire road to tunnel** under Road elevation. Both original endpoints stay at layer 0. The editor inserts approach points where needed, descends to -1 (6 m below the surface), and rises at the other end. The original road ID, lanes, width and original control points stay intact. The usual grade compiler generates the runtime sections and existing portal/cutout/interior artwork. Undo reverts the entire conversion. Applying start/end layer 0 restores a flat road but retains added control points.
+
+Approaches require a control-point span of at least 50 m at each end; a straight two-point road must be at least 110 m long. Closed loops, legacy jumps, auto guardrails, existing elevations and directional onramps need to be adjusted first. The production bake remains responsible for crossing clearance, water, and grade validation. The driving camera smoothly increases magnification as actual vehicle pavement height approaches -6 m, and restores normal speed/user zoom on exit. This feature requires live Godot visual and driving verification.
