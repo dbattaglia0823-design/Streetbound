@@ -24,6 +24,7 @@ var consent_id := 0
 var police_started := false
 var escaped := false
 var clock := 0.0
+var _last_routed_stage := ""
 var panel: PanelContainer
 var status: Label
 var tier_picker: OptionButton
@@ -154,6 +155,9 @@ func _host_action() -> void:
 	consent_id = job_id
 	participants = {1:{"car_id":economy.active_id}}
 	state = "lobby"
+	seconds_left = 90.0
+	progress = 0.0
+	_last_routed_stage = ""
 	message = "Friends must park nearby and explicitly join."
 	_publish()
 
@@ -259,6 +263,7 @@ func _peer_lost(id: int) -> void:
 func _session_closed(_reason: String) -> void:
 	if is_instance_valid(network.get("local_vehicle")):
 		network.local_vehicle.clear_mission_payload()
+	_clear_callbacks()
 	state = "idle"
 	consent_id = 0
 	if is_instance_valid(panel):
@@ -276,7 +281,12 @@ func _request_leave(requested: int) -> void:
 		_finish(false,"PARTICIPANT LEFT")
 
 func _physics_process(dt: float) -> void:
-	if not is_instance_valid(panel) or not session.active or not session.hosting or state not in ["pickup","delivery"]:
+	if not is_instance_valid(panel) or not session.active or not session.hosting or not busy():
+		return
+	if state=="lobby":
+		seconds_left -= dt
+		if seconds_left<=0.0:
+			_finish(false,"LOBBY EXPIRED")
 		return
 	for id in participants:
 		if not _connected(int(id)) or str(participants[id].car_id)!=_car_id(int(id)) or _car(int(id)).damage_drive_fraction<=0.0:
@@ -315,11 +325,7 @@ func _finish(success: bool, reason: String) -> void:
 	_clear_callbacks()
 	if is_instance_valid(_car(1)):
 		_car(1).clear_mission_payload()
-	# Do not cancel unrelated pursuits or interrupt the bust recovery.
-	if not success and police_started and int(network.get("police_target_peer"))==1:
-		var police: Node = network.get("shared_police")
-		if is_instance_valid(police) and float(police.get("bust_timer"))<=0.0:
-			police.call("_escape")
+	# Cancelling never clears wanted heat. Existing police recovery continues.
 	police_started = false
 	_publish()
 
@@ -344,7 +350,8 @@ func _apply(payload: Dictionary) -> void:
 	var roster: Variant = payload.get("participants",{})
 	if next_id<job_id or next_id<1 or next_state not in ["lobby","pickup","delivery","results","aborted"] or next_tier not in offers or next_risk not in Rules.ROBBERY_RISKS or not roster is Dictionary or roster.size()>4:
 		return
-	var changed_stage := next_id!=job_id or next_state!=state
+	if next_id!=job_id:
+		_last_routed_stage = ""
 	job_id = next_id
 	state = next_state
 	tier = next_tier
@@ -354,8 +361,11 @@ func _apply(payload: Dictionary) -> void:
 	progress = float(payload.get("progress",0))
 	message = str(payload.get("message","")).left(200)
 	var me := int(session.own_id())
-	if consent_id==job_id and participants.has(me):
-		if state in ["pickup","delivery"] and (changed_stage or session.hosting):
+	if state=="aborted":
+		consent_id = 0
+	elif consent_id==job_id and participants.has(me):
+		if state in ["pickup","delivery"] and _last_routed_stage!=state:
+			_last_routed_stage = state
 			_route_local()
 		if state=="results" and participants.size()>=2 and participants[me] is Dictionary:
 			var receipt := economy.record_coop_robbery(str(session.reward_session_id),job_id,tier,risk,participants.size(),str(participants[me].get("car_id","")))
@@ -365,8 +375,6 @@ func _apply(payload: Dictionary) -> void:
 			elif str(receipt.result)!="save_failed":
 				message += " / "+str(receipt.result).to_upper()
 				consent_id = 0
-	elif state=="aborted":
-		consent_id = 0
 	_refresh()
 
 func _route_local() -> void:
@@ -384,7 +392,7 @@ func _process(dt: float) -> void:
 	if clock<0.5:
 		return
 	clock = 0.0
-	if session.hosting and state in ["pickup","delivery"]:
+	if session.hosting and busy():
 		_publish()
 	_refresh()
 
