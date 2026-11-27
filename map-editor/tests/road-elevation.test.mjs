@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {normalizeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
-import {joinRoadEndpoints,splitRoadAt} from '../world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,applyPointElevations,pointElevationLayers} from '../world-road-topology.js';
 
 const fixture=()=>normalizeWorld(JSON.parse(readFileSync(
   new URL('../../tests/fixtures/road-elevation.world.json',import.meta.url),'utf8')));
@@ -42,4 +42,26 @@ test('on-ramp preview stays separate from stacked roads and preserves hot-swap m
   const changed=updateEntity(authored,ramp.id,{junctionEnd:'intersection'});
   assert.equal(changed.roads[2].junctionEnd,'intersection');
   assert.equal(buildRoadJunctions(changed.roads).some(j=>j.kind==='merge'),false);
+});
+
+test('point heights create continuous grade sections without mutating the source',()=>{
+  const doc=fixture();
+  const points=[{x:100,y:700},{x:200,y:700},{x:300,y:700},{x:400,y:700},{x:500,y:700},{x:600,y:700}];
+  const source=normalizeWorld({...doc,roads:[{...doc.roads[0],points}]});
+  const before=JSON.stringify(source);
+  assert.deepEqual(pointElevationLayers(source.roads[0]),[0,0,0,0,0,0]);
+  const result=applyPointElevations(source,'road-0',[0,1,1,0,-1,-1]);
+  assert.equal(JSON.stringify(source),before);
+  assert.equal(result.roads.length,5);
+  assert.deepEqual(result.roads.map(r=>r.id),['road-0','road-1','road-2','road-3','road-4']);
+  assert.deepEqual(result.roads.map(r=>r.elevation),[
+    {start_layer:0,end_layer:1},{start_layer:1,end_layer:1},{start_layer:1,end_layer:0},
+    {start_layer:0,end_layer:-1},{start_layer:-1,end_layer:-1}
+  ]);
+  for(let i=1;i<result.roads.length;i++)assert.deepEqual(result.roads[i-1].points.at(-1),result.roads[i].points[0]);
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).roads,result.roads);
+  assert.throws(()=>applyPointElevations(source,'road-0',[0,2,1,0,-1,-1]),/adjacent/);
+  assert.throws(()=>applyPointElevations(source,'road-0',[0,1]),/every road point/);
+  const short=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:120,y:700}]});
+  assert.throws(()=>applyPointElevations(short,'road-0',[0,1]),/50 m/);
 });

@@ -45,6 +45,21 @@ func _run() -> void:
 		check(session.undo() and session.road_at_id("road-0")==original and session.redo(),
 			"Native road elevations support undo and redo")
 
+	var point_session := EditSession.new()
+	check(point_session.load_source("res://tests/fixtures/road-elevation.world.json"),"Point elevation fixture loads")
+	if not point_session.doc.is_empty():
+		var road: Dictionary = point_session.doc.roads[0]
+		road.points = [{"x":100,"y":700},{"x":200,"y":700},{"x":300,"y":700},{"x":400,"y":700}]
+		var before: Dictionary = point_session.doc.duplicate(true)
+		var count: int = point_session.doc.roads.size()
+		check(not point_session.apply_point_elevations("road-0",[0,2,1,0]) and point_session.doc==before,
+			"Invalid point height leaves native draft unchanged")
+		check(point_session.apply_point_elevations("road-0",[0,1,1,0]),"Apply native control point heights")
+		check(point_session.doc.roads.size()==count+2 and point_session.doc.roads[0].elevation=={"start_layer":0,"end_layer":1},
+			"Native point heights create three grade sections")
+		check(point_session.undo() and point_session.doc==before and point_session.redo(),
+			"Point profile is one undoable native edit")
+
 	var world := FixtureWorld.new()
 	world.fixture = fixture
 	world.editor_render_only = true

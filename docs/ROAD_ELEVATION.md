@@ -25,6 +25,23 @@ The existing World Forge format stores only the optional road
 The custom-map and Morrow compilers use the same junction bake. Legacy
 `grade` still identifies water bridges. Older maps have ground-level roads.
 
+## Individual road-point elevations
+
+In either Map Builder, select a road, expand **Individual point elevations**,
+choose a signed layer for every numbered control point, and select **Apply
+point elevations**. For example, 0, +1, +1, 0 creates an ascent, a deck and a
+descent. The operation retains the original first road ID and creates connected
+grade sections with matching endpoints in one undoable edit. Flat runs retain
+their control points. Each changing-grade span must be at least 50 m long and
+join adjacent layers. Existing start/end elevation controls continue to work.
+
+The resulting sections are separate editable roads, not a persistent single-road
+height array. Curved sections may need minor reshaping at split boundaries.
+Closed loops with varying heights, stunt jumps and directional junction
+roads requiring a split are rejected until adjusted. The existing 180-road
+limit applies. Both editors use the existing elevation schema, so the bake,
+traffic routing, collision bands and excavation pipeline require no new format.
+
 ## Driving and boundaries
 
 The controller gets a continuous height and slope from the indexed road

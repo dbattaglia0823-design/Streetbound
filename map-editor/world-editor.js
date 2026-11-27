@@ -828,6 +828,9 @@ function refreshInspector(){
     $('road-elevation-summary').textContent=
       (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
     const pointFields=$('road-point-elevation-fields');
+    const pointKey=JSON.stringify([item.id,item.points,item.elevation]);
+    if(pointFields.dataset.profileKey!==pointKey){
+    pointFields.dataset.profileKey=pointKey;
     pointFields.replaceChildren();
     pointElevationLayers(item).forEach((layer,index)=>{
       const field=document.createElement('div');field.className='field';
@@ -840,6 +843,7 @@ function refreshInspector(){
       }
       input.value=String(layer);field.append(label,input);pointFields.append(field);
     });
+    }
     $('road-jump-enabled').checked=Boolean(item.jump);
     $('road-jump-reverse').checked=item.jump?.reverse??false;
     for(const [key,[,,fallback]] of Object.entries(JUMP_FIELDS))
