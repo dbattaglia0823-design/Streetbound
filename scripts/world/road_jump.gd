@@ -77,8 +77,32 @@ static func in_strip(spec: Dictionary, position_px: Vector2, landing: bool) -> b
 	return at.x >= first and at.x <= float(spec.landing_end_m) and absf(at.y)<=float(spec.landing_width_m)*.5
 
 
+## Derive object-ramp geometry from the same final prop dimensions and
+## rotation used by the scenery renderer, including independent axis scales.
+static func object_spec(prop: Dictionary) -> Dictionary:
+	var size:=Vector2(float(prop.size[0]),float(prop.size[1]))
+	var center:=Vector2(float(prop.p[0]),float(prop.p[1]))
+	var direction:=Vector2.UP.rotated(float(prop.angle))
+	var lip:=center+direction*size.y*.5
+	return {"object_ramp":true,"prop_id":str(prop.get("authoring_id","")),"road_id":-1,
+		"p":[lip.x,lip.y],"direction":[direction.x,direction.y],
+		"width_m":size.x,"length_m":size.y,"height_m":size.y*.15,
+		"angle_deg":rad_to_deg(atan(.15))}
+
+
+static func footprint_reach(car: Node2D, axis: Vector2) -> float:
+	# The capsule's projected extent in metres. A car overlapping the edge
+	# of a ramp can launch even if its center is just outside the orange lip.
+	var body:=car.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if not is_instance_valid(body) or not body.shape is CapsuleShape2D:return 0.0
+	var capsule:=body.shape as CapsuleShape2D
+	var normal:=axis.normalized()
+	var longitudinal:=Vector2.UP.rotated(body.global_rotation)
+	return (capsule.radius+maxf(0.0,capsule.height*.5-capsule.radius)*absf(longitudinal.dot(normal)))/PPM
+
+
 static func accepts_launch(spec: Dictionary, previous: Vector2, present: Vector2,
-		momentum: Vector2, facing: Vector2) -> bool:
+		momentum: Vector2, facing: Vector2, lateral_reach_m: float=0.0) -> bool:
 	var direction := Vector2(spec.direction[0],spec.direction[1])
 	var start := offsets(spec,previous)
 	var finish := offsets(spec,present)
@@ -88,7 +112,7 @@ static func accepts_launch(spec: Dictionary, previous: Vector2, present: Vector2
 		# facing, speed window or forecast landing strip: momentum is decisive.
 		if start.x>=0.0 or finish.x<0.0 or speed<=0.01:return false
 		var fraction: float=-start.x/(finish.x-start.x)
-		return absf(lerpf(start.y,finish.y,fraction))<=float(spec.width_m)*.5
+		return absf(lerpf(start.y,finish.y,fraction))<=float(spec.width_m)*.5+maxf(0.0,lateral_reach_m)+.001
 	if start.x >= 0.0 or finish.x < 0.0 or speed < float(spec.min_mps) or speed > float(spec.max_mps) \
 			or absf(momentum.dot(direction.orthogonal())) > LATERAL_SPEED or facing.dot(direction)<.98:
 		return false

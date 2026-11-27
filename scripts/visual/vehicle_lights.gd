@@ -46,6 +46,8 @@ func _ready() -> void:
 	if not is_instance_valid(vehicle):
 		vehicle=get_parent() as Node2D
 	z_index=3
+	# Run after Art's frame animation, including its airborne lift and scale.
+	process_priority=10
 	_refresh()
 
 func _process(_delta: float) -> void:
@@ -54,6 +56,10 @@ func _process(_delta: float) -> void:
 func _refresh() -> void:
 	if not is_instance_valid(vehicle):
 		return
+	# Lamp anchors and glow radii are authored in the body's rest coordinates.
+	# Copy its complete local transform, not just the scale, to keep them fitted.
+	var art:=vehicle.get_node_or_null("Art") as Node2D
+	if is_instance_valid(art):transform=art.transform
 	var next_brake := false
 	var next_reverse := false
 	if vehicle is VehicleController2D:

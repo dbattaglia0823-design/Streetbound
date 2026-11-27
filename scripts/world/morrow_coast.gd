@@ -53,6 +53,7 @@ var has_road_elevation := false
 var road_lengths_m := PackedFloat64Array()
 var _elevation_connections: Dictionary = {}
 var viewed_road_layer := 0
+var underground_backdrop: Polygon2D
 var overhead_road_layer := 0
 var tunnel_portals: Dictionary = {}
 var jumps_by_road: Dictionary = {}
@@ -151,17 +152,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 			player_garage_prop = prop
 			break
 	chunk_m = float(data.chunk_size)
-	for spec in data.get("jumps",[]):
-		if not bool(spec.get("object_ramp",false)):jumps_by_road[int(spec.road_id)] = spec
-		var lip := Vector2(spec.p[0],spec.p[1])
-		var pad:=maxf(4.0,float(spec.width_m)*.5+1.0)
-		var low := Vector2i(((lip-Vector2.ONE*pad)/64.0).floor())
-		var high := Vector2i(((lip+Vector2.ONE*pad)/64.0).floor())
-		for x in range(low.x,high.x+1):
-			for y in range(low.y,high.y+1):
-				var key := Vector2i(x,y)
-				if not _jump_cells.has(key):_jump_cells[key] = []
-				_jump_cells[key].append(spec)
+	_rebuild_jump_index()
 	# Derive a continuous promenade from the original smoothed coastline.
 	# Beach polygons extend 65m inland; the deck sits 35m inland, never
 	# over open water. No rebake of the multi-megabyte world data required.
@@ -645,6 +636,28 @@ func _predict_chunk() -> Vector2i:
 	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
 	return predicted
 
+## A world-space black plane above surface artwork, below the underground
+## road batches and vehicles. No terrain/prop masks or per-frame texture work.
+func _update_underground_backdrop() -> void:
+	var enclosed: bool = not editor_render_only and is_instance_valid(vehicle) and viewed_road_layer < 0
+	if not enclosed:
+		if is_instance_valid(underground_backdrop):underground_backdrop.hide()
+		return
+	if not is_instance_valid(underground_backdrop):
+		underground_backdrop=Polygon2D.new()
+		underground_backdrop.name="UndergroundBlackout"
+		underground_backdrop.z_as_relative=false
+		underground_backdrop.z_index=41
+		underground_backdrop.color=Color.BLACK
+		underground_backdrop.polygon=PackedVector2Array([Vector2(-100000,-100000),Vector2(100000,-100000),Vector2(100000,100000),Vector2(-100000,100000)])
+		var unlit:=CanvasItemMaterial.new()
+		unlit.light_mode=CanvasItemMaterial.LIGHT_MODE_UNSHADED
+		underground_backdrop.material=unlit
+		add_child(underground_backdrop)
+	underground_backdrop.global_position=vehicle.global_position
+	underground_backdrop.show()
+
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
@@ -667,6 +680,7 @@ func _process(dt: float) -> void:
 			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
 			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
 			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	_update_underground_backdrop()
 	_finish_clock+=dt
 	if _finish_clock>=.25:
 		_finish_clock=0.0
@@ -792,18 +806,50 @@ func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Di
 	return {}
 
 
+func _rebuild_jump_index() -> void:
+	jumps_by_road.clear()
+	_jump_cells.clear()
+	for spec in data.get("jumps",[]):
+		if bool(spec.get("object_ramp",false)):continue
+		jumps_by_road[int(spec.road_id)]=spec
+		_index_jump(spec)
+	# Use the current rendered prop, not a separately cached width or lip.
+	# This also repairs stale object-ramp metadata in previously baked maps.
+	for prop in data.get("props",[]):
+		if str(prop.get("kind",""))=="stunt_ramp":
+			_index_jump(RoadJump.object_spec(prop))
+
+
+func _index_jump(spec: Dictionary) -> void:
+	var lip:=Vector2(spec.p[0],spec.p[1])
+	var direction:=Vector2(spec.direction[0],spec.direction[1])
+	var lateral:=direction.orthogonal()*float(spec.width_m)*.5
+	# Index the entire rotated lip segment. The motion query adds the car's
+	# footprint, so a wide ramp spanning several cells cannot lose its edges.
+	var low:=Vector2i(((lip-Vector2(absf(lateral.x),absf(lateral.y))-Vector2.ONE*.01)/64.0).floor())
+	var high:=Vector2i(((lip+Vector2(absf(lateral.x),absf(lateral.y))+Vector2.ONE*.01)/64.0).floor())
+	for x in range(low.x,high.x+1):
+		for y in range(low.y,high.y+1):
+			var key:=Vector2i(x,y)
+			if not _jump_cells.has(key):_jump_cells[key]=[]
+			_jump_cells[key].append(spec)
+
+
 func jump_at_motion(car: VehicleController2D, previous: Vector2, present: Vector2) -> Dictionary:
 	if _jump_cells.is_empty() or car != vehicle or absf(car.elevation_m) > .01 or car.is_airborne():
 		return {}
-	var low:=Vector2i((previous.min(present)/(PPM*64.0)).floor())
-	var high:=Vector2i((previous.max(present)/(PPM*64.0)).floor())
+	var reach:=Vector2(RoadJump.footprint_reach(car,Vector2.RIGHT),RoadJump.footprint_reach(car,Vector2.DOWN))*PPM
+	var low:=Vector2i(((previous.min(present)-reach)/(PPM*64.0)).floor())
+	var high:=Vector2i(((previous.max(present)+reach)/(PPM*64.0)).floor())
 	var candidates: Array=[]
 	for x in range(low.x,high.x+1):
 		for y in range(low.y,high.y+1):
 			for candidate in _jump_cells.get(Vector2i(x,y),[]):
 				if not candidates.has(candidate):candidates.append(candidate)
 	for spec in candidates:
-		if not RoadJump.accepts_launch(spec,previous,present,car.linear_velocity,Vector2.UP.rotated(car.rotation)):
+		var lateral:=Vector2(spec.direction[0],spec.direction[1]).orthogonal()
+		var edge_reach:=RoadJump.footprint_reach(car,lateral) if bool(spec.get("object_ramp",false)) else 0.0
+		if not RoadJump.accepts_launch(spec,previous,present,car.linear_velocity,Vector2.UP.rotated(car.rotation),edge_reach):
 			continue
 		# Only free-roam vehicles opt into stunt jumps. Keep current event,
 		# pursuit and network state machines in charge of their normal routes.

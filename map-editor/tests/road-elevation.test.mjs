@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {normalizeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
-import {joinRoadEndpoints,splitRoadAt,applyPointElevations,pointElevationLayers} from '../world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,applyPointElevations,pointElevationLayers,convertRoadToTunnel,roadStructure,setRoadStructure} from '../world-road-topology.js';
 
 const fixture=()=>normalizeWorld(JSON.parse(readFileSync(
   new URL('../../tests/fixtures/road-elevation.world.json',import.meta.url),'utf8')));
@@ -91,4 +91,57 @@ test('named layers survive browser round trip and reject duplicate membership',(
   const result=normalizeWorld({...doc,editorLayers});
   assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).editorLayers,editorLayers);
   assert.throws(()=>normalizeWorld({...doc,editorLayers:[...editorLayers,{name:'Other',ids:['road-0'],visible:true,locked:false}]}),/layer member/);
+});
+
+test('whole-road tunnel conversion retains identity and creates two ground-level portals',()=>{
+  const doc=fixture();
+  const source=normalizeWorld({...doc,roads:[{...doc.roads[0],points:[{x:100,y:700},{x:500,y:700}]}]});
+  const before=JSON.stringify(source);
+  const result=convertRoadToTunnel(source,'road-0'),road=result.roads[0];
+  assert.equal(JSON.stringify(source),before);
+  assert.equal(result.roads.length,1);
+  assert.equal(road.id,'road-0');
+  assert.equal(road.lanes,source.roads[0].lanes);
+  assert.deepEqual(road.elevation,{start_layer:0,end_layer:0,point_layers:[0,-1,-1,0]});
+  assert.deepEqual(road.points,[{x:100,y:700},{x:175,y:700},{x:425,y:700},{x:500,y:700}]);
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).roads,result.roads);
+  assert.throws(()=>convertRoadToTunnel(result,'road-0'),/Reset existing/);
+  const short=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:200,y:700}]});
+  assert.throws(()=>convertRoadToTunnel(short,'road-0'),/110 m/);
+  const curved=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:200,y:700},{x:300,y:750},{x:500,y:750}]});
+  const converted=convertRoadToTunnel(curved,'road-0').roads[0];
+  assert.ok(curved.roads[0].points.every(p=>converted.points.some(q=>p.x===q.x&&p.y===q.y)));
+  assert.deepEqual(converted.elevation.point_layers,[0,-1,-1,-1,-1,0]);
+});
+
+
+test('simple road structures derive heights and retain stable identity',()=>{
+  const doc=fixture();
+  const source=normalizeWorld({...doc,roads:[{...doc.roads[0],points:[{x:100,y:700},{x:500,y:700}]}]});
+  const tunnel=setRoadStructure(source,'road-0','tunnel');
+  assert.equal(roadStructure(tunnel.roads[0]),'tunnel');
+  const bridge=setRoadStructure(tunnel,'road-0','overpass');
+  assert.deepEqual(bridge.roads[0].points,tunnel.roads[0].points);
+  assert.deepEqual(bridge.roads[0].elevation.point_layers,[0,1,1,0]);
+  const room=setRoadStructure(source,'road-0','underground');
+  assert.equal(roadStructure(room.roads[0]),'underground');
+  assert.ok(room.roads[0].width>=36);
+  assert.deepEqual(room.roads[0].elevation,{start_layer:-1,end_layer:-1});
+  const regular=setRoadStructure(room,'road-0','regular');
+  assert.equal(roadStructure(regular.roads[0]),'regular');
+  assert.equal(regular.roads[0].id,source.roads[0].id);
+  assert.equal(source.roads[0].elevation,undefined);
+});
+
+
+test('a tunnel approach automatically joins a previously authored underground area',()=>{
+  const doc=fixture(),base=doc.roads[0];
+  const source=normalizeWorld({...doc,roads:[
+    {...base,id:'road-0',points:[{x:100,y:700},{x:500,y:700}]},
+    {...base,id:'road-1',points:[{x:500,y:700},{x:750,y:700}]}
+  ]});
+  const area=setRoadStructure(source,'road-1','underground');
+  const entrance=setRoadStructure(area,'road-0','tunnel');
+  assert.deepEqual(entrance.roads[0].elevation,{start_layer:0,end_layer:-1});
+  assert.equal(roadStructure(entrance.roads[0]),'tunnel');
 });

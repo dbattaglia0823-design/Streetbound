@@ -94,19 +94,20 @@ class MapAssetCatalogTests(unittest.TestCase):
         self.assertNotIn('region', legacy)
         self.assertEqual((legacy['width'], legacy['height']), (256,128))
 
-    def test_supplied_sprite_sheets_have_named_regions_sizes_and_stable_ids(self):
+    def test_shipped_map_library_uses_standalone_art(self):
         root = Path(__file__).resolve().parents[1]
-        entries = [p for p in catalog(root) if '/Sprite Sheets/' in p['path']]
-        self.assertEqual(len(entries), 271)
-        self.assertEqual(len({p['path'] for p in entries}), 6)
-        self.assertEqual(len({p['id'] for p in entries}), 271)
-        for entry in entries:
-            x,y,w,h = entry['region']
-            self.assertTrue(0<=x<x+w<=1536 and 0<=y<y+h<=1024)
-            self.assertTrue(all(0<v<=100 for v in entry['worldSize']))
-            self.assertEqual(entry['id'], asset_id(entry['path']+'#'+entry['name']))
-            if entry['type'] in ('oak','palm','bush','ground_decal'):
-                self.assertEqual(entry['collision'], 'none')
+        base = root / 'assets' / 'Map Building Assets'
+        removed = base / 'Sprite Sheets'
+        self.assertFalse(any(p.is_file() for p in removed.rglob('*')))
+        entries = catalog(root)
+        self.assertTrue(any(p['path'].startswith('Map Building Assets/') for p in entries))
+        self.assertFalse(any('/Sprite Sheets/' in p['path'] for p in entries))
+        self.assertFalse(any(p.get('region') for p in entries))
+        for path in (root / 'map-editor' / 'maps').glob('*.world.json'):
+            doc = json.loads(path.read_text(encoding='utf-8'))
+            for prop in doc.get('props', []):
+                self.assertNotIn('/Sprite Sheets/', prop.get('assetPath', ''))
+                self.assertFalse(prop.get('assetRegion'), f'{path.name}: {prop.get("id")} references a sheet')
 
 
 if __name__ == "__main__":

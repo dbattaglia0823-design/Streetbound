@@ -13,6 +13,23 @@ func check(label: String, valid: bool) -> void:
 		errors.append(label)
 
 func _run() -> void:
+	var Elevation=preload("res://scripts/world/road_elevation.gd")
+	var DrivingCamera=preload("res://scripts/camera/driving_camera.gd")
+	var MarkerEditor=preload("res://scripts/dev/native_marker_editor.gd")
+	var sample_road: Dictionary={"roadClass":"city","surface":"asphalt","points":[{"x":100,"y":700},{"x":500,"y":700}]}
+	var tunnel: Dictionary=Elevation.whole_tunnel_profile(sample_road)
+	check("whole_tunnel_two_portals",not tunnel.has("error") and tunnel.elevation.point_layers==[0,-1,-1,0] and tunnel.points.size()==4 and sample_road.points.size()==2)
+	var preset: Dictionary=Elevation.structure_profile(sample_road,"overpass")
+	check("automatic_overpass_profile",preset.has("road") and preset.road.elevation.point_layers==[0,1,1,0])
+	var underground: Dictionary=Elevation.structure_profile(sample_road,"underground")
+	check("automatic_underground_area",underground.has("road") and underground.road.width>=36 and underground.road.elevation=={"start_layer":-1,"end_layer":-1})
+	check("regular_road_removes_height",not Elevation.structure_profile(underground.road,"regular").road.has("elevation"))
+	check("tunnel_camera_zoom_and_surface_restore",is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,0.0),1.0) and is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,-6.0),1.45) and DrivingCamera.tunnel_zoom_for(1.0,-4.5)>1.0 and DrivingCamera.tunnel_zoom_for(1.0,6.0)==1.0)
+	var cars: Array[Dictionary]=[{"id":"b","display_name":"Beta","price_usd":9},{"id":"a","display_name":"alpha","price_usd":100},{"id":"c","display_name":"Gamma","price_usd":9}]
+	check("stock_sort_az",MarkerEditor.sorted_stock(cars,0).map(func(car: Dictionary)->String:return str(car.id))==["a","b","c"])
+	check("stock_sort_za",MarkerEditor.sorted_stock(cars,1).map(func(car: Dictionary)->String:return str(car.id))==["c","b","a"])
+	check("stock_sort_price_high",MarkerEditor.sorted_stock(cars,2).map(func(car: Dictionary)->String:return str(car.id))==["a","b","c"])
+	check("stock_sort_price_low",MarkerEditor.sorted_stock(cars,3).map(func(car: Dictionary)->String:return str(car.id))==["b","c","a"] and cars[0].id=="b")
 	var session = Session.new()
 	check("authored_source_loads",session.load_source())
 	if session.doc.is_empty():
@@ -135,6 +152,16 @@ func _run() -> void:
 	workspace.doc=Library.create("Workspace test",1800,1800,"grass")
 	var workspace_road: String=workspace.add_road(Vector2(200,500),Vector2(1400,500))
 	var workspace_prop: String=workspace.add_prop("house",Vector2(1000,800))
+	var draw_order_original: Dictionary=workspace.prop_at_id(workspace_prop).duplicate(true)
+	check("asset_draw_order_is_signed_visual_only",workspace.set_prop_draw_order(workspace_prop,-2)
+		and int(workspace.prop_at_id(workspace_prop).drawOrder)==-2
+		and workspace.set_prop_draw_order(workspace_prop,3)
+		and int(workspace.prop_at_id(workspace_prop).drawOrder)==3
+		and workspace.undo() and int(workspace.prop_at_id(workspace_prop).drawOrder)==-2
+		and workspace.redo() and int(workspace.prop_at_id(workspace_prop).drawOrder)==3
+		and not workspace.set_prop_draw_order(workspace_prop,11)
+		and workspace.set_prop_draw_order(workspace_prop,0)
+		and workspace.prop_at_id(workspace_prop)==draw_order_original)
 	var workspace_ids: Array[String]=[workspace_road]
 	var layer_data: Array=[{"name":"Main streets","visible":false,"locked":true,"ids":[workspace_road]}]
 	check("named_layer_validates_and_hides_only_preview",workspace.set_named_layers(layer_data)

@@ -149,3 +149,71 @@ export function applyPointElevations(doc,roadId,layers){
     throw new RangeError('Use a regular road for a multi-grade on-ramp');
   return updateEntity(doc,roadId,{elevation:{start_layer:layers[0],end_layer:layers.at(-1),point_layers:[...layers]}});
 }
+
+/** Convert a single ground-level paved road to a covered tunnel.
+ * Preserve original anchors, endpoints, road ID, lane count and materials.
+ * The production grade compiler derives the connected approach sections.
+ */
+export function convertRoadToTunnel(doc,roadId){return convertRoadToGrade(doc,roadId,-1);}
+
+function convertRoadToGrade(doc,roadId,deckLayer){
+  const road=doc.roads.find(r=>r.id===roadId);
+  if(!road)throw new TypeError('Select a road');
+  if(road.jump||road.autoGuardrails)throw new RangeError('Remove legacy jumps and auto guardrails before converting to a tunnel');
+  if(road.elevation)throw new RangeError('Reset existing road elevations before converting to a tunnel');
+  if(road.roadClass==='onramp'||!['asphalt','concrete'].includes(road.surface))
+    throw new RangeError('Select a regular paved road for a tunnel');
+  const points=[...road.points],start=points[0],finish=points.at(-1);
+  if(distance(start,finish)<.12)throw new RangeError('Open a closed road before converting to a tunnel');
+  const firstLength=distance(start,points[1]),lastLength=distance(finish,points.at(-2));
+  if(firstLength<50||lastLength<50)throw new RangeError('Each road end needs a control-point span of at least 50 m');
+  let firstRamp=Math.min(75,Math.max(50,firstLength-5)),lastRamp=Math.min(75,Math.max(50,lastLength-5));
+  if(points.length===2){
+    if(firstLength<110)throw new RangeError('A tunnel needs at least 110 m for both ramps and the covered road');
+    firstRamp=lastRamp=Math.min(75,(firstLength-10)/2);
+  }
+  const interpolate=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  const entry=interpolate(start,points[1],firstRamp/firstLength);
+  const exit=interpolate(finish,points.at(-2),lastRamp/lastLength);
+  if(points.length===2)points.splice(1,0,entry,exit);
+  else{
+    if(firstLength-firstRamp>.001)points.splice(1,0,entry);
+    if(lastLength-lastRamp>.001)points.splice(points.length-1,0,exit);
+  }
+  if(points.length<4||points.length>100||roadLength(points.slice(1,-1))<4)
+    throw new RangeError('Tunnel needs distinct portals, at least 4 m of covered road and at most 100 control points');
+  const layers=points.map((_,i)=>i===0||i===points.length-1?0:deckLayer);
+  return updateEntity(doc,roadId,{points,elevation:{start_layer:0,end_layer:0,point_layers:layers}});
+}
+
+
+export function roadStructure(road){
+  const profile=road.elevation;
+  if(!profile)return 'regular';
+  const {start_layer:a,end_layer:b,point_layers:layers=[]}=profile;
+  if(a===-1&&b===-1&&layers.every(v=>v===-1))return road.width>=36?'underground':'tunnel';
+  if(!layers.length&&Math.min(a,b)===-1&&Math.max(a,b)===0)return 'tunnel';
+  if(!layers.length&&Math.min(a,b)===0&&Math.max(a,b)===1)return 'overpass';
+  if(a===0&&b===0&&layers.includes(-1)&&!layers.includes(1))return 'tunnel';
+  if(a===0&&b===0&&layers.includes(1)&&!layers.includes(-1))return 'overpass';
+  if(a===1&&b===1&&layers.every(v=>v===1))return 'overpass';
+  return 'legacy';
+}
+
+export function setRoadStructure(doc,roadId,kind){
+  const road=doc.roads.find(r=>r.id===roadId);
+  if(!road||!['regular','tunnel','underground','overpass'].includes(kind))throw new RangeError('Select a road structure');
+  const previous=roadStructure(road);
+  if(kind===previous&&!['tunnel','overpass'].includes(kind))return doc;
+  if(kind==='regular')return updateEntity(doc,roadId,{elevation:undefined});
+  if(road.jump||road.autoGuardrails||road.roadClass==='onramp'||!['asphalt','concrete'].includes(road.surface))
+    throw new RangeError('Use a regular paved road without a legacy jump or auto guardrails');
+  if(kind==='underground')return updateEntity(doc,roadId,{width:Math.max(36,road.width),elevation:{start_layer:-1,end_layer:-1}});
+  const deck=kind==='tunnel'?-1:1;
+  const endpoints=[road.points[0],road.points.at(-1)].map(p=>doc.roads.some(other=>other.id!==roadId&&([0,-1].some(end=>distance(p,other.points.at(end))<=.12&&junctionLayer(other,other.points.at(end))===deck)))?deck:0);
+  if(endpoints.some(Boolean))return updateEntity(doc,roadId,{elevation:{start_layer:endpoints[0],end_layer:endpoints[1]}});
+  if(kind===previous)return doc;
+  if(['tunnel','overpass'].includes(previous)&&road.elevation.point_layers&&road.elevation.start_layer===0&&road.elevation.end_layer===0)
+    return updateEntity(doc,roadId,{elevation:{start_layer:0,end_layer:0,point_layers:road.elevation.point_layers.map(v=>v===0?0:-v)}});
+  return convertRoadToGrade(updateEntity(doc,roadId,{elevation:undefined}),roadId,kind==='tunnel'?-1:1);
+}

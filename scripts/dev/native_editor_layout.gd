@@ -113,14 +113,27 @@ static func build(e) -> void:
 	e.road_surface.item_selected.connect(e._change_road_surface)
 	for spin in [e.road_width,e.road_lanes]:spin.value_changed.connect(func(_value: float)->void:e._change_road_settings())
 	e.road_elevation_controls=column(e.road_settings)
-	heading(e.road_elevation_controls,"Road elevation (6 m per layer)")
-	e.road_start_layer=e._number(e.road_elevation_controls,"Start layer",-2,2,0)
-	e.road_end_layer=e._number(e.road_elevation_controls,"End layer",-2,2,0)
-	e._btn("Apply road elevation",e.road_elevation_controls,e._change_road_elevation)
+	heading(e.road_elevation_controls,"Road structure")
+	e.road_structure=OptionButton.new()
+	for choice in [["Regular road","regular"],["Tunnel","tunnel"],["Underground area","underground"],["Overpass","overpass"],["Legacy custom profile","legacy"]]:
+		e.road_structure.add_item(choice[0])
+		e.road_structure.set_item_metadata(e.road_structure.item_count-1,choice[1])
+	e.road_structure.set_item_disabled(4,true)
+	e.road_elevation_controls.add_child(e.road_structure)
+	e._btn("Apply road structure",e.road_elevation_controls,e._apply_road_structure)
+	var legacy_toggle:=CheckButton.new()
+	legacy_toggle.text="Advanced legacy height controls"
+	e.road_elevation_controls.add_child(legacy_toggle)
+	var legacy_panel:=column(e.road_elevation_controls)
+	legacy_panel.hide()
+	legacy_toggle.toggled.connect(func(on: bool)->void:legacy_panel.visible=on)
+	e.road_start_layer=e._number(legacy_panel,"Start layer",-2,2,0)
+	e.road_end_layer=e._number(legacy_panel,"End layer",-2,2,0)
+	e._btn("Apply road elevation",legacy_panel,e._change_road_elevation)
 	var point_toggle := CheckButton.new()
 	point_toggle.text="Individual point elevations"
-	e.road_elevation_controls.add_child(point_toggle)
-	var point_panel := column(e.road_elevation_controls)
+	legacy_panel.add_child(point_toggle)
+	var point_panel := column(legacy_panel)
 	point_panel.visible=false
 	point_toggle.toggled.connect(func(on: bool)->void:point_panel.visible=on)
 	heading(point_panel,"Layers -2 to +2; 50 m per layer change")
@@ -297,6 +310,10 @@ static func build(e) -> void:
 	e.inspector_scale=e._number(e.prop_transforms,"Scale",0.2,5,1);e.inspector_scale.step=.05
 	e.inspector_scale_x=e._number(e.prop_transforms,"X size multiplier",0.2,5,1);e.inspector_scale_x.step=.05
 	e.inspector_scale_y=e._number(e.prop_transforms,"Y size multiplier",0.2,5,1);e.inspector_scale_y.step=.05
+	e.inspector_draw_order=e._number(e.prop_transforms,"Draw order (Z)",-5,10,0)
+	e.inspector_draw_order.step=1
+	e.inspector_draw_order.tooltip_text="0 = normal; positive draws above, negative below. Visual only, not physical elevation."
+	e.inspector_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
 	for spin in [e.inspector_rotation,e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]:TransformArrows.attach(spin)
 	e.asset_dimensions_label=heading(e.prop_transforms,"")
 	e._btn("Reset asset size",e.prop_transforms,e._reset_asset_size)

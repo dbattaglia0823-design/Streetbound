@@ -305,3 +305,115 @@ static func masked_material(base: ShaderMaterial, mask: Texture2D, bounds: Rect2
 	instance.set_shader_parameter("terrain_cut_mask",mask)
 	instance.set_shader_parameter("terrain_cut_rect",Vector4(bounds.position.x,bounds.position.y,bounds.size.x,bounds.size.y))
 	return instance
+
+## One authored road, two ground-level portals and a covered -1 section.
+## Keep all existing control points; insert portal points on the end chords.
+## The existing bake derives connected ramps and tunnel sections.
+static func whole_tunnel_profile(road: Dictionary) -> Dictionary:
+	return whole_grade_profile(road,-1)
+
+
+static func whole_grade_profile(road: Dictionary, deck_layer: int) -> Dictionary:
+	if deck_layer not in [-1,1]:return {"error":"Choose tunnel or overpass."}
+	var points: Array=road.points.duplicate(true)
+	if road.has("jump") or road.has("autoGuardrails"):
+		return {"error":"Remove legacy jumps and auto guardrails before converting to a tunnel."}
+	if road.has("elevation"):
+		return {"error":"Reset existing road elevations before converting to a tunnel."}
+	if str(road.get("roadClass",""))=="onramp" or str(road.get("surface","")) not in ["asphalt","concrete"]:
+		return {"error":"Select a regular paved road for a tunnel or overpass."}
+	if points.size()<2:
+		return {"error":"Select a road with at least two points."}
+	var start:=Vector2(points[0].x,points[0].y)
+	var finish:=Vector2(points[-1].x,points[-1].y)
+	if start.distance_to(finish)<.12:
+		return {"error":"Open a closed road before converting it."}
+	var first_length:=start.distance_to(Vector2(points[1].x,points[1].y))
+	var last_length:=finish.distance_to(Vector2(points[-2].x,points[-2].y))
+	if first_length<50.0 or last_length<50.0:
+		return {"error":"Each end of the road needs a straight control-point span of at least 50 m for a tunnel ramp."}
+	var first_ramp:=minf(75.0,maxf(50.0,first_length-5.0))
+	var last_ramp:=minf(75.0,maxf(50.0,last_length-5.0))
+	if points.size()==2:
+		if first_length<110.0:
+			return {"error":"A tunnel or overpass needs at least 110 m for both ramps and the interior road."}
+		first_ramp=minf(75.0,(first_length-10.0)*.5)
+		last_ramp=first_ramp
+	var entry:=start.lerp(Vector2(points[1].x,points[1].y),first_ramp/first_length)
+	var exit:=finish.lerp(Vector2(points[-2].x,points[-2].y),last_ramp/last_length)
+	if points.size()==2:
+		points.insert(1,{"x":entry.x,"y":entry.y})
+		points.insert(2,{"x":exit.x,"y":exit.y})
+	else:
+		if first_length-first_ramp>.001:points.insert(1,{"x":entry.x,"y":entry.y})
+		if last_length-last_ramp>.001:points.insert(points.size()-1,{"x":exit.x,"y":exit.y})
+	if points.size()<4 or points.size()>100:
+		return {"error":"Tunnel needs distinct portals and at most 100 control points."}
+	var covered_length:=0.0
+	for i in range(2,points.size()-1):
+		covered_length+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+	if covered_length<4.0:
+		return {"error":"Leave at least 4 m of covered pavement between the tunnel ramps."}
+	var layers: Array=[]
+	layers.resize(points.size())
+	layers.fill(deck_layer)
+	layers[0]=0
+	layers[-1]=0
+	var profile:={"start_layer":0,"end_layer":0,"point_layers":layers}
+	var candidate:=road.duplicate(true)
+	candidate.points=points
+	candidate.elevation=profile
+	var error:=authoring_error(candidate)
+	if not error.is_empty():return {"error":error}
+	return {"points":points,"elevation":profile}
+
+
+## The UI picks a structure, never a numeric elevation. The bake still
+## validates the generated profile and enforces clearances.
+static func structure_kind(road: Dictionary) -> String:
+	var profile: Dictionary=road.get("elevation",{})
+	if profile.is_empty():return "regular"
+	var first:=int(profile.get("start_layer",0))
+	var last:=int(profile.get("end_layer",0))
+	var layers: Array=profile.get("point_layers",[])
+	if first==-1 and last==-1 and (layers.is_empty() or layers.all(func(v: Variant)->bool:return int(v)==-1)):return "underground" if float(road.get("width",10))>=36 else "tunnel"
+	if layers.is_empty() and mini(first,last)==-1 and maxi(first,last)==0:return "tunnel"
+	if layers.is_empty() and mini(first,last)==0 and maxi(first,last)==1:return "overpass"
+	if first==0 and last==0 and -1 in layers and not 1 in layers:return "tunnel"
+	if first==0 and last==0 and 1 in layers and not -1 in layers:return "overpass"
+	if first==1 and last==1 and (layers.is_empty() or layers.all(func(v: Variant)->bool:return int(v)==1)):return "overpass"
+	return "legacy"
+
+
+static func structure_profile(road: Dictionary, kind: String) -> Dictionary:
+	if kind not in ["regular","tunnel","underground","overpass"]:return {"error":"Choose a road structure."}
+	var next:=road.duplicate(true)
+	var previous:=structure_kind(next)
+	if kind==previous:return {"road":next}
+	if kind in ["tunnel","overpass"] and previous in ["tunnel","overpass"] and next.get("elevation",{}).has("point_layers") and int(next.elevation.start_layer)==0 and int(next.elevation.end_layer)==0:
+		var layers: Array=next.elevation.point_layers
+		for i in layers.size():layers[i]=-int(layers[i])
+		return {"road":next}
+	next.erase("elevation")
+	if kind=="regular":return {"road":next}
+	if next.has("jump") or next.has("autoGuardrails") or str(next.get("roadClass",""))=="onramp" or str(next.get("surface","")) not in ["asphalt","concrete"]:
+		return {"error":"Use a regular paved road without a legacy jump or auto guardrails."}
+	if kind=="underground":
+		next.elevation={"start_layer":-1,"end_layer":-1}
+		next.width=maxf(36.0,float(next.get("width",10)))
+	else:
+		var profile:=whole_grade_profile(next,-1 if kind=="tunnel" else 1)
+		if profile.has("error"):return profile
+		next.points=profile.points
+		next.elevation=profile.elevation
+	var error:=authoring_error(next)
+	return {"road":next} if error.is_empty() else {"error":error}
+
+
+static func connected_structure_profile(road: Dictionary, first: int, last: int) -> Dictionary:
+	var next:=road.duplicate(true)
+	if next.has("jump") or next.has("autoGuardrails") or str(next.get("roadClass",""))=="onramp" or str(next.get("surface","")) not in ["asphalt","concrete"]:
+		return {"error":"Use a regular paved road without a legacy jump or auto guardrails."}
+	next.elevation={"start_layer":first,"end_layer":last}
+	var error:=authoring_error(next)
+	return {"road":next} if error.is_empty() else {"error":error}

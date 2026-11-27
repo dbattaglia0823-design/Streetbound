@@ -253,6 +253,13 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                      authoring_id=item_id,editor_type=type_name,
                      editor_scale=scale,editor_name=str(raw.get("name", ""))[:80])
         entry.update(editor_scale_x=axes[0],editor_scale_y=axes[1],editor_base_size=list(base_size))
+        order = raw.get("drawOrder", 0)
+        if type(order) not in (int, float) or not math.isfinite(order) or order != int(order) or not -5 <= order <= 10:
+            raise ValueError("Draw order must be an integer from -5 to +10")
+        if order and type_name in {"sidewalk", "guardrail"}:
+            raise ValueError("Path assets keep their normal draw order")
+        if order:
+            entry["editor_draw_order"] = int(order)
         if 'roadFacing' in raw:
             if type(raw['roadFacing']) is not bool:raise ValueError('Road-facing preference must be true or false')
             entry['editor_road_facing']=raw['roadFacing']

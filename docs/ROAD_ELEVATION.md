@@ -171,3 +171,18 @@ preview and junction-mode toggle. The fixture includes an overpass, a same-heigh
 tunnel, a ground-level intersection, and overlapping endpoints with no road
 connection. The drive test uses the real controller and verifies collision
 isolation, same-deck impacts, lateral containment, and ground reset.
+
+## Whole-road tunnel conversion
+
+In either Map Builder, select a regular ground-level asphalt or concrete road and choose **Convert entire road to tunnel** under Road elevation. Both original endpoints stay at layer 0. The editor inserts approach points where needed, descends to -1 (6 m below the surface), and rises at the other end. The original road ID, lanes, width and original control points stay intact. The usual grade compiler generates the runtime sections and existing portal/cutout/interior artwork. Undo reverts the entire conversion. Applying start/end layer 0 restores a flat road but retains added control points.
+
+Approaches require a control-point span of at least 50 m at each end; a straight two-point road must be at least 110 m long. Closed loops, legacy jumps, auto guardrails, existing elevations and directional onramps need to be adjusted first. The production bake remains responsible for crossing clearance, water, and grade validation. The driving camera smoothly increases magnification as actual vehicle pavement height approaches -6 m, and restores normal speed/user zoom on exit. This feature requires live Godot visual and driving verification.
+
+
+## Road structure presets and underground interiors
+
+Select a road and apply **Road structure**: Regular road, Tunnel (automatic descent and ascent), Underground area (flat -6 m pavement, widened to at least 36 m), or Overpass (automatic ascent and descent). The existing compiler remains responsible for grade and junction clearance. Connect underground areas to the flat portion of a tunnel or to other underground roads; the junctions are grade-aware. Underground areas are wide road-based spaces, not freeform polygon rooms. Width remains editable, and resetting the structure retains control points and width. Existing custom elevation profiles remain intact unless changed; the old numeric controls are collapsed under Advanced legacy height controls.
+
+When the primary driver enters an underground layer, an unlit black world-space backdrop covers the surface scene below the existing underground pavement and vehicle Z bands. Concrete wall faces, warm lamps and open junction mouths define the visible corridor; ramps are drawn in both relevant views. Exiting restores the normal surface view. The existing lateral road containment and portal collision systems remain authoritative. The black backdrop follows the primary driver (shared-world split-screen views are not independently composited). Visual and CI verification remain required.
+
+Create an underground area first, then draw a connecting road with a shared endpoint and apply Tunnel. The connector automatically inherits the underground endpoint and slopes from the surface; two connected underground endpoints produce level underground pavement. Overpasses inherit a connected deck endpoint in the same way. Existing grade validation still rejects short/unsafe approaches.

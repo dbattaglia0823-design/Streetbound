@@ -17,6 +17,8 @@ static func editor_key(prop: Dictionary) -> String:
 var prop_list: Array[Dictionary] = []
 var ignore_editor_mask:=false
 var suppressed_preview_id:=""
+## Only the editor uses this filter; runtime batches already contain one layer.
+var filter_default_draw_order:=false
 var origin_m := Vector2.ZERO
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -29,12 +31,14 @@ func _draw() -> void:
 	# an artificial stripe across T and X junctions.
 	var walks: Array[Dictionary]=[]
 	for prop in prop_list:
+		if filter_default_draw_order and int(prop.get("editor_draw_order",0))!=0:continue
 		if str(prop.get("kind",""))=="sidewalk":
 			walks.append(prop)
 	for layer_index in 4:
 		for prop in walks:
 			_draw_sidewalk_layer(prop,layer_index)
 	for prop in prop_list:
+		if filter_default_draw_order and int(prop.get("editor_draw_order",0))!=0:continue
 		if str(prop.get("kind",""))=="guardrail":
 			_draw_guardrail(prop)
 		elif str(prop.get("kind",""))!="sidewalk":

@@ -605,23 +605,12 @@ file references, aspect ratio and collision footprint when saved or reopened.
 Godot ZIP exports include the used images. Keep files at their original paths;
 if a used image is missing, Save to Game reports it instead of changing the art.
 
-**Supplied sprite sheets:** All six PNGs in
-`assets/Map Building Assets/Sprite Sheets/` have matching `.sheet.json` files
-defining **271 individual objects**. In the in-game editor, choose **Scenery →
-Sprite sheets**, then search for pallets, cones, fuel islands, garden props,
-plants, rocks or tyre marks. The regular Nature, Industrial, Roadside and
-Ground decals filters also include them. Each item has its own saved ID, pixel
-region, size in metres and collision setting. Several sprites can share one
-source texture without switching crops when moved, resized or reopened.
-Foliage and ground details are non-solid; equipment and other solid props have
-matching footprints. Runtime shadows use the same selected crop.
-
-The source PNGs and their transparency are preserved. Region metadata supports
-the irregular packing in these sheets; a uniform grid would cut many objects
-apart. Keep each `.sheet.json` alongside its PNG for authoring and baking.
-New sheets can use the same named-region format (or a `grid` definition for
-uniform sheets). Existing whole-sheet references remain valid. The checked-in
-definitions can be regenerated with `python tools/configure_map_sprite_sheets.py`.
+**Standalone map assets:** The six supplied sprite-sheet images and all 271
+associated crop entries have been removed from the map-building library.
+Use individual transparent PNG or WebP assets instead. The shipped editable
+maps do not reference the removed sheets. Local custom maps that used them
+must replace or delete those placements before rebaking. Generic legacy region
+metadata support remains for compatibility.
 
 **Regression checks:** Run `node --test map-editor/tests/*.test.mjs` for editor
 checks. Run `python tests/morrow_rebuild_stability_test.py` for two real production

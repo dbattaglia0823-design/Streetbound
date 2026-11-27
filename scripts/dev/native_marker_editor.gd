@@ -29,6 +29,7 @@ var edit_button: Button
 var stock_button: Button
 var stock_dialog: ConfirmationDialog
 var stock_search: LineEdit
+var stock_sort: OptionButton
 var stock_list: ItemList
 var stock_count: Label
 var stock_ids: Dictionary={}
@@ -121,6 +122,12 @@ func _build_stock(e) -> void:
 	_text_label(panel,"Select vehicles from the full playable catalog. Ctrl-click to add or remove entries.")
 	stock_search=LineEdit.new();stock_search.placeholder_text="Search vehicle name or model ID";panel.add_child(stock_search)
 	stock_search.text_changed.connect(func(_text: String):_refresh_stock_list())
+	stock_sort=OptionButton.new()
+	stock_sort.name="StockSort"
+	for option in ["A-Z", "Z-A", "Price High", "Price Low"]:stock_sort.add_item(option)
+	stock_sort.select(0)
+	panel.add_child(stock_sort)
+	stock_sort.item_selected.connect(func(_index: int):_refresh_stock_list())
 	var buttons:=HBoxContainer.new();panel.add_child(buttons)
 	e._btn("Add all visible",buttons,func():
 		for i in stock_list.item_count:stock_ids[str(stock_list.get_item_metadata(i))]=true
@@ -145,12 +152,25 @@ func _build_stock(e) -> void:
 	stock_dialog.canceled.connect(func():
 		if e.authoring==stock_session and e.authoring.edit_revision==stock_revision:open_for(e,stock_marker_id))
 
+## Sort a copy: the catalog and selected vehicle IDs remain unchanged.
+static func sorted_stock(cars: Array[Dictionary], mode: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = cars.duplicate()
+	result.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+		if mode in [2,3]:
+			var pa:=float(a.get("price_usd",0))
+			var pb:=float(b.get("price_usd",0))
+			if pa!=pb:return pa>pb if mode==2 else pa<pb
+		var order:=str(a.get("display_name",a.id)).nocasecmp_to(str(b.get("display_name",b.id)))
+		if order!=0:return order>0 if mode==1 else order<0
+		return str(a.id)<str(b.id))
+	return result
+
 func _refresh_stock_list() -> void:
 	if not is_instance_valid(stock_list):return
 	stock_syncing=true
 	stock_list.clear()
 	var query:=stock_search.text.strip_edges().to_lower()
-	for car in Catalog.all():
+	for car in sorted_stock(Catalog.all(),stock_sort.selected):
 		var id:=str(car.id)
 		var caption:=str(car.get("display_name",id))
 		if not query.is_empty() and query not in (caption+" "+id).to_lower():continue

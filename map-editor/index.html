@@ -280,11 +280,16 @@
         <div class="field"><label for="inspect-road-surface">Surface</label><select id="inspect-road-surface"><option value="asphalt">Asphalt</option><option value="concrete">Concrete</option><option value="dirt">Dirt</option><option value="gravel">Gravel</option><option value="track">Racing asphalt</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-road-width">Width</label><input id="inspect-road-width" type="number" min="6" max="160"></div><div class="field"><label for="inspect-road-lanes">Lanes</label><input id="inspect-road-lanes" type="number" min="1" max="6"></div></div>
         <div class="field"><label for="inspect-road-shoulder">Shoulder</label><input id="inspect-road-shoulder" type="number" min="0" max="16"></div>
+        <div class="field"><label for="road-structure">Road structure</label><select id="road-structure"><option value="regular">Regular road</option><option value="tunnel">Tunnel</option><option value="underground">Underground area</option><option value="overpass">Overpass</option><option value="legacy" disabled>Legacy custom profile</option></select></div>
+        <button id="apply-road-structure" class="gdt-btn" type="button">Apply road structure</button>
+        <p class="muted-copy">Underground areas use wide connected pavement. Tunnels and overpasses get automatic approaches.</p>
+        <details><summary>Advanced legacy height controls</summary>
         <div class="double-fields">
           <div class="field"><label for="road-start-layer">Start layer</label><input id="road-start-layer" type="number" min="-2" max="2" step="1"></div>
           <div class="field"><label for="road-end-layer">End layer</label><input id="road-end-layer" type="number" min="-2" max="2" step="1"></div>
         </div>
         <button id="apply-road-elevation" class="gdt-btn" type="button">Apply road elevation</button>
+        <button id="convert-road-tunnel" class="gdt-btn" type="button" hidden>Convert entire road to tunnel</button>
         <p id="road-elevation-summary" class="muted-copy"></p>
         <details id="road-point-elevation-editor">
           <summary>Individual point elevations</summary>
@@ -292,6 +297,7 @@
           <svg id="road-point-profile" viewBox="0 0 320 126" style="width:100%;height:auto" role="img" aria-label="Road elevation profile"></svg>
           <div id="road-point-elevation-fields"></div>
           <button id="apply-road-point-elevations" class="gdt-btn" type="button">Apply point elevations</button>
+        </details>
         </details>
         <details id="road-jump-editor">
           <summary>Stunt jump</summary>
@@ -331,6 +337,7 @@
         <div class="field"><label for="inspect-asset">Artwork override</label><select id="inspect-asset"><option value="">Built-in illustration</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-scale">Scale</label><input id="inspect-scale" type="number" step=".1" min=".25" max="5"></div><div class="field"><label for="inspect-rotation">Rotation</label><input id="inspect-rotation" type="number" min="-360" max="360"></div></div>
           <div class="double-fields"><div class="field"><label for="inspect-scale-x">X size multiplier</label><input id="inspect-scale-x" type="number" step=".05" min=".2" max="5"></div><div class="field"><label for="inspect-scale-y">Y size multiplier</label><input id="inspect-scale-y" type="number" step=".05" min=".2" max="5"></div></div>
+          <div class="field"><label for="inspect-draw-order">Draw order (Z)</label><input id="inspect-draw-order" type="number" min="-5" max="10" step="1" value="0" title="Positive above, negative below, zero normal. Visual only."></div>
           <button id="hide-game-prop" class="gdt-btn" type="button" hidden>Hide original from game</button>
       </div>
       <div id="inspect-marker" hidden>
