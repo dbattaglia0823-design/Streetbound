@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 
 from junction_bake import build_junctions
+from road_auto_guardrails import set_auto_guardrails, with_auto_props
 from gameplay_authoring import validate as validate_gameplay, apply as apply_gameplay
 from road_jumps import set_jump, bake_into as bake_jumps
 from road_elevation import set_profile, expand_point_profiles
@@ -199,6 +200,7 @@ def make_archive(doc):
                 raise ValueError("Invalid road junction mode")
             if key in item: roads[-1][key]=item[key]
         set_profile(roads[-1], item)
+        set_auto_guardrails(roads[-1], item)
         set_jump(roads[-1], item)
     expand_point_profiles(roads,nodes)
     for road in roads:
@@ -230,7 +232,7 @@ def make_archive(doc):
         for key in ("barrier","elevation"):
             if key in raw:region[key]=raw[key]
         terrain.append(region)
-    props=[p for p in _authoring_props(doc,width,height) if not p.get("hidden")]
+    props=[p for p in _authoring_props(with_auto_props(doc,roads,junctions,width,height),width,height) if not p.get("hidden")]
     gameplay=_gameplay_payload(doc,roads,width,height)
     chunks=defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],
                                   relief=[],rails=[],mountains=[],bridges=[]))
@@ -316,7 +318,7 @@ def scenery_rebuild(archive, doc):
     prop indices because changing array order would otherwise break streaming.
     """
     width,height=archive["size"]
-    props=[p for p in _authoring_props(doc,width,height) if not p.get("hidden")]
+    props=[p for p in _authoring_props(with_auto_props(doc,archive["roads"],archive["junctions"],width,height),width,height) if not p.get("hidden")]
     archive["props"]=props
     chunks=archive["chunks"]
     for key in list(chunks):

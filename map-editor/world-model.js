@@ -64,6 +64,19 @@ function validEntity(item,type,w,h){
       ...(item.junctionEnd!==undefined&&item.junctionEnd!=='auto'?{junctionEnd:oneOf(item.junctionEnd,['intersection','merge'],'end junction mode')}:{}),
       ...(elevation?{elevation}:{}),
       points};
+    if(item.autoGuardrails!==undefined){
+      const rails=item.autoGuardrails;
+      if(!rails||typeof rails!=='object'||Array.isArray(rails)||Object.keys(rails).some(k=>!['left','right'].includes(k)))throw new TypeError('Invalid auto guardrail sides');
+      const layers=elevation?.point_layers??[elevation?.start_layer??0,elevation?.end_layer??0];
+      if(layers.some(l=>l!==0))throw new RangeError('Auto guardrails require a ground-level road');
+      road.autoGuardrails={};
+      for(const [side,range] of Object.entries(rails)){
+        if(!Array.isArray(range)||range.length!==2)throw new RangeError('Invalid auto guardrail interval');
+        const a=real(range[0],0,100,'guardrail start'),b=real(range[1],0,100,'guardrail end');
+        if(b<=a)throw new RangeError('Guardrail end must follow start');
+        road.autoGuardrails[side]=[a,b];
+      }
+    }
     const jump=normalizeRoadJump(road,item.jump);
     return jump?{...road,jump}:road;
   }

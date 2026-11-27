@@ -273,6 +273,7 @@ static func build(e) -> void:
 		picker.set_item_text(1,"Intersection")
 		picker.set_item_text(2,"On-ramp")
 		picker.tooltip_text="Swap connection type at this end without changing road geometry. Use the branch road of a three-arm junction."
+	e._btn("Auto guardrails...",e.inspector_road_type_fields,e._open_auto_guardrails)
 	e.inspector_junction_start.item_selected.connect(e._change_junction_mode.bind(false))
 	e.inspector_junction_end.item_selected.connect(e._change_junction_mode.bind(true))
 	var xy:=HBoxContainer.new();e.selection_fields.add_child(xy)

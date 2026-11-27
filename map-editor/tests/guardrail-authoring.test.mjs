@@ -31,3 +31,15 @@ test('Guardrail geometry and width are bounded',()=>{
     assert.throws(()=>createEntity(world,'props',{...rail,...patch}));
   }
 });
+
+test('Road-linked guardrail side intervals round-trip, reject invalid ranges',()=>{
+  const doc=createWorld({width:1000,height:800});
+  doc.roads.push({id:'road-0',name:'Fixture road',roadClass:'city',surface:'asphalt',width:10,lanes:2,shoulder:2,smooth:true,markings:true,points:[{x:100,y:300},{x:800,y:300}],autoGuardrails:{left:[10,80],right:[0,25]}});
+  const saved=parseWorld(serializeWorld(doc));
+  assert.deepEqual(saved.roads[0].autoGuardrails,doc.roads[0].autoGuardrails);
+  assert.equal(saved.props.length,0);
+  for(const rails of [{left:[80,10]},{right:[0,101]},{middle:[0,100]}]){
+    const invalid=structuredClone(doc);invalid.roads[0].autoGuardrails=rails;
+    assert.throws(()=>parseWorld(JSON.stringify(invalid)));
+  }
+});

@@ -684,6 +684,11 @@ func _sync_editor_preview() -> void:
 	synced_prop_drag=dragging_prop
 	var next_hidden: Dictionary = {}
 	if not dragging_prop.is_empty():next_hidden["authored:"+dragging_prop]=true
+	# Linked guardrails are derived from roads, not editable source props.
+	# Replace baked visuals with the current draft preview while editing.
+	for prop in world.data.props:
+		if str(prop.get("authoring_id","")).begins_with("prop-auto-rail-"):
+			next_hidden[Scenery.editor_key(prop)]=true
 	# Baked archive objects are immutable for this editor session. Avoid
 	# re-hashing thousands of nested prop dictionaries on every committed edit.
 	var runtime_stamp: int=hash([world.get_instance_id(),world.data.props.size(),map_switcher.current_file])
@@ -2535,6 +2540,62 @@ func _change_road_elevation() -> void:
 	else:
 		_notice(authoring.last_error)
 
+
+func _open_auto_guardrails() -> void:
+	if _editing_locked() or not source_ready:return
+	var identity:=source_id
+	var road: Dictionary=authoring.road_at_id(identity)
+	if road.is_empty():return
+	if not EditSession.AutoRails.ground(road):
+		_notice("Auto guardrails currently support ground-level roads. Raised decks use existing bridge rails.");return
+	var revision: int=authoring.edit_revision
+	var session: RefCounted=authoring
+	var dialog:=AcceptDialog.new()
+	dialog.title="Road-linked guardrails"
+	dialog.ok_button_text="Apply guardrails"
+	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	add_child(dialog)
+	var panel:=VBoxContainer.new()
+	panel.custom_minimum_size=Vector2(370,260)
+	dialog.add_child(panel)
+	var info:=Label.new()
+	var length:=0.0
+	var path:=EditSession.road_path(road)
+	for i in range(1,path.size()):length+=path[i-1].distance_to(path[i])
+	info.text="Road length ≈ %.0f m. Left/right follow first → last control point. Junctions and merges leave automatic gaps."%length
+	info.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(info)
+	var controls: Dictionary={}
+	for side in ["left","right"]:
+		var enabled:=CheckButton.new()
+		enabled.text=side.capitalize()+" guardrail"
+		panel.add_child(enabled)
+		var settings: Dictionary=road.get("autoGuardrails",{})
+		enabled.button_pressed=settings.has(side)
+		var interval: Array=settings.get(side,[0,100])
+		var row:=HBoxContainer.new();panel.add_child(row)
+		var start:=_number(row,"Start %",0,100,float(interval[0]))
+		var end:=_number(row,"End %",0,100,float(interval[1]))
+		start.step=.1;end.step=.1
+		controls[side]=[enabled,start,end]
+	var status:=Label.new();status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(status)
+	dialog.confirmed.connect(func():
+		if _editing_locked() or authoring!=session or authoring.edit_revision!=revision or source_id!=identity:
+			_notice("Road changed. Reopen Auto guardrails.");dialog.queue_free();return
+		var settings: Dictionary={}
+		for side in controls:
+			var row: Array=controls[side]
+			if row[0].button_pressed:settings[side]=[row[1].value,row[2].value]
+		if authoring.set_auto_guardrails(identity,settings):
+			_refresh_authoring();_notice("Road-linked guardrails updated. Undo restores previous ranges.")
+			dialog.queue_free()
+		else:
+			status.text=authoring.last_error
+			dialog.call_deferred("popup_centered"))
+	dialog.canceled.connect(dialog.queue_free)
+	_btn("Remove both sides",panel,func():
+		for side in controls:controls[side][0].button_pressed=false)
+	dialog.popup_centered()
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return

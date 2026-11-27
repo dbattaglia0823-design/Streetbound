@@ -59,6 +59,16 @@ func run() -> void:
 	check("saved_source_keeps_guardrail_geometry",
 		serialized is Dictionary and
 		(serialized.get("props",[]) as Array).size()==session.doc.props.size())
+	var ground_id: String=""
+	for road in session.doc.roads:
+		if Session.AutoRails.ground(road):ground_id=str(road.id);break
+	check("ground road available",not ground_id.is_empty())
+	if not ground_id.is_empty():
+		check("road linked left and right ranges",session.set_auto_guardrails(ground_id,{"left":[10,70],"right":[0,100]}),session.last_error)
+		check("reject reversed range",not session.set_auto_guardrails(ground_id,{"left":[80,20]}))
+		check("remove road linked rails",session.set_auto_guardrails(ground_id,{}))
+		check("undo restores ranges",session.undo() and session.road_at_id(ground_id).has("autoGuardrails"))
+		check("redo removes ranges",session.redo() and not session.road_at_id(ground_id).has("autoGuardrails"))
 	var owner_a:=StaticBody2D.new()
 	owner_a.collision_layer=1
 	owner_a.collision_mask=0

@@ -11,6 +11,8 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from road_auto_guardrails import props_for
+from morrow_editor_import import _authoring_props
 from gameplay_authoring import validate as validate_gameplay, apply as apply_gameplay
 from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
@@ -1026,6 +1028,9 @@ def intersect(a,b,c,d):
     if -1e-5<=t<=1.00001 and -1e-5<=u<=1.00001: return [a[0]+t*vx,a[1]+t*vy]
     return None
 
+
+# Generate after production splines and intersections are final, before chunk indexing.
+PROPS.extend(_authoring_props({"props":props_for(ROADS,JUNCTIONS,WIDTH,HEIGHT)},WIDTH,HEIGHT))
 
 # Bake chunk membership once, leaving runtime streaming as cheap index lookups.
 CHUNKS=collections.defaultdict(lambda:dict(segments=[],props=[],walls=[],junctions=[],terrain=[],relief=[],rails=[],mountains=[]))
