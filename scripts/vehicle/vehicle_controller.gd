@@ -791,8 +791,8 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 			(0.70 + clampf(config.brake_turn_boost, 0.0, 1.0) * arcade * 0.40)
 		# Arcade cars retain a bounded cornering allowance under hard braking.
 		# This raises yaw authority, not longitudinal force or vehicle speed.
-		var arcade_brake_envelope := config.arcade_cornering_accel * 0.64 *
-			brake_authority / maxf(speed, 4.0)
+		var arcade_brake_envelope := (config.arcade_cornering_accel * 0.64 *
+			brake_authority / maxf(speed, 4.0))
 		brake_yaw_envelope = maxf(brake_yaw_envelope, minf(1.9, arcade_brake_envelope))
 		var brake_blend := smoothstep(0.1, 0.4, stopping_input)
 		var allowed_yaw := lerpf(3.0, brake_yaw_envelope, brake_blend)
