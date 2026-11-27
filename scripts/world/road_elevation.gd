@@ -305,3 +305,59 @@ static func masked_material(base: ShaderMaterial, mask: Texture2D, bounds: Rect2
 	instance.set_shader_parameter("terrain_cut_mask",mask)
 	instance.set_shader_parameter("terrain_cut_rect",Vector4(bounds.position.x,bounds.position.y,bounds.size.x,bounds.size.y))
 	return instance
+
+## One authored road, two ground-level portals and a covered -1 section.
+## Keep all existing control points; insert portal points on the end chords.
+## The existing bake derives connected ramps and tunnel sections.
+static func whole_tunnel_profile(road: Dictionary) -> Dictionary:
+	var points: Array=road.points.duplicate(true)
+	if road.has("jump") or road.has("autoGuardrails"):
+		return {"error":"Remove legacy jumps and auto guardrails before converting to a tunnel."}
+	if road.has("elevation"):
+		return {"error":"Reset existing road elevations before converting to a tunnel."}
+	if str(road.get("roadClass",""))=="onramp" or str(road.get("surface","")) not in ["asphalt","concrete"]:
+		return {"error":"Select a regular paved road for a tunnel."}
+	if points.size()<2:
+		return {"error":"Select a road with at least two points."}
+	var start:=Vector2(points[0].x,points[0].y)
+	var finish:=Vector2(points[-1].x,points[-1].y)
+	if start.distance_to(finish)<.12:
+		return {"error":"Open a closed road before converting it to a tunnel."}
+	var first_length:=start.distance_to(Vector2(points[1].x,points[1].y))
+	var last_length:=finish.distance_to(Vector2(points[-2].x,points[-2].y))
+	if first_length<50.0 or last_length<50.0:
+		return {"error":"Each end of the road needs a straight control-point span of at least 50 m for a tunnel ramp."}
+	var first_ramp:=minf(75.0,maxf(50.0,first_length-5.0))
+	var last_ramp:=minf(75.0,maxf(50.0,last_length-5.0))
+	if points.size()==2:
+		if first_length<110.0:
+			return {"error":"A tunnel needs at least 110 m for both ramps and the covered road."}
+		first_ramp=minf(75.0,(first_length-10.0)*.5)
+		last_ramp=first_ramp
+	var entry:=start.lerp(Vector2(points[1].x,points[1].y),first_ramp/first_length)
+	var exit:=finish.lerp(Vector2(points[-2].x,points[-2].y),last_ramp/last_length)
+	if points.size()==2:
+		points.insert(1,{"x":entry.x,"y":entry.y})
+		points.insert(2,{"x":exit.x,"y":exit.y})
+	else:
+		if first_length-first_ramp>.001:points.insert(1,{"x":entry.x,"y":entry.y})
+		if last_length-last_ramp>.001:points.insert(points.size()-1,{"x":exit.x,"y":exit.y})
+	if points.size()<4 or points.size()>100:
+		return {"error":"Tunnel needs distinct portals and at most 100 control points."}
+	var covered_length:=0.0
+	for i in range(2,points.size()-1):
+		covered_length+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+	if covered_length<4.0:
+		return {"error":"Leave at least 4 m of covered pavement between the tunnel ramps."}
+	var layers: Array=[]
+	layers.resize(points.size())
+	layers.fill(-1)
+	layers[0]=0
+	layers[-1]=0
+	var profile:={"start_layer":0,"end_layer":0,"point_layers":layers}
+	var candidate:=road.duplicate(true)
+	candidate.points=points
+	candidate.elevation=profile
+	var error:=authoring_error(candidate)
+	if not error.is_empty():return {"error":error}
+	return {"points":points,"elevation":profile}
