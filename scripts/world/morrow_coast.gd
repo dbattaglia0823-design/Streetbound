@@ -3,6 +3,7 @@ extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
 const RoadJump = preload("res://scripts/world/road_jump.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const TunnelTerrainArt = preload("res://scripts/world/coast_tunnel_terrain.gd")
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
@@ -57,6 +58,7 @@ var viewed_road_layer := 0
 var underground_backdrop: Polygon2D
 var overhead_road_layer := 0
 var tunnel_portals: Dictionary = {}
+var tunnel_terrain_plans: Dictionary = {}
 var jumps_by_road: Dictionary = {}
 var _jump_cells: Dictionary = {}
 var _last_overhead_check := Vector2.INF
@@ -186,6 +188,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 			_elevation_connections[Vector2i(first,last)] = true
 			_index_tunnel_portal(first,last)
 			_index_tunnel_portal(last,first)
+		_build_tunnel_terrain_plans()
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -577,6 +580,25 @@ func _index_terrain_cutouts() -> void:
 				entry.terrain_cuts.append(index)
 	if not cuts.is_empty():
 		data["terrain_cuts"] = cuts
+
+
+## Art is derived once per map load from the final road widths, independently
+## of the collider and terrain cut mask. Index all touched cells, including
+## the roof brow and outer banks beyond the excavation itself.
+func _build_tunnel_terrain_plans() -> void:
+	if data.get("terrain_cuts",[]).is_empty():return
+	var regions:=TunnelTerrainArt.terrain_regions(data.terrain)
+	for cut in data.terrain_cuts:
+		var road_id:=int(cut.road)
+		if tunnel_terrain_plans.has(road_id):continue
+		var plan:=TunnelTerrainArt.build(data.roads[road_id],regions,tunnel_portals.has(road_id))
+		if plan.is_empty():continue
+		tunnel_terrain_plans[road_id]=plan
+		for key in Mountains.cells(plan.bounds,data):
+			if not data.chunks.has(key):continue
+			var entry: Dictionary=data.chunks[key]
+			if not entry.has("tunnel_terrain"):entry["tunnel_terrain"]=[]
+			entry.tunnel_terrain.append(road_id)
 
 
 func _index_tunnel_portal(ramp_id: int, tunnel_id: int) -> void:
