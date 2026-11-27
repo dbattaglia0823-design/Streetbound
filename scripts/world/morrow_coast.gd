@@ -11,6 +11,7 @@ const GarageGeometry = preload("res://scripts/world/garage_geometry.gd")
 const ParkingAccess = preload("res://scripts/world/parking_access.gd")
 const DowntownPilot = preload("res://scripts/world/downtown_block_pilot.gd")
 const RoadWidthAdaptation = preload("res://scripts/world/road_width_adaptation.gd")
+const WalkwayDimensions = preload("res://scripts/world/urban_walkways.gd")
 const AutomaticBridges=preload("res://scripts/world/automatic_road_bridges.gd")
 const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
@@ -903,7 +904,7 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		# Urban sidewalks remain drivable, but are lower-priority than an
 		# overlapping full-grip road and must not mask widened lanes.
 		if r.kind in ["local", "arterial"]:
-			var walk_radius := road_radius + 3.3
+			var walk_radius := road_radius + WalkwayDimensions.SIDEWALK_WIDTH_PX / PPM
 			if distance_sq <= walk_radius * walk_radius:
 				on_sidewalk = true
 	if on_gravel:
@@ -938,7 +939,7 @@ func curb_height_at(position_px: Vector2) -> float:
 	if road.is_empty() or str(road.road_kind) not in ["local","arterial"]:
 		return 0.0
 	var edge: float = float(road.distance_to_road_edge_m)
-	if edge < -0.1 or edge > 3.3:
+	if edge < -0.1 or edge > WalkwayDimensions.SIDEWALK_WIDTH_PX / PPM:
 		return 0.0
 	return smoothstep(0.0,0.45,edge)
 
