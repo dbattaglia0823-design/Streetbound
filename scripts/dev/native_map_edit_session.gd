@@ -298,6 +298,10 @@ func _commit(next: Dictionary) -> bool:
 	if not _valid_source(next):
 		last_error = "Edit was rejected: invalid world bounds or source geometry."
 		return false
+	if next.has("editorLayers"):
+		var live:=Workspace.records(next)
+		for layer in next.editorLayers:
+			layer.ids=layer.ids.filter(func(id: String)->bool:return live.has(id))
 	if _fingerprint(doc) == _fingerprint(next):
 		return true
 	history.append(doc.duplicate(true))

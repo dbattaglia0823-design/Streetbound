@@ -36,6 +36,7 @@ static func records(doc: Dictionary) -> Dictionary:
 	return result
 
 static func locks_unchanged(before: Dictionary,after: Dictionary) -> bool:
+	if not before.get("editorLayers",[]).any(func(layer: Dictionary)->bool:return layer.locked):return true
 	var old:=records(before)
 	var next:=records(after)
 	for layer in before.get("editorLayers",[]):
@@ -67,7 +68,7 @@ static func resize(doc: Dictionary,width: int,height: int) -> Dictionary:
 		result.terrainHeight={"size":129,"values":samples}
 	return result
 
-static func matches(item: Dictionary,category: String,kind: String,query: String,region: Dictionary={}) -> bool:
+static func matches(item: Dictionary,_category: String,kind: String,query: String,region: Dictionary={}) -> bool:
 	if kind!="all" and str(item.get("roadClass",item.get("type",item.get("biome",""))))!=kind:return false
 	if not query.is_empty() and query.to_lower() not in (str(item.get("name",""))+" "+str(item.id)).to_lower():return false
 	if not region.is_empty():

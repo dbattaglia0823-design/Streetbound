@@ -84,3 +84,11 @@ test('authored height fields survive browser source round trips',()=>{
   assert.throws(()=>normalizeWorld({...doc,terrainHeight:{size:129,values:[0]}}),/height field/);
   values[0]=1201;assert.throws(()=>normalizeWorld({...doc,terrainHeight:{size:129,values}}),/height field/);
 });
+
+test('named layers survive browser round trip and reject duplicate membership',()=>{
+  const doc=fixture();
+  const editorLayers=[{name:'Downtown',ids:['road-0'],visible:false,locked:true}];
+  const result=normalizeWorld({...doc,editorLayers});
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).editorLayers,editorLayers);
+  assert.throws(()=>normalizeWorld({...doc,editorLayers:[...editorLayers,{name:'Other',ids:['road-0'],visible:true,locked:false}]}),/layer member/);
+});

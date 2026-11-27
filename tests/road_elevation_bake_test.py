@@ -15,6 +15,12 @@ def fixture():
 
 
 class ElevationBakeTests(unittest.TestCase):
+    def test_named_editor_layers_never_hide_game_geometry(self):
+        source=fixture()
+        expected=make_archive(source)
+        source["editorLayers"]=[{"name":"Hidden deck","ids":["road-1"],"visible":False,"locked":True}]
+        self.assertEqual(make_archive(source),expected)
+
     def test_authored_height_field_bake_and_cache_invalidation(self):
         source=fixture()
         base=geometry_cache_key(source)

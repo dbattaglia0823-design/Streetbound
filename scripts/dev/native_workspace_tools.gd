@@ -2,6 +2,7 @@ extends RefCounted
 ## Native editor productivity dialogs. Local preferences never enter a bake.
 const Data=preload("res://scripts/dev/native_editor_workspace.gd")
 const Library=preload("res://scripts/dev/native_map_library.gd")
+const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const PREFS="user://streetbound-editor-workspace.json"
 var e
 var prefs: Dictionary={}
@@ -12,6 +13,7 @@ var name_field: LineEdit
 var query: LineEdit
 var category: OptionButton
 var kind_field: LineEdit
+var filter_elevation: OptionButton
 var region_only: CheckBox
 var width: SpinBox
 var height: SpinBox
@@ -23,6 +25,7 @@ var reference_width: SpinBox
 var reference_x: SpinBox
 var reference_y: SpinBox
 var reference_alpha: SpinBox
+var reference_rotation: SpinBox
 var reference_key:=""
 var measure_points: Array[Vector2]=[]
 
@@ -164,6 +167,7 @@ func open_filters() -> void:
 	category=e._options(panel,"Object category",["all","roads","regions","props","markers","races"])
 	kind_field=LineEdit.new();kind_field.placeholder_text="Exact road class, biome or asset type (blank = all)";panel.add_child(kind_field)
 	query=LineEdit.new();query.placeholder_text="Name or ID contains…";panel.add_child(query)
+	filter_elevation=e._options(panel,"Road elevation",["all","-2","-1","0","1","2"])
 	region_only=CheckBox.new();region_only.text="Inside currently selected terrain region";panel.add_child(region_only)
 	e._btn("Select matching objects",panel,_apply_filter)
 	_show()
@@ -176,15 +180,19 @@ func _apply_filter() -> void:
 		district=record.item
 	var wanted: String=e._option_value(category)
 	var kind:=kind_field.text.strip_edges().to_lower()
+	var elevation: String=e._option_value(filter_elevation)
 	var ids: Array[String]=[]
 	for group in Data.CATEGORIES:
 		if wanted!="all" and wanted!=group:continue
 		for item in e.authoring.doc.get(group,[]):
 			if not e._workspace_selectable(str(item.id)) or bool(item.get("hidden",false)):continue
+			if elevation!="all" and (group!="roads" or not Session.road_touches_layer(item,int(elevation))):continue
 			if Data.matches(item,group,kind if not kind.is_empty() else "all",query.text,district):ids.append(str(item.id))
 			if ids.size()>=1200:break
 		if ids.size()>=1200:break
-	dialog.hide();e._choose_tool("move_prop");e._set_multi(ids);e._refresh_authoring()
+	dialog.hide();e._choose_tool("move_prop");e.source_id="";e.source_anchor=-1
+	if ids.size()==1:e.source_id=ids[0]
+	e._set_multi(ids);e._refresh_authoring()
 	e._notice("Selected %d matching objects (selection limit 1200)."%ids.size())
 
 func asset_key(entry: Dictionary) -> String:
@@ -348,6 +356,7 @@ func open_reference() -> void:
 	reference_x=e._number(panel,"Centre X m",0,e.authoring.doc.world.width,p.x)
 	reference_y=e._number(panel,"Centre Y m",0,e.authoring.doc.world.height,p.y)
 	reference_alpha=e._number(panel,"Opacity %",0,100,40)
+	reference_rotation=e._number(panel,"Rotation degrees",-180,180,0)
 	e._btn("Choose image",panel,_choose_reference)
 	e._btn("Apply transform",panel,_transform_reference)
 	e._btn("Remove overlay",panel,_remove_reference)
@@ -374,6 +383,7 @@ func _transform_reference() -> void:
 	reference.global_position=Vector2(reference_x.value,reference_y.value)*20
 	reference.scale=Vector2.ONE*reference_width.value*20/reference.texture.get_width()
 	reference.modulate.a=reference_alpha.value/100.0
+	reference.rotation=deg_to_rad(reference_rotation.value)
 	reference.visible=reference_key==_map_key()
 
 func _remove_reference() -> void:
@@ -397,7 +407,7 @@ func measure_click(at: Vector2) -> void:
 
 func clear_measure() -> void:
 	measure_points.clear()
-	if is_instance_valid(e.gizmos):e.gizmos.measurement_points.clear();e.gizmos.queue_redraw()
+	if is_instance_valid(e) and is_instance_valid(e.gizmos):e.gizmos.measurement_points.clear();e.gizmos.queue_redraw()
 
 func open_commands() -> void:
 	if not e.source_ready:return

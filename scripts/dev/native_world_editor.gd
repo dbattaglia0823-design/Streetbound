@@ -965,9 +965,9 @@ func _open_dealership_editor() -> void:
 
 
 func _choose_tool(mode: String) -> void:
-	if mode!="measure":workspace_tools.clear_measure()
 	if _editing_locked():
 		return
+	if mode!="measure":workspace_tools.clear_measure()
 	if not source_ready and mode != "inspect":
 		_notice("Source unavailable. The map can still be inspected.")
 		return

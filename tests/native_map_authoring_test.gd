@@ -130,6 +130,34 @@ func _run() -> void:
 		and landscape.undo() and landscape.doc==landscape_before)
 	var trees: Dictionary=City.plan_vegetation(landscape.doc,Vector2(640,640),80,.5,"tree",42,8000)
 	check("vegetation_brush_deterministic",trees.props.size()>0 and trees==City.plan_vegetation(landscape.doc,Vector2(640,640),80,.5,"tree",42,8000))
+	var Workspace=preload("res://scripts/dev/native_editor_workspace.gd")
+	var workspace=Session.new()
+	workspace.doc=Library.create("Workspace test",1800,1800,"grass")
+	var workspace_road: String=workspace.add_road(Vector2(200,500),Vector2(1400,500))
+	var workspace_prop: String=workspace.add_prop("house",Vector2(1000,800))
+	var workspace_ids: Array[String]=[workspace_road]
+	var layer_data: Array=[{"name":"Main streets","visible":false,"locked":true,"ids":[workspace_road]}]
+	check("named_layer_validates_and_hides_only_preview",workspace.set_named_layers(layer_data)
+		and Workspace.preview(workspace.doc).roads.is_empty() and workspace.doc.roads.size()==1)
+	check("named_layer_blocks_locked_road_edits",not workspace.bulk_properties(workspace_ids,"roads",{"width":20}))
+	layer_data[0].locked=false
+	layer_data[0].visible=true
+	check("named_layer_unlock_allows_edit",workspace.set_named_layers(layer_data) and workspace.bulk_properties(workspace_ids,"roads",{"width":20}))
+	var workspace_snapshot: Dictionary=workspace.doc.duplicate(true)
+	check("custom_resize_rejects_outside_objects",not workspace.resize_custom_world(800,800) and workspace.doc==workspace_snapshot)
+	check("custom_expansion_preserves_coordinates",workspace.resize_custom_world(2400,2000) and workspace.doc.world.width==2400
+		and workspace.doc.roads==workspace_snapshot.roads and workspace.undo() and workspace.doc==workspace_snapshot)
+	var replace_ids: Array[String]=[workspace_prop]
+	check("bulk_asset_replacement_preserves_position",workspace.replace_assets(replace_ids,{"kind":"tree","name":"Tree"})
+		and workspace.prop_at_id(workspace_prop).type=="oak" and workspace.prop_at_id(workspace_prop).x==1000)
+	check("snapshot_restore_is_undoable",workspace.restore_snapshot(workspace_snapshot) and workspace.doc==workspace_snapshot and workspace.undo()
+		and workspace.prop_at_id(workspace_prop).type=="oak")
+	var measurement_points: Array[Vector2]=[Vector2.ZERO,Vector2(100,0),Vector2(100,100)]
+	var metrics: Dictionary=Workspace.measure(measurement_points)
+	check("measurement_distance_area_angle",is_equal_approx(metrics.length,200) and is_equal_approx(metrics.area,5000) and is_equal_approx(metrics.angle,90))
+	check("measurement_road_clearance",is_equal_approx(Workspace.crossing_clearance(
+		{"points":[{"x":0,"y":100},{"x":200,"y":100}],"elevation":{"start_layer":1,"end_layer":1}},
+		{"points":[{"x":100,"y":0},{"x":100,"y":200}]}),6))
 	var bulk_session=Session.new()
 	check("bulk_fixture_loads",bulk_session.load_source())
 	var bulk_ids: Array[String]=["road-0","road-1"]
