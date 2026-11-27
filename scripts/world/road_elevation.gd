@@ -376,7 +376,9 @@ static func structure_kind(road: Dictionary) -> String:
 	var first:=int(profile.get("start_layer",0))
 	var last:=int(profile.get("end_layer",0))
 	var layers: Array=profile.get("point_layers",[])
-	if first==-1 and last==-1 and (layers.is_empty() or layers.all(func(v: Variant)->bool:return int(v)==-1)):return "underground"
+	if first==-1 and last==-1 and (layers.is_empty() or layers.all(func(v: Variant)->bool:return int(v)==-1)):return "underground" if float(road.get("width",10))>=36 else "tunnel"
+	if layers.is_empty() and mini(first,last)==-1 and maxi(first,last)==0:return "tunnel"
+	if layers.is_empty() and mini(first,last)==0 and maxi(first,last)==1:return "overpass"
 	if first==0 and last==0 and -1 in layers and not 1 in layers:return "tunnel"
 	if first==0 and last==0 and 1 in layers and not -1 in layers:return "overpass"
 	if first==1 and last==1 and (layers.is_empty() or layers.all(func(v: Variant)->bool:return int(v)==1)):return "overpass"
@@ -404,5 +406,14 @@ static func structure_profile(road: Dictionary, kind: String) -> Dictionary:
 		if profile.has("error"):return profile
 		next.points=profile.points
 		next.elevation=profile.elevation
+	var error:=authoring_error(next)
+	return {"road":next} if error.is_empty() else {"error":error}
+
+
+static func connected_structure_profile(road: Dictionary, first: int, last: int) -> Dictionary:
+	var next:=road.duplicate(true)
+	if next.has("jump") or next.has("autoGuardrails") or str(next.get("roadClass",""))=="onramp" or str(next.get("surface","")) not in ["asphalt","concrete"]:
+		return {"error":"Use a regular paved road without a legacy jump or auto guardrails."}
+	next.elevation={"start_layer":first,"end_layer":last}
 	var error:=authoring_error(next)
 	return {"road":next} if error.is_empty() else {"error":error}
