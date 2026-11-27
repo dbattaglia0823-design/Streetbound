@@ -1,10 +1,12 @@
 """Bake at-grade junction mouths, rounded corners, priority and paint exclusions.
 
-Endpoint T joins and interior crossings use the same geometry. No road-over-road
-decks exist in Morrow Coast; the old grade field describes water bridge routes.
+Endpoint T joins and centerline crossings use the same geometry when their
+road layers agree. Legacy water bridge grades do not affect connectivity.
 """
 import bisect
 import math
+
+from road_elevation import layer_at_join, validate_profile
 
 PRIORITY = {'highway':5,'track':5,'arterial':4,'rural':3,'mountain':3,
             'local':2,'gravel':1,'driveway':0,'alley':0}
@@ -100,21 +102,32 @@ def build_junctions(roads,nodes,segments,grid):
         stations=[0.0]
         for a,b in zip(road['points'],road['points'][1:]):stations.append(stations[-1]+distance(a,b))
         road['_stations']=stations
+        validate_profile(road, stations[-1])
         road['marking_gaps']=[]
     events=[]; cells={}; connections=set(); crossings=[]
-    def event(p,ids):
+    def event(p,ids,layer):
         cell=(int(p[0]//8),int(p[1]//8))
         for x in range(cell[0]-1,cell[0]+2):
             for y in range(cell[1]-1,cell[1]+2):
                 for index in cells.get((x,y),[]):
-                    if distance(events[index]['p'],p)<3:
+                    if events[index]['layer']==layer and distance(events[index]['p'],p)<3:
                         events[index]['roads'].update(ids)
                         return
         cells.setdefault(cell,[]).append(len(events))
-        events.append(dict(p=list(p),roads=set(ids)))
+        events.append(dict(p=list(p),roads=set(ids),layer=layer))
+
+    def join_layer(road_id,p):
+        road=roads[road_id]
+        return layer_at_join(road,project(road,p)[1]) if 'elevation' in road else 0
+
     for name,p in nodes.items():
-        ids=[r['id'] for r in roads if name in [r['start'],r['end']]]
-        if len(ids)>=2:event(p,ids)
+        by_layer={}
+        for road in roads:
+            for end,station in [('start',0),('end',road['_stations'][-1])]:
+                if road[end]==name:
+                    by_layer.setdefault(layer_at_join(road,station),set()).add(road['id'])
+        for layer,ids in by_layer.items():
+            if len(ids)>=2:event(p,ids,layer)
     tested=set()
     for indices in grid.values():
         for i in indices:
@@ -126,17 +139,24 @@ def build_junctions(roads,nodes,segments,grid):
                 p=crossing(a['a'],a['b'],b['a'],b['b'])
                 if p is not None:
                     ids=[a['road'],b['road']]
+                    layer=join_layer(ids[0],p)
+                    other=join_layer(ids[1],p)
+                    if layer is None or layer!=other:
+                        continue
                     crossings.append(dict(p=p,roads=ids))
-                    event(p,ids)
+                    event(p,ids,layer)
     # Catch endpoints touching the interior of a road within authored precision.
     for road in roads:
-        for p in [road['points'][0],road['points'][-1]]:
+        for p,station in [(road['points'][0],0),(road['points'][-1],road['_stations'][-1])]:
+            layer=layer_at_join(road,station)
             key=f'{int(p[0]//64)},{int(p[1]//64)}'
             ids={road['id']}
             for index in grid.get(key,[]):
                 seg=segments[index]
-                if seg['road']!=road['id'] and near(p,seg['a'],seg['b'])[0]<.12:ids.add(seg['road'])
-            if len(ids)>1:event(p,ids)
+                if (seg['road']!=road['id'] and near(p,seg['a'],seg['b'])[0]<.12
+                        and join_layer(seg['road'],p)==layer):
+                    ids.add(seg['road'])
+            if len(ids)>1:event(p,ids,layer)
     result=[]
     for e in events:
         ids=sorted(e['roads']); center=e['p']
@@ -249,8 +269,11 @@ def build_junctions(roads,nodes,segments,grid):
             road['marking_gaps'].append([max(0,min(s,end)-.5),min(road['_stations'][-1],max(s,end)+.5)])
             for key in ['available','origin_station','angle']:arm.pop(key,None)
         radius=max(distance(center,p) for p in polygon)+2
-        result.append(dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
-                           radius=radius,control=control,kind='crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')))
+        junction=dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
+                      radius=radius,control=control,kind='crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend'))
+        if e['layer']:
+            junction['road_layer']=e['layer']
+        result.append(junction)
     for road in roads:
         merged=[]
         for a,b in sorted(road['marking_gaps']):

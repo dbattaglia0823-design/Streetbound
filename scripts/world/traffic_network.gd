@@ -5,6 +5,7 @@ extends RefCounted
 ## painted intersections. Skips dirt/gravel and racing-track roads.
 const PPM := 20.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
+const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SPEEDS := {"local": 36.0, "arterial": 51.0, "highway": 82.0,
 	"rural": 60.0, "mountain": 34.0, "alley": 20.0}
 const CELL_M := 192.0
@@ -149,7 +150,7 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 		var kind := str(road.kind)
 		if not SPEEDS.has(kind) and not (for_navigation and kind in ["driveway","track","gravel"]):
 			continue
-		if not for_navigation and str(road.get("surface","ASPHALT")) in ["GRAVEL","DIRT"]:
+		if not for_navigation and (road.has("elevation") or str(road.get("surface","ASPHALT")) in ["GRAVEL","DIRT"]):
 			continue
 		var raw: Array = road.points
 		if raw.size()<2:
@@ -194,7 +195,9 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 						"start_side":int(start.side),"end_side":int(ending.side),
 						"start_node":str(start.node),"end_node":str(ending.node),
 						"control":str(ending.get("control","none")),
-						"kind":kind,"width_m":float(road.width)
+						"kind":kind,"width_m":float(road.width),
+						"start_height_m":Elevation.height_at(road,float(start.station)/total),
+						"end_height_m":Elevation.height_at(road,float(ending.station)/total)
 					})
 					if int(ending.junction)>=0:
 						var j_key := int(ending.junction)
@@ -276,6 +279,10 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 		var source: Dictionary = edges[int(from_id)]
 		for to_id in to_ids:
 			var target: Dictionary = edges[int(to_id)]
+			# Named endpoints are shared in XY by old archives and authoring
+			# tools. Only roads meeting on the same layer can continue there.
+			if junction<0 and absf(float(source.end_height_m)-float(target.start_height_m))>.01:
+				continue
 			if junction>=0 and int(source.road)==int(target.road) and int(source.end_side)==int(target.start_side):
 				continue
 			if int(source.road)==int(target.road) and int(source.direction)!=int(target.direction):
@@ -320,7 +327,8 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				"start_j":junction,"end_j":junction,"start_side":int(source.end_side),
 				"end_side":int(target.start_side),"start_node":"","end_node":"",
 				"control":approach_control,"junction_control":control,
-				"kind":"connector","turn":turn
+				"kind":"connector","turn":turn,
+				"start_height_m":source.end_height_m,"end_height_m":target.start_height_m
 			})
 			edges[id]["next"]=[int(to_id)]
 			edges[int(from_id)]["next"].append(id)
@@ -379,7 +387,14 @@ func point_on_edge(edge_id: int, progress_px: float) -> Dictionary:
 	var tangent := (after - before).normalized()
 	if tangent.length_squared() < 0.1:
 		tangent = (points[high] - points[low]).normalized()
-	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5}
+	var height_m := edge_height_at(edge,offset)
+	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5,
+		"height_m":height_m,"road_layer":Elevation.layer_for_height(height_m)}
+
+
+static func edge_height_at(edge: Dictionary, progress_px: float) -> float:
+	return lerpf(float(edge.get("start_height_m",0)),float(edge.get("end_height_m",0)),
+		clampf(progress_px / maxf(float(edge.length_px),1.0),0.0,1.0))
 
 
 func curve_speed_limit(edge_id: int, progress_px: float, desired_px: float) -> float:

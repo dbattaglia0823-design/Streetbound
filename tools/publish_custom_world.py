@@ -61,6 +61,8 @@ def _production_checks(doc, archive, root):
     spawn = archive["spawn"]["position"]
     on_road = False
     for road in archive["roads"]:
+        if "elevation" in road:
+            continue
         points = road["points"]
         for a, b in zip(points, points[1:]):
             abx, aby = b[0]-a[0], b[1]-a[1]

@@ -11,6 +11,15 @@
 - The friend-session multiplayer implementation has separate design and validation requirements in [FRIENDS_MULTIPLAYER.md](FRIENDS_MULTIPLAYER.md). Do not infer working remote Internet play or complete platform compatibility from source or isolated localhost probes.
 - The playable Morrow Coast world is authoritative. Do not replace it with toolkit sample maps; see [map documentation](MORROW_COAST.md) and [editor/rebake instructions](MORROW_EDITOR_AND_TRAFFIC.md).
 
+## Road elevation foundation
+
+- Review branch adds signed road layers, layer-aware baking and lane routing,
+  browser and native authoring, and a physical deck/tunnel fixture. See
+  [Road elevation](ROAD_ELEVATION.md) for limitations and test commands.
+- Local Godot 4.6.3 passed the road elevation graph and drive tests, the
+  original open world, ambient traffic, native authoring, driving contracts
+  and police tactics. Graphical review and GitHub Actions are separate checks.
+
 ## Verification boundaries and remaining work
 
 - Police fleet branch: the seven uploaded police PNG hashes match the generated artwork; Crown Vic and armored truck face up, the other five face down. The model roster is cumulative with a four-unit cap. Focused asset/dispatch tests passed the prior commit’s three CI checks; this follow-up adds five ordinary ambient patrol models within the traffic cap and extends traffic art/movement tests. Follow-up expands to 2/4/6/8/10 responders, delayed replacements, patrol recruitment, PIT contact, emergency effects and host-authoritative shared police snapshots. New CI and live driving/LAN validation remain pending.

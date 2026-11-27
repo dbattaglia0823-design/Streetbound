@@ -609,6 +609,7 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 		else Vector2.UP.rotated((agent.node as Node2D).rotation)
 	var safe := desired_px
 	for person in _player_vehicles():
+		if person.road_layer != 0:continue
 		var player_velocity: Vector2 = person.linear_velocity * PPM
 		safe = _safe_follow_speed(agent, safe,
 			person.global_position, player_velocity, heading)

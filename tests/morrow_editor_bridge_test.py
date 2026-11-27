@@ -60,6 +60,21 @@ class SourceBridgeTests(unittest.TestCase):
             extras = apply_edits(*data, filename=source, **options)
         return data, extras
 
+    def test_road_elevation_uses_explicit_profile_without_touching_legacy_grade(self):
+        source = editor_doc()
+        source["roads"][0]["elevation"] = {"start_layer": 0, "end_layer": 1}
+        new_road = copy.deepcopy(source["roads"][1])
+        new_road["id"] = "road-2"
+        new_road["elevation"] = {"start_layer": -1, "end_layer": -1}
+        source["roads"].append(new_road)
+        base = fixture()
+        base[0][1]["grade"] = 1
+        (roads, *_), _ = self.apply(source, base)
+        self.assertEqual(roads[0]["elevation"], source["roads"][0]["elevation"])
+        self.assertEqual(roads[2]["elevation"], new_road["elevation"])
+        self.assertEqual(roads[1]["grade"], 1)
+        self.assertNotIn("elevation", roads[1])
+
     def test_unchanged_round_trip_does_not_reduce_coastal_data(self):
         original = fixture()
         result, markers = self.apply(editor_doc(), original)

@@ -1,3 +1,4 @@
+import {roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose} from './world-road-priority.js';
@@ -227,7 +228,8 @@ function drawRoads(ctx,roads,bounds,options){
       return pieces.get(road.id)||[];
     return [baked.points];
   };
-  const bridges=options.doc?bridgesForDocument(options.doc,options.runtimePreview):[];
+  const showWaterBridges=options.roadLayer===undefined||options.roadLayer==='all'||options.roadLayer===0;
+  const bridges=options.doc&&showWaterBridges?bridgesForDocument(options.doc,options.runtimePreview):[];
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,0);
   for(const road of order){
     if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
@@ -261,6 +263,13 @@ function drawRoads(ctx,roads,bounds,options){
   }
   ctx.restore();
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,1,junctions);
+  for(const road of order){
+    if(!road.elevation||!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+    const {start_layer,end_layer}=roadElevation(road);
+    const color=Math.min(start_layer,end_layer)<0?'#c897f5':'#79d7f5';
+    for(const path of displayPaths(road))
+      drawRoadStroke(ctx,path,Math.max(1.4,road.width*.16),color,start_layer===end_layer?[]:[8,5]);
+  }
   // Game-style pavement: road surfaces overlap naturally, without convex
   // hulls or artificial asphalt blobs. Clear road markings only inside the
   // actual junction mouths. The exact Godot-baked apron is drawn below when
@@ -520,7 +529,10 @@ export function drawWorld(ctx,doc,options={}){
       for(const region of doc.regions)drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
   }
-  if(options.showRoads!==false)drawRoads(ctx,doc.roads,bounds,{...options,doc});
+  if(options.showRoads!==false){
+    const visibleRoads=roadsOnLayer(doc.roads,options.roadLayer??'all');
+    drawRoads(ctx,visibleRoads,bounds,{...options,doc});
+  }
   if(options.showScenery!==false){
     if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
     for(const prop of doc.props){

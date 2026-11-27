@@ -1,6 +1,7 @@
 class_name MorrowCoast
 extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
@@ -36,6 +37,10 @@ var current_cell := Vector2i(-999,-999)
 var surface_queries := 0
 var segment_tests := 0
 var segment_stations := PackedFloat64Array()
+var has_road_elevation := false
+var road_lengths_m := PackedFloat64Array()
+var _elevation_connections: Dictionary = {}
+var viewed_road_layer := 0
 var bridge_diagnostics: Dictionary={}
 var mountain_diagnostics: Dictionary={}
 var mountain_art_cache: Dictionary={}
@@ -84,6 +89,10 @@ func _ready() -> void:
 			return
 		path=archive_override_path
 	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+	_initialize_archive(parsed,testing,published)
+
+
+func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> void:
 	data=parsed if parsed is Dictionary else {}
 	if testing and not bool(data.get("editor_custom_test_drive",false)):
 		push_error("Test Drive refused an archive without its Test Drive marker")
@@ -139,6 +148,11 @@ func _ready() -> void:
 		for x in range(first.x,last.x + 1):
 			for y in range(first.y,last.y + 1):
 				_boardwalk_cells[Vector2i(x,y)] = true
+	road_lengths_m.resize(data.roads.size())
+	has_road_elevation = data.roads.any(func(road: Dictionary) -> bool: return road.has("elevation"))
+	if has_road_elevation:
+		for pair in data.get("road_connections",[]):
+			_elevation_connections[Vector2i(int(pair[0]),int(pair[1]))] = true
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -147,6 +161,8 @@ func _ready() -> void:
 			last_road=int(segment.road)
 		segment_stations.append(station)
 		station+=Vector2(float(segment.a[0]),float(segment.a[1])).distance_to(Vector2(float(segment.b[0]),float(segment.b[1])))
+		if has_road_elevation:
+			road_lengths_m[last_road] = station
 	for key in data.chunks:
 		for terrain in data.chunks[key].terrain:
 			if terrain.kind=="beach":
@@ -484,6 +500,10 @@ func _process(dt: float) -> void:
 		if performance_debug_enabled: _update_performance_display()
 		return
 	if vehicle:
+		if has_road_elevation and vehicle.road_layer != viewed_road_layer:
+			viewed_road_layer = vehicle.road_layer
+			for chunk in chunks.values():
+				chunk.reveal_road_layer(viewed_road_layer)
 		stream_at(vehicle.global_position)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
@@ -512,6 +532,75 @@ func _process(dt: float) -> void:
 				"Placement: %s (%s)" % [
 					"clear" if bool(can_build.clear) else "blocked", str(can_build.reason)]
 
+## Resolve a vehicle's current grade from indexed pavement, keeping the
+## active strip through XY overlaps. New ramps can only be entered at a mouth.
+func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Dictionary:
+	if not has_road_elevation:
+		return {}
+	var point := position_px / PPM
+	var bounds := Rect2(Vector2.ONE,Vector2(data.size[0],data.size[1])-Vector2.ONE*2)
+	if not bounds.has_point(point):
+		return {}
+	var cell := float(data.surface_cell)
+	var key := "%d,%d" % [floori(point.x/cell),floori(point.y/cell)]
+	var layer := Elevation.layer_for_height(height_m)
+	var fallback: Dictionary = {}
+	var nearest := INF
+	for raw_index in data.surface_index.get(key,[]):
+		var index := int(raw_index)
+		var segment: Dictionary = data.segments[index]
+		var road_id := int(segment.road)
+		var road: Dictionary = data.roads[road_id]
+		if not road.has("elevation"):
+			continue
+		var a := Vector2(segment.a[0],segment.a[1])
+		var b := Vector2(segment.b[0],segment.b[1])
+		var direction := (b-a).normalized()
+		var length_m := a.distance_to(b)
+		var offset := (point-a).dot(direction)
+		var station := float(segment_stations[index])
+		var total := road_lengths_m[road_id]
+		var cap := total-station-length_m
+		if (station < .01 and offset < -.08) or (cap < .01 and offset > length_m+.08):
+			continue
+		var along := clampf(offset,0.0,length_m)
+		var distance := point.distance_to(a+direction*along)
+		if distance > float(road.width)*.5-.85:
+			continue
+		var fraction := (station+along)/maxf(total,.001)
+		var grade_height := Elevation.height_at(road,fraction)
+		var slope := (Elevation.height_at(road,1.0)-Elevation.height_at(road,0.0))/maxf(total,.001)
+		var is_mouth := minf(station+along,total-station-along) < 3.0
+		var is_current := road_id == active_road
+		if not is_current:
+			if absf(grade_height-height_m) > .38 or (slope != 0.0 and not is_mouth):
+				continue
+			if layer == 0 and (not is_mouth or slope == 0.0):
+				continue
+			if layer != 0 and (active_road < 0 or not _elevation_connections.has(
+					Vector2i(mini(active_road,road_id),maxi(active_road,road_id)))):
+				continue
+		var score := distance - (100.0 if is_current else 0.0)
+		if score >= nearest:
+			continue
+		nearest = score
+		fallback = {"road":road_id,"height_m":grade_height,"gradient":direction*slope,
+			"road_layer":Elevation.layer_for_height(grade_height),"is_mouth":is_mouth,
+			"name":str(road.surface),"grip":.75 if str(road.surface)=="GRAVEL" else 1.0}
+	if not fallback.is_empty():
+		return fallback
+	if layer != 0:
+		for index in _junction_grid.get(key,[]):
+			var junction: Dictionary = data.junctions[index]
+			if int(junction.get("road_layer",0)) == layer \
+					and junction.roads.has(active_road) \
+					and Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
+				return {"road":active_road,"height_m":height_m,
+					"gradient":Vector2.ZERO,"road_layer":layer,"is_mouth":false,
+					"name":"ASPHALT","grip":1.0}
+	return {}
+
+
 func surface_at(position_px: Vector2) -> Dictionary:
 	surface_queries += 1
 	var point := position_px/PPM
@@ -536,7 +625,7 @@ func surface_at(position_px: Vector2) -> Dictionary:
 			return {"name":"ASPHALT","grip":1.0}
 	for index in _junction_grid.get(key,[]):
 		var j: Dictionary = data.junctions[index]
-		if Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
+		if int(j.get("road_layer",0)) == 0 and Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
 			return {"name":"ASPHALT","grip":1.0}
 	# Check ALL indexed road strips before assigning sidewalk or gravel grip.
 	# Otherwise an adjacent sidewalk can win simply because its segment was
@@ -549,6 +638,8 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var a := Vector2(float(segment.a[0]),float(segment.a[1]))
 		var b := Vector2(float(segment.b[0]),float(segment.b[1]))
 		var r: Dictionary = data.roads[int(segment.road)]
+		if r.has("elevation"):
+			continue
 		var distance_sq := Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)
 		var road_radius := float(r.width) * 0.5
 		if distance_sq <= road_radius * road_radius:

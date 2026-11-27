@@ -490,12 +490,12 @@ func _line_of_sight() -> bool:
 		if not is_instance_valid(officer) or officer.damage_drive_fraction <= 0.0:
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
-		if distance_m>sight_m:
+		if distance_m>sight_m or absf(officer.elevation_m-player.elevation_m)>2.4:
 			continue
 		# Only confirmed unobstructed sightings may update the suspect's
 		# last known location. Buildings, walls and traffic can hide the car.
 		var params:=PhysicsRayQueryParameters2D.create(
-			officer.global_position,player.global_position,1,exclusion)
+			officer.global_position,player.global_position,officer.collision_mask,exclusion)
 		var hit: Dictionary=get_world_2d().direct_space_state.intersect_ray(params)
 		if Tactics.visible(distance_m,wanted_level,not hit.is_empty()):
 			return true
@@ -697,8 +697,9 @@ func _physics_process(dt: float) -> void:
 			officer.command = Vector4(0.0, 1.0, 0.0, 0.0)
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
-		nearest = minf(nearest,distance_m)
-		officers.append(officer.global_position/PPM)
+		if absf(officer.elevation_m-player.elevation_m)<=1.2:
+			nearest = minf(nearest,distance_m)
+			officers.append(officer.global_position/PPM)
 		if phase == "chase" and str(entry.get("role",""))=="roadblock" and \
 				roadblock_position_m.is_finite():
 			var to_block:=officer.global_position.distance_to(roadblock_position_m*PPM)/PPM

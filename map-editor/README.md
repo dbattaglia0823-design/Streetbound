@@ -42,6 +42,12 @@ drivable pavement / slow-speed interaction area. **Save to Game**, then
 saved with the World Forge source and included in baked Morrow Coast export
 data; Undo/Redo/Discard protect them like other map edits.
 
+**Road elevation:** Select a road and apply its start and end layers in the
+inspector (browser) or Road Designer (native). Layers are spaced 6 m apart.
+Use the browser's **Road elevation** filter for overlapping roads. For ramp
+lengths, connectivity and supported gameplay, see
+[Road elevation](../docs/ROAD_ELEVATION.md).
+
 **Automatic bridges:** Roads crossing rivers, lakes or ocean gain a raised deck,
 shadows and guardrails automatically. Bridge width follows road width and the
 rails leave the driving lanes and intersection mouths clear. Road and terrain

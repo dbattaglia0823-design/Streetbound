@@ -1,3 +1,4 @@
+import {LAYER_HEIGHT_M,roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {
   createWorld,demoWorld,parseWorld,serializeWorld,normalizeWorld,getEntity,
   createEntity,addSpriteAsset,updateEntity,removeEntity,reorderEntity,moveControlPoint,insertControlPoint,
@@ -117,8 +118,9 @@ function previewPreset(){
   presetCache={doc,key,value};
   return value;
 }
+const visibleRoadLayer=()=>$('visible-road-layer').value==='all'?'all':Number($('visible-road-layer').value);
 const currentDisplay = ()=>({
-  showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,
+  showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,roadLayer:visibleRoadLayer(),
   junctions:$('show-junctions').checked,
   showScenery:$('show-scenery').checked,showMarkers:$('show-markers').checked
 });
@@ -177,7 +179,7 @@ function render(){
   const auto=automationFor();
   const showClearances=$('show-road-clearances').checked;
   drawLiveAutomation(ctx,auto,{zoom,bounds,
-    showJunctions:$('show-junctions').checked,
+    showJunctions:visibleRoadLayer()==='all'&&$('show-junctions').checked,
     showLoosePriority:$('show-road-priority').checked,
     showGaps:$('show-road-gaps').checked,
     showClearances,clearances:showClearances?clearancesFor():[]});
@@ -600,14 +602,16 @@ function hitTest(p){
   // covers them, so coastline and spline editing stays fully functional.
   if(selection){
     const found=getEntity(doc,selection.id);
-    if(found&&['roads','regions'].includes(found.type)){
+    if(found&&['roads','regions'].includes(found.type)&&
+      (found.type!=='roads'||roadsOnLayer(doc.roads,visibleRoadLayer()).includes(found.item))){
       for(let i=0;i<found.item.points.length;i++)if(distance(p,found.item.points[i])<radius)
         return {id:selection.id,point:i,kind:'handle'};
     }
   }
+  const visibleRoads=roadsOnLayer(doc.roads,visibleRoadLayer());
   if($('show-roads').checked)
-    for(let i=doc.roads.length-1;i>=0;i--){
-      const road=doc.roads[i],d=nearestOnPath(p,sampleRoad(road.points,road.smooth,12)).distance;
+    for(let i=visibleRoads.length-1;i>=0;i--){
+      const road=visibleRoads[i],d=nearestOnPath(p,sampleRoad(road.points,road.smooth,12)).distance;
       if(d<Math.max(road.width/2,10/zoom))return {id:road.id,point:-1,kind:'entity'};
     }
   if($('show-terrain').checked)
@@ -815,6 +819,11 @@ function refreshInspector(){
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
     $('inspect-road-shoulder').value=item.shoulder;$('inspect-road-smooth').checked=item.smooth;
     $('inspect-road-markings').checked=item.markings;
+    const profile=roadElevation(item);
+    $('road-start-layer').value=profile.start_layer;
+    $('road-end-layer').value=profile.end_layer;
+    $('road-elevation-summary').textContent=
+      (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
   }else if(type==='regions'){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
@@ -1583,11 +1592,16 @@ $('road-surface').addEventListener('change',e=>{
   else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='country';
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
-for(const id of ['show-roads','show-junctions','show-road-priority','show-road-gaps',
+for(const id of ['show-roads','visible-road-layer','show-junctions','show-road-priority','show-road-gaps',
   'show-road-clearances','show-preset-preview','show-terrain','show-scenery',
   'show-markers','show-boundaries','audit-show-overlay','show-traffic'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
+$('apply-road-elevation').addEventListener('click',()=>{
+  if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
+  const elevation={start_layer:$('road-start-layer').valueAsNumber,end_layer:$('road-end-layer').valueAsNumber};
+  change(d=>updateEntity(d,selection.id,{elevation}),'Updated road elevation.');
+});
 const fields={
   'inspector-name':{name:'name'},
   'inspect-road-class':{roadClass:'string'},'inspect-road-surface':{surface:'string'},

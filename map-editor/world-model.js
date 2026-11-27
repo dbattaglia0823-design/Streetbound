@@ -2,6 +2,7 @@ import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-
 import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
 import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {projectArtwork,projectAssetId} from './world-project-assets.js';
+import {normalizeRoadElevation} from './world-road-elevation.js';
 import {validateMountainRegion} from './world-mountain-barriers.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
@@ -48,12 +49,14 @@ function validEntity(item,type,w,h){
   if(type==='roads'){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
+    const elevation=normalizeRoadElevation(item.elevation,points);
     return {id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
       surface:oneOf(item.surface,SURFACES,'road surface'),width:real(item.width,6,160,'road width'),
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
       markings:typeof item.markings==='boolean'?item.markings:true,
       ...(item.independentEnds===true?{independentEnds:true}:{}),
+      ...(elevation?{elevation}:{}),
       points};
   }
   if(type==='regions'){

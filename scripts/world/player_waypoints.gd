@@ -36,7 +36,7 @@ func clear_destination() -> void:
 	changed.emit()
 
 func _reroute() -> void:
-	var result:=planner.plan(player.global_position/20,destination_m,Vector2.UP.rotated(player.rotation))
+	var result:=planner.plan(player.global_position/20,destination_m,Vector2.UP.rotated(player.rotation),"","",player.road_layer,0)
 	navigation=null;_last_station=0;destination_access_m=0;route_revision+=1;_retry_clock=2.0
 	if result.is_empty():
 		remaining_m=player.global_position.distance_to(destination_m*20)/20
@@ -59,7 +59,7 @@ func _process(dt: float) -> void:
 		if str(race.get("state")) in ["countdown","running"]:suspended=true;break
 	if suspended:return
 	var position_m:=player.global_position/20
-	if position_m.distance_to(destination_m)<=16:
+	if player.can_reach_ground_marker() and position_m.distance_to(destination_m)<=16:
 		active=false;navigation=null;remaining_m=0;destination_access_m=0;status="Arrived · "+destination_name;route_revision+=1
 		changed.emit();return
 	if navigation==null:

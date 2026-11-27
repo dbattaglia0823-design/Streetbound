@@ -87,7 +87,7 @@ func _lock_reason() -> String:
 	return EventRules.lock_reason(definition,economy,world_id)
 
 func can_stage() -> bool:
-	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
+	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and player.can_reach_ground_marker() and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:return false
 	_prepare_guidance()
@@ -191,7 +191,8 @@ func _update_rivals() -> void:
 		var plausible:=step<=maxf(5.0,car.linear_velocity.length()*.11+4.0)
 		var index:=int(progress.next)
 		var gate: Vector2=checkpoints[index]
-		if at.distance_to(gate)>radius:progress.armed=true
+		if not car.can_reach_ground_marker():progress.armed=false
+		elif at.distance_to(gate)>radius:progress.armed=true
 		if bool(progress.armed) and plausible and Geometry2D.get_closest_point_to_segment(gate,previous,at).distance_to(gate)<=radius:
 			if index==0 or (definition.mode=="sprint" and index==checkpoints.size()-1):
 				if definition.mode=="circuit" and int(progress.lap)<int(definition.get("laps",1)):
@@ -317,8 +318,11 @@ func _physics_process(dt: float) -> void:
 		var gate: Vector2=checkpoints[next_checkpoint]
 		var radius:=float(definition.get("checkpoint_radius",16))
 		var step:=at.distance_to(_previous_m)
-		if step>maxf(5,player.linear_velocity.length()*dt*2+3):_gate_armed=false
-		if at.distance_to(gate)>radius:_gate_armed=true
+		if not player.can_reach_ground_marker():
+			_gate_armed=false
+		else:
+			if step>maxf(5,player.linear_velocity.length()*dt*2+3):_gate_armed=false
+			if at.distance_to(gate)>radius:_gate_armed=true
 		if _gate_armed and step<=maxf(5,player.linear_velocity.length()*dt*2+3) and Geometry2D.get_closest_point_to_segment(gate,_previous_m,at).distance_to(gate)<=radius:
 			if next_checkpoint==0 or (definition.mode=="sprint" and next_checkpoint==checkpoints.size()-1):
 				if definition.mode=="circuit" and lap<int(definition.get("laps",1)):lap+=1;next_checkpoint=1

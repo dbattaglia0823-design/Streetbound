@@ -32,6 +32,18 @@ jobs:
           fi
       # Report every independent test group after a successful import, even
       # if an earlier test failed. Failed steps still fail this required job.
+      - name: Verify road elevation bake, routing and physical crossings (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 tests/road_elevation_bake_test.py
+          mkdir -p .runtime
+          python3 tools/build_custom_test_world.py --source tests/fixtures/road-elevation.world.json --output .runtime/road-elevation.stream.json
+          for test in graph drive; do
+            timeout 50s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script "res://tests/road_elevation_${test}_test.gd" -- res://.runtime/road-elevation.stream.json 2>&1 | tee "/tmp/road-elevation-${test}.log"
+            grep -E 'ROAD ELEVATION (GRAPH|DRIVE): PASS' "/tmp/road-elevation-${test}.log"
+            if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' "/tmp/road-elevation-${test}.log"; then exit 1; fi
+          done
       - name: Verify underground racing rewards, escape and contact unlocks (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |

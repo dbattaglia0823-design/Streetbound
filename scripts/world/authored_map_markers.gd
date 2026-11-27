@@ -132,7 +132,7 @@ func _is_busy() -> bool:
 	return false
 
 func nearest_marker() -> Dictionary:
-	if not is_instance_valid(player):return {}
+	if not is_instance_valid(player) or not player.can_reach_ground_marker():return {}
 	var closest:=INF
 	var found: Dictionary={}
 	for marker in markers:
@@ -190,7 +190,7 @@ func _linked_race(id: String) -> Node2D:
 	return null
 
 func activate() -> void:
-	if get_tree().paused or _nearby.is_empty() or _is_busy() or \
+	if get_tree().paused or _nearby.is_empty() or _is_busy() or not player.can_reach_ground_marker() or \
 			not InteractionSpeed.allowed(player.linear_velocity.length()):return
 	var kind: String=str(_nearby.type)
 	var properties: Dictionary=_nearby.get("properties",{})

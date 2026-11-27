@@ -168,6 +168,9 @@ var _space_pan:=false
 var road_surface: OptionButton
 var road_width: SpinBox
 var road_lanes: SpinBox
+var road_elevation_controls: VBoxContainer
+var road_start_layer: SpinBox
+var road_end_layer: SpinBox
 var road_class: OptionButton
 var inspector_road_type: OptionButton
 var inspector_road_type_fields: Control
@@ -533,10 +536,14 @@ func _update_context_panels() -> void:
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
+	road_elevation_controls.visible=road_selected and tool_name!="draw_road"
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
+		var elevation: Dictionary=road.get("elevation",{})
+		road_start_layer.value=float(elevation.get("start_layer",0))
+		road_end_layer.value=float(elevation.get("end_layer",0))
 		for option in [road_class,road_surface]:
 			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
 			for i in option.item_count:
@@ -2189,6 +2196,16 @@ func _commit_road_type_and_surface() -> void:
 		"surface":_option_value(road_surface)}):
 		_refresh_authoring()
 		_notice("Road type and surface updated. Geometry and dimensions preserved.")
+
+func _change_road_elevation() -> void:
+	if not source_ready or _editing_locked():return
+	var elevation:={"start_layer":int(road_start_layer.value),"end_layer":int(road_end_layer.value)}
+	if authoring.set_road_settings(source_id,{"elevation":elevation}):
+		_refresh_authoring()
+		_notice("Road elevation updated in the draft.")
+	else:
+		_notice(authoring.last_error)
+
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return

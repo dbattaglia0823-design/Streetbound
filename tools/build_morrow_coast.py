@@ -10,6 +10,7 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from road_elevation import endpoint_layer
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
@@ -421,17 +422,23 @@ PROPS[:]=[prop for prop in PROPS if not prop.get("source_replacement")]
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
 for r in ROADS:
-    def neighboring(endpoint):
+    def neighboring(endpoint, side):
+        layer = endpoint_layer(r, side)
+
+        def shares_layer(other):
+            return any(other[end] == endpoint and endpoint_layer(other, end) == layer
+                       for end in ('start', 'end'))
+
         for other in ROADS:
-            if other is r or other["name"]!=r["name"]: continue
-            if other["end"]==endpoint: return other["anchors"][-2]
-            if other["start"]==endpoint: return other["anchors"][1]
-        incident=[other for other in ROADS if endpoint in [other["start"],other["end"]] and other["kind"]!="driveway"]
+            if other is r or other["name"]!=r["name"] or not shares_layer(other): continue
+            if other["end"]==endpoint and endpoint_layer(other, "end")==layer: return other["anchors"][-2]
+            if other["start"]==endpoint and endpoint_layer(other, "start")==layer: return other["anchors"][1]
+        incident=[other for other in ROADS if shares_layer(other) and other["kind"]!="driveway"]
         if len(incident)==2 and all(other["kind"] in ["rural","mountain","gravel"] for other in incident):
             other=next(other for other in incident if other is not r)
             return other["anchors"][-2] if other["end"]==endpoint else other["anchors"][1]
         return None
-    r["points"]=road_spline(r["anchors"],neighboring(r["start"]),neighboring(r["end"]),r["kind"])
+    r["points"]=road_spline(r["anchors"],neighboring(r["start"], "start"),neighboring(r["end"], "end"),r["kind"])
     if r["name"]=="Pacific Scenic Highway":
         # A cubic handle must never cut across a coastal inlet into the sea.
         for p in r["points"]:
@@ -471,8 +478,8 @@ def in_poly(p, poly):
     return inside
 
 
-# All roads share the drivable 2D plane; grade=1 denotes a water bridge,
-# not an invented flyover. One bake covers endpoint T joins and crossings.
+# Explicit elevation profiles govern grade separation. Legacy grade=1
+# continues to denote a water bridge.
 JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
 validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=1.10)
 

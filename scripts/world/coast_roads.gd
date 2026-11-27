@@ -1,5 +1,6 @@
 extends Node2D
 const PPM := 20.0
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const TrackKerbs=preload("res://scripts/world/track_kerbs.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 ## Editor-only draft masking. Cleared on editor close; game data stays intact.
@@ -188,10 +189,18 @@ func _roads(stage: int) -> void:
 		var path: PackedVector2Array = batch.path
 		var r: Dictionary = batch.road
 		var width := float(r.width) * PPM
-		var urban: bool = r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
+		var layer := Elevation.artwork_layer(r)
+		var urban: bool = layer == 0 and r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
 		var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 		if stage == 0:
-			if urban:
+			if layer != 0:
+				if layer > 0:
+					var shadow := PackedVector2Array()
+					for point_px in path:
+						shadow.append(point_px+Vector2(19,30)*layer)
+					draw_polyline(shadow,Color(.09,.12,.14,.38),width+16.0,true)
+				draw_polyline(path,Color("2d3740") if layer > 0 else Color("343931"),width+24.0,true)
+			elif urban:
 				# Both sides are real road-relative paths, not disconnected
 				# rectangles. Their mitered offsets follow every road bend.
 				for side in [-1.0, 1.0]:
@@ -211,6 +220,9 @@ func _roads(stage: int) -> void:
 			else:
 				draw_polyline(path,Color("c0bea5"),width+35,true)
 		elif stage == 1:
+			if layer < 0:
+				draw_polyline(path,Color("333b42"),width,true)
+				continue
 			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
@@ -241,6 +253,12 @@ func _roads(stage: int) -> void:
 							draw_polyline(_offset(section.path,
 								float(side) * (width * .5 - 10.0)),
 								Color("dcd9c4"), 3.0, true)
+				if layer != 0:
+					for side in [-1.0,1.0]:
+						var wall := _offset(visible_path,side*width*.5)
+						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
+						if layer < 0:
+							_dashes(wall,5.0,Color("d8ad68"),16.0,174.0,float(piece.phase)*PPM)
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived

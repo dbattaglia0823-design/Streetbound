@@ -1,6 +1,7 @@
 extends Node2D
 ## Cached static illustration and local collision for a 192m square.
 const PPM := 20.0
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 ## UV tags identify materials explicitly; authored colors never decide surface type.
 const TERRAIN_TAGS := {"grass":2,"meadow":2,"town":2,"forest":3,
 	"mountain":4,"rock":5,"beach":6,"sand":6,"ocean":7,"water":8,"lake":8,
@@ -33,6 +34,7 @@ var cell := Vector2i.ZERO
 var content: Dictionary
 var origin_m := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
+var tunnel_art: Array[Node2D] = []
 var prop_list: Array[Dictionary] = []
 var ground_polys: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
@@ -127,20 +129,37 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		bridges.world=world;bridges.origin_m=origin_m;bridges.render_stage=stage
 		bridges.extent_m=clip.size/PPM;bridges.bridge_indices=content.bridges
 		clip.add_child(bridges)
-	# Global stage ordering prevents neighboring shoulders painting over asphalt.
-	for stage in 4:
-		# Preserve the four-stage paint order only where roads/junctions exist.
-		if road_batches.is_empty() and junction_list.is_empty():
-			break
-		var roads := Node2D.new()
-		roads.set_script(preload("res://scripts/world/coast_roads.gd"))
-		roads.world=world
-		roads.origin_m=origin_m
-		roads.road_batches=road_batches
-		roads.junction_list=junction_list
-		roads.render_stage=stage
-		roads.z_index=stage+1
-		add_child(roads)
+	# Each deck still uses the normal pavement, paint and junction passes.
+	var batches_by_layer := {}
+	for batch in road_batches:
+		var layer := Elevation.artwork_layer(batch.road)
+		if layer < 0 and Elevation.endpoint_layer(batch.road,true) != Elevation.endpoint_layer(batch.road,false):
+			layer = 0 # The approach is an open cut, visible from the surface.
+		if not batches_by_layer.has(layer):batches_by_layer[layer] = []
+		batches_by_layer[layer].append(batch)
+	var junctions_by_layer := {}
+	for junction in junction_list:
+		var layer := int(junction.get("road_layer",0))
+		if not junctions_by_layer.has(layer):junctions_by_layer[layer] = []
+		junctions_by_layer[layer].append(junction)
+	var layers := batches_by_layer.keys()
+	for layer in junctions_by_layer:
+		if not layers.has(layer):layers.append(layer)
+	for layer in layers:
+		for stage in 4:
+			var roads := Node2D.new()
+			roads.set_script(preload("res://scripts/world/coast_roads.gd"))
+			roads.world=world
+			roads.origin_m=origin_m
+			roads.road_batches.assign(batches_by_layer.get(layer,[]))
+			roads.junction_list.assign(junctions_by_layer.get(layer,[]))
+			roads.render_stage=stage
+			roads.z_index=stage+1+16*maxi(int(layer),0)
+			if int(layer)<0:
+				roads.set_meta("road_layer",layer)
+				tunnel_art.append(roads)
+			add_child(roads)
+	reveal_road_layer(int(world.viewed_road_layer))
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.
 	if world.boardwalk_near_cell(cell) or render_extent_m!=Vector2.ZERO:
@@ -260,6 +279,13 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		_build_collisions()
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
+
+func reveal_road_layer(layer: int) -> void:
+	for node in tunnel_art:
+		node.visible = int(node.get_meta("road_layer")) == layer
+		# Interior is composited above surface pavement but below the car.
+		node.z_index = 42 + int(node.render_stage)
+
 
 func redraw_bridges() -> void:
 	for name in ["BridgeDeckClip","BridgeRailsClip"]:

@@ -23,6 +23,12 @@ named endpoints propagate together. Unchanged high-detail coastal polygons
 are protected from the editor's simplified preview geometry.
 Scenery is generated during baking and is not yet editable individually.
 
+## Road elevation
+
+Select an existing road in either Map Builder and apply start and end layers.
+[Ramp length, road connectivity, and the elevation test fixture](ROAD_ELEVATION.md)
+describe the elevation preview and the existing save and rebake paths.
+
 ## Directed ambient traffic
 
 Based on the baked road centerlines and junction approach metadata,

@@ -2,6 +2,7 @@ extends RefCounted
 ## Source-safe, undoable authoring draft. This never mutates a live Morrow Coast
 ## Dictionary. Runtime streets, intersections and traffic remain authoritative
 ## until the checked-in production builder has completed an Apply operation.
+const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 40
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
@@ -107,6 +108,7 @@ func _valid_source(value: Dictionary) -> bool:
 				return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
+		if not Elevation.authoring_error(road).is_empty():return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
 	for category in ["regions","markers"]:
 		for item in value[category]:
@@ -349,6 +351,7 @@ func reconcile_runtime(data: Dictionary) -> bool:
 				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
+			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
 		next.morrowSourceRoadCount=current
 	if poi_current>poi_basis:
@@ -547,7 +550,8 @@ func move_road_point(road_id: String, point_index: int, destination_m: Vector2,
 		for i in road.points.size():
 			if not is_target and i != 0 and i != road.points.size()-1:
 				continue
-			if not is_target and not _same_network(target,road):
+			if not is_target and (not _same_network(target,road) or
+					Elevation.endpoint_layer(target,point_index==0)!=Elevation.endpoint_layer(road,i==0)):
 				continue
 			var location := Vector2(float(road.points[i].x),float(road.points[i].y))
 			if (is_target and i==point_index) or \
@@ -957,11 +961,16 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 		target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
 	else:
 		var ends: Array[Vector2]=[]
+		var end_layers: Array[int]=[]
 		if category=="roads" and not bool(target.get("independentEnds",false)):
 			ends=[Vector2(target.points[0].x,target.points[0].y),Vector2(target.points[-1].x,target.points[-1].y)]
+			end_layers=[Elevation.endpoint_layer(target,true),Elevation.endpoint_layer(target,false)]
 			if not RoadShapes.circle(target.points).is_empty():
 				ends.clear()
-				for p in target.points:ends.append(RoadShapes.point(p))
+				end_layers.clear()
+				for p in target.points:
+					ends.append(RoadShapes.point(p))
+					end_layers.append(Elevation.endpoint_layer(target,true))
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
 		if category=="races":shift_race_grid(target,delta)
@@ -970,8 +979,9 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 				if str(road.id)==identity or not _same_network(target,road) or bool(road.get("independentEnds",false)):continue
 				for index in [0,road.points.size()-1]:
 					var point: Dictionary=road.points[index]
-					for old in ends:
-						if Vector2(point.x,point.y).distance_to(old)<.05:
+					for i in ends.size():
+						var layer := Elevation.endpoint_layer(road,index==0)
+						if layer==end_layers[i] and Vector2(point.x,point.y).distance_to(ends[i])<.05:
 							point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y;break
 	return _commit(next)
 
@@ -1053,6 +1063,10 @@ func _replace_road_points(identity: String,vertices: Array,old_points: Array,mov
 			# Keep attached branch endpoints on their authored junction anchors.
 			for index in [0,road.points.size()-1]:
 				for i in old_points.size():
+					var layer := Elevation.endpoint_layer(target,i==0)
+					var ramp := Elevation.endpoint_layer(target,true)!=Elevation.endpoint_layer(target,false)
+					if (ramp and i not in [0,old_points.size()-1]) or layer!=Elevation.endpoint_layer(road,index==0):
+						continue
 					if RoadShapes.point(road.points[index]).distance_to(RoadShapes.point(old_points[i]))<.05:
 						road.points[index]=moved_points[i].duplicate();break
 	if not _valid_source(next):
@@ -1134,6 +1148,12 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 		if str(road.id)!=identity:continue
 		for key in ["roadClass","surface","width","lanes"]:
 			if settings.has(key):road[key]=settings[key]
+		if settings.has("elevation"):
+			road.elevation=settings.elevation
+			last_error=Elevation.authoring_error(road)
+			if not last_error.is_empty():return false
+			if Elevation.endpoint_layer(road,true)==0 and Elevation.endpoint_layer(road,false)==0:
+				road.erase("elevation")
 		if road.roadClass=="alley":
 			road.shoulder=0.0
 			road.markings=false
@@ -1391,6 +1411,9 @@ func split_road(identity: String,index: int) -> String:
 		if index==0 or index==road.points.size()-1:
 			road["independentEnds"]=true
 			return identity if _commit(next) else ""
+		if Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false):
+			last_error="Set the ramp to a flat layer before splitting it."
+			return ""
 		if road.points.size()==2:
 			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]
 			road.points.insert(1,{"x":(float(a.x)+float(b.x))*.5,"y":(float(a.y)+float(b.y))*.5});index=1
@@ -1412,9 +1435,11 @@ func reconnect_endpoint(identity: String,index: int,radius: float=12.0) -> bool:
 	var at:=Vector2(target.points[index].x,target.points[index].y)
 	var best:=radius+.001
 	var candidates: Array[Dictionary]=[]
+	var layer := Elevation.endpoint_layer(target,index==0)
 	for road in doc.roads:
 		if str(road.id)==identity or not _same_network(target,road):continue
 		for end in [0,road.points.size()-1]:
+			if Elevation.endpoint_layer(road,end==0)!=layer:continue
 			var p:=Vector2(road.points[end].x,road.points[end].y)
 			var distance:=at.distance_to(p)
 			if distance>radius:continue
@@ -1439,6 +1464,8 @@ func connect_road_interior(identity: String,index: int,at: Vector2,radius: float
 	var best:=radius;var hit: Dictionary={}
 	for road in doc.roads:
 		if str(road.id)==identity or not _same_network(target,road):continue
+		var layer := Elevation.endpoint_layer(target,index==0)
+		if Elevation.endpoint_layer(road,true)!=layer or Elevation.endpoint_layer(road,false)!=layer:continue
 		var path:=road_path(road)
 		var circle:=RoadShapes.circle(road.points)
 		if not circle.is_empty():

@@ -11,6 +11,8 @@ corrupting the entire streamed map.
 import json
 from authored_races import authored_races
 import math
+
+from road_elevation import set_profile
 import re
 from project_asset_catalog import building_file, asset_id, resolve_asset
 from pathlib import Path
@@ -426,6 +428,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             continue  # Newly introduced defaults absent from a legacy overlay.
         road = roads[index]
         entry = numbered[index]
+        set_profile(road, entry)
         fresh = points(entry["points"], width, height)
         baseline = [list(p) for p in road["anchors"]]
         unchanged = (len(fresh) == len(baseline) and
@@ -520,6 +523,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                           surface="ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf,
                           grade=0, anchors=new_points, points=[],
                           lanes=int(entry.get("lanes", 2))))
+        set_profile(roads[-1], entry)
     # Terrain changes are applied ONLY when they differ from the sampled
     # source projection. This protects high-detail coastlines on an untouched
     # import, where the browser preview can display only 180 handles.

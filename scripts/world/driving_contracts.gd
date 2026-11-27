@@ -252,7 +252,7 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 				return {"result":"unavailable","message":Rules.availability_text(availability)}
 	var next_stop: Dictionary = robbery if kind == "robbery" else target
 	var target_pos := Vector2(float(next_stop.x),float(next_stop.y))
-	if player.global_position.distance_to(source_pos * PPM) > clampf(
+	if not player.can_reach_ground_marker() or player.global_position.distance_to(source_pos * PPM) > clampf(
 			float(props.get("radius_m",12.0)),4.0,50.0) * PPM:
 		return {"result":"out_of_range"}
 	if not _road_accessible(source_pos) or not _road_accessible(target_pos) or \
@@ -396,7 +396,7 @@ func _physics_process(dt: float) -> void:
 	if stage == "robbery":
 		var robbery_pos := Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM
 		var robbery_distance := player.global_position.distance_to(robbery_pos) / PPM
-		if Rules.arrived(robbery_distance,player.linear_velocity.length(),
+		if player.can_reach_ground_marker() and Rules.arrived(robbery_distance,player.linear_velocity.length(),
 				Rules.configured_arrival_radius(offer_settings)):
 			robbery_progress += dt
 		else:
@@ -427,7 +427,7 @@ func _physics_process(dt: float) -> void:
 		return
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
-	if not Rules.arrived(dist_m, player.linear_velocity.length(),
+	if not player.can_reach_ground_marker() or not Rules.arrived(dist_m, player.linear_velocity.length(),
 			Rules.configured_arrival_radius(offer_settings)):
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))

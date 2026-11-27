@@ -13,6 +13,7 @@ from pathlib import Path
 import sys
 
 from junction_bake import build_junctions
+from road_elevation import set_profile
 from authored_races import authored_races
 from authored_markers import validate_markers
 from morrow_editor_import import _authoring_props, CLASS_TO_KIND, PALETTES
@@ -146,6 +147,7 @@ def make_archive(doc):
             start=names[0],end=names[1],kind=kind,grade=0,
             lanes=lanes,width=road_width,surface=surface if surface in ("GRAVEL","DIRT") else "ASPHALT",
             anchors=anchors,points=road_points))
+        set_profile(roads[-1], item)
         for a,b in zip(road_points,road_points[1:]):
             if distance(a,b)<.001:
                 continue
@@ -180,8 +182,8 @@ def make_archive(doc):
     if marker_spawn:
         spawn=dict(position=[float(marker_spawn["x"]),float(marker_spawn["y"])],
                    rotation=math.radians(float(marker_spawn.get("rotation",0))))
-    elif roads:
-        path=roads[0]["points"]
+    elif (ground_road := next((road for road in roads if "elevation" not in road), None)) is not None:
+        path=ground_road["points"]
         mid=max(0,(len(path)-2)//2)
         a,b=path[mid:mid+2]
         spawn=dict(position=[(a[0]+b[0])*.5,(a[1]+b[1])*.5],

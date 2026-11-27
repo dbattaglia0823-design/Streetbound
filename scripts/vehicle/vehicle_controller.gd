@@ -13,10 +13,19 @@ signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
 const Drafting = preload("res://scripts/vehicle/drafting_aerodynamics.gd")
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Weather = preload("res://scripts/world/weather_conditions.gd")
 @export var config: VehicleConfig
 var transmission := VehicleTransmission.new()
 var surface_provider: Node
+var road_layer := 0
+var elevation_m := 0.0
+var _elevation_road := -1
+var _elevation_mouth := false
+var _elevation_position := Vector2.INF
+var _ground_collision := Vector2i.ZERO
+var _applied_collision := Vector2i(-1,-1)
+var _ground_z := 0
 var surface := "ASPHALT"
 var surface_grip := 1.0
 var linear_velocity := Vector2.ZERO # metres / second, separate from CharacterBody velocity
@@ -104,6 +113,8 @@ func drafting_effect_strength() -> float:
 func reset_vehicle() -> void:
 	clear_mission_payload()
 	transform = spawn_transform
+	_set_elevation_contact({})
+	_elevation_position = Vector2.INF
 	linear_velocity = Vector2.ZERO
 	velocity = Vector2.ZERO
 	yaw_rate = 0.0
@@ -195,6 +206,54 @@ func _physics_process(dt: float) -> void:
 			transmission.shift(-1, config)
 	step_vehicle(dt, command)
 
+func _set_elevation_contact(contact: Dictionary) -> void:
+	var prior_height := elevation_m
+	elevation_m = float(contact.get("height_m",0.0))
+	road_layer = int(contact.get("road_layer",0))
+	_elevation_road = int(contact.get("road",-1))
+	_elevation_mouth = bool(contact.get("is_mouth",false))
+	if prior_height == 0.0 and elevation_m == 0.0:
+		return
+	var current := Vector2i(collision_layer,collision_mask)
+	if prior_height == 0.0:
+		_ground_z = z_index
+		_ground_collision = current
+	elif current != _applied_collision:
+		# Systems such as a finished race may explicitly turn off the body.
+		if current.x != _applied_collision.x:_ground_collision.x = current.x
+		if current.y != _applied_collision.y:_ground_collision.y = current.y
+	var bits := Vector2i(Elevation.collision_bits(_ground_collision.x,elevation_m),
+		Elevation.collision_bits(_ground_collision.y,elevation_m))
+	collision_layer = bits.x
+	collision_mask = bits.y
+	_applied_collision = bits
+	z_index = _ground_z + (36 if road_layer < 0 else road_layer*16)
+
+
+func can_reach_ground_marker() -> bool:
+	return absf(elevation_m) < .65
+
+
+func _elevation_motion(motion: Vector2) -> Vector2:
+	if _elevation_road < 0 or motion == Vector2.ZERO:
+		return motion
+	var steps := maxi(1,ceili(motion.length() / (PIXELS_PER_METER*.5)))
+	var safe := Vector2.ZERO
+	var contact := {"road":_elevation_road,"height_m":elevation_m,"is_mouth":_elevation_mouth}
+	for step in range(1,steps+1):
+		var offset := motion * float(step) / steps
+		var next: Dictionary = surface_provider.elevation_at(global_position+offset,
+			int(contact.road),float(contact.height_m))
+		if next.is_empty():
+			# A return to the ground is only possible at the low end of a ramp.
+			if not (bool(contact.is_mouth) and absf(float(contact.height_m)) < .15):
+				break
+			return motion
+		contact = next
+		safe = offset
+	return safe
+
+
 func step_vehicle(dt: float, controls: Vector4) -> void:
 	_traffic_impact_cooldown = maxf(0.0, _traffic_impact_cooldown - dt)
 	var forward := Vector2.UP.rotated(rotation)
@@ -204,8 +263,30 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	longitudinal_speed = linear_velocity.dot(forward)
 	lateral_speed = linear_velocity.dot(right)
 	slip_angle = atan2(lateral_speed, maxf(absf(longitudinal_speed), 1.0))
+	var grade_accel := 0.0
 	if surface_provider:
-		var info: Dictionary = surface_provider.surface_at(global_position)
+		var contact: Dictionary = {}
+		if surface_provider.has_method("elevation_at") and bool(surface_provider.get("has_road_elevation")):
+			if _elevation_position.is_finite() and global_position.distance_to(_elevation_position) > PIXELS_PER_METER*10.0:
+				_set_elevation_contact({})
+			contact = surface_provider.elevation_at(global_position,_elevation_road,elevation_m)
+			if contact.is_empty() and _elevation_road >= 0 and not (
+					_elevation_mouth and absf(elevation_m) < .15):
+				# An exceptional depenetration may leave the supported strip.
+				# Restore the last confirmed contact before simulating again.
+				if _elevation_position.is_finite():
+					global_position = _elevation_position
+					reset_physics_interpolation()
+					linear_velocity = Vector2.ZERO
+					velocity = Vector2.ZERO
+					return
+			_set_elevation_contact(contact)
+			_elevation_position = global_position
+			if not contact.is_empty():
+				grade_accel = -9.81 * Vector2(contact.gradient).dot(forward)
+		elif _elevation_road >= 0:
+			_set_elevation_contact({})
+		var info: Dictionary = surface_provider.surface_at(global_position) if contact.is_empty() else contact
 		surface = info.name
 		surface_grip = float(info.grip) * Weather.grip_multiplier(surface, Weather.rain_at(surface_provider))
 	else:
@@ -412,7 +493,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 		absf(longitudinal_speed) * Drafting.aero_drag_multiplier(draft_strength)
 	resistance += signf(longitudinal_speed) * mass * 9.81 * (config.rolling_resistance + (1.0 - surface_grip) * 0.045) * minf(absf(longitudinal_speed), 1.0)
 	var drive_accel := (engine_force - resistance) / mass
-	var new_long := longitudinal_speed + drive_accel * dt
+	var new_long := longitudinal_speed + (drive_accel + grade_accel) * dt
 	new_long = move_toward(new_long, 0.0, braking / mass * dt)
 	# Use an acceleration filter rather than directly coupling noisy surface
 	# contact or collision impulses to the next tick's axle loads.
@@ -544,7 +625,12 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 	linear_velocity = forward * new_long + right * new_lateral
 	rotation += yaw_rate * dt
 	velocity = linear_velocity * PIXELS_PER_METER
-	var collision := move_and_collide(velocity * dt)
+	var desired_motion := velocity * dt
+	var allowed_motion := _elevation_motion(desired_motion)
+	var collision := move_and_collide(allowed_motion)
+	if allowed_motion != desired_motion and collision == null:
+		linear_velocity = Vector2.ZERO
+		velocity = Vector2.ZERO
 	if collision:
 		var normal := collision.get_normal()
 		var impact_speed := -linear_velocity.dot(normal)
@@ -615,7 +701,7 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 				impacted.emit(impact_speed)
 				crash_contact.emit(impact_speed,collision.get_position(),normal,pre_impact_velocity)
 				damage_contact.emit(impact_speed, collision.get_position(), normal, pre_impact_velocity)
-		move_and_collide(collision.get_remainder().slide(normal))
+		move_and_collide(_elevation_motion(collision.get_remainder().slide(normal)))
 	if linear_velocity.length() < 0.04 and drive_input < 0.01:
 		linear_velocity = Vector2.ZERO
 	# Publish the post-impact state immediately. Previously CharacterBody2D.velocity
