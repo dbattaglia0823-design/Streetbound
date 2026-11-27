@@ -2,6 +2,7 @@ extends SceneTree
 ## Drive the normal vehicle controller through the production-baked fixture.
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const TerrainArt = preload("res://scripts/world/coast_tunnel_terrain.gd")
 const Objectives = preload("res://scripts/world/objective_road_layer.gd")
 const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const WorldScene = preload("res://scenes/vehicle.tscn")
@@ -109,6 +110,23 @@ func _run() -> void:
 		"A deck does not paint a second physical road at ground level")
 	check(world.tunnel_portals.get(7) == false and world.tunnel_portals.size() == 1,
 		"Only the connected underground ramp end owns a portal")
+	check(world.tunnel_terrain_plans.size()==1 and world.tunnel_terrain_plans.has(7),
+		"Only the surface approach creates terrain integration art")
+	var art_plan: Dictionary=world.tunnel_terrain_plans.get(7,{})
+	if not art_plan.is_empty():
+		var strips: Array=art_plan.strips
+		check(bool(art_plan.connected) and not strips.is_empty() and is_equal_approx(float(strips[-1].depth),1.0),
+			"Retaining walls deepen toward the covered mouth")
+		var first_strip: Dictionary=strips[0]
+		var last_strip: Dictionary=strips[strips.size()-1]
+		check(float(first_strip.depth)<float(last_strip.depth),
+			"Surface approach banks grow continuously with ramp depth")
+		check(art_plan.bounds.has_point(art_plan.mouth) and world.chunks[Vector2i(2,1)].has_node("TunnelTerrainClip"),
+			"Portal terrain is indexed and streamed alongside the trench")
+		var rock_regions:=TerrainArt.terrain_regions([{"kind":"mountain","points":[[0,0],[1000,0],[1000,1000],[0,1000]]}])
+		var rock_plan:=TerrainArt.build(world.data.roads[7],rock_regions,true)
+		check(rock_plan.kind=="mountain" and rock_plan.strips[0].kind=="mountain" and TerrainArt.palette("mountain")!=TerrainArt.palette("grass"),
+			"Mountain portals use exposed rock rather than grass")
 	check(world._overhead_layer_at(Vector2(500,400)*20,0.0) == 1 and
 		world._overhead_layer_at(Vector2(500,400)*20,6.0) == 0,
 		"Only the driver beneath the deck needs the occlusion fade")
