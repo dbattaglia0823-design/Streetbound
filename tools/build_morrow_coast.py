@@ -18,7 +18,7 @@ from road_jumps import bake_into as bake_jumps
 from road_elevation import endpoint_layer, expand_point_profiles
 from elevation_map_audit import audit_elevated_objectives
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT, EDIT_PATH
-from road_widths import adapt as adapt_road_widths
+from road_widths import adapt as adapt_road_widths, ROAD_WIDTH_SCALE
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
 from mountain_barriers import validate_barriers, validate_open_cuts
@@ -497,7 +497,7 @@ def in_poly(p, poly):
 # Explicit elevation profiles govern grade separation. Legacy grade=1
 # continues to denote a water bridge.
 JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
-validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=1.10)
+validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=ROAD_WIDTH_SCALE)
 
 JUNCTION_CLEARANCE=collections.defaultdict(list)
 for j in JUNCTIONS:
