@@ -8,6 +8,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"tools"))
 from build_custom_test_world import make_archive
+from authored_markers import validate_markers
 from publish_custom_world import _production_checks
 
 MAP=ROOT/"map-editor/maps/compact-boroughs.world.json"
@@ -20,6 +21,24 @@ class CompactBoroughsMap(unittest.TestCase):
     def setUpClass(cls):
         cls.doc=json.loads(MAP.read_text(encoding="utf-8"))
         cls.archive=make_archive(cls.doc)
+
+    def test_godot_whole_number_marker_priorities(self):
+        marker={"id":"marker-priority","type":"traffic_spawn","name":"City Center traffic",
+                "x":100,"y":100,"properties":{"traffic_weight":3.0}}
+        for value in (1, 3.0, 10.0):
+            marker["properties"]["traffic_weight"]=value
+            self.assertEqual(len(validate_markers([marker],[],[],960,720)),1)
+        for value in (0, 11, 3.5, True, "3", float("inf"), float("nan")):
+            marker["properties"]["traffic_weight"]=value
+            with self.assertRaisesRegex(ValueError,"marker-priority"):
+                validate_markers([marker],[],[],960,720)
+        # Regression through the production compiler, using the bundled map
+        # and simulating Godot's JSON number representation.
+        doc=json.loads(json.dumps(self.doc))
+        for point in doc["markers"]:
+            point.setdefault("properties",{})["traffic_weight"]=3.0
+        archive=make_archive(doc)
+        self.assertEqual(len(archive["editor_game_markers"]),len(doc["markers"]))
 
     def test_valid_compact_source_and_three_areas(self):
         d=self.doc

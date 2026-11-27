@@ -334,6 +334,8 @@ func _roads(stage: int) -> void:
 			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
+				# Dark lane wear tracks look like painted stripes on narrow alleys.
+				if r.kind=="alley":continue
 				var lanes: Array=[]
 				var layout:=Lanes.layout(r)
 				for direction in [1,-1]:
@@ -370,7 +372,7 @@ func _roads(stage: int) -> void:
 					for side in [-1.0,1.0]:
 						var wall := _offset(visible_path,side*width*.5)
 						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
-						if layer < 0:
+						if layer < 0 and r.kind!="alley":
 							var cursor := float(piece.phase)
 							for i in range(1,wall.size()):
 								var length := wall[i-1].distance_to(wall[i])
@@ -451,6 +453,7 @@ func _finish_decals(path: PackedVector2Array,road: Dictionary,width: float,stati
 		passed+=length
 
 func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
+	if r.kind=="alley":return
 	_finish_decals(path,r,width,station)
 	var urban: bool = r.kind in ["local","arterial"]
 	var gravel: bool = r.surface in ["GRAVEL","DIRT"]

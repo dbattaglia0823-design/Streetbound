@@ -326,6 +326,7 @@ function drawRoads(ctx,roads,bounds,options){
         ctx.stroke();
       }
       for(const arm of j.approaches){
+        if(roads.some(r=>r.id==='road-'+arm.road&&r.roadClass==='alley'))continue;
         if(!['stop','yield'].includes(arm.control))continue;
         const p=arm.p,d=arm.direction;
         if(!Array.isArray(p)||!Array.isArray(d))continue;

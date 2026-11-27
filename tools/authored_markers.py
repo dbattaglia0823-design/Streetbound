@@ -50,8 +50,11 @@ def validate_markers(markers,races,dealers,width,height):
         weight=info.get('traffic_weight',3)
         if type(radius) not in (int,float) or not math.isfinite(radius) or not 4<=radius<=50:
             raise ValueError('Invalid marker radius')
-        if type(weight) is not int or not 1<=weight<=10:
-            raise ValueError('Invalid marker traffic priority')
+        # Godot's JSON round-trip can serialize whole-number priorities as
+        # floats (e.g. 3.0). Match the native and browser validators while
+        # rejecting fractional, non-finite, boolean and out-of-range values.
+        if type(weight) not in (int,float) or not math.isfinite(weight) or not 1<=weight<=10 or weight!=int(weight):
+            raise ValueError(f"Invalid marker traffic priority on {marker['id']} ({marker.get('name','')}): {weight!r}; expected a whole number from 1 to 10")
         result.append(marker)
     if spawns>1:raise ValueError('Only one player spawn is supported')
     by_id={m['id']:m for m in result}

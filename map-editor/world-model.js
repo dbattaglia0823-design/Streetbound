@@ -60,7 +60,7 @@ function validEntity(item,type,w,h){
       surface:oneOf(item.surface,SURFACES,'road surface'),width:real(item.width,6,160,'road width'),
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
-      markings:typeof item.markings==='boolean'?item.markings:true,
+      markings:item.roadClass==='alley'?false:(typeof item.markings==='boolean'?item.markings:true),
       ...(item.independentEnds===true?{independentEnds:true}:{}),
       ...(item.junctionStart!==undefined&&item.junctionStart!=='auto'?{junctionStart:oneOf(item.junctionStart,['intersection','merge'],'start junction mode')}:{}),
       ...(item.junctionEnd!==undefined&&item.junctionEnd!=='auto'?{junctionEnd:oneOf(item.junctionEnd,['intersection','merge'],'end junction mode')}:{}),
