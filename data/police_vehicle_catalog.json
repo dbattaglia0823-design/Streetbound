@@ -24,7 +24,8 @@
       "center_of_gravity_height_m": 0.58,
       "brake_force_n": 19056,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": true
     },
     {
       "id": "police-explorer",
@@ -48,7 +49,8 @@
       "center_of_gravity_height_m": 0.78,
       "brake_force_n": 23176,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": true
     },
     {
       "id": "police-f150",
@@ -72,7 +74,8 @@
       "center_of_gravity_height_m": 0.87,
       "brake_force_n": 25751,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": true
     },
     {
       "id": "police-charger",
@@ -96,7 +99,8 @@
       "center_of_gravity_height_m": 0.58,
       "brake_force_n": 21116,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": true
     },
     {
       "id": "police-challenger",
@@ -120,7 +124,8 @@
       "center_of_gravity_height_m": 0.55,
       "brake_force_n": 20601,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": true
     },
     {
       "id": "police-suburban",
@@ -144,7 +149,8 @@
       "center_of_gravity_height_m": 0.88,
       "brake_force_n": 29356,
       "audio_family": "v8_cross",
-      "baked_wheels": false
+      "baked_wheels": false,
+      "ambient_patrol": false
     },
     {
       "id": "police-armored-truck",
@@ -168,7 +174,8 @@
       "center_of_gravity_height_m": 1.05,
       "brake_force_n": 77254,
       "audio_family": "v8_cross",
-      "baked_wheels": true
+      "baked_wheels": true,
+      "ambient_patrol": false
     }
   ]
 }

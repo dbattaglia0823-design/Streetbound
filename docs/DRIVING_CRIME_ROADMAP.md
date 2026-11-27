@@ -192,6 +192,14 @@ during a wanted pursuit is a bust, not a teleport escape.
   defines artwork orientation, dimensions, estimated driving stats and model
   health; the shared catalog application path fits sprites and collision shapes.
   These are gameplay calibrations, not verified factory specifications.
+- **Ambient patrols:** Crown Vic, Explorer, F150, Charger and Challenger
+  also appear as normal moving traffic at zero heat and during pursuits.
+  One in seven successful traffic spawns is eligible, capped at two patrols
+  within the existing traffic budget. They use directional lanes, normal
+  road speeds, junction priority, collision recovery and off-screen recycling.
+  Suburban and armored truck remain pursuit-only. Patrols do not initiate
+  wanted levels or automatically convert into pursuit units; emergency lamps
+  painted into the supplied artwork remain visible, with no active siren.
 - **Off-screen, non-ambush spawns:** dispatch selects open asphalt lanes
   **125–245 metres** from the player, behind or well to the side of their
   actual movement direction. It rejects occupied locations, camera-visible

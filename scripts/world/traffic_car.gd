@@ -4,6 +4,9 @@ extends CharacterBody2D
 ## Player impacts can displace cars; TrafficFlow then returns them to a legal
 ## directional road lane rather than teleporting them to a fixed waypoint.
 const PPM := 20.0
+const POLICE_CATALOG_PATH := "res://data/police_vehicle_catalog.json"
+static var _patrol_models: Array[Dictionary] = []
+static var _patrol_catalog_loaded := false
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
 # Keep existing model slots stable for seeded parked cars and moving traffic.
@@ -26,6 +29,8 @@ static var art_cache: Dictionary = {}
 var car_color := Color("718899") # Only used when artwork is unavailable.
 var accent_color := Color("e4d5b9")
 var model_index := 0
+# Separate from civilian slots so parked-car seeding never produces police.
+var patrol_model: Dictionary = {}
 # Moving traffic is 10% larger in world units; the existing sprite-fit,
 # collision capsule, fallback art and ground shadow all follow these dimensions.
 const TRAFFIC_SIZE_MULTIPLIER := 1.10
@@ -47,7 +52,22 @@ static func model_count() -> int:
 	return MODEL_PATHS.size()
 
 
+static func patrol_models() -> Array[Dictionary]:
+	if not _patrol_catalog_loaded:
+		_patrol_catalog_loaded = true
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(POLICE_CATALOG_PATH))
+		if parsed is Dictionary:
+			for model in parsed.get("vehicles", []):
+				if model is Dictionary and bool(model.get("ambient_patrol", false)) and ResourceLoader.exists(str(model.get("texture", "")), "Texture2D"):
+					_patrol_models.append(model)
+	return _patrol_models.duplicate(true)
+
+
 func _ready() -> void:
+	if not patrol_model.is_empty():
+		length_px = float(patrol_model["length_m"]) * PPM
+		width_px = float(patrol_model["width_m"]) * PPM
+		add_to_group("police_patrol")
 	# Player layer=2/mask=1; world obstacles layer=1. Traffic collides with
 	# both, and the player can push it instead of driving through a sprite.
 	collision_layer = 1
@@ -117,8 +137,32 @@ static func appearance_for(index: int) -> Dictionary:
 	return art
 
 
+static func patrol_appearance(model: Dictionary) -> Dictionary:
+	var path := str(model.get("texture", ""))
+	if art_cache.has(path):
+		return art_cache[path]
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return {}
+	var texture := load(path) as Texture2D
+	if texture == null:
+		return {}
+	var pixels := texture.get_image()
+	if pixels == null:
+		return {}
+	var rect: Rect2i = _visible_alpha_bounds(pixels)
+	if rect.size.x < 2 or rect.size.y < 2:
+		return {}
+	var art := {
+		"texture": texture, "region": rect,
+		"rotation": deg_to_rad(float(model["sprite_rotation_degrees"])),
+		"aspect": Vector2(rect.size), "source_aspect": Vector2(rect.size)
+	}
+	art_cache[path] = art
+	return art
+
+
 func _add_sprite() -> void:
-	var art := appearance_for(model_index)
+	var art := appearance_for(model_index) if patrol_model.is_empty() else patrol_appearance(patrol_model)
 	if art.is_empty():
 		return
 	var sprite := Sprite2D.new()

@@ -45,6 +45,10 @@ var street_race_navigation: RefCounted
 var street_race_edges: Array[int] = []
 var _pre_race_enabled := true
 const RACE_TRAFFIC_CAP := 20
+# One patrol opportunity per seven successful spawns, with two at most.
+# Patrols count against the same ambient traffic budget as civilian cars.
+const PATROL_INTERVAL := 7
+const MAX_AMBIENT_PATROLS := 2
 
 
 func set_street_race_route(route: RefCounted, directed_edges: Array[int],
@@ -111,6 +115,25 @@ func clear_traffic() -> void:
 		if is_instance_valid(node):node.queue_free()
 	agents.clear()
 	active_junctions.clear()
+
+
+static func patrol_for_spawn(serial: int, active_patrols: int) -> Dictionary:
+	if active_patrols >= MAX_AMBIENT_PATROLS or posmod(serial, PATROL_INTERVAL) != 2:
+		return {}
+	var pool: Array[Dictionary] = Car.patrol_models()
+	if pool.is_empty():
+		return {}
+	var slot := posmod(floori(float(serial) / float(PATROL_INTERVAL)), pool.size())
+	return pool[slot]
+
+
+func _active_patrol_count() -> int:
+	var count := 0
+	for agent in agents:
+		var node: Node = agent.get("node")
+		if is_instance_valid(node) and node.is_in_group("police_patrol"):
+			count += 1
+	return count
 
 
 func _spawn_one() -> bool:
@@ -185,6 +208,10 @@ func _spawn_one() -> bool:
 		car.set_script(Car)
 		car.name = "TrafficCar%02d" % _id_serial
 		car.set("model_index", _id_serial % Car.MODEL_PATHS.size())
+		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count())
+		if not patrol.is_empty():
+			car.set("patrol_model", patrol)
+			car.name = "PolicePatrol%02d" % _id_serial
 		car.car_color = PALETTE[_id_serial%PALETTE.size()]
 		car.accent_color=Color("d2c4a7")
 		car.global_position=p
