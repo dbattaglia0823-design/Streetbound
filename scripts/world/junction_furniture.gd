@@ -26,6 +26,8 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 		var control := str(arm.get("control","none"))
 		var road_id := int(arm.get("road",-1))
 		var kind := str(roads[road_id].get("kind","")) if road_id>=0 and road_id<roads.size() else ""
+		# Keep the alley mouth free of stop bars, yield triangles and fixtures.
+		if kind=="alley":continue
 		var urban := kind in ["local","arterial"]
 		var paint := Color("#eeeae0")
 		var incoming_width := width if kind=="onramp" else width*.5

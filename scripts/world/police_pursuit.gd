@@ -10,6 +10,7 @@ const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const PlannerScript = preload("res://scripts/world/road_route_planner.gd")
+const PoliceRoadNetwork = preload("res://scripts/world/traffic_network.gd")
 const Containment = preload("res://scripts/world/police_containment.gd")
 const Tactics = preload("res://scripts/world/police_tactics.gd")
 const DamageState = preload("res://scripts/vehicle/vehicle_damage.gd")
@@ -71,7 +72,14 @@ func _ready() -> void:
 	if not is_instance_valid(player) or not is_instance_valid(world) or not is_instance_valid(traffic):
 		return
 	planner = PlannerScript.new()
-	planner.call("setup", traffic.get("network"), world.get("data"))
+	var archive: Dictionary=world.get("data")
+	var route_network: RefCounted=traffic.get("network")
+	# Keep ordinary traffic out of alleys without blinding the pursuit planner.
+	# Reuse the existing network when no alley exists to avoid extra build work.
+	if archive.get("roads",[]).any(func(r: Dictionary)->bool:return str(r.get("kind",""))=="alley"):
+		route_network=PoliceRoadNetwork.new()
+		route_network.build(archive,false,true)
+	planner.call("setup",route_network,archive)
 	player.vehicle_reset.connect(_on_player_reset)
 	if not shared_session:
 		player.police_collision.connect(_on_player_police_collision, CONNECT_DEFERRED)

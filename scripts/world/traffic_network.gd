@@ -115,7 +115,8 @@ func _road_cuts(data: Dictionary, road: Dictionary, road_id: int, total: float) 
 	return clean
 
 
-func build(data: Dictionary, for_navigation: bool=false) -> void:
+## Ambient traffic excludes alleys. Player navigation and police routes may use them.
+func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false) -> void:
 	edges.clear()
 	candidate_grid.clear()
 	connector_count=0
@@ -154,6 +155,7 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 	for road_id in data.roads.size():
 		var road: Dictionary = data.roads[road_id]
 		var kind := str(road.kind)
+		if kind=="alley" and not for_navigation and not for_police:continue
 		if not SPEEDS.has(kind) and not (for_navigation and kind in ["driveway","track","gravel"]):
 			continue
 		if not for_navigation and str(road.get("surface","ASPHALT")) in ["GRAVEL","DIRT"]:

@@ -56,3 +56,13 @@ test('editor previews keep right in every compass direction on two, four and six
     }
   }
 });
+
+test('alleyways never generate ambient traffic preview lanes',()=>{
+  const city=road('city',[x(100),x(500)]);
+  const alley={...road('alley',[x(300,100),x(300,300)]),roadClass:'alley'};
+  for(const includeLoose of [false,true]){
+    const lanes=lanePatterns([city,alley],{includeLoose});
+    assert.equal(lanes.length,2);
+    assert.ok(lanes.every(lane=>lane.roadId==='city'));
+  }
+});
