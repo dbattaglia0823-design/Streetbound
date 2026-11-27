@@ -5,7 +5,7 @@ import math
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from road_widths import adapt, ROAD_WIDTH_SCALE, SCENERY_FACTORS
+from road_widths import adapt, ROAD_WIDTH_SCALE, SCENERY_FACTORS, junction_clearance_polygon
 
 ROOT = Path(__file__).resolve().parents[1]
 data = json.loads((ROOT / "worlds" / "morrow-coast.world.json").read_text(encoding="utf-8"))
@@ -41,7 +41,9 @@ fixture = {"roads":[{"width":10.0}], "bridges":[{"width":10.0}],
                     {"kind":"parked_car","size":[2.0,5.0],"radius":3.0},
                     {"kind":"garage","size":[30.0,25.0],"radius":20.0},
                     {"kind":"house","authoring_id":"prop-test","size":[19.0,11.0],"radius":12.0}]}
+reserved_polygon = junction_clearance_polygon(fixture["junctions"][0])
 adapt(fixture)
+assert fixture["junctions"][0]["polygon"] == reserved_polygon
 assert fixture["roads"][0]["width"] == 12.65
 assert fixture["bridges"][0]["width"] == 12.65
 assert fixture["junctions"][0]["approaches"][0]["width"] == fixture["roads"][0]["width"]
