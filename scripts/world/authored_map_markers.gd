@@ -1,4 +1,5 @@
 extends Node2D
+const RegionalServices=preload("res://scripts/world/morrow_regional_services.gd")
 const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## In-world triggers for saved World Builder markers. Uses the actual car,
 ## garage selector, race coordinator, dealerships, and streamed road network.
@@ -43,6 +44,7 @@ func _ready() -> void:
 	process_mode=Node.PROCESS_MODE_ALWAYS
 	world_id=str(world.data.get("editor_world_id","morrow-coast"))
 	var entries: Array = world.data.get("editor_markers",[]).duplicate()
+	if world_id=="morrow-coast":entries.append_array(RegionalServices.markers(world,entries))
 	if enable_stock_robberies and world_id == "morrow-coast":
 		var board: Array[Dictionary] = ContractRules.morrow_robbery_board()
 		var ids: Dictionary = {}

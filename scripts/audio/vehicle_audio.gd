@@ -458,8 +458,8 @@ func _process(dt: float) -> void:
 		_overrun_clock = 0.0
 	_curb_contact(delta)
 	# Engine load and overrun are real different timbres, not just volume.
-	var shift_gain := 0.46 if _shift_dip_time > 0.0 else 1.0
-	var limiter_gain := 0.33 if _limiter_dip_time > 0.0 else 1.0
+	var shift_gain := lerpf(1.0,0.46,smoothstep(0.0,0.12,_shift_dip_time))
+	var limiter_gain := lerpf(1.0,0.33,smoothstep(0.0,0.08,_limiter_dip_time))
 	var engine_load := (0.46+throttle*0.54)*shift_gain*limiter_gain
 	var road_speed := vehicle.linear_velocity.length()
 	var hybrid_electric_launch := cfg.audio_hybrid_assist > 0.2 and \

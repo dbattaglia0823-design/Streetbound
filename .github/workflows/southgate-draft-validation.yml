@@ -1,0 +1,29 @@
+name: Southgate draft validation
+on:
+  pull_request:
+    paths:
+      - 'map-editor/maps/morrow-coast.southgate-draft.world.json'
+      - 'tools/build_morrow_coast.py'
+      - 'tools/morrow_editor_import.py'
+      - 'tests/southgate_expansion_test.py'
+      - '.github/workflows/southgate-draft-validation.yml'
+  workflow_dispatch:
+jobs:
+  source-and-draft-bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate source and bake isolated expansion
+        run: |
+          set -euo pipefail
+          python3 -B tests/southgate_expansion_test.py
+          python3 -B tools/build_morrow_coast.py --overlay map-editor/maps/morrow-coast.southgate-draft.world.json --output-dir /tmp/southgate
+          git diff --exit-code -- worlds map-editor/maps/morrow-coast.edits.world.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: southgate-review-bake
+          path: /tmp/southgate/
