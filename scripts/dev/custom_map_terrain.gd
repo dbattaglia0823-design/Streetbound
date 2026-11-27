@@ -18,10 +18,10 @@ func update_map(source: Dictionary) -> void:
   water_material=ShaderMaterial.new();water_material.shader=preload("res://scripts/dev/custom_water.gdshader")
  for child in get_children():remove_child(child);child.queue_free()
  var extent:=Vector2(doc.world.width,doc.world.height)
- var field: Dictionary=doc.get("terrainHeight",{})
- var field_key:=JSON.stringify(field).sha256_text()
+ var height_source: Dictionary=doc.get("terrainHeight",{})
+ var field_key:=JSON.stringify(height_source).sha256_text()
  if field_key!=height_key:
-  height_key=field_key;height_texture=HeightField.texture(field)
+  height_key=field_key;height_texture=HeightField.texture(height_source)
  HeightField.bind_material(land_material,height_texture,extent)
  var base={"biome":doc.world.get("base","grass"),"points":[{"x":0,"y":0},{"x":extent.x,"y":0},{"x":extent.x,"y":extent.y},{"x":0,"y":extent.y}]}
  for region in [base]+doc.regions:
