@@ -87,6 +87,24 @@ function makeTile(kind){
     c.lineWidth=.5+rand()*.6;c.beginPath();c.moveTo(x,y);
     c.quadraticCurveTo(x+len*.5,y-1.6,x+len,y);c.stroke();
   }
+  // A second, mid-scale material pass remains visible at normal play zoom.
+  // Wrapped stamps keep the repeating tile seamless.
+  const water=['ocean','lake','foam'].includes(kind);
+  const stone=['mountain','rock','gravel','city','asphalt','dirt'].includes(kind);
+  for(let i=0;i<1250;i++){
+    const x=rand()*512,y=rand()*512,r=.6+rand()*2.0;
+    if(water){
+      c.strokeStyle='rgba(204,233,221,.12)';c.lineWidth=.5;
+      c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+2*r,y-r*.5,x+4*r,y);c.stroke();
+    }else{
+      c.fillStyle=stone?'rgba(40,35,30,.13)':'rgba(40,57,21,.14)';
+      for(const dx of [-512,0,512])for(const dy of [-512,0,512]){
+        c.beginPath();c.ellipse(x+dx,y+dy,r,r*.62,0,0,Math.PI*2);c.fill();
+      }
+      c.fillStyle=stone?'rgba(215,207,184,.13)':'rgba(180,173,100,.14)';
+      c.fillRect(x-r*.5,y-r*.65,r,.55);
+    }
+  }
   tiles.set(kind,tile);return tile;
 }
 export function textureTerrain(ctx,kind){
