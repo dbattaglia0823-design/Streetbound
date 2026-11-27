@@ -323,6 +323,10 @@ static func build(e) -> void:
 	# Terrain size edits change the underlying polygon, not just a display scale.
 	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
 	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
+	e.inspector_terrain_draw_order=e._number(e.terrain_transforms,"Draw order (Z)",-5,10,0)
+	e.inspector_terrain_draw_order.step=1
+	e.inspector_terrain_draw_order.tooltip_text="Higher values draw above other terrain; roads and scenery retain their own passes."
+	e.inspector_terrain_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
 	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,72000,10)
 	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,72000,10)
 	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
