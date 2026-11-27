@@ -268,6 +268,9 @@ jobs:
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_authoring_test.gd 2>&1 | tee /tmp/native-authoring-463.log
           grep -q 'NATIVE MAP AUTHORING: PASS' /tmp/native-authoring-463.log
+          timeout 180s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/advanced_world_construction_test.gd 2>&1 | tee /tmp/advanced-world-construction.log
+          grep -q 'ADVANCED WORLD CONSTRUCTION: PASS' /tmp/advanced-world-construction.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/advanced-world-construction.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-authoring-463.log
       - name: Verify waypoint shortest paths and legal junction routing
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
