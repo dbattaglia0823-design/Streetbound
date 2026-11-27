@@ -36,7 +36,8 @@ func _run() -> void:
 		RenderHealth.audit(main.ground.data).compatible)
 	check("published_world_uses_main_hud_traffic_and_marker_systems",
 		is_instance_valid(main.vehicle) and
-		is_instance_valid(main.progression_hud) and
+		main.progression_hud == null and is_instance_valid(main.get_node_or_null("DrivingHUD")) and
+		is_instance_valid(main.pause_menu.dashboard) and
 		is_instance_valid(main.authored_map_markers) and
 		main.authored_map_markers.markers.size()==1 and
 		main.ground.get_node_or_null("AmbientTraffic")!=null)

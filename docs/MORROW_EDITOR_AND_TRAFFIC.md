@@ -154,3 +154,14 @@ The existing model slot order is preserved with the current filenames:
 
 All ten paths must resolve to imported textures; the traffic impact/recovery test
 checks the exact paths, rendered texture identity, alpha bounds and collision.
+
+## On-ramp road type
+
+Choose **On-ramp** in the road type selector (browser or native editor). Draw a paved, single-lane road in its intended travel direction, ending on the centerline of an uninterrupted through road. Approach from the right at a shallow 5–45 degree angle. The entrance can join an ordinary intersection; the final merge requires an interior through-road point, not a multi-road junction or an opposing lane. A successful bake produces a directional merge with a yield-controlled ramp and continuing through lanes, no traffic signals or crosswalk at the merge, and outside-lane-only routing. Invalid or disconnected ramp ends reject the bake with an explanation. Existing roads and junctions are unchanged unless explicitly edited. This is an at-grade ramp; elevation and dedicated acceleration-lane extensions are separate work. Preview and full-game behavior require visual and traffic playtesting.
+
+### Swap existing connections
+
+Select the branch road in either editor and use **Start connection** or **End connection** to select Automatic, Intersection, or On-ramp. Each end is independent, persisted in the source JSON, and undoable. Existing road class, dimensions, control points and other junctions are untouched. Explicit overrides accept a right-angle T as a yield-only merge; a gently curved approach is preferable for highway-speed driving. An ordinary road remains two-way along its existing length, but its selected merge admits only incoming branch traffic into the outside through lane. Three-arm geometry is required: a four-way crossing or disconnected end must first be reshaped or split into a valid T. The baker rejects invalid overrides rather than silently converting them. Use Automatic to clear the override; an authored one-way On-ramp road still defaults to merging at its final point. Rebuild/Test Drive to apply to gameplay.
+
+
+Road artwork refresh: native draft roads share the game's lane-paint planner; browser previews use matching metric proportions and colors. Fine aggregate is game-shader-only. No rebake of stock road geometry required.

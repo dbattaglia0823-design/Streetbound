@@ -93,7 +93,7 @@ static func build(e) -> void:
 	e._btn("Dealership areas & stock",e.dealership_settings,e._open_dealership_editor)
 	e.road_settings=column(e.tool_options);heading(e.road_settings,"ROAD DESIGNER")
 	heading(e.road_settings,"Road type")
-	e.road_class=e._options(e.road_settings,"Road type",["city","highway","country","mountain","service","track","alley"])
+	e.road_class=e._options(e.road_settings,"Road type",["city","highway","country","mountain","service","track","alley","onramp"])
 	e.road_class.set_item_text(5,"Race track")
 	e.road_class.set_item_text(6,"Alleyway")
 	heading(e.road_settings,"Road surface")
@@ -221,10 +221,19 @@ static func build(e) -> void:
 	e.inspector_name.focus_exited.connect(e._commit_inspector)
 	e.inspector_road_type_fields=column(e.selection_fields)
 	heading(e.inspector_road_type_fields,"ROAD TYPE")
-	e.inspector_road_type=e._options(e.inspector_road_type_fields,"Change placed road type",["city","highway","country","mountain","service","track","alley"])
+	e.inspector_road_type=e._options(e.inspector_road_type_fields,"Change placed road type",["city","highway","country","mountain","service","track","alley","onramp"])
 	e.inspector_road_type.set_item_text(6,"Alleyway")
 	e.inspector_road_type.set_item_text(5,"Race track")
 	e.inspector_road_type.item_selected.connect(e._change_inspector_road_type)
+	e.inspector_junction_start=e._options(e.inspector_road_type_fields,"Start connection",["auto","intersection","merge"])
+	e.inspector_junction_end=e._options(e.inspector_road_type_fields,"End connection",["auto","intersection","merge"])
+	for picker in [e.inspector_junction_start,e.inspector_junction_end]:
+		picker.set_item_text(0,"Automatic")
+		picker.set_item_text(1,"Intersection")
+		picker.set_item_text(2,"On-ramp")
+		picker.tooltip_text="Swap connection type at this end without changing road geometry. Use the branch road of a three-arm junction."
+	e.inspector_junction_start.item_selected.connect(e._change_junction_mode.bind(false))
+	e.inspector_junction_end.item_selected.connect(e._change_junction_mode.bind(true))
 	var xy:=HBoxContainer.new();e.selection_fields.add_child(xy)
 	e.inspector_x=e._number(xy,"X m",0,100000,0);e.inspector_x.custom_minimum_size.x=100
 	e.inspector_y=e._number(xy,"Y m",0,100000,0);e.inspector_y.custom_minimum_size.x=100

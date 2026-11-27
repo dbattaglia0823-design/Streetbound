@@ -5,6 +5,7 @@ extends Node2D
 signal busted(reason: String)
 signal escaped
 const PPM := 20.0
+const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
 const DriverScript = preload("res://scripts/world/race_ai_driver.gd")
 const PlannerScript = preload("res://scripts/world/road_route_planner.gd")
@@ -53,6 +54,10 @@ var race_active_ids: Dictionary = {}
 var message := ""
 var message_timer := 0.0
 var readout: Label
+var status_host: VBoxContainer
+var pursuit_panel: PanelContainer
+var wanted_stars: Label
+var pursuit_meter: ProgressBar
 var replacement_timers: Array[float] = []
 var reinforcement_clock := 0.0
 var _unit_serial := 0
@@ -69,17 +74,23 @@ func _ready() -> void:
 	player.vehicle_reset.connect(_on_player_reset)
 	if not shared_session:
 		player.police_collision.connect(_on_player_police_collision, CONNECT_DEFERRED)
-	var layer := CanvasLayer.new()
-	layer.layer = 5
-	add_child(layer)
-	var panel := PanelContainer.new()
-	panel.position = Vector2(24, 242)
-	panel.custom_minimum_size = Vector2(320, 30)
-	layer.add_child(panel)
-	readout = Label.new()
-	readout.add_theme_font_size_override("font_size", 13)
-	panel.add_child(readout)
-	readout.text = "POLICE / CLEAR"
+	# OnlineWorld presents the target-specific network HUD, not a duplicate solo card.
+	if not shared_session:
+		var parent: Node = status_host
+		if not is_instance_valid(parent):
+			var layer := CanvasLayer.new()
+			layer.layer = 5
+			add_child(layer)
+			parent = layer
+		pursuit_panel = HudStyle.status_card(parent,Color("#ed796c"))
+		if not is_instance_valid(status_host):
+			pursuit_panel.position = Vector2(16,16)
+		var col := VBoxContainer.new()
+		pursuit_panel.add_child(col)
+		HudStyle.status_text(col,"POLICE PURSUIT",11,Color("#ed796c"))
+		wanted_stars = HudStyle.status_text(col,"",22,Color("#ed796c"))
+		readout = HudStyle.status_text(col,"",13,Color("#eaf2e8"))
+		pursuit_meter = HudStyle.status_bar(col,Color("#ed796c"))
 	# Heat originates from race and crime controllers; no player debug shortcut.
 
 func set_shared_target(target: VehicleController2D) -> bool:
@@ -739,18 +750,24 @@ func _process(dt: float) -> void:
 	message_timer = maxf(0.0,message_timer-dt)
 	if not is_instance_valid(readout):
 		return
+	pursuit_panel.visible = wanted_level>0
+	if wanted_level<=0:
+		return
+	var heat := clampi(wanted_level,0,5)
+	wanted_stars.text = "★".repeat(heat)+"☆".repeat(5-heat)
+	pursuit_meter.visible = false
 	if bust_timer > 0.0:
 		readout.text = message
-	elif wanted_level > 0 and phase == "dispatch":
-		readout.text = "WANTED %d / POLICE DISPATCH / %d REPLACEMENTS PENDING" % [wanted_level,replacement_timers.size()]
-	elif wanted_level > 0 and phase == "search":
-		var duration := float(Tactics.profile(wanted_level)["search_seconds"])
-		readout.text = "WANTED %d / SEARCHING LAST SIGHTING / %ds / %d OFFICERS" % [
-			wanted_level,ceili(maxf(0.0,duration-search_clock)),units.size()]
-	elif wanted_level > 0:
-		readout.text = "WANTED %d / %d OFFICERS / BOX-IN %.1f / %.0fs" % [
-			wanted_level,units.size(),containment_seconds,Containment.CAPTURE_SECONDS]
-	elif message_timer > 0.0:
-		readout.text = "POLICE / "+message
+	elif phase == "dispatch":
+		readout.text = "DISPATCHING RESPONDERS"
+	elif phase == "search":
+		var duration := maxf(0.1,float(Tactics.profile(wanted_level)["search_seconds"]))
+		readout.text = "EVADING  /  %ds REMAINING\n%d RESPONDERS" % [ceili(maxf(0.0,duration-search_clock)),units.size()]
+		pursuit_meter.visible = true
+		pursuit_meter.value = clampf(search_clock/duration*100.0,0.0,100.0)
 	else:
-		readout.text = "POLICE / CLEAR"
+		readout.text = "PURSUIT ACTIVE  /  %d RESPONDERS" % units.size()
+		if containment_seconds>0.0:
+			readout.text += "\nBOXED IN  /  BREAK FREE"
+			pursuit_meter.visible = true
+			pursuit_meter.value = clampf(containment_seconds/Containment.CAPTURE_SECONDS*100.0,0.0,100.0)

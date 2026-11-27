@@ -817,6 +817,8 @@ function refreshInspector(){
       ?(pointInsertMode.mode==='split'?'Click on the road where it should separate.':pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
       :'Insert points on the curve, or extend either endpoint. Shift-click a selected road to insert directly.';
     $('inspect-road-class').value=item.roadClass;$('inspect-road-surface').value=item.surface;
+    $('inspect-junction-start').value=item.junctionStart??'auto';
+    $('inspect-junction-end').value=item.junctionEnd??'auto';
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
     $('inspect-road-shoulder').value=item.shoulder;$('inspect-road-smooth').checked=item.smooth;
     $('inspect-road-markings').checked=item.markings;
@@ -1589,6 +1591,9 @@ $('road-class').addEventListener('change',e=>{
   if(e.target.value==='alley'){
     $('road-surface').value='asphalt';$('road-width').value='6';$('road-lanes').value='1';
     $('road-shoulder').value='0';$('shoulder-label').textContent='0 m';$('road-markings').checked=false;
+  }else if(e.target.value==='onramp'){
+    $('road-surface').value='asphalt';$('road-width').value='8';$('road-lanes').value='1';$('road-shoulder').value='2';$('shoulder-label').textContent='2 m';$('road-markings').checked=true;
+    status('Draw from the entrance toward the through road. Snap the final point to its centerline, approaching from the right.');
   }else if(e.target.value==='track')$('road-surface').value='track';
   else if($('road-surface').value==='track')$('road-surface').value='asphalt';
 });
@@ -1632,6 +1637,7 @@ $('apply-road-elevation').addEventListener('click',()=>{
 const fields={
   'inspector-name':{name:'name'},
   'inspect-road-class':{roadClass:'string'},'inspect-road-surface':{surface:'string'},
+  'inspect-junction-start':{junctionStart:'string'},'inspect-junction-end':{junctionEnd:'string'},
   'inspect-road-width':{width:'number'},'inspect-road-lanes':{lanes:'number'},
   'inspect-road-shoulder':{shoulder:'number'},'inspect-road-smooth':{smooth:'boolean'},
   'inspect-road-markings':{markings:'boolean'},'inspect-biome':{biome:'string'},
@@ -1654,6 +1660,7 @@ for(const [elementId,options] of Object.entries(fields)){
       if(key==='roadClass'){
         const old=getEntity(doc,selection.id)?.item;
         if(value==='alley'){update.surface='asphalt';update.markings=false;update.shoulder=0;}
+        else if(value==='onramp'){update.surface='asphalt';update.lanes=1;update.markings=true;}
         else if(value==='track')update.surface='track';
         else if(old?.surface==='track')update.surface='asphalt';
       }

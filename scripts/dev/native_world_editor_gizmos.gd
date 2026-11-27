@@ -437,17 +437,13 @@ func _draw_draft() -> void:
 		if changed:
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,0)
 			var alley: bool=str(road.get("roadClass",""))=="alley"
-			draw_polyline(line,Color("#77736b") if alley else Color("#ccc4ab"),road_width+(10.0 if alley else 60.0),true)
-			draw_polyline(line,Color("#a1947d") if str(road.surface) in ["gravel","dirt"] else Color("#58656c"),road_width,true)
+			draw_polyline(line,Color("#77736b") if alley else Color("#777a70"),road_width+(10.0 if alley else 35.0),true)
+			draw_polyline(line,Color("#a1947d") if str(road.surface) in ["gravel","dirt"] else preload("res://scripts/world/coast_roads.gd").PREVIEW_PAVEMENT,road_width,true)
 			if preload("res://scripts/world/track_kerbs.gd").is_track(road) and str(road.surface) not in ["gravel","dirt"]:
 				preload("res://scripts/world/track_kerbs.gd").paint(self,line,road_width)
 			elif not alley and str(road.surface) not in ["gravel","dirt"]:
-				var layout:=Lanes.layout({"width":road_width/PPM,"lanes":int(road.lanes)})
-				var divider:=float(layout.divider)*PPM
-				draw_polyline(Lanes.offset_path(line,divider),Color("#e5d6a0"),2.0,true)
-				for direction in [1,-1]:
-					for lane in range(1,int(layout.forward if direction>0 else layout.reverse)):
-						draw_polyline(Lanes.offset_path(line,divider+direction*float(layout.width)*lane*PPM),Color("#dcd9c4"),2,true)
+				preload("res://scripts/world/coast_roads.gd").paint_lane_lines(self,line,road,road_width)
+
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,1,preview_junctions if network_is_draft else world.data.junctions)
 		if not runtime_playtest:
 			if road.has("jump"):

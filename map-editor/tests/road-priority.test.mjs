@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createWorld,createEntity,parseWorld,serializeWorld} from '../world-model.js';
+import {roadMarkingPlan} from '../world-renderer.js';
+import {createWorld,createEntity,parseWorld,serializeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
 import {roadPieces,isLoose,pavedVsLoose} from '../world-road-priority.js';
 import {buildRoadNetwork,buildWorldZip} from '../world-export.js';
@@ -140,4 +141,43 @@ test('repo-owned UI has its dependencies and Windows launcher',async()=>{
   const serve=await readFile(new URL('../serve.ps1',import.meta.url),'utf8');
   assert.ok(serve.includes('IPAddress]::Loopback'));
   assert.ok(serve.includes("TrimEnd([char[]]@("),'local server path must use one char-array argument');
+});
+
+test('explicit on-ramp survives serialization and labels its merge',()=>{
+  let doc=createWorld({name:'Ramp',width:1600,height:1200});
+  doc=createEntity(doc,'roads',{...base,name:'Main',roadClass:'highway',width:16,lanes:4,points:coords([100,600],[1500,600])});
+  doc=createEntity(doc,'roads',{...base,name:'Ramp',roadClass:'onramp',width:8,lanes:1,points:coords([600,680],[800,600])});
+  const restored=parseWorld(serializeWorld(doc));
+  assert.equal(restored.roads[1].roadClass,'onramp');
+  assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
+  assert.throws(()=>createEntity(doc,'roads',{...base,name:'Invalid',roadClass:'onramp',lanes:2,points:coords([600,680],[800,600])}),/one lane/);
+});
+
+test('existing branch end swaps connection mode without changing geometry',()=>{
+  let doc=build(['Main','asphalt',coords([100,600],[1500,600]),16],
+    ['Branch','asphalt',coords([800,600],[800,850]),8]);
+  const branch=doc.roads[1];
+  doc=updateEntity(doc,branch.id,{junctionStart:'merge'});
+  assert.deepEqual(doc.roads[1].points,branch.points);
+  assert.equal(doc.roads[1].lanes,branch.lanes);
+  const restored=parseWorld(serializeWorld(doc));
+  assert.equal(restored.roads[1].junctionStart,'merge');
+  assert.ok(buildRoadJunctions(restored.roads).some(j=>j.kind==='merge'));
+  doc=updateEntity(doc,branch.id,{junctionStart:'intersection'});
+  assert.ok(!buildRoadJunctions(doc.roads).some(j=>j.kind==='merge'));
+  doc=updateEntity(doc,branch.id,{junctionStart:'auto'});
+  assert.equal(doc.roads[1].junctionStart,undefined);
+});
+
+test('metric lane paint follows directional lanes and ramp edges',()=>{
+  const plan=roadMarkingPlan({...base,roadClass:'highway',width:18,lanes:4});
+  assert.equal(plan.length,6);
+  assert.deepEqual(plan.slice(0,2).map(p=>p.color),['#e5be65','#e5be65']);
+  assert.deepEqual(plan.slice(2,4).map(p=>p.dash),[[3,9],[3,9]]);
+  assert.ok(plan.every(p=>p.width===.15));
+  const ramp=roadMarkingPlan({...base,roadClass:'onramp',width:8,lanes:1});
+  assert.equal(ramp.length,2);
+  assert.ok(ramp.every(p=>p.dash.length===0));
+  assert.deepEqual(roadMarkingPlan({...base,roadClass:'alley'}),[]);
+  assert.deepEqual(roadMarkingPlan({...base,markings:false}),[]);
 });

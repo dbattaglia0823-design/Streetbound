@@ -54,11 +54,11 @@ def world_bounds_from_overlay(filename=EDIT_PATH):
 KIND_TO_CLASS = {
     "local": "city", "arterial": "city", "highway": "highway",
     "rural": "country", "mountain": "mountain", "track": "track",
-    "driveway": "service", "gravel": "service", "alley": "alley",
+    "driveway": "service", "gravel": "service", "alley": "alley", "onramp": "onramp",
 }
 CLASS_TO_KIND = {
     "city": "local", "highway": "highway", "country": "rural",
-    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley",
+    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley", "onramp": "onramp",
 }
 PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
@@ -472,12 +472,18 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             raise ValueError("Invalid road width or lane count at road " + str(index))
         road["width"] = round(float(road_width) / width_scale, 9)
         road["lanes"] = int(lanes)
+        for key in ("junctionStart","junctionEnd"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+                raise ValueError("Invalid road junction mode")
+            if key in entry: road[key]=entry[key]
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
             road["kind"] = CLASS_TO_KIND.get(klass, road["kind"])
         surf = str(entry.get("surface", road["surface"].lower())).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:
             raise ValueError("Unknown road surface " + surf)
+        if road["kind"] == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or lanes != 1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surf == "TRACK":
             road["kind"] = "track"
         road["surface"] = "ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf
@@ -497,6 +503,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road_width = entry.get("width", 9.0)
         if type(road_width) not in (int,float) or not 6 <= road_width <= 160:
             raise ValueError("Invalid new-road width")
+        if kind == "onramp" and (surf not in {"ASPHALT","CONCRETE"} or entry.get("lanes",2)!=1):
+            raise ValueError("On-ramp must be paved and have one lane")
         if surf == "TRACK":
             kind = "track"
         elif surf == "GRAVEL" and kind != "alley":
@@ -525,6 +533,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                           surface="ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf,
                           grade=0, anchors=new_points, points=[],
                           lanes=int(entry.get("lanes", 2))))
+        for key in ("junctionStart","junctionEnd"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+                raise ValueError("Invalid road junction mode")
+            if key in entry: roads[-1][key]=entry[key]
         set_profile(roads[-1], entry)
         set_jump(roads[-1], entry)
     # Terrain changes are applied ONLY when they differ from the sampled

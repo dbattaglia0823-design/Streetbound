@@ -75,7 +75,7 @@ func _run() -> void:
 		manager.split_cameras[0].target == p1 and manager.split_cameras[1].target == p2)
 	check("split_hides_only_single_player_hud_and_camera",
 		not original_camera.enabled and not game.quick_upgrades.visible and
-		not game.progression_hud.visible and game.pause_menu.visible)
+		not game.get_node("DrivingHUD").visible and game.pause_menu.visible)
 	check("one_pad_assigns_keyboard_p1_and_controller_p2",
 		manager.player_one_controller==-1 and manager.player_two_controller==7)
 	check("streamer_tracks_both_cars",
@@ -127,7 +127,7 @@ func _run() -> void:
 	await process_frame
 	check("exit_restores_original_car_camera_and_huds",
 		not manager.active and not p1.external_input and original_camera.enabled and
-		game.quick_upgrades.visible and game.progression_hud.visible)
+		game.quick_upgrades.visible and game.get_node("DrivingHUD").visible)
 	check("second_car_and_extra_streamer_removed",
 		not is_instance_valid(p2) and world.secondary_stream_vehicle==null)
 	check("pause_exit_resumes_normal_single_player",

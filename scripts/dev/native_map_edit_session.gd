@@ -107,6 +107,8 @@ func _valid_source(value: Dictionary) -> bool:
 			if not p is Dictionary or not _in_bounds(Vector2(
 					float(p.get("x",-1)),float(p.get("y",-1))),value):
 				return false
+		for key in ["junctionStart","junctionEnd"]:
+			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if not Elevation.authoring_error(road).is_empty():return false
@@ -350,7 +352,7 @@ func reconcile_runtime(data: Dictionary) -> bool:
 			var points: Array[Dictionary]=[]
 			for p in raw.get("anchors",raw.points):points.append({"x":float(p[0]),"y":float(p[1])})
 			next.roads.append({"id":"road-%d"%i,"name":str(raw.name),
-				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley"}.get(str(raw.kind),"city"),
+				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
 			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
@@ -939,6 +941,11 @@ func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
 		"surface":"asphalt","width":10.0,"lanes":2,"shoulder":2.0,"smooth":true,"markings":true,"points":vertices}
 	for key in ["roadClass","surface","width","lanes"]:
 		if settings.has(key):road[key]=settings[key]
+	if road.roadClass=="onramp":
+		road.name="On-ramp"
+		road.lanes=1
+		road.surface="asphalt"
+		road.markings=true
 	if road.roadClass=="alley":
 		road.name="Alleyway"
 		road.shoulder=0.0
@@ -1149,8 +1156,14 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
-		for key in ["roadClass","surface","width","lanes"]:
-			if settings.has(key):road[key]=settings[key]
+		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd"]:
+			if settings.has(key):
+				if key in ["junctionStart","junctionEnd"] and settings[key]=="auto":road.erase(key)
+				else:road[key]=settings[key]
+		if road.roadClass=="onramp":
+			road.lanes=1
+			road.surface="asphalt"
+			road.markings=true
 		if settings.has("elevation"):
 			road.elevation=settings.elevation
 			last_error=Elevation.authoring_error(road)
@@ -1425,6 +1438,9 @@ func split_road(identity: String,index: int) -> String:
 		if index==0 or index==road.points.size()-1:
 			road["independentEnds"]=true
 			return identity if _commit(next) else ""
+		if road.has("junctionStart") or road.has("junctionEnd") or str(road.get("roadClass",""))=="onramp":
+			last_error="Reset connection modes to Automatic and use a regular road type before splitting."
+			return ""
 		if Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false):
 			last_error="Set the ramp to a flat layer before splitting it."
 			return ""

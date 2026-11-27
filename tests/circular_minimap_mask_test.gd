@@ -21,6 +21,7 @@ func _run() -> void:
 		quit(1);return
 	var mini: Control=hud.mini_view
 	var atlas: Control=hud.full_view
+	check("compact_border_only_minimap",hud.mini.custom_minimum_size==Vector2(252,252) and hud.mini_frame.custom_minimum_size==Vector2(244,244) and not mini.scale_bar.visible)
 	var image: TextureRect=hud.mini_image
 	var offscreen: SubViewport=hud.mini_render
 	var enemy_layer: Node2D=mini.get_node_or_null("MinimapEnemies")

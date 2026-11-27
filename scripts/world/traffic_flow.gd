@@ -746,6 +746,14 @@ func _tick_agent(index: int,dt: float) -> bool:
 						agent.stop_done=true
 			if control=="yield" and remaining<PPM*13.0:
 				desired=minf(desired,PPM*4.0)
+				if str(next.get("junction_control",""))=="merge":
+					# Give approaching through traffic priority, not merely the first reservation.
+					for other in agents:
+						if int(other.uid)==int(agent.uid):continue
+						var other_edge: Dictionary=network.edges[int(other.edge)]
+						if not bool(other_edge.connector) and int(other_edge.end_j)==junction and str(other_edge.control)=="none":
+							if float(other_edge.length_px)-float(other.progress)<PPM*35.0:
+								desired=minf(desired,maxf(0.0,(remaining-PPM*2.0)*.5))
 			if should_yield and remaining<PPM*7.0:
 				desired=0.0
 			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*2.4:

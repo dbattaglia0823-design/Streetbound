@@ -26,7 +26,8 @@ void fragment() {
 	float broad=grain(world_pixel*.008);
 	float loose=grain(world_pixel*.14);
 	float anti_alias=1.0-smoothstep(.55,1.5,length(fwidth(world_pixel*.29)));
-	float aggregate=(fine-.5)*.020*anti_alias+(broad-.5)*.024;
+	float aggregate=(fine-.5)*.075*anti_alias+(broad-.5)*.042;
+	float fleck=smoothstep(.77,.96,fine)*.025*anti_alias;
 	float weathering=smoothstep(.69,.91,broad)*.028;
 	// Rare soft resurfacing scars break up broad flat asphalt without hard
 	// grid seams; each patch is deterministic in global world coordinates.
@@ -35,7 +36,9 @@ void fragment() {
 	vec2 patch_local=fract(patch_grid)-vec2(.5);
 	float spot=1.0-smoothstep(.24,.42,length(patch_local*vec2(1.0,1.25)));
 	float sealed=step(.963,hash21(patch_cell+vec2(61.0,23.0)))*spot;
-	float asphalt_variation=(aggregate-weathering-sealed*.033)*paved;
+	float asphalt_variation=(aggregate+fleck-weathering-sealed*.043)*paved;
+	// Neutral charcoal asphalt without tinting paint or curbs.
+	COLOR.rgb-=vec3(.075,.090,.095)*paved;
 	float gravel_variation=(loose-.5)*.048+(broad-.5)*.018;
 	COLOR.rgb+=(asphalt_variation+gravel_variation*gravel)*road_detail;
 	if(max(gravel,dirt)>.01){

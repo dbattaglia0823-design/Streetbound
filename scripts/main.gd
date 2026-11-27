@@ -20,7 +20,6 @@ const CircuitPracticeScript = preload("res://scripts/world/ashford_circuit_pract
 const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.gd")
 const AuthoredRaceScript=preload("res://scripts/world/authored_race.gd")
 const AuthoredMarkersScript=preload("res://scripts/world/authored_map_markers.gd")
-const ProgressHudScript = preload("res://scripts/ui/driver_car_progress_hud.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd")
@@ -210,13 +209,6 @@ func _ready() -> void:
 		offscreen_vehicle_awareness.set("camera",camera)
 		offscreen_vehicle_awareness.set("traffic",traffic)
 		hud.add_child(offscreen_vehicle_awareness)
-	if not proving_ground:
-		progression_hud = CanvasLayer.new()
-		progression_hud.set_script(ProgressHudScript)
-		progression_hud.economy = vehicle_ownership
-		progression_hud.host = hud.progression_slot
-		add_child(progression_hud)
-		hud.show_unified_progression()
 	var world_hud_ref: CanvasLayer
 	if not proving_ground:
 		var world_hud := CanvasLayer.new()
@@ -299,6 +291,8 @@ func _ready() -> void:
 		vehicle_damage_service = CanvasLayer.new()
 		vehicle_damage_service.set_script(VehicleDamageServiceScript)
 		vehicle_damage_service.set("player", vehicle)
+		vehicle_damage_service.set("dashboard", hud.dashboard)
+		vehicle_damage_service.set("status_host", hud.status_host)
 		vehicle_damage_service.set("economy", vehicle_ownership)
 		vehicle_damage_service.set("garage", player_garage)
 		vehicle_damage_service.set("authored_markers", authored_map_markers)
@@ -307,6 +301,7 @@ func _ready() -> void:
 		police_pursuit = Node2D.new()
 		police_pursuit.set_script(PolicePursuitScript)
 		police_pursuit.set("player", vehicle)
+		police_pursuit.set("status_host", hud.status_host)
 		police_pursuit.set("world", ground)
 		police_pursuit.set("traffic", traffic)
 		police_pursuit.set("economy", vehicle_ownership)
@@ -326,6 +321,7 @@ func _ready() -> void:
 		driving_contracts = Node2D.new()
 		driving_contracts.set_script(DrivingContractScript)
 		driving_contracts.set("player", vehicle)
+		driving_contracts.set("status_host", hud.status_host)
 		driving_contracts.set("world", ground)
 		driving_contracts.set("economy", vehicle_ownership)
 		driving_contracts.set("police", police_pursuit)

@@ -57,6 +57,7 @@ var police_target_original_layer := 0
 var police_replicas: Dictionary = {}
 var police_histories: Dictionary = {}
 var police_status: Label
+var police_panel: PanelContainer
 
 func _ready() -> void:
 	name = "OnlineWorld"
@@ -100,11 +101,10 @@ func _ready() -> void:
 					lock_lobby_button = action
 					action.pressed.connect(_toggle_lobby_lock)
 		overlay.add_child(invitation_toolbar)
-	police_status = Label.new()
-	police_status.position = Vector2(20, 106)
-	police_status.text = "POLICE / CLEAR"
-	police_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(police_status)
+	var hud_style = preload("res://scripts/ui/driving_hud.gd")
+	police_panel = hud_style.status_card(overlay,Color("#ed796c"))
+	police_panel.position = Vector2(20,106)
+	police_status = hud_style.status_text(police_panel,"",16,Color("#ed796c"))
 	add_child(overlay)
 	var traffic: Node2D = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
 	if is_instance_valid(traffic):
@@ -373,7 +373,7 @@ func _process(dt: float) -> void:
 			_release_police_target()
 		if is_instance_valid(police_status) and is_instance_valid(shared_police):
 			var heat := int(shared_police.get("wanted_level"))
-			police_status.text = "POLICE / WANTED %d / YOU" % heat if heat>0 and police_target_peer==1 else ("POLICE / OTHER DRIVER PURSUED" if heat>0 else "POLICE / CLEAR")
+			_update_police_status(heat,police_target_peer)
 	else:
 		_render_police_replicas(now_ms)
 	for id in peer_cars:
@@ -663,6 +663,13 @@ func _clear_police_replicas() -> void:
 	police_replicas.clear()
 	police_histories.clear()
 
+func _update_police_status(level: int, target: int) -> void:
+	if not is_instance_valid(police_panel):
+		return
+	var heat := clampi(level,0,5)
+	police_panel.visible = heat>0 and target==int(online_session.own_id())
+	police_status.text = "WANTED  "+"★".repeat(heat)+"☆".repeat(5-heat) if police_panel.visible else ""
+
 func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var raw: Variant = payload.get("vehicles", {})
 	if not raw is Dictionary or raw.size() > 12:
@@ -670,7 +677,7 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var level := clampi(int(payload.get("wanted",0)),0,5)
 	var target := int(payload.get("target",0))
 	if is_instance_valid(police_status):
-		police_status.text = "POLICE / WANTED %d / YOU" % level if level>0 and target==online_session.own_id() else ("POLICE / OTHER DRIVER PURSUED" if level>0 else "POLICE / CLEAR")
+		_update_police_status(level,target)
 	var retained: Dictionary = {}
 	for id in raw:
 		var row: Variant = raw[id]

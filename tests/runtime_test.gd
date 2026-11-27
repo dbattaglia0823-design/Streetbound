@@ -53,7 +53,7 @@ func run() -> void:
 		if child is PanelContainer:
 			panel_count += 1
 	check("f1_key_does_not_open_tuning_menu",
-		panel_count == 1 and not InputMap.has_action("tuning"))
+		panel_count == 0 and is_instance_valid(hud.dashboard) and not InputMap.has_action("tuning"))
 	var controls: Node = root.get_node("Controls")
 	# Tests use isolated user data; start and finish with the documented throttle key.
 	controls.bind_key("throttle", KEY_W)
