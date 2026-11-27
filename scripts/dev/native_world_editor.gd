@@ -103,6 +103,8 @@ var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
 var grid_spacing_m := 1.0
+var road_selection_layer := 99
+var copied_group: Dictionary={}
 var bulk_dialog: AcceptDialog
 var bulk_category: OptionButton
 var bulk_property: OptionButton
@@ -788,6 +790,7 @@ func _set_multi(ids: Array[String]) -> void:
 			details.text="%d OBJECTS SELECTED\nDrag a selected object to move all.\nCtrl+D duplicate · Delete remove · Shift+drag add/remove."%multi_selection.size()
 
 func _selection_hit(at: Vector2) -> String:
+	if road_selection_layer!=99:return str(_pick_source_road(at).get("id",""))
 	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
 		var id:=str(hit.get("id",""))
 		if not id.is_empty():return id
@@ -821,7 +824,7 @@ func _start_canvas_selection(at: Vector2,additive: bool=false) -> void:
 		_set_multi([source_id])
 
 func _select_baked_with_marquee(area: Rect2,ids: Array[String]) -> void:
-	if map_switcher.custom or not bool(layer_flags.get("scenery",true)):return
+	if road_selection_layer!=99 or map_switcher.custom or not bool(layer_flags.get("scenery",true)):return
 	var garage=preload("res://scripts/world/garage_geometry.gd")
 	for index in MultiSelect.baked_indices_in_rect(world.data,area):
 		var item: Dictionary=world.data.props[index]
@@ -852,7 +855,7 @@ func _end_marquee(at: Vector2) -> void:
 			# Box Select tool never turns this into an object drag.
 			if tool_name=="select_box":
 				var clicked:=_selection_hit(at)
-				if clicked.is_empty() and not map_switcher.custom:
+				if clicked.is_empty() and not map_switcher.custom and road_selection_layer==99:
 					var nearest: Dictionary=_nearest_prop(at)
 					if nearest.get("kind","")=="prop":
 						clicked=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
@@ -863,7 +866,7 @@ func _end_marquee(at: Vector2) -> void:
 				if not source_id.is_empty():ids.append(source_id)
 		else:
 			var hit:=_selection_hit(at)
-			if hit.is_empty() and not map_switcher.custom:
+			if hit.is_empty() and not map_switcher.custom and road_selection_layer==99:
 				var nearest: Dictionary=_nearest_prop(at)
 				if nearest.get("kind","")=="prop":
 					hit=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
@@ -1112,12 +1115,12 @@ func _set_grid_spacing(value: float) -> void:
 	_refresh_grid_label()
 
 func _refresh_grid_label() -> void:
-	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: %g m"%snap_m
+	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: "+str(snap_m)+" m"
 
 func _toggle_snap() -> void:
 	snap_m = 0.0 if snap_m > 0.0 else grid_spacing_m
 	_refresh_grid_label()
-	_notice("Grid snapping disabled." if snap_m==0 else "Grid snapping set to %g m."%snap_m)
+	_notice("Grid snapping disabled." if snap_m==0 else "Grid snapping set to "+str(snap_m)+" m.")
 
 func _bulk_fields() -> void:
 	bulk_property.clear()
@@ -1341,9 +1344,11 @@ func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	var best := 11.0 / maxf(0.003,editor_camera.zoom.x)
 	var result: Dictionary = {}
 	for road in authoring.doc.roads:
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		for i in road.points.size():
 			var point := Vector2(float(road.points[i].x),
 				float(road.points[i].y))*PPM
+			if not MultiSelect.road_point_matches_layer(road,point/PPM,road_selection_layer):continue
 			var distance := point.distance_to(world_px)
 			if distance < best:
 				best = distance
@@ -1518,7 +1523,7 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			_notice(authoring.last_error)
 		return
-	if tool_name=="move_prop" and not map_switcher.custom:
+	if tool_name=="move_prop" and not map_switcher.custom and road_selection_layer==99:
 		var dealer_id:=dealer_editor.pick(world_px)
 		if not dealer_id.is_empty():
 			dealer_editor.open_for(dealer_id)
@@ -1526,8 +1531,8 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name not in ["anchor","move_prop"]:
 		select_at(world_px)
 		return
-	var race_handle:=_pick_race_handle(world_px)
-	if race_handle.is_empty() and tool_name=="move_prop":
+	var race_handle: Dictionary=_pick_race_handle(world_px) if road_selection_layer==99 else {}
+	if race_handle.is_empty() and tool_name=="move_prop" and road_selection_layer==99:
 		var race_id: String=_pick_any_race_start(world_px)
 		if not race_id.is_empty():
 			source_id=race_id;source_anchor=-1
@@ -1540,7 +1545,9 @@ func _source_click(world_px: Vector2) -> void:
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
 		_refresh_authoring();return
 	var hit: Dictionary={}
-	if tool_name=="anchor":
+	if road_selection_layer!=99:
+		hit=_pick_source_anchor(world_px) if tool_name=="anchor" else _pick_source_road(world_px)
+	elif tool_name=="anchor":
 		hit=_pick_source_anchor(world_px)
 		if hit.is_empty():hit=_pick_sidewalk_anchor(world_px)
 	else:
@@ -1559,7 +1566,7 @@ func _source_click(world_px: Vector2) -> void:
 			return
 		if hit.is_empty():hit=_pick_source_region(world_px)
 	if hit.is_empty():
-		if tool_name=="move_prop":
+		if tool_name=="move_prop" and road_selection_layer==99:
 			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
@@ -2021,6 +2028,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			if active and key.ctrl_pressed and key.keycode==KEY_S:
 				_apply_draft();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_C:
+				_copy_selected_group();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_V:
+				_paste_selected_group();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
 				_duplicate_selected();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_A and tool_name=="move_prop":
@@ -2658,6 +2669,7 @@ func _refresh_entity_list(force: bool=false) -> void:
 	for category in ["roads","regions","props","markers","races"]:
 		for item in authoring.doc.get(category,[]):
 			if bool(item.get("hidden",false)):continue
+			if road_selection_layer!=99 and (category!="roads" or not MultiSelect.road_matches_layer(item,road_selection_layer)):continue
 			var text: String=str(item.get("name",item.id))+"  ·  "+str(item.id)
 			if not keyword.is_empty() and keyword not in text.to_lower():continue
 			entity_list.add_item(text);entity_list.set_item_metadata(entity_list.item_count-1,str(item.id))
@@ -2670,6 +2682,37 @@ func _select_entity(index: int) -> void:
 	editor_camera.global_position=_record_position(record)*PPM
 	_refresh_authoring();_update_view(true)
 	if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
+
+func _set_road_selection_layer(index: int) -> void:
+	if _editing_locked():return
+	road_selection_layer=99 if index==0 else index-3
+	layer_flags["road_selection_layer"]=road_selection_layer
+	_set_multi([])
+	source_id="";source_anchor=-1;pending_drag.clear()
+	_update_selection({})
+	_refresh_authoring()
+	_refresh_entity_list(true)
+	_notice("All object types selectable." if road_selection_layer==99 else "Road selection restricted to layer %d; other objects remain visible."%road_selection_layer)
+
+func _copy_selected_group() -> void:
+	if _editing_locked() or not source_ready:return
+	var ids: Array[String]=multi_selection.duplicate()
+	if ids.is_empty() and not source_id.is_empty():ids.append(source_id)
+	var group: Dictionary=authoring.copy_group(ids)
+	if group.is_empty():_notice(authoring.last_error);return
+	copied_group=group
+	_notice("Copied %d objects. Pan to a destination or switch maps, then Paste."%group.entries.size())
+
+func _paste_selected_group() -> void:
+	if _editing_locked() or not source_ready or copied_group.is_empty():return
+	var at:=_snap_point(editor_camera.global_position/PPM)
+	var ids: Array[String]=authoring.paste_group(copied_group,at)
+	if ids.is_empty():_notice(authoring.last_error);return
+	_set_multi(ids)
+	source_id=ids[0] if ids.size()==1 else ""
+	source_anchor=-1
+	_refresh_authoring()
+	_notice("Pasted %d objects in one undo step."%ids.size())
 
 func _set_layer(enabled: bool,key: String) -> void:
 	layer_flags[key]=enabled
@@ -2784,9 +2827,12 @@ func _pick_source_road(at: Vector2) -> Dictionary:
 	var best:=12.0/maxf(.003,editor_camera.zoom.x)
 	var hit: Dictionary={}
 	for road in authoring.doc.get("roads",[]):
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		var line:=_source_road_path(road)
 		for i in range(1,line.size()):
-			var distance:=Geometry2D.get_closest_point_to_segment(at,line[i-1]*PPM,line[i]*PPM).distance_to(at)
+			var nearest:=Geometry2D.get_closest_point_to_segment(at,line[i-1]*PPM,line[i]*PPM)
+			if not MultiSelect.road_point_matches_layer(road,nearest/PPM,road_selection_layer):continue
+			var distance:=nearest.distance_to(at)
 			if distance<maxf(best,float(road.width)*PPM*.5) and (hit.is_empty() or distance<best):
 				best=distance;hit={"kind":"road_move","id":str(road.id),"from":at}
 	return hit

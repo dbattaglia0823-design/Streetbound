@@ -1413,6 +1413,69 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 	return _commit(next)
 
 
+## Internal reusable clipboard, independent of the source map. Do not copy
+## gameplay IDs or adopted-world replacement links across maps.
+func copy_group(ids: Array[String]) -> Dictionary:
+	var entries: Array[Dictionary]=[]
+	var assets: Array=[]
+	var total:=Vector2.ZERO
+	var n:=0
+	for category in ["roads","regions","props"]:
+		for item in doc[category]:
+			if str(item.id) not in ids or bool(item.get("hidden",false)):continue
+			var copy: Dictionary=item.duplicate(true)
+			copy.erase("replaces");copy.erase("hidden")
+			entries.append({"category":category,"item":copy})
+			if copy.has("points"):
+				for p in copy.points:total+=Vector2(p.x,p.y);n+=1
+			else:
+				total+=Vector2(copy.x,copy.y);n+=1
+			var asset_id:=str(copy.get("assetId",""))
+			for asset in doc.get("assets",[]):
+				if str(asset.get("id",""))==asset_id and not assets.has(asset):assets.append(asset.duplicate(true))
+	if entries.is_empty() or entries.size()!=ids.size():
+		last_error="Copy only editable roads, terrain regions and scenery; gameplay IDs must be authored separately."
+		return {}
+	return {"entries":entries,"assets":assets,"origin":total/maxi(1,n)}
+
+func paste_group(group: Dictionary,at: Vector2) -> Array[String]:
+	var ids: Array[String]=[]
+	if group.is_empty() or not at.is_finite():return ids
+	var next:=doc.duplicate(true)
+	var delta: Vector2=at-Vector2(group.origin)
+	for asset in group.get("assets",[]):
+		var found:=false
+		for existing in next.assets:
+			if str(existing.id)!=str(asset.id):continue
+			if existing!=asset:
+				last_error="Clipboard asset ID conflicts with this map."
+				return []
+			found=true
+		if not found:next.assets.append(asset.duplicate(true))
+	var counters: Dictionary={}
+	for category in ["roads","regions","props"]:
+		var prefix: String={"roads":"road","regions":"region","props":"prop"}[category]
+		counters[category]=int(next_id(category,prefix).trim_prefix(prefix+"-"))
+	for record in group.entries:
+		var category: String=record.category
+		var target: Dictionary=record.item.duplicate(true)
+		var prefix: String={"roads":"road","regions":"region","props":"prop"}[category]
+		target.id=prefix+"-"+str(counters[category])
+		counters[category]+=1
+		target.name=(str(target.get("name",prefix))+" copy").left(120)
+		if category=="props" and str(target.get("type","")) in ["sidewalk","guardrail"]:
+			var moved: Array[Vector2]=[]
+			for point in Sidewalks.world_points(target):moved.append(point+delta)
+			Sidewalks.write_world_points(target,moved)
+		elif target.has("points"):
+			for p in target.points:p.x=float(p.x)+delta.x;p.y=float(p.y)+delta.y
+		else:
+			target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
+		next[category].append(target);ids.append(str(target.id))
+	if not _commit(next):return []
+	return ids
+
+
 ## Apply group edits as one validated source mutation and one undo step.
 func batch_entities(ids: Array[String], delta: Vector2, operation: String) -> Array[String]:
 	var result: Array[String]=[]

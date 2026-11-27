@@ -220,6 +220,23 @@ or playable Morrow Coast archive is overwritten; the playtest uses a separate
 in-memory economy, so it does not update career balances, XP or ownership.
 Use **Return to Map Editor** or **F6** to return to the same authored map
 and camera view. **Esc** now opens the full normal pause/settings menu.
+## Native workflow tools (Phase 1)
+
+Use **Bulk edit** after selecting multiple objects to change road dimensions,
+surface, class, flat layer, scenery transforms, or terrain properties in one
+undoable transaction. Only objects in the chosen category are changed.
+Bulk elevation intentionally replaces an existing point profile with a flat
+layer. **Grid spacing m** sets 0.25–100 m snapping; the grid button toggles it.
+**History** browses retained undo/redo snapshots (up to 100, with a size-aware
+retention limit). **Copy / Paste** or Ctrl+C / Ctrl+V copies selected roads,
+terrain and scenery at the camera centre; within the same editor instance
+the clipboard survives map switches. Gameplay markers/races and replacement
+links are deliberately excluded. The Layers tab's **Road selection filter**
+restricts road picking, marquee and the object list to the chosen signed
+level. It does not hide baked art or physically lock connected junction
+anchors. Profiled curves use an approximate control-point filter. Full
+layer isolation, expanded capacity, and incremental bake remain future work.
+
 ## Publish a custom map as the real game world
 
 The **Game World / Publish** section in the standalone Map Builder is

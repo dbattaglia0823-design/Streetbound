@@ -190,6 +190,8 @@ static func build(e) -> void:
 	e._btn("Bulk edit",actions,e._open_bulk_edit)
 	e._btn("Select all",actions,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
 	e._btn("Duplicate",actions,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
+	e._btn("Copy",actions,e._copy_selected_group).tooltip_text="Copy selected roads, regions and scenery (Ctrl+C)"
+	e._btn("Paste",actions,e._paste_selected_group).tooltip_text="Paste group at camera centre (Ctrl+V)"
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()
@@ -220,6 +222,11 @@ static func build(e) -> void:
 	for item in [["Terrain","terrain"],["Roads","roads"],["Scenery","scenery"],["Markers","markers"],["Grid","grid"]]:
 		var check:=CheckBox.new();check.text=item[0];check.button_pressed=item[1]!="grid"
 		check.focus_mode=Control.FOCUS_ALL;check.toggled.connect(e._set_layer.bind(item[1]));layers.add_child(check)
+	heading(layer_column,"ROAD SELECTION FILTER")
+	var road_picker:=OptionButton.new()
+	for title in ["All objects","Roads -2 (-12 m)","Roads -1 (-6 m)","Roads 0 (ground)","Roads +1 (6 m)","Roads +2 (12 m)"]:road_picker.add_item(title)
+	road_picker.tooltip_text="Restrict selection and marquee to roads on a chosen level; other art stays visible."
+	layer_column.add_child(road_picker);road_picker.item_selected.connect(e._set_road_selection_layer)
 	e.road_layer_settings=column(layer_column);heading(e.road_layer_settings,"ROAD DEBUG OVERLAYS")
 	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
