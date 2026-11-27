@@ -54,7 +54,7 @@ func _run() -> void:
 	check("driving_camera_inactive_during_inspection",
 		not camera.enabled and not camera.is_physics_processing())
 	check("native_editor_hides_player_overlay_without_touching_world_render",
-		not game.quick_upgrades.visible and not game.progression_hud.visible and
+		not game.quick_upgrades.visible and not game.get_node("DrivingHUD").visible and
 		editor.gizmos.visible and editor.root_ui.visible)
 	check("visualize_baked_junctions_and_real_turn_lane_connectors",
 		editor.gizmos.show_junctions and editor.gizmos.show_lanes and
@@ -110,7 +110,7 @@ func _run() -> void:
 		not editor.active and not paused and not editor.root_ui.visible and
 		not editor.gizmos.visible and camera.enabled==original_camera_enabled)
 	check("test_drive_restores_original_single_player_hud_visibility",
-		game.quick_upgrades.visible and game.progression_hud.visible)
+		game.quick_upgrades.visible and game.get_node("DrivingHUD").visible)
 	check("test_drive_preserves_player_position_velocity_gear_and_simulation",
 		player.global_position.is_equal_approx(original_position) and
 		player.linear_velocity.is_equal_approx(original_velocity) and
