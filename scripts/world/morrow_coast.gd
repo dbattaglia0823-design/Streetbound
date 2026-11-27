@@ -65,6 +65,8 @@ var stream_build_usec := 0
 var mark_clock := 0.0
 ## 0 = clear, 1 = heavy rain. Optional on any published or Test Drive archive.
 var rain_intensity := 0.0
+var _finish_clock:=0.0
+var _environment_night:=0.0
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -460,6 +462,7 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.set_stream_active(_stream_cell_distance(index,active_center,
 		secondary_current_cell) <= 1)
 	chunks[index] = instance
+	instance.set_environment_night(_environment_night)
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
@@ -619,6 +622,14 @@ func _process(dt: float) -> void:
 			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
 			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
 			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	_finish_clock+=dt
+	if _finish_clock>=.25:
+		_finish_clock=0.0
+		var ambient: CanvasModulate=get_parent().get_node_or_null("WorldDaylight") as CanvasModulate
+		var finish=preload("res://scripts/world/environment_finishing_rules.gd")
+		_environment_night=finish.darkness(ambient.color) if is_instance_valid(ambient) and not editor_render_only else 0.0
+		for chunk in chunks.values():
+			if chunk.stream_active:chunk.set_environment_night(_environment_night)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())

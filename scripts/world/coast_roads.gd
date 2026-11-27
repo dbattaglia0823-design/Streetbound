@@ -8,6 +8,7 @@ const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 static var editor_hidden: Dictionary={}
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
 const Clip = preload("res://scripts/world/road_marking_clip.gd")
+const Finish=preload("res://scripts/world/environment_finishing_rules.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var render_stage := 0
 var world: Node2D
@@ -414,7 +415,43 @@ func _street_surface_details(path: PackedVector2Array, road: Dictionary, width: 
 		passed += length
 
 
+## Extra road-relative storytelling, drawn under final paint and only in
+## marking-clipped spans. Small, low-contrast, visual-only surface details.
+func _finish_decals(path: PackedVector2Array,road: Dictionary,width: float,station: float) -> void:
+	if path.size()<2 or width<120.0 or str(road.surface) in ["GRAVEL","DIRT"] or str(road.kind) in ["track","onramp"] or road.has("elevation"):return
+	var passed:=station
+	for i in range(1,path.size()):
+		var a:=path[i-1];var b:=path[i]
+		var length:=a.distance_to(b)
+		if length<.001:continue
+		var tangent: Vector2=(b-a)/length
+		var normal:=tangent.orthogonal()
+		for at in Finish.stations(passed,length,940.0):
+			var p:=a+tangent*(at-passed)
+			if not Finish.owns(p,extent_px):continue
+			var n:=roundi(at/940.0)
+			var style:=Finish.style_at(world.data,origin_m+p/PPM,Finish.road_fallback(str(road.kind)))
+			var weight:=float(Finish.palette(style).wear)
+			var side: float=-1.0 if n%2==0 else 1.0
+			var shoulder:=p+normal*side*(width*.5-13.0)
+			if style=="industrial":
+				# Dark loading-yard stains and tar repairs; no artificial obstacles.
+				for k in 3:
+					var stain:=p+normal*side*width*.26+tangent*float(k-1)*11.0
+					draw_circle(stain,7.0+float(k%2)*3.0,Color(.12,.13,.14,.12*weight))
+			elif style=="coastal":
+				draw_line(shoulder-tangent*21.0,shoulder+tangent*22.0,Color(.72,.66,.48,.16),5.0,true)
+			elif style=="rural":
+				draw_line(shoulder-tangent*18.0,shoulder+tangent*16.0,Color(.32,.29,.24,.20),7.0,true)
+			else:
+				var joint:=p+normal*side*width*.22
+				draw_line(joint-tangent*17.0,joint+tangent*17.0+normal*5.0,Color(.17,.21,.23,.20*weight),2.0,true)
+				if style=="downtown" and n%3==0:
+					draw_line(shoulder-tangent*10.0,shoulder+tangent*10.0,Color(.59,.60,.54,.3),2.0,true)
+		passed+=length
+
 func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) -> void:
+	_finish_decals(path,r,width,station)
 	var urban: bool = r.kind in ["local","arterial"]
 	var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 	if urban:

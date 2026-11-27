@@ -62,6 +62,7 @@ var collider_body: StaticBody2D
 var collision_shape_count := 0
 var setup_complete := false
 var setup_error := ""
+var environment_lights: Node2D
 
 
 func point(raw: Array) -> Vector2:
@@ -262,10 +263,12 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	# Furnish curb edges in one static draw node per road-bearing chunk.
 	# Lamps, benches and signs follow the real spline and avoid junctions;
 	# no per-furnishing sprite or physics nodes are created.
+	var details: Node2D=null
 	if not road_batches.is_empty():
-		var details := Node2D.new()
+		details = Node2D.new()
 		details.name = "StreetDetails"
 		details.set_script(preload("res://scripts/world/coast_roadside_details.gd"))
+		details.world=world
 		details.origin_m = origin_m
 		details.chunk_size_px = world.chunk_m * PPM
 		details.road_batches = road_batches
@@ -274,6 +277,15 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		for bridge_index in content.get("bridges",[]):details.bridge_spans.append(world.data.bridges[int(bridge_index)])
 		details.z_index = 5
 		add_child(details)
+	# Night lights are cached per physical chunk, never in map mirrors or
+	# editor overviews. They allocate no collision or per-lamp scene nodes.
+	if not map_render_only and not bool(world.editor_render_only) and render_extent_m==Vector2.ZERO and (not road_batches.is_empty() or not prop_list.is_empty()):
+		environment_lights=preload("res://scripts/world/environment_light_batch.gd").new()
+		environment_lights.world=world;environment_lights.details=details
+		environment_lights.origin_m=origin_m;environment_lights.extent_px=Vector2.ONE*world.chunk_m*PPM
+		environment_lights.props=prop_list
+		environment_lights.z_index=7
+		add_child(environment_lights)
 	# Non-gameplay boundary metadata. Lazy: no boundary outlines are generated
 	# or submitted to the renderer unless F4 developer mode is explicitly on.
 	if not content.get("mountains",[]).is_empty():
@@ -322,9 +334,13 @@ func redraw_mountains() -> void:
 
 ## Called once when a cached chunk enters/exits the active play ring,
 ## never per render frame. Dormant collisions keep their shapes for reuse.
+func set_environment_night(amount: float) -> void:
+	if is_instance_valid(environment_lights):environment_lights.call("set_night",amount if stream_active else 0.0)
+
 func set_stream_active(active: bool) -> void:
 	stream_active = active
 	visible = active
+	if not active:set_environment_night(0.0)
 	if is_instance_valid(collider_body):
 		collider_body.collision_layer = 1 if active else 0
 	if is_instance_valid(excavation_body):
