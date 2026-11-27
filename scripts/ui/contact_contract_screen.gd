@@ -47,6 +47,8 @@ var feedback_label: Label
 var accept_button: Button
 var risk_selector: OptionButton
 var selected_risk := "standard"
+var crew_toggle: CheckButton
+var use_hired_crew := false
 
 func _capacity_lock(offer: Dictionary) -> String:
 	if is_instance_valid(contracts) and contracts.has_method("vehicle_requirement"):
@@ -188,7 +190,7 @@ func _build_frame() -> void:
 	details.size = Vector2(671, 333)
 	details.add_theme_stylebox_override("panel", _panel_style(SECONDARY, BORDER, 1, 12))
 	frame.add_child(details)
-	job_title = _text(details, "", 23, INK, Vector2(20, 14), Vector2(627, 35))
+	job_title = _text(details, "", 23, INK, Vector2(20, 14), Vector2(350, 35))
 	job_subtitle = _text(details, "", 13, HIGHLIGHT,
 		Vector2(20, 54), Vector2(360, 25))
 	risk_selector = OptionButton.new()
@@ -201,6 +203,15 @@ func _build_frame() -> void:
 	risk_selector.visible = false
 	risk_selector.item_selected.connect(_risk_changed)
 	details.add_child(risk_selector)
+	crew_toggle = CheckButton.new()
+	crew_toggle.name = "UseHiredCrew"
+	crew_toggle.text = "USE ASSIGNED CREW"
+	crew_toggle.position = Vector2(375,4)
+	crew_toggle.size = Vector2(270,40)
+	crew_toggle.add_theme_font_size_override("font_size",12)
+	crew_toggle.visible = false
+	crew_toggle.toggled.connect(_crew_changed)
+	details.add_child(crew_toggle)
 	_line(details, Vector2(20, 91), 632, Color("#40555b"))
 	description_label = RichTextLabel.new()
 	description_label.name = "JobDescription"
@@ -264,6 +275,8 @@ func open_contact(contact: Dictionary) -> bool:
 		if item is Dictionary:
 			offers.append(item)
 	selected_risk = "standard"
+	use_hired_crew = false
+	crew_toggle.set_pressed_no_signal(false)
 	selected_index = 0 if not offers.is_empty() else -1
 	var persona: Dictionary = ViewData.identity(active_contact)
 	selected_accent = persona["accent"]
@@ -319,6 +332,10 @@ func _rebuild_jobs() -> void:
 		job_list.add_child(button)
 		job_buttons.append(button)
 
+func _crew_changed(enabled: bool) -> void:
+	use_hired_crew = enabled
+	_select_job(selected_index)
+
 func _risk_changed(index: int) -> void:
 	if index < 0 or index >= Rules.ROBBERY_RISKS.size():
 		return
@@ -330,6 +347,7 @@ func _select_job(index: int) -> void:
 		selected_risk = "standard"
 	selected_index = index
 	risk_selector.visible = false
+	crew_toggle.visible = false
 	risk_selector.select(Rules.ROBBERY_RISKS.find(selected_risk))
 	for i in job_buttons.size():
 		_style_button(job_buttons[i], i == selected_index)
@@ -353,6 +371,19 @@ func _select_job(index: int) -> void:
 	var rewards: Dictionary = Rules.configured_reward(kind, offer)
 	var wanted: int = Rules.configured_wanted(kind, offer)
 	var time_seconds: float = Rules.configured_time(kind, offer)
+	var crew: Array = []
+	var quote: Dictionary = {}
+	if not profile.is_empty() and economy.has_method("crew_for_offer"):
+		var assigned: Array = economy.call("crew_for_offer",offer)
+		crew_toggle.visible = true
+		crew_toggle.disabled = assigned.is_empty()
+		crew_toggle.tooltip_text = "Assign hired specialists from Pause > Career > Crew. Unfilled slots use the default crew."
+		if use_hired_crew and not assigned.is_empty():
+			crew = assigned
+			quote = economy.call("quote_crew",offer,crew)
+			time_seconds *= float(quote.get("time_factor",1.0))
+			rewards["cash"] = int(quote.get("cash",rewards.cash))
+			rewards["underground_rep"] = int(quote.get("underground_rep",rewards.underground_rep))
 	var lock := _lock_reason(offers[index])
 	if lock.is_empty():
 		lock = _capacity_lock(offer)
@@ -368,7 +399,9 @@ func _select_job(index: int) -> void:
 		if is_instance_valid(contracts) and contracts.has_method("projected_payload_mass"):
 			added_mass = float(contracts.call("projected_payload_mass",offer))
 		description_label.text += "\nVehicle: %d seats including driver / %d kg cargo / +%.0f kg loaded mass." % [payload.x+1,payload.y,added_mass]
-	payout_label.text = "%s CASH" % economy.call("dollars", int(rewards.get("cash", 0)))
+	if not quote.is_empty():
+		description_label.text += "\nCrew: %s / %d default / cut %s" % [str(quote.names),payload.x-crew.size(),economy.call("dollars",int(quote.cut))]
+	payout_label.text = "%s CASH%s" % [economy.call("dollars", int(rewards.get("cash", 0)))," NET" if not quote.is_empty() else ""]
 	xp_label.text = "+%d DRIVER XP   /   +%d CAR XP\n+%d UNDERGROUND REP" % [
 		int(rewards.get("player_xp", 0)),
 		int(rewards.get("car_xp", 0)),
@@ -376,7 +409,7 @@ func _select_job(index: int) -> void:
 	timing_label.text = "TIME LIMIT: %dm %02ds   /   POLICE HEAT: %d / 5" % [
 		int(time_seconds) / 60, int(time_seconds) % 60, wanted]
 	if not profile.is_empty():
-		timing_label.text += "   /   CREW: %.0fs" % Rules.configured_robbery_hold(offer)
+		timing_label.text += "   /   CREW: %.1fs" % maxf(3.0,Rules.configured_robbery_hold(offer)*float(quote.get("hold_factor",1.0)))
 	requirements_label.text = "REQUIRES LEVEL %d   /   REP %d   /   %s" % [
 		int(offer.get("required_player_level", 1)),
 		Rules.required_rep(offer),
@@ -403,7 +436,10 @@ func _accept_selected() -> void:
 	if Rules.robbery_profile(offer).is_empty():
 		response = contracts.call("try_start_offer", active_contact, offer)
 	else:
-		response = contracts.call("try_start_offer", active_contact, offer, selected_risk)
+		if use_hired_crew and economy.has_method("crew_for_offer") and not (economy.call("crew_for_offer",offer) as Array).is_empty():
+			response = contracts.call("try_start_offer", active_contact, offer, selected_risk, true)
+		else:
+			response = contracts.call("try_start_offer", active_contact, offer, selected_risk)
 	if str(response.get("result", "")) == "started":
 		accepted.emit(str(offer.get("id", "")))
 		close_screen()

@@ -120,6 +120,62 @@ const ROBBERY_RISK_RULES := {
 	"maximum":{"cash_factor":1.45,"hold_factor":1.5,"heat_delta":1,"rep_factor":1.25}
 }
 const MAX_PROFILE_CASH := 250000
+## Fictional specialists with abstract mission-stat bonuses.
+const CREW_ORDER := ["rookie","technician","veteran","specialist","coordinator","elite"]
+const CREW := {
+	"rookie":{"name":"Jules","role":"Rookie","gate":"entry_crew","fee":1500,"cut":0.03,"speed":0.0,"cash":0.04,"rep":0,"time":0.0},
+	"technician":{"name":"Mika","role":"Technician","gate":"entry_crew","fee":4000,"cut":0.05,"speed":0.12,"cash":0.0,"rep":0,"time":0.0},
+	"veteran":{"name":"Reed","role":"Veteran","gate":"veteran_crew","fee":12000,"cut":0.07,"speed":0.15,"cash":0.0,"rep":3,"time":0.0},
+	"specialist":{"name":"Nova","role":"Specialist","gate":"veteran_crew","fee":18000,"cut":0.07,"speed":0.0,"cash":0.12,"rep":0,"time":0.0},
+	"coordinator":{"name":"Sage","role":"Coordinator","gate":"elite_crew","fee":35000,"cut":0.05,"speed":0.0,"cash":0.0,"rep":2,"time":0.15},
+	"elite":{"name":"Voss","role":"Elite","gate":"elite_crew","fee":65000,"cut":0.09,"speed":0.20,"cash":0.18,"rep":3,"time":0.0}
+}
+const CREW_MAX_XP := 400
+const CREW_MAX_ACTIVE := 3
+
+static func crew_level(xp: int) -> int:
+	return 1 + floori(float(clampi(xp,0,CREW_MAX_XP))/100.0)
+
+static func crew_xp_reward(offer: Dictionary) -> int:
+	return int({"quick":15,"standard":25,"maximum":35}.get(robbery_risk(offer),25))
+
+static func crew_ids_valid(offer: Dictionary, ids: Array, roster: Dictionary, reputation: int) -> bool:
+	if ids.size() > robbery_payload(offer).x or ids.size() > CREW_MAX_ACTIVE:
+		return false
+	var seen: Dictionary = {}
+	for id in ids:
+		if not id is String or not CREW.has(id) or not roster.has(id) or seen.has(id):
+			return false
+		if not has_career_access(str(CREW[id]["gate"]),reputation):
+			return false
+		seen[id] = true
+	return true
+
+static func crew_quote(offer: Dictionary, ids: Array, roster: Dictionary) -> Dictionary:
+	var rewards := configured_reward("robbery",offer)
+	var speed := 0.0
+	var extra_cash := 0.0
+	var extra_rep := 0
+	var extra_time := 0.0
+	var share := 0.0
+	var names: PackedStringArray = []
+	for id in ids:
+		if not CREW.has(id) or not roster.has(id):
+			continue
+		var member: Dictionary = CREW[id]
+		var scale := 1.0+0.10*float(crew_level(int(roster[id]))-1)
+		speed += float(member.speed)*scale
+		extra_cash += float(member.cash)*scale
+		extra_rep += roundi(float(member.rep)*scale)
+		extra_time += float(member.time)*scale
+		share += float(member.cut)
+		names.append(str(member.name))
+	var gross := mini(MAX_PROFILE_CASH,roundi(float(rewards.cash)*(1.0+minf(extra_cash,0.35))))
+	var cut := roundi(float(gross)*minf(share,0.30))
+	return {"gross":gross,"cut":cut,"cash":gross-cut,
+		"underground_rep":mini(int(REWARD_LIMITS["underground_rep"]),int(rewards.underground_rep)+extra_rep),
+		"hold_factor":1.0-minf(speed,0.35),"time_factor":1.0+minf(extra_time,0.25),
+		"names":", ".join(names),"share":share}
 ## Crew count excludes the driver. Cargo is a fictional mission load in kg.
 const ROBBERY_PAYLOADS := {
 	"convenience":Vector2i(1,25),"pawn":Vector2i(1,75),
@@ -309,13 +365,13 @@ static func configured_robbery_hold(offer: Dictionary) -> float:
 	return clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
 
 ## Only an already completed lower checkpoint may replace the planned mode.
-static func completed_lower_risk(offer: Dictionary, progress: float) -> String:
+static func completed_lower_risk(offer: Dictionary, progress: float, hold_factor: float = 1.0) -> String:
 	if robbery_profile(offer).is_empty() or not is_finite(progress):
 		return ""
 	var selected_index := ROBBERY_RISKS.find(robbery_risk(offer))
 	for i in range(selected_index-1,-1,-1):
 		var candidate: String = ROBBERY_RISKS[i]
-		if progress >= configured_robbery_hold(with_robbery_risk(offer,candidate)):
+		if progress >= maxf(3.0,configured_robbery_hold(with_robbery_risk(offer,candidate))*clampf(hold_factor,0.65,1.0)):
 			return candidate
 	return ""
 

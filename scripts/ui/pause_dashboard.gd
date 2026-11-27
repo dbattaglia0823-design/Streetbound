@@ -344,7 +344,7 @@ func _navigate(destination: String) -> void:
 			show_section(destination)
 
 func show_section(which: String) -> void:
-	section = which if which in ["map", "events", "career", "cars", "upgrades", "more"] else "events"
+	section = which if which in ["map", "events", "career", "crew", "cars", "upgrades", "more"] else "events"
 	_style_navigation()
 	car_rows.clear()
 	car_filtered.clear()
@@ -362,6 +362,8 @@ func show_section(which: String) -> void:
 			_show_events()
 		"career":
 			_show_career()
+		"crew":
+			_show_crew()
 		"map":
 			_show_map()
 		"cars":
@@ -536,14 +538,64 @@ func _show_career() -> void:
 		_label(card,"Requirement","%d REP" % int(row.required_rep),Rect2(365,3,116,34),14,MUTED)
 		_label(card,"State","ELIGIBLE" if eligible else "%d REP TO GO" % int(row.remaining),
 			Rect2(488,3,225,34),14,LIME if eligible else MUTED)
-	var next_features := "BLACK MARKET: %s / %s. CREW (COMING LATER): 25 / 120 / 500 REP." % ["BASIC UNLOCKED" if rep_value>=60 else "BASIC 60 REP","ADVANCED UNLOCKED" if rep_value>=250 else "ADVANCED 250 REP"]
+	var next_features := "BLACK MARKET: %s / %s. CREW: 25 / 120 / 500 REP." % ["BASIC UNLOCKED" if rep_value>=60 else "BASIC 60 REP","ADVANCED UNLOCKED" if rep_value>=250 else "ADVANCED 250 REP"]
 	_label(content,"FutureUnlocks",next_features,Rect2(28,511,725,47),13,MUTED,true)
 	var contact := _career_contact()
-	var route := _button(content,"FindFixer","SET GPS TO UNDERGROUND FIXER",Rect2(28,569,723,49),_career_route,true)
+	var route := _button(content,"FindFixer","SET GPS TO UNDERGROUND FIXER",Rect2(28,569,355,49),_career_route,true)
+	_button(content,"ManageCrew","MANAGE CREW",Rect2(395,569,356,49),show_section.bind("crew"),true)
 	route.disabled = contact.is_empty() or not is_instance_valid(map_hud) or not is_instance_valid(map_hud.get("waypoints") as Node)
 	if route.disabled:
 		route.text = "FIXER UNAVAILABLE ON THIS MAP"
 		route.tooltip_text = "The current world or game mode has no active stock campaign contact."
+
+func _crew_management_available() -> bool:
+	for contract in get_tree().get_nodes_in_group("streetbound_contracts"):
+		if not (contract.get("active") as Dictionary).is_empty():
+			return false
+	for police in get_tree().get_nodes_in_group("streetbound_police"):
+		if int(police.get("wanted_level"))>0:
+			return false
+	for race in get_tree().get_nodes_in_group("streetbound_race"):
+		if str(race.get("state")) in ["countdown","running"]:
+			return false
+	return true
+
+func _crew_action(id: String) -> void:
+	if not is_instance_valid(economy) or not _crew_management_available():
+		return
+	if economy.hired_crew.has(id):
+		economy.toggle_preferred_crew(id)
+	else:
+		economy.hire_crew(id)
+	_refresh_profile()
+	show_section("crew")
+
+func _show_crew() -> void:
+	_heading("UNDERGROUND CAREER", "Hire and Assign Crew",
+		"Assign up to three specialists. Order determines who joins smaller jobs. Default crew fill remaining seats.")
+	if not is_instance_valid(economy):
+		return
+	var allowed := _crew_management_available()
+	var assigned: Array = economy.preferred_crew
+	_label(content,"CrewCount","ASSIGNED %d / 3  /  %s" % [assigned.size(),"AVAILABLE" if allowed else "FINISH ACTIVE EVENT FIRST"],Rect2(27,132,724,29),15,LIME)
+	for i in CrimeCareer.CREW_ORDER.size():
+		var id: String = CrimeCareer.CREW_ORDER[i]
+		var member: Dictionary = CrimeCareer.CREW[id]
+		var hired: bool = economy.hired_crew.has(id)
+		var level := CrimeCareer.crew_level(int(economy.hired_crew.get(id,0)))
+		var card := _panel(content,"Crew_"+id,Rect2(25,165+i*68,731,63))
+		_label(card,"Member",str(member.name)+" / "+str(member.role)+" / LV "+str(level),
+			Rect2(12,2,470,28),15,WHITE)
+		var detail := "%d%% CUT / %d REP / %s" % [roundi(float(member.cut)*100),int(CrimeCareer.CAREER_ACCESS[member.gate]),"$"+_money(int(member.fee))]
+		if hired:
+			detail = "%d%% CUT / %d XP / %s" % [roundi(float(member.cut)*100),int(economy.hired_crew[id]),"PRIORITY "+str(assigned.find(id)+1) if assigned.has(id) else "RESERVE"]
+		_label(card,"Detail",detail,Rect2(12,30,470,29),12,MUTED)
+		var status: String = economy.crew_hire_status(id)
+		var caption := "UNASSIGN" if assigned.has(id) else ("ASSIGN" if hired else ("HIRE" if status=="ready" else status.to_upper().replace("_"," ")))
+		var action := _button(card,"Action",caption,Rect2(482,9,235,45),_crew_action.bind(id))
+		action.disabled = not allowed or (not hired and status!="ready") or (hired and not assigned.has(id) and assigned.size()>=3)
+		action.tooltip_text = "Base bonus: %.0f%% shorter progress / %.0f%% bonus cash / +%d rep / %.0f%% extra time. Bonuses improve with crew level." % [float(member.speed)*100,float(member.cash)*100,int(member.rep),float(member.time)*100]
+	_button(content,"BackCareer","BACK TO CAREER",Rect2(25,582,731,46),show_section.bind("career"))
 
 func _show_events() -> void:
 	filter_buttons.clear()

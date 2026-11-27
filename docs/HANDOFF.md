@@ -32,3 +32,5 @@
 - Robbery career phase 4: derived ranks and future access gates, pause Career view with real fixer GPS, contact rank/lock display and post-settlement promotions. Existing save format unchanged; crew and black-market content remain later phases. CI/visual validation pending.
 
 - Phase 5: black-market inventory, purchase/equip reputation gates, four slots and real protection/cargo modifiers, upgrade UI and career status. No new tire/cargo damage or outgoing-impact mechanics; CI and live validation pending.
+
+- Phase 6: six persistent recruitable specialists, preferred roster, optional contract crew, previewed net rewards and bounded bonuses, atomic XP/cut settlement. CI and visual verification pending.

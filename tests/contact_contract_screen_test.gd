@@ -11,6 +11,7 @@ class ContractStub extends Node2D:
 	var accepted_jobs: Array[String] = []
 	var last_response := "started"
 	var last_risk := ""
+	var last_crew := false
 
 	func offer_lock_reason(_contact: Dictionary, offer: Dictionary) -> String:
 		if str(offer.get("id", "")) == "one_time":
@@ -19,8 +20,9 @@ class ContractStub extends Node2D:
 			return "REQUIRES DRIVER LEVEL 50"
 		return ""
 
-	func try_start_offer(_contact: Dictionary, offer: Dictionary, risk: String = "standard") -> Dictionary:
+	func try_start_offer(_contact: Dictionary, offer: Dictionary, risk: String = "standard", use_crew: bool = false) -> Dictionary:
 		last_risk = risk
+		last_crew = use_crew
 		accepted_jobs.append(str(offer.get("id","")))
 		return {"result":last_response,"message":"Road route is unavailable"}
 

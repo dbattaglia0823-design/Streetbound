@@ -95,6 +95,27 @@ func run() -> void:
 	var unlocks := Contracts.robbery_unlocks(60)
 	check("career_unlocks_match_robbery_profiles", unlocks.size()==5 and bool(unlocks[2].eligible) and not bool(unlocks[3].eligible) and int(unlocks[3].remaining)==60)
 
+	var crew_economy := Ownership.new(false)
+	crew_economy.balance=100000
+	check("crew_hire_requires_reputation",crew_economy.hire_crew("rookie")=="rep_locked")
+	crew_economy.underground_reputation=120
+	check("crew_hire_canonical_fee",crew_economy.hire_crew("technician")=="hired" and crew_economy.balance==96000)
+	check("crew_cannot_hire_twice",crew_economy.hire_crew("technician")=="already_hired" and crew_economy.balance==96000)
+	check("crew_elite_gate",crew_economy.hire_crew("elite")=="rep_locked")
+	check("crew_assignment_persistent_order",crew_economy.toggle_preferred_crew("technician")=="assigned" and crew_economy.hire_crew("specialist")=="hired" and crew_economy.toggle_preferred_crew("specialist")=="assigned")
+	var crew_offer := Contracts.make_robbery_offer("jewelry","target","dropoff")
+	var starter_offer := Contracts.make_robbery_offer("convenience","target","dropoff")
+	check("crew_assignment_respects_seats",crew_economy.crew_for_offer(starter_offer)==["technician"] and crew_economy.crew_for_offer(crew_offer)==["technician","specialist"])
+	var crew_quote := crew_economy.quote_crew(crew_offer,["technician","specialist"])
+	check("crew_quote_net_and_hold",int(crew_quote.gross)==28000 and int(crew_quote.cut)==3360 and int(crew_quote.cash)==24640 and is_equal_approx(float(crew_quote.hold_factor),0.88))
+	check("crew_duplicate_rejected",crew_economy.record_driving_contract("crew-duplicate-001","test::crew","robbery",crew_offer,["technician","technician"]).result=="invalid_crew")
+	check("crew_over_seat_rejected",crew_economy.record_driving_contract("crew-over-seat-001","test::crew","robbery",starter_offer,["technician","specialist"]).result=="invalid_crew")
+	var crew_before := crew_economy.balance
+	var crew_paid := crew_economy.record_driving_contract("crew-complete-0001","test::crew","robbery",crew_offer,["technician","specialist"])
+	check("crew_atomic_net_and_xp",crew_paid.result=="completed" and crew_economy.balance==crew_before+24640 and int(crew_economy.hired_crew["technician"])==25 and int(crew_economy.hired_crew["specialist"])==25)
+	check("crew_no_duplicate_xp",crew_economy.record_driving_contract("crew-complete-0001","test::crew","robbery",crew_offer,["technician","specialist"]).result=="invalid_or_duplicate" and int(crew_economy.hired_crew["technician"])==25)
+	check("crew_level_caps",Contracts.crew_level(0)==1 and Contracts.crew_level(100)==2 and Contracts.crew_level(999)==5)
+
 	# Stock phase-one robbery progression uses game-owned presets and actual
 	# marker validation, not arbitrary increased map reward bounds.
 	var board: Array[Dictionary] = Contracts.morrow_robbery_board()
