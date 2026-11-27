@@ -214,6 +214,6 @@ export function setRoadStructure(doc,roadId,kind){
   if(endpoints.some(Boolean))return updateEntity(doc,roadId,{elevation:{start_layer:endpoints[0],end_layer:endpoints[1]}});
   if(kind===previous)return doc;
   if(['tunnel','overpass'].includes(previous)&&road.elevation.point_layers&&road.elevation.start_layer===0&&road.elevation.end_layer===0)
-    return updateEntity(doc,roadId,{elevation:{start_layer:0,end_layer:0,point_layers:road.elevation.point_layers.map(v=>-v)}});
+    return updateEntity(doc,roadId,{elevation:{start_layer:0,end_layer:0,point_layers:road.elevation.point_layers.map(v=>v===0?0:-v)}});
   return convertRoadToGrade(updateEntity(doc,roadId,{elevation:undefined}),roadId,kind==='tunnel'?-1:1);
 }
