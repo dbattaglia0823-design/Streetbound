@@ -74,6 +74,8 @@ func _run() -> void:
 			game.pause_menu.resume_game()
 			check("online_resume_restores_local_player_input",
 				not game.vehicle.external_input)
+			check("host_owns_shared_police_controller", is_instance_valid(network.shared_police) and network.shared_police.get("shared_session"))
+			check("host_police_snapshot_has_bounded_fleet", network.call("_police_snapshot").get("vehicles", {}).size() <= 12)
 			check("host_has_private_lobby_controls",
 				network.invitation_toolbar != null and
 				network.lock_lobby_button != null)

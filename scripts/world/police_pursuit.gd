@@ -87,6 +87,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		start_pursuit(1)
 		get_viewport().set_input_as_handled()
 
+func set_shared_target(target: VehicleController2D) -> bool:
+	if not shared_session or wanted_level > 0 or not is_instance_valid(target):
+		return false
+	if is_instance_valid(player) and player.vehicle_reset.is_connected(_on_player_reset):
+		player.vehicle_reset.disconnect(_on_player_reset)
+	player = target
+	player.vehicle_reset.connect(_on_player_reset)
+	return true
+
 func _on_player_reset() -> void:
 	# Reset cannot erase an active pursuit or repair the suspect's car.
 	if wanted_level > 0 and bust_timer <= 0.0:
@@ -361,8 +370,11 @@ func _recruit_patrols() -> void:
 		var distance_m := (node as Node2D).global_position.distance_to(player.global_position)/PPM
 		if distance_m > PATROL_ASSIST_M:
 			continue
-		var excluded: Array[RID] = [player.get_rid(), node.get_rid()]
-		var ray := PhysicsRayQueryParameters2D.create(node.global_position, player.global_position, 1, excluded)
+		var patrol := node as CharacterBody2D
+		if patrol == null:
+			continue
+		var excluded: Array[RID] = [player.get_rid(), patrol.get_rid()]
+		var ray := PhysicsRayQueryParameters2D.create(patrol.global_position, player.global_position, 1, excluded)
 		var visible_now := get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
 		if not visible_now and (phase != "chase" or node.global_position.distance_to(last_seen_position_m*PPM) > 65.0*PPM):
 			continue
@@ -572,6 +584,8 @@ func _recover_busted() -> void:
 			else:
 				economy.balance += fee
 	player.reset_vehicle()
+	if shared_session:
+		player.damage_drive_fraction = 1.0
 	if is_instance_valid(damage_service):
 		damage_service.impound_recovery()
 	containment_seconds = 0.0

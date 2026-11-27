@@ -25,7 +25,8 @@
       "brake_force_n": 19056,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": true
+      "ambient_patrol": true,
+      "lightbar_offset_fraction": 0
     },
     {
       "id": "police-explorer",
@@ -50,7 +51,8 @@
       "brake_force_n": 23176,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": true
+      "ambient_patrol": true,
+      "lightbar_offset_fraction": 0.05
     },
     {
       "id": "police-f150",
@@ -75,7 +77,8 @@
       "brake_force_n": 25751,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": true
+      "ambient_patrol": true,
+      "lightbar_offset_fraction": 0.02
     },
     {
       "id": "police-charger",
@@ -100,7 +103,8 @@
       "brake_force_n": 21116,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": true
+      "ambient_patrol": true,
+      "lightbar_offset_fraction": 0.12
     },
     {
       "id": "police-challenger",
@@ -125,7 +129,8 @@
       "brake_force_n": 20601,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": true
+      "ambient_patrol": true,
+      "lightbar_offset_fraction": 0.08
     },
     {
       "id": "police-suburban",
@@ -150,7 +155,8 @@
       "brake_force_n": 29356,
       "audio_family": "v8_cross",
       "baked_wheels": false,
-      "ambient_patrol": false
+      "ambient_patrol": false,
+      "lightbar_offset_fraction": 0.04
     },
     {
       "id": "police-armored-truck",
@@ -175,7 +181,8 @@
       "brake_force_n": 77254,
       "audio_family": "v8_cross",
       "baked_wheels": true,
-      "ambient_patrol": false
+      "ambient_patrol": false,
+      "lightbar_offset_fraction": -0.16
     }
   ]
 }
