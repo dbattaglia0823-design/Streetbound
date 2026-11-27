@@ -10,11 +10,15 @@ import random
 from pathlib import Path
 from mountain_field import height_m
 from junction_bake import build_junctions
+from gameplay_authoring import validate as validate_gameplay, apply as apply_gameplay
+from road_jumps import bake_into as bake_jumps
+from road_elevation import endpoint_layer, expand_point_profiles
+from elevation_map_audit import audit_elevated_objectives
 from morrow_editor_import import apply_edits, world_bounds_from_overlay, BASE_WIDTH, BASE_HEIGHT
 from road_widths import adapt as adapt_road_widths
 from building_footprints import overlaps as footprints_overlap
 from road_bridges import apply as apply_automatic_bridges
-from mountain_barriers import validate_barriers
+from mountain_barriers import validate_barriers, validate_open_cuts
 from road_shape_geometry import circle_path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -421,23 +425,30 @@ PROPS[:]=[prop for prop in PROPS if not prop.get("source_replacement")]
 # Connected pieces of the same named route share tangent directions at their
 # endpoint, so highway bends and mountain transitions don't form sharp kinks.
 for r in ROADS:
-    def neighboring(endpoint):
+    def neighboring(endpoint, side):
+        layer = endpoint_layer(r, side)
+
+        def shares_layer(other):
+            return any(other[end] == endpoint and endpoint_layer(other, end) == layer
+                       for end in ('start', 'end'))
+
         for other in ROADS:
-            if other is r or other["name"]!=r["name"]: continue
-            if other["end"]==endpoint: return other["anchors"][-2]
-            if other["start"]==endpoint: return other["anchors"][1]
-        incident=[other for other in ROADS if endpoint in [other["start"],other["end"]] and other["kind"]!="driveway"]
+            if other is r or other["name"]!=r["name"] or not shares_layer(other): continue
+            if other["end"]==endpoint and endpoint_layer(other, "end")==layer: return other["anchors"][-2]
+            if other["start"]==endpoint and endpoint_layer(other, "start")==layer: return other["anchors"][1]
+        incident=[other for other in ROADS if shares_layer(other) and other["kind"]!="driveway"]
         if len(incident)==2 and all(other["kind"] in ["rural","mountain","gravel"] for other in incident):
             other=next(other for other in incident if other is not r)
             return other["anchors"][-2] if other["end"]==endpoint else other["anchors"][1]
         return None
-    r["points"]=road_spline(r["anchors"],neighboring(r["start"]),neighboring(r["end"]),r["kind"])
+    r["points"]=road_spline(r["anchors"],neighboring(r["start"], "start"),neighboring(r["end"], "end"),r["kind"])
     if r["name"]=="Pacific Scenic Highway":
         # A cubic handle must never cut across a coastal inlet into the sea.
         for p in r["points"]:
             limit=shore_x(p[1])-18
             blend=max(0,4-abs(p[0]-limit))
             p[0]=round(min(p[0],limit)-blend*blend/16,3)
+expand_point_profiles(ROADS,NODES)
 for r in ROADS:
     r["visual_elevation_m"]=[round(height_m(*p),1) for p in r["points"]]
 SEGMENTS, GRID = [], collections.defaultdict(list)
@@ -471,8 +482,8 @@ def in_poly(p, poly):
     return inside
 
 
-# All roads share the drivable 2D plane; grade=1 denotes a water bridge,
-# not an invented flyover. One bake covers endpoint T joins and crossings.
+# Explicit elevation profiles govern grade separation. Legacy grade=1
+# continues to denote a water bridge.
 JUNCTIONS,connections,CROSSINGS=build_junctions(ROADS,NODES,SEGMENTS,GRID)
 validate_barriers(ROADS,TERRAIN,POIS,SPAWN,width_scale=1.10)
 
@@ -1105,6 +1116,8 @@ length=sum(distance(a,b) for s in SEGMENTS for a,b in [(s["a"],s["b"])])
 dealer_source = ROOT / "map-editor" / "maps" / "morrow-coast.edits.world.json"
 authored_source = json.loads(dealer_source.read_text(encoding="utf-8")) if dealer_source.exists() else {}
 authored_dealers = authored_source.get("dealerships", [])
+gameplay_zones, junction_controls=validate_gameplay(authored_source,WIDTH,HEIGHT)
+apply_gameplay(JUNCTIONS,junction_controls,ROADS)
 from authored_markers import validate_markers
 from authored_races import authored_races
 authored_game_markers = validate_markers(authored_source.get("markers", []),
@@ -1129,8 +1142,18 @@ data=dict(format="streetbound.streamed-world",version=1,name="Morrow Coast",unit
 # Apply the same once-only pavement/junction/scenery transform as runtime.
 # Legacy geometry and its chunk index keep the original road centerlines,
 # and future rebakes are explicitly marked so Godot never scales twice.
+if gameplay_zones:data['gameplay_zones']=gameplay_zones
+if junction_controls:data['editor_junction_controls']=junction_controls
 adapt_road_widths(data)
 apply_automatic_bridges(data)
+validate_open_cuts(data)
+if "terrainHeight" in authored_source:
+    field=authored_source["terrainHeight"]
+    if not isinstance(field,dict) or field.get("size")!=129 or not isinstance(field.get("values"),list) or len(field["values"])!=129*129 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or abs(v)>1200 for v in field["values"]):
+        raise ValueError("Invalid authored terrain height field")
+    data["terrainHeight"]=field
+data['editor_warnings'].extend(audit_elevated_objectives(data))
+bake_jumps(data)
 destination=ROOT/"worlds"/"morrow-coast.world.json"
 destination.write_text(json.dumps(data,separators=(",",":")),encoding="utf-8")
 

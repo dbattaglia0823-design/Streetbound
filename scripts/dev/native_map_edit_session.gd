@@ -2,8 +2,14 @@ extends RefCounted
 ## Source-safe, undoable authoring draft. This never mutates a live Morrow Coast
 ## Dictionary. Runtime streets, intersections and traffic remain authoritative
 ## until the checked-in production builder has completed an Apply operation.
+const RoadJump=preload("res://scripts/world/road_jump.gd")
+const HeightField=preload("res://scripts/world/authored_height_field.gd")
+const Workspace=preload("res://scripts/dev/native_editor_workspace.gd")
+const Elevation=preload("res://scripts/world/road_elevation.gd")
+const GameplayControls=preload("res://scripts/world/authored_gameplay_controls.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
-const MAX_HISTORY := 40
+const MAX_HISTORY := 100
+const HISTORY_BUDGET_BYTES := 32*1024*1024
 const RaceDefinition=preload("res://scripts/world/authored_race_definition.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
@@ -13,6 +19,8 @@ const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
 const DealershipConfig=preload("res://scripts/world/dealership_config.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
+const CUSTOM_MAX_ROADS := 360
+const CUSTOM_MAX_PROPS := 8000
 const MAX_DRAG_M := 350.0
 const ART: Dictionary = {
 	"house":{"type":"house","assetId":"game-house","size":Vector2(12,17)},
@@ -34,6 +42,8 @@ var last_error := ""
 var dirty := false
 ## Monotonic editor revision: avoids rescanning 20k runtime props every frame.
 var edit_revision := 0
+# Editor-only guard; never persisted in map files.
+var unlocked_road_layer:=99
 
 func load_source(path: String = SOURCE) -> bool:
 	var content := FileAccess.get_file_as_string(path)
@@ -71,6 +81,9 @@ func _valid_source(value: Dictionary) -> bool:
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
+	if not GameplayControls.valid(value):return false
+	if value.has("editorLayers") and (not value.get("customMap",false) or not Workspace.valid_layers(value.editorLayers)):return false
+	if value.has("terrainHeight") and not HeightField.valid(value.terrainHeight):return false
 	var rain: Variant = value.get("rain_intensity",0.0)
 	if not (rain is int or rain is float) or not is_finite(float(rain)) or \
 			float(rain)<0.0 or float(rain)>1.0:
@@ -78,14 +91,14 @@ func _valid_source(value: Dictionary) -> bool:
 	var width: float = float(world.get("width",0))
 	var height: float = float(world.get("height",0))
 	if value.get("customMap",false):
-		if str(value.get("name","")).strip_edges().is_empty() or world.get("base","grass") not in ["grass","forest","beach","desert","ocean","city","rock","mountain","lake","farmland"]:return false
+		if str(value.get("name","")).strip_edges().is_empty() or world.get("base","grass") not in ["grass","forest","beach","desert","ocean","city","rock","mountain","lake","farmland","dirt","asphalt"]:return false
 		if not is_finite(width) or not is_finite(height) or width!=floorf(width) or height!=floorf(height):return false
 	if (width < 600 or width > 24000 or height < 600 or height > 24000) if value.get("customMap",false) else (width < 6400 or width > 9600 or height < 4800 or height > 7200):
 		return false
 	for category in ["roads","regions","props","markers","assets"]:
 		if not value.get(category) is Array:
 			return false
-	if value.roads.size() > MAX_ROADS or value.props.size() > MAX_PROPS or value.regions.size()>220 or value.markers.size()>400:
+	if value.roads.size() > road_limit(value) or value.props.size() > prop_limit(value) or value.regions.size()>220 or value.markers.size()>400:
 		return false
 	var used := {}
 	if not value.get("races",[]) is Array or value.get("races",[]).size()>64 or not EventRules.valid_graph(value.get("races",[])):return false
@@ -109,6 +122,8 @@ func _valid_source(value: Dictionary) -> bool:
 			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
+		if not Elevation.authoring_error(road).is_empty():return false
+		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
 	for category in ["regions","markers"]:
 		for item in value[category]:
@@ -247,6 +262,14 @@ func delete_dealership(identity: String) -> bool:
 	last_error="No saved overrides to remove."
 	return false
 
+func road_limit(source: Dictionary = {}) -> int:
+	var target: Dictionary=doc if source.is_empty() else source
+	return CUSTOM_MAX_ROADS if target.get("customMap",false) else MAX_ROADS
+
+func prop_limit(source: Dictionary = {}) -> int:
+	var target: Dictionary=doc if source.is_empty() else source
+	return CUSTOM_MAX_PROPS if target.get("customMap",false) else MAX_PROPS
+
 func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 	var record: Dictionary = source if not source.is_empty() else doc
 	if record.is_empty():
@@ -255,15 +278,40 @@ func _in_bounds(p: Vector2, source: Dictionary = {}) -> bool:
 		p.x >= 0 and p.y >= 0 and \
 		p.x <= float(record.world.width) and p.y <= float(record.world.height)
 
+static func road_touches_layer(road: Dictionary,layer: int) -> bool:
+	if layer==99:return true
+	var profile: Dictionary=road.get("elevation",{})
+	return layer in profile.get("point_layers",[int(profile.get("start_layer",0)),int(profile.get("end_layer",0))])
+
+func _locked_roads_unchanged(next: Dictionary) -> bool:
+	if not Workspace.locks_unchanged(doc,next):
+		last_error="Edit would modify an object in a locked named layer.";return false
+	if unlocked_road_layer==99:return true
+	var after: Dictionary={}
+	for road in next.get("roads",[]):after[str(road.id)]=road
+	for road in doc.get("roads",[]):
+		if not road_touches_layer(road,unlocked_road_layer) and after.get(str(road.id),{})!=road:
+			last_error="Edit would change a locked road. Select all levels or unlock other roads first."
+			return false
+	return true
+
 func _commit(next: Dictionary) -> bool:
+	if not _locked_roads_unchanged(next):return false
 	if not _valid_source(next):
 		last_error = "Edit was rejected: invalid world bounds or source geometry."
 		return false
+	if next.has("editorLayers"):
+		var live:=Workspace.records(next)
+		for layer in next.editorLayers:
+			layer.ids=layer.ids.filter(func(id: String)->bool:return live.has(id))
 	if _fingerprint(doc) == _fingerprint(next):
 		return true
 	history.append(doc.duplicate(true))
-	if history.size() > MAX_HISTORY:
-		history.pop_front()
+	# Snapshots are deep copies. Estimate their cost from source size and
+	# bound the retained history on dense maps rather than growing without limit.
+	var estimated_bytes := maxi(1024,JSON.stringify(doc).to_utf8_buffer().size()*4)
+	var limit := clampi(HISTORY_BUDGET_BYTES/estimated_bytes,2,MAX_HISTORY)
+	while history.size()>limit:history.pop_front()
 	doc = next
 	edit_revision += 1
 	future.clear()
@@ -272,7 +320,7 @@ func _commit(next: Dictionary) -> bool:
 	return true
 
 func undo() -> bool:
-	if history.is_empty():
+	if history.is_empty() or not _locked_roads_unchanged(history[-1]):
 		return false
 	future.append(doc.duplicate(true))
 	doc = history.pop_back()
@@ -281,7 +329,7 @@ func undo() -> bool:
 	return true
 
 func redo() -> bool:
-	if future.is_empty():
+	if future.is_empty() or not _locked_roads_unchanged(future[-1]):
 		return false
 	history.append(doc.duplicate(true))
 	doc = future.pop_back()
@@ -351,6 +399,8 @@ func reconcile_runtime(data: Dictionary) -> bool:
 				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
+			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
+			if raw.has("jump"):next.roads[-1].jump=raw.jump.duplicate()
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
 		next.morrowSourceRoadCount=current
 	if poi_current>poi_basis:
@@ -393,9 +443,30 @@ func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String=""
 	var prior: Dictionary=race_at_id(identity) if not identity.is_empty() else {}
 	var race: Dictionary=prior.duplicate(true)
 	race.merge(settings,true)
+	var generated_layer: int=int(settings.get("objective_layer",0))
+	race.erase("objective_layer")
+	var generated_layers: Array=settings.get("objective_layers",[])
+	race.erase("objective_layers")
+	if not generated_layers.is_empty() and generated_layers.size()!=points_m.size():return ""
 	race.id=next_id("races","race") if identity.is_empty() else identity
 	race.points=[]
-	for p in points_m:race.points.append({"x":p.x,"y":p.y})
+	for p in points_m:
+		var point := {"x":p.x,"y":p.y}
+		# Settings edits and unchanged gates preserve authored levels;
+		# a fully redrawn route defaults newly placed gates to ground.
+		for previous in prior.get("points",[]):
+			if Vector2(previous.x,previous.y).distance_to(p)<.01 and int(previous.get("road_layer",0))!=0:
+				point["road_layer"]=int(previous.road_layer)
+				break
+		if settings.has("objective_layer"):
+			if generated_layer==0:point.erase("road_layer")
+			else:point["road_layer"]=generated_layer
+		if not generated_layers.is_empty():
+			var layer:=int(generated_layers[race.points.size()])
+			if absi(layer)>2:return ""
+			if layer==0:point.erase("road_layer")
+			else:point["road_layer"]=layer
+		race.points.append(point)
 	var default_count: int=prior.get("enemy_starts",[]).size()
 	var count: int=int(race.get("opponent_count",default_count))
 	var formation: String=str(race.get("formation",prior.get("formation","single_file")))
@@ -453,12 +524,23 @@ func reset_race_grid(identity: String,formation: String) -> bool:
 	last_error="Select a race first."
 	return false
 
+func set_race_objective_layer(identity: String,index: int,layer: int) -> bool:
+	if absi(layer)>2:return false
+	var next:=doc.duplicate(true)
+	for race in next.get("races",[]):
+		if str(race.id)!=identity:continue
+		if index<0 or index>=race.points.size():return false
+		if layer==0:race.points[index].erase("road_layer")
+		else:race.points[index]["road_layer"]=layer
+		return _commit(next)
+	return false
+
 func move_race_point(identity: String,index: int,destination: Vector2) -> bool:
 	var next:=doc.duplicate(true)
 	for race in next.get("races",[]):
 		if str(race.id)!=identity:continue
 		if index<0 or index>=race.points.size():return false
-		race.points[index]={"x":destination.x,"y":destination.y};return _commit(next)
+		race.points[index].x=destination.x;race.points[index].y=destination.y;return _commit(next)
 	return false
 
 func change_race_points(identity: String,index: int,remove: bool) -> bool:
@@ -549,7 +631,8 @@ func move_road_point(road_id: String, point_index: int, destination_m: Vector2,
 		for i in road.points.size():
 			if not is_target and i != 0 and i != road.points.size()-1:
 				continue
-			if not is_target and not _same_network(target,road):
+			if not is_target and (not _same_network(target,road) or
+					Elevation.endpoint_layer(target,point_index==0)!=Elevation.endpoint_layer(road,i==0)):
 				continue
 			var location := Vector2(float(road.points[i].x),float(road.points[i].y))
 			if (is_target and i==point_index) or \
@@ -569,14 +652,14 @@ func _new_prop_id() -> String:
 	var used := {}
 	for p in doc.props:
 		used[str(p.id)] = true
-	for i in range(1,MAX_PROPS+1):
+	for i in range(1,prop_limit()+1):
 		var key := "prop-native-%d" % i
 		if not used.has(key):
 			return key
 	return ""
 
 func add_prop(art_kind: String, position_m: Vector2) -> String:
-	if not ART.has(art_kind) or not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS:
+	if not ART.has(art_kind) or not _in_bounds(position_m) or doc.props.size() >= prop_limit():
 		last_error = "Choose a supported game asset inside Morrow Coast."
 		return ""
 	var entry: Dictionary = ART[art_kind]
@@ -603,7 +686,7 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 			art_type not in ["house","building","warehouse","garage","gas_station",
 				"industrial_prop","road_prop","ground_decal","oak","pine","palm","bush","rock","boulder"] or \
 			collision_mode not in ["solid","none"] or \
-			not _in_bounds(position_m) or doc.props.size() >= MAX_PROPS or \
+			not _in_bounds(position_m) or doc.props.size() >= prop_limit() or \
 			footprint.x <= 0.0 or footprint.y <= 0.0 or \
 			footprint.x > 100.0 or footprint.y > 100.0:
 		last_error = "Invalid project asset or placement."
@@ -677,7 +760,7 @@ func adopt_runtime_prop(runtime: Dictionary) -> String:
 			int(identity_seed)<0 or int(identity_seed)>2147483647 or \
 			not place is Array or place.size()!=2 or \
 			runtime.has("authoring_id") or \
-			bool(runtime.get("protected",false)) or doc.props.size()>=MAX_PROPS:
+			bool(runtime.get("protected",false)) or doc.props.size()>=prop_limit():
 		last_error = "This generated item has no safe replaceable source identity."
 		return ""
 	var origin := Vector2(float(place[0]),float(place[1]))
@@ -917,8 +1000,8 @@ func next_id(category: String, prefix: String) -> String:
 	return prefix+"-"+str(number)
 
 func add_road_path(points_m: Array[Vector2], settings: Dictionary={}) -> String:
-	if points_m.size()<2 or points_m.size()>100 or doc.roads.size()>=MAX_ROADS:
-		last_error="Roads need 2–100 control points; at most 180 roads are supported."
+	if points_m.size()<2 or points_m.size()>100 or doc.roads.size()>=road_limit():
+		last_error="Roads need 2–100 control points; this map supports %d roads."%road_limit()
 		return ""
 	var vertices: Array[Dictionary]=[]
 	for point in points_m:
@@ -964,11 +1047,16 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 		target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
 	else:
 		var ends: Array[Vector2]=[]
+		var end_layers: Array[int]=[]
 		if category=="roads" and not bool(target.get("independentEnds",false)):
 			ends=[Vector2(target.points[0].x,target.points[0].y),Vector2(target.points[-1].x,target.points[-1].y)]
+			end_layers=[Elevation.endpoint_layer(target,true),Elevation.endpoint_layer(target,false)]
 			if not RoadShapes.circle(target.points).is_empty():
 				ends.clear()
-				for p in target.points:ends.append(RoadShapes.point(p))
+				end_layers.clear()
+				for p in target.points:
+					ends.append(RoadShapes.point(p))
+					end_layers.append(Elevation.endpoint_layer(target,true))
 		for point in target.points:
 			point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y
 		if category=="races":shift_race_grid(target,delta)
@@ -977,8 +1065,9 @@ func move_shape(category: String, identity: String, delta: Vector2, grid_m: floa
 				if str(road.id)==identity or not _same_network(target,road) or bool(road.get("independentEnds",false)):continue
 				for index in [0,road.points.size()-1]:
 					var point: Dictionary=road.points[index]
-					for old in ends:
-						if Vector2(point.x,point.y).distance_to(old)<.05:
+					for i in ends.size():
+						var layer := Elevation.endpoint_layer(road,index==0)
+						if layer==end_layers[i] and Vector2(point.x,point.y).distance_to(ends[i])<.05:
 							point.x=float(point.x)+delta.x;point.y=float(point.y)+delta.y;break
 	return _commit(next)
 
@@ -1060,6 +1149,10 @@ func _replace_road_points(identity: String,vertices: Array,old_points: Array,mov
 			# Keep attached branch endpoints on their authored junction anchors.
 			for index in [0,road.points.size()-1]:
 				for i in old_points.size():
+					var layer := Elevation.endpoint_layer(target,i==0)
+					var ramp := Elevation.endpoint_layer(target,true)!=Elevation.endpoint_layer(target,false)
+					if (ramp and i not in [0,old_points.size()-1]) or layer!=Elevation.endpoint_layer(road,index==0):
+						continue
 					if RoadShapes.point(road.points[index]).distance_to(RoadShapes.point(old_points[i]))<.05:
 						road.points[index]=moved_points[i].duplicate();break
 	if not _valid_source(next):
@@ -1132,8 +1225,34 @@ func insert_road_point(identity: String, position_m: Vector2) -> bool:
 			var distance:=Geometry2D.get_closest_point_to_segment(position_m,a,b).distance_to(position_m)
 			if distance<nearest:nearest=distance;at=i
 		road.points.insert(at,{"x":position_m.x,"y":position_m.y})
+		if road.get("elevation",{}).has("point_layers"):
+			var values: Array=road.elevation.point_layers
+			for layer in [values[at-1],values[at]]:
+				var trial:=values.duplicate()
+				trial.insert(at,layer)
+				road.elevation={"start_layer":trial[0],"end_layer":trial[-1],"point_layers":trial}
+				if Elevation.authoring_error(road).is_empty():return _commit(next)
+			last_error="Inserted point would create a steep grade."
+			return false
 		return _commit(next)
 	return false
+
+## Keep the entire authored road in one undo transaction.
+func apply_point_elevations(identity: String, layers: Array) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if layers.size()!=road.points.size() or layers.size()<2:return false
+		if road.has("jump"):
+			last_error="Remove the stunt jump before setting point heights."
+			return false
+		road.elevation={"start_layer":layers[0],"end_layer":layers[-1],"point_layers":layers.duplicate()}
+		last_error=Elevation.authoring_error(road)
+		if not last_error.is_empty():return false
+		if layers.all(func(v: Variant)->bool:return int(v)==0):road.erase("elevation")
+		return _commit(next)
+	return false
+
 
 func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
@@ -1147,6 +1266,20 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 			road.lanes=1
 			road.surface="asphalt"
 			road.markings=true
+		if settings.has("elevation"):
+			road.elevation=settings.elevation
+			last_error=Elevation.authoring_error(road)
+			if not last_error.is_empty():return false
+			if Elevation.endpoint_layer(road,true)==0 and Elevation.endpoint_layer(road,false)==0:
+				road.erase("elevation")
+		if settings.has("jump"):
+			if settings.jump == null:
+				road.erase("jump")
+			else:
+				road.jump = settings.jump
+		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():
+			last_error="Jump needs a straight ground road with room for the approach and landing at all allowed speeds."
+			return false
 		if road.roadClass=="alley":
 			road.shoulder=0.0
 			road.markings=false
@@ -1177,7 +1310,7 @@ func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=
 	if clean.size()>2 and clean[0].distance_to(clean[-1])<.05:clean.pop_back()
 	points_m=clean
 	if points_m.size()<3 or biome not in ["grass","forest","city","beach",
-			"rock","mountain","lake","desert","farmland","ocean"]:
+			"rock","mountain","lake","desert","farmland","ocean","dirt","asphalt"]:
 		last_error = "Terrain needs three points and a supported biome."
 		return ""
 	for p in points_m:
@@ -1290,6 +1423,233 @@ func edit_entity(identity: String, values: Dictionary, destination: Vector2, poi
 		break
 	return _commit(next)
 
+## Bulk edits are atomic and restricted to explicit fields. Mixed selections
+## edit only the chosen category; incompatible values reject the whole edit.
+func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> bool:
+	if ids.is_empty() or patch.is_empty() or category not in ["roads","props","regions"]:return false
+	var allowed: Array={"roads":["roadClass","surface","width","lanes","elevation","markings"],"props":["rotation","scale","scaleX","scaleY","roadFacing"],"regions":["biome","elevation","barrier"]}[category]
+	for key in patch:
+		if key not in allowed:
+			last_error="Unsupported bulk property."
+			return false
+	var next:=doc.duplicate(true)
+	var count:=0
+	for entry in next[category]:
+		if str(entry.id) not in ids or bool(entry.get("hidden",false)):continue
+		count+=1
+		for key in patch:entry[key]=patch[key]
+		if category=="roads":
+			if str(entry.roadClass) not in ["city","highway","country","mountain","service","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
+				last_error="Invalid road type, surface, width or lanes."
+				return false
+			if entry.roadClass=="onramp":
+				entry.lanes=1;entry.surface="asphalt";entry.markings=true
+			if entry.roadClass=="alley":
+				entry.shoulder=0.0;entry.markings=false
+			if patch.has("elevation"):
+				last_error=Elevation.authoring_error(entry)
+				if not last_error.is_empty():return false
+				if int(entry.elevation.start_layer)==0 and int(entry.elevation.end_layer)==0 and not entry.elevation.has("point_layers"):entry.erase("elevation")
+		elif category=="props":
+			if str(entry.get("type","")) in ["sidewalk","guardrail"] and (patch.has("scale") or patch.has("scaleX") or patch.has("scaleY") or patch.has("rotation")):
+				last_error="Path scenery requires its dedicated geometry tools."
+				return false
+			for key in ["scale","scaleX","scaleY"]:
+				if patch.has(key) and (not is_finite(float(patch[key])) or float(patch[key])<.2 or float(patch[key])>5.0):
+					last_error="Asset scale must be between 0.2 and 5."
+					return false
+		elif category=="regions" and str(entry.get("biome","")) not in ["mountain","rock"]:
+			entry.erase("barrier")
+	if count==0:
+		last_error="No selected objects match this category."
+		return false
+	return _commit(next)
+
+
+func set_named_layers(layers: Array) -> bool:
+	if not doc.get("customMap",false) or not Workspace.valid_layers(layers):return false
+	var next:=doc.duplicate(true)
+	next.editorLayers=layers.duplicate(true)
+	return _commit(next)
+
+func resize_custom_world(width: int,height: int) -> bool:
+	var next:=Workspace.resize(doc,width,height)
+	if next.is_empty():last_error="Invalid custom map size.";return false
+	# Do not silently delete or clip roads, races, or linked gameplay entities.
+	if not _valid_source(next):
+		last_error="Resize would exclude existing geometry or gameplay markers. Move or delete them first.";return false
+	return _commit(next)
+
+func restore_snapshot(snapshot: Dictionary) -> bool:
+	if bool(snapshot.get("customMap",false))!=bool(doc.get("customMap",false)):return false
+	if not doc.get("customMap",false):
+		if snapshot.get("name")!="Morrow Coast":return false
+		var extent: Dictionary=snapshot.get("world",{})
+		if int(extent.get("width",0))<int(initial.world.width) or int(extent.get("height",0))<int(initial.world.height):return false
+		if snapshot.get("morrowSourceRoadCount",-1)!=doc.get("morrowSourceRoadCount",-2):return false
+	return _commit(snapshot.duplicate(true))
+
+func replace_assets(ids: Array[String],entry: Dictionary) -> bool:
+	if ids.is_empty():return false
+	var next:=doc.duplicate(true)
+	var count:=0
+	var kind:=str(entry.get("kind",""))
+	for prop in next.props:
+		if str(prop.id) not in ids:continue
+		if prop.has("replaces") or str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			last_error="Select ordinary authored scenery, not adopted or path assets.";return false
+		count+=1
+		for key in ["assetPath","assetSize","assetRegion","assetCollision","roadFront","roadFacing"]:prop.erase(key)
+		if bool(entry.get("project",false)):
+			var path:=str(entry.get("path",""))
+			if not (path.begins_with("Buildings/") or path.begins_with("Map Building Assets/")) or ".." in path or not FileAccess.file_exists("res://assets/"+path):
+				last_error="Project asset not available.";return false
+			var size: Array=entry.get("world_size",[])
+			if size.size()!=2:size=[22.0,29.0] if kind in ["building","warehouse"] else [12.0,17.0]
+			prop.type=kind;prop.assetId=str(entry.get("project_id","project-"+path.sha256_text().substr(0,24)))
+			prop.assetPath=path;prop.assetSize=size.duplicate();prop.assetCollision=str(entry.get("collision","solid"))
+			if entry.get("region",[]).size()==4:prop.assetRegion=entry.region.duplicate()
+		else:
+			if not ART.has(kind):last_error="Select a supported asset.";return false
+			prop.type=ART[kind].type;prop.assetId=ART[kind].assetId
+		prop.name=str(entry.get("name",kind))
+	if count!=ids.size():last_error="Select only scenery objects for asset replacement.";return false
+	return _commit(next)
+
+## Height-field edits remain a single normal undo step.
+func set_terrain_height(field: Dictionary) -> bool:
+	if not HeightField.valid(field):
+		last_error="Invalid custom terrain height field.";return false
+	var next:=doc.duplicate(true)
+	next.terrainHeight=field.duplicate(true)
+	return _commit(next)
+
+## Commit an externally generated, validated source plan in one history step.
+func apply_construction(plan: Dictionary) -> Array[String]:
+	var ids: Array[String]=[]
+	if plan.has("error"):last_error=str(plan.error);return ids
+	var roads: Array=plan.get("roads",[])
+	var props: Array=plan.get("props",[])
+	var regions: Array=plan.get("regions",[])
+	var markers: Array=plan.get("markers",[])
+	var dealers: Array=plan.get("dealerships",[])
+	var field: Dictionary=plan.get("terrainHeight",{})
+	if roads.is_empty() and props.is_empty() and regions.is_empty() and markers.is_empty() and field.is_empty():last_error="Nothing fits in the selected area.";return ids
+	if doc.roads.size()+roads.size()>road_limit() or doc.props.size()+props.size()>prop_limit() or doc.regions.size()+regions.size()>220 or doc.markers.size()+markers.size()>400:
+		last_error="Construction exceeds map capacity.";return ids
+	if not roads.is_empty() and unlocked_road_layer not in [0,99]:
+		last_error="Unlock ground roads before generating streets.";return ids
+	var next:=doc.duplicate(true)
+	for road in roads:
+		next.roads.append(road.duplicate(true));ids.append(str(road.id))
+	var number:=int(next_id("props","prop").trim_prefix("prop-"))
+	for prop in props:
+		var item: Dictionary=prop.duplicate(true)
+		item.id="prop-%d"%number;number+=1
+		next.props.append(item);ids.append(str(item.id))
+	var region_number:=int(next_id("regions","region").trim_prefix("region-"))
+	for region in regions:
+		var item: Dictionary=region.duplicate(true)
+		item.id="region-%d"%region_number;region_number+=1
+		next.regions.append(item);ids.append(str(item.id))
+	for marker in markers:
+		next.markers.append(marker.duplicate(true));ids.append(str(marker.id))
+	if not field.is_empty():next.terrainHeight=field.duplicate(true)
+	if not dealers.is_empty():
+		if not next.has("dealerships"):next.dealerships=[]
+		for dealer in dealers:next.dealerships.append(dealer.duplicate(true))
+	if not _commit(next):return []
+	return ids
+
+## Align or distribute ordinary scenery centres. Road and path geometry is
+## not moved implicitly, protecting shared junctions and continuous rails.
+func arrange_props(ids: Array[String],mode: String,axis: int) -> bool:
+	if axis not in [0,1] or mode not in ["align","distribute"]:return false
+	var next:=doc.duplicate(true)
+	var selected: Array[Dictionary]=[]
+	var key: String="x" if axis==0 else "y"
+	for prop in next.props:
+		if str(prop.id) not in ids or bool(prop.get("hidden",false)):continue
+		if str(prop.get("type","")) in ["sidewalk","guardrail"]:
+			last_error="Select ordinary scenery rather than path objects."
+			return false
+		selected.append(prop)
+	if selected.size()!=ids.size() or selected.size()<(3 if mode=="distribute" else 2):
+		last_error="Select at least %d ordinary scenery objects."%(3 if mode=="distribute" else 2)
+		return false
+	selected.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return float(a[key])<float(b[key]))
+	var first:=float(selected[0][key])
+	var last:=float(selected[-1][key])
+	var mean:=0.0
+	for item in selected:mean+=float(item[key])
+	mean/=selected.size()
+	for i in selected.size():
+		selected[i][key]=mean if mode=="align" else lerpf(first,last,float(i)/float(selected.size()-1))
+	return _commit(next)
+
+## Internal reusable clipboard, independent of the source map. Do not copy
+## gameplay IDs or adopted-world replacement links across maps.
+func copy_group(ids: Array[String]) -> Dictionary:
+	var entries: Array[Dictionary]=[]
+	var assets: Array=[]
+	var total:=Vector2.ZERO
+	var n:=0
+	for category in ["roads","regions","props"]:
+		for item in doc[category]:
+			if str(item.id) not in ids or bool(item.get("hidden",false)):continue
+			var copy: Dictionary=item.duplicate(true)
+			copy.erase("replaces");copy.erase("hidden")
+			entries.append({"category":category,"item":copy})
+			if copy.has("points"):
+				for p in copy.points:total+=Vector2(p.x,p.y);n+=1
+			else:
+				total+=Vector2(copy.x,copy.y);n+=1
+			var asset_id:=str(copy.get("assetId",""))
+			for asset in doc.get("assets",[]):
+				if str(asset.get("id",""))==asset_id and not assets.has(asset):assets.append(asset.duplicate(true))
+	if entries.is_empty() or entries.size()!=ids.size():
+		last_error="Copy only editable roads, terrain regions and scenery; gameplay IDs must be authored separately."
+		return {}
+	return {"entries":entries,"assets":assets,"origin":total/maxi(1,n)}
+
+func paste_group(group: Dictionary,at: Vector2) -> Array[String]:
+	var ids: Array[String]=[]
+	if group.is_empty() or not at.is_finite():return ids
+	var next:=doc.duplicate(true)
+	var delta: Vector2=at-Vector2(group.origin)
+	for asset in group.get("assets",[]):
+		var found:=false
+		for existing in next.assets:
+			if str(existing.id)!=str(asset.id):continue
+			if existing!=asset:
+				last_error="Clipboard asset ID conflicts with this map."
+				return []
+			found=true
+		if not found:next.assets.append(asset.duplicate(true))
+	var counters: Dictionary={}
+	for category in ["roads","regions","props"]:
+		var prefix: String={"roads":"road","regions":"region","props":"prop"}[category]
+		counters[category]=int(next_id(category,prefix).trim_prefix(prefix+"-"))
+	for record in group.entries:
+		var category: String=record.category
+		var target: Dictionary=record.item.duplicate(true)
+		var prefix: String={"roads":"road","regions":"region","props":"prop"}[category]
+		target.id=prefix+"-"+str(counters[category])
+		counters[category]+=1
+		target.name=(str(target.get("name",prefix))+" copy").left(120)
+		if category=="props" and str(target.get("type","")) in ["sidewalk","guardrail"]:
+			var moved: Array[Vector2]=[]
+			for point in Sidewalks.world_points(target):moved.append(point+delta)
+			Sidewalks.write_world_points(target,moved)
+		elif target.has("points"):
+			for p in target.points:p.x=float(p.x)+delta.x;p.y=float(p.y)+delta.y
+		else:
+			target.x=float(target.x)+delta.x;target.y=float(target.y)+delta.y
+		next[category].append(target);ids.append(str(target.id))
+	if not _commit(next):return []
+	return ids
+
+
 ## Apply group edits as one validated source mutation and one undo step.
 func batch_entities(ids: Array[String], delta: Vector2, operation: String) -> Array[String]:
 	var result: Array[String]=[]
@@ -1394,18 +1754,29 @@ func remove_road_point(identity: String,index: int) -> bool:
 		if str(road.id)!=identity:continue
 		if index<0 or index>=road.points.size() or road.points.size()<=2:
 			last_error="A road needs two points. Add a point before removing one.";return false
-		road.points.remove_at(index);return _commit(next)
+		road.points.remove_at(index)
+		if road.get("elevation",{}).has("point_layers"):
+			var values: Array=road.elevation.point_layers
+			values.remove_at(index)
+			road.elevation.start_layer=values[0];road.elevation.end_layer=values[-1]
+		return _commit(next)
 	return false
 
 func split_road(identity: String,index: int) -> String:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
+		if road.has("jump") and index!=0 and index!=road.points.size()-1:
+			last_error="Remove the jump before splitting its road."
+			return ""
 		if index==0 or index==road.points.size()-1:
 			road["independentEnds"]=true
 			return identity if _commit(next) else ""
 		if road.has("junctionStart") or road.has("junctionEnd") or str(road.get("roadClass",""))=="onramp":
 			last_error="Reset connection modes to Automatic and use a regular road type before splitting."
+			return ""
+		if road.get("elevation",{}).has("point_layers") or Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false):
+			last_error="Clear individual point elevations or set a flat layer before splitting it."
 			return ""
 		if road.points.size()==2:
 			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]
@@ -1428,9 +1799,11 @@ func reconnect_endpoint(identity: String,index: int,radius: float=12.0) -> bool:
 	var at:=Vector2(target.points[index].x,target.points[index].y)
 	var best:=radius+.001
 	var candidates: Array[Dictionary]=[]
+	var layer := Elevation.endpoint_layer(target,index==0)
 	for road in doc.roads:
 		if str(road.id)==identity or not _same_network(target,road):continue
 		for end in [0,road.points.size()-1]:
+			if Elevation.endpoint_layer(road,end==0)!=layer:continue
 			var p:=Vector2(road.points[end].x,road.points[end].y)
 			var distance:=at.distance_to(p)
 			if distance>radius:continue
@@ -1455,6 +1828,8 @@ func connect_road_interior(identity: String,index: int,at: Vector2,radius: float
 	var best:=radius;var hit: Dictionary={}
 	for road in doc.roads:
 		if str(road.id)==identity or not _same_network(target,road):continue
+		var layer := Elevation.endpoint_layer(target,index==0)
+		if Elevation.endpoint_layer(road,true)!=layer or Elevation.endpoint_layer(road,false)!=layer:continue
 		var path:=road_path(road)
 		var circle:=RoadShapes.circle(road.points)
 		if not circle.is_empty():
@@ -1493,4 +1868,10 @@ func connect_road_interior(identity: String,index: int,at: Vector2,radius: float
 			road.erase("independentEnds")
 	for road in next.roads:
 		if str(road.id)==identity:road.points[index]={"x":destination.x,"y":destination.y};road.erase("independentEnds")
+	return _commit(next)
+
+func set_gameplay_controls(category: String,records: Array) -> bool:
+	if category not in ["gameplayZones","junctionControls"]:return false
+	var next: Dictionary=doc.duplicate(true)
+	next[category]=records.duplicate(true)
 	return _commit(next)

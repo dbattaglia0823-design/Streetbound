@@ -10,6 +10,7 @@ var description_input: LineEdit
 var type_input: OptionButton
 var enabled_input: CheckBox
 var radius_input: SpinBox
+var layer_input: SpinBox
 var weight_input: SpinBox
 var race_input: OptionButton
 var required_input: OptionButton
@@ -73,6 +74,8 @@ func build(e,panel: Node) -> void:
 	form.add_child(enabled_input)
 	radius_input=e._number(form,"Activation radius (metres)",4,50,12)
 	radius_input.step=1
+	layer_input=e._number(form,"Objective road layer (6 m)",-2,2,0)
+	layer_input.step=1
 	weight_input=e._number(form,"Traffic spawn priority (1–10)",1,10,3)
 	weight_input.step=1
 	race_fields=VBoxContainer.new();form.add_child(race_fields)
@@ -160,6 +163,7 @@ func open_for(e,id: String) -> void:
 	var info: Dictionary=marker.get("properties",{})
 	enabled_input.button_pressed=bool(info.get("enabled",true))
 	radius_input.value=float(info.get("radius_m",12))
+	layer_input.value=float(info.get("road_layer",0))
 	weight_input.value=float(info.get("traffic_weight",3))
 	_populate_links(e,marker)
 	contact_editor.fields.visible=str(type_input.get_selected_metadata())=="contract_contact"
@@ -183,6 +187,8 @@ func save(e) -> void:
 	info["enabled"]=enabled_input.button_pressed
 	info["description"]=description_input.text.strip_edges()
 	info["radius_m"]=radius_input.value
+	if int(layer_input.value)==0:info.erase("road_layer")
+	else:info["road_layer"]=int(layer_input.value)
 	info["traffic_weight"]=int(weight_input.value)
 	for pair in [[race_input,"race_id"],[required_input,"required_race"],[dealer_input,"dealer_id"]]:
 		var chosen: String=str(pair[0].get_selected_metadata())

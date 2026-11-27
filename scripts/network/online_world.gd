@@ -31,6 +31,7 @@ var peer_light_states: Dictionary = {}
 var peer_exhaust_states: Dictionary = {}
 var peer_labels: Dictionary = {}
 var targets: Dictionary = {}
+var _host_road_contact: Array = []
 var histories: Dictionary = {}
 var commands_at: Dictionary = {}
 var _input_elapsed := 0.0
@@ -224,6 +225,7 @@ func _reconnect_finished() -> void:
 	# Existing game scene stays loaded. The new ENet ID is authenticated by
 	# the host, which has retained the same original car and its state.
 	targets.clear()
+	_host_road_contact.clear()
 	histories.clear()
 	_clear_police_replicas()
 	_last_received_sequence = -1
@@ -310,16 +312,22 @@ func _physics_process(dt: float) -> void:
 			var states: Dictionary = {1: _car_state(local_vehicle)}
 			var lamps: Dictionary = {1: _lamp_state(local_vehicle)}
 			var exhaust: Dictionary = {1: _exhaust_state(local_vehicle)}
+			var grades: Dictionary = {1: local_vehicle.elevation_m}
+			var contacts: Dictionary = {1: local_vehicle.road_contact_id()}
 			for id in peer_cars:
 				var remote: VehicleController2D=peer_cars[id] as VehicleController2D
 				states[id] = _car_state(remote)
 				lamps[id] = _lamp_state(remote)
 				exhaust[id] = _exhaust_state(remote)
+				grades[id] = remote.elevation_m
+				contacts[id] = remote.road_contact_id()
 			# Reserved negative key: existing six-value movement snapshots and
 			# protocol stay compatible; no vehicle may have a negative peer ID.
 			states[-1] = lamps
 			states[-2] = exhaust # Optional cosmetic metadata, never physics.
 			states[-3] = _police_snapshot()
+			states[-4] = grades # Host-authored signed road heights; no client authority.
+			states[-5] = contacts # Baked road identity for local guest reconciliation.
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
@@ -343,11 +351,13 @@ func _physics_process(dt: float) -> void:
 				my_state, _last_rtt_ms)
 			var error_px: float = local_vehicle.global_position.distance_to(
 				authority_now)
-			if error_px > 700.0:
+			var grade_diverged := _host_road_contact.size() == 2 and absf(local_vehicle.elevation_m-float(_host_road_contact[1])) > 1.5
+			if error_px > 700.0 or grade_diverged:
 				# Spawn, reset and large divergence should converge immediately.
 				local_vehicle.global_position = my_state[0]
 				local_vehicle.rotation = my_state[1]
 				local_vehicle.linear_velocity = my_state[2]
+				_reconcile_local_road()
 				local_vehicle.reset_physics_interpolation()
 			elif error_px > 20.0:
 				# Local input is predicted immediately; only recover the error
@@ -404,6 +414,8 @@ func _process(dt: float) -> void:
 				car.steering = float(state[3])
 				car.longitudinal_speed = float(state[4])
 				car.yaw_rate = float(state[5])
+				var grade_height := RemoteBuffer.sample_grade_height(samples, now_ms, _interpolation_delay_ms)
+				car.apply_remote_grade_visual(grade_height)
 		if peer_labels.has(id):
 			var tag := peer_labels[id] as Label
 			tag.position = car.global_position + Vector2(-90, -115)
@@ -512,6 +524,8 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 			var value: Variant=exhaust_payload[peer_id]
 			if valid_exhaust_state(value):
 				peer_exhaust_states[int(peer_id)]=value.duplicate()
+	var grade_payload: Variant = states.get(-4, {})
+	var contact_payload: Variant = states.get(-5, {})
 	for id in states:
 		if not online_session.players.has(id) or not states[id] is Array or \
 				(states[id] as Array).size() != 6:
@@ -521,9 +535,17 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		if not (state[0] is Vector2) or not (state[2] is Vector2):
 			continue
 		targets[int(id)] = state
-		if int(id) != online_session.own_id():
+		if int(id) == online_session.own_id():
+			_host_road_contact.clear()
+			if grade_payload is Dictionary and contact_payload is Dictionary:
+				var height: Variant = grade_payload.get(id)
+				var road: Variant = contact_payload.get(id)
+				if RemoteBuffer.valid_grade_height(height) and road is int and road >= -1:
+					_host_road_contact = [road,float(height)]
+		else:
 			var samples: Array = histories.get(int(id), [])
-			RemoteBuffer.add_snapshot(samples, now_ms, state)
+			var grade: Variant = grade_payload.get(id, 0.0) if grade_payload is Dictionary else 0.0
+			RemoteBuffer.add_snapshot(samples, now_ms, state, grade)
 			histories[int(id)] = samples
 	var my_state: Array = targets.get(online_session.own_id(), [])
 	if _first_authoritative_state and my_state.size() >= 3:
@@ -531,7 +553,12 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		local_vehicle.global_position = my_state[0]
 		local_vehicle.rotation = my_state[1]
 		local_vehicle.linear_velocity = my_state[2]
+		_reconcile_local_road()
 		local_vehicle.reset_physics_interpolation()
+
+func _reconcile_local_road() -> void:
+	if _host_road_contact.size() == 2:
+		local_vehicle.reconcile_road_contact(int(_host_road_contact[0]),float(_host_road_contact[1]))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not online_session.active or online_session.hosting or get_tree().paused:
@@ -629,13 +656,16 @@ func _release_police_target() -> void:
 
 func _police_snapshot() -> Dictionary:
 	var vehicles: Dictionary = {}
+	var grades: Dictionary = {}
 	var level := 0
 	if is_instance_valid(shared_police):
 		level = int(shared_police.get("wanted_level"))
 		for entry in shared_police.get("units"):
 			var car := entry.get("car") as VehicleController2D
 			if is_instance_valid(car) and not car.is_queued_for_deletion():
-				vehicles["u%d" % int(entry["serial"])] = [str(entry["model_id"]), _car_state(car), true, float(entry["damage"].call("health_percentage"))]
+				var key := "u%d" % int(entry["serial"])
+				vehicles[key] = [str(entry["model_id"]), _car_state(car), true, float(entry["damage"].call("health_percentage"))]
+				grades[key] = car.elevation_m
 	var traffic: Node = world.get_node_or_null("AmbientTraffic") if is_instance_valid(world) else null
 	if is_instance_valid(traffic):
 		for agent in traffic.get("agents"):
@@ -645,8 +675,10 @@ func _police_snapshot() -> Dictionary:
 			var speed := float(patrol.get("motion_speed_mps"))
 			var model: Dictionary = patrol.get("patrol_model")
 			var state := [patrol.global_position,patrol.rotation,Vector2.UP.rotated(patrol.rotation)*speed,0.0,speed,0.0]
-			vehicles["p%d" % int(agent["uid"])] = [str(model["id"]),state,false,100.0]
-	return {"wanted":level,"target":police_target_peer,"vehicles":vehicles}
+			var key := "p%d" % int(agent["uid"])
+			vehicles[key] = [str(model["id"]),state,false,100.0]
+			grades[key] = float(patrol.get_meta("traffic_height_m",0.0))
+	return {"wanted":level,"target":police_target_peer,"vehicles":vehicles,"grades":grades}
 
 func _clear_police_replicas() -> void:
 	for id in police_replicas:
@@ -665,6 +697,7 @@ func _update_police_status(level: int, target: int) -> void:
 
 func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var raw: Variant = payload.get("vehicles", {})
+	var grades: Variant = payload.get("grades", {})
 	if not raw is Dictionary or raw.size() > 12:
 		return
 	var level := clampi(int(payload.get("wanted",0)),0,5)
@@ -713,7 +746,8 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 		if is_instance_valid(smoke_node):
 			smoke_node.call("set_health_percentage",clampf(float(row[3]),0.0,100.0))
 		var history: Array = police_histories.get(id, [])
-		RemoteBuffer.add_snapshot(history,now_ms,state)
+		var grade: Variant = grades.get(id,0.0) if grades is Dictionary else 0.0
+		RemoteBuffer.add_snapshot(history,now_ms,state,grade)
 		police_histories[id] = history
 		retained[id] = true
 	for id in police_replicas.keys():
@@ -734,6 +768,7 @@ func _render_police_replicas(now_ms: int) -> void:
 		car.steering = float(state[3])
 		car.longitudinal_speed = float(state[4])
 		car.yaw_rate = float(state[5])
+		car.apply_remote_grade_visual(RemoteBuffer.sample_grade_height(police_histories.get(id, []),now_ms,_interpolation_delay_ms))
 
 func _session_closed(reason: String) -> void:
 	if reason != "Left online session." and get_parent().has_method("_return_to_main_menu"):

@@ -1,4 +1,5 @@
 extends Node2D
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Ordered checkpoint time trials authored in the map editor. Detours never
 ## cancel a run; only reaching every gate in order can complete it.
 const PPM=20.0
@@ -86,17 +87,42 @@ func _lock_reason() -> String:
 	if int(definition.get("entry_fee",0))>0 and (not is_instance_valid(economy) or economy.balance<int(definition.entry_fee)):return "ENTRY FEE "+OwnershipModel.dollars(int(definition.entry_fee))
 	return EventRules.lock_reason(definition,economy,world_id)
 
+func _gate_layer(index: int) -> int:
+	return ObjectiveLayer.point_layer(definition.points[index])
+
+func _grade_route_supported() -> bool:
+	for point in definition.points:
+		if not ObjectiveLayer.supported(world,Vector2(point.x,point.y),ObjectiveLayer.point_layer(point)):
+			return false
+	var layer := _gate_layer(0)
+	if layer!=0:
+		for slot in [Grid.player_slot(definition)]+definition.get("enemy_starts",[]):
+			if not ObjectiveLayer.supported(world,Grid.point(slot),layer):return false
+	return true
+
+func _stage_grade(car: VehicleController2D, slot: Dictionary) -> void:
+	var layer := _gate_layer(0)
+	var grade: Dictionary=ObjectiveLayer.contact(world,Grid.point(slot),layer)
+	Grid.teleport(car,slot)
+	if layer!=0 and not grade.is_empty():
+		car.reconcile_road_contact(int(grade.road),float(grade.height_m))
+	elif layer==0:
+		car.reconcile_road_contact(-1,0.0)
+
 func can_stage() -> bool:
-	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
+	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and ObjectiveLayer.matches(player,_gate_layer(0)) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:return false
-	_prepare_guidance()
+	if not _grade_route_supported() or not _prepare_guidance():
+		result="UNSUPPORTED OBJECTIVE LAYER OR NO CONNECTED ROUTE"
+		_refresh()
+		return false
 	if not _spawn_rivals():return false
 	if int(definition.get("entry_fee",0))>0 and not economy.pay_race_entry(definition):
 		_clear_rivals();return false
 	awaiting_escape=false;escape_remaining=0.0
 	staged_car_id=str(economy.active_id) if is_instance_valid(economy) else ""
-	Grid.teleport(player,Grid.player_slot(definition))
+	_stage_grade(player,Grid.player_slot(definition))
 	_grid_start_m=player.global_position/PPM
 	_run_id="authored-%s-%s-%d"%[str(definition.id),str(economy.active_id) if is_instance_valid(economy) else "guest",Time.get_ticks_usec()]
 	state="countdown";countdown=3;elapsed=0;next_checkpoint=1;lap=1;result="";_gate_armed=true
@@ -143,7 +169,7 @@ func _spawn_rivals() -> bool:
 				target_shape.shape=source_shape.shape.duplicate(true)
 			var sprite:=enemy.get_node_or_null("Art/Sprite") as Sprite2D
 			if sprite!=null:sprite.modulate=Color.from_hsv(fmod(0.6+float(i)*.17,1.0),.34,1.0)
-		Grid.teleport(enemy,definition.enemy_starts[i])
+		_stage_grade(enemy,definition.enemy_starts[i])
 		var driver:=Node.new()
 		driver.name="MapRaceAIDriver%d"%(i+1)
 		driver.set_script(RivalDriver)
@@ -191,7 +217,8 @@ func _update_rivals() -> void:
 		var plausible:=step<=maxf(5.0,car.linear_velocity.length()*.11+4.0)
 		var index:=int(progress.next)
 		var gate: Vector2=checkpoints[index]
-		if at.distance_to(gate)>radius:progress.armed=true
+		if not ObjectiveLayer.matches(car,_gate_layer(index)):progress.armed=false
+		elif at.distance_to(gate)>radius:progress.armed=true
 		if bool(progress.armed) and plausible and Geometry2D.get_closest_point_to_segment(gate,previous,at).distance_to(gate)<=radius:
 			if index==0 or (definition.mode=="sprint" and index==checkpoints.size()-1):
 				if definition.mode=="circuit" and int(progress.lap)<int(definition.get("laps",1)):
@@ -260,18 +287,20 @@ func _finish_message() -> String:
 		return "RIVAL WINS / %.2fs  ·  YOU %.2fs\nGRID PRACTICE / NO REWARDS"%[fastest,elapsed]
 	return "YOU WIN / %.2fs  ·  RIVALS %s\n%s"%[elapsed,"DNF" if fastest==INF else "%.2fs"%fastest,_award_finish()]
 
-func _prepare_guidance() -> void:
-	if network==null:return
+func _prepare_guidance() -> bool:
+	if network==null:return not definition.points.any(func(p: Dictionary)->bool:return ObjectiveLayer.point_layer(p)!=0)
 	var planner=Planner.new();planner.setup(network,world.data)
 	var route:=PackedVector2Array()
 	var count:=checkpoints.size() if definition.mode=="circuit" else checkpoints.size()-1
 	for i in count:
 		var a:=checkpoints[i];var b:=checkpoints[(i+1)%checkpoints.size()]
-		var planned: Dictionary=planner.plan(a,b,(b-a).normalized())
+		var planned: Dictionary=planner.plan(a,b,(b-a).normalized(),"","",_gate_layer(i),_gate_layer((i+1)%checkpoints.size()))
+		if planned.is_empty() and (_gate_layer(i)!=0 or _gate_layer((i+1)%checkpoints.size())!=0):return false
 		var part: PackedVector2Array=planned.get("points_m",PackedVector2Array([a,b]))
 		for p in part:
 			if route.is_empty() or route[-1].distance_to(p)>.1:route.append(p)
 	navigation.setup(route,definition.mode=="circuit")
+	return true
 func quit_race() -> bool:
 	if state not in ["countdown","running"]:return false
 	state="idle";elapsed=0;countdown=0;result="";awaiting_escape=false
@@ -301,7 +330,7 @@ func _physics_process(dt: float) -> void:
 		_refresh()
 		return
 	if state=="countdown":
-		if at.distance_to(_grid_start_m)>maxf(10.0,float(definition.get("start_radius",8))+3) or player.linear_velocity.length()>4:
+		if not ObjectiveLayer.matches(player,_gate_layer(0)) or at.distance_to(_grid_start_m)>maxf(10.0,float(definition.get("start_radius",8))+3) or player.linear_velocity.length()>4:
 			_finish("FALSE START / RETURN TO GRID")
 		else:
 			countdown-=dt
@@ -317,8 +346,11 @@ func _physics_process(dt: float) -> void:
 		var gate: Vector2=checkpoints[next_checkpoint]
 		var radius:=float(definition.get("checkpoint_radius",16))
 		var step:=at.distance_to(_previous_m)
-		if step>maxf(5,player.linear_velocity.length()*dt*2+3):_gate_armed=false
-		if at.distance_to(gate)>radius:_gate_armed=true
+		if not ObjectiveLayer.matches(player,_gate_layer(next_checkpoint)):
+			_gate_armed=false
+		else:
+			if step>maxf(5,player.linear_velocity.length()*dt*2+3):_gate_armed=false
+			if at.distance_to(gate)>radius:_gate_armed=true
 		if _gate_armed and step<=maxf(5,player.linear_velocity.length()*dt*2+3) and Geometry2D.get_closest_point_to_segment(gate,_previous_m,at).distance_to(gate)<=radius:
 			if next_checkpoint==0 or (definition.mode=="sprint" and next_checkpoint==checkpoints.size()-1):
 				if definition.mode=="circuit" and lap<int(definition.get("laps",1)):lap+=1;next_checkpoint=1
@@ -338,7 +370,7 @@ func _physics_process(dt: float) -> void:
 	if _draw_clock>=.1:_draw_clock=0;_refresh();queue_redraw()
 func _refresh() -> void:
 	if not is_instance_valid(status_strip):return
-	var nearby: bool=player.global_position.distance_to(start_m*PPM)<30*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length())
+	var nearby: bool=ObjectiveLayer.matches(player,_gate_layer(0)) and player.global_position.distance_to(start_m*PPM)<30*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length())
 	var message:=result
 	var restriction: String=_lock_reason()
 	if awaiting_escape:
@@ -355,6 +387,7 @@ func _draw() -> void:
 	StartArea.draw_zone(self,float(definition.get("start_radius",8)))
 	draw_set_transform(Vector2.ZERO)
 	if state!="running" or awaiting_escape:return
+	if not ObjectiveLayer.matches(player,_gate_layer(next_checkpoint)):return
 	var gate: Vector2=checkpoints[next_checkpoint]*PPM
 	var radius:=float(definition.get("checkpoint_radius",16))*PPM
 	draw_arc(gate,radius,0,TAU,64,Color("#ffcf76"),5,true)

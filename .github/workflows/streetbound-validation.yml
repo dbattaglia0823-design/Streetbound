@@ -32,6 +32,36 @@ jobs:
           fi
       # Report every independent test group after a successful import, even
       # if an earlier test failed. Failed steps still fail this required job.
+      - name: Verify road elevation bake, routing and physical crossings (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 tests/road_elevation_bake_test.py
+          mkdir -p .runtime
+          python3 tools/build_custom_test_world.py --source tests/fixtures/road-elevation.world.json --output .runtime/road-elevation.stream.json
+          for test in graph drive; do
+            timeout 50s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script "res://tests/road_elevation_${test}_test.gd" -- res://.runtime/road-elevation.stream.json 2>&1 | tee "/tmp/road-elevation-${test}.log"
+            grep -E 'ROAD ELEVATION (GRAPH|DRIVE): PASS' "/tmp/road-elevation-${test}.log"
+            if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' "/tmp/road-elevation-${test}.log"; then exit 1; fi
+          done
+      - name: Stress-test multilevel city bake, traffic, navigation and police
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          mkdir -p .runtime
+          timeout 240s python3 tests/road_elevation_stress.py --output .runtime/elevation-city.stream.json
+          timeout 150s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/road_elevation_city_stress.gd -- res://.runtime/elevation-city.stream.json 2>&1 | tee /tmp/elevation-city-stress.log
+          grep -q 'ELEVATION CITY RUNTIME: PASS' /tmp/elevation-city-stress.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/elevation-city-stress.log
+      - name: Verify authored jump trajectories, contact, and safe recovery (4.6.3)
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          python3 tests/road_jump_bake_test.py
+          python3 tools/build_custom_test_world.py --source tests/fixtures/road-jumps.world.json --output .runtime/road-jumps.stream.json
+          timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 120 --script res://tests/road_jump_drive_test.gd -- res://.runtime/road-jumps.stream.json 2>&1 | tee /tmp/road-jump-drive.log
+          grep -q 'ROAD JUMP DRIVE: PASS' /tmp/road-jump-drive.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/road-jump-drive.log
       - name: Verify underground racing rewards, escape and contact unlocks (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -205,6 +235,9 @@ jobs:
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
+          timeout 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/gameplay_authoring_analysis_test.gd 2>&1 | tee /tmp/gameplay-authoring-analysis.log
+          grep -q 'GAMEPLAY AUTHORING ANALYSIS: PASS' /tmp/gameplay-authoring-analysis.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/gameplay-authoring-analysis.log
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_map_reload_test.gd 2>&1 | tee /tmp/native-map-reload-463.log
           grep -q 'NATIVE MAP WORLD RELOAD: PASS' /tmp/native-map-reload-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-map-reload-463.log
@@ -356,6 +389,7 @@ jobs:
         run: |
           set -o pipefail
           python3 -B tests/custom_test_world_bake_test.py
+          python3 -B tests/gameplay_authoring_bake_test.py
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/custom_map_full_game_test.gd 2>&1 | tee /tmp/custom-full-game-test-drive.log
           grep -q 'FULL GAME CUSTOM TEST DRIVE: PASS' /tmp/custom-full-game-test-drive.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/custom-full-game-test-drive.log

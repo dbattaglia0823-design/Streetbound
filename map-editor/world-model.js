@@ -2,16 +2,19 @@ import {distance, polygonArea, roadAt, scatterPoints, stringSeed} from './world-
 import {placeBesideRoad,roadwayClearance,placementFootprint} from './world-road-placement.js';
 import {GAME_ART_KINDS} from './morrow-runtime-preview.js';
 import {projectArtwork,projectAssetId} from './world-project-assets.js';
+import {normalizeRoadJump} from './world-road-jump.js';
+import {normalizeRoadElevation} from './world-road-elevation.js';
 import {validateMountainRegion} from './world-mountain-barriers.js';
 
 export const WORLD_FORMAT='gdt.racing-world';
 export const WORLD_VERSION=2;
 export const SURFACES=Object.freeze(['asphalt','concrete','dirt','gravel','track']);
 export const ROAD_CLASSES=Object.freeze(['city','highway','country','mountain','track','service','alley','onramp']);
-export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland']);
+export const BIOMES=Object.freeze(['grass','forest','mountain','rock','beach','ocean','lake','city','desert','farmland','dirt','asphalt']);
 export const PROPS=Object.freeze(['oak','pine','palm','bush','rock','boulder','house','building','warehouse','garage','gas_station','streetlight','sign','barrier','dock','parking','parked_car','planter','garden','field','island','forecourt','sidewalk','guardrail','industrial_prop','road_prop','ground_decal']);
 export const MARKERS=Object.freeze(['player_spawn','race_start','checkpoint','finish','garage','dealership','fuel','mission','fast_travel','traffic_spawn','contract','contract_dropoff','contract_contact','robbery_target','custom']);
 const LIM={roads:180,regions:220,props:4000,markers:400,assets:12,roadPoints:100,regionPoints:180};
+export const entityLimit=(doc,type)=>doc.customMap===true&&type==='roads'?360:doc.customMap===true&&type==='props'?8000:LIM[type];
 const idOk=value=>typeof value==='string'&&/^[a-z][a-z0-9_-]{0,55}$/.test(value);
 const gameAssetOk=(assetId,type)=>typeof assetId==='string'&&assetId.startsWith('game-')&&
   (GAME_ART_KINDS[type]||[]).includes(assetId.slice(5));
@@ -49,7 +52,9 @@ function validEntity(item,type,w,h){
     const points=polygon(item.points,w,h,2,LIM.roadPoints,'road');
     if(points.every(p=>distance(p,points[0])<1))throw new RangeError('Road must have length');
     if(item.roadClass==='onramp'&&(!['asphalt','concrete'].includes(item.surface)||item.lanes!==1))throw new RangeError('On-ramp must be paved and have one lane');
-    return {id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
+    const elevation=normalizeRoadElevation(item.elevation,points);
+    if(item.roadClass==='onramp'&&elevation?.point_layers?.length>2&&elevation.point_layers.some(l=>l!==elevation.point_layers[0]))throw new RangeError('Use a regular road for a multi-grade on-ramp');
+    const road={id:item.id,name:title(item.name,'Road'),roadClass:oneOf(item.roadClass,ROAD_CLASSES,'road class'),
       surface:oneOf(item.surface,SURFACES,'road surface'),width:real(item.width,6,160,'road width'),
       lanes:integer(item.lanes,1,6,'lanes'),shoulder:real(item.shoulder,0,16,'shoulder'),
       smooth:typeof item.smooth==='boolean'?item.smooth:true,
@@ -57,7 +62,10 @@ function validEntity(item,type,w,h){
       ...(item.independentEnds===true?{independentEnds:true}:{}),
       ...(item.junctionStart!==undefined&&item.junctionStart!=='auto'?{junctionStart:oneOf(item.junctionStart,['intersection','merge'],'start junction mode')}:{}),
       ...(item.junctionEnd!==undefined&&item.junctionEnd!=='auto'?{junctionEnd:oneOf(item.junctionEnd,['intersection','merge'],'end junction mode')}:{}),
+      ...(elevation?{elevation}:{}),
       points};
+    const jump=normalizeRoadJump(road,item.jump);
+    return jump?{...road,jump}:road;
   }
   if(type==='regions'){
     let points=polygon(item.points,w,h,3,LIM.regionPoints,'terrain');
@@ -140,10 +148,15 @@ function validEntity(item,type,w,h){
     return entity;
   }
   if(type==='markers'){
+    const properties=validateMetadata(item.properties??{});
+    const layer=properties.road_layer??0;
+    if(!Number.isInteger(layer)||Math.abs(layer)>2)throw new RangeError('Invalid marker road layer');
+    if(layer&&!['contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'].includes(item.type))
+      throw new RangeError('Marker type requires ground level');
     return {id:item.id,name:title(item.name,'Marker'),type:oneOf(item.type,MARKERS,'marker type'),
       x:real(item.x,0,w,'marker x'),y:real(item.y,0,h,'marker y'),
       rotation:real(item.rotation,-360,360,'marker rotation'),
-      properties:validateMetadata(item.properties??{})};
+      properties};
   }
   throw new TypeError('Unsupported entity type');
 }
@@ -167,6 +180,41 @@ export function normalizeWorld(raw){
   // Otherwise an exported starter silently becomes an unpublished demo and
   // cannot be imported for native Test Drive / production publishing.
   if(raw.customMap===true)result.customMap=true;
+  // Native gameplay controls must survive browser import/export unchanged.
+  if(raw.gameplayZones!==undefined){
+    if(!Array.isArray(raw.gameplayZones)||raw.gameplayZones.length>32)throw new RangeError('Invalid gameplay districts');
+    result.gameplayZones=raw.gameplayZones.map(z=>{
+      if(!z||typeof z.name!=='string'||!z.name.trim()||!['all','passenger','commercial'].includes(z.models))throw new RangeError('Invalid district');
+      const x=real(z.x,0,width,'district x'),y=real(z.y,0,height,'district y');
+      return {name:z.name,x,y,w:real(z.w,1,width-x,'district width'),h:real(z.h,1,height-y,'district height'),density:real(z.density,0,200,'density'),speed:real(z.speed,0,160,'speed cap'),patrol:real(z.patrol,0,30,'patrol interval'),response:real(z.response,50,150,'response capacity'),models:z.models};
+    });
+  }
+  if(raw.junctionControls!==undefined){
+    if(!Array.isArray(raw.junctionControls)||raw.junctionControls.length>128)throw new RangeError('Invalid intersection rules');
+    result.junctionControls=raw.junctionControls.map(j=>{
+      if(!j||!['stop','yield','signal','uncontrolled'].includes(j.control)||!Array.isArray(j.turns)||!j.turns.length||j.turns.some(t=>!['left','straight','right'].includes(t)))throw new RangeError('Invalid intersection rule');
+      const record={x:real(j.x,0,width,'intersection x'),y:real(j.y,0,height,'intersection y'),layer:integer(j.layer,-2,2,'road level'),control:j.control,turns:[...j.turns]};
+      if(j.approach!==undefined)record.approach=integer(j.approach,-1,31,'approach index');
+      if(j.lane!==undefined)record.lane=integer(j.lane,-1,5,'lane index');
+      if((record.lane??-1)>=0&&(record.approach??-1)<0)throw new RangeError('Lane rule requires an approach');
+      return record;
+    });
+  }
+  if(raw.editorLayers!==undefined){
+    const layers=raw.editorLayers,seen=new Set(),names=new Set();
+    if(!result.customMap||!Array.isArray(layers)||layers.length>64)throw new RangeError("Invalid editor layers");
+    result.editorLayers=layers.map(l=>{
+      if(!l||typeof l.name!=="string"||!l.name.trim()||l.name.length>60||names.has(l.name)||typeof l.visible!=="boolean"||typeof l.locked!=="boolean"||!Array.isArray(l.ids)||l.ids.length>10000)throw new RangeError("Invalid editor layer");
+      names.add(l.name);
+      for(const id of l.ids){if(typeof id!=="string"||id.length>120||seen.has(id))throw new RangeError("Invalid editor layer member");seen.add(id);}
+      return {name:l.name,visible:l.visible,locked:l.locked,ids:[...l.ids]};
+    });
+  }
+  if(raw.terrainHeight!==undefined){
+    const h=raw.terrainHeight;
+    if(!h||h.size!==129||!Array.isArray(h.values)||h.values.length!==129*129||h.values.some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1200))throw new RangeError('Invalid authored terrain height field');
+    result.terrainHeight={size:129,values:[...h.values]};
+  }
   if(raw.morrowSourceRoadCount!==undefined)
     result.morrowSourceRoadCount=integer(raw.morrowSourceRoadCount,0,LIM.roads,'Morrow source road count');
   if(raw.morrowSourcePoiCount!==undefined)
@@ -181,6 +229,11 @@ export function normalizeWorld(raw){
       ids.add(r.id);
       const mode=oneOf(r.mode,['sprint','circuit'],'race format');
       const points=polygon(r.points,width,height,mode==='circuit'?3:2,100,'race');
+      points.forEach((point,i)=>{
+        const layer=r.points[i].road_layer??0;
+        if(!Number.isInteger(layer)||Math.abs(layer)>2)throw new RangeError('Invalid race checkpoint road layer');
+        if(layer)point.road_layer=layer;
+      });
       if(points.some((p,i)=>i>0&&distance(p,points[i-1])<5))throw new RangeError('Race checkpoints must be at least 5 m apart');
       // Preserve native-editor grid and event configuration on browser import/export.
       const entry={id:r.id,name:title(r.name,'Editor race'),mode,points,laps:integer(r.laps??1,1,20,'race laps'),
@@ -276,7 +329,7 @@ export function normalizeWorld(raw){
     ids.add(asset.id);
   }
   for(const type of ['roads','regions','props','markers']){
-    if(!Array.isArray(raw[type])||raw[type].length>LIM[type])throw new RangeError('Invalid '+type+' count');
+    if(!Array.isArray(raw[type])||raw[type].length>entityLimit(raw,type))throw new RangeError('Invalid '+type+' count');
     result[type]=raw[type].map(item=>{
       const checked=validEntity(item,type,width,height);
       if(ids.has(checked.id))throw new TypeError('Duplicate entity ID: '+checked.id);
@@ -417,7 +470,7 @@ export function getEntity(doc,id){
 }
 export function createEntity(doc,type,input){
   if(!['roads','regions','props','markers'].includes(type))throw new TypeError('Unsupported entity collection');
-  if(doc[type].length>=LIM[type])throw new RangeError('Maximum '+type+' reached');
+  if(doc[type].length>=entityLimit(doc,type))throw new RangeError('Maximum '+type+' reached');
   const id=unique(type==='roads'?'road':type==='regions'?'region':type==='props'?'prop':'marker',
     ['roads','regions','props','markers'].flatMap(t=>doc[t]));
   let item=validEntity({id,...input},type,doc.world.width,doc.world.height);
@@ -441,6 +494,8 @@ export function updateEntity(doc,id,patch){
   if(!found)return doc;
   const {type,item}=found;
   const merged={...item,...patch,id};
+  if(type==='roads'&&item.elevation?.point_layers&&patch.points&&patch.points.length!==item.points.length&&!Object.hasOwn(patch,'elevation'))
+    throw new RangeError('Use insert/remove point to keep the elevation profile aligned');
   if(type==='props'&&patch.assetId!==undefined&&patch.assetId!==item.assetId){
     delete merged.assetPath;delete merged.assetSize;delete merged.assetRegion;delete merged.assetCollision;
   }
@@ -484,13 +539,29 @@ export function insertControlPoint(doc,id,index,pos){
   if(points.length>=LIM[found.type==='roads'?'roadPoints':'regionPoints'])throw new RangeError('Too many control points');
   if(!Number.isInteger(index)||index<0||index>points.length)throw new RangeError('Invalid insertion index');
   points.splice(index,0,point(pos,doc.world.width,doc.world.height));
-  return updateEntity(doc,id,{points});
+  const patch={points};
+  if(found.type==='roads'&&found.item.elevation?.point_layers){
+    const layers=[...found.item.elevation.point_layers];
+    const a=layers[Math.max(0,index-1)],b=layers[Math.min(index,layers.length-1)];
+    // Choose the feasible adjacent level. Reject if neither fits.
+    const options=[...new Set([a,b])];
+    for(const layer of options){
+      const next=layers.slice();next.splice(index,0,layer);
+      try{return updateEntity(doc,id,{points,elevation:{start_layer:next[0],end_layer:next.at(-1),point_layers:next}});}catch(e){if(!(e instanceof RangeError))throw e;}
+    }
+    throw new RangeError('Inserted point would create a steep grade; reposition it or adjust the point heights');
+  }
+  return updateEntity(doc,id,patch);
 }
 export function deleteControlPoint(doc,id,index){
   const found=getEntity(doc,id);
   if(!found||!['roads','regions'].includes(found.type))return doc;
   if(found.item.points.length<=(found.type==='roads'?2:3))throw new RangeError('Too few control points');
   const points=found.item.points.filter((_,i)=>i!==index);
+  if(found.type==='roads'&&found.item.elevation?.point_layers){
+    const layers=found.item.elevation.point_layers.filter((_,i)=>i!==index);
+    return updateEntity(doc,id,{points,elevation:{start_layer:layers[0],end_layer:layers.at(-1),point_layers:layers}});
+  }
   return updateEntity(doc,id,{points});
 }
 /** Continuous vegetation placement with collision-aware road clearance. */

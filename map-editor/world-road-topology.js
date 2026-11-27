@@ -4,13 +4,18 @@
  * T junctions and crossings remain separate roads and retain their branches.
  */
 import {createEntity,updateEntity,removeEntity} from './world-model.js';
+import {junctionLayer,roadElevation} from './world-road-elevation.js';
 import {distance} from './world-geometry.js';
 import {roadInsertCandidate} from './world-edit-tools.js';
 
 const EPS=1e-5;
 const roadLength=points=>points.slice(1).reduce((total,p,i)=>total+distance(p,points[i]),0);
 const closed=road=>road.points.length>2&&distance(road.points[0],road.points.at(-1))<EPS;
-const compatible=(a,b)=>a.roadClass===b.roadClass&&a.surface===b.surface&&
+const flatLayer=road=>{
+  const {start_layer,end_layer}=roadElevation(road);
+  return !road.elevation?.point_layers&&start_layer===end_layer?start_layer:null;
+};
+const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
   a.lanes===b.lanes&&a.smooth===b.smooth&&a.markings===b.markings&&
   Math.abs(a.width-b.width)<EPS&&Math.abs(a.shoulder-b.shoulder)<EPS;
 const endpoints=(road)=>[
@@ -37,7 +42,8 @@ export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
         // A point shared with three or more road ends is a genuine junction,
         // never a single editable road; don't accidentally delete its branches.
         const participants=doc.roads.flatMap(other=>endpoints(other).filter(end=>
-          distance(end.point,a.point)<=radius||distance(end.point,b.point)<=radius));
+          junctionLayer(other,end.point)===flatLayer(target)&&
+          (distance(end.point,a.point)<=radius||distance(end.point,b.point)<=radius)));
         if(new Set(participants.map(end=>end.road.id)).size!==2)continue;
         possibilities.push({a,b,gap});
       }
@@ -78,8 +84,10 @@ export function joinRoadEndpoints(doc,roadId,{radius=1}={}){
 export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
   const road=doc.roads.find(r=>r.id===roadId);
   if(!road)throw new TypeError('Select a road to split');
+  if(road.jump)throw new RangeError('Remove the jump before splitting its road');
   if(doc.roads.length>=180)throw new RangeError('Maximum 180 roads reached');
   if(road.junctionStart||road.junctionEnd||road.roadClass==='onramp')throw new RangeError('Reset junction modes to Automatic before splitting this road');
+  if(flatLayer(road)===null)throw new RangeError('Set the ramp to a flat layer before splitting it');
   if(closed(road))throw new RangeError('Open the loop by deleting its closing point before splitting');
   let points=road.points.slice(),index;
   if(typeof at==='number'){
@@ -110,4 +118,34 @@ export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
   const next=createEntity(updated,'roads',{...base,name:road.name+' (2)',points:second});
   return {doc:next,roadId:road.id,newRoadId:next.roads.at(-1).id,
     point:first.at(-1),index};
+}
+
+
+/** Editable point heights use the same signed layers as existing ramps.
+ * A persistent profile stays on the same authored road; the production
+ * bake derives its runtime grade sections.
+ */
+export function pointElevationLayers(road){
+  const {start_layer,end_layer}=roadElevation(road);
+  if(road.elevation?.point_layers)return [...road.elevation.point_layers];
+  const total=roadLength(road.points);
+  let station=0;
+  return road.points.map((p,i)=>{
+    if(i)station+=distance(road.points[i-1],p);
+    return Math.round(start_layer+(end_layer-start_layer)*station/Math.max(total,.001));
+  });
+}
+
+export function applyPointElevations(doc,roadId,layers){
+  const road=doc.roads.find(r=>r.id===roadId);
+  if(!road)throw new TypeError('Select a road');
+  if(!Array.isArray(layers)||layers.length!==road.points.length||
+      layers.some(n=>!Number.isInteger(n)||Math.abs(n)>2))
+    throw new RangeError('Choose a layer from -2 to +2 for every road point');
+  if(road.jump)throw new RangeError('Remove the stunt jump before applying point elevations');
+  if(closed(road)&&layers.some(n=>n!==layers[0]))
+    throw new RangeError('Open the road loop before assigning different point elevations');
+  if(road.roadClass==='onramp'&&layers.length>2&&layers.some(v=>v!==layers[0]))
+    throw new RangeError('Use a regular road for a multi-grade on-ramp');
+  return updateEntity(doc,roadId,{elevation:{start_layer:layers[0],end_layer:layers.at(-1),point_layers:[...layers]}});
 }

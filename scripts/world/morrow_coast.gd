@@ -1,6 +1,8 @@
 class_name MorrowCoast
 extends Node2D
 ## Metre-authored world; cached 192m chunks, a 64m surface index and local blockers.
+const RoadJump = preload("res://scripts/world/road_jump.gd")
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Chunk = preload("res://scripts/world/coast_chunk.gd")
 const TireMarks = preload("res://scripts/world/tire_marks.gd")
 const TireTrailSampler = preload("res://scripts/world/vehicle_tire_trails.gd")
@@ -19,6 +21,8 @@ var data: Dictionary
 # Override is set before add_child(): either an isolated Test Drive in
 # user:// or the checked-in published custom world in res://.
 var archive_override_path: String=""
+const AuthoredHeight=preload("res://scripts/world/authored_height_field.gd")
+var authored_height_texture: ImageTexture
 var _custom_terrain_polygons: Array[PackedVector2Array]=[]
 var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
@@ -31,11 +35,28 @@ var secondary_stream_vehicle: VehicleController2D
 var secondary_current_cell := Vector2i(-999,-999)
 var tire_marks: TireMarks2D
 var chunks: Dictionary = {}
+# Opt-in editor Test Drive measurements, not active during normal play.
+var profile_enabled:=false
+var profile_cells: Dictionary={}
+
+func _profile_cell(index: Vector2i) -> Dictionary:
+	if not profile_cells.has(index):
+		profile_cells[index]={"build_usec":0,"builds":0,"frames":0,"frame_sum_ms":0.0,"frame_peak_ms":0.0,"cpu_sum_ms":0.0,"draw_peak":0}
+	return profile_cells[index]
 var pending: Array[Vector2i] = []
 var current_cell := Vector2i(-999,-999)
 var surface_queries := 0
 var segment_tests := 0
 var segment_stations := PackedFloat64Array()
+var has_road_elevation := false
+var road_lengths_m := PackedFloat64Array()
+var _elevation_connections: Dictionary = {}
+var viewed_road_layer := 0
+var overhead_road_layer := 0
+var tunnel_portals: Dictionary = {}
+var jumps_by_road: Dictionary = {}
+var _jump_cells: Dictionary = {}
+var _last_overhead_check := Vector2.INF
 var bridge_diagnostics: Dictionary={}
 var mountain_diagnostics: Dictionary={}
 var mountain_art_cache: Dictionary={}
@@ -84,6 +105,10 @@ func _ready() -> void:
 			return
 		path=archive_override_path
 	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+	_initialize_archive(parsed,testing,published)
+
+
+func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> void:
 	data=parsed if parsed is Dictionary else {}
 	if testing and not bool(data.get("editor_custom_test_drive",false)):
 		push_error("Test Drive refused an archive without its Test Drive marker")
@@ -111,11 +136,22 @@ func _ready() -> void:
 	RoadWidthAdaptation.adapt(data)
 	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
 	mountain_diagnostics=Mountains.apply(data)
+	_index_terrain_cutouts()
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
 			player_garage_prop = prop
 			break
 	chunk_m = float(data.chunk_size)
+	for spec in data.get("jumps",[]):
+		jumps_by_road[int(spec.road_id)] = spec
+		var lip := Vector2(spec.p[0],spec.p[1])
+		var low := Vector2i(((lip-Vector2.ONE*4.0)/64.0).floor())
+		var high := Vector2i(((lip+Vector2.ONE*4.0)/64.0).floor())
+		for x in range(low.x,high.x+1):
+			for y in range(low.y,high.y+1):
+				var key := Vector2i(x,y)
+				if not _jump_cells.has(key):_jump_cells[key] = []
+				_jump_cells[key].append(spec)
 	# Derive a continuous promenade from the original smoothed coastline.
 	# Beach polygons extend 65m inland; the deck sits 35m inland, never
 	# over open water. No rebake of the multi-megabyte world data required.
@@ -139,6 +175,15 @@ func _ready() -> void:
 		for x in range(first.x,last.x + 1):
 			for y in range(first.y,last.y + 1):
 				_boardwalk_cells[Vector2i(x,y)] = true
+	road_lengths_m.resize(data.roads.size())
+	has_road_elevation = data.roads.any(func(road: Dictionary) -> bool: return road.has("elevation"))
+	if has_road_elevation:
+		for pair in data.get("road_connections",[]):
+			var first := int(pair[0])
+			var last := int(pair[1])
+			_elevation_connections[Vector2i(first,last)] = true
+			_index_tunnel_portal(first,last)
+			_index_tunnel_portal(last,first)
 	var station := 0.0
 	var last_road := -1
 	for segment in data.segments:
@@ -147,6 +192,8 @@ func _ready() -> void:
 			last_road=int(segment.road)
 		segment_stations.append(station)
 		station+=Vector2(float(segment.a[0]),float(segment.a[1])).distance_to(Vector2(float(segment.b[0]),float(segment.b[1])))
+		if has_road_elevation:
+			road_lengths_m[last_road] = station
 	for key in data.chunks:
 		for terrain in data.chunks[key].terrain:
 			if terrain.kind=="beach":
@@ -217,6 +264,7 @@ func _ready() -> void:
 				if not _junction_grid.has(key):
 					_junction_grid[key] = []
 				_junction_grid[key].append(i)
+	authored_height_texture=AuthoredHeight.texture(data.get("terrainHeight",{}))
 	# Optional art metadata runs only after the core spatial indices are ready.
 	DowntownPilot.apply(data.props)
 	rain_intensity = clampf(float(data.get("rain_intensity",0.0)),0.0,1.0)
@@ -416,6 +464,10 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
 	stream_build_usec += instance.build_microseconds
+	if profile_enabled:
+		var row:=_profile_cell(index)
+		row.build_usec=maxi(int(row.build_usec),instance.build_microseconds)
+		row.builds+=1
 
 func set_secondary_stream_vehicle(target: VehicleController2D) -> void:
 	secondary_stream_vehicle = target
@@ -479,12 +531,94 @@ func stream_at(position_px: Vector2) -> void:
 		else:
 			chunks[index].set_stream_active(cell_delta <= 1)
 
+## Index real open trenches after final road width adaptation. Leave legacy
+## maps byte-for-byte unchanged on disk and covered tunnel roofs intact.
+func _index_terrain_cutouts() -> void:
+	var cuts: Array = []
+	for road in data.roads:
+		if not Elevation.is_open_cut(road):
+			continue
+		for outline in Elevation.cutout_polygons(road):
+			var cut := {"road":int(road.id),"polygon":outline,"walls":Elevation.cutout_walls(road,outline),"cap":Elevation.cutout_portal_cap(road)}
+			var index := cuts.size()
+			cuts.append(cut)
+			for key in Mountains.cells(Elevation.polygon_bounds(outline).grow(5.0),data):
+				if not data.chunks.has(key):
+					continue
+				var entry: Dictionary = data.chunks[key]
+				if not entry.has("terrain_cuts"):
+					entry["terrain_cuts"] = []
+				entry.terrain_cuts.append(index)
+	if not cuts.is_empty():
+		data["terrain_cuts"] = cuts
+
+
+func _index_tunnel_portal(ramp_id: int, tunnel_id: int) -> void:
+	var ramp: Dictionary = data.roads[ramp_id]
+	var tunnel: Dictionary = data.roads[tunnel_id]
+	var layer := Elevation.endpoint_layer(tunnel,true)
+	if layer >= 0 or layer != Elevation.endpoint_layer(tunnel,false):
+		return
+	for first in [true,false]:
+		if Elevation.endpoint_layer(ramp,first) != layer or Elevation.endpoint_layer(ramp,not first) != 0:
+			continue
+		var raw: Array = ramp.points[0 if first else -1]
+		var portal := Vector2(raw[0],raw[1])
+		for endpoint in [tunnel.points[0],tunnel.points[-1]]:
+			if portal.distance_to(Vector2(endpoint[0],endpoint[1])) <= .12:
+				tunnel_portals[ramp_id] = first
+				return
+
+
+func _overhead_layer_at(position_px: Vector2, height_m: float) -> int:
+	var point := position_px/PPM
+	var cell := float(data.surface_cell)
+	var key := "%d,%d" % [floori(point.x/cell),floori(point.y/cell)]
+	var nearest := INF
+	var result := 0
+	for raw_index in data.surface_index.get(key,[]):
+		var index := int(raw_index)
+		var segment: Dictionary = data.segments[index]
+		var road_id := int(segment.road)
+		var road: Dictionary = data.roads[road_id]
+		if not road.has("elevation"):continue
+		var deck_layer := Elevation.artwork_layer(road)
+		if deck_layer <= 0:continue
+		var a := Vector2(segment.a[0],segment.a[1])
+		var b := Vector2(segment.b[0],segment.b[1])
+		var closest := Geometry2D.get_closest_point_to_segment(point,a,b)
+		if point.distance_to(closest) > float(road.width)*.5+2.0:continue
+		var station := float(segment_stations[index]) + a.distance_to(closest)
+		var deck_height := Elevation.height_at(road,station/maxf(road_lengths_m[road_id],.01))
+		var clearance := deck_height-height_m
+		if clearance >= 4.5 and clearance < nearest:
+			nearest = clearance
+			result = deck_layer
+	return result
+
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
 		return
 	if vehicle:
+		if has_road_elevation and (vehicle.road_layer != viewed_road_layer or
+				vehicle.global_position.distance_squared_to(_last_overhead_check) > pow(PPM*1.5,2)):
+			var overhead := _overhead_layer_at(vehicle.global_position,vehicle.elevation_m)
+			_last_overhead_check = vehicle.global_position
+			if vehicle.road_layer != viewed_road_layer or overhead != overhead_road_layer:
+				viewed_road_layer = vehicle.road_layer
+				overhead_road_layer = overhead
+				for chunk in chunks.values():
+					chunk.update_grade_visibility(viewed_road_layer,overhead_road_layer)
 		stream_at(vehicle.global_position)
+		if profile_enabled and dt>0.0:
+			var index:=Vector2i((vehicle.global_position/PPM/chunk_m).floor())
+			var row:=_profile_cell(index)
+			row.frames+=1;row.frame_sum_ms+=dt*1000.0
+			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
+			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
+			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
@@ -512,6 +646,120 @@ func _process(dt: float) -> void:
 				"Placement: %s (%s)" % [
 					"clear" if bool(can_build.clear) else "blocked", str(can_build.reason)]
 
+## Resolve a vehicle's current grade from indexed pavement, keeping the
+## active strip through XY overlaps. New ramps can only be entered at a mouth.
+func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Dictionary:
+	if not has_road_elevation:
+		return {}
+	var point := position_px / PPM
+	var bounds := Rect2(Vector2.ONE,Vector2(data.size[0],data.size[1])-Vector2.ONE*2)
+	if not bounds.has_point(point):
+		return {}
+	var cell := float(data.surface_cell)
+	var key := "%d,%d" % [floori(point.x/cell),floori(point.y/cell)]
+	var layer := Elevation.layer_for_height(height_m)
+	var fallback: Dictionary = {}
+	var nearest := INF
+	for raw_index in data.surface_index.get(key,[]):
+		var index := int(raw_index)
+		var segment: Dictionary = data.segments[index]
+		var road_id := int(segment.road)
+		var road: Dictionary = data.roads[road_id]
+		if not road.has("elevation"):
+			continue
+		var a := Vector2(segment.a[0],segment.a[1])
+		var b := Vector2(segment.b[0],segment.b[1])
+		var direction := (b-a).normalized()
+		var length_m := a.distance_to(b)
+		var offset := (point-a).dot(direction)
+		var station := float(segment_stations[index])
+		var total := road_lengths_m[road_id]
+		var half_width := float(road.width)*.5
+		# The capsule around the second sample can also reach beyond the
+		# road's mouth. Clip all nearby samples to the real end planes.
+		for first in [true,false]:
+			var to_end := station if first else total-station-length_m
+			if to_end > half_width:continue
+			var raw: Array = road.points[0 if first else -1]
+			var inner: Array = road.points[1 if first else -2]
+			var endpoint := Vector2(raw[0],raw[1])
+			var inward := (Vector2(inner[0],inner[1])-endpoint).normalized()
+			if (point-endpoint).dot(inward) < -.08:
+				offset = INF
+				break
+		if not is_finite(offset):
+			continue
+		var along := clampf(offset,0.0,length_m)
+		var distance := point.distance_to(a+direction*along)
+		if distance > half_width-.85:
+			continue
+		var fraction := (station+along)/maxf(total,.001)
+		var grade_height := Elevation.height_at(road,fraction)
+		var slope := Elevation.slope_at(road,fraction,total)
+		var ramp := Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false)
+		var is_mouth := minf(station+along,total-station-along) < 3.0
+		var is_current := road_id == active_road
+		if not is_current:
+			if absf(grade_height-height_m) > .38 or (ramp and not is_mouth):
+				continue
+			if layer == 0 and (not is_mouth or not ramp):
+				continue
+			if layer != 0 and (active_road < 0 or not _elevation_connections.has(
+					Vector2i(mini(active_road,road_id),maxi(active_road,road_id)))):
+				continue
+		var score := distance - (100.0 if is_current else 0.0)
+		if score >= nearest:
+			continue
+		nearest = score
+		fallback = {"road":road_id,"height_m":grade_height,"gradient":direction*slope,
+			"road_layer":Elevation.layer_for_height(grade_height),"is_mouth":is_mouth,
+			"name":str(road.surface),"grip":.75 if str(road.surface)=="GRAVEL" else 1.0}
+	if not fallback.is_empty():
+		return fallback
+	if layer != 0:
+		for index in _junction_grid.get(key,[]):
+			var junction: Dictionary = data.junctions[index]
+			if int(junction.get("road_layer",0)) == layer \
+					and junction.roads.has(active_road) \
+					and Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
+				return {"road":active_road,"height_m":height_m,
+					"gradient":Vector2.ZERO,"road_layer":layer,"is_mouth":false,
+					"name":"ASPHALT","grip":1.0}
+	return {}
+
+
+func jump_at_motion(car: VehicleController2D, previous: Vector2, present: Vector2) -> Dictionary:
+	if _jump_cells.is_empty() or car != vehicle or absf(car.elevation_m) > .01 or car.is_airborne():
+		return {}
+	var cell := Vector2i((present/(PPM*64.0)).floor())
+	for spec in _jump_cells.get(cell,[]):
+		if not RoadJump.accepts_launch(spec,previous,present,car.linear_velocity,Vector2.UP.rotated(car.rotation)):
+			continue
+		# Only free-roam vehicles opt into stunt jumps. Keep current event,
+		# pursuit and network state machines in charge of their normal routes.
+		var session := get_node_or_null("/root/OnlineSession")
+		if session and (session.get("active") or session.get("joining")):
+			return {}
+		for race in get_tree().get_nodes_in_group("streetbound_race"):
+			if str(race.get("state")) in ["countdown","running","racing","staged"]:return {}
+		for pursuit in get_tree().get_nodes_in_group("streetbound_police"):
+			if int(pursuit.get("wanted_level"))>0:return {}
+		for contract in get_tree().get_nodes_in_group("streetbound_contracts"):
+			if not (contract.get("active") as Dictionary).is_empty():return {}
+		return spec
+	return {}
+
+
+func jump_position_allowed(spec: Dictionary, position_px: Vector2, landing: bool) -> bool:
+	var session := get_node_or_null("/root/OnlineSession")
+	if session and (session.get("active") or session.get("joining")):
+		return false
+	var extent := Vector2(data.size[0],data.size[1])*PPM
+	var safe_bounds := Rect2(Vector2.ZERO,extent).grow(-2.6*PPM)
+	return safe_bounds.has_point(position_px) and RoadJump.in_strip(spec,position_px,landing) \
+		and (not landing or str(surface_at(position_px).name)=="ASPHALT")
+
+
 func surface_at(position_px: Vector2) -> Dictionary:
 	surface_queries += 1
 	var point := position_px/PPM
@@ -536,7 +784,7 @@ func surface_at(position_px: Vector2) -> Dictionary:
 			return {"name":"ASPHALT","grip":1.0}
 	for index in _junction_grid.get(key,[]):
 		var j: Dictionary = data.junctions[index]
-		if Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
+		if int(j.get("road_layer",0)) == 0 and Geometry2D.is_point_in_polygon(point,_junction_polygons[index]):
 			return {"name":"ASPHALT","grip":1.0}
 	# Check ALL indexed road strips before assigning sidewalk or gravel grip.
 	# Otherwise an adjacent sidewalk can win simply because its segment was
@@ -549,6 +797,8 @@ func surface_at(position_px: Vector2) -> Dictionary:
 		var a := Vector2(float(segment.a[0]),float(segment.a[1]))
 		var b := Vector2(float(segment.b[0]),float(segment.b[1]))
 		var r: Dictionary = data.roads[int(segment.road)]
+		if r.has("elevation"):
+			continue
 		var distance_sq := Geometry2D.get_closest_point_to_segment(point,a,b).distance_squared_to(point)
 		var road_radius := float(r.width) * 0.5
 		if distance_sq <= road_radius * road_radius:
@@ -578,7 +828,8 @@ func surface_at(position_px: Vector2) -> Dictionary:
 					"lake","ocean":return {"name":"WATER","grip":0.20}
 					"beach","desert":return {"name":"SAND","grip":0.60}
 					"mountain","rock":return {"name":"GRAVEL","grip":0.75}
-					"city":return {"name":"ASPHALT","grip":0.93}
+					"city","asphalt":return {"name":"ASPHALT","grip":0.93}
+					"dirt":return {"name":"DIRT","grip":0.62}
 				break
 	return {"name":"GRASS","grip":0.68}
 

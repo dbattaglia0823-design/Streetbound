@@ -1,0 +1,285 @@
+{
+  "format": "gdt.racing-world",
+  "version": 2,
+  "customMap": true,
+  "name": "Elevation Test Area",
+  "world": {
+    "width": 1000,
+    "height": 900,
+    "base": "grass",
+    "seed": 716
+  },
+  "roads": [
+    {
+      "id": "road-0",
+      "name": "Ground East West",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 100,
+          "y": 400
+        },
+        {
+          "x": 900,
+          "y": 400
+        }
+      ]
+    },
+    {
+      "id": "road-1",
+      "name": "Overpass",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 500,
+          "y": 330
+        },
+        {
+          "x": 500,
+          "y": 600
+        }
+      ],
+      "elevation": {
+        "start_layer": 1,
+        "end_layer": 1
+      }
+    },
+    {
+      "id": "road-2",
+      "name": "Tunnel",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 500,
+          "y": 250
+        },
+        {
+          "x": 500,
+          "y": 600
+        }
+      ],
+      "elevation": {
+        "start_layer": -1,
+        "end_layer": -1
+      }
+    },
+    {
+      "id": "road-3",
+      "name": "Deck Crossroad",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 320,
+          "y": 450
+        },
+        {
+          "x": 710,
+          "y": 450
+        }
+      ],
+      "elevation": {
+        "start_layer": 1,
+        "end_layer": 1
+      }
+    },
+    {
+      "id": "road-4",
+      "name": "South Ramp",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 500,
+          "y": 600
+        },
+        {
+          "x": 500,
+          "y": 700
+        }
+      ],
+      "elevation": {
+        "start_layer": 1,
+        "end_layer": 0
+      }
+    },
+    {
+      "id": "road-5",
+      "name": "South Approach",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 300,
+          "y": 700
+        },
+        {
+          "x": 500,
+          "y": 700
+        }
+      ]
+    },
+    {
+      "id": "road-6",
+      "name": "Ground Crossroad",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 400,
+          "y": 200
+        },
+        {
+          "x": 400,
+          "y": 600
+        }
+      ]
+    },
+    {
+      "id": "road-7",
+      "name": "North Portal Ramp",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 500,
+          "y": 150
+        },
+        {
+          "x": 500,
+          "y": 250
+        }
+      ],
+      "elevation": {
+        "start_layer": 0,
+        "end_layer": -1
+      }
+    },
+    {
+      "id": "road-8",
+      "name": "Ground at Tunnel End",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 500,
+          "y": 600
+        },
+        {
+          "x": 700,
+          "y": 600
+        }
+      ]
+    },
+    {
+      "id": "road-9",
+      "name": "Ground Under Deck",
+      "roadClass": "city",
+      "surface": "asphalt",
+      "width": 10,
+      "lanes": 2,
+      "shoulder": 2,
+      "smooth": true,
+      "markings": true,
+      "points": [
+        {
+          "x": 200,
+          "y": 450
+        },
+        {
+          "x": 800,
+          "y": 450
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "id": "region-portal-cut",
+      "name": "Portal Mountain",
+      "biome": "mountain",
+      "barrier": true,
+      "elevation": 30,
+      "points": [
+        {
+          "x": 465,
+          "y": 175
+        },
+        {
+          "x": 535,
+          "y": 175
+        },
+        {
+          "x": 535,
+          "y": 290
+        },
+        {
+          "x": 465,
+          "y": 290
+        }
+      ]
+    }
+  ],
+  "props": [],
+  "markers": [
+    {
+      "id": "marker-1",
+      "name": "Ground Spawn",
+      "type": "player_spawn",
+      "x": 200,
+      "y": 400,
+      "rotation": 90,
+      "properties": {}
+    }
+  ],
+  "assets": [],
+  "races": []
+}

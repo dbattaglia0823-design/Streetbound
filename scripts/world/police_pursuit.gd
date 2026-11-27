@@ -4,6 +4,7 @@ extends Node2D
 ## Multiplayer host-authoritative officers remain a separate future feature.
 signal busted(reason: String)
 signal escaped
+const Gameplay=preload("res://scripts/world/authored_gameplay_controls.gd")
 const PPM := 20.0
 const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
@@ -44,6 +45,7 @@ var phase := "clear"
 var last_seen_position_m := Vector2.ZERO
 var last_seen_velocity_mps := Vector2.ZERO
 var last_seen_heading := Vector2.UP
+var last_seen_road_layer := 0
 var roadblock_position_m := Vector2.INF
 var roadblock_reference_m := Vector2.INF
 var containment_seconds := 0.0
@@ -193,6 +195,7 @@ func _spawn_candidates() -> Array[Dictionary]:
 			continue
 		for fraction in [0.27,0.50,0.73]:
 			var sample: Dictionary = network.call("point_on_edge", edge_id, length_px * fraction)
+			if absf(float(sample.get("height_m",0.0)))>.05:continue
 			var point_px: Vector2 = sample.get("position", Vector2.INF)
 			if not point_px.is_finite() or _camera_sees(point_px):
 				continue
@@ -232,6 +235,7 @@ func _roadblock_candidates() -> Array[Dictionary]:
 			continue
 		for fraction in [0.25,0.5,0.75]:
 			var sample: Dictionary=network.call("point_on_edge",edge_id,length_px*fraction)
+			if absf(float(sample.get("height_m",0.0)))>.05:continue
 			var point_px: Vector2=sample.get("position",Vector2.INF)
 			if point_px.is_finite():
 				candidates.append({"position_m":point_px/PPM,"edge_id":edge_id})
@@ -288,7 +292,12 @@ static func apply_police_model(car: VehicleController2D, model: Dictionary) -> b
 	return true
 
 func active_limit() -> int:
-	return int(Tactics.profile(wanted_level)["units"]) if wanted_level > 0 else 0
+	var base:=int(Tactics.profile(wanted_level)["units"]) if wanted_level > 0 else 0
+	if base==0 or not is_instance_valid(world) or not is_instance_valid(player):return base
+	var data: Variant=world.get("data")
+	if not data is Dictionary:return base
+	var z:=Gameplay.zone(data,player.global_position/PPM)
+	return base if z.is_empty() else clampi(roundi(float(base)*float(z.get("response",100))/100.0),1,maxi(base,8))
 
 func available_slots() -> int:
 	return maxi(0, active_limit() - units.size() - replacement_timers.size())
@@ -382,14 +391,14 @@ func _recruit_patrols() -> void:
 		if model.is_empty() or int(model["min_wanted"]) > wanted_level:
 			continue
 		var distance_m := (node as Node2D).global_position.distance_to(player.global_position)/PPM
-		if distance_m > PATROL_ASSIST_M:
+		if distance_m > PATROL_ASSIST_M or absf(float(node.get_meta("traffic_height_m",0.0)))>.05:
 			continue
 		var patrol := node as CharacterBody2D
 		if patrol == null:
 			continue
 		var excluded: Array[RID] = [player.get_rid(), patrol.get_rid()]
 		var ray := PhysicsRayQueryParameters2D.create(patrol.global_position, player.global_position, 1, excluded)
-		var visible_now := get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+		var visible_now := absf(player.elevation_m)<2.4 and get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
 		if not visible_now and (phase != "chase" or patrol.global_position.distance_to(last_seen_position_m*PPM) > 65.0*PPM):
 			continue
 		var pose: Transform2D = node.global_transform
@@ -455,10 +464,11 @@ func _refresh_unit_route(index: int) -> void:
 	driver.set("cruise_speed_mps",5.5 if boxing else \
 		(13.0 if phase=="search" else float(profile["cruise_mps"])))
 	var goal_m := last_seen_position_m
+	var goal_layer := last_seen_road_layer
 	driver.set("pit_target", null)
 	if car.has_meta("police_pit_target"):
 		car.remove_meta("police_pit_target")
-	if role_name == "pit" and phase == "chase" and Tactics.pit_allowed(wanted_level, lost_sight_clock <= 0.0, approach_distance_m, last_seen_velocity_mps.length(), pit_cooldown):
+	if role_name == "pit" and phase == "chase" and absf(car.elevation_m-player.elevation_m)<1.2 and Tactics.pit_allowed(wanted_level, lost_sight_clock <= 0.0, approach_distance_m, last_seen_velocity_mps.length(), pit_cooldown):
 		driver.set("pit_target", player)
 		car.set_meta("police_pit_target", player.get_instance_id())
 		car.set_meta("police_pit_owner", self)
@@ -469,6 +479,7 @@ func _refresh_unit_route(index: int) -> void:
 	elif str(entry.get("role","pursuer"))=="roadblock":
 		if roadblock_position_m.is_finite():
 			goal_m = roadblock_position_m
+			goal_layer = 0
 		else:
 			goal_m = Tactics.intercept_target(last_seen_position_m,
 				last_seen_velocity_mps,last_seen_heading,"flank_right",wanted_level)
@@ -476,7 +487,7 @@ func _refresh_unit_route(index: int) -> void:
 		goal_m = Tactics.intercept_target(last_seen_position_m,
 			last_seen_velocity_mps,last_seen_heading,str(entry.get("role","pursuer")),wanted_level)
 	var route: Dictionary=planner.call("plan",car.global_position/PPM,goal_m,
-		Vector2.UP.rotated(car.rotation))
+		Vector2.UP.rotated(car.rotation),"","",car.road_layer,goal_layer)
 	if route.is_empty() or float(route.get("access_distance_m",INF))>22.0:
 		# Never use a cross-country straight line when the legal road route fails.
 		driver.call("stop")
@@ -501,12 +512,12 @@ func _line_of_sight() -> bool:
 		if not is_instance_valid(officer) or officer.damage_drive_fraction <= 0.0:
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
-		if distance_m>sight_m:
+		if distance_m>sight_m or absf(officer.elevation_m-player.elevation_m)>2.4:
 			continue
 		# Only confirmed unobstructed sightings may update the suspect's
 		# last known location. Buildings, walls and traffic can hide the car.
 		var params:=PhysicsRayQueryParameters2D.create(
-			officer.global_position,player.global_position,1,exclusion)
+			officer.global_position,player.global_position,officer.collision_mask,exclusion)
 		var hit: Dictionary=get_world_2d().direct_space_state.intersect_ray(params)
 		if Tactics.visible(distance_m,wanted_level,not hit.is_empty()):
 			return true
@@ -521,6 +532,7 @@ func start_pursuit(level: int = 1) -> bool:
 	pit_cooldown = 0.0
 	phase = "chase"
 	last_seen_position_m = player.global_position / PPM
+	last_seen_road_layer = player.road_layer
 	last_seen_velocity_mps = player.linear_velocity
 	last_seen_heading = _travel_heading()
 	lost_sight_clock = 0.0
@@ -612,6 +624,7 @@ func _update_search_state(dt: float, seen: bool) -> void:
 		# Confirmed police sighting; only here can dispatch refresh its
 		# knowledge of the suspect's position, speed and travel direction.
 		last_seen_position_m = player.global_position / PPM
+		last_seen_road_layer = player.road_layer
 		last_seen_velocity_mps = player.linear_velocity
 		last_seen_heading = _travel_heading()
 		lost_sight_clock = 0.0
@@ -708,8 +721,9 @@ func _physics_process(dt: float) -> void:
 			officer.command = Vector4(0.0, 1.0, 0.0, 0.0)
 			continue
 		var distance_m:=officer.global_position.distance_to(player.global_position)/PPM
-		nearest = minf(nearest,distance_m)
-		officers.append(officer.global_position/PPM)
+		if absf(officer.elevation_m-player.elevation_m)<=1.2:
+			nearest = minf(nearest,distance_m)
+			officers.append(officer.global_position/PPM)
 		if phase == "chase" and str(entry.get("role",""))=="roadblock" and \
 				roadblock_position_m.is_finite():
 			var to_block:=officer.global_position.distance_to(roadblock_position_m*PPM)/PPM

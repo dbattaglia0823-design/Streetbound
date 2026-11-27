@@ -183,6 +183,25 @@ class CustomTestWorldBaker(unittest.TestCase):
             self.assertEqual((shipped.stat().st_size,shipped.stat().st_mtime_ns),before)
             self.assertFalse(output.with_suffix(output.suffix+".tmp").exists())
 
+    def test_gameplay_edits_reuse_geometry(self):
+        from unittest.mock import patch
+        doc=source()
+        with tempfile.TemporaryDirectory() as temp:
+            base=pathlib.Path(temp)
+            src=base/"authoring.world.json"
+            output=base/"temporary.stream.json"
+            cache=base/"geometry.json"
+            src.write_text(json.dumps(doc),encoding="utf-8")
+            build_file(src,output,cache)
+            doc["markers"][0]["x"]=180
+            doc["races"][0]["name"]="Updated Sprint"
+            doc["rain_intensity"]=0.25
+            src.write_text(json.dumps(doc),encoding="utf-8")
+            expected=make_archive(dict(doc,_source_filename=src.name))
+            with patch("build_custom_test_world.make_archive",side_effect=AssertionError("Unexpected full geometry bake")):
+                actual=build_file(src,output,cache)
+            self.assertEqual(actual,expected)
+
     def test_rejects_wrong_source_and_nonintegral_dimensions(self):
         doc=source()
         doc["customMap"]=False

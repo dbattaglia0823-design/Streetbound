@@ -18,13 +18,40 @@ static func _path_touches_area(path: PackedVector2Array,area: Rect2) -> bool:
 				return true
 	return false
 
+## This is an authoring selection filter, not a runtime visibility mask.
+## Ramps belong to the levels they touch; a point profile can span several.
+static func road_matches_layer(road: Dictionary,layer: int) -> bool:
+	if layer==99:return true
+	var profile: Dictionary=road.get("elevation",{})
+	return layer in profile.get("point_layers",[int(profile.get("start_layer",0)),int(profile.get("end_layer",0))])
+
+static func road_point_matches_layer(road: Dictionary,point: Vector2,layer: int) -> bool:
+	if layer==99:return true
+	if not road_matches_layer(road,layer):return false
+	var profile: Dictionary=road.get("elevation",{})
+	var values: Array=profile.get("point_layers",[])
+	if values.is_empty():return true
+	var best:=INF
+	var matched:=false
+	for i in range(1,road.points.size()):
+		var a:=Vector2(road.points[i-1].x,road.points[i-1].y)
+		var b:=Vector2(road.points[i].x,road.points[i].y)
+		var distance:=point.distance_to(Geometry2D.get_closest_point_to_segment(point,a,b))
+		if distance<best-.01:
+			best=distance;matched=layer in [int(values[i-1]),int(values[i])]
+		elif absf(distance-best)<.01:
+			matched=matched or layer in [int(values[i-1]),int(values[i])]
+	return matched
+
 static func all_visible(doc: Dictionary,layers: Dictionary) -> Array[String]:
 	var found: Array[String]=[]
 	for category in ["props","markers","regions","roads"]:
 		var layer: String={"props":"scenery","markers":"markers","regions":"terrain","roads":"roads"}[category]
 		if not bool(layers.get(layer,true)):continue
 		for item in doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or layers.get("workspace_excluded",{}).has(str(item.id)):continue
+			var filter_layer:=int(layers.get("road_selection_layer",99))
+			if filter_layer!=99 and (category!="roads" or not road_matches_layer(item,filter_layer)):continue
 			found.append(str(item.get("id","")))
 			if found.size()>=LIMIT:return found
 	return found
@@ -47,7 +74,9 @@ static func within_rect(doc: Dictionary,area: Rect2,layers: Dictionary) -> Array
 		var layer: String={"props":"scenery","markers":"markers","regions":"terrain","roads":"roads"}[category]
 		if not bool(layers.get(layer,true)):continue
 		for item in doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or layers.get("workspace_excluded",{}).has(str(item.id)):continue
+			var filter_layer:=int(layers.get("road_selection_layer",99))
+			if filter_layer!=99 and (category!="roads" or not road_matches_layer(item,filter_layer)):continue
 			var matches:=false
 			if category=="props":
 				var center:=Vector2(float(item.x),float(item.y))

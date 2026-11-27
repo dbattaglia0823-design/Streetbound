@@ -1,4 +1,11 @@
 shader_type canvas_item;
+uniform bool terrain_cut_enabled = false;
+uniform bool authored_height_enabled = false;
+uniform sampler2D authored_height : filter_linear, repeat_disable;
+uniform vec2 authored_height_extent = vec2(1.0);
+uniform sampler2D terrain_cut_mask : filter_nearest, repeat_disable;
+uniform vec4 terrain_cut_rect = vec4(0.0,0.0,1.0,1.0);
+
 // High-detail world-space ground materials; patterns align across 192m chunks.
 uniform sampler2D relief : filter_linear, repeat_disable;
 uniform float terrain_detail : hint_range(0.0, 1.5) = 1.0;
@@ -80,6 +87,11 @@ void vertex() {
 }
 
 void fragment() {
+	if (terrain_cut_enabled) {
+		vec2 cut_uv = (world_m-terrain_cut_rect.xy)/terrain_cut_rect.zw;
+		if (all(greaterThanEqual(cut_uv,vec2(0.0))) && all(lessThan(cut_uv,vec2(1.0))) && texture(terrain_cut_mask,cut_uv).r > .5) { discard; }
+	}
+
     // Untagged grass blades/flowers retain their original transparent ink.
     // Only polygon UVs >= 2 select a terrain material (no color guessing).
     if (UV.x >= 1.5) {
@@ -246,6 +258,25 @@ void fragment() {
             vec3 directional_tint=mix(vec3(1.0),vec3(.94,.97,1.02),clamp((1.0-light_factor)*1.8,0.0,1.0));
             directional_tint=mix(directional_tint,vec3(1.025,1.012,.98),clamp((light_factor-1.0)*2.0,0.0,1.0));
             ground*=light_factor*directional_tint;
+        }
+        if (authored_height_enabled && !water && !foam) {
+            vec2 uvh=clamp(world_m/authored_height_extent,vec2(0.0),vec2(1.0));
+            vec2 delta=1.0/vec2(128.0);
+            float dx=(texture(authored_height,uvh+vec2(delta.x,0.0)).r-texture(authored_height,uvh-vec2(delta.x,0.0)).r)/(2.0*delta.x*authored_height_extent.x);
+            float dy=(texture(authored_height,uvh+vec2(0.0,delta.y)).r-texture(authored_height,uvh-vec2(0.0,delta.y)).r)/(2.0*delta.y*authored_height_extent.y);
+            vec3 normal=normalize(vec3(-dx,-dy,1.0));
+            vec3 sun=normalize(vec3(SUN_DIRECTION,.75));
+            float h=texture(authored_height,uvh).r;
+            float shadow=0.0;
+            for (int k=1;k<=4;k++) {
+                float distance_m=float(k)*35.0;
+                vec2 at=uvh+SUN_DIRECTION*distance_m/authored_height_extent;
+                if (all(greaterThanEqual(at,vec2(0.0))) && all(lessThanEqual(at,vec2(1.0)))) {
+                    shadow=max(shadow,smoothstep(-3.0,10.0,texture(authored_height,at).r-h-distance_m*.62));
+                }
+            }
+            float lighting=clamp(1.0+(dot(normal,sun)-sun.z)*.85,.48,1.38)*(1.0-shadow*.26);
+            ground*=mix(1.0,lighting,terrain_shadow_strength);
         }
         COLOR.rgb = clamp(mix(paint,ground,clamp(terrain_detail,0.0,1.0)),vec3(0.0),vec3(1.0));
     }

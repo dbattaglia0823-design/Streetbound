@@ -1,8 +1,11 @@
 extends Node2D
 ## Bounded near-player traffic with real car artwork, physical collision,
 ## directed lane routing and local post-collision path recovery.
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
 const Car = preload("res://scripts/world/traffic_car.gd")
+const Gameplay=preload("res://scripts/world/authored_gameplay_controls.gd")
+const SignalDisplay=preload("res://scripts/world/authored_signal_display.gd")
 const PPM := 20.0
 const COMFORT_BRAKE := PPM * 9.0
 const HARD_BRAKE := PPM * 24.0
@@ -36,6 +39,7 @@ var _id_serial := 0
 var patrol_spawns_enabled := true
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
+var signal_display: Node2D
 var show_routes := false
 # Street races do not despawn, freeze or ghost regular cars. Prefer some
 # ambient spawns ahead on the active route while all traffic uses the same
@@ -78,6 +82,10 @@ func _ready() -> void:
 	network = Network.new()
 	if world != null:
 		network.build(world.data)
+		if world.data.get("junctions",[]).any(func(j: Dictionary)->bool:return int(j.get("signal_count",0))>0):
+			signal_display=SignalDisplay.new()
+			signal_display.flow=self;signal_display.world=world
+			add_child(signal_display)
 		for source in world.data.get("editor_game_markers",[]):
 			if not source is Dictionary or str(source.get("type",""))!="traffic_spawn":continue
 			var props: Dictionary=source.get("properties",{})
@@ -118,13 +126,13 @@ func clear_traffic() -> void:
 	active_junctions.clear()
 
 
-static func patrol_for_spawn(serial: int, active_patrols: int) -> Dictionary:
-	if active_patrols >= MAX_AMBIENT_PATROLS or posmod(serial, PATROL_INTERVAL) != 2:
+static func patrol_for_spawn(serial: int, active_patrols: int, interval: int=PATROL_INTERVAL) -> Dictionary:
+	if interval<=0 or active_patrols >= MAX_AMBIENT_PATROLS or posmod(serial, interval) != mini(2,interval-1):
 		return {}
 	var pool: Array[Dictionary] = Car.patrol_models()
 	if pool.is_empty():
 		return {}
-	var slot := posmod(floori(float(serial) / float(PATROL_INTERVAL)), pool.size())
+	var slot := posmod(floori(float(serial) / float(interval)), pool.size())
 	return pool[slot]
 
 
@@ -151,6 +159,19 @@ func release_patrol(node: Node2D) -> void:
 			node.set("collision_mask", 0)
 			node.queue_free()
 			return
+
+func _lane_paved(edge: Dictionary, sample: Dictionary) -> bool:
+	var position_px: Vector2 = sample.position
+	if not bool(edge.get("grade_road",false)):
+		return str(world.surface_at(position_px).get("name","")) == "ASPHALT"
+	var surface: Dictionary = world.elevation_at(position_px,int(edge.road),float(sample.height_m))
+	return str(surface.get("name","")) == "ASPHALT"
+
+
+func _gameplay_zone(p: Vector2) -> Dictionary:
+	if not is_instance_valid(world):return {}
+	var data: Variant=world.get("data")
+	return Gameplay.zone(data,p/PPM) if data is Dictionary else {}
 
 func _spawn_one() -> bool:
 	if not is_instance_valid(player) or network.edges.is_empty():
@@ -200,6 +221,8 @@ func _spawn_one() -> bool:
 		var progress := random.randf_range(PPM*7.0,maxf(PPM*8.0,float(edge.length_px)-PPM*8.0))
 		var sample: Dictionary=network.point_on_edge(id,progress)
 		var p: Vector2=sample.position
+		var zone:=_gameplay_zone(p)
+		if float(zone.get("density",100))<=0:continue
 		var away := p.distance_to(player.global_position)
 		if away<PPM*75.0 or away>PPM*390.0:
 			continue
@@ -207,7 +230,7 @@ func _spawn_one() -> bool:
 		# recycled traffic car must not pop into another player's camera.
 		if _visible_to_any_player(p):
 			continue
-		if str(world.surface_at(p).name) != "ASPHALT":
+		if not _lane_paved(edge,sample):
 			continue
 		if on_race_route and player_station >= 0.0:
 			var spawn_station := float(street_race_navigation.call("station_at", p / PPM))
@@ -215,7 +238,7 @@ func _spawn_one() -> bool:
 				continue
 		var free := true
 		for other in agents:
-			if p.distance_to(other.node.global_position)<PPM*35.0:
+			if absf(float(sample.height_m)-_agent_height(other))<2.4 and p.distance_to(other.node.global_position)<PPM*35.0:
 				free=false
 				break
 		if not free:
@@ -223,8 +246,9 @@ func _spawn_one() -> bool:
 		var car := CharacterBody2D.new()
 		car.set_script(Car)
 		car.name = "TrafficCar%02d" % _id_serial
-		car.set("model_index", _id_serial % Car.MODEL_PATHS.size())
-		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count()) if patrol_spawns_enabled else {}
+		car.set("model_index", Gameplay.model_for(_id_serial,Car.MODEL_PATHS.size(),str(zone.get("models","all"))))
+		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count(),int(zone.get("patrol",PATROL_INTERVAL))) \
+			if patrol_spawns_enabled and not bool(edge.get("grade_road",false)) else {}
 		if not patrol.is_empty():
 			car.set("patrol_model", patrol)
 			car.name = "PolicePatrol%02d" % _id_serial
@@ -233,6 +257,7 @@ func _spawn_one() -> bool:
 		car.global_position=p
 		car.rotation=float(sample.angle)
 		add_child(car)
+		car.call("set_lane_grade",world,int(edge.road),float(sample.height_m),bool(edge.grade_road))
 		var speed := float(edge.speed_px)*random.randf_range(0.72,0.93)
 		agents.append({
 			"uid":_id_serial,"node":car,"edge":id,
@@ -296,7 +321,7 @@ func _choose_next(edge: Dictionary) -> int:
 			for fraction in [0.20, 0.50, 0.80]:
 				var sample: Dictionary = network.point_on_edge(
 					id, float(candidate.length_px) * float(fraction))
-				if str(world.surface_at(sample.position).get("name", "")) != "ASPHALT":
+				if not _lane_paved(candidate,sample):
 					paved = false
 					break
 			if not paved:
@@ -380,6 +405,7 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 	var car_width := float(node.get("width_px"))
 	for other in candidates:
 		var other_node: Node2D = other.node
+		var other_height := _body_height(other_node)
 		var closest_path := INF
 		var closest_ahead := INF
 		var tangent := Vector2.ZERO
@@ -397,7 +423,8 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 			# along-path check, a car 60m ahead looks "2m ahead" at the first
 			# sample and every traffic car brakes for phantom bumper proximity.
 			var local_distance := separation.length_squared()
-			if lateral < (car_width + float(other.width_px)) * 0.5 + PPM * 0.50 and \
+			if absf(float(at.get("height_m",0.0))-other_height)<2.4 and \
+					lateral < (car_width + float(other.width_px)) * 0.5 + PPM * 0.50 and \
 					longitudinal < PATH_SCAN_STEP_PX * 0.75 + PPM * 0.65 and \
 					local_distance < closest_path:
 				closest_path = local_distance
@@ -430,7 +457,7 @@ func _player_vehicles() -> Array[VehicleController2D]:
 	# Recovery harnesses and editor previews may drive a TrafficFlow that
 	# has not entered the active SceneTree. The assigned player is still
 	# authoritative in those cases.
-	if get_tree() == null:
+	if not is_inside_tree():
 		return people
 	for candidate in get_tree().get_nodes_in_group("player_vehicle"):
 		if candidate is VehicleController2D and not people.has(candidate):
@@ -571,6 +598,16 @@ func _junction_for(agent: Dictionary) -> int:
 	return int(upcoming.start_j) if bool(upcoming.connector) else -1
 
 
+func _body_height(body: Node) -> float:
+	if body is VehicleController2D:
+		return body.elevation_m
+	return float(body.get_meta("traffic_height_m",0.0))
+
+
+func _agent_height(agent: Dictionary) -> float:
+	return _body_height(agent.node)
+
+
 func _car_following(index: int, desired_px: float) -> float:
 	var agent: Dictionary = agents[index]
 	var heading := Vector2.UP.rotated((agent.node as Node2D).rotation)
@@ -580,7 +617,7 @@ func _car_following(index: int, desired_px: float) -> float:
 			continue
 		var other: Dictionary = agents[i]
 		var other_node: CharacterBody2D = other.node
-		if not is_instance_valid(other_node):
+		if not is_instance_valid(other_node) or absf(_body_height(other_node)-_agent_height(agent))>=2.4:
 			continue
 		var other_direction := Vector2.UP.rotated(other_node.rotation)
 		var other_speed := float(other.speed) if not bool(other_node.get("recovering")) else 0.0
@@ -609,6 +646,7 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 		else Vector2.UP.rotated((agent.node as Node2D).rotation)
 	var safe := desired_px
 	for person in _player_vehicles():
+		if absf(person.elevation_m-_agent_height(agent))>=2.4:continue
 		var player_velocity: Vector2 = person.linear_velocity * PPM
 		safe = _safe_follow_speed(agent, safe,
 			person.global_position, player_velocity, heading)
@@ -647,8 +685,10 @@ func _world_obstacle_speed(agent: Dictionary, desired_px: float, dt: float) -> f
 				progress -= float(edge.length_px)
 				edge_id = next_id
 				edge = network.edges[edge_id]
-			var finish: Vector2 = network.point_on_edge(edge_id, progress).position
-			var query := PhysicsRayQueryParameters2D.create(start, finish, 1,
+			var sample: Dictionary = network.point_on_edge(edge_id, progress)
+			var finish: Vector2 = sample.position
+			var mask := Elevation.collision_bits(1,float(sample.get("height_m",0.0)))
+			var query := PhysicsRayQueryParameters2D.create(start, finish, mask,
 				[node.get_rid()])
 			var hit := node.get_world_2d().direct_space_state.intersect_ray(query)
 			if not hit.is_empty():
@@ -686,11 +726,15 @@ func _tick_agent(index: int,dt: float) -> bool:
 			not _visible_to_any_player(node.global_position):
 		return false
 	if bool(node.get("recovering")):
+		if node.has_method("refresh_grade_visibility"): node.call("refresh_grade_visibility")
 		node.set("brake_lights_on",true)
 		return _recover_agent(agent,dt)
 	var previous_progress := float(agent.progress)
+	var previous_edge := int(agent.edge)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	var zone_speed:=float(_gameplay_zone(node.global_position).get("speed",0))
+	if zone_speed>0:desired=minf(desired,zone_speed/3.6*PPM)
 	desired=network.curve_speed_limit(int(agent.edge),float(agent.progress),desired)
 	var next_id := -2
 	# Determine upcoming connector before computing right-of-way and sensing.
@@ -710,6 +754,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 			var owner := int(active_junctions.get(junction,-1))
 			var control := str(next.control)
 			var should_yield := junction>=0 and owner>=0 and owner!=int(agent.uid)
+			if int(next.get("signal_count",0))>0 and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
+				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*2.0)))
 			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*8.0:
 				desired=minf(desired,maxf(0.0,(remaining-PPM*1.3)*0.5))
 				if float(agent.speed)<PPM*0.9 and remaining<PPM*2.5:
@@ -769,11 +815,15 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var eased := angle_delta * (1.0 - exp(-TURN_RESPONSE * dt))
 	node.rotation += clampf(eased, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
 	if collision != null or bool(node.get("recovering")):
+		agent.edge=previous_edge
 		agent.progress=previous_progress
 		agent.speed=minf(float(agent.speed),PPM*3.0)
 		agent.recovery_time=0.0
 		agent.recovery_refresh=0.0
 		agent.recovery_goal={}
+	elif node.has_method("set_lane_grade"):
+		var lane: Dictionary = network.edges[int(agent.edge)]
+		node.call("set_lane_grade",world,int(lane.road),float(sample.get("height_m",0.0)),bool(lane.get("grade_road",false)))
 	return true
 
 
@@ -794,7 +844,7 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	if float(agent.recovery_refresh) <= 0.0:
 		var forward := Vector2.UP.rotated(node.rotation)
 		var goal: Dictionary = network.recovery_target(node.global_position,
-			forward,int(agent.edge))
+			forward,int(agent.edge),PPM*9.0,_agent_height(agent))
 		agent.recovery_goal=goal
 		agent.recovery_refresh=0.24
 	var target: Dictionary = agent.recovery_goal
@@ -818,7 +868,7 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 		if int(other_agent.uid) == int(agent.uid):
 			continue
 		var other_node: CharacterBody2D = other_agent.node
-		if is_instance_valid(other_node):
+		if is_instance_valid(other_node) and absf(_body_height(other_node)-_agent_height(agent))<2.4:
 			var other_velocity := Vector2.UP.rotated(other_node.rotation) * float(other_agent.speed)
 			goal_speed = _safe_follow_speed(agent, goal_speed,
 				other_node.global_position, other_velocity, direction)
@@ -851,7 +901,7 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 		direction.dot(Vector2(target.heading)) > 0.77 and \
 		(node.get("recovery_velocity") as Vector2).length() < PPM*1.2:
 		var found: Dictionary = network.recovery_target(node.global_position,
-			direction,int(target.edge),PPM*6.0)
+			direction,int(target.edge),PPM*6.0,_agent_height(agent))
 		if not found.is_empty() and float(found.distance_px) < PPM*1.4:
 			agent.edge=int(found.edge)
 			agent.progress=float(found.progress)
@@ -888,6 +938,7 @@ func _physics_process(dt: float) -> void:
 		return
 	var step := minf(dt,0.05)
 	_simulation_clock+=step
+	if is_instance_valid(signal_display) and int(_simulation_clock*5.0)!=int((_simulation_clock-step)*5.0):signal_display.queue_redraw()
 	_prune_junction_claims()
 	for i in range(agents.size()-1,-1,-1):
 		var alive := _tick_agent(i,step)
@@ -902,6 +953,7 @@ func _physics_process(dt: float) -> void:
 			agents.remove_at(i)
 	_spawn_clock+=step
 	var limit := maxi(maximum_vehicles, RACE_TRAFFIC_CAP) if street_race_active else maximum_vehicles
+	limit=clampi(roundi(float(limit)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
 	if _spawn_clock>0.6 and agents.size()<limit:
 		_spawn_clock=0.0
 		_spawn_one()

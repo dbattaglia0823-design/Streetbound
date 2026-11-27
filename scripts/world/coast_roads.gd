@@ -1,5 +1,7 @@
 extends Node2D
 const PPM := 20.0
+const RoadJump = preload("res://scripts/world/road_jump.gd")
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 const TrackKerbs=preload("res://scripts/world/track_kerbs.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
 ## Editor-only draft masking. Cleared on editor close; game data stays intact.
@@ -10,6 +12,7 @@ const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 var render_stage := 0
 var world: Node2D
 var origin_m := Vector2.ZERO
+var extent_px := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
 func point(raw: Array) -> Vector2:
@@ -230,16 +233,80 @@ func _dealer_curb_gaps(road: Dictionary, side: float) -> Array:
 	return gaps
 
 
+func _deck_supports(path: PackedVector2Array, width: float, phase: float, layer: int) -> void:
+	var station := phase
+	for i in range(1,path.size()):
+		var a := path[i-1]
+		var b := path[i]
+		var length := a.distance_to(b)
+		if length < .01:continue
+		var tangent := (b-a)/length
+		for mark in wear_stations(station,length,PPM*31.0):
+			var center := a+tangent*(mark-station)
+			if not Rect2(Vector2.ZERO,extent_px).has_point(center):continue
+			for side in [-1.0,1.0]:
+				var foot: Vector2 = center+tangent.orthogonal()*width*.47*side+Vector2(12,25)*layer
+				if str(world.surface_at(foot+origin_m*PPM).name) != "GRASS":continue
+				draw_circle(foot+Vector2(12,9),21,Color(.08,.09,.08,.28))
+				draw_circle(foot,14,Color("626b64"))
+				draw_line(foot,foot-Vector2(12,25)*layer,Color("929a93"),20,true)
+		station += length
+
+
+func _portal_art() -> void:
+	for batch in road_batches:
+		var road: Dictionary = batch.road
+		var road_id := int(road.id)
+		if editor_hidden.has(road_id) or not world.tunnel_portals.has(road_id):continue
+		var first: bool = world.tunnel_portals[road_id]
+		var raw: Array = road.points[0 if first else -1]
+		var inner: Array = road.points[1 if first else -2]
+		var mouth := point(raw)
+		if not Rect2(Vector2.ZERO,extent_px).has_point(mouth):continue
+		var outside := (point(inner)-mouth).normalized()
+		var across := outside.orthogonal()
+		var half := float(road.width)*PPM*.52
+		var exit_depth := PPM*2.3
+		var wall_width := PPM*1.3
+		for side in [-1.0,1.0]:
+			var corner: Vector2 = mouth+across*half*side
+			var bank: Vector2 = across*side*wall_width
+			var cut := PackedVector2Array([corner-outside*PPM*1.4,corner+bank*2.7,
+				corner+bank*1.2+outside*PPM*8.0,corner+outside*PPM*5.5])
+			draw_colored_polygon(cut,Color("657c52"))
+			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("675e50"),wall_width,true)
+			draw_line(corner-outside*PPM*.4,corner+outside*PPM*5.5,Color("a89f87"),wall_width*.38,true)
+		draw_line(mouth-across*half,mouth+across*half,Color("242a2e"),PPM*1.35,true)
+		draw_line(mouth-outside*PPM*.42-across*half,mouth-outside*PPM*.42+across*half,
+			Color("b9b4a3"),PPM*.34,true)
+		draw_line(mouth+outside*exit_depth-across*half*.88,mouth+outside*exit_depth+across*half*.88,
+			Color(.03,.04,.04,.32),PPM*2.6,true)
+
+
 func _roads(stage: int) -> void:
 	for batch in road_batches:
 		if editor_hidden.has(int(batch.road.get("id",-1))):continue
 		var path: PackedVector2Array = batch.path
 		var r: Dictionary = batch.road
 		var width := float(r.width) * PPM
-		var urban: bool = r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
+		var layer := Elevation.artwork_layer(r)
+		var urban: bool = layer == 0 and r.kind in ["local", "arterial"] and not TrackKerbs.is_track(r)
 		var gravel: bool = r.surface in ["GRAVEL","DIRT"]
 		if stage == 0:
-			if urban:
+			if Elevation.is_open_cut(r):
+				# Excavated ground is absent; the wider foundation is the
+				# exposed trench floor, not a painted-over terrain region.
+				draw_polyline(path,Color("625b50"),width+48.0,true)
+			if layer != 0:
+				if layer > 0:
+					_deck_supports(path,width,float(batch.phase),layer)
+					var shadow := PackedVector2Array()
+					for point_px in path:
+						shadow.append(point_px+Vector2(19,30)*layer)
+					draw_polyline(shadow,Color(.09,.12,.14,.38),width+16.0,true)
+					draw_polyline(shadow,Color("69746d"),width-7.0,true)
+				draw_polyline(path,Color("2d3740") if layer > 0 else Color("343931"),width+24.0,true)
+			elif urban:
 				# Both sides are real road-relative paths, not disconnected
 				# rectangles. Their mitered offsets follow every road bend.
 				for side in [-1.0, 1.0]:
@@ -260,6 +327,9 @@ func _roads(stage: int) -> void:
 				draw_polyline(path,Color("777a70"),width+35,true)
 				draw_polyline(path,Color("96958a"),width+23,true)
 		elif stage == 1:
+			if layer < 0:
+				draw_polyline(path,Color("333b42"),width,true)
+				continue
 			draw_polyline(path,Color("8b6946") if r.surface=="DIRT" else Color("a1947d") if gravel else Color("58656c"),width,true)
 			if not gravel:
 				_road_wear(path, r, width, float(batch.phase))
@@ -290,6 +360,22 @@ func _roads(stage: int) -> void:
 							draw_polyline(_offset(section.path,
 								float(side) * (width * .5 - 7.0)),
 								PAINT_WHITE, 3.0 if r.kind=="arterial" else 2.4, true)
+				if Elevation.is_open_cut(r):
+					for side in [-1.0,1.0]:
+						var rim := _offset(visible_path,side*(width*.5+24.0))
+						draw_polyline(rim,Color("3d3933"),11.0,true)
+						draw_polyline(rim,Color("b0a38d"),4.0,true)
+				if layer != 0:
+					for side in [-1.0,1.0]:
+						var wall := _offset(visible_path,side*width*.5)
+						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
+						if layer < 0:
+							var cursor := float(piece.phase)
+							for i in range(1,wall.size()):
+								var length := wall[i-1].distance_to(wall[i])
+								for span in dash_spans(cursor,length,16.0,174.0):
+									draw_line(wall[i-1].lerp(wall[i],float(span.from)),wall[i-1].lerp(wall[i],float(span.to)),Color("d8ad68"),5.0,true)
+								cursor += length
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
@@ -344,6 +430,15 @@ func _draw() -> void:
 	if render_stage < 3:
 		_roads(render_stage)
 		return
+	_portal_art()
+	for batch in road_batches:
+		var road_id := int(batch.road.id)
+		if editor_hidden.has(road_id):continue
+		var jump: Dictionary = world.jumps_by_road.get(road_id,{})
+		if not jump.is_empty():
+			var lip := point(jump.p)
+			if Rect2(Vector2.ZERO,extent_px).has_point(lip):
+				RoadJump.draw_footprint(self,jump,lip,Vector2(jump.direction[0],jump.direction[1]),false)
 	for j in junction_list:
 		var hidden:=false
 		for road_id in j.get("roads",[]):

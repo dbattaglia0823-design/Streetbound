@@ -1,4 +1,5 @@
 extends Node2D
+const RoadJump=preload("res://scripts/world/road_jump.gd")
 const CrashEffects=preload("res://scripts/visual/crash_effects.gd")
 ## Lightweight visual handling response. The old independent four-corner
 ## suspension/curb springs were removed: in a top-down view they separated the
@@ -74,6 +75,8 @@ func _process(delta: float) -> void:
 	var jolt := sin(_clock*45.0)*_impact
 	# Small shared movement keeps steering/impact readable without ever
 	# lifting individual tires or moving the body independently of its wheels.
-	position = Vector2(-_sway*1.6+jolt*1.2,_pitch*1.3+jolt*1.4)
+	var height_m := RoadJump.visual_height(vehicle)
+	var lift := Vector2(0.0,-height_m*6.0).rotated(-vehicle.global_rotation)
+	position = Vector2(-_sway*1.6+jolt*1.2,_pitch*1.3+jolt*1.4)+lift
 	rotation = -_sway*0.012+jolt*0.006
-	scale = Vector2.ONE
+	scale = Vector2.ONE*(1.0+height_m*.034)

@@ -51,7 +51,7 @@ static func _chunk(data: Dictionary,key: String) -> Dictionary:
 static func apply(data: Dictionary,legacy: Array) -> Dictionary:
 	var started:=Time.get_ticks_usec()
 	var mask:=Geometry.new();mask.prepare(data.terrain)
-	var spans:=mask.build(data.roads)
+	var spans:=mask.build(data.roads.filter(func(road: Dictionary) -> bool: return not road.has("elevation")))
 	var removed:=_old_wall_ids(data,legacy)
 	var remap: Dictionary={};var walls: Array=[]
 	for i in data.walls.size():

@@ -312,6 +312,8 @@ static func _temporary_unverified_body() -> Texture2D:
 static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	if entry.is_empty() or not is_instance_valid(player):
 		return false
+	if player.has_method("is_airborne") and bool(player.call("is_airborne")):
+		return false
 	var path := str(entry.get("texture", ""))
 	# Avoid calling load() on a non-existent asset: on Godot 4.6 it logs a
 	# resource ERROR even if the caller handles null, breaking render CI.

@@ -5,6 +5,7 @@
  * silently connected just because their wide shoulders touch.
  */
 import {clamp,distance,pointSegment,roadIntersections,sampleRoad} from './world-geometry.js';
+import {junctionLayer} from './world-road-elevation.js';
 import {pavedVsLoose,denseRoadPath} from './world-road-priority.js';
 const gridSize=160,MAX_WIDTH=160,MAX_SHOULDER=16;
 const junctionCache=new WeakMap();
@@ -124,7 +125,8 @@ export function buildRoadJunctions(roads){
   const index=roadSegmentIndex(roads),byId=new Map(roads.map(r=>[r.id,r]));
   const raw=roadIntersections(roads)
     .filter(j=>!pavedVsLoose(byId.get(j.roads[0]),byId.get(j.roads[1])))
-    .map(j=>({...j,kind:'crossing'}));
+    .map(j=>({...j,kind:'crossing',layer:junctionLayer(byId.get(j.roads[0]),j)}))
+    .filter(j=>j.layer!==null&&j.layer===junctionLayer(byId.get(j.roads[1]),j));
   const byPair=new Map();
   for(const j of raw){
     const pair=keyPair(j.roads);
@@ -139,7 +141,7 @@ export function buildRoadJunctions(roads){
     if(!path||path.length<2)continue;
     for(const [p,ownTangent] of [[path[0],unit(path[0],path[1])],
       [path.at(-1),unit(path.at(-2),path.at(-1))]]){
-      const bestByRoad=new Map();
+      const bestByRoad=new Map(),layer=junctionLayer(road,p);
       for(const s of candidates(index,p,MAX_WIDTH+MAX_SHOULDER*2+24)){
         if(s.road.id===road.id || pavedVsLoose(road,s.road))continue;
         const hit=pointSegment(p,s.a,s.b);
@@ -148,6 +150,8 @@ export function buildRoadJunctions(roads){
         const overlap=road.width/2+road.shoulder+other.width/2+other.shoulder+4;
         const angle=Math.abs(cross(ownTangent,s.tangent));
         if(hit.distance>overlap||(!isEnd&&angle<.27))continue;
+        if(layer===null||layer!==junctionLayer(other,hit))continue;
+        if((road.elevation||other.elevation)&&hit.distance>.12)continue;
         const prev=bestByRoad.get(other.id);
         if(!prev||hit.distance<prev.distance)
           bestByRoad.set(other.id,{x:(p.x+hit.x)/2,y:(p.y+hit.y)/2,roadId:other.id,
@@ -158,7 +162,7 @@ export function buildRoadJunctions(roads){
         const existing=byPair.get(pair)||[];
         const maxClose=Math.max(20,Math.min(road.width,byId.get(hit.roadId).width)*.65);
         if(existing.some(j=>distance(j,hit)<maxClose))continue;
-        const j={x:hit.x,y:hit.y,roads:[road.id,hit.roadId],kind:hit.kind};
+        const j={x:hit.x,y:hit.y,roads:[road.id,hit.roadId],kind:hit.kind,layer};
         raw.push(j);existing.push(j);byPair.set(pair,existing);
       }
     }
@@ -189,13 +193,14 @@ export function buildRoadJunctions(roads){
           {p:other.b,q:qOther,d:qOther.distance}
         ].sort((x,y)=>x.d-y.d)[0];
         const overlap=road.width*.5+other.road.width*.5;
-        if(nearest.d>overlap*.88)continue;
+        if(nearest.d>overlap*.88||road.elevation||other.road.elevation)continue;
+        const layer=0;
         const at={x:(nearest.p.x+nearest.q.x)*.5,y:(nearest.p.y+nearest.q.y)*.5};
         const prior=byPair.get(pair)||[];
         const separation=Math.max(24,Math.max(road.width,other.road.width)*1.15);
         if(prior.some(node=>distance(node,at)<separation))continue;
         examined.add(segmentKey);
-        const joint={...at,roads:[road.id,other.road.id],kind:'overlap'};
+        const joint={...at,roads:[road.id,other.road.id],kind:'overlap',layer};
         raw.push(joint);prior.push(joint);byPair.set(pair,prior);
       }
     }
@@ -205,10 +210,10 @@ export function buildRoadJunctions(roads){
   const nodes=[];
   for(const rawNode of raw){
     const threshold=Math.max(12,Math.min(...rawNode.roads.map(id=>byId.get(id)?.width||24))*.47);
-    const nearby=nodes.find(j=>distance(j,rawNode)<=threshold);
+    const nearby=nodes.find(j=>j.layer===rawNode.layer&&distance(j,rawNode)<=threshold);
     if(!nearby){
       nodes.push({x:rawNode.x,y:rawNode.y,roads:rawNode.roads.slice(),
-        kind:rawNode.kind,_count:1});
+        kind:rawNode.kind,layer:rawNode.layer,_count:1});
     }else{
       const n=nearby._count;
       nearby.x=(nearby.x*n+rawNode.x)/(n+1);
@@ -231,7 +236,8 @@ export function buildRoadJunctions(roads){
     const junction=polygonFor(j,index,byId);
     delete junction._count;
     junction.roads.sort();
-    junction.id='junction-'+Math.round(junction.x*100)+'-'+Math.round(junction.y*100);
+    junction.id='junction-'+Math.round(junction.x*100)+'-'+Math.round(junction.y*100)+(junction.layer?'@'+junction.layer:'');
+    if(!junction.layer)delete junction.layer;
     return junction;
   }).sort((a,b)=>a.x-b.x||a.y-b.y);
   junctionCache.set(roads,detailed);

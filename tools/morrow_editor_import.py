@@ -11,6 +11,9 @@ corrupting the entire streamed map.
 import json
 from authored_races import authored_races
 import math
+
+from road_elevation import set_profile
+from road_jumps import set_jump
 import re
 from project_asset_catalog import building_file, asset_id, resolve_asset
 from pathlib import Path
@@ -61,7 +64,7 @@ PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
     "rock": "9baba0", "beach": "e3d4aa", "ocean": "82b5b5",
     "lake": "82b5b5", "city": "b1b6a0", "desert": "d2bb91",
-    "farmland": "b4bd8a",
+    "farmland": "b4bd8a", "dirt": "795b3d", "asphalt": "737776",
 }
 LOOSE = {"DIRT", "GRAVEL"}
 
@@ -168,8 +171,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
     import zlib
 
     items = doc.get("props", [])
-    if not isinstance(items, list) or len(items) > 4000:
-        raise ValueError("At most 4000 editor-authored props may be baked")
+    limit = 8000 if doc.get("customMap") is True else 4000
+    if not isinstance(items, list) or len(items) > limit:
+        raise ValueError(f"At most {limit} editor-authored props may be baked")
     ids = set()
     result = []
     for raw in items:
@@ -426,6 +430,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             continue  # Newly introduced defaults absent from a legacy overlay.
         road = roads[index]
         entry = numbered[index]
+        set_profile(road, entry)
+        set_jump(road, entry)
         fresh = points(entry["points"], width, height)
         baseline = [list(p) for p in road["anchors"]]
         unchanged = (len(fresh) == len(baseline) and
@@ -448,6 +454,22 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             following = any(length(points(candidate["points"],width,height)[0],new)<.05 and
                             length(points(candidate["points"],width,height)[-1],old)<.05
                             for candidate_index,candidate in numbered.items() if candidate_index>=source_count)
+            # Point elevation edits can create several explicit grade sections.
+            # Follow only the generated, same-name section chain, preserving the
+            # stock node at the original endpoint even with no other neighbor.
+            if not following and name == road["end"]:
+                grade_prefix = str(entry.get("name", ""))[:60] + " / grade "
+                chain = [points(candidate["points"],width,height) for candidate_index,candidate in numbered.items()
+                         if candidate_index >= source_count and str(candidate.get("name","")).startswith(grade_prefix)]
+                cursor = new
+                while chain:
+                    choices = [i for i,path in enumerate(chain) if length(path[0],cursor)<.05]
+                    if len(choices)!=1:
+                        break
+                    cursor = chain.pop(choices[0])[-1]
+                    if length(cursor,old)<.05:
+                        following=True
+                        break
             neighbor_stays = any(other["id"]!=index and
                 any(other[end]==name and other["id"] in numbered and
                     length(points(numbered[other["id"]]["points"],width,height)[0 if end=="start" else -1],old)<.05
@@ -532,6 +554,8 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             if entry.get(key,"auto") not in ("auto","intersection","merge"):
                 raise ValueError("Invalid road junction mode")
             if key in entry: roads[-1][key]=entry[key]
+        set_profile(roads[-1], entry)
+        set_jump(roads[-1], entry)
     # Terrain changes are applied ONLY when they differ from the sampled
     # source projection. This protects high-detail coastlines on an untouched
     # import, where the browser preview can display only 180 handles.

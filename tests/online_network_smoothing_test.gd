@@ -73,6 +73,38 @@ func _run() -> void:
 	check("heading_wraps_across_pi_without_full_spin",
 		short_rotation.size() == 6 and
 		absf(absf(float(short_rotation[1])) - PI) < 0.01)
+	var grades: Array = []
+	Buffer.add_snapshot(grades, 0, _state(Vector2.ZERO, 0.0, Vector2.ZERO), -6.0)
+	Buffer.add_snapshot(grades, 40, _state(Vector2(12, 0), 0.0, Vector2.ZERO), -3.0)
+	check("signed_road_height_uses_the_position_interpolation_clock",
+		is_equal_approx(Buffer.sample_grade_height(grades, 60, 40), -4.5))
+	check("missing_packets_hold_last_authoritative_height",
+		is_equal_approx(Buffer.sample_grade_height(grades, 600, 40), -3.0))
+	Buffer.add_snapshot(grades, 80, _state(Vector2.ZERO, 0.0, Vector2.ZERO), 6.0)
+	check("positive_deck_height_is_preserved",
+		is_equal_approx(Buffer.sample_grade_height(grades, 120, 40), 6.0))
+	check("invalid_road_height_is_rejected",
+		not Buffer.valid_grade_height(INF) and not Buffer.valid_grade_height(NAN)
+		and not Buffer.valid_grade_height(12.1) and not Buffer.valid_grade_height("6"))
+	Buffer.add_snapshot(grades, 120, _state(Vector2.ZERO, 0.0, Vector2.ZERO))
+	check("legacy_movement_snapshot_defaults_to_ground",
+		is_zero_approx(Buffer.sample_grade_height(grades, 160, 40)))
+	var replica := VehicleController2D.new()
+	replica.set_physics_process(false)
+	replica.z_index = 8
+	replica.collision_layer = 0
+	replica.collision_mask = 0
+	replica.apply_remote_grade_visual(6.0)
+	check("render_only_replica_uses_deck_z_without_enabling_collision",
+		replica.road_layer == 1 and replica.z_index == 24
+		and replica.collision_layer == 0 and replica.collision_mask == 0)
+	replica.apply_remote_grade_visual(-6.0)
+	check("render_only_replica_preserves_signed_tunnel_layer",
+		replica.road_layer == -1 and is_equal_approx(replica.elevation_m, -6.0))
+	replica.apply_remote_grade_visual(0.0)
+	check("render_only_replica_restores_ground_z",
+		replica.road_layer == 0 and replica.z_index == 8)
+	replica.free()
 	var online_session: Node = root.get_node_or_null("OnlineSession")
 	check("disconnected_session_has_no_fake_ping_statistic",
 		online_session != null and online_session.network_stats().is_empty())

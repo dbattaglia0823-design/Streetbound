@@ -6,9 +6,10 @@
  * Inspired by OSM JOSM checks: tiny/repeated segments, unintended crossings,
  * nearby disconnected endpoints, invalid areas and obstructed sites.
  */
-import {distance,polygonArea,pointSegment,segmentIntersection,sampleRoad} from './world-geometry.js';
+import {distance,polygonArea,pointSegment,segmentIntersection,sampleRoad,roadIntersections} from './world-geometry.js';
 import {roadwayClearance,placementFootprint,nearestRoadPlacement} from './world-road-placement.js';
 import {buildRoadJunctions} from './world-junctions.js';
+import {normalizeRoadElevation,junctionLayer,previewHeightAt} from './world-road-elevation.js';
 import {findEndpointGaps} from './world-safe-edit.js';
 import {nativeAdoptedRadius} from './morrow-runtime-preview.js';
 
@@ -87,6 +88,61 @@ export function auditWorld(doc,{maxIssues=180}={}){
       add('warning','road_self_crossing',road,crossing,
         'Road crosses itself. This planar map cannot represent an overpass.',
         'Move control points, split the road, or model an explicit grade-separated crossing.');
+    }
+  }
+
+  // Elevation health: check profiles, grade crossings and objective access.
+  // The exact bake is authoritative for curves, so preview findings are
+  // warnings except for invalid authored profile values.
+  const elevated=doc.roads.filter(r=>r.elevation);
+  if(elevated.length||(doc.races??[]).some(r=>r.points.some(p=>p.road_layer))||doc.markers.some(m=>m.properties?.road_layer)){
+    const byId=new Map(doc.roads.map(r=>[r.id,r]));
+    const parents=new Map(doc.roads.map(r=>[r.id,r.id]));
+    const root=id=>{while(parents.get(id)!==id)id=parents.get(id);return id;};
+    for(const junction of junctions){
+      const ids=junction.roads.filter(id=>parents.has(id));
+      for(let i=1;i<ids.length;i++)parents.set(root(ids[i]),root(ids[0]));
+    }
+    for(const road of elevated){
+      try{normalizeRoadElevation(road.elevation,road.points);}
+      catch(e){add('error','invalid_elevation',road,pointOf(road),e.message);}
+    }
+    for(const cross of roadIntersections(doc.roads)){
+      const [a,b]=cross.roads.map(id=>byId.get(id));
+      if(!a.elevation&&!b.elevation)continue;
+      const la=junctionLayer(a,cross),lb=junctionLayer(b,cross);
+      if(la!==null&&la===lb)continue;
+      const clearance=Math.abs(previewHeightAt(a,cross).height-previewHeightAt(b,cross).height);
+      if(clearance<4.5)add('warning','grade_clearance',a,cross,'Estimated crossing clearance '+clearance.toFixed(1)+' m is below 4.5 m.','Adjust grade or check exact production bake.');
+    }
+    const access=(point,layer,entity)=>{
+      const components=new Set();
+      for(const road of doc.roads){
+        const p=previewHeightAt(road,point);
+        if(p.distance<=(layer===0?22:road.width/2-.85)&&Math.abs(p.height-layer*6)<.65)components.add(root(road.id));
+      }
+      if(!components.size)add('warning','objective_layer_access',entity,point,'No nearby pavement on objective layer '+layer+'.','Move the objective onto the intended road level.');
+      return components;
+    };
+    const route=(items,entity)=>{
+      const sets=items.map(([p,l])=>access(p,l,entity));
+      if(sets.length&&sets.every(set=>set.size)&&![...sets[0]].some(id=>sets.every(set=>set.has(id))))
+        add('warning','objective_disconnected',entity,items[0][0],'Objectives appear to use disconnected road components.','Connect the required road levels with ramps.');
+    };
+    for(const race of doc.races??[]){
+      if(race.points.some(p=>p.road_layer))route(race.points.map(p=>[p,p.road_layer??0]),race);
+    }
+    const markers=new Map(doc.markers.map(m=>[m.id,m]));
+    for(const marker of doc.markers){
+      const info=marker.properties??{},layer=info.road_layer??0;
+      if(layer)access(marker,layer,marker);
+      for(const offer of marker.type==='contract_contact'?info.offers??[]:marker.type==='contract'?[info]:[]){
+        const items=[[marker,layer]];
+        for(const key of ['robbery_marker_id','destination_marker_id']){
+          const target=markers.get(offer[key]);if(target)items.push([target,target.properties?.road_layer??0]);
+        }
+        if(items.length>1&&items.some(([,l])=>l))route(items,marker);
+      }
     }
   }
 

@@ -232,6 +232,10 @@
     <div class="visibility-list">
       <label class="check"><input type="checkbox" id="show-terrain" checked> Terrain regions</label>
       <label class="check"><input type="checkbox" id="show-roads" checked> Roads and curves</label>
+      <div class="field"><label for="visible-road-layer">Road elevation</label>
+        <select id="visible-road-layer"><option value="all">All layers</option><option value="-2">−12 m</option>
+          <option value="-1">−6 m</option><option value="0">Ground</option>
+          <option value="1">+6 m</option><option value="2">+12 m</option></select></div>
       <label class="check"><input type="checkbox" id="show-junctions" checked> Game-style live intersections</label>
       <label class="check"><input type="checkbox" id="show-road-priority" checked> Dirt/gravel cutoffs at pavement</label>
       <label class="check"><input type="checkbox" id="show-road-gaps" checked> Suggested road-end connections</label>
@@ -276,6 +280,27 @@
         <div class="field"><label for="inspect-road-surface">Surface</label><select id="inspect-road-surface"><option value="asphalt">Asphalt</option><option value="concrete">Concrete</option><option value="dirt">Dirt</option><option value="gravel">Gravel</option><option value="track">Racing asphalt</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-road-width">Width</label><input id="inspect-road-width" type="number" min="6" max="160"></div><div class="field"><label for="inspect-road-lanes">Lanes</label><input id="inspect-road-lanes" type="number" min="1" max="6"></div></div>
         <div class="field"><label for="inspect-road-shoulder">Shoulder</label><input id="inspect-road-shoulder" type="number" min="0" max="16"></div>
+        <div class="double-fields">
+          <div class="field"><label for="road-start-layer">Start layer</label><input id="road-start-layer" type="number" min="-2" max="2" step="1"></div>
+          <div class="field"><label for="road-end-layer">End layer</label><input id="road-end-layer" type="number" min="-2" max="2" step="1"></div>
+        </div>
+        <button id="apply-road-elevation" class="gdt-btn" type="button">Apply road elevation</button>
+        <p id="road-elevation-summary" class="muted-copy"></p>
+        <details id="road-point-elevation-editor">
+          <summary>Individual point elevations</summary>
+          <p class="muted-copy">Set each control point's layer. Apply saves all heights on this road in one undoable edit. Changing one layer needs at least 50 m between points.</p>
+          <svg id="road-point-profile" viewBox="0 0 320 126" style="width:100%;height:auto" role="img" aria-label="Road elevation profile"></svg>
+          <div id="road-point-elevation-fields"></div>
+          <button id="apply-road-point-elevations" class="gdt-btn" type="button">Apply point elevations</button>
+        </details>
+        <details id="road-jump-editor">
+          <summary>Stunt jump</summary>
+          <label class="check"><input id="road-jump-enabled" type="checkbox"> Add jump ramp</label>
+          <label class="check"><input id="road-jump-reverse" type="checkbox"> Launch toward road start</label>
+          <div id="road-jump-fields"></div>
+          <button id="apply-road-jump" class="gdt-btn" type="button">Apply jump</button>
+          <p class="muted-copy">Use a straight paved road. The full bake checks obstacles, crossings, and terrain.</p>
+        </details>
         <label class="check"><input id="inspect-road-smooth" type="checkbox"> Smooth curves</label>
         <label class="check"><input id="inspect-road-markings" type="checkbox"> Road markings</label>
         <div class="point-editor">
@@ -341,6 +366,7 @@
           </div>
           <p class="asset-hint" id="contact-editor-help">Jobs are saved in marker properties and validated before publishing. Changing the title preserves career progression; duplicates use new IDs.</p>
         </div>
+        <div class="field"><label for="inspect-marker-layer">Objective road layer</label><select id="inspect-marker-layer"><option value="-2">-2 (-12 m)</option><option value="-1">-1 (-6 m)</option><option value="0">0 (0 m)</option><option value="1">1 (6 m)</option><option value="2">2 (12 m)</option></select></div>
         <div class="field"><label for="inspect-properties">Game properties (JSON)</label><textarea id="inspect-properties" rows="5" spellcheck="false"></textarea></div>
       </div>
       
@@ -378,6 +404,7 @@
         <div class="field"><label for="race-edit-select">Choose existing race</label><select id="race-edit-select"><option value="">No authored races loaded</option></select></div>
         <div id="race-edit-form" hidden>
           <div class="event-summary" id="race-edit-summary"></div>
+          <details><summary>Individual race objective elevations</summary><div id="race-objective-layer-fields"></div></details>
           <div class="field"><label for="race-edit-name">Race name</label><input id="race-edit-name" maxlength="80"></div>
           <div class="double-fields">
             <div class="field"><label for="race-edit-category">Career category</label><select id="race-edit-category"><option value="street">Street</option><option value="circuit">Circuit</option><option value="time_trial">Time trial</option><option value="championship">Championship</option><option value="challenge">Challenge</option></select></div>

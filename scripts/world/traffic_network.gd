@@ -5,6 +5,7 @@ extends RefCounted
 ## painted intersections. Skips dirt/gravel and racing-track roads.
 const PPM := 20.0
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
+const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SPEEDS := {"local": 36.0, "arterial": 51.0, "highway": 82.0,
 	"rural": 60.0, "mountain": 34.0, "alley": 20.0, "onramp": 50.0}
 const CELL_M := 192.0
@@ -98,7 +99,8 @@ func _road_cuts(data: Dictionary, road: Dictionary, road_id: int, total: float) 
 			if s<1.0 or total-s<1.0:
 				continue
 			result.append({"station":s,"junction":j,"side":int(arm.side),
-				"node":"","control":str(arm.control)})
+				"node":"","control":str(arm.control),"signal_slot":int(arm.get("signal_slot",-1)),
+				"allowed_turns":arm.get("allowed_turns",junction.get("allowed_turns",["left","straight","right"])),"lane_turns":arm.get("lane_turns",{})})
 	result.sort_custom(func(a: Dictionary,b: Dictionary)->bool:
 		return float(a.station)<float(b.station))
 	# Near-duplicate junction cuts can leave zero-length lanes. Keep one
@@ -142,7 +144,9 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 		junction_geometry[i]={"polygon":polygon,"segments":segments,
 			"ramp_road":int(junction.get("ramp_road",-1)),"main_road":int(junction.get("main_road",-1)),
 			"merge_side":int(junction.get("merge_side",0)), "through_road":int(junction.get("through_road",junction.get("main_road",-1))),
-			"through_side":int(junction.get("through_side",-int(junction.get("merge_side",0))))}
+			"through_side":int(junction.get("through_side",-int(junction.get("merge_side",0)))),
+			"allowed_turns":junction.get("allowed_turns",["left","straight","right"]),"signal_count":int(junction.get("signal_count",0)),
+			"authored_control":bool(junction.get("authored_control",false))}
 	var incoming: Dictionary = {}
 	var outgoing: Dictionary = {}
 	var incoming_ends: Dictionary = {}
@@ -196,9 +200,17 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 						"start_j":int(start.junction),"end_j":int(ending.junction),
 						"start_side":int(start.side),"end_side":int(ending.side),
 						"start_node":str(start.node),"end_node":str(ending.node),
-						"control":str(ending.get("control","none")),
-						"kind":kind,"width_m":float(road.width)
+						"control":str(ending.get("control","none")),"signal_slot":int(ending.get("signal_slot",-1)),
+						"allowed_turns":ending.get("allowed_turns",["left","straight","right"]),"lane_turns":ending.get("lane_turns",{}),
+						"kind":kind,"width_m":float(road.width),
+						"grade_road":road.has("elevation"),
+						"start_height_m":Elevation.height_at(road,float(start.station)/total),
+						"end_height_m":Elevation.height_at(road,float(ending.station)/total)
 					})
+					if road.has("grade_smooth"):
+						edges[edge_id]["grade_profile"]={"elevation":road.elevation,"grade_smooth":road.grade_smooth}
+						edges[edge_id]["grade_from"]=float(start.station)/total
+						edges[edge_id]["grade_to"]=float(ending.station)/total
 					if int(ending.junction)>=0:
 						var j_key := int(ending.junction)
 						if not incoming.has(j_key):incoming[j_key]=[]
@@ -279,6 +291,10 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 		var source: Dictionary = edges[int(from_id)]
 		for to_id in to_ids:
 			var target: Dictionary = edges[int(to_id)]
+			# Named endpoints are shared in XY by old archives and authoring
+			# tools. Only roads meeting on the same layer can continue there.
+			if junction<0 and absf(float(source.end_height_m)-float(target.start_height_m))>.01:
+				continue
 			if junction>=0 and int(source.road)==int(target.road) and int(source.end_side)==int(target.start_side):
 				continue
 			if int(source.road)==int(target.road) and int(source.direction)!=int(target.direction):
@@ -287,6 +303,9 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 			if turn=="u_turn":
 				continue
 			var first_lane := int(source.lane)
+			if junction>=0:
+				if turn not in source.get("allowed_turns",["left","straight","right"]):continue
+				if turn not in source.get("lane_turns",{}).get(str(first_lane),["left","straight","right"]):continue
 			var first_count := int(source.lanes_in_direction)
 			var target_lane := int(target.lane)
 			var target_count := int(target.lanes_in_direction)
@@ -322,7 +341,7 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				continue # A stale shared node name must never create an off-road shortcut.
 			var t0 := (p0-from_path[from_path.size()-2]).normalized()
 			var t1 := (to_path[1]-p1).normalized()
-			if p0.distance_to(p1)<.1 and t0.dot(t1)>.98:
+			if p0.distance_to(p1)<.1 and t0.dot(t1)>.98 and not bool(junction_geometry.get(junction,{}).get("authored_control",false)):
 				# Coincident continuations need no artificial cubic loop.
 				edges[int(from_id)]["next"].append(int(to_id))
 				continue
@@ -339,7 +358,10 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				"start_j":junction,"end_j":junction,"start_side":int(source.end_side),
 				"end_side":int(target.start_side),"start_node":"","end_node":"",
 				"control":approach_control,"junction_control":control,
-				"kind":"connector","turn":turn
+				"signal_slot":int(source.get("signal_slot",-1)),"signal_count":int(junction_geometry.get(junction,{}).get("signal_count",0)),
+				"kind":"connector","turn":turn,
+				"grade_road":bool(source.grade_road) or bool(target.grade_road),
+				"start_height_m":source.end_height_m,"end_height_m":target.start_height_m
 			})
 			edges[id]["next"]=[int(to_id)]
 			edges[int(from_id)]["next"].append(id)
@@ -398,7 +420,9 @@ func point_on_edge(edge_id: int, progress_px: float) -> Dictionary:
 	var tangent := (after - before).normalized()
 	if tangent.length_squared() < 0.1:
 		tangent = (points[high] - points[low]).normalized()
-	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5}
+	var height_m := Elevation.edge_height_at(edge,offset)
+	return {"position":p,"tangent":tangent,"angle":tangent.angle()+PI*0.5,
+		"height_m":height_m,"road_layer":Elevation.layer_for_height(height_m)}
 
 
 func curve_speed_limit(edge_id: int, progress_px: float, desired_px: float) -> float:
@@ -435,7 +459,7 @@ func nearby_edges(position_px: Vector2,range_m := 350.0) -> Array[int]:
 ## so recovery also works after crossing a junction or leaving the current
 ## road entirely. The vehicle physically steers to the lane, never teleports.
 func recovery_target(position_px: Vector2, travel_heading: Vector2,
-		preferred_edge: int = -1, lookahead_px: float = PPM * 9.0) -> Dictionary:
+		preferred_edge: int = -1, lookahead_px: float = PPM * 9.0, height_m: float = 0.0) -> Dictionary:
 	var nearby: Array[int] = nearby_edges(position_px, 110.0)
 	if preferred_edge >= 0 and preferred_edge < edges.size() and not nearby.has(preferred_edge):
 		nearby.append(preferred_edge)
@@ -460,6 +484,9 @@ func recovery_target(position_px: Vector2, travel_heading: Vector2,
 			var dist := position_px.distance_to(p)
 			if dist > PPM * 55.0:
 				continue
+			var progress := float(stations[i-1])+sqrt(len_sq)*t
+			if absf(Elevation.edge_height_at(edge,progress)-height_m) > 1.2:
+				continue
 			var tangent := segment.normalized()
 			var facing := tangent.dot(direction)
 			# Never turn around into oncoming traffic just to choose a
@@ -472,7 +499,6 @@ func recovery_target(position_px: Vector2, travel_heading: Vector2,
 				score -= PPM * 4.0
 			if score < best_score:
 				best_score = score
-				var progress := float(stations[i - 1]) + sqrt(len_sq) * t
 				best = {"edge":id,"progress":progress,"distance_px":dist,
 					"nearest":p,"heading":tangent}
 	if best.is_empty():

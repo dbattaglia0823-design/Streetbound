@@ -68,6 +68,30 @@ var lane_button: Button
 var junction_button: Button
 var selected: Dictionary = {}
 const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
+const WorkspaceData=preload("res://scripts/dev/native_editor_workspace.gd")
+const WorkspaceUI=preload("res://scripts/dev/native_workspace_tools.gd")
+var workspace_tools:=WorkspaceUI.new()
+const GameplayAuthoring=preload("res://scripts/dev/native_gameplay_authoring.gd")
+var gameplay_authoring:=GameplayAuthoring.new()
+var last_asset_entry: Dictionary={}
+const Construction=preload("res://scripts/dev/native_city_construction.gd")
+const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
+var landscape_dialog: AcceptDialog
+var landscape_fields: Dictionary={}
+var landscape_mode: OptionButton
+var landscape_file: FileDialog
+var landscape_settings: Dictionary={}
+var landscape_session: RefCounted
+var construction_dialog: AcceptDialog
+var construction_mode: OptionButton
+var construction_fields: Dictionary={}
+var construction_summary: Label
+var construction_canvas: Control
+var construction_plan: Dictionary={}
+var construction_revision:=-1
+var construction_session: RefCounted
+var construction_center:=Vector2.ZERO
+var construction_road_id:=""
 var multi_selection: Array[String]=[]
 var marquee_start:=Vector2.ZERO
 var marquee_tracking:=false
@@ -102,6 +126,22 @@ var source_anchor := -1
 var pending_drag: Dictionary = {}
 var drag_position := Vector2.ZERO
 var snap_m := 1.0
+var grid_spacing_m := 1.0
+var road_selection_layer := 99
+var isolate_road_layer:=false
+var lock_other_roads:=false
+var angle_snap_degrees:=0.0
+var prefab_dialog: AcceptDialog
+var prefab_list: ItemList
+var prefab_name: LineEdit
+var prefab_records: Array[Dictionary]=[]
+var copied_group: Dictionary={}
+var bulk_dialog: AcceptDialog
+var bulk_category: OptionButton
+var bulk_property: OptionButton
+var bulk_value: LineEdit
+var history_dialog: AcceptDialog
+var history_items: ItemList
 const MIN_EDITOR_ZOOM := 0.00025
 const MAX_EDITOR_ZOOM := 5.0
 var authoring_notice: Label
@@ -168,6 +208,16 @@ var _space_pan:=false
 var road_surface: OptionButton
 var road_width: SpinBox
 var road_lanes: SpinBox
+var road_elevation_controls: VBoxContainer
+var road_start_layer: SpinBox
+var road_jump_enabled: CheckBox
+var road_jump_reverse: CheckBox
+var road_jump_fields: Dictionary = {}
+var road_jump_options: VBoxContainer
+var road_end_layer: SpinBox
+var road_point_elevation_fields: VBoxContainer
+var road_point_layer_inputs: Array[SpinBox] = []
+var road_point_profile_key := ""
 var road_class: OptionButton
 var inspector_road_type: OptionButton
 var inspector_road_type_fields: Control
@@ -434,7 +484,14 @@ func _register_project_asset(relative: String, label: String, texture: Texture2D
 		"region":region.duplicate(),"collision":collision,"world_size":size})
 
 
+func _open_workspace_commands() -> void:
+	workspace_tools.setup(self);workspace_tools.open_commands()
+
+func _toggle_asset_favorite() -> void:
+	workspace_tools.setup(self);workspace_tools.toggle_favorite(last_asset_entry)
+
 func _filter_assets() -> void:
+	workspace_tools.setup(self)
 	if not is_instance_valid(asset_grid):
 		return
 	for node in asset_grid.get_children():
@@ -462,10 +519,11 @@ func _filter_assets() -> void:
 			continue
 		if category == 8 and entry.get("region",[]).size()!=4:
 			continue
+		if category == 9 and not workspace_tools.favorite(entry):continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
 		button.custom_minimum_size = Vector2(98,106)
-		button.tooltip_text = str(entry.name)
+		button.tooltip_text = ("Favorite · " if workspace_tools.favorite(entry) else "")+str(entry.name)
 		if entry.get("region",[]).size()==4:button.tooltip_text+="\nSheet: "+str(entry.path).get_file().get_basename()
 		button.pressed.connect(_select_asset.bind(entry))
 		var tile := VBoxContainer.new()
@@ -496,6 +554,7 @@ func _filter_assets() -> void:
 
 
 func _select_asset(entry: Dictionary) -> void:
+	last_asset_entry=entry
 	if _editing_locked():
 		return
 	if bool(entry.get("project",false)):
@@ -529,16 +588,28 @@ func _update_context_panels() -> void:
 	marker_editor.edit_button.visible=bool(context.marker) and record.get("category","")=="markers"
 	marker_kind.visible=tool_name=="place_marker"
 	asset_dock.visible=bool(context.assets)
-	finish_button.visible=bool(context.shape_actions)
-	cancel_button.visible=bool(context.shape_actions) or not pending_drag.is_empty()
+	finish_button.visible=bool(context.shape_actions) or tool_name=="draw_river"
+	cancel_button.visible=bool(context.shape_actions) or tool_name=="draw_river" or not pending_drag.is_empty()
 	var road_selected: bool=bool(context.road) and record.get("category","")=="roads"
-	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
+	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail","draw_river"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
+	road_elevation_controls.visible=road_selected and tool_name!="draw_road"
 	if road_selected and tool_name!="draw_road":
 		_setting_controls=true
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
+		var jump: Dictionary = road.get("jump",{})
+		road_jump_enabled.set_pressed_no_signal(not jump.is_empty())
+		road_jump_options.visible = not jump.is_empty()
+		road_jump_reverse.button_pressed = bool(jump.get("reverse",false))
+		var fields: Dictionary = preload("res://scripts/world/road_jump.gd").FIELDS
+		for key in road_jump_fields:
+			road_jump_fields[key].value = float(jump.get(key,fields[key][2]))
+		var elevation: Dictionary=road.get("elevation",{})
+		road_start_layer.value=float(elevation.get("start_layer",0))
+		road_end_layer.value=float(elevation.get("end_layer",0))
+		_refresh_point_elevation_fields(road)
 		for option in [road_class,road_surface]:
 			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
 			for i in option.item_count:
@@ -724,12 +795,15 @@ func _notice(message: String) -> void:
 	if is_instance_valid(authoring_notice):
 		authoring_notice.text = message
 
+func _workspace_selectable(id: String) -> bool:
+	return not layer_flags.get("workspace_excluded",{}).has(id)
+
 func _prune_multi_selection() -> void:
 	if multi_selection.is_empty():return
 	var live: Dictionary={}
 	for category in ["props","markers","regions","roads"]:
 		for entry in authoring.doc.get(category,[]):
-			if not bool(entry.get("hidden",false)):live[str(entry.get("id",""))]=true
+			if not bool(entry.get("hidden",false)) and _workspace_selectable(str(entry.id)):live[str(entry.get("id",""))]=true
 	var valid: Array[String]=[]
 	for id in multi_selection:
 		if live.has(id):valid.append(id)
@@ -759,6 +833,7 @@ func _set_multi(ids: Array[String]) -> void:
 			details.text="%d OBJECTS SELECTED\nDrag a selected object to move all.\nCtrl+D duplicate · Delete remove · Shift+drag add/remove."%multi_selection.size()
 
 func _selection_hit(at: Vector2) -> String:
+	if road_selection_layer!=99:return str(_pick_source_road(at).get("id",""))
 	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
 		var id:=str(hit.get("id",""))
 		if not id.is_empty():return id
@@ -792,7 +867,7 @@ func _start_canvas_selection(at: Vector2,additive: bool=false) -> void:
 		_set_multi([source_id])
 
 func _select_baked_with_marquee(area: Rect2,ids: Array[String]) -> void:
-	if map_switcher.custom or not bool(layer_flags.get("scenery",true)):return
+	if road_selection_layer!=99 or map_switcher.custom or not bool(layer_flags.get("scenery",true)):return
 	var garage=preload("res://scripts/world/garage_geometry.gd")
 	for index in MultiSelect.baked_indices_in_rect(world.data,area):
 		var item: Dictionary=world.data.props[index]
@@ -823,7 +898,7 @@ func _end_marquee(at: Vector2) -> void:
 			# Box Select tool never turns this into an object drag.
 			if tool_name=="select_box":
 				var clicked:=_selection_hit(at)
-				if clicked.is_empty() and not map_switcher.custom:
+				if clicked.is_empty() and not map_switcher.custom and road_selection_layer==99:
 					var nearest: Dictionary=_nearest_prop(at)
 					if nearest.get("kind","")=="prop":
 						clicked=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
@@ -834,7 +909,7 @@ func _end_marquee(at: Vector2) -> void:
 				if not source_id.is_empty():ids.append(source_id)
 		else:
 			var hit:=_selection_hit(at)
-			if hit.is_empty() and not map_switcher.custom:
+			if hit.is_empty() and not map_switcher.custom and road_selection_layer==99:
 				var nearest: Dictionary=_nearest_prop(at)
 				if nearest.get("kind","")=="prop":
 					hit=_ensure_editable_runtime_prop(world.data.props[int(nearest.index)])
@@ -894,6 +969,7 @@ func _open_dealership_editor() -> void:
 func _choose_tool(mode: String) -> void:
 	if _editing_locked():
 		return
+	if mode!="measure":workspace_tools.clear_measure()
 	if not source_ready and mode != "inspect":
 		_notice("Source unavailable. The map can still be inspected.")
 		return
@@ -940,9 +1016,15 @@ func _choose_tool(mode: String) -> void:
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	workspace_tools.setup(self)
+	workspace_tools.refresh()
+	if source_ready:
+		layer_flags["workspace_excluded"]=WorkspaceData.excluded(authoring.doc,true)
+		gizmos.layer_flags=layer_flags.duplicate()
+		_prune_multi_selection()
 	if source_ready and not source_id.is_empty():
 		var record:=_selected_record()
-		if record.is_empty() or bool(record.item.get("hidden",false)):source_id="";source_anchor=-1
+		if record.is_empty() or bool(record.item.get("hidden",false)) or not _workspace_selectable(source_id):source_id="";source_anchor=-1
 		elif record.category=="roads" and source_anchor>=record.item.points.size():source_anchor=-1
 	_sync_editor_preview()
 	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag) if source_ready else {}
@@ -955,6 +1037,7 @@ func _refresh_authoring() -> void:
 			BridgeArt.editor_hidden=bridge_preview.hidden.duplicate()
 			_redraw_roads();_update_overview_mask()
 	if not map_switcher.custom:_sync_road_preview(preview_doc)
+	elif is_instance_valid(gizmos):gizmos.layer_flags=layer_flags.duplicate()
 	_update_source_details()
 	_save_recovery()
 	_update_context_panels()
@@ -966,7 +1049,7 @@ func _refresh_authoring() -> void:
 		# Only committed road edits trigger topology work, never pointer motion.
 		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
 		_update_traffic_preview()
-		gizmos.set_draft(preview_doc,{} if map_switcher.custom else authoring.initial,
+		gizmos.set_draft(WorkspaceData.preview(preview_doc) if map_switcher.custom else preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
 			source_id,source_anchor)
 		gizmos.group_selected_ids=multi_selection.duplicate()
@@ -1073,15 +1156,141 @@ func _rotate_selected(degrees: float) -> void:
 		return
 	if not source_ready or source_id.is_empty():
 		return
+	if angle_snap_degrees>0.0 and not Input.is_physical_key_pressed(KEY_ALT):
+		var prop: Dictionary=authoring.prop_at_id(source_id)
+		if not prop.is_empty():degrees=snappedf(float(prop.rotation)+degrees,angle_snap_degrees)-float(prop.rotation)
 	if authoring.rotate_prop(source_id,degrees):
 		_refresh_authoring()
 		_notice("Asset and collision rotated %.0f° in editor. Save to Game when ready." % degrees)
 
+func _set_angle_spacing(value: float) -> void:
+	angle_snap_degrees=value
+	if is_instance_valid(gizmos):gizmos.angle_guide_degrees=value;gizmos.queue_redraw()
+
+func _angle_snap_point(origin: Vector2,target: Vector2) -> Vector2:
+	if angle_snap_degrees<=0.0 or Input.is_physical_key_pressed(KEY_ALT):return target
+	var delta:=target-origin
+	if delta.length()<.01:return target
+	var angle:=snappedf(delta.angle(),deg_to_rad(angle_snap_degrees))
+	return origin+Vector2.RIGHT.rotated(angle)*delta.length()
+
+func _arrange_selection(mode: String,axis: int) -> void:
+	if _editing_locked() or not source_ready:return
+	if authoring.arrange_props(multi_selection,mode,axis):
+		_refresh_authoring();_notice("Aligned selection in one undo step." if mode=="align" else "Distributed selection in one undo step.")
+	else:_notice(authoring.last_error)
+
+func _set_grid_spacing(value: float) -> void:
+	grid_spacing_m=value
+	if snap_m>0:snap_m=value
+	_refresh_grid_label()
+
+func _refresh_grid_label() -> void:
+	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: "+str(snap_m)+" m"
+
 func _toggle_snap() -> void:
-	snap_m = 0.0 if snap_m > 0.0 else 1.0
-	grid_button.text="Snap to grid: off" if snap_m==0 else "Snap to grid: 1 m"
-	_notice("Grid snapping %s; linked endpoints stay connected." % [
-		"disabled" if snap_m == 0.0 else "set to 1 metre"])
+	snap_m = 0.0 if snap_m > 0.0 else grid_spacing_m
+	_refresh_grid_label()
+	_notice("Grid snapping disabled." if snap_m==0 else "Grid snapping set to "+str(snap_m)+" m.")
+
+func _bulk_fields() -> void:
+	bulk_property.clear()
+	var category:=_option_value(bulk_category)
+	var fields: Array={"roads":["width","lanes","roadClass","surface","elevation","markings"],"props":["scale","scaleX","scaleY","rotation","roadFacing"],"regions":["biome","elevation","barrier"]}[category]
+	for field in fields:
+		bulk_property.add_item(str(field));bulk_property.set_item_metadata(bulk_property.item_count-1,field)
+	bulk_property.select(0)
+	_bulk_hint()
+
+func _bulk_hint() -> void:
+	var field:=_option_value(bulk_property)
+	var examples: Dictionary={"width":"6–160 metres","lanes":"1–6","roadClass":"city / highway / country / mountain / service / track / alley / onramp","surface":"asphalt / concrete / gravel / dirt / track","elevation":"Road layer -2 to +2; region height in metres","markings":"true / false","roadFacing":"true / false","barrier":"true / false","biome":"grass / forest / rock / mountain / beach / lake / ocean / farmland / city / desert","scale":"0.2–5","scaleX":"0.2–5","scaleY":"0.2–5","rotation":"Degrees"}
+	bulk_value.placeholder_text=str(examples.get(field,"Value"))
+	bulk_value.text=""
+
+func _open_bulk_edit() -> void:
+	if _editing_locked() or not source_ready:return
+	if multi_selection.is_empty() and source_id.is_empty():
+		_notice("Select objects before opening Bulk edit.")
+		return
+	if not is_instance_valid(bulk_dialog):
+		bulk_dialog=AcceptDialog.new()
+		bulk_dialog.title="Bulk edit selected objects"
+		bulk_dialog.ok_button_text="Apply in one undo step"
+		bulk_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(bulk_dialog)
+		var panel:=VBoxContainer.new();bulk_dialog.add_child(panel)
+		bulk_category=_options(panel,"Apply to selected category",["roads","props","regions"])
+		bulk_property=OptionButton.new();panel.add_child(bulk_property)
+		bulk_value=LineEdit.new();panel.add_child(bulk_value)
+		bulk_category.item_selected.connect(func(_i: int)->void:_bulk_fields())
+		bulk_property.item_selected.connect(func(_i: int)->void:_bulk_hint())
+		bulk_dialog.confirmed.connect(_apply_bulk_edit)
+	_bulk_fields()
+	bulk_dialog.popup_centered(Vector2i(540,185))
+
+func _apply_bulk_edit() -> void:
+	if _editing_locked():return
+	var ids: Array[String]=multi_selection.duplicate()
+	if ids.is_empty() and not source_id.is_empty():ids.append(source_id)
+	var category:=_option_value(bulk_category)
+	var key:=_option_value(bulk_property)
+	var raw:=bulk_value.text.strip_edges().to_lower()
+	var value: Variant=raw
+	if key in ["markings","roadFacing","barrier"]:
+		if raw not in ["true","false"]:_notice("Enter true or false.");return
+		value=raw=="true"
+	elif key=="elevation" and category=="roads":
+		if not raw.is_valid_int() or absi(int(raw))>2:_notice("Enter a road layer from -2 to +2.");return
+		value={"start_layer":int(raw),"end_layer":int(raw)}
+	elif key in ["width","lanes","elevation","scale","scaleX","scaleY","rotation"]:
+		if not raw.is_valid_float() or not is_finite(float(raw)):_notice("Enter a finite number.");return
+		if key=="lanes":
+			if not raw.is_valid_int():_notice("Lane count must be a whole number.");return
+			value=int(raw)
+		else:value=float(raw)
+	if key=="biome" and raw not in ["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert","dirt","asphalt"]:_notice("Unknown terrain material.");return
+	if key=="elevation" and category=="regions" and (float(value)<0 or float(value)>2000):_notice("Height must be between 0 and 2000 m.");return
+	if authoring.bulk_properties(ids,category,{key:value}):
+		_refresh_authoring();_notice("Bulk property updated in one undo step.")
+	else:_notice(authoring.last_error)
+
+func _open_history() -> void:
+	if _editing_locked() or not source_ready:return
+	if not is_instance_valid(history_dialog):
+		history_dialog=AcceptDialog.new();history_dialog.title="Edit history"
+		history_dialog.ok_button_text="Restore selected state"
+		history_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(history_dialog)
+		history_items=ItemList.new();history_items.custom_minimum_size=Vector2(520,300)
+		history_dialog.add_child(history_items)
+		history_dialog.confirmed.connect(_restore_history)
+	history_items.clear()
+	for i in authoring.history.size():
+		_add_history_row(authoring.history[i],i-authoring.history.size())
+	_add_history_row(authoring.doc,0)
+	history_items.select(history_items.item_count-1)
+	for i in range(authoring.future.size()-1,-1,-1):_add_history_row(authoring.future[i],authoring.future.size()-i)
+	history_dialog.popup_centered(Vector2i(560,370))
+
+func _add_history_row(state: Dictionary,offset: int) -> void:
+	var title: String="Current state" if offset==0 else ("%d edits earlier"%(-offset) if offset<0 else "%d edits later"%offset)
+	history_items.add_item("%s  |  %d roads · %d props · %d regions"%[title,state.roads.size(),state.props.size(),state.regions.size()])
+	history_items.set_item_metadata(history_items.item_count-1,offset)
+
+func _restore_history() -> void:
+	if _editing_locked() or not draft_points.is_empty() or not pending_drag.is_empty():return
+	var selection:=history_items.get_selected_items()
+	if selection.is_empty():return
+	var offset:=int(history_items.get_item_metadata(selection[0]))
+	for i in absi(offset):
+		if offset<0:
+			if not authoring.undo():_notice(authoring.last_error);break
+		else:
+			if not authoring.redo():_notice(authoring.last_error);break
+	_prune_multi_selection();_refresh_authoring()
+	_notice("Restored selected edit history state.")
+
 
 func _delete_selected() -> void:
 	if _editing_locked():
@@ -1208,9 +1417,12 @@ func _pick_source_anchor(world_px: Vector2) -> Dictionary:
 	var best := 11.0 / maxf(0.003,editor_camera.zoom.x)
 	var result: Dictionary = {}
 	for road in authoring.doc.roads:
+		if not _workspace_selectable(str(road.id)):continue
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		for i in road.points.size():
 			var point := Vector2(float(road.points[i].x),
 				float(road.points[i].y))*PPM
+			if not MultiSelect.road_point_matches_layer(road,point/PPM,road_selection_layer):continue
 			var distance := point.distance_to(world_px)
 			if distance < best:
 				best = distance
@@ -1248,6 +1460,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var hit: Dictionary = {}
 	for index in range(authoring.doc.props.size()-1,-1,-1):
 		var prop: Dictionary=authoring.doc.props[index]
+		if not _workspace_selectable(str(prop.id)):continue
 		if bool(prop.get("hidden",false)):
 			continue
 		if str(prop.get("type",""))=="guardrail":
@@ -1283,6 +1496,15 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
+	if tool_name=="measure":
+		workspace_tools.measure_click(world_px/PPM);return
+	if tool_name=="landscape_brush":
+		_landscape_stamp(_snap_point(world_px/PPM));return
+	if tool_name=="draw_river":
+		var p:=_snap_point(world_px/PPM)
+		if draft_points.is_empty() or draft_points[-1].distance_to(p)>.5:
+			draft_points.append(p);_refresh_authoring()
+		return
 	if tool_name=="place_dealership":
 		dealer_editor.place_at(_snap_point(world_px/PPM))
 		return
@@ -1385,7 +1607,7 @@ func _source_click(world_px: Vector2) -> void:
 		else:
 			_notice(authoring.last_error)
 		return
-	if tool_name=="move_prop" and not map_switcher.custom:
+	if tool_name=="move_prop" and not map_switcher.custom and road_selection_layer==99:
 		var dealer_id:=dealer_editor.pick(world_px)
 		if not dealer_id.is_empty():
 			dealer_editor.open_for(dealer_id)
@@ -1393,8 +1615,8 @@ func _source_click(world_px: Vector2) -> void:
 	if tool_name not in ["anchor","move_prop"]:
 		select_at(world_px)
 		return
-	var race_handle:=_pick_race_handle(world_px)
-	if race_handle.is_empty() and tool_name=="move_prop":
+	var race_handle: Dictionary=_pick_race_handle(world_px) if road_selection_layer==99 else {}
+	if race_handle.is_empty() and tool_name=="move_prop" and road_selection_layer==99:
 		var race_id: String=_pick_any_race_start(world_px)
 		if not race_id.is_empty():
 			source_id=race_id;source_anchor=-1
@@ -1407,7 +1629,9 @@ func _source_click(world_px: Vector2) -> void:
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
 		_refresh_authoring();return
 	var hit: Dictionary={}
-	if tool_name=="anchor":
+	if road_selection_layer!=99:
+		hit=_pick_source_anchor(world_px) if tool_name=="anchor" else _pick_source_road(world_px)
+	elif tool_name=="anchor":
 		hit=_pick_source_anchor(world_px)
 		if hit.is_empty():hit=_pick_sidewalk_anchor(world_px)
 	else:
@@ -1426,7 +1650,7 @@ func _source_click(world_px: Vector2) -> void:
 			return
 		if hit.is_empty():hit=_pick_source_region(world_px)
 	if hit.is_empty():
-		if tool_name=="move_prop":
+		if tool_name=="move_prop" and road_selection_layer==99:
 			var inspected: Dictionary = select_at(world_px)
 			if inspected.get("kind","")=="prop":
 				var item: Dictionary = world.data.props[int(inspected.index)]
@@ -1699,7 +1923,17 @@ func _recenter() -> void:
 		editor_camera.global_position = player.global_position if is_instance_valid(player) else world.spawn_position()
 		_update_view(true)
 
-func _test_drive() -> void:
+func _test_drive_from_cursor() -> void:
+	var screen:=get_viewport().get_mouse_position()
+	if not source_ready or not _canvas_pointer_available(screen):
+		_notice("Hover over the map before pressing Ctrl+F6.");return
+	var at:=_event_world_position(screen)/PPM
+	if not authoring._in_bounds(at):
+		_notice("Choose a position inside the map.");return
+	var layer:=0 if road_selection_layer==99 else road_selection_layer
+	_test_drive({"position":at*PPM,"layer":layer})
+
+func _test_drive(cursor_spawn: Dictionary={}) -> void:
 	if not active:
 		return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
@@ -1713,13 +1947,17 @@ func _test_drive() -> void:
 		# Saving first guarantees the test and return both use this revision.
 		if not map_switcher.save_current(self):
 			return
+		get_tree().set_meta("streetbound_test_drive_source_hash",authoring._fingerprint(authoring.doc))
 		get_tree().set_meta("streetbound_test_drive_map",map_switcher.current_file)
+		get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 		get_tree().set_meta("streetbound_editor_return_position",
 			editor_camera.global_position)
 		get_tree().paused = false
 		var outcome := get_tree().change_scene_to_file("res://scenes/custom_map_test_drive.tscn")
 		if outcome != OK:
 			get_tree().remove_meta("streetbound_test_drive_map")
+			get_tree().remove_meta("streetbound_test_drive_cursor")
+			get_tree().remove_meta("streetbound_test_drive_source_hash")
 			get_tree().remove_meta("streetbound_editor_return_position")
 			_notice("Could not launch this custom map for Test Drive.")
 		return
@@ -1728,7 +1966,9 @@ func _test_drive() -> void:
 	if authoring.dirty or (is_instance_valid(bridge) and bridge.phase != ""):
 		_notice("Save to Game or DISCARD before Test Drive.")
 		return
+	get_tree().set_meta("streetbound_test_drive_source_hash",authoring._fingerprint(authoring.doc))
 	get_tree().set_meta("streetbound_editor_test_drive",true)
+	get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 	get_tree().set_meta("streetbound_editor_return_position",editor_camera.global_position)
 	if not standalone_mode:
 		_clear_editor_preview()
@@ -1737,6 +1977,8 @@ func _test_drive() -> void:
 	var result:=get_tree().change_scene_to_file("res://scenes/main.tscn")
 	if result!=OK:
 		get_tree().remove_meta("streetbound_editor_test_drive")
+		get_tree().remove_meta("streetbound_test_drive_cursor")
+		get_tree().remove_meta("streetbound_test_drive_source_hash")
 		get_tree().remove_meta("streetbound_editor_return_position")
 		_notice("Could not launch full-game Test Drive.")
 
@@ -1839,8 +2081,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				if tool_name in ["race_grid","race_checkpoint"]:
-					if not pending_drag.is_empty():_cancel_gesture()
+				if tool_name in ["race_grid","race_checkpoint","landscape_brush","draw_river","measure"]:
+					if not pending_drag.is_empty() or not draft_points.is_empty():_cancel_gesture()
 					else:_choose_tool("move_prop")
 					_consume_input()
 					return
@@ -1856,7 +2098,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					close_editor()
 				_consume_input()
 				return
-			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_guardrail","draw_race"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_guardrail","draw_race","draw_river"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
 				_finish_shape()
 				_consume_input()
 				return
@@ -1888,6 +2130,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			if active and key.ctrl_pressed and key.keycode==KEY_S:
 				_apply_draft();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_K:
+				workspace_tools.open_commands();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_C:
+				_copy_selected_group();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_V:
+				_paste_selected_group();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_D:
 				_duplicate_selected();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_A and tool_name=="move_prop":
@@ -1926,7 +2174,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_consume_input()
 					return
 				_source_click(hit_position)
-				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_guardrail","draw_race"]:_finish_shape()
+				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_guardrail","draw_race","draw_river"]:_finish_shape()
 			elif marquee_tracking:
 				_end_marquee(hit_position)
 			elif group_moving:
@@ -1998,6 +2246,8 @@ func _restore_recovery() -> void:
 # used to leave a drag stuck, because _unhandled_input never saw the release.
 func _input(event: InputEvent) -> void:
 	if not active:return
+	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and event.keycode==KEY_F6:
+		_consume_input();_test_drive_from_cursor();return
 	# _input runs before GUI consumption. Marquee must begin here; relying on
 	# _unhandled_input dropped left presses over parts of the editor canvas.
 	if event is InputEventMouseButton and event.pressed:
@@ -2096,18 +2346,29 @@ func _update_drag_preview(at: Vector2) -> void:
 func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 	if not source_ready:return
 	var document: Dictionary=authoring.doc if preview_doc.is_empty() else preview_doc
-	var hidden: Dictionary={}
+	var changed_sources: Dictionary={}
+	var current: Dictionary={}
+	for item in document.roads:current[str(item.id)]=item
 	for original in authoring.initial.get("roads",[]):
-		var road: Dictionary={}
-		for item in document.roads:
-			if str(item.id)==str(original.id):road=item;break
-		if not road.is_empty() and JSON.stringify(road)!=JSON.stringify(original):
-			hidden[int(str(original.id).trim_prefix("road-"))]=true
+		var road: Dictionary=current.get(str(original.id),{})
+		if road!=original:changed_sources[int(str(original.id).trim_prefix("road-"))]=true
 	if pending_drag.get("kind","") in ["road","road_move"]:
-		hidden[int(str(pending_drag.id).trim_prefix("road-"))]=true
+		changed_sources[int(str(pending_drag.id).trim_prefix("road-"))]=true
+	var hidden: Dictionary={}
+	for road in world.data.roads:
+		var id:=int(road.id)
+		var source:=int(road.get("editor_grade_source_id",id))
+		if changed_sources.has(source) or (isolate_road_layer and not MultiSelect.road_matches_layer(road,road_selection_layer)):
+			hidden[id]=true
 	if hidden!=Roads.editor_hidden:
+		# Dirty only tiles with a changed road/junction/bridge reference.
+		var dirty: Dictionary={}
+		for id in Roads.editor_hidden:
+			if not hidden.has(id):dirty[id]=true
+		for id in hidden:
+			if not Roads.editor_hidden.has(id):dirty[id]=true
 		Roads.editor_hidden=hidden
-		_redraw_roads()
+		_redraw_roads(dirty)
 		_update_overview_mask()
 
 func _update_traffic_preview() -> void:
@@ -2123,10 +2384,20 @@ func _update_overview_mask() -> void:
 	# The 4096px atlas is expensive. Keep it cached while editing at detail LOD.
 	_overview_dirty=true
 
-func _redraw_roads() -> void:
+func _redraw_roads(dirty: Dictionary={}) -> void:
 	if not is_instance_valid(world):return
 	var loaded: Array=render_tiles.tiles.values() if is_instance_valid(render_tiles) else world.chunks.values()
 	for tile in loaded:
+		if not dirty.is_empty():
+			var touches:=false
+			for batch in tile.road_batches:
+				if dirty.has(int(batch.road.id)):touches=true;break
+			if not touches:
+				for junction in tile.junction_list:
+					for id in junction.get("roads",[]):
+						if dirty.has(int(id)):touches=true;break
+					if touches:break
+			if not touches:continue
 		tile.redraw_bridges()
 		for child in tile.get_children():
 			if child.get_script()==Roads:child.queue_redraw()
@@ -2198,6 +2469,64 @@ func _commit_road_type_and_surface() -> void:
 		"surface":_option_value(road_surface)}):
 		_refresh_authoring()
 		_notice("Road type and surface updated. Geometry and dimensions preserved.")
+
+func _change_road_jump() -> void:
+	if not source_ready or _editing_locked():return
+	var jump: Variant = null
+	if road_jump_enabled.button_pressed:
+		jump = {"reverse":road_jump_reverse.button_pressed}
+		for key in road_jump_fields:
+			jump[key] = road_jump_fields[key].value
+	if authoring.set_road_settings(source_id,{"jump":jump}):
+		_refresh_authoring()
+		_notice("Stunt jump updated")
+	else:
+		_notice(authoring.last_error)
+
+
+func _refresh_point_elevation_fields(road: Dictionary) -> void:
+	var key := str(road.id)+str(road.points)+str(road.get("elevation",{}))
+	if key==road_point_profile_key:return
+	road_point_profile_key=key
+	for child in road_point_elevation_fields.get_children():
+		road_point_elevation_fields.remove_child(child)
+		child.queue_free()
+	road_point_layer_inputs.clear()
+	var points: Array=road.points
+	var total:=0.0
+	for i in range(1,points.size()):
+		total+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+	var station:=0.0
+	for i in points.size():
+		if i>0:station+=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+		var values: Array=road.get("elevation",{}).get("point_layers",[])
+		var layer:=float(values[i]) if values.size()==points.size() else floorf(lerpf(road_start_layer.value,road_end_layer.value,station/maxf(total,.001))+.5)
+		var spin:=_number(road_point_elevation_fields,"Point %d (%.0f, %.0f)"%[i+1,float(points[i].x),float(points[i].y)],-2,2,layer)
+		spin.step=1.0
+		spin.value=layer
+		road_point_layer_inputs.append(spin)
+
+
+func _apply_point_elevations() -> void:
+	if not source_ready or _editing_locked():return
+	var layers: Array = []
+	for spin in road_point_layer_inputs:layers.append(int(spin.value))
+	if authoring.apply_point_elevations(source_id,layers):
+		road_point_profile_key=""
+		_refresh_authoring()
+		_notice("Saved individual elevations on the selected road.")
+	else:_notice(authoring.last_error)
+
+
+func _change_road_elevation() -> void:
+	if not source_ready or _editing_locked():return
+	var elevation:={"start_layer":int(road_start_layer.value),"end_layer":int(road_end_layer.value)}
+	if authoring.set_road_settings(source_id,{"elevation":elevation}):
+		_refresh_authoring()
+		_notice("Road elevation updated in the draft.")
+	else:
+		_notice(authoring.last_error)
+
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
@@ -2466,7 +2795,8 @@ func _refresh_entity_list(force: bool=false) -> void:
 	var keyword:=entity_search.text.to_lower()
 	for category in ["roads","regions","props","markers","races"]:
 		for item in authoring.doc.get(category,[]):
-			if bool(item.get("hidden",false)):continue
+			if bool(item.get("hidden",false)) or not _workspace_selectable(str(item.id)):continue
+			if road_selection_layer!=99 and (category!="roads" or not MultiSelect.road_matches_layer(item,road_selection_layer)):continue
 			var text: String=str(item.get("name",item.id))+"  ·  "+str(item.id)
 			if not keyword.is_empty() and keyword not in text.to_lower():continue
 			entity_list.add_item(text);entity_list.set_item_metadata(entity_list.item_count-1,str(item.id))
@@ -2479,6 +2809,351 @@ func _select_entity(index: int) -> void:
 	editor_camera.global_position=_record_position(record)*PPM
 	_refresh_authoring();_update_view(true)
 	if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
+
+func _set_road_isolation(enabled: bool) -> void:
+	if _editing_locked():return
+	isolate_road_layer=enabled
+	layer_flags["road_isolation_layer"]=road_selection_layer if enabled else 99
+	gizmos.layer_flags=layer_flags.duplicate()
+	_refresh_authoring();gizmos.queue_redraw()
+
+func _set_other_road_lock(enabled: bool) -> void:
+	if _editing_locked():return
+	lock_other_roads=enabled
+	authoring.unlocked_road_layer=road_selection_layer if enabled else 99
+	_notice("Other road objects are locked against edits." if enabled and road_selection_layer!=99 else "Road edit lock released.")
+
+func _set_road_selection_layer(index: int) -> void:
+	if _editing_locked():return
+	road_selection_layer=99 if index==0 else index-3
+	layer_flags["road_selection_layer"]=road_selection_layer
+	layer_flags["road_isolation_layer"]=road_selection_layer if isolate_road_layer else 99
+	authoring.unlocked_road_layer=road_selection_layer if lock_other_roads else 99
+	gizmos.layer_flags=layer_flags.duplicate()
+	_set_multi([])
+	source_id="";source_anchor=-1;pending_drag.clear()
+	_update_selection({})
+	_refresh_authoring()
+	_refresh_entity_list(true)
+	_notice("All object types selectable." if road_selection_layer==99 else "Road selection restricted to layer %d."%road_selection_layer)
+
+func _copy_selected_group() -> void:
+	if _editing_locked() or not source_ready:return
+	var ids: Array[String]=multi_selection.duplicate()
+	if ids.is_empty() and not source_id.is_empty():ids.append(source_id)
+	var group: Dictionary=authoring.copy_group(ids)
+	if group.is_empty():_notice(authoring.last_error);return
+	copied_group=group
+	_notice("Copied %d objects. Pan to a destination or switch maps, then Paste."%group.entries.size())
+
+const PREFAB_PATH="user://streetbound-prefabs.json"
+
+func _open_landscape() -> void:
+	if _editing_locked() or not source_ready:return
+	if not is_instance_valid(landscape_dialog):
+		landscape_dialog=AcceptDialog.new();landscape_dialog.title="Terrain and landscaping"
+		landscape_dialog.ok_button_text="Activate tool";landscape_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(landscape_dialog)
+		var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(480,430);landscape_dialog.add_child(scroll)
+		var panel:=VBoxContainer.new();panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(panel)
+		landscape_mode=_options(panel,"Landscape mode",["raise","lower","smooth","flatten","paint","vegetation","grade selected road","river"])
+		landscape_fields["radius"]=_number(panel,"Brush radius m",5,1000,100)
+		landscape_fields["amount"]=_number(panel,"Height change m / strength %",1,100,25)
+		landscape_fields["level"]=_number(panel,"Target height m",-1200,1200,0)
+		landscape_fields["biome"]=_options(panel,"Paint material",["grass","forest","dirt","rock","beach","asphalt","desert","farmland","city","mountain"])
+		landscape_fields["vegetation"]=_options(panel,"Vegetation",["tree","pine","palm","bush"])
+		landscape_fields["density"]=_number(panel,"Vegetation density %",0,100,50)
+		landscape_fields["seed"]=_number(panel,"Vegetation seed",0,2147483647,1847)
+		landscape_fields["river_width"]=_number(panel,"River width m",6,160,24)
+		landscape_fields["bank"]=_number(panel,"Bank width m",2,80,12)
+		landscape_fields["depth"]=_number(panel,"Channel depth m",1,100,8)
+		landscape_fields["import_min"]=_number(panel,"Import minimum m",-1200,1200,0)
+		landscape_fields["import_max"]=_number(panel,"Import maximum m",-1200,1200,300)
+		_btn("Import grayscale heightmap",panel,_open_heightmap)
+		var help:=Label.new();help.text="Click to stamp brushes. River: click centreline points, then Finish. Grading uses selected road. Heights affect visual relief, not vehicle Z physics."
+		help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(help)
+		landscape_dialog.confirmed.connect(_activate_landscape)
+	landscape_dialog.popup_centered(Vector2i(520,510))
+
+func _collect_landscape() -> Dictionary:
+	var settings: Dictionary={"mode":_option_value(landscape_mode)}
+	for key in landscape_fields:
+		var control: Control=landscape_fields[key]
+		settings[key]=control.value if control is SpinBox else _option_value(control)
+	return settings
+
+func _activate_landscape() -> void:
+	if _editing_locked():return
+	landscape_settings=_collect_landscape()
+	landscape_session=authoring
+	var mode: String=landscape_settings.mode
+	if mode=="grade selected road":
+		var road: Dictionary=authoring.road_at_id(source_id)
+		if road.is_empty():_notice("Select a road before grading its terrain.");return
+		var field:=TerrainHeight.grade_road(authoring.doc.get("terrainHeight",{}),Vector2(authoring.doc.world.width,authoring.doc.world.height),EditSession.road_path(road),float(landscape_settings.radius),float(landscape_settings.level))
+		if authoring.set_terrain_height(field):_refresh_authoring();_notice("Graded visual terrain along the selected road.")
+		else:_notice(authoring.last_error)
+		return
+	_choose_tool("draw_river" if mode=="river" else "landscape_brush")
+	mode_label.text="RIVER CENTERLINE" if mode=="river" else "TERRAIN "+mode.to_upper()
+	_notice("Click river centreline points; Finish creates channel and banks." if mode=="river" else "Click the map to apply a brush stamp. Each stamp is undoable.")
+
+func _open_heightmap() -> void:
+	if _editing_locked():return
+	landscape_settings=_collect_landscape();landscape_session=authoring
+	if not is_instance_valid(landscape_file):
+		landscape_file=FileDialog.new();landscape_file.file_mode=FileDialog.FILE_MODE_OPEN_FILE
+		landscape_file.access=FileDialog.ACCESS_FILESYSTEM;landscape_file.filters=PackedStringArray(["*.png ; PNG","*.jpg,*.jpeg ; JPEG","*.webp ; WebP"])
+		root_ui.add_child(landscape_file);landscape_file.file_selected.connect(_import_heightmap)
+	landscape_dialog.hide();landscape_file.popup_centered_ratio(.7)
+
+func _import_heightmap(path: String) -> void:
+	if _editing_locked() or landscape_session!=authoring:return
+	var image:=Image.load_from_file(path)
+	var field:=TerrainHeight.import_image(image,float(landscape_settings.import_min),float(landscape_settings.import_max))
+	if field.is_empty():_notice("Invalid heightmap image or height range.");return
+	if authoring.set_terrain_height(field):_refresh_authoring();_notice("Heightmap imported into the map source; Ctrl+Z to undo.")
+	else:_notice(authoring.last_error)
+
+func _landscape_stamp(at: Vector2) -> void:
+	if landscape_session!=authoring:return
+	var mode: String=landscape_settings.mode
+	var radius:=float(landscape_settings.radius)
+	if mode=="paint":
+		var points: Array[Vector2]=[]
+		var extent:=Vector2(authoring.doc.world.width,authoring.doc.world.height)
+		for i in 24:
+			var p:=at+Vector2.RIGHT.rotated(TAU*float(i)/24.0)*radius
+			points.append(p.clamp(Vector2.ZERO,extent))
+		if not authoring.add_region(points,str(landscape_settings.biome)).is_empty():_refresh_authoring();_notice("Painted terrain material.")
+		else:_notice(authoring.last_error)
+		return
+	if mode=="vegetation":
+		var plan:=Construction.plan_vegetation(_construction_source(),at,radius,float(landscape_settings.density)/100.0,str(landscape_settings.vegetation),int(landscape_settings.seed)+authoring.edit_revision,authoring.prop_limit())
+		var ids: Array[String]=authoring.apply_construction(plan)
+		if not ids.is_empty():_refresh_authoring();_notice("Placed %d vegetation objects."%ids.size())
+		else:_notice(authoring.last_error)
+		return
+	var field:=TerrainHeight.apply(authoring.doc.get("terrainHeight",{}),Vector2(authoring.doc.world.width,authoring.doc.world.height),at,radius,float(landscape_settings.amount),mode,float(landscape_settings.level))
+	if authoring.set_terrain_height(field):_refresh_authoring();_notice("Applied visual height brush.")
+	else:_notice(authoring.last_error)
+
+func _open_construction() -> void:
+	if _editing_locked() or not source_ready:return
+	if not draft_points.is_empty() or not pending_drag.is_empty():
+		_notice("Finish or cancel the current edit first.");return
+	construction_center=_snap_point(editor_camera.global_position/PPM)
+	construction_road_id=source_id
+	construction_plan={};construction_revision=-1
+	if not is_instance_valid(construction_dialog):
+		construction_dialog=AcceptDialog.new()
+		construction_dialog.title="City construction tools"
+		construction_dialog.ok_button_text="Apply preview"
+		construction_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(construction_dialog)
+		var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(520,540);construction_dialog.add_child(scroll)
+		var panel:=VBoxContainer.new();panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(panel)
+		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange","property kit"])
+		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
+		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
+		construction_fields["columns"]=_number(dimensions,"Columns",1,12,3)
+		construction_fields["rows"]=_number(dimensions,"Rows",1,12,3)
+		construction_fields["block"]=_number(panel,"Block spacing m",70,300,120)
+		construction_fields["width"]=_number(panel,"Street width m",8,24,12)
+		construction_fields["lanes"]=_number(panel,"Lanes",1,4,2)
+		construction_fields["density"]=_number(panel,"Building density %",0,100,70)
+		construction_fields["seed"]=_number(panel,"Layout seed",0,2147483647,1847)
+		var buildings:=CheckBox.new();buildings.text="Fill blocks with buildings";buildings.button_pressed=true;panel.add_child(buildings);construction_fields["buildings"]=buildings
+		var alleys:=CheckBox.new();alleys.text="Add central alleyways";panel.add_child(alleys);construction_fields["alleys"]=alleys
+		for option in [["connect","Connect to existing road"],["sidewalks","Add block sidewalks"],["plots","Add editable building plots"]]:
+			var toggle:=CheckBox.new();toggle.text=option[1];panel.add_child(toggle);construction_fields[option[0]]=toggle
+		construction_fields["interchange"]=_options(panel,"Interchange template",["diamond","half diamond","three way","cloverleaf foundation","trumpet foundation","directional foundation"])
+		construction_fields["interchange_span"]=_number(panel,"Interchange half-span m",180,500,240)
+		construction_fields["property"]=_options(panel,"Property kit",["fuel station","garage","shopping center","convenience store","pawn shop","jewelry store","bank","dealership"])
+		construction_fields["decoration"]=_options(panel,"Roadside decoration",["streetlight","tree","sign"])
+		construction_fields["spacing"]=_number(panel,"Decoration spacing m",15,150,40)
+		construction_summary=Label.new();construction_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		construction_summary.custom_minimum_size=Vector2(480,60);panel.add_child(construction_summary)
+		construction_canvas=Control.new();construction_canvas.custom_minimum_size=Vector2(480,200);panel.add_child(construction_canvas)
+		construction_canvas.draw.connect(_draw_construction_preview)
+		_btn("Preview generation",panel,_preview_construction)
+		construction_dialog.confirmed.connect(_apply_construction)
+		construction_mode.item_selected.connect(func(_i: int)->void:_invalidate_construction())
+		for control in construction_fields.values():
+			if control is SpinBox:control.value_changed.connect(func(_v: float)->void:_invalidate_construction())
+			elif control is OptionButton:control.item_selected.connect(func(_i: int)->void:_invalidate_construction())
+			elif control is CheckBox:control.toggled.connect(func(_v: bool)->void:_invalidate_construction())
+	_invalidate_construction()
+	construction_dialog.popup_centered(Vector2i(540,600))
+
+func _invalidate_construction() -> void:
+	construction_plan={};construction_revision=-1
+	construction_summary.text="Centre: %.0f, %.0f m. Preview before applying. Roadside uses the selected road."%[construction_center.x,construction_center.y]
+	construction_dialog.get_ok_button().disabled=true
+	if is_instance_valid(construction_canvas):construction_canvas.queue_redraw()
+
+func _construction_source() -> Dictionary:
+	var source: Dictionary=authoring.doc.duplicate(false)
+	if map_switcher.custom:return source
+	var blockers: Array=[]
+	for prop in world.data.get("props",[]):
+		if not bool(prop.get("solid",false)) or prop.get("p",[]).size()!=2 or prop.get("size",[]).size()!=2:continue
+		blockers.append({"x":float(prop.p[0]),"y":float(prop.p[1]),"assetSize":prop.size,"scale":1.0})
+	source["_runtime_blockers"]=blockers
+	return source
+
+func _preview_construction() -> void:
+	if _editing_locked():return
+	var settings: Dictionary={}
+	for key in construction_fields:
+		var control: Control=construction_fields[key]
+		if control is SpinBox:settings[key]=control.value
+		elif control is OptionButton:settings[key]=_option_value(control)
+		elif control is CheckBox:settings[key]=control.button_pressed
+	settings.density=float(settings.density)/100.0
+	match _option_value(construction_mode):
+		"city grid":construction_plan=Construction.plan_grid(_construction_source(),construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+		"district fill":construction_plan=Construction.plan_district(_construction_source(),construction_center,settings,authoring.prop_limit())
+		"roadside decoration":construction_plan=Construction.plan_roadside(_construction_source(),construction_road_id,settings,authoring.prop_limit())
+		"interchange":construction_plan=Construction.plan_interchange(authoring.doc,construction_center,settings,authoring.road_limit())
+		"property kit":construction_plan=Construction.plan_property(_construction_source(),construction_road_id,construction_center,settings,authoring.road_limit(),authoring.prop_limit())
+	if construction_plan.has("error"):
+		construction_summary.text=str(construction_plan.error)
+		construction_dialog.get_ok_button().disabled=true
+		return
+	construction_revision=authoring.edit_revision;construction_session=authoring
+	var count: int=construction_plan.roads.size()+construction_plan.props.size()+construction_plan.get("regions",[]).size()+construction_plan.get("markers",[]).size()
+	construction_summary.text="%s: %d roads, %d scenery, %d plots, %d gameplay markers. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size(),construction_plan.get("regions",[]).size(),construction_plan.get("markers",[]).size()]
+	construction_dialog.get_ok_button().disabled=count==0
+	construction_canvas.queue_redraw()
+
+func _draw_construction_preview() -> void:
+	var canvas:=construction_canvas
+	canvas.draw_rect(Rect2(Vector2.ZERO,canvas.size),Color("#28353b"))
+	if construction_plan.is_empty() or construction_plan.has("error"):return
+	var area: Rect2=construction_plan.get("area",Rect2(construction_center-Vector2.ONE*20,Vector2.ONE*40))
+	# Include gameplay markers in the framing, not just the building footprint.
+	for marker in construction_plan.get("markers",[]):area=area.expand(Vector2(marker.x,marker.y))
+	area=area.grow(12)
+	var scale:=minf((canvas.size.x-20)/maxf(1,area.size.x),(canvas.size.y-20)/maxf(1,area.size.y))
+	var origin:=canvas.size*.5-area.get_center()*scale
+	for region in construction_plan.get("regions",[]):
+		var polygon:=PackedVector2Array()
+		for p in region.points:polygon.append(origin+Vector2(p.x,p.y)*scale)
+		canvas.draw_colored_polygon(polygon,Color("#536b59"))
+	for road in construction_plan.get("roads",[]):
+		var points:=PackedVector2Array()
+		for p in EditSession.road_path(road):points.append(origin+p*scale)
+		var color:=Color("#b1b7b6")
+		if road.has("elevation"):color=Color("#79b8dd")
+		if points.size()>1:canvas.draw_polyline(points,color,maxf(1,float(road.width)*scale),true)
+	for prop in construction_plan.get("props",[]):
+		var p:=origin+Vector2(prop.x,prop.y)*scale
+		if prop.get("type","")=="sidewalk":
+			var path:=PackedVector2Array()
+			for raw in prop.sidewalkPoints:path.append(p+Vector2(raw[0],raw[1])*scale)
+			if path.size()>1:canvas.draw_polyline(path,Color("#dfd7c4"),maxf(1,2*scale),true)
+		else:
+			var footprint:=Vector2(12,17) if prop.type=="house" else Vector2(22,29)
+			if prop.type in ["streetlight","sign","oak"]:footprint=Vector2(5,5)
+			if prop.type=="parking":footprint=Vector2(38,28)
+			canvas.draw_rect(Rect2(p-footprint*scale*.5,footprint*scale),Color("#c4a17d"))
+	for marker in construction_plan.get("markers",[]):canvas.draw_circle(origin+Vector2(marker.x,marker.y)*scale,4,Color("#ffc66e"))
+
+func _apply_construction() -> void:
+	if _editing_locked() or construction_plan.is_empty() or construction_session!=authoring or construction_revision!=authoring.edit_revision:
+		_notice("Map changed; preview construction again.");return
+	var ids: Array[String]=authoring.apply_construction(construction_plan)
+	if ids.is_empty():_notice(authoring.last_error);return
+	_set_multi(ids.slice(0,MultiSelect.LIMIT));source_anchor=-1
+	source_id=ids[0] if ids.size()==1 else ""
+	construction_plan={}
+	_refresh_authoring();_notice("Created %d editable objects. Ctrl+Z undoes the entire construction."%ids.size())
+
+func _open_prefabs() -> void:
+	if _editing_locked() or not source_ready:return
+	if not is_instance_valid(prefab_dialog):
+		prefab_dialog=AcceptDialog.new()
+		prefab_dialog.title="Reusable map groups"
+		prefab_dialog.ok_button_text="Close"
+		prefab_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(prefab_dialog)
+		var panel:=VBoxContainer.new();prefab_dialog.add_child(panel)
+		prefab_name=LineEdit.new();prefab_name.placeholder_text="New prefab name";panel.add_child(prefab_name)
+		_btn("Save copied group",panel,_save_prefab)
+		prefab_list=ItemList.new();prefab_list.custom_minimum_size=Vector2(500,240);panel.add_child(prefab_list)
+		_btn("Load selected into clipboard",panel,_load_prefab)
+		_btn("Delete selected prefab",panel,_delete_prefab)
+	prefab_records.clear()
+	if FileAccess.file_exists(PREFAB_PATH):
+		var file:=FileAccess.open(PREFAB_PATH,FileAccess.READ)
+		if file!=null and file.get_length()<16*1024*1024:
+			var saved: Variant=JSON.parse_string(file.get_as_text())
+			if saved is Array:
+				for entry in saved:
+					if entry is Dictionary and entry.get("group") is Dictionary and entry.get("name") is String:prefab_records.append(entry)
+	_refresh_prefab_list()
+	prefab_dialog.popup_centered(Vector2i(540,420))
+
+func _refresh_prefab_list() -> void:
+	prefab_list.clear()
+	for entry in prefab_records:prefab_list.add_item(str(entry.name))
+
+func _write_prefabs() -> bool:
+	var raw:=JSON.stringify(prefab_records)
+	if raw.to_utf8_buffer().size()>16*1024*1024:
+		_notice("Prefab library exceeds 16 MB.");return false
+	var file:=FileAccess.open(PREFAB_PATH+".tmp",FileAccess.WRITE)
+	if file==null:return false
+	file.store_string(raw);file.flush();file.close()
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(PREFAB_PATH+".tmp"),ProjectSettings.globalize_path(PREFAB_PATH))==OK
+
+func _save_prefab() -> void:
+	var title:=prefab_name.text.strip_edges().left(80)
+	if title.is_empty() or copied_group.is_empty():
+		_notice("Copy a group and enter a prefab name first.");return
+	if prefab_records.size()>=100:
+		_notice("Prefab library supports 100 entries.");return
+	for entry in prefab_records:
+		if str(entry.name).nocasecmp_to(title)==0:
+			_notice("Use a different prefab name.");return
+	var group:=copied_group.duplicate(true)
+	var origin:=Vector2(group.origin)
+	group.origin=[origin.x,origin.y]
+	prefab_records.append({"name":title,"group":group})
+	if not _write_prefabs():
+		prefab_records.pop_back();_notice("Could not save prefab.");return
+	_refresh_prefab_list();_notice("Saved prefab "+title+".")
+
+func _load_prefab() -> void:
+	var ids:=prefab_list.get_selected_items()
+	if ids.is_empty():return
+	var group: Dictionary=prefab_records[ids[0]].group.duplicate(true)
+	var origin: Variant=group.get("origin")
+	if not origin is Array or origin.size()!=2 or not group.get("entries") is Array:
+		_notice("Prefab data is invalid.");return
+	group.origin=Vector2(float(origin[0]),float(origin[1]))
+	copied_group=group
+	prefab_dialog.hide();_notice("Prefab loaded. Paste at the camera centre.")
+
+func _delete_prefab() -> void:
+	var ids:=prefab_list.get_selected_items()
+	if ids.is_empty():return
+	var removed: Dictionary=prefab_records.pop_at(ids[0])
+	if not _write_prefabs():
+		prefab_records.insert(ids[0],removed);_notice("Could not update prefab library.");return
+	_refresh_prefab_list()
+
+func _paste_selected_group() -> void:
+	if _editing_locked() or not source_ready or copied_group.is_empty():return
+	var at:=_snap_point(editor_camera.global_position/PPM)
+	var ids: Array[String]=authoring.paste_group(copied_group,at)
+	if ids.is_empty():_notice(authoring.last_error);return
+	_set_multi(ids)
+	source_id=ids[0] if ids.size()==1 else ""
+	source_anchor=-1
+	_refresh_authoring()
+	_notice("Pasted %d objects in one undo step."%ids.size())
 
 func _set_layer(enabled: bool,key: String) -> void:
 	layer_flags[key]=enabled
@@ -2508,7 +3183,10 @@ func _snap_point(point: Vector2) -> Vector2:
 func _road_draw_point(point: Vector2,any_surface: bool=false,require_road: bool=false) -> Vector2:
 	var best:=INF
 	var result:=_snap_point(point)
+	if not require_road and tool_name=="draw_road" and not draft_points.is_empty():result=_angle_snap_point(draft_points[-1],result)
 	for road in authoring.doc.get("roads",[]):
+		if not _workspace_selectable(str(road.id)):continue
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		if not any_surface and (str(road.surface) in ["gravel","dirt"])!=(_option_value(road_surface) in ["gravel","dirt"]):continue
 		var circle:=EditSession.RoadShapes.circle(road.points)
 		if not circle.is_empty():
@@ -2566,6 +3244,12 @@ func _update_source_details() -> void:
 
 func _finish_shape() -> void:
 	if _editing_locked() or not source_ready:return
+	if tool_name=="draw_river":
+		if landscape_session!=authoring:return
+		var plan:=Construction.plan_river(_construction_source(),draft_points,float(landscape_settings.river_width),float(landscape_settings.bank),float(landscape_settings.depth))
+		var ids: Array[String]=authoring.apply_construction(plan)
+		if ids.is_empty():_notice(authoring.last_error);return
+		draft_points.clear();_refresh_authoring();_notice("Created river and banks in one undo step.");return
 	var identity: String=""
 	if tool_name=="draw_road":
 		identity=authoring.add_road_path(draft_points,{"roadClass":_option_value(road_class),
@@ -2593,9 +3277,13 @@ func _pick_source_road(at: Vector2) -> Dictionary:
 	var best:=12.0/maxf(.003,editor_camera.zoom.x)
 	var hit: Dictionary={}
 	for road in authoring.doc.get("roads",[]):
+		if not _workspace_selectable(str(road.id)):continue
+		if not MultiSelect.road_matches_layer(road,road_selection_layer):continue
 		var line:=_source_road_path(road)
 		for i in range(1,line.size()):
-			var distance:=Geometry2D.get_closest_point_to_segment(at,line[i-1]*PPM,line[i]*PPM).distance_to(at)
+			var nearest:=Geometry2D.get_closest_point_to_segment(at,line[i-1]*PPM,line[i]*PPM)
+			if not MultiSelect.road_point_matches_layer(road,nearest/PPM,road_selection_layer):continue
+			var distance:=nearest.distance_to(at)
 			if distance<maxf(best,float(road.width)*PPM*.5) and (hit.is_empty() or distance<best):
 				best=distance;hit={"kind":"road_move","id":str(road.id),"from":at}
 	return hit
@@ -2606,13 +3294,18 @@ func _source_road_path(road: Dictionary) -> PackedVector2Array:
 			var index:=int(str(road.id).trim_prefix("road-"))
 			if index<world.data.roads.size():
 				var path:=PackedVector2Array()
-				for p in world.data.roads[index].points:path.append(Vector2(p[0],p[1]))
+				for piece in world.data.roads:
+					if int(piece.get("editor_grade_source_id",piece.id))!=index:continue
+					for p in piece.points:
+						var at:=Vector2(p[0],p[1])
+						if path.is_empty() or path[-1].distance_to(at)>.001:path.append(at)
 				return path
 	return EditSession.road_path(road)
 
 func _pick_source_marker(at: Vector2) -> Dictionary:
 	if not layer_flags.markers:return {}
 	for item in authoring.doc.get("markers",[]):
+		if not _workspace_selectable(str(item.id)):continue
 		var center:=Vector2(item.x,item.y)*PPM
 		if center.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):
 			return {"kind":"marker","id":str(item.id),"from":center}
@@ -2624,6 +3317,7 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 	# its boundary so no precise edge click is required for whole-piece drags.
 	for index in range(authoring.doc.regions.size()-1,-1,-1):
 		var item: Dictionary=authoring.doc.regions[index]
+		if not _workspace_selectable(str(item.id)):continue
 		var polygon:=PackedVector2Array()
 		for vertex in item.points:
 			polygon.append(Vector2(float(vertex.x),float(vertex.y))*PPM)
@@ -2641,6 +3335,7 @@ func _pick_source_region(at: Vector2) -> Dictionary:
 func _pick_source_mountain(at: Vector2) -> Dictionary:
 	if not layer_flags.terrain:return {}
 	for item in authoring.doc.get("regions",[]):
+		if not _workspace_selectable(str(item.id)):continue
 		if MountainGeometry.solid(item) and Geometry2D.is_point_in_polygon(at/PPM,MountainGeometry.polygon(item)):
 			return {"kind":"region","id":str(item.id),"from":at}
 	return {}

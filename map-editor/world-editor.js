@@ -1,3 +1,5 @@
+import {JUMP_FIELDS} from './world-road-jump.js';
+import {LAYER_HEIGHT_M,roadElevation,roadsOnLayer} from './world-road-elevation.js';
 import {
   createWorld,demoWorld,parseWorld,serializeWorld,normalizeWorld,getEntity,
   createEntity,addSpriteAsset,updateEntity,removeEntity,reorderEntity,moveControlPoint,insertControlPoint,
@@ -14,7 +16,7 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {liveRoadAutomation,liveRoadClearances,drawLiveAutomation} from './world-automation-preview.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
-import {joinRoadEndpoints,splitRoadAt} from './world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,pointElevationLayers,applyPointElevations} from './world-road-topology.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
@@ -117,8 +119,9 @@ function previewPreset(){
   presetCache={doc,key,value};
   return value;
 }
+const visibleRoadLayer=()=>$('visible-road-layer').value==='all'?'all':Number($('visible-road-layer').value);
 const currentDisplay = ()=>({
-  showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,
+  showTerrain:$('show-terrain').checked,showRoads:$('show-roads').checked,roadLayer:visibleRoadLayer(),
   junctions:$('show-junctions').checked,
   showScenery:$('show-scenery').checked,showMarkers:$('show-markers').checked
 });
@@ -177,7 +180,7 @@ function render(){
   const auto=automationFor();
   const showClearances=$('show-road-clearances').checked;
   drawLiveAutomation(ctx,auto,{zoom,bounds,
-    showJunctions:$('show-junctions').checked,
+    showJunctions:visibleRoadLayer()==='all'&&$('show-junctions').checked,
     showLoosePriority:$('show-road-priority').checked,
     showGaps:$('show-road-gaps').checked,
     showClearances,clearances:showClearances?clearancesFor():[]});
@@ -600,14 +603,16 @@ function hitTest(p){
   // covers them, so coastline and spline editing stays fully functional.
   if(selection){
     const found=getEntity(doc,selection.id);
-    if(found&&['roads','regions'].includes(found.type)){
+    if(found&&['roads','regions'].includes(found.type)&&
+      (found.type!=='roads'||roadsOnLayer(doc.roads,visibleRoadLayer()).includes(found.item))){
       for(let i=0;i<found.item.points.length;i++)if(distance(p,found.item.points[i])<radius)
         return {id:selection.id,point:i,kind:'handle'};
     }
   }
+  const visibleRoads=roadsOnLayer(doc.roads,visibleRoadLayer());
   if($('show-roads').checked)
-    for(let i=doc.roads.length-1;i>=0;i--){
-      const road=doc.roads[i],d=nearestOnPath(p,sampleRoad(road.points,road.smooth,12)).distance;
+    for(let i=visibleRoads.length-1;i>=0;i--){
+      const road=visibleRoads[i],d=nearestOnPath(p,sampleRoad(road.points,road.smooth,12)).distance;
       if(d<Math.max(road.width/2,10/zoom))return {id:road.id,point:-1,kind:'entity'};
     }
   if($('show-terrain').checked)
@@ -751,6 +756,17 @@ function refreshRaceEditor(){
     ['race-edit-entry',race.entry_fee??0],['race-edit-rep',race.underground_rep_reward??0],
     ['race-edit-required-rep',race.required_underground_rep??0]
   ])$(id).value=value;
+  const fields=$('race-objective-layer-fields');
+  fields.replaceChildren();
+  race.points.forEach((point,i)=>{
+    const label=document.createElement('label');label.className='field';
+    label.textContent=(i===0?'Start':i===race.points.length-1&&race.mode==='sprint'?'Finish':'Checkpoint '+i)+' · '+Math.round(point.x)+', '+Math.round(point.y);
+    const input=document.createElement('select');
+    for(let layer=-2;layer<=2;layer++)input.add(new Option(layer+' ('+(layer*6)+' m)',String(layer)));
+    input.value=String(point.road_layer??0);
+    input.addEventListener('change',()=>changeRaceConfiguration({points:race.points.map((p,j)=>j===i?{...p,road_layer:Number(input.value)}:p)},'Updated objective road layer.'));
+    label.append(input);fields.append(label);
+  });
   $('race-edit-repeatable').checked=race.repeatable!==false;
   $('race-edit-rep').disabled=!(race.race_heat>0);
   $('race-edit-escape').disabled=!(race.race_heat>0);
@@ -769,6 +785,20 @@ function refreshRaceEditor(){
 function changeRaceConfiguration(patch,message){
   if(!selectedRaceId)return false;
   return change(d=>normalizeWorld(updateRaceSettings(d,selectedRaceId,patch)),message);
+}
+
+function drawPointProfile(road){
+  const svg=$('road-point-profile'),ns='http://www.w3.org/2000/svg';
+  svg.replaceChildren();
+  let station=0;const positions=road.points.map((p,i)=>{if(i)station+=distance(p,road.points[i-1]);return station;});
+  const layers=road.points.map((_,i)=>Number($('road-point-layer-'+i)?.value??0));
+  const add=(name,attrs,text)=>{const node=document.createElementNS(ns,name);for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);if(text)node.textContent=text;svg.append(node);return node;};
+  for(let l=-2;l<=2;l++){const y=60-l*22;add('line',{x1:30,x2:305,y1:y,y2:y,stroke:'currentColor','stroke-opacity':.18});add('text',{x:2,y:y+3,fill:'currentColor','font-size':9},String(l*6)+'m');}
+  const coords=positions.map((p,i)=>[30+275*p/Math.max(1,station),60-layers[i]*22]);
+  add('polyline',{points:coords.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#e79b39','stroke-width':2});
+  coords.forEach(([x,y],i)=>{add('circle',{cx:x,cy:y,r:3,fill:'#e79b39'});if(i>0&&Math.abs(layers[i]-layers[i-1])*6>0.12*(positions[i]-positions[i-1]))add('line',{x1:coords[i-1][0],y1:coords[i-1][1],x2:x,y2:y,stroke:'#d44','stroke-width':3});});
+  add('text',{x:30,y:119,fill:'currentColor','font-size':10},'0 m');
+  add('text',{x:305,y:119,'text-anchor':'end',fill:'currentColor','font-size':10},Math.round(station)+' m');
 }
 
 function refreshInspector(){
@@ -817,6 +847,34 @@ function refreshInspector(){
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
     $('inspect-road-shoulder').value=item.shoulder;$('inspect-road-smooth').checked=item.smooth;
     $('inspect-road-markings').checked=item.markings;
+    const profile=roadElevation(item);
+    $('road-start-layer').value=profile.start_layer;
+    $('road-end-layer').value=profile.end_layer;
+    $('road-elevation-summary').textContent=
+      (profile.start_layer*LAYER_HEIGHT_M)+' m to '+(profile.end_layer*LAYER_HEIGHT_M)+' m. Ramps need 50 m per layer.';
+    const profilePlot=$('road-point-profile');
+    const pointFields=$('road-point-elevation-fields');
+    const pointKey=JSON.stringify([item.id,item.points,item.elevation]);
+    if(pointFields.dataset.profileKey!==pointKey){
+    pointFields.dataset.profileKey=pointKey;
+    pointFields.replaceChildren();
+    pointElevationLayers(item).forEach((layer,index)=>{
+      const field=document.createElement('div');field.className='field';
+      const label=document.createElement('label');
+      label.textContent='Point '+(index+1)+' · '+Math.round(item.points[index].x)+', '+Math.round(item.points[index].y);
+      const input=document.createElement('select');input.id='road-point-layer-'+index;label.htmlFor=input.id;
+      for(let n=-2;n<=2;n++){
+        const option=document.createElement('option');option.value=String(n);
+        option.textContent=(n>0?'+':'')+n+' ('+(n*LAYER_HEIGHT_M)+' m)';input.append(option);
+      }
+      input.value=String(layer);input.addEventListener('change',()=>drawPointProfile(item));field.append(label,input);pointFields.append(field);
+    });
+    }
+    drawPointProfile(item);
+    $('road-jump-enabled').checked=Boolean(item.jump);
+    $('road-jump-reverse').checked=item.jump?.reverse??false;
+    for(const [key,[,,fallback]] of Object.entries(JUMP_FIELDS))
+      $('road-jump-'+key).value=item.jump?.[key]??fallback;
   }else if(type==='regions'){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
@@ -827,6 +885,8 @@ function refreshInspector(){
     $('inspect-scale-x').value=item.scaleX??1;$('inspect-scale-y').value=item.scaleY??1;
   }else{
     $('inspect-marker-type').value=item.type;$('inspect-properties').value=JSON.stringify(item.properties,null,2);
+    $('inspect-marker-layer').value=String(item.properties?.road_layer??0);
+    $('inspect-marker-layer').disabled=!['contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'].includes(item.type);
     refreshContactEditor(item);
   }
 }
@@ -1588,11 +1648,52 @@ $('road-surface').addEventListener('change',e=>{
   else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='country';
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
-for(const id of ['show-roads','show-junctions','show-road-priority','show-road-gaps',
+for(const id of ['show-roads','visible-road-layer','show-junctions','show-road-priority','show-road-gaps',
   'show-road-clearances','show-preset-preview','show-terrain','show-scenery',
   'show-markers','show-boundaries','audit-show-overlay','show-traffic'])
   $(id).addEventListener('change',requestRender);
 $('entities-filter').addEventListener('change',refreshEntities);
+for(const [key,[minimum,maximum,initial,label]] of Object.entries(JUMP_FIELDS)){
+  const field=document.createElement('div');
+  field.className='field';
+  const caption=document.createElement('label');
+  const input=document.createElement('input');
+  input.id='road-jump-'+key;
+  input.type='number';
+  input.min=minimum;
+  input.max=maximum;
+  input.value=initial;
+  input.step='0.05';
+  caption.htmlFor=input.id;
+  caption.textContent=label;
+  field.append(caption,input);
+  $('road-jump-fields').append(field);
+}
+$('apply-road-jump').addEventListener('click',()=>{
+  if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
+  const jump=$('road-jump-enabled').checked?{reverse:$('road-jump-reverse').checked}:undefined;
+  if(jump)for(const key of Object.keys(JUMP_FIELDS))jump[key]=$('road-jump-'+key).valueAsNumber;
+  change(d=>updateEntity(d,selection.id,{jump}),jump?'Updated stunt jump.':'Removed stunt jump.');
+});
+$('apply-road-point-elevations').addEventListener('click',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='roads')return;
+  const layers=found.item.points.map((_,i)=>Number($('road-point-layer-'+i).value));
+  change(d=>applyPointElevations(d,found.item.id,layers),'Saved individual elevations on the selected road.');
+});
+$('apply-road-elevation').addEventListener('click',()=>{
+  if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
+  const elevation={start_layer:$('road-start-layer').valueAsNumber,end_layer:$('road-end-layer').valueAsNumber};
+  change(d=>updateEntity(d,selection.id,{elevation}),'Updated road elevation.');
+});
+$('inspect-marker-layer').addEventListener('change',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='markers')return;
+  const properties={...found.item.properties};
+  const layer=Number($('inspect-marker-layer').value);
+  if(layer)properties.road_layer=layer;else delete properties.road_layer;
+  change(d=>updateEntity(d,found.item.id,{properties}),'Updated marker road layer.');
+});
 const fields={
   'inspector-name':{name:'name'},
   'inspect-road-class':{roadClass:'string'},'inspect-road-surface':{surface:'string'},

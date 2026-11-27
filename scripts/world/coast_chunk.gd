@@ -1,11 +1,12 @@
 extends Node2D
 ## Cached static illustration and local collision for a 192m square.
 const PPM := 20.0
+const Elevation = preload("res://scripts/world/road_elevation.gd")
 ## UV tags identify materials explicitly; authored colors never decide surface type.
 const TERRAIN_TAGS := {"grass":2,"meadow":2,"town":2,"forest":3,
 	"mountain":4,"rock":5,"beach":6,"sand":6,"ocean":7,"water":8,"lake":8,
 	"foam":9,"riverbank":9,"farmland":10,"field":10,"city":11,
-	"desert":12,"dirt":13,"gravel":14,"highland":15}
+	"desert":12,"dirt":13,"gravel":14,"highland":15,"asphalt":11}
 static var _terrain_texture: Texture2D
 
 static func terrain_texture() -> Texture2D:
@@ -33,6 +34,16 @@ var cell := Vector2i.ZERO
 var content: Dictionary
 var origin_m := Vector2.ZERO
 var road_batches: Array[Dictionary] = []
+var tunnel_art: Array[Node2D] = []
+var excavation_polygons: Array[PackedVector2Array] = []
+var excavation_walls: Array[PackedVector2Array] = []
+var excavation_body: StaticBody2D
+var excavation_caps: Array[PackedVector2Array] = []
+var excavation_cap_body: StaticBody2D
+var excavation_mask: ImageTexture
+var excavation_bounds: Rect2
+var excavation_collision_bits := 0
+var deck_art: Array[Node2D] = []
 var prop_list: Array[Dictionary] = []
 var ground_polys: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
@@ -73,6 +84,7 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 				return
 	origin_m = Vector2(cell) * world.chunk_m
 	position = origin_m * PPM
+	_setup_excavation()
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	# Merge successive samples into polylines to avoid a draw call per segment.
 	var batches: Dictionary = {}
@@ -127,20 +139,41 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		bridges.world=world;bridges.origin_m=origin_m;bridges.render_stage=stage
 		bridges.extent_m=clip.size/PPM;bridges.bridge_indices=content.bridges
 		clip.add_child(bridges)
-	# Global stage ordering prevents neighboring shoulders painting over asphalt.
-	for stage in 4:
-		# Preserve the four-stage paint order only where roads/junctions exist.
-		if road_batches.is_empty() and junction_list.is_empty():
-			break
-		var roads := Node2D.new()
-		roads.set_script(preload("res://scripts/world/coast_roads.gd"))
-		roads.world=world
-		roads.origin_m=origin_m
-		roads.road_batches=road_batches
-		roads.junction_list=junction_list
-		roads.render_stage=stage
-		roads.z_index=stage+1
-		add_child(roads)
+	# Each deck still uses the normal pavement, paint and junction passes.
+	var batches_by_layer := {}
+	for batch in road_batches:
+		var layer := Elevation.artwork_layer(batch.road)
+		if Elevation.is_open_cut(batch.road):
+			layer = 0 # The approach is an open cut, visible from the surface.
+		if not batches_by_layer.has(layer):batches_by_layer[layer] = []
+		batches_by_layer[layer].append(batch)
+	var junctions_by_layer := {}
+	for junction in junction_list:
+		var layer := int(junction.get("road_layer",0))
+		if not junctions_by_layer.has(layer):junctions_by_layer[layer] = []
+		junctions_by_layer[layer].append(junction)
+	var layers := batches_by_layer.keys()
+	for layer in junctions_by_layer:
+		if not layers.has(layer):layers.append(layer)
+	for layer in layers:
+		for stage in 4:
+			var roads := Node2D.new()
+			roads.set_script(preload("res://scripts/world/coast_roads.gd"))
+			roads.world=world
+			roads.origin_m=origin_m
+			roads.road_batches.assign(batches_by_layer.get(layer,[]))
+			roads.junction_list.assign(junctions_by_layer.get(layer,[]))
+			roads.render_stage=stage
+			roads.extent_px = (Vector2.ONE*world.chunk_m if render_extent_m == Vector2.ZERO else render_extent_m)*PPM
+			roads.z_index=stage+1+16*maxi(int(layer),0)
+			if int(layer) != 0:
+				roads.set_meta("road_layer",layer)
+				if int(layer) < 0:
+					tunnel_art.append(roads)
+				else:
+					deck_art.append(roads)
+			add_child(roads)
+	update_grade_visibility(int(world.viewed_road_layer),int(world.overhead_road_layer))
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.
 	if world.boardwalk_near_cell(cell) or render_extent_m!=Vector2.ZERO:
@@ -161,6 +194,8 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		relief.origin_m=origin_m
 		relief.content=content
 		relief.render_stage=stage
+		relief.excavation_mask=excavation_mask
+		relief.excavation_bounds=excavation_bounds
 		relief.z_index=5
 		add_child(relief)
 	if not prop_list.is_empty():
@@ -247,7 +282,9 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		clip.size=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
 		clip.z_index=7;add_child(clip)
 		var mountain:=Node2D.new();mountain.set_script(MountainArt)
-		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains;clip.add_child(mountain)
+		mountain.world=world;mountain.origin_m=origin_m;mountain.indices=content.mountains
+		mountain.excavation_mask=excavation_mask;mountain.excavation_bounds=excavation_bounds
+		clip.add_child(mountain)
 	var geometry_overlay := Node2D.new()
 	geometry_overlay.name = "GeometryOverlay"
 	geometry_overlay.set_script(preload("res://scripts/world/map_geometry_overlay.gd"))
@@ -258,8 +295,19 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 	add_child(geometry_overlay)
 	if not map_render_only:
 		_build_collisions()
+		_build_excavation_walls()
+		_build_excavation_caps()
 	build_microseconds = Time.get_ticks_usec() - started
 	setup_complete=true
+
+func update_grade_visibility(layer: int, overhead: int) -> void:
+	for node in deck_art:
+		node.modulate.a = .55 if int(node.get_meta("road_layer")) == overhead else 1.0
+	for node in tunnel_art:
+		node.visible = int(node.get_meta("road_layer")) == layer
+		# Interior is composited above surface pavement but below the car.
+		node.z_index = 42 + int(node.render_stage)
+
 
 func redraw_bridges() -> void:
 	for name in ["BridgeDeckClip","BridgeRailsClip"]:
@@ -279,10 +327,77 @@ func set_stream_active(active: bool) -> void:
 	visible = active
 	if is_instance_valid(collider_body):
 		collider_body.collision_layer = 1 if active else 0
+	if is_instance_valid(excavation_body):
+		excavation_body.collision_layer = excavation_collision_bits if active else 0
+	if is_instance_valid(excavation_cap_body):
+		excavation_cap_body.collision_layer = 1 if active else 0
+
+
+func _setup_excavation() -> void:
+	var all_cuts: Array = world.data.get("terrain_cuts",[])
+	if all_cuts.is_empty():
+		return
+	var indices: Array = content.get("terrain_cuts",[])
+	if render_extent_m != Vector2.ZERO:
+		indices = range(all_cuts.size())
+	excavation_bounds = Rect2(origin_m,Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)
+	for index in indices:
+		var cut: Dictionary = all_cuts[int(index)]
+		var polygon: PackedVector2Array = cut.polygon
+		if Elevation.polygon_bounds(polygon).intersects(excavation_bounds.grow(5.0)):
+			excavation_polygons.append(polygon)
+			excavation_walls.append_array(cut.walls)
+			excavation_caps.append(cut.cap)
+	if not excavation_polygons.is_empty():
+		excavation_mask = Elevation.cutout_mask(excavation_polygons,excavation_bounds)
+
+
+func _build_excavation_walls() -> void:
+	if excavation_walls.is_empty():
+		return
+	var body := StaticBody2D.new()
+	body.name = "ExcavationRetainingWalls"
+	# The open cut spans the surface and the first underground layer.
+	# Deeper tunnels and elevated decks must not collide with its walls.
+	excavation_collision_bits = 1 | Elevation.collision_bits(1,-6.0)
+	body.collision_layer = excavation_collision_bits
+	body.collision_mask = 0
+	add_child(body)
+	var made := 0
+	for wall in excavation_walls:
+		made += Guardrails.collision_shapes(body,wall,.5,origin_m,excavation_bounds)
+	if made == 0:
+		body.queue_free()
+		return
+	excavation_body = body
+	collision_shape_count += made
+
+
+func _build_excavation_caps() -> void:
+	if excavation_caps.is_empty():
+		return
+	var body := StaticBody2D.new()
+	body.name = "SurfacePortalEdge"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	add_child(body)
+	var made := 0
+	for cap in excavation_caps:
+		made += Guardrails.collision_shapes(body,cap,.35,origin_m,excavation_bounds)
+	if made == 0:
+		body.queue_free()
+		return
+	excavation_cap_body = body
+	collision_shape_count += made
 
 
 func _ready() -> void:
-	material=preload("res://scripts/world/mountain_ground.tres")
+	var base: ShaderMaterial = preload("res://scripts/world/mountain_ground.tres")
+	var height_tex: Texture2D=world.get("authored_height_texture")
+	if height_tex!=null:
+		base=base.duplicate() as ShaderMaterial
+		preload("res://scripts/world/authored_height_field.gd").bind_material(base,height_tex,Vector2(world.data.size[0],world.data.size[1]))
+	material = Elevation.masked_material(base,excavation_mask,excavation_bounds) if excavation_mask != null else base
 
 func _prop_order(prop: Dictionary) -> int:
 	if prop.kind in ["field","garden","lot","forecourt","start_line","finish_line"]:
@@ -363,11 +478,13 @@ func _build_collisions() -> void:
 		var region: Dictionary=world.data.terrain[int(terrain_index)]
 		for piece in Geometry2D.intersect_polygons(MountainGeometry.polygon(region),rect):
 			if piece.size()<3:continue
-			var collider:=CollisionPolygon2D.new()
-			var local:=PackedVector2Array()
-			for p in piece:local.append((p-origin_m)*PPM)
-			collider.polygon=local;collider.set_meta("editor_terrain_key",MountainGeometry.identity(region,int(terrain_index)))
-			body.add_child(collider);collision_shape_count+=1
+			for fragment in Elevation.subtract_cutouts(piece,excavation_polygons):
+				var collider:=CollisionPolygon2D.new()
+				var local:=PackedVector2Array()
+				for p in fragment:local.append((p-origin_m)*PPM)
+				if Geometry2D.triangulate_polygon(local).is_empty():continue
+				collider.polygon=local;collider.set_meta("editor_terrain_key",MountainGeometry.identity(region,int(terrain_index)))
+				body.add_child(collider);collision_shape_count+=1
 
 func _rounded(rect: Rect2, color: Color, radius := 12.0) -> void:
 	var style := StyleBoxFlat.new()

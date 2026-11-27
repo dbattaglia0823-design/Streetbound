@@ -1,7 +1,7 @@
 /** Focused geometry-edit and scenery-brush operations for World Forge v2.
  * All operations are immutable. The editor groups many brush samples into one undo step.
  */
-import {getEntity,createEntity,updateEntity} from './world-model.js';
+import {insertControlPoint,getEntity,createEntity,updateEntity} from './world-model.js';
 import {boundsOf,clamp,distance,pointSegment,regionAt,roadAt,sampleRoad} from './world-geometry.js';
 import {placeBesideRoad,placementFootprint,roadwayClearance} from './world-road-placement.js';
 
@@ -54,6 +54,7 @@ export function insertShapePoint(doc,id,pos,{mode='between',maxDistance=24}={}){
   const points=found.item.points.slice();
   const max=found.type==='roads'?100:180;
   if(points.length>=max)throw new RangeError('Too many control points');
+  if(found.type==='roads'&&found.item.elevation?.point_layers)return {doc:insertControlPoint(doc,id,index,point),index,point};
   points.splice(index,0,point);
   return {doc:updateEntity(doc,id,{points}),index,point};
 }

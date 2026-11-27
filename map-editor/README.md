@@ -42,6 +42,17 @@ drivable pavement / slow-speed interaction area. **Save to Game**, then
 saved with the World Forge source and included in baked Morrow Coast export
 data; Undo/Redo/Discard protect them like other map edits.
 
+**Road elevation:** Select a road and apply its start and end layers in the
+inspector (browser) or Road Designer (native). Layers are spaced 6 m apart.
+Use the browser's **Road elevation** filter for overlapping roads. For ramp
+lengths, connectivity and supported gameplay, see
+[Road elevation](../docs/ROAD_ELEVATION.md).
+
+**Stunt jumps:** Select a straight paved road and enable **Stunt jump**.
+Set the launch point, direction, geometry, and speed range. The preview
+shows where the vehicle may land. Test Drive checks the entire corridor.
+See [road elevation and stunt jumps](../docs/ROAD_ELEVATION.md).
+
 **Automatic bridges:** Roads crossing rivers, lakes or ocean gain a raised deck,
 shadows and guardrails automatically. Bridge width follows road width and the
 rails leave the driving lanes and intersection mouths clear. Road and terrain
@@ -209,6 +220,37 @@ or playable Morrow Coast archive is overwritten; the playtest uses a separate
 in-memory economy, so it does not update career balances, XP or ownership.
 Use **Return to Map Editor** or **F6** to return to the same authored map
 and camera view. **Esc** now opens the full normal pause/settings menu.
+## Native workflow tools (Phase 1)
+
+Use **Bulk edit** after selecting multiple objects to change road dimensions,
+surface, class, flat layer, scenery transforms, or terrain properties in one
+undoable transaction. Only objects in the chosen category are changed.
+Bulk elevation intentionally replaces an existing point profile with a flat
+layer. **Grid spacing m** sets 0.25–100 m snapping; the grid button toggles it.
+**History** browses retained undo/redo snapshots (up to 100, with a size-aware
+retention limit). **Copy / Paste** or Ctrl+C / Ctrl+V copies selected roads,
+terrain and scenery at the camera centre; within the same editor instance
+the clipboard survives map switches. Gameplay markers/races and replacement
+links are deliberately excluded. The Layers tab's **Road selection filter**
+restricts road picking, marquee and the object list to the chosen signed
+level. It does not hide baked art or physically lock connected junction
+anchors. Profiled curves use an approximate control-point filter. **Hide other road levels** hides nonmatching road artwork and draft roads;
+**Lock other road objects** rejects source edits, including undo/redo, that
+would modify an existing nonmatching road. Ramps remain visible/selectable on
+the levels they touch; this is road-object isolation, not per-pixel section
+clipping. Terrain remains visible. **Angle snap** applies to road drawing and
+rotation buttons, with radial guide lines while drawing. The Arrange menu
+aligns or evenly distributes ordinary scenery centres, excluding path assets
+and roads. **Prefabs** saves named clipboard groups in a local persistent
+library for reuse after restarting. Custom maps support up to 360 authored
+roads and 8,000 authored scenery objects; legacy Morrow limits stay unchanged.
+Road visibility changes redraw affected loaded tiles rather than every tile.
+Custom Test Drive can reuse a fingerprinted local geometry cache on scenery-only
+changes and revalidates all scenery and jump corridors; road, terrain, event
+or compiler changes trigger a full bake. Publishing and Morrow Coast Apply
+retain the authoritative full production rebuild. Capacity and cache-equivalence
+regression tests are included; hardware performance remains to be measured.
+
 ## Publish a custom map as the real game world
 
 The **Game World / Publish** section in the standalone Map Builder is
@@ -600,3 +642,17 @@ coastal edits and custom checkpoints without modifying the playable map.
 All new checks and helpers are original code adapted to Streetbound's existing
 JS model and geometry; no third-party source code was copied from the above
 projects.
+
+### Native city construction (Phase 2)
+
+On a custom map, pan to an empty area and choose **Build city**. City grid generates streets with configurable block rows/columns, spacing, lanes and optional alleys, plus seeded residential/commercial/industrial/downtown scenery. District fill creates scenery inside the same rectangular area, avoiding existing authored roads, objects and restricted terrain. Roadside decoration uses the selected ground-level road and places lamps, signs or trees at adjustable intervals on both sides. Preview reports the proposed counts and a schematic before applying; every generated item is a normal editable source entity and the complete edit is undoable. This initial pass does not connect a new grid automatically to existing streets, generate sidewalks, or include interchange templates or gameplay-linked property kits. Production bake remains authoritative for junctions and traffic.
+
+Phase 2 adds optional sidewalks and editable city plots, a conservative 300 m connection to an existing paved ground-road endpoint, and grade-separated diamond, half-diamond and three-way interchange foundations. Interchange connectors are ordinary two-way grade roads; cloverleaf-, trumpet- and directional-style foundations are available as editable two-way grade connections, not fully directional motorway interchanges. Production routing validation is still required. Select a straight ground road and pan to the intended site to preview a property kit (fuel, garage, shopping center, convenience store, pawn shop, jewelry store, bank or dealership). Kits create parking, access roads and gameplay markers; robbery sites use the existing tier rules with contact and drop-off on the same frontage road. Generated dealerships use a default showroom inventory. Construction remains custom-map-first and production bake and playtesting are required before publishing.
+
+### Phase 3: native landscape tools
+
+Open **Landscape** on a custom map. Raise/lower stamps adjust a saved 129×129 visual height field in metres; smooth and flatten use strength and target-height settings. Click the map to apply each undoable stamp. Select a road and choose Grade selected road to blend adjacent terrain toward a chosen height. Import PNG/JPEG/WebP grayscale heightmaps with explicit minimum/maximum height; the resampled values are stored in source JSON, not a link to the input file. Paint creates editable circular material regions including dirt and asphalt. Vegetation uses seeded placement with road, scenery, water and mountain exclusions. River mode accepts 2–60 centreline points and creates sandy banks, a lake-material water channel and visual bank relief in one edit. It rejects corridors overlapping existing roads/scenery; bridges and water flow direction are not generated. Browser import/export preserves the height field and previews its relief approximately. The production compiler validates and preserves the same field; the ground shader uses its slopes and horizon samples for lighting. This is visual relief, not physical vehicle elevation or continuous 3D terrain. Large maps have coarser height samples (map extent divided by 128); separate road elevation and mountain barriers remain authoritative for driving. Native and browser tests plus bake/cache tests cover the new data path; GPU and in-game results still require validation.
+
+### Phase 4: professional workspace tools
+
+Open **Tools** or press Ctrl+K for searchable commands. Named layers on custom maps are saved in the source document and can contain authored roads, terrain, scenery and markers. Hide affects native editor preview only; lock rejects changes to member objects, including indirect linked-road edits. Production bakes never suppress hidden named-layer content. Selection filters combine category, exact type/class, name/ID, road elevation and selected terrain-region membership (object centres/control points, not full polygon intersections). Use Replace assets to preserve object positions, rotations and scales while replacing artwork and collision footprints; adopted runtime props and path assets are excluded. Choose an asset then Toggle selected favorite to save it to the Favorites category. Bookmarks save camera centre and zoom per map. Named custom-map snapshots store local source copies; restore is undoable and does not publish. Resize expands/crops east and south from the existing origin and rejects excluded objects; visual height samples are resampled, not stretched. Reference images accept local PNG/JPEG/WebP, position, width, rotation and opacity, and are session-only. Measure points reports length, polygon area and first corner angle; select one or two roads for approximate control-segment grade and crossing clearance. Production spline checks remain authoritative. These native workspace tools do not yet have equivalent browser controls; browser source normalization preserves the named-layer metadata.

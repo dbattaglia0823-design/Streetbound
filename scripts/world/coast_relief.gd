@@ -4,6 +4,8 @@ var world: Node2D
 var origin_m := Vector2.ZERO
 var content: Dictionary
 var render_stage := 0
+var excavation_mask: ImageTexture
+var excavation_bounds: Rect2
 var mesh: ArrayMesh
 var vertices := PackedVector2Array()
 var colors := PackedColorArray()
@@ -13,7 +15,11 @@ func _ready() -> void:
 	if render_stage==0:
 		material=preload("res://scripts/world/cliff_rock.tres")
 		_faces()
-	else: _rails()
+	else:
+		_rails()
+		if excavation_mask != null:material=preload("res://scripts/world/cliff_rock.tres")
+	if excavation_mask != null:
+		material=preload("res://scripts/world/road_elevation.gd").masked_material(material as ShaderMaterial,excavation_mask,excavation_bounds)
 	if vertices.is_empty(): return
 	mesh=ArrayMesh.new()
 	var arrays := []

@@ -1,6 +1,7 @@
 extends RefCounted
 ## Shortest directed road routes with exact partial first/last lane segments.
 ## Used by free-roam waypoints and data-authored street events.
+const Elevation=preload("res://scripts/world/road_elevation.gd")
 const PPM:=20.0
 const MAX_ACCESS_M:=250.0
 # Prefer nearby driveable access points, widening only if disconnected.
@@ -25,7 +26,7 @@ func road_anchor(name: String, piece: int, fraction: float) -> Vector2:
 		points.append(point)
 	return network._position(points,stations,stations[-1]*clampf(fraction,0,1))
 
-func _candidates(at: Vector2, heading: Vector2, road_name: String) -> Array[Dictionary]:
+func _candidates(at: Vector2, heading: Vector2, road_name: String, road_layer: int) -> Array[Dictionary]:
 	var candidates: Array[Dictionary]=[]
 	for edge in network.edges:
 		if bool(edge.connector):continue
@@ -41,7 +42,7 @@ func _candidates(at: Vector2, heading: Vector2, road_name: String) -> Array[Dict
 			if distance<best:
 				best=distance;nearest=p;tangent=segment.normalized()
 				progress=float(edge.stations[i-1])+segment.length()*t
-		if best==INF:continue
+		if best==INF or Elevation.layer_for_height(Elevation.edge_height_at(edge,progress))!=road_layer:continue
 		var distance:=sqrt(best)
 		if road_name.is_empty() and distance>PPM*MAX_ACCESS_M:continue
 		# A lane's cost is distance actually traveled, not road rank, speed or
@@ -87,10 +88,10 @@ func _pop(heap: Array) -> Array:
 	return first
 
 func plan(from_m: Vector2, target_m: Vector2, heading:=Vector2.ZERO,
-		start_road: String="",finish_road: String="") -> Dictionary:
+		start_road: String="",finish_road: String="", start_layer: int=0, finish_layer: int=0) -> Dictionary:
 	if network==null or not from_m.is_finite() or not target_m.is_finite():return {}
-	var starts:=_candidates(from_m*PPM,heading,start_road)
-	var goals:=_candidates(target_m*PPM,Vector2.ZERO,finish_road)
+	var starts:=_candidates(from_m*PPM,heading,start_road,start_layer)
+	var goals:=_candidates(target_m*PPM,Vector2.ZERO,finish_road,finish_layer)
 	if starts.is_empty() or goals.is_empty():return {}
 	# Keep both endpoints close to the real nearby road system so the GPS
 	# cannot choose a huge off-road jump as a shortcut. If that neighborhood
@@ -149,16 +150,18 @@ func _shortest(starts: Array[Dictionary],goals: Array[Dictionary]) -> Dictionary
 				_push(heap,[proposed,next])
 	if best_ids.is_empty():return {}
 	var points:=PackedVector2Array();var length:=0.0
+	var spans: Array[Dictionary]=[]
 	for i in best_ids.size():
 		var edge: Dictionary=network.edges[best_ids[i]]
 		var begin:=float(best_start.progress) if i==0 else 0.0
 		var end:=float(best_goal.progress) if i==best_ids.size()-1 else float(edge.length_px)
+		spans.append({"edge":best_ids[i],"begin":begin,"end":end})
 		for p in Lanes.slice_path(edge.points,edge.stations,begin,end):
 			if not points.is_empty() and points[-1].distance_to(p/PPM)<.01:continue
 			if not points.is_empty():length+=points[-1].distance_to(p/PPM)
 			points.append(p/PPM)
 	if points.size()<2:return {}
-	return {"points_m":points,"edges":best_ids,"length_m":length,
+	return {"points_m":points,"edges":best_ids,"length_m":length,"spans":spans,
 		"start_access_distance_m":float(best_start.distance)/PPM,
 		"road_destination_m":Vector2(best_goal.nearest)/PPM,
 		"access_distance_m":float(best_goal.distance)/PPM}

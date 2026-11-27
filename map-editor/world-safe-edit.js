@@ -4,6 +4,7 @@
  * are auto-repaired; mid-curve T junctions remain editable manually.
  */
 import {distance,pointSegment,sampleRoad,clamp} from './world-geometry.js';
+import {junctionLayer} from './world-road-elevation.js';
 import {normalizeWorld} from './world-model.js';
 
 export const looseSurface=surface=>surface==='dirt'||surface==='gravel';
@@ -23,7 +24,8 @@ export function findEndpointGaps(doc,{min=2,max=24}={}){
     for(let j=0;j<ends.length;j++){
       if(i===j)continue;
       const target=ends[j];
-      if(from.road.id===target.road.id||!sameNetwork(from.road,target.road))continue;
+      if(from.road.id===target.road.id||!sameNetwork(from.road,target.road)||
+        junctionLayer(from.road,from.point)!==junctionLayer(target.road,target.point))continue;
       const gap=distance(from.point,target.point);
       if(gap>min&&gap<=max)neighbors.push({target,gap});
     }
@@ -85,12 +87,13 @@ export function cleanDuplicateRoadPoints(doc,{threshold=0.75}={}){
 /** Smart *draw-time* snapping never joins dirt to pavement. Prefer existing
  * endpoints (reliable network IDs) before the interior of a centerline.
  */
-export function smartRoadSnap(doc,point,surface,{radius=22,includeMidpoints=true}={}){
+export function smartRoadSnap(doc,point,surface,{radius=22,includeMidpoints=true,layer=0}={}){
   const within=clamp(radius,4,40),same=doc.roads.filter(road=>
     looseSurface(surface)===looseSurface(road.surface));
   let best=null;
   for(const road of same){
     for(const end of [road.points[0],road.points.at(-1)]){
+      if(junctionLayer(road,end)!==layer)continue;
       const gap=distance(point,end);
       if(gap<=within&&(!best||gap<best.distance))
         best={x:end.x,y:end.y,kind:'endpoint',roadId:road.id,roadName:road.name,distance:gap};
@@ -102,7 +105,7 @@ export function smartRoadSnap(doc,point,surface,{radius=22,includeMidpoints=true
     const points=sampleRoad(road.points,road.smooth,15);
     for(let i=1;i<points.length;i++){
       const hit=pointSegment(point,points[i-1],points[i]);
-      if(hit.distance<=midRadius&&(!best||hit.distance<best.distance))
+      if(junctionLayer(road,hit)===layer&&hit.distance<=midRadius&&(!best||hit.distance<best.distance))
         best={x:hit.x,y:hit.y,kind:'centerline',roadId:road.id,
           roadName:road.name,distance:hit.distance};
     }

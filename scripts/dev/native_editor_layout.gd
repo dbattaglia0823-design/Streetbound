@@ -67,7 +67,12 @@ static func build(e) -> void:
 	heading(settings,"TOOL SETTINGS")
 	e.mode_label=Label.new();e.mode_label.text="SELECT / EDIT";settings.add_child(e.mode_label)
 	e.grid_button=e._btn("Snap to grid: 1 m",settings,e._toggle_snap)
-	e.grid_button.tooltip_text="Align free placement to 1 m coordinates. Building edge and corner snaps always take precedence over the grid."
+	e.grid_button.tooltip_text="Align free placement to the selected grid spacing. Building edge and corner snaps take precedence."
+	var spacing: SpinBox=e._number(settings,"Grid spacing m",.25,100,1)
+	spacing.step=.25;spacing.value=1
+	spacing.value_changed.connect(e._set_grid_spacing)
+	var angle: SpinBox=e._number(settings,"Angle snap ° (0 = off)",0,90,0)
+	angle.step=5;angle.value=0;angle.value_changed.connect(e._set_angle_spacing)
 	e.building_snap_button=e._btn("Building edges: on",settings,e._toggle_building_snap)
 	e.building_snap_button.tooltip_text="Snap building walls and corners exactly together, ignoring the grid. Buildings may overlap intentionally. Hold Alt to bypass all snaps."
 	var extra:=OptionButton.new();extra.name="AdditionalTools";extra.fit_to_longest_item=false
@@ -82,6 +87,7 @@ static func build(e) -> void:
 	settings.add_child(extra)
 	e.map_switcher.build_publish_ui(e,world_settings)
 	e._btn("Dealership areas & stock",world_settings,e._open_dealership_editor)
+	e._btn("Gameplay authoring",world_settings,func():e.gameplay_authoring.open(e))
 	e.sidewalk_settings=column(settings);heading(e.sidewalk_settings,"SIDEWALK")
 	e.sidewalk_width=e._number(e.sidewalk_settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.guardrail_settings=column(settings);heading(e.guardrail_settings,"GUARDRAIL")
@@ -103,9 +109,39 @@ static func build(e) -> void:
 	e.road_class.item_selected.connect(e._change_road_type)
 	e.road_surface.item_selected.connect(e._change_road_surface)
 	for spin in [e.road_width,e.road_lanes]:spin.value_changed.connect(func(_value: float)->void:e._change_road_settings())
+	e.road_elevation_controls=column(e.road_settings)
+	heading(e.road_elevation_controls,"Road elevation (6 m per layer)")
+	e.road_start_layer=e._number(e.road_elevation_controls,"Start layer",-2,2,0)
+	e.road_end_layer=e._number(e.road_elevation_controls,"End layer",-2,2,0)
+	e._btn("Apply road elevation",e.road_elevation_controls,e._change_road_elevation)
+	var point_toggle := CheckButton.new()
+	point_toggle.text="Individual point elevations"
+	e.road_elevation_controls.add_child(point_toggle)
+	var point_panel := column(e.road_elevation_controls)
+	point_panel.visible=false
+	point_toggle.toggled.connect(func(on: bool)->void:point_panel.visible=on)
+	heading(point_panel,"Layers -2 to +2; 50 m per layer change")
+	e.road_point_elevation_fields=column(point_panel)
+	e._btn("Apply point elevations",point_panel,e._apply_point_elevations)
+	e.road_jump_enabled=CheckBox.new()
+	e.road_jump_enabled.text="Stunt jump"
+	e.road_elevation_controls.add_child(e.road_jump_enabled)
+	e.road_jump_options=column(e.road_elevation_controls)
+	e.road_jump_reverse=CheckBox.new()
+	e.road_jump_reverse.text="Launch toward road start"
+	e.road_jump_options.add_child(e.road_jump_reverse)
+	var fields: Dictionary = preload("res://scripts/world/road_jump.gd").FIELDS
+	for key in fields:
+		var spec: Array = fields[key]
+		var input: SpinBox = e._number(e.road_jump_options,str(spec[3]),spec[0],spec[1],spec[2])
+		input.step = .05
+		input.value = float(spec[2])
+		e.road_jump_fields[key] = input
+	e.road_jump_enabled.toggled.connect(func(on: bool)->void:e.road_jump_options.visible=on)
+	e._btn("Apply jump",e.road_elevation_controls,e._change_road_jump)
 	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
-	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])
+	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert","dirt","asphalt"])
 	e.terrain_biome.item_selected.connect(func(_index: int)->void:e._change_terrain_settings())
 	e._btn("Draw mountain barrier",e.terrain_settings,e._mountain_tool)
 	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_ALL
@@ -127,12 +163,13 @@ static func build(e) -> void:
 	e.asset_search=LineEdit.new();e.asset_search.name="AssetSearch";e.asset_search.placeholder_text="Search game assets..."
 	e.asset_search.text_changed.connect(func(_value: String)->void:e._filter_assets());assets.add_child(e.asset_search)
 	e.asset_category=OptionButton.new()
-	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals","Sprite sheets"]:e.asset_category.add_item(title_text)
+	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals","Sprite sheets","Favorites"]:e.asset_category.add_item(title_text)
 	e.asset_category.item_selected.connect(func(_index: int)->void:e._filter_assets());assets.add_child(e.asset_category)
 	e.asset_count=heading(assets,"")
 	e.asset_grid=GridContainer.new();e.asset_grid.columns=2
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
+	e._btn("Toggle selected favorite",assets,e._toggle_asset_favorite)
 	settings.add_child(HSeparator.new())
 	e.tool_help=heading(settings,"Select a tool or map object.")
 	e.tool_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -153,8 +190,16 @@ static func build(e) -> void:
 	action_scroll.add_child(actions)
 	e._btn("Undo",actions,e._undo).custom_minimum_size.x=48
 	e._btn("Redo",actions,e._redo).custom_minimum_size.x=48
+	e._btn("History",actions,e._open_history)
+	e._btn("Bulk edit",actions,e._open_bulk_edit)
 	e._btn("Select all",actions,e._select_all).tooltip_text="Select all visible authored objects (Ctrl+A)"
 	e._btn("Duplicate",actions,e._duplicate_selected).tooltip_text="Duplicate the selection (Ctrl+D)"
+	e._btn("Copy",actions,e._copy_selected_group).tooltip_text="Copy selected roads, regions and scenery (Ctrl+C)"
+	e._btn("Paste",actions,e._paste_selected_group).tooltip_text="Paste group at camera centre (Ctrl+V)"
+	e._btn("Prefabs",actions,e._open_prefabs)
+	e._btn("Build city",actions,e._open_construction)
+	e._btn("Landscape",actions,e._open_landscape)
+	e._btn("Tools  Ctrl+K",actions,e._open_workspace_commands)
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()
@@ -181,14 +226,29 @@ static func build(e) -> void:
 	e.inspector_tabs.add_child(object_scroll)
 	var objects:=column(object_scroll);objects.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	heading(layer_column,"WORLD LAYERS")
+	e._btn("Named layers",layer_column,func():e.workspace_tools.open_layers())
 	var layers:=GridContainer.new();layers.columns=2;layer_column.add_child(layers)
 	for item in [["Terrain","terrain"],["Roads","roads"],["Scenery","scenery"],["Markers","markers"],["Grid","grid"]]:
 		var check:=CheckBox.new();check.text=item[0];check.button_pressed=item[1]!="grid"
 		check.focus_mode=Control.FOCUS_ALL;check.toggled.connect(e._set_layer.bind(item[1]));layers.add_child(check)
+	heading(layer_column,"ROAD SELECTION FILTER")
+	var road_picker:=OptionButton.new()
+	for layer_caption in ["All objects","Roads -2 (-12 m)","Roads -1 (-6 m)","Roads 0 (ground)","Roads +1 (6 m)","Roads +2 (12 m)"]:road_picker.add_item(layer_caption)
+	road_picker.tooltip_text="Restrict selection and marquee to roads on a chosen level; other art stays visible."
+	layer_column.add_child(road_picker);road_picker.item_selected.connect(e._set_road_selection_layer)
+	var isolate:=CheckBox.new();isolate.text="Hide other road levels";layer_column.add_child(isolate);isolate.toggled.connect(e._set_road_isolation)
+	var lock:=CheckBox.new();lock.text="Lock other road objects";layer_column.add_child(lock);lock.toggled.connect(e._set_other_road_lock)
 	e.road_layer_settings=column(layer_column);heading(e.road_layer_settings,"ROAD DEBUG OVERLAYS")
 	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
 	heading(inspector,"INSPECTOR")
+	e._btn("Replace assets",inspector,func():e.workspace_tools.open_replace())
+	var align_tools:=OptionButton.new()
+	for arrange_caption in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(arrange_caption)
+	inspector.add_child(align_tools)
+	align_tools.item_selected.connect(func(index: int)->void:
+		if index>0:e._arrange_selection("align" if index<=2 else "distribute",0 if index in [1,3] else 1)
+		align_tools.select(0))
 	e.selected_preview=TextureRect.new();e.selected_preview.name="SelectedAssetPreview"
 	e.selected_preview.custom_minimum_size=Vector2(210,60);e.selected_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	e.selected_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;inspector.add_child(e.selected_preview);e.selected_preview.hide()

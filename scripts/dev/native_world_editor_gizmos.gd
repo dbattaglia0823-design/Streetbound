@@ -4,6 +4,7 @@ extends Node2D
 const PPM := 20.0
 const Art = preload("res://scripts/world/coast_art.gd")
 const EditSession=preload("res://scripts/dev/native_map_edit_session.gd")
+const RoadJump=preload("res://scripts/world/road_jump.gd")
 const Roads=preload("res://scripts/world/coast_roads.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
 const JunctionFurniture=preload("res://scripts/world/junction_furniture.gd")
@@ -50,6 +51,8 @@ var drag_redraw_count:=0
 var static_redraw_count:=0
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
+var measurement_points: Array[Vector2]=[]
+var angle_guide_degrees:=0.0
 var pending_tool := ""
 var source_anchor_mode := false
 var zoom_level := 1.0
@@ -402,7 +405,11 @@ func _draft_line(road: Dictionary,use_baked: bool=false) -> PackedVector2Array:
 		var index:=int(str(road.id).trim_prefix("road-"))
 		if index<world.data.roads.size():
 			var path:=PackedVector2Array()
-			for p in world.data.roads[index].points:path.append(Vector2(p[0],p[1])*PPM)
+			for piece in world.data.roads:
+				if int(piece.get("editor_grade_source_id",piece.id))!=index:continue
+				for p in piece.points:
+					var at:=Vector2(p[0],p[1])*PPM
+					if path.is_empty() or path[-1].distance_to(at)>.001:path.append(at)
 			return path
 	var copy:=road.duplicate(true)
 	copy.points=[]
@@ -416,6 +423,7 @@ func _draw_draft() -> void:
 		return
 	for road in draft_doc.get("roads",[]):
 		if not layer_flags.get("roads",true):continue
+		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		var id := str(road.id)
 		var original: Dictionary = {}
 		for before in draft_initial.get("roads",[]):
@@ -445,6 +453,11 @@ func _draw_draft() -> void:
 
 			for bridge in bridge_overrides.get(int(id.trim_prefix("road-")),[]):BridgeArt.draw_span(self,bridge,Vector2.ZERO,1,preview_junctions if network_is_draft else world.data.junctions)
 		if not runtime_playtest:
+			if road.has("jump"):
+				var preview := RoadJump.authoring_preview(road)
+				if not preview.is_empty():
+					var spec: Dictionary = road.jump.merged(preview,true)
+					RoadJump.draw_footprint(self,spec,Vector2(preview.lip)*PPM,preview.direction,true)
 			draw_polyline(line,Color("#ffb653") if focused else Color("#91cbba"),
 				3.0,true)
 	_draw_draft_junctions(false)
@@ -452,6 +465,7 @@ func _draw_draft() -> void:
 		return
 	for road in draft_doc.get("roads",[]):
 		if not layer_flags.get("roads",true):continue
+		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		if str(road.id)!=selected_source_id:continue
 		var handles:=_draft_anchors(road)
 		for i in handles.size():
@@ -461,6 +475,7 @@ func _draw_draft() -> void:
 	# zoom-aware handles; no prior road selection is necessary.
 	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
 		for road in draft_doc.get("roads",[]):
+			if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 			for point in road.get("points",[]):
 				var at := Vector2(float(point.x),float(point.y))*PPM
 				if not _visible_point(at):
@@ -631,6 +646,8 @@ func _visible_point(p: Vector2) -> bool:
 func _draw_draft_junctions(shoulder: bool) -> void:
 	if not network_is_draft or not layer_flags.get("roads",true):return
 	for junction in preview_junctions:
+		var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+		if filter_layer!=99 and int(junction.get("road_layer",0))!=filter_layer:continue
 		var changed:=false
 		for id in junction.roads:
 			if Roads.editor_hidden.has(int(id)) or int(id)>=world.data.roads.size():changed=true;break
@@ -649,11 +666,18 @@ func _draw() -> void:
 	if not is_instance_valid(world) or world.data.is_empty():
 		return
 	if layer_flags.get("grid",false):_draw_grid()
+	if not measurement_points.is_empty():
+		var measuring:=PackedVector2Array()
+		for point in measurement_points:measuring.append(point*PPM)
+		if measuring.size()>1:draw_polyline(measuring,Color("#ffd266"),2.0/maxf(.003,zoom_level),true)
+		for point in measuring:draw_circle(point,4.0/maxf(.003,zoom_level),Color("#ffd266"))
 	if layer_flags.get("markers",true):_draw_races()
 	_draw_draft_junctions(true)
 	_draw_draft()
 	if show_lanes and layer_flags.get("roads",true) and is_instance_valid(network):
 		for edge in network.edges:
+			var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+			if filter_layer!=99 and filter_layer not in [roundi(float(edge.get("start_height_m",0))/6.0),roundi(float(edge.get("end_height_m",0))/6.0)]:continue
 			if not network_is_draft:
 				if Roads.editor_hidden.has(int(edge.road)):continue
 				if bool(edge.connector) and not edge.next.is_empty() and Roads.editor_hidden.has(int(network.edges[int(edge.next[0])].road)):continue
@@ -682,6 +706,8 @@ func _draw() -> void:
 		var junctions: Array=preview_junctions if network_is_draft else world.data.junctions
 		for index in junctions.size():
 			var j: Dictionary = junctions[index]
+			var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
+			if filter_layer!=99 and int(j.get("road_layer",0))!=filter_layer:continue
 			var hidden:=false
 			for road_id in j.get("roads",[]):
 				if not network_is_draft and Roads.editor_hidden.has(int(road_id)):hidden=true;break
@@ -729,6 +755,12 @@ func _draw() -> void:
 			draw_rect(marquee_rect,Color(0.45,0.87,0.69,0.14),true)
 			draw_rect(marquee_rect,Color("#8effbf"),false,2.0/maxf(.003,zoom_level),true)
 	if not pending_shape.is_empty():
+		if pending_tool=="draw_road" and angle_guide_degrees>0.0:
+			var anchor: Vector2=pending_shape[-1]*PPM
+			var length_px:=140.0/maxf(.003,zoom_level)
+			var step:=deg_to_rad(angle_guide_degrees)
+			for i in mini(72,ceili(TAU/step)):
+				draw_line(anchor,anchor+Vector2.RIGHT.rotated(i*step)*length_px,Color(.53,.82,.93,.28),1.0/maxf(.003,zoom_level),true)
 		var path := PackedVector2Array()
 		for item in pending_shape:
 			path.append(item*PPM)

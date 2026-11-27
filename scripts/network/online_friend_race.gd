@@ -1,4 +1,5 @@
 extends Node2D
+const ObjectiveLayer=preload("res://scripts/world/objective_road_layer.gd")
 ## Host-authoritative friend drag, circuit and street races. The host stages, times and
 ## validates vehicles; network peers can only request a ready/forfeit action.
 ## No multiplayer awards or client-supplied transforms/results are accepted.
@@ -311,6 +312,9 @@ static func authored_race_heat(definition: Dictionary) -> int:
 	return int(heat)
 
 static func authored_event_spec(definition: Dictionary, nav: RefCounted) -> Dictionary:
+	# Online host gates are still planar; do not advertise elevated events until validated.
+	for point in definition.get("points",[]):
+		if ObjectiveLayer.point_layer(point)!=0:return {}
 	if not Rewards.valid_settings(definition):
 		return {}
 	if nav == null or not str(definition.get("id","")).begins_with("race-"):

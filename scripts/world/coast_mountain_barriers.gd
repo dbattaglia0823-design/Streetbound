@@ -4,7 +4,11 @@ static var editor_hidden: Dictionary={}
 var world: Node2D
 var origin_m:=Vector2.ZERO
 var indices: Array=[]
-func _ready() -> void:material=Geometry.shared_material()
+var excavation_mask: ImageTexture
+var excavation_bounds: Rect2
+func _ready() -> void:
+	var base := Geometry.shared_material()
+	material = preload("res://scripts/world/road_elevation.gd").masked_material(base,excavation_mask,excavation_bounds) if excavation_mask != null else base
 func _draw() -> void:
 	for index in indices:
 		var region: Dictionary=world.data.terrain[int(index)]
