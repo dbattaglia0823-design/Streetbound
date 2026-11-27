@@ -19,6 +19,11 @@ func _run() -> void:
 	var sample_road: Dictionary={"roadClass":"city","surface":"asphalt","points":[{"x":100,"y":700},{"x":500,"y":700}]}
 	var tunnel: Dictionary=Elevation.whole_tunnel_profile(sample_road)
 	check("whole_tunnel_two_portals",not tunnel.has("error") and tunnel.elevation.point_layers==[0,-1,-1,0] and tunnel.points.size()==4 and sample_road.points.size()==2)
+	var preset: Dictionary=Elevation.structure_profile(sample_road,"overpass")
+	check("automatic_overpass_profile",preset.has("road") and preset.road.elevation.point_layers==[0,1,1,0])
+	var underground: Dictionary=Elevation.structure_profile(sample_road,"underground")
+	check("automatic_underground_area",underground.has("road") and underground.road.width>=36 and underground.road.elevation=={"start_layer":-1,"end_layer":-1})
+	check("regular_road_removes_height",not Elevation.structure_profile(underground.road,"regular").road.has("elevation"))
 	check("tunnel_camera_zoom_and_surface_restore",is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,0.0),1.0) and is_equal_approx(DrivingCamera.tunnel_zoom_for(1.0,-6.0),1.45) and DrivingCamera.tunnel_zoom_for(1.0,-4.5)>1.0 and DrivingCamera.tunnel_zoom_for(1.0,6.0)==1.0)
 	var cars: Array[Dictionary]=[{"id":"b","display_name":"Beta","price_usd":9},{"id":"a","display_name":"alpha","price_usd":100},{"id":"c","display_name":"Gamma","price_usd":9}]
 	check("stock_sort_az",MarkerEditor.sorted_stock(cars,0).map(func(car: Dictionary)->String:return str(car.id))==["a","b","c"])

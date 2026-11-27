@@ -174,6 +174,23 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 				else:
 					deck_art.append(roads)
 			add_child(roads)
+	# Reuse the surface approach geometry in the underground composite so the
+	# route stays visible through the portal as the player's layer changes.
+	var approaches: Array[Dictionary]=[]
+	for batch in road_batches:
+		if Elevation.is_open_cut(batch.road):approaches.append(batch)
+	if not approaches.is_empty():
+		for stage in 3:
+			var interior:=Node2D.new()
+			interior.set_script(preload("res://scripts/world/coast_roads.gd"))
+			interior.world=world
+			interior.origin_m=origin_m
+			interior.road_batches.assign(approaches)
+			interior.render_stage=stage
+			interior.extent_px=(Vector2.ONE*world.chunk_m if render_extent_m==Vector2.ZERO else render_extent_m)*PPM
+			interior.set_meta("road_layer",-1)
+			tunnel_art.append(interior)
+			add_child(interior)
 	update_grade_visibility(int(world.viewed_road_layer),int(world.overhead_road_layer))
 	# Wooden boardwalk is part of the static chunk artwork. Roads at higher
 	# stages still render over it where a coastal street reaches the shore.

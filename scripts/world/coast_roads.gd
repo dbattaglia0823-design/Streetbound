@@ -306,7 +306,7 @@ func _roads(stage: int) -> void:
 						shadow.append(point_px+Vector2(19,30)*layer)
 					draw_polyline(shadow,Color(.09,.12,.14,.38),width+16.0,true)
 					draw_polyline(shadow,Color("69746d"),width-7.0,true)
-				draw_polyline(path,Color("2d3740") if layer > 0 else Color("343931"),width+24.0,true)
+				draw_polyline(path,Color("2d3740") if layer > 0 else Color("30343a"),width+(24.0 if layer>0 else 58.0),true)
 			elif urban:
 				# Both sides are real road-relative paths, not disconnected
 				# rectangles. Their mitered offsets follow every road bend.
@@ -371,13 +371,24 @@ func _roads(stage: int) -> void:
 				if layer != 0:
 					for side in [-1.0,1.0]:
 						var wall := _offset(visible_path,side*width*.5)
-						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
+						if layer<0:
+							# Concrete wall section outside the usable pavement, with a dark
+							# outer coping, lit inner face and continuous safety stripe.
+							var outer:=_offset(visible_path,side*(width*.5+17.0))
+							draw_polyline(outer,Color("202329"),25.0,true)
+							draw_polyline(outer,Color("77797a"),17.0,true)
+							draw_polyline(wall,Color("b4ada0"),7.0,true)
+						else:
+							draw_polyline(wall,Color("9aa8a8"),7.0,true)
 						if layer < 0 and r.kind!="alley":
 							var cursor := float(piece.phase)
 							for i in range(1,wall.size()):
 								var length := wall[i-1].distance_to(wall[i])
 								for span in dash_spans(cursor,length,16.0,174.0):
-									draw_line(wall[i-1].lerp(wall[i],float(span.from)),wall[i-1].lerp(wall[i],float(span.to)),Color("d8ad68"),5.0,true)
+									var lamp_a:=wall[i-1].lerp(wall[i],float(span.from))
+									var lamp_b:=wall[i-1].lerp(wall[i],float(span.to))
+									draw_line(lamp_a,lamp_b,Color("e7ba70"),9.0,true)
+									draw_line(lamp_a,lamp_b,Color("fff0c8"),3.0,true)
 								cursor += length
 				_paint(visible_path,r,width,float(piece.phase))
 
@@ -486,6 +497,17 @@ func _draw() -> void:
 		if hidden:continue
 		var polygon := PackedVector2Array()
 		for p in j.polygon: polygon.append(point(p))
+		if int(j.get("road_layer",0))<0:
+			# Only the outside corners are walled: junction approaches stay open.
+			draw_colored_polygon(polygon,Color("333b42"))
+			for curve in j.curbs:
+				var wall_path:=PackedVector2Array()
+				for p in curve:wall_path.append(point(p))
+				if wall_path.size()<2:continue
+				draw_polyline(wall_path,Color("30343a"),26.0,true)
+				draw_polyline(wall_path,Color("77797a"),16.0,true)
+				draw_polyline(wall_path,Color("b4ada0"),5.0,true)
+			continue
 		# The baker provides only OUTSIDE corner fillets, never a line across
 		# a street approach. Extend each eligible corner into a sidewalk
 		# apron, then mask the inside with the actual junction asphalt.
