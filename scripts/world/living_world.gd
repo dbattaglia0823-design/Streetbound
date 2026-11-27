@@ -133,7 +133,7 @@ func _allowed() -> bool:
 
 func open_rest() -> void:
 	if get_tree().paused or not _allowed():return
-	rest_status.text=rest_location()+"\n"+Rules.clock_text(seconds)+"\nTime skip does not refill fuel, repair your car, pay rewards or clear cooldowns."
+	rest_status.text=rest_location()+"\n"+Rules.clock_text(seconds)+"\nResting is free. Fuel, repairs, rewards and cooldowns are unchanged."
 	_rest_open=true
 	dialog.popup_centered()
 	get_tree().paused=true
