@@ -1,5 +1,6 @@
 extends RefCounted
 ## Native editor productivity dialogs. Local preferences never enter a bake.
+const FinishPlanner=preload("res://scripts/dev/environment_detail_planner.gd")
 const Data=preload("res://scripts/dev/native_editor_workspace.gd")
 const Library=preload("res://scripts/dev/native_map_library.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
@@ -417,7 +418,7 @@ func open_commands() -> void:
 	commands=[["Named layers",open_layers],["Select by filter",open_filters],["Replace assets",open_replace],
 		["Camera bookmarks",open_bookmarks],["Version snapshots",open_snapshots],["Resize map",open_resize],
 		["Reference overlay",open_reference],["Measure distance area angles",begin_measure],["Road grade and clearance",measure_roads],
-		["Build city",e._open_construction],["Landscape terrain",e._open_landscape],["Bulk edit",e._open_bulk_edit],
+		["Environmental finishing",open_environment_finishing],["Build city",e._open_construction],["Landscape terrain",e._open_landscape],["Bulk edit",e._open_bulk_edit],
 		["Prefabs",e._open_prefabs],["Edit history",e._open_history],["Fit map",e._fit_map],["Undo",e._undo],["Redo",e._redo],
 		["Test Drive",e._test_drive]]
 	query.text_changed.connect(func(_v: String)->void:_fill_commands())
@@ -453,4 +454,57 @@ func measure_roads() -> void:
 	if roads.size()==2:
 		var clearance:=Data.crossing_clearance(roads[0],roads[1])
 		_text(panel,"No crossing detected between control segments." if clearance<0 else "Minimum estimated vertical clearance %.2f m (production spline bake is authoritative)."%clearance)
+	_show()
+
+func open_environment_finishing() -> void:
+	if not _ready_to_edit():return
+	var panel:=_new("Environmental finishing",Vector2i(500,540))
+	_text(panel,"Seeded roadside scenery in a square around the camera centre. Existing geometry, scenery and gameplay markers are protected. Preview before applying.")
+	var center: Vector2=e.editor_camera.global_position/20.0
+	var style: OptionButton=e._options(panel,"District style",["residential","downtown","industrial","coastal","rural"])
+	var radius: SpinBox=e._number(panel,"Area half-width m",50,500,180)
+	var spacing: SpinBox=e._number(panel,"Spacing m",18,100,32)
+	var density: SpinBox=e._number(panel,"Density %",0,100,80)
+	var seed_input: SpinBox=e._number(panel,"Seed",0,2147483647,1847)
+	var status:=Label.new();status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(status)
+	var preview:=Control.new();preview.custom_minimum_size=Vector2(460,190);panel.add_child(preview)
+	var state: Dictionary={"plan":{},"revision":-1,"session":null}
+	var apply: Button=e._btn("Apply proposed scenery (one undo)",panel,func():
+		if not _ready_to_edit() or state.session!=e.authoring or int(state.revision)!=int(e.authoring.edit_revision):
+			status.text="Source changed. Preview again.";return
+		var ids: Array[String]=e.authoring.apply_construction(state.plan)
+		if ids.is_empty():status.text=e.authoring.last_error;return
+		e._refresh_authoring();dialog.hide()
+		e._notice("Added %d editable finishing props. Ctrl+Z undoes the batch."%ids.size()))
+	apply.disabled=true
+	preview.draw.connect(func():
+		preview.draw_rect(Rect2(Vector2.ZERO,preview.size),Color("#263238"))
+		var plan: Dictionary=state.plan
+		if plan.is_empty() or plan.has("error"):return
+		var area: Rect2=plan.area
+		var scale:=minf((preview.size.x-12)/area.size.x,(preview.size.y-12)/area.size.y)
+		var offset:=preview.size*.5-area.get_center()*scale
+		for road in e.authoring.doc.roads:
+			var path:=Session.road_path(road)
+			var points:=PackedVector2Array()
+			for p in path:points.append(p*scale+offset)
+			if points.size()>1:preview.draw_polyline(points,Color("#69777c"),maxf(1.0,float(road.width)*scale))
+		for prop in plan.props:
+			var p:=Vector2(prop.x,prop.y)*scale+offset
+			preview.draw_circle(p,3.0,Color("#eac57d") if str(prop.type)=="streetlight" else Color("#8ac28a")))
+	preview.clip_contents=true
+	var invalidate:=func():
+		state.plan={};state.revision=-1;apply.disabled=true
+		status.text="Preview to update the proposals.";preview.queue_redraw()
+	style.item_selected.connect(func(_i: int):invalidate.call())
+	for control in [radius,spacing,density,seed_input]:control.value_changed.connect(func(_v: float):invalidate.call())
+	e._btn("Preview finishing",panel,func():
+		if not _ready_to_edit():return
+		var settings: Dictionary={"style":style.get_item_text(style.selected),"radius":radius.value,"spacing":spacing.value,"density":density.value/100.0,"seed":int(seed_input.value)}
+		var plan:=FinishPlanner.plan(e._construction_source(),center,settings,e.authoring.prop_limit())
+		state.plan=plan;state.session=e.authoring;state.revision=e.authoring.edit_revision
+		apply.disabled=plan.has("error") or plan.get("props",[]).is_empty()
+		status.text=str(plan.error) if plan.has("error") else "%d props proposed. %s"%[plan.props.size(),str(plan.stats)]
+		preview.queue_redraw())
+	invalidate.call()
 	_show()
