@@ -38,6 +38,12 @@ def validate_markers(markers,races,dealers,width,height):
             target=info.get(key,'')
             if not isinstance(target,str) or len(target)>100 or target and target not in collection:
                 raise ValueError('Marker references missing '+key)
+        if 'dealer_inventory' in info:
+            stock=info['dealer_inventory']
+            if (marker['type']!='dealership' or info.get('dealer_id') or not isinstance(stock,list)
+                or len(stock)>1000 or any(not isinstance(v,str) or not v or len(v)>100 for v in stock)
+                or len(set(stock))!=len(stock)):
+                raise ValueError('Invalid marker dealership inventory')
         if type(info.get('enabled',True)) is not bool:
             raise ValueError('Invalid marker enabled flag')
         radius=info.get('radius_m',12)

@@ -35,8 +35,10 @@ const polygon=(points,w,h,min,max,label)=>{
 };
 function validateMetadata(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new TypeError('Marker properties must be a JSON object');
+  const {dealer_inventory:inventory,...ordinary}=input;
+  if(inventory!==undefined&&(!Array.isArray(inventory)||inventory.length>1000||inventory.some(id=>typeof id!=='string'||!id.length||id.length>100)||new Set(inventory).size!==inventory.length))throw new TypeError('Invalid marker dealership inventory');
   const encoded=JSON.stringify(input);
-  if(!encoded||encoded.length>6000)throw new RangeError('Marker properties exceed 6 KB');
+  if(!encoded||JSON.stringify(ordinary).length>6000)throw new RangeError('Marker properties exceed 6 KB');
   const decoded=JSON.parse(encoded);
   if(Object.keys(decoded).some(k=>['__proto__','constructor','prototype'].includes(k)))throw new TypeError('Unsupported marker property key');
   return decoded;
@@ -162,6 +164,7 @@ function validEntity(item,type,w,h){
   }
   if(type==='markers'){
     const properties=validateMetadata(item.properties??{});
+    if(properties.dealer_inventory!==undefined&&(item.type!=='dealership'||properties.dealer_id))throw new TypeError('Stock requires an unlinked dealership marker');
     const layer=properties.road_layer??0;
     if(!Number.isInteger(layer)||Math.abs(layer)>2)throw new RangeError('Invalid marker road layer');
     if(layer&&!['contract','contract_contact','contract_dropoff','robbery_target','race_start','checkpoint','finish','mission','custom'].includes(item.type))

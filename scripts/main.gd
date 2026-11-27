@@ -146,7 +146,8 @@ func _ready() -> void:
 			player_garage.world = ground
 			player_garage.player = vehicle
 			ground.add_child(player_garage)
-		if not custom_game_world or not ground.data.get("editor_dealerships",[]).is_empty():
+		# A custom map can have marker-only showrooms without physical shop definitions.
+		if not proving_ground:
 			dealership_world = Node2D.new()
 			dealership_world.set_script(DealerWorldScript)
 			dealership_world.world = ground

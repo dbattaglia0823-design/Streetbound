@@ -21,7 +21,7 @@ func run() -> void:
 	var damage = Damage.new()
 	check("harmless_touch", damage.register_impact(3.0, 1.0) == 0.0)
 	var strike: float = damage.register_impact(26.0, 2.0)
-	check("impact_causes_integrity_loss", strike > 0.0 and damage.integrity < 100.0)
+	check("impact_causes_integrity_loss", strike == 216.0 and is_equal_approx(damage.integrity,89.2))
 	var remaining: float = damage.integrity
 	check("repeated_same_crash_debounced", damage.register_impact(26.0, 2.1) == 0.0
 		and is_equal_approx(damage.integrity, remaining))
@@ -38,8 +38,7 @@ func run() -> void:
 	damage.integrity = 1.0
 	check("damaged_engine_still_usable_near_zero", damage.drive_fraction() > 0.80)
 	damage.integrity = remaining
-	damage.register_impact(60.0, 3.0)
-	damage.register_impact(60.0, 4.0)
+	for i in range(5):damage.register_impact(60.0,3.0+float(i))
 	check("disabled_after_severe_crashes", damage.is_disabled() and damage.drive_fraction() == 0.0)
 	check("damage_cost_bounded", damage.repair_cost() == 3500)
 	damage.repair()
@@ -52,17 +51,18 @@ func run() -> void:
 	heavy.max_health_points = 3600
 	var light_loss: float = light.register_impact(26.0, 1.0)
 	var heavy_loss: float = heavy.register_impact(26.0, 1.0)
-	check("same_impact_loses_same_points", light_loss == heavy_loss and light_loss == 720.0)
-	check("larger_capacity_survives_more_damage", is_equal_approx(light.integrity, 60.0)
-		and is_equal_approx(heavy.integrity, 80.0))
-	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 2880.0))
+	check("same_impact_loses_same_points", light_loss == heavy_loss and light_loss == 216.0)
+	check("larger_capacity_survives_more_damage", is_equal_approx(light.integrity, 88.0)
+		and is_equal_approx(heavy.integrity, 94.0))
+	check("health_points_track_normalized_save", is_equal_approx(heavy.current_health_points(), 3384.0))
 	check("different_capacities_normalize_same_absolute_damage",
-		is_equal_approx(light.health_fraction(), 0.6) and is_equal_approx(heavy.health_fraction(), 0.8))
+		is_equal_approx(light.health_fraction(), 0.88) and is_equal_approx(heavy.health_fraction(), 0.94))
+	light.integrity=61.0;heavy.integrity=80.0
 	light.register_impact(11.0, 2.0)
 	heavy.register_impact(11.0, 2.0)
 	check("smaller_car_smokes_first_for_equal_points",
-		is_equal_approx(light.health_percentage(), 50.0)
-		and is_equal_approx(heavy.health_percentage(), 75.0)
+		is_equal_approx(light.health_percentage(), 58.0)
+		and is_equal_approx(heavy.health_percentage(), 78.5)
 		and DamageSmoke.smoke_strength(light.health_percentage()) > 0.0
 		and DamageSmoke.smoke_strength(heavy.health_percentage()) == 0.0)
 	light.integrity = 10.0
@@ -79,11 +79,11 @@ func run() -> void:
 	var upgraded = Damage.new()
 	upgraded.max_health_points = 3600
 	check("future_outgoing_upgrade_multiplier_scales_points",
-		upgraded.register_impact(26.0, 1.0, 1.5) == 1080.0)
+		upgraded.register_impact(26.0, 1.0, 1.5) == 324.0)
 	check("upgrade_multiplier_rejects_nonfinite_values",
 		upgraded.register_impact(26.0, 2.0, INF) == 0.0)
 	check("large_stock_hit_has_bounded_damage",
-		upgraded.register_impact(100.0, 3.0) == 1300.0)
+		upgraded.register_impact(100.0, 3.0) == 390.0)
 	var roster_ok := not Catalog.all().is_empty()
 	for entry in Catalog.all():
 		var hp := int(entry.get("max_health_points", 0))

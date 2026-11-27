@@ -7,6 +7,14 @@ const TYPES=["player_spawn","home","garage","dealership","mission","fast_travel"
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Contracts=preload("res://scripts/world/driving_contract_rules.gd")
 
+static func valid_inventory(value: Variant) -> bool:
+	if not value is Array or value.size()>1000:return false
+	var seen: Dictionary={}
+	for id in value:
+		if not id is String or id.is_empty() or id.length()>100 or seen.has(id):return false
+		seen[id]=true
+	return true
+
 static func valid(marker: Dictionary) -> bool:
 	var kind: String=str(marker.get("type",""))
 	if kind not in TYPES:return false
@@ -19,6 +27,7 @@ static func valid(marker: Dictionary) -> bool:
 	for field in ["race_id","dealer_id","required_race"]:
 		if properties.has(field):
 			if not properties[field] is String or str(properties[field]).length()>100:return false
+	if properties.has("dealer_inventory") and (kind!="dealership" or not str(properties.get("dealer_id","")).is_empty() or not valid_inventory(properties.dealer_inventory)):return false
 	if properties.has("enabled") and typeof(properties.enabled)!=TYPE_BOOL:return false
 	if properties.has("contract_kind"):
 		if not properties.contract_kind is String or not Contracts.valid_kind(str(properties.contract_kind)):return false

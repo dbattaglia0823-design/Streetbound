@@ -3,6 +3,8 @@ extends RefCounted
 ## authored ID links, not approximated marker/category labels.
 const Rules=preload("res://scripts/world/authored_marker_rules.gd")
 const ContactEditor=preload("res://scripts/dev/native_contract_contact_editor.gd")
+const Catalog=preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const DealerConfig=preload("res://scripts/world/dealership_config.gd")
 var dialog: AcceptDialog
 var marker_id: String=""
 var name_input: LineEdit
@@ -24,6 +26,16 @@ var race_fields: VBoxContainer
 var prerequisite_fields: VBoxContainer
 var dealer_fields: VBoxContainer
 var edit_button: Button
+var stock_button: Button
+var stock_dialog: ConfirmationDialog
+var stock_search: LineEdit
+var stock_list: ItemList
+var stock_count: Label
+var stock_ids: Dictionary={}
+var stock_session: RefCounted
+var stock_marker_id: String=""
+var stock_revision: int=-1
+var stock_syncing:=false
 
 func _text_label(parent: Node,label_text: String) -> void:
 	var label:=Label.new()
@@ -87,12 +99,95 @@ func build(e,panel: Node) -> void:
 	dealer_fields=VBoxContainer.new();form.add_child(dealer_fields)
 	_text_label(dealer_fields,"Linked dealership")
 	dealer_input=OptionButton.new();dealer_fields.add_child(dealer_input)
+	stock_button=e._btn("Edit Dealership Stock...",dealer_fields,func():_open_stock(e))
+	stock_button.tooltip_text="Choose any playable vehicle from the full game catalog."
+	_build_stock(e)
 	feedback=Label.new()
 	feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	feedback.text="Mission markers start their linked race. Fast travel is available between unlocked travel markers while stationary."
 	form.add_child(feedback)
 	e._btn("Save Marker Settings",form,func():save(e))
 	_refresh_type_fields()
+
+func _build_stock(e) -> void:
+	stock_dialog=ConfirmationDialog.new()
+	stock_dialog.name="DealershipPointStock"
+	stock_dialog.title="Dealership stock"
+	stock_dialog.ok_button_text="Apply stock"
+	stock_dialog.min_size=Vector2i(640,520)
+	stock_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+	e.add_child(stock_dialog)
+	var panel:=VBoxContainer.new();panel.custom_minimum_size=Vector2(590,450);stock_dialog.add_child(panel)
+	_text_label(panel,"Select vehicles from the full playable catalog. Ctrl-click or click to toggle entries.")
+	stock_search=LineEdit.new();stock_search.placeholder_text="Search vehicle name or model ID";panel.add_child(stock_search)
+	stock_search.text_changed.connect(func(_text: String):_refresh_stock_list())
+	var buttons:=HBoxContainer.new();panel.add_child(buttons)
+	e._btn("Add all visible",buttons,func():
+		for i in stock_list.item_count:stock_ids[str(stock_list.get_item_metadata(i))]=true
+		_refresh_stock_list())
+	e._btn("Remove all visible",buttons,func():
+		for i in stock_list.item_count:stock_ids.erase(str(stock_list.get_item_metadata(i)))
+		_refresh_stock_list())
+	e._btn("Clear stock",buttons,func():stock_ids.clear();_refresh_stock_list())
+	stock_list=ItemList.new();stock_list.select_mode=ItemList.SELECT_MULTI
+	stock_list.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	panel.add_child(stock_list)
+	stock_list.multi_selected.connect(func(index: int,chosen: bool):
+		if stock_syncing:return
+		var id:=str(stock_list.get_item_metadata(index))
+		if chosen:stock_ids[id]=true
+		else:stock_ids.erase(id)
+		stock_count.text="%d vehicles selected"%stock_ids.size())
+	stock_count=Label.new();panel.add_child(stock_count)
+	stock_dialog.confirmed.connect(func():_apply_stock(e))
+
+func _refresh_stock_list() -> void:
+	if not is_instance_valid(stock_list):return
+	stock_syncing=true
+	stock_list.clear()
+	var query:=stock_search.text.strip_edges().to_lower()
+	for car in Catalog.all():
+		var id:=str(car.id)
+		var caption:=str(car.get("display_name",id))
+		if not query.is_empty() and query not in (caption+" "+id).to_lower():continue
+		stock_list.add_item("%s  |  $%s"%[caption,str(car.get("price_usd",0))])
+		stock_list.set_item_metadata(stock_list.item_count-1,id)
+		if stock_ids.has(id):stock_list.select(stock_list.item_count-1,false)
+	stock_count.text="%d vehicles selected"%stock_ids.size()
+	stock_syncing=false
+
+func _open_stock(e) -> void:
+	if e._editing_locked() or not e.source_ready:return
+	var point: Dictionary=e.authoring.marker_at_id(marker_id)
+	var properties: Dictionary=point.get("properties",{})
+	var linked:=str(properties.get("dealer_id",""))
+	if str(point.get("type",""))!="dealership" or linked!=str(dealer_input.get_selected_metadata()):
+		feedback.text="Save the dealership marker type and link first, then reopen Customize Point.";return
+	stock_ids.clear()
+	if linked.is_empty():
+		for id in properties.get("dealer_inventory",[]):stock_ids[str(id)]=true
+	else:
+		var shop: Dictionary=e.authoring.dealership_at_id(linked)
+		if shop.is_empty():feedback.text="The linked dealership is missing.";return
+		for car in DealerConfig.available_inventory(shop):stock_ids[str(car.id)]=true
+	stock_session=e.authoring;stock_marker_id=marker_id;stock_revision=e.authoring.edit_revision
+	stock_dialog.title="Edit stock — "+str(point.get("name","Dealership"))
+	stock_search.clear()
+	_refresh_stock_list()
+	dialog.hide()
+	stock_dialog.popup_centered()
+
+func _apply_stock(e) -> void:
+	if e._editing_locked() or e.authoring!=stock_session or e.authoring.edit_revision!=stock_revision:
+		e._notice("The map changed; reopen the dealership stock editor.");return
+	var ids: Array=[]
+	for car in Catalog.all():
+		if stock_ids.has(str(car.id)):ids.append(str(car.id))
+	if e.authoring.set_marker_dealer_stock(stock_marker_id,ids):
+		e._refresh_authoring()
+		e._notice("Dealership stock saved to the draft. Undo restores the previous stock.")
+		open_for(e,stock_marker_id)
+	else:e._notice(e.authoring.last_error)
 
 func _refresh_type_fields() -> void:
 	var kind:=str(type_input.get_selected_metadata())
@@ -194,6 +289,7 @@ func save(e) -> void:
 		var chosen: String=str(pair[0].get_selected_metadata())
 		if chosen.is_empty():info.erase(pair[1])
 		else:info[pair[1]]=chosen
+	if str(type_input.get_selected_metadata())!="dealership" or not str(info.get("dealer_id","")).is_empty():info.erase("dealer_inventory")
 	if str(type_input.get_selected_metadata())=="contract":
 		info["contract_kind"]=str(contract_kind_input.get_selected_metadata())
 		var dropoff:=str(contract_destination_input.get_selected_metadata())

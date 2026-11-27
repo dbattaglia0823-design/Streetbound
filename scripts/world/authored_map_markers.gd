@@ -192,6 +192,12 @@ func _linked_race(id: String) -> Node2D:
 				str(race.definition.get("id",""))==id:return race
 	return null
 
+func _marker_dealer_access(point: Dictionary) -> bool:
+	if not is_instance_valid(player) or not _enabled(point) or _is_busy():return false
+	if not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(point)) or not InteractionSpeed.allowed(player.linear_velocity.length()):return false
+	if is_instance_valid(world) and not world.business_open("dealership"):return false
+	return player.global_position.distance_to(_point(point)*PPM)<=float(point.get("properties",{}).get("radius_m",12))*PPM
+
 func activate() -> void:
 	if get_tree().paused or _nearby.is_empty() or _is_busy() or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(_nearby)) or \
 			not InteractionSpeed.allowed(player.linear_velocity.length()):return
@@ -201,6 +207,12 @@ func activate() -> void:
 		"garage":
 			if is_instance_valid(selector):selector.open_menu()
 		"dealership":
+			if properties.has("dealer_inventory") and str(properties.get("dealer_id","")).is_empty() and is_instance_valid(dealer_menu):
+				var point: Dictionary=_nearby
+				var shop: Dictionary={"id":"point-"+str(point.id),"name":str(point.name),"tier":"CUSTOM SHOWROOM","region":"Map dealership","inventory_mode":"manual","inventory":properties.dealer_inventory}
+				if _marker_dealer_access(point):dealer_menu.open_marker_menu(shop,_marker_dealer_access.bind(point))
+				else:_show_info(point,"Dealership closed or outside the browsing area.")
+				return
 			# Never let a marker tied to one dealer open a different shop.
 			# The real forecourt/collision and parking speed rules remain
 			# authoritative; a marker cannot bypass purchase access.

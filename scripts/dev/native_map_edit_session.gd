@@ -201,6 +201,10 @@ func _valid_source(value: Dictionary) -> bool:
 ## Curated shops are virtual until edited. Keeping default locations out of
 ## the source means a stock change cannot accidentally move a legacy shop.
 func dealership_list() -> Array[Dictionary]:
+	if doc.get("customMap",false):
+		var shops: Array[Dictionary]=[]
+		for dealer in doc.get("dealerships",[]):shops.append(dealer.duplicate(true))
+		return shops
 	return DealershipConfig.combined(doc)
 
 func dealership_at_id(identity: String) -> Dictionary:
@@ -238,7 +242,7 @@ func add_dealership(position_m: Vector2) -> String:
 	var next: Dictionary = doc.duplicate(true)
 	if not next.has("dealerships"):
 		next["dealerships"]=[]
-	if DealershipConfig.combined(next).size()>=DealershipConfig.MAX_SHOPS:
+	if dealership_list().size()>=DealershipConfig.MAX_SHOPS:
 		last_error = "The map has reached its dealership limit."
 		return ""
 	var number:=1
@@ -1364,6 +1368,22 @@ func marker_at_id(identity: String) -> Dictionary:
 	for marker in doc.get("markers",[]):
 		if str(marker.get("id",""))==identity:return marker
 	return {}
+
+## A linked marker edits the physical shop's stock. An unlinked marker can
+## run its own storefront, using the same catalog and purchase rules.
+func set_marker_dealer_stock(identity: String,ids: Array) -> bool:
+	var point:=marker_at_id(identity)
+	if point.is_empty() or str(point.get("type",""))!="dealership" or not MarkerRules.valid_inventory(ids):
+		last_error="Select a dealership point and valid vehicle IDs.";return false
+	for id in ids:
+		if DealershipConfig.CATALOG.find_by_id(str(id)).is_empty():
+			last_error="Unknown playable vehicle: "+str(id);return false
+	var properties: Dictionary=point.get("properties",{}).duplicate(true)
+	var dealer_id:=str(properties.get("dealer_id",""))
+	if not dealer_id.is_empty():
+		return update_dealership(dealer_id,{"inventory_mode":"manual","inventory":ids.duplicate()})
+	properties["dealer_inventory"]=ids.duplicate()
+	return update_marker(identity,{"properties":properties})
 
 func update_marker(identity: String,details: Dictionary) -> bool:
 	var draft: Dictionary=doc.duplicate(true)

@@ -93,5 +93,12 @@ func _run() -> void:
 		session.marker_at_id("marker-1").name=="Mission One")
 	check("undo_restores_original_marker",session.undo() and
 		session.marker_at_id("marker-1").name=="marker-1")
+	var stock_id:=str(preload("res://scripts/vehicle/player_vehicle_catalog.gd").all()[0].id)
+	check("linked_stock_updates_real_custom_shop",session.set_marker_dealer_stock("marker-4",[stock_id]) and session.dealership_at_id("dealer-1").inventory==[stock_id])
+	var standalone:=session.add_marker(Vector2(300,300),"dealership")
+	check("unlinked_marker_stock_persists",not standalone.is_empty() and session.set_marker_dealer_stock(standalone,[stock_id]) and session.marker_at_id(standalone).properties.dealer_inventory==[stock_id])
+	check("marker_stock_rejects_unknown_and_duplicate_ids",not session.set_marker_dealer_stock(standalone,["missing-car"]) and not session.set_marker_dealer_stock(standalone,[stock_id,stock_id]))
+	check("custom_dealers_exclude_morrow_defaults",session.dealership_list().size()==1)
+	check("marker_stock_undo_restores_previous_state",session.undo() and not session.marker_at_id(standalone).properties.has("dealer_inventory"))
 	print("AUTHORED CAREER & MARKERS: ","PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)
