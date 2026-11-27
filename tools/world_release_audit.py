@@ -63,8 +63,9 @@ def structural_audit(archive):
     for key, cell in chunks.items():
         try:
             x,y=map(int,key.split(","))
-            if x<0 or y<0:
-                errors.append("Negative chunk coordinate: "+key)
+            # Padded road geometry legitimately extends outside terrain.
+            if abs(x)>10000 or abs(y)>10000:
+                errors.append("Out-of-range chunk coordinate: "+key)
         except (TypeError,ValueError):
             errors.append("Invalid chunk coordinate: "+str(key))
             continue

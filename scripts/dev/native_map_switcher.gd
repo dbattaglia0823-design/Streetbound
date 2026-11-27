@@ -414,6 +414,24 @@ func open_release_center(e) -> void:
 		window.add_child(picker);picker.file_selected.connect(func(path: String):
 			show_result.call(_release_command(["--verify",path]));picker.queue_free())
 		picker.canceled.connect(picker.queue_free);picker.popup_centered_ratio(.7))
+	e._btn("Install verified ZIP as PLAY world...",box,func():
+		if not valid.call():return
+		var picker:=FileDialog.new();picker.file_mode=FileDialog.FILE_MODE_OPEN_FILE;picker.access=FileDialog.ACCESS_FILESYSTEM
+		picker.filters=PackedStringArray(["*.zip ; Streetbound map release"])
+		window.add_child(picker)
+		picker.file_selected.connect(func(path: String):
+			picker.queue_free()
+			var confirm:=ConfirmationDialog.new();confirm.title="Activate verified map package?"
+			confirm.dialog_text="Requires matching project artwork and compiler. No external assets will be installed. The previous PLAY world is backed up; the current draft and career remain unchanged."
+			window.add_child(confirm)
+			confirm.confirmed.connect(func():
+				if valid.call():
+					var backup_root:=Library.folder().path_join("publish-backups")
+					show_result.call(_release_command(["--install",path,"--backup-dir",ProjectSettings.globalize_path(backup_root)]))
+					_refresh_publication_ui()
+				confirm.queue_free())
+			confirm.canceled.connect(confirm.queue_free);confirm.popup_centered())
+		picker.canceled.connect(picker.queue_free);picker.popup_centered_ratio(.7))
 	var versions:=OptionButton.new();box.add_child(versions)
 	for name in Library.backups(file):
 		versions.add_item(name);versions.set_item_metadata(versions.item_count-1,name)

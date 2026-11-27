@@ -191,7 +191,11 @@ def prepare(source, root):
 
 def publish(source, root, backup_dir):
     root=Path(root).resolve()
-    prepared=prepare(source,root)
+    return publish_prepared(prepare(source,root),root,backup_dir)
+
+
+def publish_prepared(prepared, root, backup_dir):
+    root=Path(root).resolve()
     raw=prepared["raw"]
     binary=prepared["binary"]
     compiled=prepared["archive"]

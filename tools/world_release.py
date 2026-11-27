@@ -13,7 +13,7 @@ import sys
 import tempfile
 import zipfile
 
-from publish_custom_world import prepare, _atomic_write, _activate, DEFAULT, MANIFEST, _json_bytes, MAX_SOURCE_BYTES
+from publish_custom_world import prepare, publish_prepared, _atomic_write, _activate, DEFAULT, MANIFEST, _json_bytes, MAX_SOURCE_BYTES
 from world_release_audit import sha, file_sha, MAX_ARCHIVE, MAX_ASSET, MAX_PACKAGE, structural_audit, dependencies
 
 def report(prepared):
@@ -64,19 +64,9 @@ def export_package(source,root,destination):
             for row in prepared["dependencies"]:
                 z.write(root/row["path"],row["path"])
         verify_package(temp)
-        # The package is complete before exposing it; never overwrite a
-        # previous release even if two editors export simultaneously.
-        with open(destination,"xb") as target:
-            try:
-                with open(temp,"rb") as stream:
-                    import shutil
-                    shutil.copyfileobj(stream,target)
-                target.flush()
-                os.fsync(target.fileno())
-            except BaseException:
-                target.close()
-                destination.unlink(missing_ok=True)
-                raise
+        # Atomic no-overwrite publication on the same filesystem.
+        # Fail rather than expose a partial ZIP if hard links are unavailable.
+        os.link(temp,destination)
     finally:
         Path(temp).unlink(missing_ok=True)
     return dict(info,result="exported",package=str(destination),package_sha256=file_sha(destination))
@@ -155,6 +145,29 @@ def verify_package(path):
             raise ValueError("Archive dependency manifest mismatch")
         return {"result":"verified","world_id":active["id"],"archive_sha256":expected[archive]["sha256"],"assets":len(assets)}
 
+def install_package(path,root,backup_dir):
+    """Activate only after a matching local compiler and artwork check."""
+    verified=verify_package(path)
+    root=Path(root).resolve()
+    with zipfile.ZipFile(path) as z:
+        manifest=json.loads(z.read("release.json"))
+        active=manifest["active_world"]
+        archive,source,_=_manifest_paths(active)
+        source_raw=z.read(source)
+        archive_raw=z.read(archive)
+        data=_check_payloads(active,archive_raw,source_raw)
+        if dependencies(data,root)!=data.get("editor_asset_manifest",[]):
+            raise ValueError("Local project artwork differs; use the matching game project and assets")
+        with tempfile.TemporaryDirectory(prefix="streetbound-release-") as scratch:
+            local=Path(scratch)/active["id"]
+            local.write_bytes(source_raw)
+            prepared=prepare(local,root)
+            if sha(prepared["binary"])!=verified["archive_sha256"] or prepared["binary"]!=archive_raw:
+                raise ValueError("Local compiler output differs; use the same game project version")
+            result=publish_prepared(prepared,root,backup_dir)
+    return dict(result,result="installed",archive_sha256=verified["archive_sha256"])
+
+
 def compare(before,after):
     """Stable ID comparisons. JSON object ordering does not imply a change."""
     result={}
@@ -202,6 +215,7 @@ def main():
     modes.add_argument("--export")
     modes.add_argument("--verify")
     modes.add_argument("--rollback")
+    modes.add_argument("--install")
     cli.add_argument("--output")
     cli.add_argument("--backup-dir")
     args=cli.parse_args()
@@ -213,6 +227,9 @@ def main():
             result=export_package(args.export,args.project,args.output)
         elif args.verify:
             result=verify_package(args.verify)
+        elif args.install:
+            if not args.backup_dir:raise ValueError("Choose a backup directory")
+            result=install_package(args.install,args.project,args.backup_dir)
         else:
             if not args.backup_dir:raise ValueError("Choose a backup directory")
             result=rollback(args.project,args.backup_dir,args.rollback)

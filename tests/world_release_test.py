@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"tools"))
 from custom_test_world_bake_test import source
 from publish_custom_world import publish
-from world_release import preflight, export_package, verify_package, compare, rollback
+from world_release import preflight, export_package, verify_package, compare, rollback, install_package
 from world_release_audit import structural_audit
 
 class WorldRelease(unittest.TestCase):
@@ -37,6 +37,24 @@ class WorldRelease(unittest.TestCase):
         self.assertIn(exported["archive_sha256"][:20],published["archive"])
         with self.assertRaises(ValueError):
             export_package(self.file,self.root,path)
+
+    def test_install_exact_package_in_second_project(self):
+        path=Path(self.temp.name)/"release.zip"
+        info=export_package(self.file,self.root,path)
+        second=Path(self.temp.name)/"second-game"
+        (second/"worlds").mkdir(parents=True)
+        (second/"worlds/morrow-coast.world.json").write_text("{}")
+        installed=install_package(path,second,second/"backups")
+        self.assertEqual(installed["archive_sha256"],info["archive_sha256"])
+        self.assertEqual(installed["result"],"installed")
+        self.assertEqual(json.loads((second/"worlds/active-world.json").read_bytes())["id"],self.file.name)
+        self.assertFalse(self.pointer.exists())
+
+    def test_signed_padding_cells_are_valid(self):
+        from build_custom_test_world import make_archive
+        doc=source()
+        doc["roads"][0]["points"][0]["x"]=0
+        self.assertEqual(structural_audit(make_archive(doc))["error_count"],0)
 
     def test_tamper_and_traversal(self):
         path=Path(self.temp.name)/"release.zip"
