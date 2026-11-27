@@ -51,6 +51,7 @@ var drag_redraw_count:=0
 var static_redraw_count:=0
 var selected_anchor_index := -1
 var pending_shape: Array[Vector2] = []
+var measurement_points: Array[Vector2]=[]
 var angle_guide_degrees:=0.0
 var pending_tool := ""
 var source_anchor_mode := false
@@ -665,6 +666,11 @@ func _draw() -> void:
 	if not is_instance_valid(world) or world.data.is_empty():
 		return
 	if layer_flags.get("grid",false):_draw_grid()
+	if not measurement_points.is_empty():
+		var measuring:=PackedVector2Array()
+		for point in measurement_points:measuring.append(point*PPM)
+		if measuring.size()>1:draw_polyline(measuring,Color("#ffd266"),2.0/maxf(.003,zoom_level),true)
+		for point in measuring:draw_circle(point,4.0/maxf(.003,zoom_level),Color("#ffd266"))
 	if layer_flags.get("markers",true):_draw_races()
 	_draw_draft_junctions(true)
 	_draw_draft()

@@ -162,12 +162,13 @@ static func build(e) -> void:
 	e.asset_search=LineEdit.new();e.asset_search.name="AssetSearch";e.asset_search.placeholder_text="Search game assets..."
 	e.asset_search.text_changed.connect(func(_value: String)->void:e._filter_assets());assets.add_child(e.asset_search)
 	e.asset_category=OptionButton.new()
-	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals","Sprite sheets"]:e.asset_category.add_item(title_text)
+	for title_text in ["All assets","Houses","Buildings","Garages","Nature","Industrial","Roadside","Ground decals","Sprite sheets","Favorites"]:e.asset_category.add_item(title_text)
 	e.asset_category.item_selected.connect(func(_index: int)->void:e._filter_assets());assets.add_child(e.asset_category)
 	e.asset_count=heading(assets,"")
 	e.asset_grid=GridContainer.new();e.asset_grid.columns=2
 	e.asset_grid.add_theme_constant_override("h_separation",6);e.asset_grid.add_theme_constant_override("v_separation",6)
 	assets.add_child(e.asset_grid);e._btn("Refresh assets",assets,e._scan_asset_library)
+	e._btn("Toggle selected favorite",assets,e._toggle_asset_favorite)
 	settings.add_child(HSeparator.new())
 	e.tool_help=heading(settings,"Select a tool or map object.")
 	e.tool_help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -197,6 +198,7 @@ static func build(e) -> void:
 	e._btn("Prefabs",actions,e._open_prefabs)
 	e._btn("Build city",actions,e._open_construction)
 	e._btn("Landscape",actions,e._open_landscape)
+	e._btn("Tools  Ctrl+K",actions,e._open_workspace_commands)
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()
@@ -223,6 +225,7 @@ static func build(e) -> void:
 	e.inspector_tabs.add_child(object_scroll)
 	var objects:=column(object_scroll);objects.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	heading(layer_column,"WORLD LAYERS")
+	e._btn("Named layers",layer_column,func():e.workspace_tools.open_layers())
 	var layers:=GridContainer.new();layers.columns=2;layer_column.add_child(layers)
 	for item in [["Terrain","terrain"],["Roads","roads"],["Scenery","scenery"],["Markers","markers"],["Grid","grid"]]:
 		var check:=CheckBox.new();check.text=item[0];check.button_pressed=item[1]!="grid"
@@ -238,6 +241,7 @@ static func build(e) -> void:
 	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
 	heading(inspector,"INSPECTOR")
+	e._btn("Replace assets",inspector,func():e.workspace_tools.open_replace())
 	var align_tools:=OptionButton.new()
 	for arrange_caption in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(arrange_caption)
 	inspector.add_child(align_tools)

@@ -89,3 +89,39 @@ static func measure(points: Array[Vector2]) -> Dictionary:
 	var angle:=0.0
 	if points.size()>=3:angle=absf(rad_to_deg((points[0]-points[1]).angle_to(points[2]-points[1])))
 	return {"length":length,"area":absf(area)*.5,"angle":angle}
+
+static func road_metrics(road: Dictionary) -> Dictionary:
+	var points: Array=road.points
+	var profile: Dictionary=road.get("elevation",{})
+	var layers: Array=profile.get("point_layers",[])
+	var length:=0.0;var grade:=0.0
+	for i in range(1,points.size()):
+		var span:=Vector2(points[i-1].x,points[i-1].y).distance_to(Vector2(points[i].x,points[i].y))
+		length+=span
+		if layers.size()==points.size():grade=maxf(grade,absf(float(layers[i])-float(layers[i-1]))*600.0/maxf(.001,span))
+	if layers.is_empty():grade=absf(float(profile.get("end_layer",0))-float(profile.get("start_layer",0)))*600.0/maxf(.001,length)
+	return {"length":length,"grade":grade}
+
+static func _segment_height(road: Dictionary,index: int,t: float) -> float:
+	var profile: Dictionary=road.get("elevation",{})
+	var layers: Array=profile.get("point_layers",[])
+	if layers.size()==road.points.size():return lerpf(float(layers[index-1]),float(layers[index]),t)*6.0
+	var total:=0.0;var station:=0.0
+	for i in range(1,road.points.size()):
+		var length:=Vector2(road.points[i-1].x,road.points[i-1].y).distance_to(Vector2(road.points[i].x,road.points[i].y))
+		total+=length
+		if i<index:station+=length
+		elif i==index:station+=length*t
+	return lerpf(float(profile.get("start_layer",0)),float(profile.get("end_layer",0)),station/maxf(.001,total))*6.0
+
+static func crossing_clearance(a: Dictionary,b: Dictionary) -> float:
+	var best:=-1.0
+	for i in range(1,a.points.size()):
+		var p:=Vector2(a.points[i-1].x,a.points[i-1].y);var q:=Vector2(a.points[i].x,a.points[i].y)
+		for j in range(1,b.points.size()):
+			var r:=Vector2(b.points[j-1].x,b.points[j-1].y);var s:=Vector2(b.points[j].x,b.points[j].y)
+			var hit: Variant=Geometry2D.segment_intersects_segment(p,q,r,s)
+			if hit==null:continue
+			var h:=absf(_segment_height(a,i,p.distance_to(hit)/maxf(.001,p.distance_to(q)))-_segment_height(b,j,r.distance_to(hit)/maxf(.001,r.distance_to(s))))
+			best=h if best<0 else minf(best,h)
+	return best

@@ -69,6 +69,9 @@ var junction_button: Button
 var selected: Dictionary = {}
 const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
 const WorkspaceData=preload("res://scripts/dev/native_editor_workspace.gd")
+const WorkspaceUI=preload("res://scripts/dev/native_workspace_tools.gd")
+var workspace_tools:=WorkspaceUI.new()
+var last_asset_entry: Dictionary={}
 const Construction=preload("res://scripts/dev/native_city_construction.gd")
 const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
 var landscape_dialog: AcceptDialog
@@ -479,7 +482,14 @@ func _register_project_asset(relative: String, label: String, texture: Texture2D
 		"region":region.duplicate(),"collision":collision,"world_size":size})
 
 
+func _open_workspace_commands() -> void:
+	workspace_tools.setup(self);workspace_tools.open_commands()
+
+func _toggle_asset_favorite() -> void:
+	workspace_tools.setup(self);workspace_tools.toggle_favorite(last_asset_entry)
+
 func _filter_assets() -> void:
+	workspace_tools.setup(self)
 	if not is_instance_valid(asset_grid):
 		return
 	for node in asset_grid.get_children():
@@ -507,10 +517,11 @@ func _filter_assets() -> void:
 			continue
 		if category == 8 and entry.get("region",[]).size()!=4:
 			continue
+		if category == 9 and not workspace_tools.favorite(entry):continue
 		var button := Button.new()
 		button.name = "Asset_"+str(count)
 		button.custom_minimum_size = Vector2(98,106)
-		button.tooltip_text = str(entry.name)
+		button.tooltip_text = ("Favorite · " if workspace_tools.favorite(entry) else "")+str(entry.name)
 		if entry.get("region",[]).size()==4:button.tooltip_text+="\nSheet: "+str(entry.path).get_file().get_basename()
 		button.pressed.connect(_select_asset.bind(entry))
 		var tile := VBoxContainer.new()
@@ -541,6 +552,7 @@ func _filter_assets() -> void:
 
 
 func _select_asset(entry: Dictionary) -> void:
+	last_asset_entry=entry
 	if _editing_locked():
 		return
 	if bool(entry.get("project",false)):
@@ -953,6 +965,7 @@ func _open_dealership_editor() -> void:
 
 
 func _choose_tool(mode: String) -> void:
+	if mode!="measure":workspace_tools.clear_measure()
 	if _editing_locked():
 		return
 	if not source_ready and mode != "inspect":
@@ -1001,6 +1014,8 @@ func _choose_tool(mode: String) -> void:
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	workspace_tools.setup(self)
+	workspace_tools.refresh()
 	if source_ready:
 		layer_flags["workspace_excluded"]=WorkspaceData.excluded(authoring.doc,true)
 		gizmos.layer_flags=layer_flags.duplicate()
@@ -1479,6 +1494,8 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
+	if tool_name=="measure":
+		workspace_tools.measure_click(world_px/PPM);return
 	if tool_name=="landscape_brush":
 		_landscape_stamp(_snap_point(world_px/PPM));return
 	if tool_name=="draw_river":
@@ -2044,7 +2061,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				if tool_name in ["race_grid","race_checkpoint","landscape_brush","draw_river"]:
+				if tool_name in ["race_grid","race_checkpoint","landscape_brush","draw_river","measure"]:
 					if not pending_drag.is_empty() or not draft_points.is_empty():_cancel_gesture()
 					else:_choose_tool("move_prop")
 					_consume_input()
@@ -2093,6 +2110,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			if active and key.ctrl_pressed and key.keycode==KEY_S:
 				_apply_draft();_consume_input();return
+			if active and key.ctrl_pressed and key.keycode==KEY_K:
+				workspace_tools.open_commands();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_C:
 				_copy_selected_group();_consume_input();return
 			if active and key.ctrl_pressed and key.keycode==KEY_V:
