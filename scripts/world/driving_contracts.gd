@@ -14,8 +14,25 @@ var active: Dictionary = {}
 var destination: Dictionary = {}
 var robbery_target: Dictionary = {}
 var offer_settings: Dictionary = {}
+var mission_crew: Array = []
+
+func _crew_quote(offer: Dictionary) -> Dictionary:
+	return economy.call("quote_crew",offer,mission_crew) if is_instance_valid(economy) and economy.has_method("quote_crew") else {}
+
+func _robbery_hold(offer: Dictionary) -> float:
+	return maxf(3.0,Rules.configured_robbery_hold(offer)*float(_crew_quote(offer).get("hold_factor",1.0)))
+
+func _completed_lower(offer: Dictionary, progress: float) -> String:
+	return Rules.completed_lower_risk(offer,progress,float(_crew_quote(offer).get("hold_factor",1.0)))
+
+func _robbery_cash(offer: Dictionary) -> int:
+	return int(_crew_quote(offer).get("cash",Rules.configured_reward("robbery",offer).cash))
 var stage := "delivery"
 var robbery_progress := 0.0
+var early_finish_requested := false
+var robbery_meter: ProgressBar
+var robbery_status: Label
+var early_finish_button: Button
 var remaining_seconds := 0.0
 var started_car_id := ""
 var run_token := ""
@@ -46,6 +63,21 @@ func _ready() -> void:
 	readout = Label.new()
 	readout.add_theme_font_size_override("font_size", 13)
 	column.add_child(readout)
+	robbery_status = Label.new()
+	robbery_status.add_theme_font_size_override("font_size",13)
+	robbery_status.visible = false
+	column.add_child(robbery_status)
+	robbery_meter = ProgressBar.new()
+	robbery_meter.custom_minimum_size = Vector2(340,18)
+	robbery_meter.max_value = 100.0
+	robbery_meter.show_percentage = true
+	robbery_meter.visible = false
+	column.add_child(robbery_meter)
+	early_finish_button = Button.new()
+	early_finish_button.text = "FINISH LOWER REWARD"
+	early_finish_button.visible = false
+	early_finish_button.pressed.connect(_request_early_finish)
+	column.add_child(early_finish_button)
 	abandon_button = Button.new()
 	abandon_button.text = "ABANDON CONTRACT"
 	abandon_button.pressed.connect(abandon)
@@ -73,13 +105,32 @@ func _find_robbery_target(id: String) -> Dictionary:
 			return item
 	return {}
 
+func projected_payload_mass(offer: Dictionary) -> float:
+	var payload := Rules.robbery_payload(offer)
+	var factor := 1.0
+	if is_instance_valid(player) and player.config != null:
+		factor = player.config.mission_cargo_mass_factor
+	return float(payload.x)*75.0 + float(payload.y)*clampf(factor,0.8,1.0)
+
+func vehicle_requirement(offer: Dictionary) -> String:
+	if Rules.robbery_payload(offer) == Vector2i.ZERO:
+		return ""
+	if not is_instance_valid(player) or player.config == null:
+		return "VEHICLE UNAVAILABLE"
+	return Rules.capacity_reason(offer,player.config.seating_capacity,player.config.cargo_capacity_kg)
+
+func robbery_availability(offer: Dictionary) -> Dictionary:
+	if not is_instance_valid(economy) or not is_instance_valid(marker_source):
+		return {}
+	return economy.call("robbery_availability",str(marker_source.get("world_id")),offer)
+
 func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	if not is_instance_valid(economy):
 		return "CONTRACTS UNAVAILABLE"
 	if int(economy.call("player_level")) < int(offer.get("required_player_level",1)):
 		return "REQUIRES DRIVER LEVEL %d" % int(offer.get("required_player_level",1))
-	if int(economy.get("underground_reputation")) < int(offer.get("required_underground_rep",0)):
-		return "REQUIRES UNDERGROUND REP %d" % int(offer.get("required_underground_rep",0))
+	if int(economy.get("underground_reputation")) < Rules.required_rep(offer):
+		return "REQUIRES REP %d / %d MORE" % [Rules.required_rep(offer),Rules.required_rep(offer)-int(economy.get("underground_reputation"))]
 	var prerequisite:=str(offer.get("required_race_id",""))
 	if not prerequisite.is_empty():
 		var event_key:=str(marker_source.get("world_id"))+"::"+prerequisite
@@ -92,9 +143,9 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	var key := str(marker_source.get("world_id"))+"::"+str(contact.get("id",""))+"_"+str(offer.get("id",""))
 	if not bool(offer.get("repeatable",true)) and int(economy.get("completed_driving_contracts").get(key,0)) > 0:
 		return "CONTRACT COMPLETED"
-	return ""
+	return Rules.availability_text(robbery_availability(offer)) if not Rules.robbery_profile(offer).is_empty() else ""
 
-func try_start_offer(contact: Dictionary, selected: Dictionary) -> Dictionary:
+func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "standard", use_hired_crew: bool = false) -> Dictionary:
 	if not is_instance_valid(marker_source) or str(contact.get("type","")) != "contract_contact":
 		return {"result":"invalid"}
 	if not bool(marker_source.call("_enabled",contact)):
@@ -125,7 +176,27 @@ func try_start_offer(contact: Dictionary, selected: Dictionary) -> Dictionary:
 		"name":str(selected.get("title","Driving job")),
 		"type":"contract","x":float(contact.get("x",0)),
 		"y":float(contact.get("y",0)),"properties":props}
-	return try_start(source,selected)
+	var chosen := selected.duplicate(true)
+	if not Rules.robbery_profile(selected).is_empty():
+		chosen = Rules.with_robbery_risk(selected,risk)
+		if chosen.is_empty():
+			return {"result":"invalid","message":"Invalid robbery risk selection"}
+	elif risk != "standard":
+		return {"result":"invalid","message":"This contract does not support risk selection"}
+	var capacity_lock := vehicle_requirement(chosen)
+	if not capacity_lock.is_empty():
+		return {"result":"vehicle_capacity","message":capacity_lock}
+	var ids: Array = economy.call("crew_for_offer",chosen) if use_hired_crew and not Rules.robbery_profile(chosen).is_empty() else []
+	return try_start(source,chosen,ids)
+
+## Career navigation uses the real active contact, not a fabricated waypoint.
+func career_contact() -> Dictionary:
+	if not is_instance_valid(marker_source):
+		return {}
+	for item in marker_source.get("markers"):
+		if str(item.get("id","")) == "marker-campaign-robbery-contact" and str(item.get("type","")) == "contract_contact" and bool(marker_source.call("_enabled",item)):
+			return item.duplicate(true)
+	return {}
 
 func _waypoints() -> Node:
 	if not is_instance_valid(map_hud):
@@ -139,7 +210,7 @@ func _road_accessible(position_m: Vector2) -> bool:
 	var road: Dictionary = world.call("nearest_road_at",position_m * PPM, 28.0)
 	return not road.is_empty() and float(road.get("distance_to_center_m", INF)) <= 22.0
 
-func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionary:
+func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Array = []) -> Dictionary:
 	if not is_instance_valid(player) or not is_instance_valid(economy) or not is_instance_valid(police):
 		return {"result":"unavailable"}
 	if not active.is_empty():
@@ -159,11 +230,26 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 		return {"result":"unlinked","message":"Place and link a dropoff marker at least 100 metres away"}
 	var source_pos := Vector2(float(source.x), float(source.y))
 	var kind := str(props.get("contract_kind","courier"))
+	if not Rules.valid_robbery_profile(kind,authored_offer):
+		return {"result":"invalid","message":"Invalid robbery profile or risk"}
+	if not Rules.robbery_profile(authored_offer).is_empty() and int(economy.get("underground_reputation")) < Rules.required_rep(authored_offer):
+		return {"result":"locked","message":"Insufficient underground reputation"}
+	if not crew_ids.is_empty() and (kind!="robbery" or (economy.call("quote_crew",authored_offer,crew_ids) as Dictionary).is_empty()):
+		return {"result":"invalid_crew","message":"Selected crew is unavailable"}
+	var capacity_lock := vehicle_requirement(authored_offer)
+	if not capacity_lock.is_empty():
+		return {"result":"vehicle_capacity","message":capacity_lock}
 	var robbery: Dictionary = {}
 	if kind == "robbery":
 		robbery = _find_robbery_target(str(props.get("robbery_marker_id","")))
 		if robbery.is_empty():
 			return {"result":"unlinked","message":"Robbery location is missing or disabled"}
+		if not Rules.robbery_profile(authored_offer).is_empty():
+			if str(robbery.get("id","")) != str(authored_offer.get("robbery_marker_id","")):
+				return {"result":"invalid","message":"Robbery target mismatch"}
+			var availability := robbery_availability(authored_offer)
+			if not bool(availability.get("available",false)):
+				return {"result":"unavailable","message":Rules.availability_text(availability)}
 	var next_stop: Dictionary = robbery if kind == "robbery" else target
 	var target_pos := Vector2(float(next_stop.x),float(next_stop.y))
 	if player.global_position.distance_to(source_pos * PPM) > clampf(
@@ -196,6 +282,11 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 	if heat > 0 and kind != "robbery" and not bool(police.call("start_pursuit",heat)):
 		guide.call("clear_destination")
 		return {"result":"police_unavailable","message":"Unable to begin getaway pursuit on this road"}
+	if not Rules.robbery_profile(authored_offer).is_empty():
+		var reservation: String = economy.call("reserve_robbery_location",str(marker_source.get("world_id")),authored_offer)
+		if reservation != "ready":
+			guide.call("clear_destination")
+			return {"result":reservation,"message":"LOCATION UNAVAILABLE / "+reservation.to_upper().replace("_"," ")}
 	_run_sequence += 1
 	run_token = "job-%d-%d-%d" % [
 		int(Time.get_unix_time_from_system()), Time.get_ticks_usec(), _run_sequence]
@@ -203,10 +294,12 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 	destination = target.duplicate(true)
 	robbery_target = robbery.duplicate(true)
 	offer_settings = authored_offer.duplicate(true)
+	mission_crew = crew_ids.duplicate()
 	stage = "robbery" if kind == "robbery" else "delivery"
 	robbery_progress = 0.0
+	early_finish_requested = false
 	started_car_id = str(economy.active_id)
-	remaining_seconds = Rules.configured_time(kind,authored_offer)
+	remaining_seconds = Rules.configured_time(kind,authored_offer)*float(_crew_quote(authored_offer).get("time_factor",1.0))
 	notice = "DRIVE TO " + str(next_stop.get("name","DESTINATION")).to_upper()
 	notice_seconds = 4.0
 	return {"result":"started","kind":kind,"destination":str(target.get("name","Destination"))}
@@ -221,13 +314,17 @@ func _clear_route() -> void:
 		guide.call("clear_destination")
 
 func _end(message: String) -> void:
+	if is_instance_valid(player):
+		player.clear_mission_payload()
 	_clear_route()
 	active.clear()
 	destination.clear()
 	robbery_target.clear()
 	offer_settings.clear()
+	mission_crew.clear()
 	stage = "delivery"
 	robbery_progress = 0.0
+	early_finish_requested = false
 	remaining_seconds = 0.0
 	started_car_id = ""
 	run_token = ""
@@ -246,16 +343,30 @@ func abandon() -> void:
 	if not active.is_empty():
 		_end("CONTRACT ABANDONED")
 
+func _exit_tree() -> void:
+	if is_instance_valid(player) and not active.is_empty():
+		player.clear_mission_payload()
+
+func _request_early_finish() -> void:
+	if not active.is_empty() and stage == "robbery":
+		early_finish_requested = true
+
 func _complete() -> void:
-	if active.is_empty() or destination.is_empty():
+	if active.is_empty() or destination.is_empty() or stage != "delivery":
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var event_key := str(marker_source.get("world_id")) + "::" + str(active.get("id",""))
-	var payout: Dictionary = economy.call("record_driving_contract",run_token, event_key, kind, offer_settings)
+	var payout: Dictionary = economy.call("record_driving_contract",run_token, event_key, kind, offer_settings,mission_crew)
 	if str(payout.get("result","")) == "completed":
-		_end("JOB COMPLETE / +%s / +%d DRIVER XP / +%d STREET REP" % [
+		var result_text := "JOB COMPLETE / +%s / +%d DRIVER XP / +%d STREET REP" % [
 			economy.dollars(int(payout.get("cash",0))), int(payout.get("player_xp",0)),
-			int(payout.get("underground_rep",0))])
+			int(payout.get("underground_rep",0))]
+		if int(payout.get("crew_count",0))>0:
+			result_text += "\nCREW CUT %s / +%d XP EACH" % [economy.dollars(int(payout.crew_cut)),int(payout.crew_xp)]
+		var promotion := str(payout.get("rank_up",""))
+		if not promotion.is_empty():
+			result_text += "\n"+promotion
+		_end(result_text)
 	else:
 		_end("JOB NOT PAID / " + str(payout.get("result","save_failed")))
 
@@ -290,9 +401,18 @@ func _physics_process(dt: float) -> void:
 			robbery_progress += dt
 		else:
 			robbery_progress = 0.0
-		if robbery_progress >= Rules.configured_robbery_hold(offer_settings):
+		if early_finish_requested:
+			early_finish_requested = false
+			var lower := _completed_lower(offer_settings,robbery_progress)
+			if not lower.is_empty():
+				offer_settings = Rules.with_robbery_risk(offer_settings,lower)
+		if robbery_progress >= _robbery_hold(offer_settings):
 			# Crew action happens inside the building; the player remains
 			# inside the getaway vehicle throughout the timed handoff.
+			var payload := Rules.robbery_payload(offer_settings)
+			if payload != Vector2i.ZERO and not player.load_mission_payload(payload.x,float(payload.y)):
+				_end("ROBBERY FAILED / VEHICLE CAPACITY")
+				return
 			var next_heat := Rules.configured_wanted("robbery",offer_settings)
 			if next_heat > 0 and not bool(police.call("start_pursuit",next_heat)):
 				_end("ROBBERY FAILED / NO POLICE ROUTE")
@@ -322,6 +442,25 @@ func _process(dt: float) -> void:
 		return
 	notice_seconds = maxf(0.0, notice_seconds - dt)
 	abandon_button.visible = not active.is_empty()
+	var show_robbery := not active.is_empty() and stage == "robbery"
+	robbery_meter.visible = show_robbery
+	robbery_status.visible = show_robbery
+	early_finish_button.visible = false
+	if show_robbery:
+		var required := _robbery_hold(offer_settings)
+		robbery_meter.value = clampf(robbery_progress / required * 100.0,0.0,100.0)
+		robbery_status.text = "CREW PROGRESS / %.1fs of %.0fs" % [robbery_progress,required]
+		if not Rules.robbery_profile(offer_settings).is_empty():
+			robbery_status.text = "%s / %s / HEAT %d / %.1fs of %.0fs" % [
+				Rules.robbery_risk(offer_settings).to_upper(),economy.dollars(_robbery_cash(offer_settings)),
+				Rules.configured_wanted("robbery",offer_settings),robbery_progress,required]
+			var lower := _completed_lower(offer_settings,robbery_progress)
+			if not lower.is_empty():
+				var lower_offer := Rules.with_robbery_risk(offer_settings,lower)
+				early_finish_button.text = "FINISH %s / %s / HEAT %d" % [
+					lower.to_upper(),economy.dollars(_robbery_cash(lower_offer)),
+					Rules.configured_wanted("robbery",lower_offer)]
+				early_finish_button.visible = true
 	if active.is_empty():
 		readout.text = "DRIVING CONTRACTS / REP %d / " % int(economy.get("underground_reputation")) + \
 			(notice if notice_seconds > 0.0 else "Find a job marker")
@@ -329,12 +468,14 @@ func _process(dt: float) -> void:
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
-	var objective := "WAIT FOR CREW %ds" % maxi(0,ceili(Rules.configured_robbery_hold(offer_settings)-robbery_progress)) if stage=="robbery" else \
+	var objective := "WAIT FOR CREW %ds" % maxi(0,ceili(_robbery_hold(offer_settings)-robbery_progress)) if stage=="robbery" else \
 		("EVADE POLICE & DELIVER" if Rules.configured_wanted(kind,offer_settings) > 0 else "DELIVER")
 	if stage=="robbery":
 		dist_m = player.global_position.distance_to(
 			Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM) / PPM
 	readout.text = "%s / %s / %dm / %ds" % [
 		kind.to_upper(), objective, roundi(dist_m), ceili(remaining_seconds)]
+	if stage == "delivery" and player.mission_payload_mass_kg() > 0.0:
+		readout.text += "\nCREW %d / CARGO %.0f KG / +%.0f KG LOAD" % [player.mission_passengers,player.mission_cargo_kg,player.mission_payload_mass_kg()]
 	if notice_seconds > 0.0:
 		readout.text += " / " + notice

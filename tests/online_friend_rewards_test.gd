@@ -16,7 +16,7 @@ func check(label: String, passed: bool) -> void:
 		failures.append(label)
 
 func _run() -> void:
-	check("persistent_prizes_require_protocol_v11",Session.PROTOCOL_VERSION==11)
+	check("cooperative_robberies_require_protocol_v12",Session.PROTOCOL_VERSION==12)
 	check("unrecognized_race_types_or_places_never_pay",
 		Rewards.payouts("forged",1).is_empty() and
 		Rewards.payouts("street",0).is_empty() and
@@ -28,6 +28,16 @@ func _run() -> void:
 		int(Rewards.payouts("street",1).player_xp)<=1200 and
 		int(Rewards.payouts("street",1).car_xp)<=900)
 	var session_id := "a".repeat(48)
+	var robbery_economy := Ownership.new(false)
+	var initial_cash := robbery_economy.balance
+	check("coop_robbery_requires_local_reputation",robbery_economy.record_coop_robbery(session_id,1,"bank","standard",2,Ownership.STARTER_ID).result=="locked")
+	robbery_economy.underground_reputation=250
+	check("coop_receipt_rejects_invalid_team_or_profile",robbery_economy.record_coop_robbery(session_id,1,"bank","standard",1,Ownership.STARTER_ID).result=="invalid" and robbery_economy.record_coop_robbery(session_id,1,"fake","standard",2,Ownership.STARTER_ID).result=="invalid")
+	var heist := robbery_economy.record_coop_robbery(session_id,1,"bank","standard",2,Ownership.STARTER_ID)
+	check("coop_split_cash_and_full_rep",heist.result=="completed" and int(heist.cash)==87500 and robbery_economy.balance==initial_cash+87500 and robbery_economy.underground_reputation==280)
+	check("coop_duplicate_receipt_denied",robbery_economy.record_coop_robbery(session_id,1,"bank","standard",2,Ownership.STARTER_ID).result=="invalid_or_duplicate" and robbery_economy.balance==initial_cash+87500)
+	var four_way := robbery_economy.record_coop_robbery(session_id,2,"bank","maximum",4,Ownership.STARTER_ID)
+	check("coop_maximum_reward_is_bounded_and_split",four_way.result=="completed" and int(four_way.cash)==62500)
 	check("winner_part_drop_guaranteed_and_invalid_placements_rejected",
 		Rewards.part_roll(session_id,2,"audi-rs3",1) and
 		not Rewards.part_roll(session_id,2,"audi-rs3",5))

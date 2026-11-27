@@ -107,12 +107,69 @@ static func alpha_bounds(image: Image) -> Rect2i:
 	return Rect2i(left, top, right - left + 1, bottom - top + 1)
 
 
+## All models have explicit gameplay capacity defaults by existing body class,
+## with exceptions for unusual seating layouts and cargo space.
+const CAPACITY_BY_KIND := {
+	"compact":Vector2i(5,180),"sedan":Vector2i(5,300),"sport":Vector2i(2,110),
+	"hyper":Vector2i(2,60),"suv":Vector2i(5,520),"truck":Vector2i(5,850),
+	"van":Vector2i(7,1100)}
+const CAPACITY_OVERRIDES := {
+	"bac-mono":Vector2i(1,0),"aston-martin-valyrie-amr-pro":Vector2i(2,0),
+	"aston-martin-vulcan":Vector2i(2,0),"audi-r8-lms":Vector2i(1,0),
+	"koenigsegg-ccgt":Vector2i(1,0),"lamborghini-essenza-scv12":Vector2i(2,0),
+	"porsche-935-motorsport":Vector2i(1,0),"ferrari-599xx":Vector2i(2,0),
+	"ferrari-fxx":Vector2i(2,0),"ferrari-fxx-k-evo":Vector2i(2,0),
+	"pagani-zonda-r":Vector2i(2,0),"bugatti-bolide":Vector2i(2,0),
+	"ariel-atom-500":Vector2i(2,20),"ariel-nomad":Vector2i(2,50),
+	"bmw-z4":Vector2i(2,100),"mazda-mx-5-miata":Vector2i(2,80),
+	"mclaren-f1":Vector2i(3,100),"mclaren-f1-gt":Vector2i(3,100),
+	"koenigsegg-gemera":Vector2i(4,160),"nissan-gt-r-nismo":Vector2i(4,140),
+	"nissan-gt-r":Vector2i(4,180),"aston-martin-rapide":Vector2i(4,220),
+	"audi-rs3":Vector2i(5,220),"audi-rs4":Vector2i(5,380),
+	"audi-rs5":Vector2i(4,240),"audi-rs6-avante":Vector2i(5,450),
+	"audi-rs7":Vector2i(5,350),"bmw-m2":Vector2i(4,180),
+	"bmw-m4":Vector2i(4,220),"bmw-m8":Vector2i(4,200),
+	"bentley-continental-gt":Vector2i(4,200),"rolls-royce-dawn":Vector2i(4,220),
+	"rolls-royce-wraith":Vector2i(4,260),"rolls-royce-spectre":Vector2i(4,220),
+	"ferrari-purosangue":Vector2i(4,400),"cadillac-escalade":Vector2i(7,650),
+	"ford-explorer":Vector2i(7,550),"dodge-durango":Vector2i(7,550),
+	"toyota-highlander":Vector2i(7,500),"toyota-land-cruiser":Vector2i(7,650),
+	"lexus-gx":Vector2i(7,550),"tesla-model-x":Vector2i(7,500),
+	"subaru-baja":Vector2i(4,350),"gmc-hummer-ev":Vector2i(5,700),
+	"dodge-challenger":Vector2i(5,220),"dodge-challenger-hellcat-redeye":Vector2i(5,220),
+	"dodge-charger-hellcat-redeye":Vector2i(5,300),
+	"ford-mustang":Vector2i(4,180),"ford-mustang-1965":Vector2i(4,150),
+	"ford-mustang-boss-302":Vector2i(4,180),"ford-mustang-dark-horse":Vector2i(4,180),
+	"ford-mustang-shelby-gt350":Vector2i(4,180),"ford-mustang-svt-cobra-r":Vector2i(2,130),
+	"chevrolet-camaro-z28":Vector2i(4,140),"chevrolet-camaro-zl1":Vector2i(4,140),
+	"honda-civic-type-r":Vector2i(4,220),"acura-integra-types":Vector2i(4,220),
+	"acura-integra-type-r":Vector2i(4,150),"hyundai-elantra-n":Vector2i(5,250),
+	"toyota-gr-corolla":Vector2i(5,190),"volkswagen-golf-r":Vector2i(5,200),
+	"subaru-impreza-wrx-sti":Vector2i(5,250),"subaru-wrx-sti-2013":Vector2i(5,250),
+	"subaru-wrx-sti-2015":Vector2i(5,250),"mitsubishi-lancer-evolution-viii-mr":Vector2i(5,220),
+	"porsche-taycan":Vector2i(4,260),"tesla-plaid":Vector2i(5,350),
+	"mazda-rx-8":Vector2i(4,140),"subaru-brz":Vector2i(4,100),"toyota-gr86":Vector2i(4,100)
+}
+
+static func mission_capacity(entry: Dictionary) -> Vector2i:
+	var base: Vector2i = CAPACITY_BY_KIND.get(str(entry.get("kind","sport")),Vector2i(2,100))
+	base = CAPACITY_OVERRIDES.get(str(entry.get("id","")),base)
+	return Vector2i(clampi(int(entry.get("seating_capacity",base.x)),1,9),
+		clampi(int(entry.get("cargo_capacity_kg",base.y)),0,2000))
+
+static func capacity_label(entry: Dictionary) -> String:
+	var capacity := mission_capacity(entry)
+	return "%d SEATS / %d KG CARGO" % [capacity.x,capacity.y]
+
 static func make_configuration(entry: Dictionary) -> VehicleConfig:
 	# A fresh baseline ensures each model uses its own specs, not values
 	# inherited from the previously equipped vehicle.
 	var stock: VehicleConfig = load("res://resources/sport_coupe.tres") as VehicleConfig
 	var config := stock.duplicate(true) as VehicleConfig
 	config.mass_kg = float(entry.mass_kg)
+	var capacity := mission_capacity(entry)
+	config.seating_capacity = capacity.x
+	config.cargo_capacity_kg = capacity.y
 	config.max_health_points = maxi(1, int(entry.get("max_health_points", 2000)))
 	config.engine_torque_nm = float(entry.torque_nm)
 	config.engine_power_kw = float(entry.power_kw)

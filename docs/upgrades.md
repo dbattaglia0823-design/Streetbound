@@ -97,3 +97,8 @@ and retains unique part ID counters.
 The upgrade catalog, role comparisons, event-tag filtering, asphalt-only
 launch traction, mass changes, live hot-swaps and save migrations are checked
 by the existing Godot test scripts and GitHub workflows.
+
+
+## Black market (robbery phase 5)
+
+The normal six race slots and 120 loot templates are unchanged. Four purchase-only slots (chassis, bumpers, protection, cargo) have basic (60 rep) and advanced (250 rep) parts. Purchases use canonical cash prices and unique saved inventory UIDs; installation uses reputation instead of vehicle XP and normal single-item-per-car ownership rules. Black-market UI buttons are in the existing upgrade overlay and purchases/swaps require a stationary vehicle in free roam without heat, an active race or a contract. Chassis increases max HP with a mass penalty; bumpers reduce incoming impact damage with a mass penalty; engine shielding reduces critical-health running power loss but cannot drive at zero HP; cargo storage reduces simulated cargo mass and increases cargo capacity. Normalized damage percentage is preserved when chassis changes. No tire durability, cargo damage or impact-source attribution system is introduced, so reinforced tires, cargo armor and outgoing damage bonuses are deferred. All figures are gameplay tuning, not real specifications. Tests cover purchases, rep gates, slot separation, health/mass modifiers and insufficient funds. Godot CI and live UI/handling verification pending.

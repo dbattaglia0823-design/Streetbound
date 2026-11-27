@@ -228,6 +228,7 @@ func _add_card(entry: Dictionary) -> void:
 		float(entry.power_kw)*1.34102, float(entry.torque_nm)*0.73756,
 		str(entry.drivetrain),float(entry.mass_kg)*2.20462,
 		str(entry.reference_transmission),float(entry.tire_grip),int(entry.get("max_health_points",2000))]
+	specs.text += "\n" + Catalog.capacity_label(entry)
 	specs.add_theme_font_size_override("font_size",12)
 	specs.add_theme_color_override("font_color",Color("c0ccc9"))
 	column.add_child(specs)

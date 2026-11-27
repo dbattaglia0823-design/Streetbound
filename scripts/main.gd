@@ -275,6 +275,7 @@ func _ready() -> void:
 		authored_map_markers=Node2D.new()
 		authored_map_markers.set_script(AuthoredMarkersScript)
 		authored_map_markers.world=ground
+		authored_map_markers.enable_stock_robberies = not custom_game_world and not map_test_drive
 		authored_map_markers.player=vehicle
 		authored_map_markers.economy=vehicle_ownership
 		authored_map_markers.selector=selector

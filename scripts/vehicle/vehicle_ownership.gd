@@ -25,7 +25,10 @@ var completed_events: Dictionary = {}
 var multiplayer_claims: Dictionary = {} # session nonce -> highest paid race ID.
 var driving_contract_claims: Dictionary = {} # run token -> paid once.
 var completed_driving_contracts: Dictionary = {} # world + marker -> count.
+var robbery_cooldowns: Dictionary = {} # world + target marker -> UTC expiry.
 var underground_reputation := 0
+var hired_crew: Dictionary = {}
+var preferred_crew: Array[String] = []
 var upgrade_inventory: Array[Dictionary] = []
 var upgrade_loadouts: Dictionary = {}
 var next_part_uid := 1
@@ -89,6 +92,8 @@ func _init(enable_persistence: bool = true) -> void:
 				if key.length() <= 160 and int(history_contracts[event_id]) > 0 and completed_driving_contracts.size() < 1024:
 					completed_driving_contracts[key] = clampi(int(history_contracts[event_id]), 1, 100000)
 		underground_reputation = clampi(int(file.get_value("progression", "underground_reputation", 0)), 0, 100000)
+		_load_robbery_cooldowns(file)
+		_load_crew(file)
 		_load_upgrades(file)
 		return
 	# Migration: previously all cars could be selected anywhere. Retain the
@@ -166,10 +171,10 @@ func _load_upgrades(file: ConfigFile) -> void:
 		for slot in loadouts[car_id]:
 			var uid := str(loadouts[car_id][slot])
 			var item := get_upgrade_item(uid)
-			if Parts.SLOTS.has(str(slot)) and not item.is_empty() and \
+			if Parts.all_slots().has(str(slot)) and not item.is_empty() and \
 				not assigned.has(uid):
 				var part := Parts.get_part(str(item.template))
-				if str(part.slot) == str(slot) and can_use_upgrade(str(car_id),str(part.rarity)):
+				if str(part.slot) == str(slot) and _part_access(str(car_id),part):
 					slots[str(slot)] = uid
 					assigned[uid] = true
 		if not slots.is_empty():
@@ -200,7 +205,7 @@ func installed_templates(car_id: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not owns(car_id):
 		return result
-	for slot in Parts.SLOTS:
+	for slot in Parts.all_slots():
 		var item := get_upgrade_item(equipped_uid(car_id,slot))
 		if not item.is_empty():
 			var template := Parts.get_part(str(item.template))
@@ -213,6 +218,41 @@ func apply_car_upgrades(config: VehicleConfig, car_id: String) -> void:
 	Parts.apply_to_config(config,installed_templates(car_id))
 
 
+func _part_access(car_id: String, template: Dictionary) -> bool:
+	if Parts.is_black_market(template):
+		return owns(car_id) and underground_reputation >= int(template.get("required_rep",100001))
+	return can_use_upgrade(car_id,str(template.get("rarity","")))
+
+func black_market_purchase_status(template_id: String) -> String:
+	var part := Parts.get_part(template_id)
+	if not Parts.is_black_market(part):
+		return "unknown_part"
+	if underground_reputation < int(part.required_rep):
+		return "rep_locked"
+	if upgrade_inventory.size() >= 2500:
+		return "inventory_full"
+	if balance < int(part.price_usd):
+		return "insufficient_funds"
+	return "ready"
+
+func purchase_black_market(template_id: String) -> String:
+	var status := black_market_purchase_status(template_id)
+	if status != "ready":
+		return status
+	var part := Parts.get_part(template_id)
+	var old_balance := balance
+	var old_uid := next_part_uid
+	balance -= int(part.price_usd)
+	upgrade_inventory.append({"uid":"up-%d" % next_part_uid,"template":template_id})
+	next_part_uid += 1
+	if not save():
+		balance = old_balance
+		next_part_uid = old_uid
+		upgrade_inventory.pop_back()
+		return "save_failed"
+	changed.emit()
+	return "purchased"
+
 func can_install_part(car_id: String, uid: String) -> String:
 	if not owns(car_id):
 		return "not_owned"
@@ -222,8 +262,8 @@ func can_install_part(car_id: String, uid: String) -> String:
 	var template := Parts.get_part(str(item.template))
 	if template.is_empty():
 		return "unknown_part"
-	if not can_use_upgrade(car_id,str(template.rarity)):
-		return "level_locked"
+	if not _part_access(car_id,template):
+		return "rep_locked" if Parts.is_black_market(template) else "level_locked"
 	var in_car := equipped_by(uid)
 	if not in_car.is_empty() and in_car != car_id:
 		return "equipped_elsewhere"
@@ -257,7 +297,7 @@ func install_part(car_id: String, uid: String) -> String:
 
 
 func unequip_part(car_id: String, slot: String) -> String:
-	if not owns(car_id) or not Parts.SLOTS.has(slot):
+	if not owns(car_id) or not Parts.all_slots().has(slot):
 		return "not_owned"
 	var original: Dictionary = upgrade_loadouts.get(car_id,{}).duplicate(true)
 	if not original.has(slot):
@@ -336,6 +376,138 @@ func equip(id: String) -> bool:
 	return true
 
 
+## No migration needed: career rank and access are derived from the existing saved rep.
+func _load_robbery_cooldowns(file: ConfigFile, now_seconds: int = -1) -> void:
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	robbery_cooldowns.clear()
+	var raw: Variant = file.get_value("contracts","robbery_cooldowns",{})
+	if not raw is Dictionary:
+		return
+	for key in raw:
+		if robbery_cooldowns.size()>=DrivingContracts.MAX_SAVED_LOCATIONS:
+			break
+		if not key is String or key.length()>160 or key.split("::").size()!=2 or key.get_slice("::",0).is_empty() or key.get_slice("::",1).is_empty():
+			continue
+		var expiry: Variant = raw[key]
+		if typeof(expiry) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(expiry)) or float(expiry)!=floorf(float(expiry)) or float(expiry)<=float(now):
+			continue
+		# Bound invalid/future values (including clock rollback).
+		robbery_cooldowns[key] = int(minf(float(expiry),float(now+DrivingContracts.MAX_LOCATION_COOLDOWN)))
+
+func robbery_availability(world_id: String, offer: Dictionary, now_seconds: int = -1) -> Dictionary:
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	var rotation := DrivingContracts.rotation_state(offer,now)
+	var key := DrivingContracts.location_key(world_id,offer)
+	var wait := 0
+	if not key.is_empty():
+		wait = clampi(int(robbery_cooldowns.get(key,0))-now,0,DrivingContracts.MAX_LOCATION_COOLDOWN)
+	return {"available":bool(rotation.available) and wait==0,"rotation_open":bool(rotation.available),
+		"rotation_seconds":int(rotation.seconds),"rotating":bool(rotation.rotating),"cooldown":wait}
+
+## Reserve only after a fully validated route has been accepted. Persist the
+## location timestamp immediately, so restart/abandon cannot reset the clock.
+func reserve_robbery_location(world_id: String, offer: Dictionary, now_seconds: int = -1) -> String:
+	if DrivingContracts.robbery_profile(offer).is_empty():
+		return "ready"
+	var key := DrivingContracts.location_key(world_id,offer)
+	if key.is_empty() or not DrivingContracts.valid_robbery_profile("robbery",offer):
+		return "invalid_location"
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	var availability := robbery_availability(world_id,offer,now)
+	if not bool(availability.available):
+		return "unavailable"
+	var previous := robbery_cooldowns.duplicate()
+	for location in robbery_cooldowns.keys():
+		if int(robbery_cooldowns[location])<=now:
+			robbery_cooldowns.erase(location)
+	if robbery_cooldowns.size()>=DrivingContracts.MAX_SAVED_LOCATIONS:
+		robbery_cooldowns = previous
+		return "location_limit"
+	robbery_cooldowns[key] = now+DrivingContracts.location_cooldown(offer)
+	if not save():
+		robbery_cooldowns = previous
+		return "save_failed"
+	return "ready"
+
+func _load_crew(file: ConfigFile) -> void:
+	var raw: Variant = file.get_value("crew","hired",{})
+	if raw is Dictionary:
+		for id in DrivingContracts.CREW_ORDER:
+			if raw.has(id) and underground_access(str(DrivingContracts.CREW[id]["gate"])):
+				var value: Variant = raw[id]
+				if typeof(value) in [TYPE_INT,TYPE_FLOAT] and is_finite(float(value)):
+					hired_crew[id] = clampi(int(value),0,DrivingContracts.CREW_MAX_XP)
+	var selected: Variant = file.get_value("crew","preferred",[])
+	if selected is Array:
+		for id in selected:
+			if id is String and hired_crew.has(id) and not preferred_crew.has(id) and preferred_crew.size()<DrivingContracts.CREW_MAX_ACTIVE:
+				preferred_crew.append(id)
+
+func crew_hire_status(id: String) -> String:
+	if not DrivingContracts.CREW.has(id):
+		return "unknown_member"
+	if hired_crew.has(id):
+		return "already_hired"
+	var member: Dictionary = DrivingContracts.CREW[id]
+	if not underground_access(str(member.gate)):
+		return "rep_locked"
+	if balance < int(member.fee):
+		return "insufficient_funds"
+	return "ready"
+
+func hire_crew(id: String) -> String:
+	var status := crew_hire_status(id)
+	if status != "ready":
+		return status
+	var fee := int(DrivingContracts.CREW[id]["fee"])
+	balance -= fee
+	hired_crew[id] = 0
+	if not save():
+		hired_crew.erase(id)
+		balance += fee
+		return "save_failed"
+	changed.emit()
+	return "hired"
+
+func toggle_preferred_crew(id: String) -> String:
+	if not hired_crew.has(id):
+		return "not_hired"
+	var previous: Array[String] = preferred_crew.duplicate()
+	var result := "assigned"
+	if preferred_crew.has(id):
+		preferred_crew.erase(id)
+		result = "unassigned"
+	elif preferred_crew.size() >= DrivingContracts.CREW_MAX_ACTIVE:
+		return "crew_full"
+	else:
+		preferred_crew.append(id)
+	if not save():
+		preferred_crew = previous
+		return "save_failed"
+	changed.emit()
+	return result
+
+func crew_for_offer(offer: Dictionary) -> Array[String]:
+	var ids: Array[String] = []
+	var seats := DrivingContracts.robbery_payload(offer).x
+	for id in preferred_crew:
+		if ids.size() >= seats:
+			break
+		if hired_crew.has(id) and DrivingContracts.CREW.has(id) and underground_access(str(DrivingContracts.CREW[id]["gate"])):
+			ids.append(id)
+	return ids
+
+func quote_crew(offer: Dictionary, ids: Array) -> Dictionary:
+	if ids.is_empty() or not DrivingContracts.crew_ids_valid(offer,ids,hired_crew,underground_reputation):
+		return {}
+	return DrivingContracts.crew_quote(offer,ids,hired_crew)
+
+func underground_career() -> Dictionary:
+	return DrivingContracts.career_state(underground_reputation)
+
+func underground_access(key: String) -> bool:
+	return DrivingContracts.has_career_access(key,underground_reputation)
+
 func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionary:
 	# The race coordinator calls this only after a timed, completed 1/4-mile
 	# run. Race tokens are saved to prevent double payout, even on restart.
@@ -348,6 +520,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 	var prior_player_xp := player_xp
 	var prior_car_xp := int(car_xp.get(active_id,0))
 	var prior_balance := balance
+	var prior_rep := underground_reputation
 	var prior_best := best_quarter_mile
 	var prior_serial := next_part_uid
 	var prior_inventory_size := upgrade_inventory.size()
@@ -358,6 +531,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 	car_xp[active_id] = mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),
 		prior_car_xp + int(rewards.car_xp))
 	balance += int(rewards.cash)
+	underground_reputation = mini(100000,underground_reputation + DrivingContracts.RACE_REPUTATION)
 	if best_quarter_mile <= 0.0 or elapsed_seconds < best_quarter_mile:
 		best_quarter_mile = elapsed_seconds
 	var earned_part: Dictionary = _award_part_for_race(race_id,active_car_level())
@@ -368,6 +542,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		player_xp = prior_player_xp
 		car_xp[active_id] = prior_car_xp
 		balance = prior_balance
+		underground_reputation = prior_rep
 		best_quarter_mile = prior_best
 		_claimed_races = prior_claims
 		upgrade_inventory.resize(prior_inventory_size)
@@ -379,6 +554,8 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		"player_level_before":old_player_level,"player_level_after":player_level(),
 		"car_level_before":old_car_level,"car_level_after":active_car_level(),
 		"car_id":active_id,"seconds":elapsed_seconds,
+		"underground_rep":underground_reputation-prior_rep,
+		"rank_up":DrivingContracts.promotion_text(prior_rep,underground_reputation),
 		"part":earned_part,"part_uid":"up-%d" % prior_serial if not earned_part.is_empty() else ""}
 
 
@@ -422,7 +599,9 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	var previous_claims: Array[String]=_claimed_races.duplicate()
 	var previous_events: Dictionary=completed_events.duplicate()
 	var previous_rep:=underground_reputation
-	var street_rep:=int(awards.get("underground_rep_reward",0))
+	# A completed race builds driver recognition; underground author rewards
+	# remain the stronger configured reward and still require evading heat.
+	var street_rep:=maxi(DrivingContracts.RACE_REPUTATION,int(awards.get("underground_rep_reward",0)))
 	underground_reputation=mini(100000,underground_reputation+street_rep)
 	balance+=cash
 	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
@@ -441,7 +620,8 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
 		"car_xp":vehicle_xp,"first_win":first_win,"win_count":completed_event_count(event_key),
-		"underground_rep":street_rep}
+		"underground_rep":underground_reputation-previous_rep,
+		"rank_up":DrivingContracts.promotion_text(previous_rep,underground_reputation)}
 
 ## A player may earn career rewards only for a completed, host-verified
 ## multiplayer finish. The network layer validates the final standings and
@@ -483,6 +663,8 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 	var previous_part_uid := next_part_uid
 	var old_claims := multiplayer_claims.duplicate()
 	var prior_car_level := level_for_car(car_id)
+	var prior_rep := underground_reputation
+	underground_reputation = mini(100000,underground_reputation+DrivingContracts.RACE_REPUTATION)
 	balance += int(payout.cash)
 	player_xp = mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),
 		player_xp + int(payout.player_xp))
@@ -506,17 +688,28 @@ func record_multiplayer_race(session_id: String, race_id: int, place: int,
 		upgrade_inventory.resize(previous_inventory_count)
 		next_part_uid = previous_part_uid
 		multiplayer_claims = old_claims
+		underground_reputation = prior_rep
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed", "cash":int(payout.cash),
 		"player_xp":int(payout.player_xp), "car_xp":int(payout.car_xp),
 		"car_id":car_id, "car_level_before":prior_car_level,
 		"car_level_after":level_for_car(car_id),
-		"part":part, "part_uid":part_uid}
+		"part":part, "part_uid":part_uid,"underground_rep":underground_reputation-prior_rep}
 
 ## Fixed game-authored cash/XP/underground reputation, saved with a unique run token.
 ## A map marker cannot alter payouts or claim a run twice.
-func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}) -> Dictionary:
+## Called only for a host-confirmed participant by the online robbery director.
+## Recompute bounded rewards locally; never accept arbitrary cash from RPCs.
+func record_coop_robbery(session_id: String, job_id: int, tier: String, risk: String, team_size: int, car_id: String) -> Dictionary:
+	if not _valid_multiplayer_session_id(session_id) or job_id<1 or job_id>1000000000 or team_size<2 or team_size>4 or car_id!=active_id or not owns(car_id):
+		return {"result":"invalid"}
+	var offer := DrivingContracts.with_robbery_risk(DrivingContracts.make_robbery_offer(tier,"marker-campaign-robbery-"+tier,"marker-campaign-robbery-dropoff"),risk)
+	if offer.is_empty():
+		return {"result":"invalid"}
+	return record_driving_contract("coop-"+session_id+"-"+str(job_id),"morrow-coast::coop_"+tier,"robbery",offer,[],team_size)
+
+func record_driving_contract(run_id: String, event_key: String, kind: String, offer: Dictionary = {}, crew_ids: Array = [], team_size: int = 1) -> Dictionary:
 	if run_id.length() < 12 or run_id.length() > 150:
 		return {"result":"invalid_or_duplicate"}
 	if event_key.length() < 5 or event_key.length() > 160:
@@ -525,6 +718,10 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"invalid_or_duplicate"}
 	if not DrivingContracts.valid_kind(kind) or driving_contract_claims.size() >= 4096:
 		return {"result":"invalid_or_duplicate"}
+	if not DrivingContracts.valid_robbery_profile(kind,offer):
+		return {"result":"invalid_reward"}
+	if not DrivingContracts.robbery_profile(offer).is_empty() and underground_reputation < DrivingContracts.required_rep(offer):
+		return {"result":"locked"}
 	# Never trust arbitrary map JSON reward amounts: reject out-of-range values
 	# even when a caller bypasses the editor's schema validation.
 	for field in DrivingContracts.REWARD_LIMITS:
@@ -539,11 +736,24 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"invalid_offer"}
 	if not bool(offer.get("repeatable",true)) and int(completed_driving_contracts.get(event_key,0)) > 0:
 		return {"result":"already_completed"}
+	if not DrivingContracts.crew_ids_valid(offer,crew_ids,hired_crew,underground_reputation) or (not crew_ids.is_empty() and kind!="robbery"):
+		return {"result":"invalid_crew"}
+	if team_size<1 or team_size>4 or (team_size>1 and (kind!="robbery" or DrivingContracts.robbery_profile(offer).is_empty() or not crew_ids.is_empty())):
+		return {"result":"invalid_team"}
 	var rewards: Dictionary = DrivingContracts.configured_reward(kind,offer)
-	var cash: int = int(rewards.get("cash",0))
+	var cash: int = floori(float(rewards.get("cash",0))/float(team_size))
 	var driver_xp: int = int(rewards.get("player_xp",0))
 	var vehicle_xp: int = int(rewards.get("car_xp",0))
 	var reputation: int = int(rewards.get("underground_rep",0))
+	var crew_cut := 0
+	var crew_xp := 0
+	var previous_crew: Dictionary = hired_crew.duplicate(true)
+	if not crew_ids.is_empty():
+		var quote := quote_crew(offer,crew_ids)
+		cash = int(quote.cash)
+		crew_cut = int(quote.cut)
+		reputation = int(quote.underground_rep)
+		crew_xp = DrivingContracts.crew_xp_reward(offer)
 	var prior_balance := balance
 	var prior_player_xp := player_xp
 	var prior_car_xp := int(car_xp.get(active_id,0))
@@ -553,6 +763,8 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 	player_xp = mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL), player_xp + driver_xp)
 	car_xp[active_id] = mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL), prior_car_xp + vehicle_xp)
 	underground_reputation = mini(100000, underground_reputation + reputation)
+	for id in crew_ids:
+		hired_crew[id] = mini(DrivingContracts.CREW_MAX_XP,int(hired_crew[id])+crew_xp)
 	driving_contract_claims[run_id] = true
 	completed_driving_contracts[event_key] = mini(100000, prior_completed + 1)
 	if not save():
@@ -560,6 +772,7 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		player_xp = prior_player_xp
 		car_xp[active_id] = prior_car_xp
 		underground_reputation = prior_rep
+		hired_crew = previous_crew
 		driving_contract_claims.erase(run_id)
 		if prior_completed == 0:
 			completed_driving_contracts.erase(event_key)
@@ -568,7 +781,9 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"save_failed"}
 	changed.emit()
 	return {"result":"completed","cash":cash,"player_xp":driver_xp,
-		"car_xp":vehicle_xp,"underground_rep":reputation}
+		"car_xp":vehicle_xp,"underground_rep":underground_reputation-prior_rep,
+		"crew_cut":crew_cut,"crew_xp":crew_xp,"crew_count":crew_ids.size(),
+		"rank_up":DrivingContracts.promotion_text(prior_rep,underground_reputation)}
 
 # Entry fee is paid once when a validated race is staged, after the grid
 # has been prepared. Loss, false start, quit or arrest does not refund it.
@@ -611,6 +826,9 @@ func save() -> bool:
 	file.set_value("progression","driving_contract_claims",driving_contract_claims)
 	file.set_value("progression","completed_driving_contracts",completed_driving_contracts)
 	file.set_value("progression","underground_reputation",underground_reputation)
+	file.set_value("contracts","robbery_cooldowns",robbery_cooldowns)
+	file.set_value("crew","hired",hired_crew)
+	file.set_value("crew","preferred",preferred_crew)
 	file.set_value("upgrades","inventory",upgrade_inventory)
 	file.set_value("upgrades","loadouts",upgrade_loadouts)
 	file.set_value("upgrades","next_uid",next_part_uid)

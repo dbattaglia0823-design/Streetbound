@@ -22,3 +22,19 @@
 5. After verified implementation, update the **affected** docs and replace this short handoff with the latest actionable state. Record a major decision or reproducible defect separately; preserve older narrative in [WORK_LOG.md](WORK_LOG.md) and GitHub PR history.
 
 **Shared guidance:** [Game-Dev-Toolkit knowledge](https://github.com/dbattaglia0823-design/Game-Dev-Toolkit/tree/main/knowledge); project-specific mechanics and evidence stay in this repository.
+
+- Robbery career phase 1: five game-owned payout/heat/reputation tiers, race reputation progression, stock Morrow Coast solo contact board using existing road anchors and regression coverage. No crew hiring or cargo yet; CI and live validation pending.
+
+- Robbery career phase 2: selectable Quick/Standard/Maximum profile risks, bounded risk-dependent cash/rep and heat, live crew progress meter and optional lower completed checkpoint, with regression tests. Existing legacy offers unchanged. CI and visual playtest pending.
+
+- Robbery career phase 3: seating/cargo stats for 256 vehicles, mission capacity locks and transient physical load after pickup; regression tests added, live handling and CI unverified.
+
+- Robbery career phase 4: derived ranks and future access gates, pause Career view with real fixer GPS, contact rank/lock display and post-settlement promotions. Existing save format unchanged; crew and black-market content remain later phases. CI/visual validation pending.
+
+- Phase 5: black-market inventory, purchase/equip reputation gates, four slots and real protection/cargo modifiers, upgrade UI and career status. No new tire/cargo damage or outgoing-impact mechanics; CI and live validation pending.
+
+- Phase 6: six persistent recruitable specialists, preferred roster, optional contract crew, previewed net rewards and bounded bonuses, atomic XP/cut settlement. CI and visual verification pending.
+
+- Phase 7: rotating profile availability and persisted per-target cooldown reserved on acceptance; live countdowns, runtime validation and regression tests. UTC system clock, offline expiry, no multiplayer synchronization yet. CI and visual validation pending.
+
+- Phase 8: opt-in co-op stock robbery director with host getaway car, shared physical objectives, individual split reward receipts, online race reputation, protocol 12 and regression tests. Host-only pursuit/cooldown; no NPC specialist bonuses or reconnect resume. CI and real multiplayer testing pending.

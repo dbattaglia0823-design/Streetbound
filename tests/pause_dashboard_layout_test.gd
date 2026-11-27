@@ -25,7 +25,7 @@ func _run() -> void:
 		paused and dash.visible and pause.pause_screen.visible and
 		is_zero_approx(pause.pause_screen.modulate.a))
 	check("navigation_contains_concept_sections",
-		["resume","map","events","cars","upgrades","settings","quit","more"].all(
+		["resume","map","events","career","cars","upgrades","settings","quit","more"].all(
 			func(name: String) -> bool: return dash.nav_buttons.has(name)))
 	check("events_selected_with_three_column_layout",
 		dash.section=="events" and
@@ -38,6 +38,9 @@ func _run() -> void:
 		is_equal_approx(float(dash.driver_xp.value),
 			float(load("res://scripts/vehicle/race_progression.gd").player_level_progress(
 				game.vehicle_ownership.player_xp))))
+	dash.show_section("career")
+	check("career_page_uses_saved_reputation", dash.section=="career" and dash.content.get_node("CareerRank/Reputation").text.contains(str(game.vehicle_ownership.underground_reputation)) and dash.content.has_node("Robbery_bank/State") and dash.content.has_node("FindFixer"))
+	dash.show_section("events")
 	check("current_car_uses_live_vehicle_stats",
 		dash.car_name.text == str(load("res://scripts/vehicle/player_vehicle_catalog.gd").find_by_id(
 			str(game.vehicle_ownership.active_id)).display_name) and

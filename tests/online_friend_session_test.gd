@@ -74,6 +74,7 @@ func _run() -> void:
 			game.pause_menu.resume_game()
 			check("online_resume_restores_local_player_input",
 				not game.vehicle.external_input)
+			check("host_has_cooperative_robbery_director",is_instance_valid(network.friend_robbery) and not bool(network.friend_robbery.call("busy")))
 			check("host_owns_shared_police_controller", is_instance_valid(network.shared_police) and network.shared_police.get("shared_session"))
 			check("host_police_snapshot_has_bounded_fleet", network.call("_police_snapshot").get("vehicles", {}).size() <= 12)
 			check("no_manual_police_challenge_or_rpc", not network.has_method("_request_police_chase") and not network.has_method("_request_police_challenge") and not network.has_method("start_shared_pursuit"))

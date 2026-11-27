@@ -85,6 +85,106 @@ func run() -> void:
 	check("cross_map_counts_independent",int(economy.completed_driving_contracts.get(
 		"another-world::marker-2",0))==0)
 
+	# Phase-four ranks are derived from saved reputation, never separately persisted.
+	check("career_rank_boundaries", Contracts.rank_name(0)=="Unknown" and Contracts.rank_name(4)=="Unknown" and Contracts.rank_name(5)=="Street Prospect" and Contracts.rank_name(24)=="Street Prospect" and Contracts.rank_name(25)=="Wheelman" and Contracts.rank_name(60)=="Professional" and Contracts.rank_name(120)=="Veteran" and Contracts.rank_name(250)=="Mastermind" and Contracts.rank_name(500)=="Underground Legend")
+	var rank_state := Contracts.career_state(40)
+	check("rank_progress_uses_current_rank_interval", int(rank_state.remaining)==20 and is_equal_approx(float(rank_state.progress),15.0/35.0))
+	check("max_rank_has_no_remaining_requirement", bool(Contracts.career_state(100000).max_rank) and int(Contracts.career_state(100000).remaining)==0)
+	check("future_access_gates_and_unknown_keys", not Contracts.has_career_access("entry_crew",24) and Contracts.has_career_access("entry_crew",25) and not Contracts.has_career_access("elite_crew",499) and Contracts.has_career_access("elite_crew",500) and not Contracts.has_career_access("invalid",100000))
+	check("promotion_only_on_rank_boundary", Contracts.promotion_text(4,5).contains("STREET PROSPECT") and Contracts.promotion_text(5,24)=="" and Contracts.promotion_text(25,250).contains("MASTERMIND"))
+	var unlocks := Contracts.robbery_unlocks(60)
+	check("career_unlocks_match_robbery_profiles", unlocks.size()==5 and bool(unlocks[2].eligible) and not bool(unlocks[3].eligible) and int(unlocks[3].remaining)==60)
+
+	var crew_economy := Ownership.new(false)
+	crew_economy.balance=100000
+	check("crew_hire_requires_reputation",crew_economy.hire_crew("rookie")=="rep_locked")
+	crew_economy.underground_reputation=120
+	check("crew_hire_canonical_fee",crew_economy.hire_crew("technician")=="hired" and crew_economy.balance==96000)
+	check("crew_cannot_hire_twice",crew_economy.hire_crew("technician")=="already_hired" and crew_economy.balance==96000)
+	check("crew_elite_gate",crew_economy.hire_crew("elite")=="rep_locked")
+	check("crew_assignment_persistent_order",crew_economy.toggle_preferred_crew("technician")=="assigned" and crew_economy.hire_crew("specialist")=="hired" and crew_economy.toggle_preferred_crew("specialist")=="assigned")
+	var crew_offer := Contracts.make_robbery_offer("jewelry","target","dropoff")
+	var starter_offer := Contracts.make_robbery_offer("convenience","target","dropoff")
+	check("crew_assignment_respects_seats",crew_economy.crew_for_offer(starter_offer)==["technician"] and crew_economy.crew_for_offer(crew_offer)==["technician","specialist"])
+	var crew_quote := crew_economy.quote_crew(crew_offer,["technician","specialist"])
+	check("crew_quote_net_and_hold",int(crew_quote.gross)==28000 and int(crew_quote.cut)==3360 and int(crew_quote.cash)==24640 and is_equal_approx(float(crew_quote.hold_factor),0.88))
+	check("crew_duplicate_rejected",crew_economy.record_driving_contract("crew-duplicate-001","test::crew","robbery",crew_offer,["technician","technician"]).result=="invalid_crew")
+	check("crew_over_seat_rejected",crew_economy.record_driving_contract("crew-over-seat-001","test::crew","robbery",starter_offer,["technician","specialist"]).result=="invalid_crew")
+	var crew_before := crew_economy.balance
+	var crew_paid := crew_economy.record_driving_contract("crew-complete-0001","test::crew","robbery",crew_offer,["technician","specialist"])
+	check("crew_atomic_net_and_xp",crew_paid.result=="completed" and crew_economy.balance==crew_before+24640 and int(crew_economy.hired_crew["technician"])==25 and int(crew_economy.hired_crew["specialist"])==25)
+	check("crew_no_duplicate_xp",crew_economy.record_driving_contract("crew-complete-0001","test::crew","robbery",crew_offer,["technician","specialist"]).result=="invalid_or_duplicate" and int(crew_economy.hired_crew["technician"])==25)
+	check("crew_level_caps",Contracts.crew_level(0)==1 and Contracts.crew_level(100)==2 and Contracts.crew_level(999)==5)
+
+	# Deterministic phase-seven rotation and persisted location reservation.
+	var rotation_offer := Contracts.make_robbery_offer("pawn","marker-test-pawn","dropoff")
+	var rotation_start := 1800
+	check("starter_stays_in_rotation",bool(Contracts.rotation_state(starter_offer,rotation_start+1200).available))
+	check("pawn_rotation_open_then_closed_then_open",bool(Contracts.rotation_state(rotation_offer,rotation_start).available) and not bool(Contracts.rotation_state(rotation_offer,rotation_start+600).available) and bool(Contracts.rotation_state(rotation_offer,rotation_start+1200).available))
+	check("rotation_boundary_exact",int(Contracts.rotation_state(rotation_offer,rotation_start+599).seconds)==1 and int(Contracts.rotation_state(rotation_offer,rotation_start+600).seconds)==600)
+	var rotation_economy := Ownership.new(false)
+	var location_offer := Contracts.make_robbery_offer("convenience","marker-test-shop","dropoff")
+	check("reserve_location_once",rotation_economy.reserve_robbery_location("test",location_offer,rotation_start)=="ready")
+	var max_location := Contracts.with_robbery_risk(location_offer,"maximum")
+	check("risk_variants_share_same_location_cooldown",rotation_economy.reserve_robbery_location("test",max_location,rotation_start+1)=="unavailable" and int(rotation_economy.robbery_availability("test",max_location,rotation_start+1).cooldown)==359)
+	check("world_locations_are_independent",bool(rotation_economy.robbery_availability("other",max_location,rotation_start+1).available))
+	check("location_available_at_exact_expiry",bool(rotation_economy.robbery_availability("test",location_offer,rotation_start+360).available))
+	check("rotation_rejects_reservation",rotation_economy.reserve_robbery_location("test",rotation_offer,rotation_start+600)=="unavailable")
+	var saved_rotation := ConfigFile.new()
+	saved_rotation.set_value("contracts","robbery_cooldowns",rotation_economy.robbery_cooldowns.duplicate())
+	var reopened := Ownership.new(false)
+	reopened._load_robbery_cooldowns(saved_rotation,rotation_start+10)
+	check("saved_cooldown_survives_reload",int(reopened.robbery_availability("test",location_offer,rotation_start+10).cooldown)==350)
+	reopened._load_robbery_cooldowns(saved_rotation,rotation_start+360)
+	check("expired_saved_cooldowns_discarded",reopened.robbery_cooldowns.is_empty())
+	check("legacy_jobs_have_no_cooldown",rotation_economy.reserve_robbery_location("test",{},rotation_start)=="ready" and bool(rotation_economy.robbery_availability("test",{},rotation_start).available))
+
+	# Stock phase-one robbery progression uses game-owned presets and actual
+	# marker validation, not arbitrary increased map reward bounds.
+	var board: Array[Dictionary] = Contracts.morrow_robbery_board()
+	check("stock_robbery_board_links_validate", MarkerRules.valid_links(board,[],[]))
+	var board_contact: Dictionary = board.back()
+	var tiers: Array = board_contact.properties.offers
+	check("five_stock_robbery_tiers", tiers.size()==5)
+	var progression := Ownership.new(false)
+	var first_tier: Dictionary = tiers[0]
+	var last_tier: Dictionary = tiers[4]
+	check("starter_robbery_locked_until_racing", progression.record_driving_contract("tier-locked-run-0001","morrow-coast::starter","robbery",first_tier).get("result")=="locked")
+	var race_reward: Dictionary = progression.record_completed_race("rep-race-run-0001",14.0)
+	check("valid_race_earns_reputation", race_reward.get("underground_rep")==5 and progression.underground_reputation==5)
+	check("saved_race_result_announces_promotion",str(race_reward.get("rank_up","")).contains("STREET PROSPECT") and str(progression.underground_career().rank)=="Street Prospect")
+	progression.record_completed_race("rep-race-run-0001",14.0)
+	check("duplicate_race_cannot_earn_more_rep", progression.underground_reputation==5)
+	var actual_tier: Dictionary = progression.record_driving_contract("tier-starter-run-0002","morrow-coast::starter","robbery",first_tier)
+	check("starter_robbery_pays_after_unlock", actual_tier.get("cash")==2500 and progression.underground_reputation==13)
+	check("bank_remains_locked", progression.record_driving_contract("tier-bank-run-0003","morrow-coast::bank","robbery",last_tier).get("result")=="locked")
+	progression.underground_reputation=250
+	var bank: Dictionary = progression.record_driving_contract("tier-bank-run-0004","morrow-coast::bank","robbery",last_tier)
+	check("bank_pays_fixed_game_owned_reward", bank.get("cash")==175000 and Contracts.configured_wanted("robbery",last_tier)==5)
+	var altered: Dictionary = last_tier.duplicate(true)
+	altered["cash"]=999999
+	check("tier_cannot_override_game_owned_rewards", not Contracts.valid_robbery_profile("robbery",altered) and progression.record_driving_contract("tier-bank-run-0005","morrow-coast::bank","robbery",altered).get("result")=="invalid_reward")
+	for i in tiers.size():
+		var offer: Dictionary = tiers[i]
+		check("robbery_tier_heat_%d" % i, Contracts.configured_wanted("robbery",offer)==i+1)
+		if i>0:
+			check("robbery_tier_rep_rises_%d" % i, Contracts.required_rep(offer)>Contracts.required_rep(tiers[i-1]))
+
+	# Risk modes are game-owned. Existing standard payouts and unlocks remain.
+	var jewel: Dictionary = tiers[2]
+	var quick := Contracts.with_robbery_risk(jewel,"quick")
+	var maximum := Contracts.with_robbery_risk(jewel,"maximum")
+	check("risk_quick_rewards_and_heat", Contracts.configured_reward("robbery",quick).cash==15000 and Contracts.configured_wanted("robbery",quick)==2 and Contracts.configured_robbery_hold(quick)==8.0)
+	check("risk_maximum_rewards_and_heat", Contracts.configured_reward("robbery",maximum).cash==36250 and Contracts.configured_wanted("robbery",maximum)==4 and Contracts.configured_robbery_hold(maximum)==18.0)
+	check("risk_does_not_change_unlock", Contracts.required_rep(quick)==60 and Contracts.required_rep(maximum)==60)
+	check("risk_invalid_enum_rejected", Contracts.with_robbery_risk(jewel,"arbitrary").is_empty() and not Contracts.valid_robbery_profile("robbery",{"robbery_tier":"jewelry","robbery_risk":"arbitrary"}))
+	check("risk_not_allowed_on_legacy_job", not Contracts.valid_robbery_profile("courier",{"robbery_risk":"maximum"}))
+	check("risk_caps_bank_reward_and_heat", Contracts.configured_reward("robbery",Contracts.with_robbery_risk(last_tier,"maximum")).cash==250000 and Contracts.configured_wanted("robbery",Contracts.with_robbery_risk(last_tier,"maximum"))==5)
+	check("risk_checkpoints_require_real_progress", Contracts.completed_lower_risk(maximum,7.9)=="" and Contracts.completed_lower_risk(maximum,8.0)=="quick" and Contracts.completed_lower_risk(maximum,12.0)=="standard" and Contracts.completed_lower_risk(quick,100.0)=="")
+	var risk_rejected: Dictionary = maximum.duplicate(true)
+	risk_rejected["cash"]=999999
+	check("risk_cannot_override_payout", progression.record_driving_contract("risk-forged-run-0001","morrow-coast::jewelry","robbery",risk_rejected).get("result")=="invalid_reward")
+
 	# A visible roadside person has multiple individually configured jobs.
 	var robbery_offer: Dictionary = {"id":"job_1","title":"Harbor Bank Pickup",
 		"kind":"robbery","difficulty":"pro","destination_marker_id":"marker-12",
@@ -248,10 +348,10 @@ func run() -> void:
 	var synthetic:=marker("marker-10_job_1","contract",100.0,100.0,
 		{"contract_kind":"robbery","destination_marker_id":"marker-12",
 		 "robbery_marker_id":"marker-11"})
-	staged.set("active",synthetic)
-	staged.set("destination",contact_dropoff)
-	staged.set("robbery_target",robbery_site)
-	staged.set("offer_settings",robbery_offer)
+	staged.set("active",synthetic.duplicate(true))
+	staged.set("destination",contact_dropoff.duplicate(true))
+	staged.set("robbery_target",robbery_site.duplicate(true))
+	staged.set("offer_settings",robbery_offer.duplicate(true))
 	staged.set("stage","robbery")
 	staged.set("remaining_seconds",540.0)
 	staged.set("run_token","person-robbery-stage-run-004")
@@ -272,6 +372,54 @@ func run() -> void:
 	staged.call("_physics_process",0.02)
 	check("evade_and_dropoff_completes_robbery",economy.balance==balance_before_robbery+4000
 		and (staged.get("active") as Dictionary).is_empty())
+	# Exercise a real in-game stage transition with a selected maximum mode.
+	vehicle.config.seating_capacity=5
+	vehicle.config.cargo_capacity_kg=300
+	economy.underground_reputation=60
+	staged.set("active",synthetic.duplicate(true))
+	staged.set("destination",contact_dropoff.duplicate(true))
+	staged.set("robbery_target",robbery_site.duplicate(true))
+	staged.set("offer_settings",maximum.duplicate(true))
+	staged.set("stage","robbery")
+	staged.set("remaining_seconds",420.0)
+	staged.set("run_token","risk-checkpoint-run-0001")
+	staged.set("started_car_id",str(economy.active_id))
+	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
+	vehicle.linear_velocity=Vector2.ZERO
+	var before_risk: int = economy.balance
+	check("payload_capacity_required_for_maximum", Contracts.robbery_payload(maximum)==Vector2i(2,162) and Contracts.capacity_reason(maximum,2,300)!="" and Contracts.capacity_reason(maximum,5,100)!="" and Contracts.capacity_reason(maximum,5,300)=="")
+	check("no_payload_before_handoff", vehicle.mission_payload_mass_kg()==0.0)
+	staged.call("_physics_process",4.0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("early_finish_before_checkpoint_denied", str(staged.get("stage"))=="robbery" and economy.balance==before_risk)
+	staged.call("_physics_process",4.0)
+	vehicle.position += Vector2(1000,0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("moving_outside_objective_resets_progress", float(staged.get("robbery_progress"))==0.0 and str(staged.get("stage"))=="robbery")
+	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
+	staged.call("_physics_process",12.0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("early_finish_commits_completed_standard_checkpoint", str(staged.get("stage"))=="delivery" and Contracts.robbery_risk(staged.get("offer_settings"))=="standard" and int(test_officer.get("wanted_level"))==3)
+	check("actual_checkpoint_loads_only_completed_cargo", vehicle.mission_cargo_kg==120.0 and vehicle.mission_passengers==2 and vehicle.mission_payload_mass_kg()==270.0)
+	vehicle.position=Vector2(contact_dropoff.x,contact_dropoff.y)*20.0
+	staged.call("_physics_process",0.01)
+	check("risk_job_does_not_pay_until_heat_cleared", economy.balance==before_risk)
+	test_officer.set("wanted_level",0)
+	staged.call("_physics_process",0.01)
+	check("risk_settlement_uses_actual_completed_checkpoint", economy.balance==before_risk+25000)
+	check("delivery_clears_payload", vehicle.mission_payload_mass_kg()==0.0)
+	check("payload_load_does_not_mutate_stock_mass", vehicle.load_mission_payload(2,120.0) and is_equal_approx(vehicle.effective_mass_kg(),vehicle.config.mass_kg+270.0))
+	var loaded_mass := vehicle.effective_mass_kg()
+	var loads := VehicleController2D.axle_loads_n(vehicle.config,0.0,vehicle.mission_payload_mass_kg())
+	check("loaded_axle_forces_match_physical_mass", is_equal_approx(loads.x+loads.y,loaded_mass*9.81))
+	check("over_capacity_load_rejected", not vehicle.load_mission_payload(5,0.0) and not vehicle.load_mission_payload(1,301.0) and not vehicle.load_mission_payload(1,-1.0))
+	vehicle.reset_vehicle()
+	check("reset_clears_payload", vehicle.mission_payload_mass_kg()==0.0)
+	staged.call("_physics_process",0.01)
+	check("risk_settlement_cannot_pay_twice", economy.balance==before_risk+25000)
 	staged.free()
 	test_officer.free()
 	runtime.free()

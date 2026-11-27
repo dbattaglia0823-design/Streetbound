@@ -32,6 +32,34 @@ func run() -> void:
 					variants += 1
 			complete = complete and variants == 4
 	check("every_part_type_has_four_variants_per_rarity",complete)
+	var market := Ownership.new(false)
+	market.balance=200000
+	check("black_market_is_purchase_only",Parts.BLACK_MARKET.size()==8 and Parts.all().size()==120 and Parts.get_part("bm-chassis-reinforced").get("race_drop_enabled")==false)
+	check("market_reputation_gate",market.purchase_black_market("bm-chassis-reinforced")=="rep_locked")
+	market.underground_reputation=60
+	check("advanced_market_gate",market.purchase_black_market("bm-chassis-heavy")=="rep_locked")
+	check("market_purchase_uses_canonical_cash_and_uid",market.purchase_black_market("bm-chassis-reinforced")=="purchased" and market.balance==182000 and market.upgrade_inventory.size()==1)
+	var market_uid := str(market.upgrade_inventory[0].uid)
+	check("market_install_uses_rep_not_car_xp",market.install_part(Ownership.STARTER_ID,market_uid)=="installed")
+	var stock_market := Catalog.make_configuration(Catalog.find_by_id(Ownership.STARTER_ID))
+	var upgraded_market := Catalog.make_configuration(Catalog.find_by_id(Ownership.STARTER_ID))
+	market.apply_car_upgrades(upgraded_market,Ownership.STARTER_ID)
+	check("market_armor_changes_real_health_and_mass",upgraded_market.max_health_points==roundi(stock_market.max_health_points*1.25) and upgraded_market.mass_kg>stock_market.mass_kg)
+	check("market_bumper_purchase",market.purchase_black_market("bm-bumper-reinforced")=="purchased" and market.install_part(Ownership.STARTER_ID,str(market.upgrade_inventory[1].uid))=="installed")
+	var protected_market := Catalog.make_configuration(Catalog.find_by_id(Ownership.STARTER_ID))
+	market.apply_car_upgrades(protected_market,Ownership.STARTER_ID)
+	check("market_slots_stack_without_replacing_race_slots",market.installed_templates(Ownership.STARTER_ID).size()==2 and is_equal_approx(protected_market.impact_damage_factor,0.85))
+	check("market_unequip_restores_baseline",market.unequip_part(Ownership.STARTER_ID,"chassis")=="removed")
+	market.balance=0
+	check("market_insufficient_funds_no_new_item",market.purchase_black_market("bm-cargo-light")=="insufficient_funds" and market.upgrade_inventory.size()==2)
+	var damage_script := preload("res://scripts/vehicle/vehicle_damage.gd")
+	var baseline_damage = damage_script.new()
+	var market_damage = damage_script.new()
+	check("bumper_reduces_actual_impact_damage",market_damage.register_impact(20.0,1.0,protected_market.impact_damage_factor)<baseline_damage.register_impact(20.0,1.0))
+	market_damage.integrity=10.0
+	check("engine_shield_reduces_critical_loss",market_damage.drive_fraction(0.5)>market_damage.drive_fraction())
+	market_damage.integrity=0.0
+	check("engine_shield_cannot_move_destroyed_vehicle",market_damage.drive_fraction(0.5)==0.0)
 	var economy := Ownership.new(false)
 	check("fresh_ownership_has_no_upgrade_loot",
 		economy.upgrade_inventory.is_empty() and economy.upgrade_loadouts.is_empty())

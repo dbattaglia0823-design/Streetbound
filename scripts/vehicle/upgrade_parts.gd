@@ -5,12 +5,145 @@ extends RefCounted
 const PATH := "res://data/upgrade_parts.json"
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
 const SLOTS := ["engine","turbo","transmission","tires","suspension","nitrous"]
+# Separate purchase-only slots preserve the 120-template race loot catalog.
+const BLACK_MARKET_SLOTS := ["chassis","bumpers","protection","cargo"]
+const BLACK_MARKET := {
+	"bm-chassis-reinforced": {
+		"id": "bm-chassis-reinforced",
+		"slot": "chassis",
+		"name": "Reinforced Chassis",
+		"rarity": "Common",
+		"required_rep": 60,
+		"price_usd": 18000,
+		"modifiers": {
+			"max_health_points": 0.25,
+			"mass_kg": 0.045
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-chassis-heavy": {
+		"id": "bm-chassis-heavy",
+		"slot": "chassis",
+		"name": "Heavy Reinforced Chassis",
+		"rarity": "Legendary",
+		"required_rep": 250,
+		"price_usd": 65000,
+		"modifiers": {
+			"max_health_points": 0.55,
+			"mass_kg": 0.09
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-bumper-reinforced": {
+		"id": "bm-bumper-reinforced",
+		"slot": "bumpers",
+		"name": "Reinforced Bumpers",
+		"rarity": "Common",
+		"required_rep": 60,
+		"price_usd": 12000,
+		"modifiers": {
+			"impact_damage_factor": -0.15,
+			"mass_kg": 0.025
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-bumper-heavy": {
+		"id": "bm-bumper-heavy",
+		"slot": "bumpers",
+		"name": "Heavy Impact Bumpers",
+		"rarity": "Legendary",
+		"required_rep": 250,
+		"price_usd": 42000,
+		"modifiers": {
+			"impact_damage_factor": -0.3,
+			"mass_kg": 0.05
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-engine-shield": {
+		"id": "bm-engine-shield",
+		"slot": "protection",
+		"name": "Engine Shielding",
+		"rarity": "Common",
+		"required_rep": 60,
+		"price_usd": 14000,
+		"modifiers": {
+			"critical_power_loss_factor": -0.25,
+			"mass_kg": 0.015
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-engine-heavy": {
+		"id": "bm-engine-heavy",
+		"slot": "protection",
+		"name": "Advanced Engine Shielding",
+		"rarity": "Legendary",
+		"required_rep": 250,
+		"price_usd": 48000,
+		"modifiers": {
+			"critical_power_loss_factor": -0.5,
+			"mass_kg": 0.03
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-cargo-light": {
+		"id": "bm-cargo-light",
+		"slot": "cargo",
+		"name": "Lightweight Cargo Storage",
+		"rarity": "Common",
+		"required_rep": 60,
+		"price_usd": 10000,
+		"modifiers": {
+			"mission_cargo_mass_factor": -0.1,
+			"cargo_capacity_kg": 0.1
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	},
+	"bm-cargo-advanced": {
+		"id": "bm-cargo-advanced",
+		"slot": "cargo",
+		"name": "Advanced Cargo Storage",
+		"rarity": "Legendary",
+		"required_rep": 250,
+		"price_usd": 36000,
+		"modifiers": {
+			"mission_cargo_mass_factor": -0.2,
+			"cargo_capacity_kg": 0.2
+		},
+		"specialty": "Black market",
+		"race_drop_enabled": false,
+		"black_market": true
+	}
+}
+static func all_slots() -> Array:
+	return SLOTS + BLACK_MARKET_SLOTS
+
+static func is_black_market(template: Dictionary) -> bool:
+	return bool(template.get("black_market",false))
+
 const RARITIES := ["Common","Uncommon","Rare","Epic","Legendary"]
 ## Tags are future event types, not active rotation rules.
 const EVENT_TYPES := ["street","circuit","drag","drift","highway","sprint","technical","endurance"]
 const FIELD_LABELS := {
 	"engine_power_kw":"POWER","engine_torque_nm":"TORQUE",
 	"redline_rpm":"REDLINE","mass_kg":"WEIGHT",
+	"max_health_points":"HEALTH","impact_damage_factor":"IMPACT DAMAGE",
+	"critical_power_loss_factor":"CRITICAL POWER LOSS","mission_cargo_mass_factor":"CARGO WEIGHT",
+	"cargo_capacity_kg":"CARGO CAPACITY",
 	"cornering_stiffness":"CORNERING","rear_grip_balance":"REAR GRIP",
 	"yaw_damping":"STABILITY","max_steer_degrees":"STEERING ANGLE",
 	"steering_response":"TURN-IN","countersteer_assist":"COUNTERSTEER",
@@ -44,12 +177,13 @@ static func all() -> Dictionary:
 
 
 static func get_part(template_id: String) -> Dictionary:
-	return all().get(template_id,{})
+	return BLACK_MARKET[template_id].duplicate(true) if BLACK_MARKET.has(template_id) else all().get(template_id,{})
 
 
 static func in_slot(slot: String) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for part in all().values():
+	var catalog: Dictionary = BLACK_MARKET if slot in BLACK_MARKET_SLOTS else all()
+	for part in catalog.values():
 		if str(part.slot) == slot:
 			result.append(part)
 	return result
@@ -124,6 +258,11 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				"engine_torque_nm": value = clampf(value,60.0,3000.0)
 				"redline_rpm": value = clampf(value,3500.0,14000.0)
 				"mass_kg": value = clampf(value,650.0,5000.0)
+				"max_health_points": value = clampf(value,1.0,10000.0)
+				"cargo_capacity_kg": value = clampf(value,0.0,2000.0)
+				"impact_damage_factor": value = clampf(value,0.5,1.0)
+				"critical_power_loss_factor": value = clampf(value,0.5,1.0)
+				"mission_cargo_mass_factor": value = clampf(value,0.8,1.0)
 				"tire_grip": value = clampf(value,0.5,3.0)
 				"rear_grip_balance": value = clampf(value,0.55,1.8)
 				"cornering_stiffness": value = clampf(value,30000.0,250000.0)
@@ -135,7 +274,10 @@ static func apply_to_config(config: VehicleConfig, parts: Array[Dictionary]) -> 
 				"shift_duration": value = clampf(value,0.035,0.55)
 				"auto_shift_duration": value = clampf(value,0.03,0.35)
 				"final_drive": value = clampf(value,2.0,6.0)
-			config.set(key,value)
+			if typeof(base) == TYPE_INT:
+				config.set(key,roundi(value))
+			else:
+				config.set(key,value)
 		if str(part.get("slot","")) == "turbo" and config.boost_max_psi > 0.05:
 			# A turbo kit on an N/A car gets true spool and induction audio.
 			# Stock turbo and supercharged cars retain their authored profile.

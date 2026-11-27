@@ -7,6 +7,7 @@ const VehicleScene = preload("res://scenes/vehicle.tscn")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const RemoteBuffer = preload("res://scripts/network/remote_snapshot_buffer.gd")
 const FriendRaceScript = preload("res://scripts/network/online_friend_race.gd")
+const FriendRobberyScript = preload("res://scripts/network/online_friend_robbery.gd")
 const Police = preload("res://scripts/world/police_pursuit.gd")
 const Emergency = preload("res://scripts/visual/police_emergency_effects.gd")
 const DamageSmoke = preload("res://scripts/visual/engine_damage_smoke.gd")
@@ -49,6 +50,7 @@ var quality_label: Label
 var invitation_toolbar: HBoxContainer
 var lock_lobby_button: Button
 var friend_race: Node2D
+var friend_robbery: Node2D
 var shared_police: Node2D
 var police_target_peer := 0
 var police_target_original_layer := 0
@@ -121,6 +123,10 @@ func _ready() -> void:
 	friend_race.name = "FriendDragRace"
 	friend_race.set_script(FriendRaceScript)
 	add_child(friend_race)
+	friend_robbery = Node2D.new()
+	friend_robbery.name = "FriendRobbery"
+	friend_robbery.set_script(FriendRobberyScript)
+	add_child(friend_robbery)
 	_sync_peers()
 	online_session.mark_world_ready()
 
@@ -364,7 +370,7 @@ func _process(dt: float) -> void:
 			_release_police_target()
 		if is_instance_valid(police_status) and is_instance_valid(shared_police):
 			var heat := int(shared_police.get("wanted_level"))
-			police_status.text = "POLICE / WANTED %d" % heat
+			police_status.text = "POLICE / WANTED %d / YOU" % heat if heat>0 and police_target_peer==1 else ("POLICE / OTHER DRIVER PURSUED" if heat>0 else "POLICE / CLEAR")
 	else:
 		_render_police_replicas(now_ms)
 	for id in peer_cars:
@@ -657,7 +663,7 @@ func _receive_police_snapshot(payload: Dictionary, now_ms: int) -> void:
 	var level := clampi(int(payload.get("wanted",0)),0,5)
 	var target := int(payload.get("target",0))
 	if is_instance_valid(police_status):
-		police_status.text = "POLICE / WANTED %d%s" % [level," / YOU" if level > 0 and target == online_session.own_id() else ""]
+		police_status.text = "POLICE / WANTED %d / YOU" % level if level>0 and target==online_session.own_id() else ("POLICE / OTHER DRIVER PURSUED" if level>0 else "POLICE / CLEAR")
 	var retained: Dictionary = {}
 	for id in raw:
 		var row: Variant = raw[id]

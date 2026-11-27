@@ -32,6 +32,8 @@ var notice := ""
 var notice_remaining := 0.0
 var _save_clock := 0.0
 var _low_fuel_warning := false
+var _last_config_hp := -1
+var _last_engine_shield := 1.0
 
 func _ready() -> void:
 	layer = 4
@@ -103,7 +105,9 @@ func _configure_active_car() -> void:
 	var powertrain := str(entry.get("reference_powertrain", "")).to_lower()
 	fuel.configure(vehicle_kind, float(player.config.mass_kg), float(player.config.engine_power_kw),
 		powertrain == "electric")
-	damage.max_health_points = maxi(1, int(entry.get("max_health_points", player.config.max_health_points)))
+	damage.max_health_points = maxi(1, player.config.max_health_points)
+	_last_config_hp = damage.max_health_points
+	_last_engine_shield = player.config.critical_power_loss_factor
 	damage.integrity = clampf(float(integrity_by_car.get(current_car_id, 100.0)), 0.0, 100.0)
 	damage.last_impact_at = -INF
 	fuel.remaining = clampf(float(fuel_by_car.get(current_car_id, fuel.capacity)), 0.0, fuel.capacity)
@@ -121,10 +125,23 @@ func _sync_car() -> void:
 	_configure_active_car()
 	_update_gauges()
 
+func _sync_upgrade_health() -> void:
+	if not is_instance_valid(player) or player.config == null:
+		return
+	var capacity := maxi(1,player.config.max_health_points)
+	if capacity != _last_config_hp or not is_equal_approx(_last_engine_shield,player.config.critical_power_loss_factor):
+		# Normalized integrity is preserved, never repair or refill on swaps.
+		_last_config_hp = capacity
+		_last_engine_shield = player.config.critical_power_loss_factor
+		damage.max_health_points = capacity
+		_apply_drive_condition()
+		_update_gauges()
+
 func _on_impact(speed_mps: float, _position_px: Vector2,
 		_normal: Vector2, _velocity_mps: Vector2) -> void:
 	_sync_car()
-	var applied: float = damage.register_impact(speed_mps, Time.get_ticks_msec() / 1000.0)
+	_sync_upgrade_health()
+	var applied: float = damage.register_impact(speed_mps, Time.get_ticks_msec() / 1000.0,clampf(player.config.impact_damage_factor,0.5,1.0))
 	if applied <= 0.0:
 		return
 	# Disk writes are batched during driving, not executed inside the
@@ -138,7 +155,7 @@ func _on_impact(speed_mps: float, _position_px: Vector2,
 func _apply_drive_condition() -> void:
 	if not is_instance_valid(player):
 		return
-	player.damage_drive_fraction = damage.drive_fraction()
+	player.damage_drive_fraction = damage.drive_fraction(player.config.critical_power_loss_factor)
 	player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
 	if is_instance_valid(engine_smoke):
 		engine_smoke.call("set_health_percentage", damage.health_percentage())
@@ -328,6 +345,7 @@ func _physics_process(dt: float) -> void:
 	if not is_instance_valid(player) or not is_instance_valid(economy):
 		return
 	_sync_car()
+	_sync_upgrade_health()
 	if fuel.consume(dt, player.linear_velocity.length(), player.throttle) > 0.0:
 		player.fuel_drive_fraction = 0.0 if fuel.empty() else 1.0
 		if fuel.fraction() < 0.15 and not _low_fuel_warning:

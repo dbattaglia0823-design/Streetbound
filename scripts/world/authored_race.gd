@@ -212,7 +212,7 @@ func manages_race_heat() -> bool:
 func _reward_summary() -> String:
 	var parts: Array[String]=[]
 	if int(definition.get("race_heat",0))>0:parts.append("WANTED %d / ESCAPE TO COLLECT"%int(definition.race_heat))
-	if int(definition.get("underground_rep_reward",0))>0:parts.append("+%d STREET REP"%int(definition.underground_rep_reward))
+	parts.append("+%d STREET REP"%maxi(5,int(definition.get("underground_rep_reward",0))))
 	if int(definition.get("reward_cash",0))>0:
 		parts.append(OwnershipModel.dollars(int(definition.reward_cash)))
 	if int(definition.get("reward_player_xp",0))>0:
@@ -224,18 +224,17 @@ func _reward_summary() -> String:
 	return " / ".join(parts) if not parts.is_empty() else "PRACTICE"
 
 func _award_finish() -> String:
-	if _reward_summary()=="PRACTICE":
-		if is_instance_valid(economy):
-			economy.record_authored_race(_run_id,elapsed,definition,EventRules.event_key(world_id,str(definition.id)),false)
-		return "PRACTICE / NO REWARDS"
 	if not is_instance_valid(economy):return "REWARDS UNAVAILABLE"
 	var awarded: Dictionary=economy.record_authored_race(_run_id,elapsed,definition,
 		EventRules.event_key(world_id,str(definition.id)),int(definition.get("race_heat",0))==0 or (is_instance_valid(police) and int(police.get("wanted_level"))==0 and float(police.get("bust_timer"))<=0.0))
 	if str(awarded.get("result",""))!="completed":
 		return "REWARDS NOT SAVED: "+str(awarded.get("result","unknown"))
 	var prefix: String="FIRST WIN  " if bool(awarded.get("first_win",false)) else "REWARDS  "
-	return prefix+OwnershipModel.dollars(int(awarded.get("cash",0)))+" / %d DRIVER XP / %d CAR XP"%[
+	var result_text := prefix+OwnershipModel.dollars(int(awarded.get("cash",0)))+" / %d DRIVER XP / %d CAR XP"%[
 		int(awarded.get("player_xp",0)),int(awarded.get("car_xp",0))]+(" / +%d STREET REP"%int(awarded.get("underground_rep",0)) if int(awarded.get("underground_rep",0))>0 else "")
+	if not str(awarded.get("rank_up","")).is_empty():
+		result_text += "\n"+str(awarded["rank_up"])
+	return result_text
 
 func _won_course() -> bool:
 	for progress in rival_progress:

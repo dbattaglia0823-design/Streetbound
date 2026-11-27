@@ -143,6 +143,9 @@ func _complete() -> void:
 		_result_text = "FINISH  %.2fs\nDRIVER +%d XP  /  CAR +%d XP  /  +%s" % [
 			elapsed,int(result.player_xp),int(result.car_xp),
 			OwnershipModel.dollars(int(result.cash))]
+		_result_text += "  /  +%d STREET REP" % int(result.get("underground_rep",0))
+		if not str(result.get("rank_up","")).is_empty():
+			_result_text += "\n"+str(result["rank_up"])
 		var reward_part: Dictionary = result.get("part",{})
 		if not reward_part.is_empty():
 			_result_text += "\nPART EARNED  /  %s  /  %s" % [
