@@ -46,3 +46,5 @@
 - Per-end connection modes allow undoable Intersection/On-ramp/Automatic changes on existing and future branch roads in both editors, without altering points or dimensions. Split through-road approaches supported. Invalid junction geometry rejects bake. CI pending.
 
 - Road artwork refresh: charcoal asphalt, stronger world-space grain, refined wear/shoulders, metric lane paint, junction controls, native and browser preview. No geometry/physics changes. CI and GPU validation pending.
+
+- Terrain fidelity: higher-frequency filtered biome materials, slope-aware regional relief, denser bounded mountain meshes with smooth vertex lighting, sharper cliffs, detailed custom water, and 1024² editor material tiles. Original map and collision data untouched; CI and GPU review pending.

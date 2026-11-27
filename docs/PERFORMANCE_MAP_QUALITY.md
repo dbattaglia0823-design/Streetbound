@@ -67,3 +67,6 @@ as measured FPS gains until separately profiled.
 
 Official reference: [Godot 2D MultiMesh](https://docs.godotengine.org/en/4.6/classes/class_multimeshinstance2d.html)
 and [texture mipmaps / resolution tradeoffs](https://docs.godotengine.org/en/latest/tutorials/assets_pipeline/importing_images.html).
+
+
+Terrain fidelity pass: high-frequency world-space materials add filtered sub-decimetre detail at driving zoom, with extra grass/leaf litter, fractured rock, sand ripples, urban grain, soil, gravel, farm rows and water chop. Authored solid mountains use a 12 m minimum sample spacing (previously 24 m), a 4,200 candidate budget, area-weighted vertex normals and interpolated colors on clipped triangles. No collider or chunk size changes. Browser terrain tiles increase to 1024×1024 at the same 64 m repeat, and custom water distance fields target 256 rather than 128 samples along the longest edge. Existing regional hillshade PNGs remain unchanged; finer relief is procedural. GPU screenshot and frame-time verification pending.

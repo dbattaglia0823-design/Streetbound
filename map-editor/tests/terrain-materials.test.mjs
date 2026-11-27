@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {terrainFamily,TERRAIN_COLORS,textureTerrain} from '../world-terrain-materials.js';
+import {terrainFamily,TERRAIN_COLORS,textureTerrain,TERRAIN_TILE_PIXELS,TERRAIN_REPEAT_M} from '../world-terrain-materials.js';
 
 test('terrain families preserve water/shoreline aliases and distinguish land materials',()=>{
   assert.equal(terrainFamily('water'),'lake');
@@ -14,4 +14,9 @@ test('terrain families preserve water/shoreline aliases and distinguish land mat
 
 test('non-browser export and geometry tools do not need a canvas implementation',()=>{
   assert.equal(textureTerrain({},'forest'),false);
+});
+
+test('higher resolution material tiles keep their world scale',()=>{
+  assert.equal(TERRAIN_TILE_PIXELS,1024);
+  assert.equal(TERRAIN_REPEAT_M,64);
 });

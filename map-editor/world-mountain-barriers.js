@@ -29,14 +29,16 @@ export function mountainPlan(region){
   const id=region.id??region.authoring_id??key,old=cache.get(id);
   if(old?.key===key)return {...old.plan,x,y};
   const width=Math.max(...ps.map(p=>p.x)),height=Math.max(...ps.map(p=>p.y)),seed=stringSeed(String(id));
-  const step=Math.max(24,Math.sqrt(width*height/2100));
-  const nx=Math.max(2,Math.min(140,Math.ceil(width/step))),ny=Math.max(2,Math.min(140,Math.ceil(height/step)));
+  const step=Math.max(12,Math.sqrt(width*height/4200));
+  let nx=Math.max(2,Math.min(140,Math.ceil(width/step))),ny=Math.max(2,Math.min(140,Math.ceil(height/step)));
+  while(nx*ny>4200){if(nx>=ny)nx--;else ny--;}
   const peaks=new Map(),triangles=[];
   const vertex=(ix,iy)=>{const k=ix+','+iy;if(peaks.has(k))return peaks.get(k);
     const p={x:ix*width/nx,y:iy*height/ny};let edge=Infinity;
     for(let i=0;i<ps.length;i++)edge=Math.min(edge,pointSegment(p,ps[i],ps[(i+1)%ps.length]).distance);
     const ridge=1-Math.abs(smoothNoise(p.x/95,p.y/95,seed)*2-1);
-    p.z=pointInPolygon(p,ps)?Math.min(region.elevation,edge*3.2)*(.40+.60*ridge*ridge):0;
+    const erosion=1-Math.abs(smoothNoise(p.x/26+41,p.y/26-16,seed)*2-1);
+    p.z=pointInPolygon(p,ps)?Math.min(region.elevation,edge*3.2)*(.34+.53*ridge*ridge+.13*erosion*erosion):0;
     peaks.set(k,p);return p;};
   for(let iy=0;iy<ny;iy++)for(let ix=0;ix<nx;ix++){
     const a=vertex(ix,iy),b=vertex(ix+1,iy),c=vertex(ix+1,iy+1),d=vertex(ix,iy+1);

@@ -95,3 +95,6 @@ Final junction pass: 120 connected road sections, 66 junction/apron treatments, 
 ## Road artwork refresh
 
 World-aligned charcoal asphalt, stronger filtered aggregate, subtle resurfacing variation and wheel wear. Metric yellow opposing-traffic separators and white same-direction dividers use the actual directional lane layout, including odd lane counts and ramps. Highway/arterial dash patterns use 3 m paint and 9 m gaps; other streets use 3 m paint and 6 m gaps. Runtime phase follows centerline stationing through curves and clipped approaches. Junctions have control-specific stop bars and yield triangles, urban crosswalks and through markings at merge mouths. Race kerbs and loose surfaces remain distinct. Cached rendering and map geometry unchanged. GPU screenshots and performance comparison pending.
+
+
+Terrain visual detail increased across all material families with finer, derivative-filtered world-space grain and slope-aware mountain shading. Solid mountain footprints retain their collision polygon but use denser, smoothly lit cached meshes. Roadside rock faces and custom-map water use refined shaders. No original terrain, road, or elevation data rebake required. The existing regional hillshade texture remains the low-frequency base; finer detail is shader-generated.
