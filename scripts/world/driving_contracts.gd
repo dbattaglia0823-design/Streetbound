@@ -16,6 +16,10 @@ var robbery_target: Dictionary = {}
 var offer_settings: Dictionary = {}
 var stage := "delivery"
 var robbery_progress := 0.0
+var early_finish_requested := false
+var robbery_meter: ProgressBar
+var robbery_status: Label
+var early_finish_button: Button
 var remaining_seconds := 0.0
 var started_car_id := ""
 var run_token := ""
@@ -46,6 +50,21 @@ func _ready() -> void:
 	readout = Label.new()
 	readout.add_theme_font_size_override("font_size", 13)
 	column.add_child(readout)
+	robbery_status = Label.new()
+	robbery_status.add_theme_font_size_override("font_size",13)
+	robbery_status.visible = false
+	column.add_child(robbery_status)
+	robbery_meter = ProgressBar.new()
+	robbery_meter.custom_minimum_size = Vector2(340,18)
+	robbery_meter.max_value = 100.0
+	robbery_meter.show_percentage = true
+	robbery_meter.visible = false
+	column.add_child(robbery_meter)
+	early_finish_button = Button.new()
+	early_finish_button.text = "FINISH LOWER REWARD"
+	early_finish_button.visible = false
+	early_finish_button.pressed.connect(_request_early_finish)
+	column.add_child(early_finish_button)
 	abandon_button = Button.new()
 	abandon_button.text = "ABANDON CONTRACT"
 	abandon_button.pressed.connect(abandon)
@@ -94,7 +113,7 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 		return "CONTRACT COMPLETED"
 	return ""
 
-func try_start_offer(contact: Dictionary, selected: Dictionary) -> Dictionary:
+func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "standard") -> Dictionary:
 	if not is_instance_valid(marker_source) or str(contact.get("type","")) != "contract_contact":
 		return {"result":"invalid"}
 	if not bool(marker_source.call("_enabled",contact)):
@@ -125,7 +144,14 @@ func try_start_offer(contact: Dictionary, selected: Dictionary) -> Dictionary:
 		"name":str(selected.get("title","Driving job")),
 		"type":"contract","x":float(contact.get("x",0)),
 		"y":float(contact.get("y",0)),"properties":props}
-	return try_start(source,selected)
+	var chosen := selected.duplicate(true)
+	if not Rules.robbery_profile(selected).is_empty():
+		chosen = Rules.with_robbery_risk(selected,risk)
+		if chosen.is_empty():
+			return {"result":"invalid","message":"Invalid robbery risk selection"}
+	elif risk != "standard":
+		return {"result":"invalid","message":"This contract does not support risk selection"}
+	return try_start(source,chosen)
 
 func _waypoints() -> Node:
 	if not is_instance_valid(map_hud):
@@ -159,6 +185,10 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 		return {"result":"unlinked","message":"Place and link a dropoff marker at least 100 metres away"}
 	var source_pos := Vector2(float(source.x), float(source.y))
 	var kind := str(props.get("contract_kind","courier"))
+	if not Rules.valid_robbery_profile(kind,authored_offer):
+		return {"result":"invalid","message":"Invalid robbery profile or risk"}
+	if not Rules.robbery_profile(authored_offer).is_empty() and int(economy.get("underground_reputation")) < Rules.required_rep(authored_offer):
+		return {"result":"locked","message":"Insufficient underground reputation"}
 	var robbery: Dictionary = {}
 	if kind == "robbery":
 		robbery = _find_robbery_target(str(props.get("robbery_marker_id","")))
@@ -205,6 +235,7 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}) -> Dictionar
 	offer_settings = authored_offer.duplicate(true)
 	stage = "robbery" if kind == "robbery" else "delivery"
 	robbery_progress = 0.0
+	early_finish_requested = false
 	started_car_id = str(economy.active_id)
 	remaining_seconds = Rules.configured_time(kind,authored_offer)
 	notice = "DRIVE TO " + str(next_stop.get("name","DESTINATION")).to_upper()
@@ -228,6 +259,7 @@ func _end(message: String) -> void:
 	offer_settings.clear()
 	stage = "delivery"
 	robbery_progress = 0.0
+	early_finish_requested = false
 	remaining_seconds = 0.0
 	started_car_id = ""
 	run_token = ""
@@ -246,8 +278,12 @@ func abandon() -> void:
 	if not active.is_empty():
 		_end("CONTRACT ABANDONED")
 
+func _request_early_finish() -> void:
+	if not active.is_empty() and stage == "robbery":
+		early_finish_requested = true
+
 func _complete() -> void:
-	if active.is_empty() or destination.is_empty():
+	if active.is_empty() or destination.is_empty() or stage != "delivery":
 		return
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var event_key := str(marker_source.get("world_id")) + "::" + str(active.get("id",""))
@@ -290,6 +326,11 @@ func _physics_process(dt: float) -> void:
 			robbery_progress += dt
 		else:
 			robbery_progress = 0.0
+		if early_finish_requested:
+			early_finish_requested = false
+			var lower := Rules.completed_lower_risk(offer_settings,robbery_progress)
+			if not lower.is_empty():
+				offer_settings = Rules.with_robbery_risk(offer_settings,lower)
 		if robbery_progress >= Rules.configured_robbery_hold(offer_settings):
 			# Crew action happens inside the building; the player remains
 			# inside the getaway vehicle throughout the timed handoff.
@@ -322,6 +363,27 @@ func _process(dt: float) -> void:
 		return
 	notice_seconds = maxf(0.0, notice_seconds - dt)
 	abandon_button.visible = not active.is_empty()
+	var show_robbery := not active.is_empty() and stage == "robbery"
+	robbery_meter.visible = show_robbery
+	robbery_status.visible = show_robbery
+	early_finish_button.visible = false
+	if show_robbery:
+		var required := Rules.configured_robbery_hold(offer_settings)
+		robbery_meter.value = clampf(robbery_progress / required * 100.0,0.0,100.0)
+		robbery_status.text = "CREW PROGRESS / %.1fs of %.0fs" % [robbery_progress,required]
+		if not Rules.robbery_profile(offer_settings).is_empty():
+			var rewards := Rules.configured_reward("robbery",offer_settings)
+			robbery_status.text = "%s / %s / HEAT %d / %.1fs of %.0fs" % [
+				Rules.robbery_risk(offer_settings).to_upper(),economy.dollars(int(rewards.cash)),
+				Rules.configured_wanted("robbery",offer_settings),robbery_progress,required]
+			var lower := Rules.completed_lower_risk(offer_settings,robbery_progress)
+			if not lower.is_empty():
+				var lower_offer := Rules.with_robbery_risk(offer_settings,lower)
+				var lower_rewards := Rules.configured_reward("robbery",lower_offer)
+				early_finish_button.text = "FINISH %s / %s / HEAT %d" % [
+					lower.to_upper(),economy.dollars(int(lower_rewards.cash)),
+					Rules.configured_wanted("robbery",lower_offer)]
+				early_finish_button.visible = true
 	if active.is_empty():
 		readout.text = "DRIVING CONTRACTS / REP %d / " % int(economy.get("underground_reputation")) + \
 			(notice if notice_seconds > 0.0 else "Find a job marker")

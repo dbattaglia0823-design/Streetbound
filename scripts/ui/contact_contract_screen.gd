@@ -45,6 +45,8 @@ var requirements_label: Label
 var status_label: Label
 var feedback_label: Label
 var accept_button: Button
+var risk_selector: OptionButton
+var selected_risk := "standard"
 var selected_accent := HIGHLIGHT
 
 func _panel_style(bg: Color, edge: Color, thick: int = 1, rounding: int = 12) -> StyleBoxFlat:
@@ -183,7 +185,17 @@ func _build_frame() -> void:
 	frame.add_child(details)
 	job_title = _text(details, "", 23, INK, Vector2(20, 14), Vector2(627, 35))
 	job_subtitle = _text(details, "", 13, HIGHLIGHT,
-		Vector2(20, 54), Vector2(627, 25))
+		Vector2(20, 54), Vector2(360, 25))
+	risk_selector = OptionButton.new()
+	risk_selector.name = "RobberyRisk"
+	risk_selector.position = Vector2(400,50)
+	risk_selector.size = Vector2(246,36)
+	for risk in Rules.ROBBERY_RISKS:
+		risk_selector.add_item("RISK: "+str(risk).to_upper())
+	risk_selector.select(1)
+	risk_selector.visible = false
+	risk_selector.item_selected.connect(_risk_changed)
+	details.add_child(risk_selector)
 	_line(details, Vector2(20, 91), 632, Color("#40555b"))
 	description_label = RichTextLabel.new()
 	description_label.name = "JobDescription"
@@ -246,6 +258,7 @@ func open_contact(contact: Dictionary) -> bool:
 	for item in active_contact.get("properties", {}).get("offers", []):
 		if item is Dictionary:
 			offers.append(item)
+	selected_risk = "standard"
 	selected_index = 0 if not offers.is_empty() else -1
 	var persona: Dictionary = ViewData.identity(active_contact)
 	selected_accent = persona["accent"]
@@ -299,8 +312,18 @@ func _rebuild_jobs() -> void:
 		job_list.add_child(button)
 		job_buttons.append(button)
 
+func _risk_changed(index: int) -> void:
+	if index < 0 or index >= Rules.ROBBERY_RISKS.size():
+		return
+	selected_risk = Rules.ROBBERY_RISKS[index]
+	_select_job(selected_index)
+
 func _select_job(index: int) -> void:
+	if index != selected_index:
+		selected_risk = "standard"
 	selected_index = index
+	risk_selector.visible = false
+	risk_selector.select(Rules.ROBBERY_RISKS.find(selected_risk))
 	for i in job_buttons.size():
 		_style_button(job_buttons[i], i == selected_index)
 	if index < 0 or index >= offers.size():
@@ -315,12 +338,16 @@ func _select_job(index: int) -> void:
 		accept_button.disabled = true
 		return
 	var offer: Dictionary = offers[index]
+	var profile := Rules.robbery_profile(offer)
+	if not profile.is_empty():
+		risk_selector.visible = true
+		offer = Rules.with_robbery_risk(offer,selected_risk)
 	var kind := str(offer.get("kind", "courier"))
 	var rewards: Dictionary = Rules.configured_reward(kind, offer)
 	var wanted: int = Rules.configured_wanted(kind, offer)
 	var time_seconds: float = Rules.configured_time(kind, offer)
-	var lock := _lock_reason(offer)
-	var count := _completion_count(offer)
+	var lock := _lock_reason(offers[index])
+	var count := _completion_count(offers[index])
 	var repeatable := bool(offer.get("repeatable", true))
 	job_title.text = str(offer.get("title", "Driving Contract")).to_upper()
 	job_subtitle.text = "%s   /   %s DIFFICULTY" % [
@@ -333,6 +360,8 @@ func _select_job(index: int) -> void:
 		int(rewards.get("underground_rep", 0))]
 	timing_label.text = "TIME LIMIT: %dm %02ds   /   POLICE HEAT: %d / 5" % [
 		int(time_seconds) / 60, int(time_seconds) % 60, wanted]
+	if not profile.is_empty():
+		timing_label.text += "   /   CREW: %.0fs" % Rules.configured_robbery_hold(offer)
 	requirements_label.text = "REQUIRES LEVEL %d   /   REP %d   /   %s" % [
 		int(offer.get("required_player_level", 1)),
 		Rules.required_rep(offer),
@@ -352,7 +381,11 @@ func _accept_selected() -> void:
 			bool(offer.get("repeatable", true)), _lock_reason(offer)):
 		_select_job(selected_index)
 		return
-	var response: Dictionary = contracts.call("try_start_offer", active_contact, offer)
+	var response: Dictionary
+	if Rules.robbery_profile(offer).is_empty():
+		response = contracts.call("try_start_offer", active_contact, offer)
+	else:
+		response = contracts.call("try_start_offer", active_contact, offer, selected_risk)
 	if str(response.get("result", "")) == "started":
 		accepted.emit(str(offer.get("id", "")))
 		close_screen()

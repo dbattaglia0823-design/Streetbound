@@ -115,6 +115,21 @@ func run() -> void:
 		if i>0:
 			check("robbery_tier_rep_rises_%d" % i, Contracts.required_rep(offer)>Contracts.required_rep(tiers[i-1]))
 
+	# Risk modes are game-owned. Existing standard payouts and unlocks remain.
+	var jewel: Dictionary = tiers[2]
+	var quick := Contracts.with_robbery_risk(jewel,"quick")
+	var maximum := Contracts.with_robbery_risk(jewel,"maximum")
+	check("risk_quick_rewards_and_heat", Contracts.configured_reward("robbery",quick).cash==15000 and Contracts.configured_wanted("robbery",quick)==2 and Contracts.configured_robbery_hold(quick)==8.0)
+	check("risk_maximum_rewards_and_heat", Contracts.configured_reward("robbery",maximum).cash==36250 and Contracts.configured_wanted("robbery",maximum)==4 and Contracts.configured_robbery_hold(maximum)==18.0)
+	check("risk_does_not_change_unlock", Contracts.required_rep(quick)==60 and Contracts.required_rep(maximum)==60)
+	check("risk_invalid_enum_rejected", Contracts.with_robbery_risk(jewel,"arbitrary").is_empty() and not Contracts.valid_robbery_profile("robbery",{"robbery_tier":"jewelry","robbery_risk":"arbitrary"}))
+	check("risk_not_allowed_on_legacy_job", not Contracts.valid_robbery_profile("courier",{"robbery_risk":"maximum"}))
+	check("risk_caps_bank_reward_and_heat", Contracts.configured_reward("robbery",Contracts.with_robbery_risk(last_tier,"maximum")).cash==250000 and Contracts.configured_wanted("robbery",Contracts.with_robbery_risk(last_tier,"maximum"))==5)
+	check("risk_checkpoints_require_real_progress", Contracts.completed_lower_risk(maximum,7.9)=="" and Contracts.completed_lower_risk(maximum,8.0)=="quick" and Contracts.completed_lower_risk(maximum,12.0)=="standard" and Contracts.completed_lower_risk(quick,100.0)=="")
+	var risk_rejected: Dictionary = maximum.duplicate(true)
+	risk_rejected["cash"]=999999
+	check("risk_cannot_override_payout", progression.record_driving_contract("risk-forged-run-0001","morrow-coast::jewelry","robbery",risk_rejected).get("result")=="invalid_reward")
+
 	# A visible roadside person has multiple individually configured jobs.
 	var robbery_offer: Dictionary = {"id":"job_1","title":"Harbor Bank Pickup",
 		"kind":"robbery","difficulty":"pro","destination_marker_id":"marker-12",
@@ -302,6 +317,41 @@ func run() -> void:
 	staged.call("_physics_process",0.02)
 	check("evade_and_dropoff_completes_robbery",economy.balance==balance_before_robbery+4000
 		and (staged.get("active") as Dictionary).is_empty())
+	# Exercise a real in-game stage transition with a selected maximum mode.
+	economy.underground_reputation=60
+	staged.set("active",synthetic.duplicate(true))
+	staged.set("destination",contact_dropoff.duplicate(true))
+	staged.set("robbery_target",robbery_site.duplicate(true))
+	staged.set("offer_settings",maximum.duplicate(true))
+	staged.set("stage","robbery")
+	staged.set("remaining_seconds",420.0)
+	staged.set("run_token","risk-checkpoint-run-0001")
+	staged.set("started_car_id",str(economy.active_id))
+	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
+	vehicle.linear_velocity=Vector2.ZERO
+	var before_risk: int = economy.balance
+	staged.call("_physics_process",4.0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("early_finish_before_checkpoint_denied", str(staged.get("stage"))=="robbery" and economy.balance==before_risk)
+	staged.call("_physics_process",4.0)
+	vehicle.position += Vector2(1000,0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("moving_outside_objective_resets_progress", float(staged.get("robbery_progress"))==0.0 and str(staged.get("stage"))=="robbery")
+	vehicle.position=Vector2(robbery_site.x,robbery_site.y)*20.0
+	staged.call("_physics_process",12.0)
+	staged.call("_request_early_finish")
+	staged.call("_physics_process",0.01)
+	check("early_finish_commits_completed_standard_checkpoint", str(staged.get("stage"))=="delivery" and Contracts.robbery_risk(staged.get("offer_settings"))=="standard" and int(test_officer.get("wanted_level"))==3)
+	vehicle.position=Vector2(contact_dropoff.x,contact_dropoff.y)*20.0
+	staged.call("_physics_process",0.01)
+	check("risk_job_does_not_pay_until_heat_cleared", economy.balance==before_risk)
+	test_officer.set("wanted_level",0)
+	staged.call("_physics_process",0.01)
+	check("risk_settlement_uses_actual_completed_checkpoint", economy.balance==before_risk+25000)
+	staged.call("_physics_process",0.01)
+	check("risk_settlement_cannot_pay_twice", economy.balance==before_risk+25000)
 	staged.free()
 	test_officer.free()
 	runtime.free()

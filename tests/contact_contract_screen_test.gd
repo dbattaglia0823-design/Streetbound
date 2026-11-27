@@ -4,11 +4,13 @@ extends SceneTree
 const Screen = preload("res://scripts/ui/contact_contract_screen.gd")
 const ViewData = preload("res://scripts/ui/contact_contract_view_data.gd")
 const Economy = preload("res://scripts/vehicle/vehicle_ownership.gd")
+const Rules = preload("res://scripts/world/driving_contract_rules.gd")
 var failures: Array[String] = []
 
 class ContractStub extends Node2D:
 	var accepted_jobs: Array[String] = []
 	var last_response := "started"
+	var last_risk := ""
 
 	func offer_lock_reason(_contact: Dictionary, offer: Dictionary) -> String:
 		if str(offer.get("id", "")) == "one_time":
@@ -17,7 +19,8 @@ class ContractStub extends Node2D:
 			return "REQUIRES DRIVER LEVEL 50"
 		return ""
 
-	func try_start_offer(_contact: Dictionary, offer: Dictionary) -> Dictionary:
+	func try_start_offer(_contact: Dictionary, offer: Dictionary, risk: String = "standard") -> Dictionary:
+		last_risk = risk
 		accepted_jobs.append(str(offer.get("id","")))
 		return {"result":last_response,"message":"Road route is unavailable"}
 
@@ -136,6 +139,14 @@ func run() -> void:
 		not paused and not bool(board.get("is_open"))
 		and contracts.accepted_jobs == ["repeatable","repeatable"]
 		and economy.completed_driving_contracts[one_time_key] == 1)
+	var risk_contact: Dictionary = contact.duplicate(true)
+	risk_contact.properties.offers = [Rules.make_robbery_offer("jewelry","target","dropoff")]
+	check("risk_board_opens",bool(board.call("open_contact",risk_contact)))
+	check("risk_selector_visible_for_profile",(board.get("risk_selector") as OptionButton).visible)
+	board.call("_risk_changed",2)
+	check("risk_preview_recalculates_payout_and_heat",(board.get("payout_label") as Label).text.contains("$36,250") and (board.get("timing_label") as Label).text.contains("HEAT: 4"))
+	board.call("_accept_selected")
+	check("risk_selection_passes_separately_from_authored_offer",contracts.last_risk=="maximum" and not bool(board.get("is_open")))
 	check("contact_can_reopen_after_accept",bool(board.call("open_contact",contact)) and paused)
 	board.call("close_screen")
 	check("close_screen_restores_world_pause",not paused and not bool(board.get("is_open")))

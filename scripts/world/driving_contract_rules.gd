@@ -45,7 +45,7 @@ const REWARD_LIMITS := {"cash": 10000, "player_xp": 1500,
 	"car_xp": 1200, "underground_rep": 30}
 const MAX_DURATION := 900
 ## Game-owned campaign presets. Legacy authored offers retain their old caps.
-## Fixed advertised payouts for phase 1; variable loot/risk selection is later.
+## Standard payouts remain the original phase-one balance.
 const ROBBERY_TIERS := {
 	"convenience": {"title":"Convenience Store Robbery","difficulty":"rookie","cash":2500,"player_xp":450,"car_xp":300,"underground_rep":8,"required_rep":5,"wanted":1,"seconds":300,"hold":7},
 	"pawn": {"title":"Pawn Shop Robbery","difficulty":"amateur","cash":8500,"player_xp":650,"car_xp":450,"underground_rep":12,"required_rep":25,"wanted":2,"seconds":360,"hold":9},
@@ -55,13 +55,35 @@ const ROBBERY_TIERS := {
 }
 const ROBBERY_ORDER := ["convenience","pawn","jewelry","warehouse","bank"]
 const RACE_REPUTATION := 5
+const ROBBERY_RISKS := ["quick","standard","maximum"]
+const ROBBERY_RISK_RULES := {
+	"quick":{"cash_factor":0.6,"hold_factor":0.65,"heat_delta":-1,"rep_factor":0.75},
+	"standard":{"cash_factor":1.0,"hold_factor":1.0,"heat_delta":0,"rep_factor":1.0},
+	"maximum":{"cash_factor":1.45,"hold_factor":1.5,"heat_delta":1,"rep_factor":1.25}
+}
+const MAX_PROFILE_CASH := 250000
 
 static func robbery_profile(offer: Dictionary) -> Dictionary:
 	return ROBBERY_TIERS.get(str(offer.get("robbery_tier","")),{}).duplicate(true)
 
+static func robbery_risk(offer: Dictionary) -> String:
+	return str(offer.get("robbery_risk","standard"))
+
+static func with_robbery_risk(offer: Dictionary, risk: String) -> Dictionary:
+	if robbery_profile(offer).is_empty() or risk not in ROBBERY_RISKS:
+		return {}
+	var selected := offer.duplicate(true)
+	selected["robbery_risk"] = risk
+	return selected
+
+static func _risk_rule(offer: Dictionary) -> Dictionary:
+	return ROBBERY_RISK_RULES.get(robbery_risk(offer), ROBBERY_RISK_RULES["standard"])
+
 static func valid_robbery_profile(kind: String, offer: Dictionary) -> bool:
 	if not offer.has("robbery_tier"):
-		return true
+		return not offer.has("robbery_risk")
+	if offer.has("robbery_risk") and (not offer["robbery_risk"] is String or robbery_risk(offer) not in ROBBERY_RISKS):
+		return false
 	if kind != "robbery" or not offer["robbery_tier"] is String or robbery_profile(offer).is_empty():
 		return false
 	# Do not let a preset bypass the legacy authoring/economy caps.
@@ -184,8 +206,10 @@ static func valid_contact(contact: Dictionary, markers_by_id: Dictionary) -> boo
 static func configured_reward(kind: String, offer: Dictionary) -> Dictionary:
 	var profile := robbery_profile(offer) if kind == "robbery" else {}
 	if not profile.is_empty() and valid_robbery_profile(kind,offer):
-		return {"cash":profile["cash"],"player_xp":profile["player_xp"],
-			"car_xp":profile["car_xp"],"underground_rep":profile["underground_rep"]}
+		var risk := _risk_rule(offer)
+		return {"cash":mini(MAX_PROFILE_CASH,roundi(float(profile["cash"])*float(risk["cash_factor"]))),
+			"player_xp":profile["player_xp"],"car_xp":profile["car_xp"],
+			"underground_rep":mini(int(REWARD_LIMITS["underground_rep"]),roundi(float(profile["underground_rep"])*float(risk["rep_factor"])))}
 	var result := reward(kind)
 	for field in REWARD_LIMITS:
 		if offer.has(field):
@@ -193,13 +217,30 @@ static func configured_reward(kind: String, offer: Dictionary) -> Dictionary:
 	return result
 
 static func configured_wanted(kind: String, offer: Dictionary) -> int:
-	return int(robbery_profile(offer)["wanted"]) if kind == "robbery" and not robbery_profile(offer).is_empty() else clampi(int(offer.get("wanted_level",wanted_level(kind))),0,5)
+	var profile := robbery_profile(offer)
+	if kind == "robbery" and not profile.is_empty():
+		return clampi(int(profile["wanted"])+int(_risk_rule(offer)["heat_delta"]),1,5)
+	return clampi(int(offer.get("wanted_level",wanted_level(kind))),0,5)
 
 static func configured_time(kind: String, offer: Dictionary) -> float:
 	return float(robbery_profile(offer)["seconds"]) if kind == "robbery" and not robbery_profile(offer).is_empty() else clampf(float(offer.get("time_limit_seconds",time_limit(kind))),60.0,float(MAX_DURATION))
 
 static func configured_robbery_hold(offer: Dictionary) -> float:
-	return float(robbery_profile(offer)["hold"]) if not robbery_profile(offer).is_empty() else clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
+	var profile := robbery_profile(offer)
+	if not profile.is_empty():
+		return clampf(ceilf(float(profile["hold"])*float(_risk_rule(offer)["hold_factor"])),3.0,30.0)
+	return clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
+
+## Only an already completed lower checkpoint may replace the planned mode.
+static func completed_lower_risk(offer: Dictionary, progress: float) -> String:
+	if robbery_profile(offer).is_empty() or not is_finite(progress):
+		return ""
+	var selected_index := ROBBERY_RISKS.find(robbery_risk(offer))
+	for i in range(selected_index-1,-1,-1):
+		var candidate: String = ROBBERY_RISKS[i]
+		if progress >= configured_robbery_hold(with_robbery_risk(offer,candidate)):
+			return candidate
+	return ""
 
 static func configured_arrival_radius(offer: Dictionary) -> float:
 	return clampf(float(offer.get("arrival_radius_m", ARRIVAL_RADIUS_M)), 6.0, 30.0)
