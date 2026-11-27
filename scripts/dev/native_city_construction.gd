@@ -2,6 +2,7 @@ extends RefCounted
 ## Deterministic source-only city construction. The session validates and
 ## commits the entire plan at once; never mutate the live runtime archive.
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
+const Height=preload("res://scripts/world/authored_height_field.gd")
 const Contracts=preload("res://scripts/world/driving_contract_rules.gd")
 const DealerConfig=preload("res://scripts/world/dealership_config.gd")
 const PALETTES={"residential":["house","house","coastal_house"],"commercial":["shop","shop","garage"],
@@ -9,7 +10,7 @@ const PALETTES={"residential":["house","house","coastal_house"],"commercial":["s
 const BLOCKED=["ocean","lake","water","river","reservoir","mountain","rock"]
 const SIZES={"house":Vector2(12,17),"coastal_house":Vector2(12,17),"shop":Vector2(22,29),
 	"garage":Vector2(20,21),"warehouse":Vector2(28,37),"tree":Vector2(7,7),
-	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4),"parking":Vector2(38,28),"gas_station":Vector2(18,17),"building":Vector2(22,29)}
+	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4),"pine":Vector2(7,7),"palm":Vector2(6.5,6.5),"bush":Vector2(2.5,2.5),"parking":Vector2(38,28),"gas_station":Vector2(18,17),"building":Vector2(22,29)}
 const CELL:=48.0
 
 static func _point(p: Vector2) -> Dictionary:return {"x":p.x,"y":p.y}
@@ -437,3 +438,53 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 	if doc.roads.size()+roads.size()>road_limit or doc.props.size()+props.size()>prop_limit or doc.markers.size()+markers.size()>400:
 		return _error("Property kit exceeds map capacity.")
 	return {"roads":roads,"props":props,"markers":markers,"dealerships":dealers,"area":extent,"label":kind.capitalize()+" kit"}
+
+## Landscaping tools use the existing spatial clearance index and source
+## transactions. No generated plant can occupy a road or an exclusion region.
+static func plan_vegetation(doc: Dictionary,center: Vector2,radius: float,density: float,kind: String,seed: int,limit: int) -> Dictionary:
+	if kind not in ["tree","pine","palm","bush"]:return _error("Choose a vegetation asset.")
+	radius=clampf(radius,5,500)
+	var count:=mini(800,roundi(PI*radius*radius/100.0*clampf(density,0,1)))
+	var rng:=RandomNumberGenerator.new();rng.seed=seed
+	var index:=_index(doc)
+	var props: Array=[]
+	for i in count:
+		var p:=center+Vector2.RIGHT.rotated(rng.randf_range(0,TAU))*radius*sqrt(rng.randf())
+		_place(doc,index,props,kind,p,rng.randf_range(-180,180),rng.randf_range(.65,1.3),limit)
+	return {"roads":[],"props":props,"label":"Vegetation brush"}
+
+static func plan_river(doc: Dictionary,points: Array[Vector2],width: float,bank: float,depth: float) -> Dictionary:
+	if not doc.get("customMap",false):return _error("Use a custom map for waterways.")
+	if points.size()<2 or points.size()>60:return _error("River needs 2–60 centreline points.")
+	width=clampf(width,6,160);bank=clampf(bank,2,80)
+	for i in range(1,points.size()):
+		if points[i].distance_to(points[i-1])<width*.5:return _error("Spread river points farther apart.")
+	var line:=PackedVector2Array(points)
+	var outer:=Geometry2D.offset_polyline(line,width*.5+bank,Geometry2D.JOIN_ROUND,Geometry2D.END_ROUND)
+	var inner:=Geometry2D.offset_polyline(line,width*.5,Geometry2D.JOIN_ROUND,Geometry2D.END_ROUND)
+	if outer.size()!=1 or inner.size()!=1 or outer[0].size()>180 or inner[0].size()>180:return _error("River shape is too complex; shorten or simplify its centreline.")
+	var area:=_bounds(outer[0])
+	# A conservative initial rule: prevent flooded pavement, scenery or existing
+	# restricted terrain. Bridges must be separately authored and validated.
+	if not _vacant(doc,area):return _error("River corridor overlaps existing roads, scenery, restricted terrain or map boundary.")
+	var regions: Array=[]
+	for i in 2:
+		var polygon: PackedVector2Array=outer[0] if i==0 else inner[0]
+		if Geometry2D.triangulate_polygon(polygon).is_empty():return _error("River polygon is invalid.")
+		var vertices: Array=[]
+		for p in polygon:vertices.append(_point(p))
+		regions.append({"name":"River bank" if i==0 else "River channel","biome":"beach" if i==0 else "lake","points":vertices,"elevation":0})
+	var field: Dictionary=doc.get("terrainHeight",Height.blank()).duplicate(true)
+	var extent:=Vector2(doc.world.width,doc.world.height)
+	# Carve visual banks and channel with a continuous falloff.
+	var step:=extent/float(Height.N-1)
+	for y in Height.N:
+		for x in Height.N:
+			var p:=Vector2(x,y)*step
+			var d:=width*.5+bank
+			for i in range(1,line.size()):d=minf(d,p.distance_to(Geometry2D.get_closest_point_to_segment(p,line[i-1],line[i])))
+			var weight:=1.0-smoothstep(width*.5,width*.5+bank,d)
+			if weight<=0:continue
+			var n:=y*Height.N+x
+			field.values[n]=snappedf(lerpf(float(field.values[n]),-absf(depth),weight),.1)
+	return {"roads":[],"props":[],"regions":regions,"terrainHeight":field,"area":area,"label":"River"}

@@ -809,7 +809,8 @@ func surface_at(position_px: Vector2) -> Dictionary:
 					"lake","ocean":return {"name":"WATER","grip":0.20}
 					"beach","desert":return {"name":"SAND","grip":0.60}
 					"mountain","rock":return {"name":"GRAVEL","grip":0.75}
-					"city":return {"name":"ASPHALT","grip":0.93}
+					"city","asphalt":return {"name":"ASPHALT","grip":0.93}
+					"dirt":return {"name":"DIRT","grip":0.62}
 				break
 	return {"name":"GRASS","grip":0.68}
 

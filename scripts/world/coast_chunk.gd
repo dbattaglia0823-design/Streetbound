@@ -6,7 +6,7 @@ const Elevation = preload("res://scripts/world/road_elevation.gd")
 const TERRAIN_TAGS := {"grass":2,"meadow":2,"town":2,"forest":3,
 	"mountain":4,"rock":5,"beach":6,"sand":6,"ocean":7,"water":8,"lake":8,
 	"foam":9,"riverbank":9,"farmland":10,"field":10,"city":11,
-	"desert":12,"dirt":13,"gravel":14,"highland":15}
+	"desert":12,"dirt":13,"gravel":14,"highland":15,"asphalt":11}
 static var _terrain_texture: Texture2D
 
 static func terrain_texture() -> Texture2D:

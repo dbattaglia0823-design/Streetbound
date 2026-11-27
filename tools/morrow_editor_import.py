@@ -64,7 +64,7 @@ PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
     "rock": "9baba0", "beach": "e3d4aa", "ocean": "82b5b5",
     "lake": "82b5b5", "city": "b1b6a0", "desert": "d2bb91",
-    "farmland": "b4bd8a",
+    "farmland": "b4bd8a", "dirt": "795b3d", "asphalt": "737776",
 }
 LOOSE = {"DIRT", "GRAVEL"}
 

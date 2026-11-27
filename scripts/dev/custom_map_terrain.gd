@@ -4,7 +4,7 @@ const Ground=preload("res://scripts/world/coast_chunk.gd")
 const HeightField=preload("res://scripts/world/authored_height_field.gd")
 var height_key: String=""
 var height_texture: ImageTexture
-const COLORS={"grass":"#a3b789","forest":"#658768","city":"#a7ada8","beach":"#d7c89b","mountain":"#8b9992","rock":"#9d9c8d","desert":"#d6bd83","farmland":"#9eae73"}
+const COLORS={"grass":"#a3b789","forest":"#658768","city":"#a7ada8","beach":"#d7c89b","mountain":"#8b9992","rock":"#9d9c8d","desert":"#d6bd83","farmland":"#9eae73","dirt":"#795b3d","asphalt":"#737776"}
 var doc: Dictionary={}
 var land_material: ShaderMaterial
 var water_material: ShaderMaterial

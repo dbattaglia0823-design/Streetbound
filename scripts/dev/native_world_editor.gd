@@ -69,6 +69,13 @@ var junction_button: Button
 var selected: Dictionary = {}
 const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
 const Construction=preload("res://scripts/dev/native_city_construction.gd")
+const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
+var landscape_dialog: AcceptDialog
+var landscape_fields: Dictionary={}
+var landscape_mode: OptionButton
+var landscape_file: FileDialog
+var landscape_settings: Dictionary={}
+var landscape_session: RefCounted
 var construction_dialog: AcceptDialog
 var construction_mode: OptionButton
 var construction_fields: Dictionary={}
@@ -566,10 +573,10 @@ func _update_context_panels() -> void:
 	marker_editor.edit_button.visible=bool(context.marker) and record.get("category","")=="markers"
 	marker_kind.visible=tool_name=="place_marker"
 	asset_dock.visible=bool(context.assets)
-	finish_button.visible=bool(context.shape_actions)
-	cancel_button.visible=bool(context.shape_actions) or not pending_drag.is_empty()
+	finish_button.visible=bool(context.shape_actions) or tool_name=="draw_river"
+	cancel_button.visible=bool(context.shape_actions) or tool_name=="draw_river" or not pending_drag.is_empty()
 	var road_selected: bool=bool(context.road) and record.get("category","")=="roads"
-	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail"] else 3)
+	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail","draw_river"] else 3)
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
 	road_elevation_controls.visible=road_selected and tool_name!="draw_road"
@@ -1462,6 +1469,13 @@ func _source_click(world_px: Vector2) -> void:
 		return
 	var focus:=get_viewport().gui_get_focus_owner()
 	if focus!=null:focus.release_focus()
+	if tool_name=="landscape_brush":
+		_landscape_stamp(_snap_point(world_px/PPM));return
+	if tool_name=="draw_river":
+		var p:=_snap_point(world_px/PPM)
+		if draft_points.is_empty() or draft_points[-1].distance_to(p)>.5:
+			draft_points.append(p);_refresh_authoring()
+		return
 	if tool_name=="place_dealership":
 		dealer_editor.place_at(_snap_point(world_px/PPM))
 		return
@@ -2037,7 +2051,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					close_editor()
 				_consume_input()
 				return
-			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_guardrail","draw_race"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
+			if active and tool_name in ["draw_terrain","draw_road","draw_sidewalk","draw_guardrail","draw_race","draw_river"] and key.keycode in [KEY_ENTER,KEY_KP_ENTER]:
 				_finish_shape()
 				_consume_input()
 				return
@@ -2111,7 +2125,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_consume_input()
 					return
 				_source_click(hit_position)
-				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_guardrail","draw_race"]:_finish_shape()
+				if mouse.double_click and tool_name in ["draw_road","draw_terrain","draw_sidewalk","draw_guardrail","draw_race","draw_river"]:_finish_shape()
 			elif marquee_tracking:
 				_end_marquee(hit_position)
 			elif group_moving:
@@ -2783,6 +2797,98 @@ func _copy_selected_group() -> void:
 
 const PREFAB_PATH="user://streetbound-prefabs.json"
 
+func _open_landscape() -> void:
+	if _editing_locked() or not source_ready:return
+	if not map_switcher.custom:
+		_notice("Landscape sculpting is currently available on custom maps only.");return
+	if not is_instance_valid(landscape_dialog):
+		landscape_dialog=AcceptDialog.new();landscape_dialog.title="Terrain and landscaping"
+		landscape_dialog.ok_button_text="Activate tool";landscape_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
+		root_ui.add_child(landscape_dialog)
+		var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(480,430);landscape_dialog.add_child(scroll)
+		var panel:=VBoxContainer.new();panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(panel)
+		landscape_mode=_options(panel,"Landscape mode",["raise","lower","smooth","flatten","paint","vegetation","grade selected road","river"])
+		landscape_fields["radius"]=_number(panel,"Brush radius m",5,1000,100)
+		landscape_fields["amount"]=_number(panel,"Height change m / strength %",1,100,25)
+		landscape_fields["level"]=_number(panel,"Target height m",-1200,1200,0)
+		landscape_fields["biome"]=_options(panel,"Paint material",["grass","forest","dirt","rock","beach","asphalt","desert","farmland","city","mountain"])
+		landscape_fields["vegetation"]=_options(panel,"Vegetation",["tree","pine","palm","bush"])
+		landscape_fields["density"]=_number(panel,"Vegetation density %",0,100,50)
+		landscape_fields["seed"]=_number(panel,"Vegetation seed",0,2147483647,1847)
+		landscape_fields["river_width"]=_number(panel,"River width m",6,160,24)
+		landscape_fields["bank"]=_number(panel,"Bank width m",2,80,12)
+		landscape_fields["depth"]=_number(panel,"Channel depth m",1,100,8)
+		landscape_fields["import_min"]=_number(panel,"Import minimum m",-1200,1200,0)
+		landscape_fields["import_max"]=_number(panel,"Import maximum m",-1200,1200,300)
+		_btn("Import grayscale heightmap",panel,_open_heightmap)
+		var help:=Label.new();help.text="Click to stamp brushes. River: click centreline points, then Finish. Grading uses selected road. Heights affect visual relief, not vehicle Z physics."
+		help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;panel.add_child(help)
+		landscape_dialog.confirmed.connect(_activate_landscape)
+	landscape_dialog.popup_centered(Vector2i(520,510))
+
+func _collect_landscape() -> Dictionary:
+	var settings: Dictionary={"mode":_option_value(landscape_mode)}
+	for key in landscape_fields:
+		var control: Control=landscape_fields[key]
+		settings[key]=control.value if control is SpinBox else _option_value(control)
+	return settings
+
+func _activate_landscape() -> void:
+	if _editing_locked() or not map_switcher.custom:return
+	landscape_settings=_collect_landscape()
+	landscape_session=authoring
+	var mode: String=landscape_settings.mode
+	if mode=="grade selected road":
+		var road: Dictionary=authoring.road_at_id(source_id)
+		if road.is_empty():_notice("Select a road before grading its terrain.");return
+		var field:=TerrainHeight.grade_road(authoring.doc.get("terrainHeight",{}),Vector2(authoring.doc.world.width,authoring.doc.world.height),EditSession.road_path(road),float(landscape_settings.radius),float(landscape_settings.level))
+		if authoring.set_terrain_height(field):_refresh_authoring();_notice("Graded visual terrain along the selected road.")
+		else:_notice(authoring.last_error)
+		return
+	_choose_tool("draw_river" if mode=="river" else "landscape_brush")
+	mode_label.text="RIVER CENTERLINE" if mode=="river" else "TERRAIN "+mode.to_upper()
+	_notice("Click river centreline points; Finish creates channel and banks." if mode=="river" else "Click the map to apply a brush stamp. Each stamp is undoable.")
+
+func _open_heightmap() -> void:
+	if _editing_locked() or not map_switcher.custom:return
+	landscape_settings=_collect_landscape();landscape_session=authoring
+	if not is_instance_valid(landscape_file):
+		landscape_file=FileDialog.new();landscape_file.file_mode=FileDialog.FILE_MODE_OPEN_FILE
+		landscape_file.access=FileDialog.ACCESS_FILESYSTEM;landscape_file.filters=PackedStringArray(["*.png ; PNG","*.jpg,*.jpeg ; JPEG","*.webp ; WebP"])
+		root_ui.add_child(landscape_file);landscape_file.file_selected.connect(_import_heightmap)
+	landscape_dialog.hide();landscape_file.popup_centered_ratio(.7)
+
+func _import_heightmap(path: String) -> void:
+	if _editing_locked() or landscape_session!=authoring or not map_switcher.custom:return
+	var image:=Image.load_from_file(path)
+	var field:=TerrainHeight.import_image(image,float(landscape_settings.import_min),float(landscape_settings.import_max))
+	if field.is_empty():_notice("Invalid heightmap image or height range.");return
+	if authoring.set_terrain_height(field):_refresh_authoring();_notice("Heightmap imported into the map source; Ctrl+Z to undo.")
+	else:_notice(authoring.last_error)
+
+func _landscape_stamp(at: Vector2) -> void:
+	if landscape_session!=authoring or not map_switcher.custom:return
+	var mode: String=landscape_settings.mode
+	var radius:=float(landscape_settings.radius)
+	if mode=="paint":
+		var points: Array[Vector2]=[]
+		var extent:=Vector2(authoring.doc.world.width,authoring.doc.world.height)
+		for i in 24:
+			var p:=at+Vector2.RIGHT.rotated(TAU*float(i)/24.0)*radius
+			points.append(p.clamp(Vector2.ZERO,extent))
+		if not authoring.add_region(points,str(landscape_settings.biome)).is_empty():_refresh_authoring();_notice("Painted terrain material.")
+		else:_notice(authoring.last_error)
+		return
+	if mode=="vegetation":
+		var plan:=Construction.plan_vegetation(authoring.doc,at,radius,float(landscape_settings.density)/100.0,str(landscape_settings.vegetation),int(landscape_settings.seed)+authoring.edit_revision,authoring.prop_limit())
+		var ids: Array[String]=authoring.apply_construction(plan)
+		if not ids.is_empty():_refresh_authoring();_notice("Placed %d vegetation objects."%ids.size())
+		else:_notice(authoring.last_error)
+		return
+	var field:=TerrainHeight.apply(authoring.doc.get("terrainHeight",{}),Vector2(authoring.doc.world.width,authoring.doc.world.height),at,radius,float(landscape_settings.amount),mode,float(landscape_settings.level))
+	if authoring.set_terrain_height(field):_refresh_authoring();_notice("Applied visual height brush.")
+	else:_notice(authoring.last_error)
+
 func _open_construction() -> void:
 	if _editing_locked() or not source_ready:return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
@@ -3078,6 +3184,12 @@ func _update_source_details() -> void:
 
 func _finish_shape() -> void:
 	if _editing_locked() or not source_ready:return
+	if tool_name=="draw_river":
+		if landscape_session!=authoring:return
+		var plan:=Construction.plan_river(authoring.doc,draft_points,float(landscape_settings.river_width),float(landscape_settings.bank),float(landscape_settings.depth))
+		var ids: Array[String]=authoring.apply_construction(plan)
+		if ids.is_empty():_notice(authoring.last_error);return
+		draft_points.clear();_refresh_authoring();_notice("Created river and banks in one undo step.");return
 	var identity: String=""
 	if tool_name=="draw_road":
 		identity=authoring.add_road_path(draft_points,{"roadClass":_option_value(road_class),

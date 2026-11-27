@@ -140,7 +140,7 @@ static func build(e) -> void:
 	e._btn("Apply jump",e.road_elevation_controls,e._change_road_jump)
 	e.road_shapes.build(e,e.road_settings)
 	e.terrain_settings=column(e.tool_options);heading(e.terrain_settings,"TERRAIN MATERIAL")
-	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"])
+	e.terrain_biome=e._options(e.terrain_settings,"Biome",["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert","dirt","asphalt"])
 	e.terrain_biome.item_selected.connect(func(_index: int)->void:e._change_terrain_settings())
 	e._btn("Draw mountain barrier",e.terrain_settings,e._mountain_tool)
 	e.terrain_barrier=CheckBox.new();e.terrain_barrier.text="Block vehicles";e.terrain_barrier.focus_mode=Control.FOCUS_ALL
@@ -196,6 +196,7 @@ static func build(e) -> void:
 	e._btn("Paste",actions,e._paste_selected_group).tooltip_text="Paste group at camera centre (Ctrl+V)"
 	e._btn("Prefabs",actions,e._open_prefabs)
 	e._btn("Build city",actions,e._open_construction)
+	e._btn("Landscape",actions,e._open_landscape)
 	e.finish_button=e._btn("Finish  Enter",actions,e._finish_shape);e.finish_button.custom_minimum_size.x=80
 	e.cancel_button=e._btn("Cancel",actions,e._cancel_gesture);e.cancel_button.custom_minimum_size.x=53
 	var zoom_controls:=HBoxContainer.new()

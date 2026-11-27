@@ -1287,7 +1287,7 @@ func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=
 	if clean.size()>2 and clean[0].distance_to(clean[-1])<.05:clean.pop_back()
 	points_m=clean
 	if points_m.size()<3 or biome not in ["grass","forest","city","beach",
-			"rock","mountain","lake","desert","farmland","ocean"]:
+			"rock","mountain","lake","desert","farmland","ocean","dirt","asphalt"]:
 		last_error = "Terrain needs three points and a supported biome."
 		return ""
 	for p in points_m:
@@ -1460,7 +1460,8 @@ func apply_construction(plan: Dictionary) -> Array[String]:
 	var regions: Array=plan.get("regions",[])
 	var markers: Array=plan.get("markers",[])
 	var dealers: Array=plan.get("dealerships",[])
-	if roads.is_empty() and props.is_empty() and regions.is_empty() and markers.is_empty():last_error="Nothing fits in the selected area.";return ids
+	var field: Dictionary=plan.get("terrainHeight",{})
+	if roads.is_empty() and props.is_empty() and regions.is_empty() and markers.is_empty() and field.is_empty():last_error="Nothing fits in the selected area.";return ids
 	if doc.roads.size()+roads.size()>road_limit() or doc.props.size()+props.size()>prop_limit() or doc.regions.size()+regions.size()>220 or doc.markers.size()+markers.size()>400:
 		last_error="Construction exceeds map capacity.";return ids
 	if not roads.is_empty() and unlocked_road_layer not in [0,99]:
@@ -1480,6 +1481,7 @@ func apply_construction(plan: Dictionary) -> Array[String]:
 		next.regions.append(item);ids.append(str(item.id))
 	for marker in markers:
 		next.markers.append(marker.duplicate(true));ids.append(str(marker.id))
+	if not field.is_empty():next.terrainHeight=field.duplicate(true)
 	if not dealers.is_empty():
 		if not next.has("dealerships"):next.dealerships=[]
 		for dealer in dealers:next.dealerships.append(dealer.duplicate(true))
