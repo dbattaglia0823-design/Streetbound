@@ -20,3 +20,5 @@
 5. After verified implementation, update the **affected** docs and replace this short handoff with the latest actionable state. Record a major decision or reproducible defect separately; preserve older narrative in [WORK_LOG.md](WORK_LOG.md) and GitHub PR history.
 
 **Shared guidance:** [Game-Dev-Toolkit knowledge](https://github.com/dbattaglia0823-design/Game-Dev-Toolkit/tree/main/knowledge); project-specific mechanics and evidence stay in this repository.
+
+- Robbery career phase 1: five game-owned payout/heat/reputation tiers, race reputation progression, stock Morrow Coast solo contact board using existing road anchors and regression coverage. No crew hiring or cargo yet; CI and live validation pending.

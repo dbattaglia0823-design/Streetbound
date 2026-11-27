@@ -348,6 +348,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 	var prior_player_xp := player_xp
 	var prior_car_xp := int(car_xp.get(active_id,0))
 	var prior_balance := balance
+	var prior_rep := underground_reputation
 	var prior_best := best_quarter_mile
 	var prior_serial := next_part_uid
 	var prior_inventory_size := upgrade_inventory.size()
@@ -358,6 +359,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 	car_xp[active_id] = mini(Progression.car_threshold(Progression.MAX_CAR_LEVEL),
 		prior_car_xp + int(rewards.car_xp))
 	balance += int(rewards.cash)
+	underground_reputation = mini(100000,underground_reputation + DrivingContracts.RACE_REPUTATION)
 	if best_quarter_mile <= 0.0 or elapsed_seconds < best_quarter_mile:
 		best_quarter_mile = elapsed_seconds
 	var earned_part: Dictionary = _award_part_for_race(race_id,active_car_level())
@@ -368,6 +370,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		player_xp = prior_player_xp
 		car_xp[active_id] = prior_car_xp
 		balance = prior_balance
+		underground_reputation = prior_rep
 		best_quarter_mile = prior_best
 		_claimed_races = prior_claims
 		upgrade_inventory.resize(prior_inventory_size)
@@ -379,6 +382,7 @@ func record_completed_race(race_id: String, elapsed_seconds: float) -> Dictionar
 		"player_level_before":old_player_level,"player_level_after":player_level(),
 		"car_level_before":old_car_level,"car_level_after":active_car_level(),
 		"car_id":active_id,"seconds":elapsed_seconds,
+		"underground_rep":underground_reputation-prior_rep,
 		"part":earned_part,"part_uid":"up-%d" % prior_serial if not earned_part.is_empty() else ""}
 
 
@@ -422,7 +426,9 @@ func record_authored_race(run_id: String,elapsed_seconds: float,awards: Dictiona
 	var previous_claims: Array[String]=_claimed_races.duplicate()
 	var previous_events: Dictionary=completed_events.duplicate()
 	var previous_rep:=underground_reputation
-	var street_rep:=int(awards.get("underground_rep_reward",0))
+	# A completed race builds driver recognition; underground author rewards
+	# remain the stronger configured reward and still require evading heat.
+	var street_rep:=maxi(DrivingContracts.RACE_REPUTATION,int(awards.get("underground_rep_reward",0)))
 	underground_reputation=mini(100000,underground_reputation+street_rep)
 	balance+=cash
 	player_xp=mini(Progression.player_threshold(Progression.MAX_PLAYER_LEVEL),player_xp+driver_xp)
@@ -525,6 +531,10 @@ func record_driving_contract(run_id: String, event_key: String, kind: String, of
 		return {"result":"invalid_or_duplicate"}
 	if not DrivingContracts.valid_kind(kind) or driving_contract_claims.size() >= 4096:
 		return {"result":"invalid_or_duplicate"}
+	if not DrivingContracts.valid_robbery_profile(kind,offer):
+		return {"result":"invalid_reward"}
+	if not DrivingContracts.robbery_profile(offer).is_empty() and underground_reputation < DrivingContracts.required_rep(offer):
+		return {"result":"locked"}
 	# Never trust arbitrary map JSON reward amounts: reject out-of-range values
 	# even when a caller bypasses the editor's schema validation.
 	for field in DrivingContracts.REWARD_LIMITS:

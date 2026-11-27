@@ -44,6 +44,68 @@ const ROBBERY_HOLD_SECONDS := 7.0
 const REWARD_LIMITS := {"cash": 10000, "player_xp": 1500,
 	"car_xp": 1200, "underground_rep": 30}
 const MAX_DURATION := 900
+## Game-owned campaign presets. Legacy authored offers retain their old caps.
+## Fixed advertised payouts for phase 1; variable loot/risk selection is later.
+const ROBBERY_TIERS := {
+	"convenience": {"title":"Convenience Store Robbery","difficulty":"rookie","cash":2500,"player_xp":450,"car_xp":300,"underground_rep":8,"required_rep":5,"wanted":1,"seconds":300,"hold":7},
+	"pawn": {"title":"Pawn Shop Robbery","difficulty":"amateur","cash":8500,"player_xp":650,"car_xp":450,"underground_rep":12,"required_rep":25,"wanted":2,"seconds":360,"hold":9},
+	"jewelry": {"title":"Jewelry Store Heist","difficulty":"pro","cash":25000,"player_xp":900,"car_xp":650,"underground_rep":18,"required_rep":60,"wanted":3,"seconds":420,"hold":12},
+	"warehouse": {"title":"Warehouse Heist","difficulty":"elite","cash":60000,"player_xp":1200,"car_xp":900,"underground_rep":24,"required_rep":120,"wanted":4,"seconds":480,"hold":16},
+	"bank": {"title":"Bank Heist","difficulty":"elite","cash":175000,"player_xp":1500,"car_xp":1200,"underground_rep":30,"required_rep":250,"wanted":5,"seconds":600,"hold":20}
+}
+const ROBBERY_ORDER := ["convenience","pawn","jewelry","warehouse","bank"]
+const RACE_REPUTATION := 5
+
+static func robbery_profile(offer: Dictionary) -> Dictionary:
+	return ROBBERY_TIERS.get(str(offer.get("robbery_tier","")),{}).duplicate(true)
+
+static func valid_robbery_profile(kind: String, offer: Dictionary) -> bool:
+	if not offer.has("robbery_tier"):
+		return true
+	if kind != "robbery" or not offer["robbery_tier"] is String or robbery_profile(offer).is_empty():
+		return false
+	# Do not let a preset bypass the legacy authoring/economy caps.
+	for field in ["cash","player_xp","car_xp","underground_rep","wanted_level","time_limit_seconds","robbery_hold_seconds"]:
+		if offer.has(field):
+			return false
+	return true
+
+static func required_rep(offer: Dictionary) -> int:
+	return maxi(int(offer.get("required_underground_rep",0)),int(robbery_profile(offer).get("required_rep",0)))
+
+static func make_robbery_offer(tier: String, target_id: String, dropoff_id: String) -> Dictionary:
+	var profile: Dictionary = ROBBERY_TIERS.get(tier,{})
+	if profile.is_empty():
+		return {}
+	return {"id":"job_"+tier,"title":profile["title"],"kind":"robbery",
+		"robbery_tier":tier,"difficulty":profile["difficulty"],
+		"robbery_marker_id":target_id,"destination_marker_id":dropoff_id,
+		"repeatable":true}
+
+## Stock campaign objectives only; no changes to published map geometry or
+## authoring archives. Anchors come from named Morrow Coast roads. Runtime
+## verifies proximity to drivable roads before exposing the entire board.
+static func morrow_robbery_board() -> Array[Dictionary]:
+	var board: Array[Dictionary] = []
+	var targets := [Vector2(2640,2845),Vector2(2925,2805),Vector2(3235,2810),Vector2(3510,3105),Vector2(3085,2600)]
+	var names := ["Market Street Convenience Store","Market Street Pawn Shop",
+		"Market Street Jewelry Store","Warehouse Way","Civic Crescent Bank"]
+	var offers: Array[Dictionary] = []
+	var dropoff_id := "marker-campaign-robbery-dropoff"
+	for i in ROBBERY_ORDER.size():
+		var tier: String = ROBBERY_ORDER[i]
+		var target_id := "marker-campaign-robbery-"+tier
+		var point: Vector2 = targets[i]
+		board.append({"id":target_id,"type":"robbery_target","name":names[i],
+			"x":point.x,"y":point.y,"rotation":0.0,"properties":{}})
+		offers.append(make_robbery_offer(tier,target_id,dropoff_id))
+	board.append({"id":dropoff_id,"type":"contract_dropoff","name":"Foundry Crew Drop-off",
+		"x":3310.0,"y":3290.0,"rotation":0.0,"properties":{}})
+	board.append({"id":"marker-campaign-robbery-contact","type":"contract_contact",
+		"name":"Laurel Underground Fixer","x":2499.0,"y":2975.0,"rotation":0.0,
+		"properties":{"contact_style":"street","radius_m":16.0,"offers":offers,
+			"contact_greeting":"Build your reputation on the track. Higher-paying jobs unlock as your name gets around."}})
+	return board
 
 static func valid_offer(offer: Dictionary, contact: Dictionary, markers_by_id: Dictionary) -> bool:
 	if str(contact.get("type","")) != "contract_contact":
@@ -59,7 +121,7 @@ static func valid_offer(offer: Dictionary, contact: Dictionary, markers_by_id: D
 	if offer.has("required_race_id") and (not offer.required_race_id is String or str(offer.required_race_id).length()>100 or (not str(offer.required_race_id).is_empty() and not str(offer.required_race_id).begins_with("race-"))):
 		return false
 	var kind := str(offer.get("kind",""))
-	if not valid_kind(kind) or str(offer.get("difficulty","rookie")) not in DIFFICULTIES:
+	if not valid_kind(kind) or not valid_robbery_profile(kind,offer) or str(offer.get("difficulty","rookie")) not in DIFFICULTIES:
 		return false
 	if typeof(offer.get("repeatable",true)) != TYPE_BOOL:
 		return false
@@ -120,6 +182,10 @@ static func valid_contact(contact: Dictionary, markers_by_id: Dictionary) -> boo
 	return true
 
 static func configured_reward(kind: String, offer: Dictionary) -> Dictionary:
+	var profile := robbery_profile(offer) if kind == "robbery" else {}
+	if not profile.is_empty() and valid_robbery_profile(kind,offer):
+		return {"cash":profile["cash"],"player_xp":profile["player_xp"],
+			"car_xp":profile["car_xp"],"underground_rep":profile["underground_rep"]}
 	var result := reward(kind)
 	for field in REWARD_LIMITS:
 		if offer.has(field):
@@ -127,13 +193,13 @@ static func configured_reward(kind: String, offer: Dictionary) -> Dictionary:
 	return result
 
 static func configured_wanted(kind: String, offer: Dictionary) -> int:
-	return clampi(int(offer.get("wanted_level",wanted_level(kind))),0,5)
+	return int(robbery_profile(offer)["wanted"]) if kind == "robbery" and not robbery_profile(offer).is_empty() else clampi(int(offer.get("wanted_level",wanted_level(kind))),0,5)
 
 static func configured_time(kind: String, offer: Dictionary) -> float:
-	return clampf(float(offer.get("time_limit_seconds",time_limit(kind))),60.0,float(MAX_DURATION))
+	return float(robbery_profile(offer)["seconds"]) if kind == "robbery" and not robbery_profile(offer).is_empty() else clampf(float(offer.get("time_limit_seconds",time_limit(kind))),60.0,float(MAX_DURATION))
 
 static func configured_robbery_hold(offer: Dictionary) -> float:
-	return clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
+	return float(robbery_profile(offer)["hold"]) if not robbery_profile(offer).is_empty() else clampf(float(offer.get("robbery_hold_seconds", ROBBERY_HOLD_SECONDS)), 3.0, 30.0)
 
 static func configured_arrival_radius(offer: Dictionary) -> float:
 	return clampf(float(offer.get("arrival_radius_m", ARRIVAL_RADIUS_M)), 6.0, 30.0)

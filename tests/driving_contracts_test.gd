@@ -85,6 +85,36 @@ func run() -> void:
 	check("cross_map_counts_independent",int(economy.completed_driving_contracts.get(
 		"another-world::marker-2",0))==0)
 
+	# Stock phase-one robbery progression uses game-owned presets and actual
+	# marker validation, not arbitrary increased map reward bounds.
+	var board: Array[Dictionary] = Contracts.morrow_robbery_board()
+	check("stock_robbery_board_links_validate", MarkerRules.valid_links(board,[],[]))
+	var board_contact: Dictionary = board.back()
+	var tiers: Array = board_contact.properties.offers
+	check("five_stock_robbery_tiers", tiers.size()==5)
+	var progression := Ownership.new(false)
+	var first_tier: Dictionary = tiers[0]
+	var last_tier: Dictionary = tiers[4]
+	check("starter_robbery_locked_until_racing", progression.record_driving_contract("tier-locked-run-0001","morrow-coast::starter","robbery",first_tier).get("result")=="locked")
+	var race_reward: Dictionary = progression.record_completed_race("rep-race-run-0001",14.0)
+	check("valid_race_earns_reputation", race_reward.get("underground_rep")==5 and progression.underground_reputation==5)
+	progression.record_completed_race("rep-race-run-0001",14.0)
+	check("duplicate_race_cannot_earn_more_rep", progression.underground_reputation==5)
+	var actual_tier: Dictionary = progression.record_driving_contract("tier-starter-run-0002","morrow-coast::starter","robbery",first_tier)
+	check("starter_robbery_pays_after_unlock", actual_tier.get("cash")==2500 and progression.underground_reputation==13)
+	check("bank_remains_locked", progression.record_driving_contract("tier-bank-run-0003","morrow-coast::bank","robbery",last_tier).get("result")=="locked")
+	progression.underground_reputation=250
+	var bank: Dictionary = progression.record_driving_contract("tier-bank-run-0004","morrow-coast::bank","robbery",last_tier)
+	check("bank_pays_fixed_game_owned_reward", bank.get("cash")==175000 and Contracts.configured_wanted("robbery",last_tier)==5)
+	var altered: Dictionary = last_tier.duplicate(true)
+	altered["cash"]=999999
+	check("tier_cannot_override_game_owned_rewards", not Contracts.valid_robbery_profile("robbery",altered) and progression.record_driving_contract("tier-bank-run-0005","morrow-coast::bank","robbery",altered).get("result")=="invalid_reward")
+	for i in tiers.size():
+		var offer: Dictionary = tiers[i]
+		check("robbery_tier_heat_%d" % i, Contracts.configured_wanted("robbery",offer)==i+1)
+		if i>0:
+			check("robbery_tier_rep_rises_%d" % i, Contracts.required_rep(offer)>Contracts.required_rep(tiers[i-1]))
+
 	# A visible roadside person has multiple individually configured jobs.
 	var robbery_offer: Dictionary = {"id":"job_1","title":"Harbor Bank Pickup",
 		"kind":"robbery","difficulty":"pro","destination_marker_id":"marker-12",

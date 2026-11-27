@@ -3,6 +3,7 @@ extends Node2D
 ## garage selector, race coordinator, dealerships, and streamed road network.
 ## No duplicate economy, no fake race completion and no off-road fast travel.
 const Rules=preload("res://scripts/world/authored_marker_rules.gd")
+const ContractRules=preload("res://scripts/world/driving_contract_rules.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const Grid=preload("res://scripts/world/race_start_grid.gd")
 const StartArea=preload("res://scripts/world/race_start_area.gd")
@@ -32,6 +33,7 @@ var _nearby: Dictionary={}
 var _dialog_open:=false
 var _clock:=0.0
 var world_id: String="morrow-coast"
+var enable_stock_robberies := false
 
 func _ready() -> void:
 	name="AuthoredMapMarkers"
@@ -39,7 +41,25 @@ func _ready() -> void:
 	# controller listening for Esc so the panels can be dismissed.
 	process_mode=Node.PROCESS_MODE_ALWAYS
 	world_id=str(world.data.get("editor_world_id","morrow-coast"))
-	for entry in world.data.get("editor_markers",[]):
+	var entries: Array = world.data.get("editor_markers",[]).duplicate()
+	if enable_stock_robberies and world_id == "morrow-coast":
+		var board: Array[Dictionary] = ContractRules.morrow_robbery_board()
+		var ids: Dictionary = {}
+		var accessible := true
+		for entry in entries:
+			if entry is Dictionary:
+				var raw: Dictionary = entry.get("marker",entry)
+				ids[str(raw.get("id",""))] = true
+		for point in board:
+			var road: Dictionary = world.call("nearest_road_at",Vector2(float(point.x),float(point.y))*PPM,28.0)
+			if ids.has(str(point.id)) or road.is_empty() or float(road.get("distance_to_center_m",INF)) > 22.0:
+				accessible = false
+				break
+		if accessible and Rules.valid_links(board,[],[]):
+			entries.append_array(board)
+		else:
+			push_warning("Stock robbery board unavailable: road or marker validation failed")
+	for entry in entries:
 		if not entry is Dictionary:continue
 		var raw: Dictionary=entry.get("marker",entry)
 		if not raw.has("type") or not raw.has("x") or not raw.has("y"):continue

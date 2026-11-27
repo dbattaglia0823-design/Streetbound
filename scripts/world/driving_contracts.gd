@@ -78,8 +78,8 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 		return "CONTRACTS UNAVAILABLE"
 	if int(economy.call("player_level")) < int(offer.get("required_player_level",1)):
 		return "REQUIRES DRIVER LEVEL %d" % int(offer.get("required_player_level",1))
-	if int(economy.get("underground_reputation")) < int(offer.get("required_underground_rep",0)):
-		return "REQUIRES UNDERGROUND REP %d" % int(offer.get("required_underground_rep",0))
+	if int(economy.get("underground_reputation")) < Rules.required_rep(offer):
+		return "REQUIRES UNDERGROUND REP %d" % Rules.required_rep(offer)
 	var prerequisite:=str(offer.get("required_race_id",""))
 	if not prerequisite.is_empty():
 		var event_key:=str(marker_source.get("world_id"))+"::"+prerequisite

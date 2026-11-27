@@ -335,7 +335,7 @@ func _select_job(index: int) -> void:
 		int(time_seconds) / 60, int(time_seconds) % 60, wanted]
 	requirements_label.text = "REQUIRES LEVEL %d   /   REP %d   /   %s" % [
 		int(offer.get("required_player_level", 1)),
-		int(offer.get("required_underground_rep", 0)),
+		Rules.required_rep(offer),
 		"REPEATABLE" if repeatable else "ONE-TIME"]
 	status_label.text = "STATUS: " + ViewData.offer_state(count, repeatable, lock)
 	if not lock.is_empty() and not (count>0 and not repeatable):
