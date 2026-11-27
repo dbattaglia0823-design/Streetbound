@@ -3096,11 +3096,15 @@
           "y": 5050
         },
         {
-          "x": 4750,
-          "y": 4600
+          "x": 4800,
+          "y": 4800
         },
         {
-          "x": 4750,
+          "x": 4900,
+          "y": 4500
+        },
+        {
+          "x": 5190.196530866219,
           "y": 4170
         }
       ]
@@ -9038,7 +9042,7 @@
     },
     {
       "id": "prop-south-17",
-      "name": "Market South commercial",
+      "name": "Market South Store",
       "type": "building",
       "x": 3120,
       "y": 5545,
@@ -9847,11 +9851,11 @@
       "id": "marker-south-dispatch",
       "type": "contract_contact",
       "name": "Southgate Dispatch",
-      "x": 2630,
+      "x": 2670,
       "y": 5650,
       "rotation": 0,
       "properties": {
-        "radius_m": 18,
+        "radius_m": 12,
         "contact_style": "business",
         "contact_role": "Regional dispatcher",
         "contact_greeting": "Start with legal deliveries and unlock longer regional jobs.",
@@ -9883,8 +9887,37 @@
             "wanted_level": 0,
             "repeatable": true,
             "required_player_level": 4
+          },
+          {
+            "id": "south_market_robbery",
+            "title": "Market South robbery",
+            "kind": "robbery",
+            "difficulty": "amateur",
+            "destination_marker_id": "marker-south-freight",
+            "robbery_marker_id": "marker-south-store",
+            "cash": 5000,
+            "player_xp": 480,
+            "car_xp": 330,
+            "underground_rep": 9,
+            "time_limit_seconds": 360,
+            "wanted_level": 2,
+            "required_underground_rep": 25,
+            "required_player_level": 4,
+            "robbery_hold_seconds": 9,
+            "repeatable": true
           }
         ]
+      }
+    },
+    {
+      "id": "marker-south-store",
+      "type": "robbery_target",
+      "name": "Market South Store",
+      "x": 3150,
+      "y": 5500,
+      "rotation": 0,
+      "properties": {
+        "radius_m": 14
       }
     }
   ],

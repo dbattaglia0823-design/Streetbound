@@ -26,6 +26,10 @@ class Southgate(unittest.TestCase):
         markers=validate_markers(draft["markers"],races,[],width,height)
         self.assertTrue(any(m["type"]=="home" for m in markers))
         self.assertTrue(any(m["type"]=="contract_contact" for m in markers))
+        self.assertTrue(any(m["type"]=="robbery_target" for m in markers))
+        coast=next(r for r in stock["roads"] if r["name"]=="South Coastal Link")
+        parkway=next(r for r in draft["roads"] if r["name"]=="South Morrow Parkway")
+        self.assertEqual(parkway["points"][-1],coast["points"][0])
         self.assertGreater(len(_authoring_props(draft,width,height)),50)
 
 if __name__=="__main__":unittest.main()
