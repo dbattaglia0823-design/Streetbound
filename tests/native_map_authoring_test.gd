@@ -306,6 +306,13 @@ func _run() -> void:
 	check("terrain_region_is_previewed_without_world_rebake",
 		not session.initial.regions.any(func(item: Dictionary)->bool:return str(item.id)==native_region) and
 		session.doc.regions.size()==region_count+1 and session.undo())
+	check("terrain_draw_order_undo_redo",session.redo() and session.set_prop_draw_order(native_region,-2) and
+		session.doc.regions[-1].get("drawOrder")==-2 and session.set_prop_draw_order(native_region,3) and
+		session.undo() and session.doc.regions[-1].get("drawOrder")==-2 and
+		session.redo() and session.doc.regions[-1].get("drawOrder")==3 and
+		not session.set_prop_draw_order(native_region,11) and session.set_prop_draw_order(native_region,0) and
+		not session.doc.regions[-1].has("drawOrder"))
+	session.discard_changes()
 	var marker_count: int = session.doc.markers.size()
 	var native_marker := session.add_marker(Vector2(2350,3100))
 	check("native_marker_uses_browser_source_contract",
