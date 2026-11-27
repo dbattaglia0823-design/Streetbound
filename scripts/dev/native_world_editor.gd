@@ -186,6 +186,7 @@ var inspector_road_front: OptionButton
 var inspector_scale: SpinBox
 var inspector_scale_x: SpinBox
 var inspector_scale_y: SpinBox
+var inspector_draw_order: SpinBox
 var point_picker: OptionButton
 var remove_point_button: Button
 var add_point_button: Button
@@ -2664,7 +2665,7 @@ func _refresh_inspector() -> void:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
 		selected_preview.hide()
 	inspector_name.editable=exists
-	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
+	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y,inspector_draw_order]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
 	# Other objects retain their normal coordinate bounds; only terrain may
 	# have a centre outside the world. Inspector writes still use source validation.
@@ -2693,6 +2694,7 @@ func _refresh_inspector() -> void:
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
+		inspector_draw_order.value=int(item.get("drawOrder",0))
 		if record.category=="regions":
 			var region_size: Vector2=_region_bounds(item).size
 			inspector_terrain_width.value=region_size.x
@@ -2746,7 +2748,7 @@ func _commit_inspector(field: String="name") -> void:
 			return
 		destination=snapped_coordinate
 	if record.category=="props":
-		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y}
+		var controls: Dictionary={"rotation":inspector_rotation,"scale":inspector_scale,"scaleX":inspector_scale_x,"scaleY":inspector_scale_y,"drawOrder":inspector_draw_order}
 		if controls.has(field):values[field]=controls[field].value
 		if field=="roadFacing":values[field]=inspector_road_facing.button_pressed
 		if field=="roadFront":values[field]=int(inspector_road_front.get_item_metadata(inspector_road_front.selected))
@@ -2756,6 +2758,10 @@ func _commit_inspector(field: String="name") -> void:
 			if field!="roadFacing" or bool(values[field]):
 				var snapped:=_snap_building_transform(adjusted,destination)
 				destination=snapped.position;values["rotation"]=snapped.rotation
+	if field=="drawOrder":
+		if authoring.set_prop_draw_order(source_id,int(inspector_draw_order.value)):_refresh_authoring()
+		else:_notice(authoring.last_error);_refresh_inspector()
+		return
 	if authoring.edit_entity(source_id,values,destination,source_anchor):
 		_refresh_authoring()
 	else:_notice(authoring.last_error);_refresh_inspector()
