@@ -3,6 +3,10 @@ extends Node2D
 ## one cached canvas per streamed chunk; zero per-prop scene or physics nodes.
 ## All object positions follow the same sampled road paths as sidewalks.
 const PPM := 20.0
+const Rules=preload("res://scripts/world/environment_finishing_rules.gd")
+const Elevation=preload("res://scripts/world/road_elevation.gd")
+const Roads=preload("res://scripts/world/coast_roads.gd")
+var world: Node2D
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
 var road_batches: Array[Dictionary] = []
 var junction_list: Array[Dictionary] = []
@@ -21,12 +25,14 @@ func _near_junction(p: Vector2, radius: float) -> bool:
 	return false
 
 func _lamp(p: Vector2, heading: Vector2) -> void:
+	var style: String=world.environment_style_at(origin_m+p/PPM) if is_instance_valid(world) and world.has_method("environment_style_at") else "residential"
+	var colors:=Rules.palette(style)
 	# Warm street lantern with northwest sun shadow; a tiny deterministic
 	# illustrated element instead of an expensive real-time light source.
 	draw_line(p + Vector2(10, 11), p + Vector2(28, 30), Color(.09,.16,.15,.24), 8.0, true)
 	draw_circle(p + Vector2(4, 5), 12, Color(.36,.42,.40,.28))
-	draw_circle(p, 9.0, Color("788d85"))
-	draw_circle(p, 6.0, Color("e8d9ae"))
+	draw_circle(p, 9.0, colors.furniture)
+	draw_circle(p, 6.0, colors.lamp)
 	draw_circle(p - Vector2(2,2), 3.0, Color("fff2c5"))
 	var outward := heading.orthogonal()
 	draw_line(p, p - outward * 16.0, Color("8a9890"), 4.0, true)
@@ -87,20 +93,33 @@ func _place_at_stations(batch: Dictionary, spacing: float, callback: Callable) -
 			station += spacing
 		covered += length
 
-func _urban_detail(batch: Dictionary) -> void:
+func _urban_sites(batch: Dictionary) -> Array[Dictionary]:
+	var sites: Array[Dictionary]=[]
 	var width := float(batch.road.width) * PPM
 	_place_at_stations(batch, 800.0, func(center: Vector2, forward: Vector2, index: int):
-		if _near_junction(center, width * .65 + 125.0):
-			return
+		if _near_junction(center, width * .65 + 125.0):return
 		var normal := forward.orthogonal()
-		for side in [-1.0, 1.0]:
-			var p: Vector2 = center + normal * float(side) * (width * .5 + Walkways.SIDEWALK_WIDTH_PX * .83)
+		for side in [-1.0,1.0]:
+			var p: Vector2=center+normal*float(side)*(width*.5+Walkways.SIDEWALK_WIDTH_PX*.83)
 			if _in_chunk(p):
-				if index % 3 == 0 and side > 0.0:
-					_bench(p, forward)
-				else:
-					_lamp(p, forward * side)
+				sites.append({"p":p,"forward":forward*side,"bench":index%3==0 and side>0.0,"kind":str(batch.road.kind)})
 	)
+	return sites
+
+func lamp_positions() -> Array[Dictionary]:
+	var result: Array[Dictionary]=[]
+	for batch in road_batches:
+		if Roads.editor_hidden.has(int(batch.road.id)) or Elevation.artwork_layer(batch.road)!=0 or batch.road.has("elevation"):continue
+		if str(batch.road.kind) not in ["local","arterial"]:continue
+		for site in _urban_sites(batch):
+			if not site.bench:result.append(site)
+	return result
+
+func _urban_detail(batch: Dictionary) -> void:
+	var width := float(batch.road.width) * PPM
+	for site in _urban_sites(batch):
+		if site.bench:_bench(site.p,site.forward)
+		else:_lamp(site.p,site.forward)
 	# Hydrants, waste baskets and junction approach signs. Small enough not
 	# to clutter the road, each centered on a true sampled curb tangent.
 	_place_at_stations(batch, 1900.0, func(center: Vector2, forward: Vector2, index: int):
@@ -125,6 +144,7 @@ func _rural_detail(batch: Dictionary) -> void:
 
 func _draw() -> void:
 	for batch in road_batches:
+		if Roads.editor_hidden.has(int(batch.road.id)) or Elevation.artwork_layer(batch.road)!=0 or batch.road.has("elevation"):continue
 		var kind: String = str(batch.road.kind)
 		if kind in ["local","arterial"]:
 			_urban_detail(batch)

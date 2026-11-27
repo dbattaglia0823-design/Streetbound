@@ -16,6 +16,7 @@ const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
+const FinishRules=preload("res://scripts/world/environment_finishing_rules.gd")
 const PPM := 20.0
 var data: Dictionary
 # Override is set before add_child(): either an isolated Test Drive in
@@ -65,6 +66,11 @@ var stream_build_usec := 0
 var mark_clock := 0.0
 ## 0 = clear, 1 = heavy rain. Optional on any published or Test Drive archive.
 var rain_intensity := 0.0
+var living_world: Node
+var _finish_clock:=0.0
+var _environment_night:=0.0
+var _environment_regions: Array[Dictionary]=[]
+var _finish_preview: CanvasModulate
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -77,6 +83,8 @@ var boardwalk_path := PackedVector2Array()
 var _boardwalk_cells: Dictionary = {}
 var chunk_build_count := 0
 var cached_chunk_reuses := 0
+var predicted_chunk_builds:=0
+var _prefetch_clock:=0.0
 ## Optional developer-only diagnostics; no label or per-frame monitors
 ## are created or sampled until F7 is requested.
 var performance_debug_enabled := false
@@ -136,6 +144,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	RoadWidthAdaptation.adapt(data)
 	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
 	mountain_diagnostics=Mountains.apply(data)
+	_environment_regions=FinishRules.region_profiles(data)
 	_index_terrain_cutouts()
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
@@ -324,8 +333,20 @@ func set_geometry_debug(enabled: bool) -> void:
 			overlay.set_enabled(enabled)
 
 
+func environment_style_at(p: Vector2,fallback: String="residential") -> String:
+	return FinishRules.style_at(data,p,fallback,_environment_regions)
+
 func get_rain_intensity() -> float:
 	return rain_intensity
+
+func rain_at_position(point_px: Vector2) -> float:
+	return float(living_world.call("rain_at",point_px)) if is_instance_valid(living_world) else rain_intensity
+
+func business_open(kind: String) -> bool:
+	return not is_instance_valid(living_world) or bool(living_world.call("business_open",kind))
+
+func rotation_clock() -> int:
+	return int(living_world.call("rotation_clock")) if is_instance_valid(living_world) else -1
 
 func set_rain_intensity(amount: float) -> void:
 	rain_intensity = clampf(amount, 0.0, 1.0) if is_finite(amount) else 0.0
@@ -338,6 +359,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
 			set_geometry_debug(not debug_geometry_enabled)
+			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and (key.keycode == KEY_F9 or key.physical_keycode == KEY_F9) and bool(data.get("editor_custom_test_drive",false)) and get_parent().get_node_or_null("WorldDaylight")==null:
+			# Isolated custom Test Drive preview only. Do not create a second
+			# ambient modulator when Phase 8 already provides one.
+			if is_instance_valid(_finish_preview):
+				_finish_preview.queue_free();_finish_preview=null
+			else:
+				_finish_preview=CanvasModulate.new();_finish_preview.color=Color(.48,.54,.72);add_child(_finish_preview)
 			get_viewport().set_input_as_handled()
 		elif key.pressed and not key.echo and (key.keycode == KEY_F7 or key.physical_keycode == KEY_F7):
 			set_performance_debug(not performance_debug_enabled)
@@ -407,6 +436,7 @@ func _update_performance_display() -> void:
 		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
 		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
 		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
 	elif not failed_chunks.is_empty():
@@ -460,6 +490,7 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.set_stream_active(_stream_cell_distance(index,active_center,
 		secondary_current_cell) <= 1)
 	chunks[index] = instance
+	instance.set_environment_night(_environment_night)
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
@@ -506,7 +537,7 @@ func stream_at(position_px: Vector2) -> void:
 		for x in range(focus.x-1,focus.x+2):
 			for y in range(focus.y-1,focus.y+2):
 				var index := Vector2i(x,y)
-				if requested.has(index):
+				if requested.has(index) or not data.chunks.has("%d,%d"%[index.x,index.y]):
 					continue
 				requested[index] = true
 				if not chunks.has(index):
@@ -526,10 +557,12 @@ func stream_at(position_px: Vector2) -> void:
 	for index in chunks.keys():
 		var cell_delta := _stream_cell_distance(index,center,second)
 		if cell_delta > 2:
+			chunks[index].set_stream_active(false)
 			chunks[index].queue_free()
 			chunks.erase(index)
 		else:
 			chunks[index].set_stream_active(cell_delta <= 1)
+			if cell_delta<=1:chunks[index].set_environment_night(_environment_night)
 
 ## Index real open trenches after final road width adaptation. Leave legacy
 ## maps byte-for-byte unchanged on disk and covered tunnel roofs intact.
@@ -597,6 +630,20 @@ func _overhead_layer_at(position_px: Vector2, height_m: float) -> int:
 	return result
 
 
+## Look ahead only inside the existing dormant ring. Active chunk work
+## always wins and at most one build is issued in a frame.
+func _predict_chunk() -> Vector2i:
+	var none:=Vector2i(-999,-999)
+	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length()<12.0*PPM or editor_render_only:return none
+	if secondary_current_cell.x!=-999:return none
+	var direction:=vehicle.linear_velocity.normalized()
+	var position_m:=vehicle.global_position/PPM
+	var predicted:=Vector2i(((position_m+direction*chunk_m*1.5)/chunk_m).floor())
+	if _stream_cell_distance(predicted,current_cell,secondary_current_cell)!=2:return none
+	var key: String="%d,%d"%[predicted.x,predicted.y]
+	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
+	return predicted
+
 func _process(dt: float) -> void:
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
@@ -619,9 +666,25 @@ func _process(dt: float) -> void:
 			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
 			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
 			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	_finish_clock+=dt
+	if _finish_clock>=.25:
+		_finish_clock=0.0
+		var ambient: CanvasModulate=get_parent().get_node_or_null("WorldDaylight") as CanvasModulate
+		if not is_instance_valid(ambient):ambient=_finish_preview
+		_environment_night=FinishRules.darkness(ambient.color) if is_instance_valid(ambient) and not editor_render_only else 0.0
+		for chunk in chunks.values():
+			if chunk.stream_active:chunk.set_environment_night(_environment_night)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())
+	else:
+		_prefetch_clock+=dt
+		if _prefetch_clock>=.15 and dt<.020:
+			_prefetch_clock=0.0
+			var predicted:=_predict_chunk()
+			if predicted.x!=-999:
+				_build_chunk(predicted)
+				if chunks.has(predicted):predicted_chunk_builds+=1
 	if performance_debug_enabled:
 		_performance_clock += dt
 		if _performance_clock >= 0.45:

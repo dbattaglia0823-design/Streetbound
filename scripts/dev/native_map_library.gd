@@ -1,5 +1,6 @@
 extends RefCounted
 const ROOT="user://streetbound-maps/"
+const BACKUP_LIMIT:=12
 static func folder() -> String:
 	return OS.get_environment("STREETBOUND_MAP_LIBRARY") if OS.has_environment("STREETBOUND_MAP_LIBRARY") else ROOT
 static func list_maps() -> Array[Dictionary]:
@@ -22,9 +23,13 @@ static func save(doc: Dictionary,file: String="") -> String:
 	if file.get_file()!=file or not file.ends_with(".world.json"):return ""
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder()))
 	var path:=folder().path_join(file);var temporary:=path+".tmp"
+	var payload:=JSON.stringify(doc,"\t")
+	if FileAccess.file_exists(path):
+		var old:=FileAccess.get_file_as_bytes(path)
+		if old!=payload.to_utf8_buffer() and not _backup(file,old):return ""
 	var stream:=FileAccess.open(temporary,FileAccess.WRITE)
 	if stream==null:return ""
-	stream.store_string(JSON.stringify(doc,"\t"));stream.flush();stream.close()
+	stream.store_string(payload);stream.flush();stream.close()
 	# Replace only after the complete JSON has reached disk.
 	if DirAccess.rename_absolute(ProjectSettings.globalize_path(temporary),ProjectSettings.globalize_path(path))!=OK:return ""
 	return file
@@ -32,3 +37,41 @@ static func load_map(file: String) -> Dictionary:
 	if file.get_file()!=file:return {}
 	var value=JSON.parse_string(FileAccess.get_file_as_string(folder().path_join(file)))
 	return value if value is Dictionary else {}
+
+static func backup_folder(file: String) -> String:
+	if file.get_file()!=file or not file.ends_with(".world.json"):return ""
+	return folder().path_join("automatic-backups").path_join(file.sha256_text().left(32))
+
+static func backups(file: String) -> Array[String]:
+	var result: Array[String]=[]
+	var root:=backup_folder(file)
+	if root.is_empty():return result
+	var dir:=DirAccess.open(root)
+	if dir==null:return result
+	for name in dir.get_files():
+		if name.begins_with("save-") and name.ends_with(".json"):result.append(name)
+	result.sort();result.reverse()
+	return result
+
+static func _backup(file: String,bytes: PackedByteArray) -> bool:
+	if bytes.is_empty():return false
+	var root:=backup_folder(file)
+	if root.is_empty() or DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root))!=OK:return false
+	var name: String="save-%020d-%d.json"%[int(Time.get_unix_time_from_system()*1000000.0),randi()]
+	var path:=root.path_join(name)
+	var stream:=FileAccess.open(path+".tmp",FileAccess.WRITE)
+	if stream==null:return false
+	stream.store_buffer(bytes);stream.flush();stream.close()
+	var hashing:=HashingContext.new();hashing.start(HashingContext.HASH_SHA256);hashing.update(bytes)
+	if FileAccess.get_sha256(path+".tmp")!=hashing.finish().hex_encode():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path+".tmp"));return false
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(path+".tmp"),ProjectSettings.globalize_path(path))!=OK:return false
+	var prior:=backups(file)
+	for i in range(BACKUP_LIMIT,prior.size()):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(root.path_join(prior[i])))
+	return true
+
+static func load_backup(file: String,name: String) -> Dictionary:
+	if name.get_file()!=name or not name in backups(file):return {}
+	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(backup_folder(file).path_join(name)))
+	return parsed if parsed is Dictionary and parsed.get("customMap",false) else {}

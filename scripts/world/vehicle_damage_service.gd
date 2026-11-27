@@ -270,6 +270,9 @@ func try_repair() -> bool:
 		_show_notice("GARAGE / FULL REPAIR FREE")
 		return true
 	if service == "station":
+		var provider: Node=player.surface_provider
+		if is_instance_valid(provider) and provider.has_method("business_open") and not bool(provider.call("business_open","workshop")):
+			_show_notice("WORKSHOP CLOSED / 07:00–19:00");return false
 		if damage.integrity >= ServiceRules.STATION_REPAIR_LIMIT:
 			if _can_tow():
 				return _try_tow()
@@ -382,7 +385,10 @@ func _process(dt: float) -> void:
 	if service == "garage" and damage.integrity < 100.0:
 		messages.append("[K] FREE FULL REPAIR")
 	elif service == "station" and damage.integrity < ServiceRules.STATION_REPAIR_LIMIT:
-		messages.append("[K] 50%% REPAIR %s" % economy.dollars(ServiceRules.station_repair_fee(damage.integrity)))
+		var provider: Node=player.surface_provider
+		if is_instance_valid(provider) and provider.has_method("business_open") and not bool(provider.call("business_open","workshop")):
+			messages.append("WORKSHOP CLOSED / 07:00–19:00")
+		else:messages.append("[K] 50%% REPAIR %s" % economy.dollars(ServiceRules.station_repair_fee(damage.integrity)))
 	if service == "station" and fuel.fraction() < 0.9999:
 		var price := CHARGE_PRICE_PER_UNIT if fuel.electric else GAS_PRICE_PER_LITRE
 		messages.append("[J] REFILL %s" % economy.dollars(fuel.refill_cost(price)))

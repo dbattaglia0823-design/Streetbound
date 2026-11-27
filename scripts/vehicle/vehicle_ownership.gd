@@ -394,9 +394,9 @@ func _load_robbery_cooldowns(file: ConfigFile, now_seconds: int = -1) -> void:
 		# Bound invalid/future values (including clock rollback).
 		robbery_cooldowns[key] = int(minf(float(expiry),float(now+DrivingContracts.MAX_LOCATION_COOLDOWN)))
 
-func robbery_availability(world_id: String, offer: Dictionary, now_seconds: int = -1) -> Dictionary:
+func robbery_availability(world_id: String, offer: Dictionary, now_seconds: int = -1, rotation_seconds: int = -1) -> Dictionary:
 	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
-	var rotation := DrivingContracts.rotation_state(offer,now)
+	var rotation := DrivingContracts.rotation_state(offer,now if rotation_seconds<0 else rotation_seconds)
 	var key := DrivingContracts.location_key(world_id,offer)
 	var wait := 0
 	if not key.is_empty():
@@ -406,14 +406,14 @@ func robbery_availability(world_id: String, offer: Dictionary, now_seconds: int 
 
 ## Reserve only after a fully validated route has been accepted. Persist the
 ## location timestamp immediately, so restart/abandon cannot reset the clock.
-func reserve_robbery_location(world_id: String, offer: Dictionary, now_seconds: int = -1) -> String:
+func reserve_robbery_location(world_id: String, offer: Dictionary, now_seconds: int = -1, rotation_seconds: int = -1) -> String:
 	if DrivingContracts.robbery_profile(offer).is_empty():
 		return "ready"
 	var key := DrivingContracts.location_key(world_id,offer)
 	if key.is_empty() or not DrivingContracts.valid_robbery_profile("robbery",offer):
 		return "invalid_location"
 	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
-	var availability := robbery_availability(world_id,offer,now)
+	var availability := robbery_availability(world_id,offer,now,rotation_seconds)
 	if not bool(availability.available):
 		return "unavailable"
 	var previous := robbery_cooldowns.duplicate()

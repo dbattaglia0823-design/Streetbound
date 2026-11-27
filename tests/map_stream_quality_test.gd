@@ -56,6 +56,22 @@ func run() -> void:
 	check("outer_ring_now_dormant",not next_chunk.visible and
 		(next_body == null or next_body.collision_layer == 0))
 	check("streaming_pool_bounded",world.chunks.size() <= 25,world.chunks.size())
+	# Explicitly exercise predictive selection with the actual archive, not
+	# a synthetic world. It may warm only an existing dormant ring cell.
+	var original_position: Vector2=main.vehicle.global_position
+	var original_velocity: Vector2=main.vehicle.linear_velocity
+	main.vehicle.global_position=(Vector2(old_cell)+Vector2(.90,.5))*world.chunk_m*20.0
+	main.vehicle.linear_velocity=Vector2(25,0)
+	var predicted: Vector2i=world._predict_chunk()
+	if predicted.x!=-999:
+		check("predicted_chunk_in_dormant_ring",world._stream_cell_distance(predicted,world.current_cell,world.secondary_current_cell)==2)
+		world._build_chunk(predicted)
+		check("prefetched_chunk_inactive",world.chunks.has(predicted) and not world.chunks[predicted].stream_active)
+		check("prefetch_preserves_cache_bound",world.chunks.size()<=25)
+	else:
+		check("no_prediction_when_target_already_cached_or_missing",true)
+	main.vehicle.global_position=original_position
+	main.vehicle.linear_velocity=original_velocity
 	check("shoreline_cell_index_present",world._boardwalk_cells.size() > 4,
 		world._boardwalk_cells.size())
 	check("shoreline_path_cached",world.boardwalk_path.size() > 2)

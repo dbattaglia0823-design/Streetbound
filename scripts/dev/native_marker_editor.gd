@@ -101,8 +101,8 @@ func _refresh_type_fields() -> void:
 	weight_input.visible=kind=="traffic_spawn"
 	race_fields.visible=kind in ["mission","race_start","checkpoint","finish","custom"]
 	dealer_fields.visible=kind=="dealership"
-	prerequisite_fields.visible=kind in ["garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
-	radius_input.visible=kind in ["garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
+	prerequisite_fields.visible=kind in ["home","garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
+	radius_input.visible=kind in ["home","garage","dealership","mission","fast_travel","fuel","race_start","contract","contract_contact","custom"]
 	feedback.text=str({
 		"contract_contact":"Configure the person and their contracts.",
 		"contract":"Choose the job and its delivery marker.",

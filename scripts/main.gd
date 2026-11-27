@@ -1,6 +1,7 @@
 extends Node2D
 @onready var online_session: Node = get_node_or_null("/root/OnlineSession")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
+const LivingWorldScript=preload("res://scripts/world/living_world.gd")
 const GroundScript = preload("res://scripts/world/proving_ground.gd")
 const CoastScript = preload("res://scripts/world/morrow_coast.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
@@ -55,10 +56,12 @@ var police_pursuit: Node2D
 var driving_contracts: Node2D
 @export var proving_ground := false
 var ground: Node2D
+var living_world: Node
 var custom_test_drive:=false
 var map_test_drive:=false
 var published_game_world:=false
 var test_drive_file: String=""
+var validation_drive: Node
 
 func _ready() -> void:
 	# Custom-map Test Drive is a real gameplay launch, not a separate mini-game.
@@ -108,7 +111,9 @@ func _ready() -> void:
 		var layer: int=int(cursor.get("layer",0))
 		if at.is_finite() and Rect2(Vector2.ZERO,Vector2(float(ground.data.size[0]),float(ground.data.size[1]))*20.0).has_point(at) and absi(layer)<=2:
 			if layer!=0:cursor_contact=ground.elevation_at(at,-1,float(layer)*6.0)
-			if layer==0 or not cursor_contact.is_empty():vehicle.position=at
+			if layer==0 or not cursor_contact.is_empty():
+				vehicle.position=at
+				if cursor.has("validation"):vehicle.rotation=float(cursor.get("rotation",vehicle.rotation))
 	add_child(vehicle)
 	if not cursor_contact.is_empty():vehicle.reconcile_road_contact(int(cursor_contact.road),float(cursor_contact.height_m))
 	vehicle.add_to_group("player_vehicle")
@@ -362,6 +367,13 @@ func _ready() -> void:
 	disabled.append_array(extra_races)
 	local_split_screen.disabled_systems = disabled
 	add_child(local_split_screen)
+	if not proving_ground and not online_session.active and not cursor.has("validation"):
+		# Keep validation scenarios isolated from daily traffic and weather.
+		living_world=LivingWorldScript.new()
+		living_world.host=self;living_world.world=ground;living_world.player=vehicle
+		living_world.traffic=traffic;living_world.garage=player_garage;living_world.markers=authored_map_markers
+		living_world.persist=not map_test_drive
+		add_child(living_world)
 	pause_menu.split_screen_requested.connect(_toggle_local_split_screen)
 	pause_menu.main_menu_requested.connect(_return_to_main_menu)
 	if map_test_drive:
@@ -388,6 +400,11 @@ func _ready() -> void:
 	pause_menu.set_map_editor_available(is_instance_valid(native_world_editor) or map_test_drive)
 	if map_test_drive:
 		_add_test_drive_return_button()
+		if cursor.has("validation") and not online_session.active:
+			validation_drive=preload("res://scripts/dev/world_validation_drive.gd").new()
+			validation_drive.host=self;validation_drive.car=vehicle;validation_drive.flow=traffic
+			validation_drive.police=police_pursuit;validation_drive.spec=cursor.validation
+			add_child(validation_drive)
 	if online_session.active and not proving_ground and not map_test_drive:
 		# Race controllers supply navigation to the host-authoritative
 		# online event catalog on both bundled and published maps. Local
@@ -509,6 +526,7 @@ func _input(event: InputEvent) -> void:
 
 func _return_from_test_drive() -> void:
 	if not map_test_drive:return
+	if is_instance_valid(validation_drive):validation_drive.call("cancel")
 	if is_instance_valid(ground) and bool(ground.get("initialization_complete")):
 		get_tree().set_meta("streetbound_editor_performance_report",{"source_hash":str(get_tree().get_meta("streetbound_test_drive_source_hash","")),"chunk_m":float(ground.get("chunk_m")),"cells":ground.get("profile_cells").duplicate(true)})
 	map_test_drive=false

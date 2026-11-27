@@ -2,10 +2,10 @@ extends RefCounted
 ## World weather is a surface-provider property, not a vehicle upgrade.
 ## Dry roads keep their original grip and archived map collision behavior.
 
-static func rain_at(provider: Node) -> float:
+static func rain_at(provider: Node,point_px: Vector2=Vector2.INF) -> float:
 	if not is_instance_valid(provider) or not provider.has_method("get_rain_intensity"):
 		return 0.0
-	var value: float = float(provider.call("get_rain_intensity"))
+	var value: float = float(provider.call("rain_at_position",point_px)) if point_px.is_finite() and provider.has_method("rain_at_position") else float(provider.call("get_rain_intensity"))
 	return clampf(value, 0.0, 1.0) if is_finite(value) else 0.0
 
 static func grip_multiplier(surface: String, rain: float) -> float:
