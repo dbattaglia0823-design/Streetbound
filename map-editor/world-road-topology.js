@@ -154,7 +154,9 @@ export function applyPointElevations(doc,roadId,layers){
  * Preserve original anchors, endpoints, road ID, lane count and materials.
  * The production grade compiler derives the connected approach sections.
  */
-export function convertRoadToTunnel(doc,roadId){
+export function convertRoadToTunnel(doc,roadId){return convertRoadToGrade(doc,roadId,-1);}
+
+function convertRoadToGrade(doc,roadId,deckLayer){
   const road=doc.roads.find(r=>r.id===roadId);
   if(!road)throw new TypeError('Select a road');
   if(road.jump||road.autoGuardrails)throw new RangeError('Remove legacy jumps and auto guardrails before converting to a tunnel');
@@ -180,6 +182,32 @@ export function convertRoadToTunnel(doc,roadId){
   }
   if(points.length<4||points.length>100||roadLength(points.slice(1,-1))<4)
     throw new RangeError('Tunnel needs distinct portals, at least 4 m of covered road and at most 100 control points');
-  const layers=points.map((_,i)=>i===0||i===points.length-1?0:-1);
+  const layers=points.map((_,i)=>i===0||i===points.length-1?0:deckLayer);
   return updateEntity(doc,roadId,{points,elevation:{start_layer:0,end_layer:0,point_layers:layers}});
+}
+
+
+export function roadStructure(road){
+  const profile=road.elevation;
+  if(!profile)return 'regular';
+  const {start_layer:a,end_layer:b,point_layers:layers=[]}=profile;
+  if(a===-1&&b===-1&&layers.every(v=>v===-1))return 'underground';
+  if(a===0&&b===0&&layers.includes(-1)&&!layers.includes(1))return 'tunnel';
+  if(a===0&&b===0&&layers.includes(1)&&!layers.includes(-1))return 'overpass';
+  if(a===1&&b===1&&layers.every(v=>v===1))return 'overpass';
+  return 'legacy';
+}
+
+export function setRoadStructure(doc,roadId,kind){
+  const road=doc.roads.find(r=>r.id===roadId);
+  if(!road||!['regular','tunnel','underground','overpass'].includes(kind))throw new RangeError('Select a road structure');
+  const previous=roadStructure(road);
+  if(kind===previous)return doc;
+  if(kind==='regular')return updateEntity(doc,roadId,{elevation:undefined});
+  if(road.jump||road.autoGuardrails||road.roadClass==='onramp'||!['asphalt','concrete'].includes(road.surface))
+    throw new RangeError('Use a regular paved road without a legacy jump or auto guardrails');
+  if(kind==='underground')return updateEntity(doc,roadId,{width:Math.max(36,road.width),elevation:{start_layer:-1,end_layer:-1}});
+  if(['tunnel','overpass'].includes(previous)&&road.elevation.point_layers&&road.elevation.start_layer===0&&road.elevation.end_layer===0)
+    return updateEntity(doc,roadId,{elevation:{start_layer:0,end_layer:0,point_layers:road.elevation.point_layers.map(v=>-v)}});
+  return convertRoadToGrade(updateEntity(doc,roadId,{elevation:undefined}),roadId,kind==='tunnel'?-1:1);
 }
