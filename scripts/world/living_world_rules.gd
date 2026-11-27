@@ -16,7 +16,7 @@ static func day(seconds: float) -> int:
 
 static func clock_text(seconds: float) -> String:
 	var minute:=floori(fposmod(seconds,DAY)/60.0)
-	return "DAY %d  /  %02d:%02d"%[day(seconds),minute/60,minute%60]
+	return "DAY %d  /  %02d:%02d"%[day(seconds),floori(float(minute)/60.0),minute%60]
 
 static func until_hour(seconds: float,target: int) -> float:
 	var delta:=fposmod(float(target)*3600.0-fposmod(seconds,DAY),DAY)

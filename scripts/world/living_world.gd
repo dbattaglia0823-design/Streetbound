@@ -25,6 +25,8 @@ var event_slot: int=-1
 var event: Dictionary={}
 var original_rain:=0.0
 var _closing:=false
+var _rest_open:=false
+var event_sign: Node2D
 
 func _ready() -> void:
 	name="LivingWorld"
@@ -42,22 +44,27 @@ func _ready() -> void:
 	_find_home()
 	light=CanvasModulate.new();light.name="WorldDaylight";host.add_child(light)
 	canvas=CanvasLayer.new();canvas.layer=7;add_child(canvas)
+	event_sign=Node2D.new();event_sign.name="RoadEventAdvisory";event_sign.z_index=12
+	world.add_child(event_sign)
+	event_sign.draw.connect(_draw_event)
 	clock_label=Label.new()
-	clock_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	clock_label.position=Vector2(-150,8)
+	canvas.add_child(clock_label)
+	clock_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	clock_label.offset_left=-230;clock_label.offset_right=230
+	clock_label.offset_top=8;clock_label.offset_bottom=32
 	clock_label.custom_minimum_size=Vector2(300,24)
 	clock_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	clock_label.add_theme_color_override("font_color",Color("#ecf1f6"))
 	clock_label.add_theme_color_override("font_shadow_color",Color("#172027"))
 	clock_label.add_theme_constant_override("shadow_offset_x",1)
 	clock_label.add_theme_constant_override("shadow_offset_y",2)
-	canvas.add_child(clock_label)
 	rest_button=Button.new();rest_button.text="REST / SKIP TIME"
-	rest_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	rest_button.position=Vector2(-100,-84)
+	canvas.add_child(rest_button)
+	rest_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	rest_button.offset_left=-100;rest_button.offset_right=100
+	rest_button.offset_top=-84;rest_button.offset_bottom=-48
 	rest_button.custom_minimum_size=Vector2(200,36)
 	rest_button.visible=false;rest_button.pressed.connect(open_rest)
-	canvas.add_child(rest_button)
 	dialog=AcceptDialog.new();dialog.title="Rest at home or garage"
 	dialog.ok_button_text="Cancel";dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	dialog.confirmed.connect(_close_rest)
@@ -121,11 +128,13 @@ func _allowed() -> bool:
 func open_rest() -> void:
 	if get_tree().paused or not _allowed():return
 	rest_status.text=rest_location()+"\n"+Rules.clock_text(seconds)+"\nTime skip does not refill fuel, repair your car, pay rewards or clear cooldowns."
+	_rest_open=true
 	dialog.popup_centered()
 	get_tree().paused=true
 
 func _close_rest() -> void:
-	if _closing:return
+	if _closing or not _rest_open:return
+	_rest_open=false
 	_closing=true
 	dialog.hide()
 	get_tree().paused=false
@@ -135,7 +144,7 @@ func _skip_until(target: int) -> void:
 	_skip(Rules.until_hour(seconds,target))
 
 func _skip(amount: float) -> void:
-	if not dialog.visible or not _allowed() or amount<=0.0 or amount>Rules.DAY:return
+	if not _rest_open or not dialog.visible or not _allowed() or amount<=0.0 or amount>Rules.DAY:return
 	var previous:=seconds
 	seconds=minf(Rules.MAX_TIME,seconds+amount)
 	if not _save():
@@ -147,7 +156,9 @@ func _skip(amount: float) -> void:
 func _save() -> bool:
 	if not persist:return true
 	var config:=ConfigFile.new();config.set_value("world","seconds",seconds)
-	return config.save(save_path)==OK
+	var temp:=save_path+".tmp"
+	if config.save(temp)!=OK:return false
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(temp),ProjectSettings.globalize_path(save_path))==OK
 
 func _exit_tree() -> void:
 	if not save_path.is_empty():_save()
@@ -162,7 +173,13 @@ func rotation_clock() -> int:
 	return -1 if _shared() else Rules.rotation_seconds(seconds)
 
 func _process(dt: float) -> void:
-	if get_tree().paused:return
+	var editor: Node=host.get("native_world_editor")
+	if is_instance_valid(editor) and bool(editor.get("active")):
+		light.color=Color.WHITE;canvas.visible=false
+		return
+	if get_tree().paused:
+		canvas.visible=false
+		return
 	if not _shared():
 		seconds=minf(Rules.MAX_TIME,seconds+dt*Rules.RATE)
 		save_clock+=dt
@@ -190,25 +207,41 @@ func _refresh() -> void:
 func _update_event(shared: bool) -> void:
 	if not is_instance_valid(traffic):return
 	if shared or _busy():
-		traffic.set("event_closed_road",-1);event={};event_slot=-1;return
+		traffic.set("event_closed_road",-1);event={};event_slot=-1
+		event_sign.queue_redraw();return
 	var slot:=floori(seconds/7200.0)
 	if slot==event_slot:return
 	event_slot=slot
 	event={}
+	event_sign.queue_redraw()
 	traffic.set("event_closed_road",-1)
 	var rng:=RandomNumberGenerator.new();rng.seed=seed_value+slot*293
 	if rng.randf()>.45:return
 	var graph: RefCounted=traffic.get("network")
 	if graph==null:return
 	var choices: Array[int]=[]
+	var locations: Dictionary={}
 	for raw in graph.nearby_edges(player.global_position,400.0):
 		var edge: Dictionary=graph.edges[int(raw)]
 		if bool(edge.connector) or str(edge.kind) not in ["local","arterial","rural"] or absf(float(edge.get("start_height_m",0)))>.1 or absf(float(edge.get("end_height_m",0)))>.1:continue
 		var path: PackedVector2Array=edge.points
 		var distance:=path[path.size()/2].distance_to(player.global_position)/PPM
-		if distance>=140.0 and distance<=400.0 and not choices.has(int(edge.road)):choices.append(int(edge.road))
+		if distance>=140.0 and distance<=400.0 and not choices.has(int(edge.road)):
+			choices.append(int(edge.road))
+			locations[int(edge.road)]=path[path.size()/2]
 	if choices.is_empty():return
 	var road:=choices[rng.randi_range(0,choices.size()-1)]
 	var title: String=["ROADWORK","DISABLED VEHICLE","ROAD INSPECTION"][rng.randi_range(0,2)]
-	event={"road":road,"title":title+" / "+str(world.data.roads[road].name)}
+	event={"road":road,"title":title+" / "+str(world.data.roads[road].name),"point":locations[road]}
 	traffic.set("event_closed_road",road)
+	event_sign.position=locations[road]
+	event_sign.queue_redraw()
+
+func _draw_event() -> void:
+	if event.is_empty():return
+	# Non-solid advisory sign above the streamed road, with no collision or
+	# unannounced geometry change. The ambient graph diversion is separate.
+	var rect:=Rect2(-96,-100,192,52)
+	event_sign.draw_rect(rect,Color("#2b3037"))
+	event_sign.draw_rect(rect,Color("#edab4d"),false,4)
+	event_sign.draw_string(ThemeDB.fallback_font,Vector2(-84,-70),"TRAFFIC DIVERSION",HORIZONTAL_ALIGNMENT_LEFT,170,15,Color("#ffcf73"))
