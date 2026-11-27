@@ -1,4 +1,5 @@
 extends RefCounted
+const Validation=preload("res://scripts/dev/world_validation.gd")
 const Analysis=preload("res://scripts/dev/gameplay_authoring_analysis.gd")
 const Planner=preload("res://scripts/world/road_route_planner.gd")
 const Rules=preload("res://scripts/world/driving_contract_rules.gd")
@@ -52,7 +53,7 @@ func _graph(e) -> Dictionary:
 func _race_graph(e) -> Dictionary:
 	if not e.map_switcher.custom:return _graph(e)
 	var doc: Dictionary=e.authoring.doc
-	var key:=JSON.stringify([doc.get("world",{}),doc.get("roads",[]),doc.get("regions",[]),doc.get("terrainHeight",{}),doc.get("junctionControls",[])]).sha256_text()
+	var key:=JSON.stringify([doc.get("world",{}),doc.get("roads",[]),doc.get("regions",[]),doc.get("terrainHeight",{}),doc.get("junctionControls",[]),doc.get("gameplayZones",[])]).sha256_text()
 	if key==compiled_key and not compiled_graph.is_empty():return compiled_graph
 	var root:=ProjectSettings.globalize_path("user://gameplay-authoring-%d"%OS.get_process_id())
 	var source:=root+".world.json"
@@ -400,4 +401,145 @@ func open_controls(e,junction: bool) -> void:
 		if selected.is_empty():return
 		var next:=records.duplicate(true);next.remove_at(selected[0])
 		if e.authoring.set_gameplay_controls(category,next):e._refresh_authoring();open_controls(e,junction))
+	dialog.popup_centered()
+
+func open_validation(e) -> void:
+	if not _ready(e):return
+	var panel:=_panel(e,"World Validation Center — Phase 6")
+	_label(panel,"Checks the current source, directed lane topology, authored gameplay links and matching Test Drive samples. Static checks do not replace physical driving.")
+	var summary:=_label(panel,"Preparing audit…")
+	var list:=ItemList.new()
+	list.custom_minimum_size=Vector2(500,220);panel.add_child(list)
+	var state: Dictionary={"report":{},"hash":""}
+	var run:=func():
+		if not _ready(e):return
+		var hash: String=e.authoring._fingerprint(e.authoring.doc)
+		var compiled: Dictionary={}
+		# Morrow uses only the exact baked graph, never a flattened draft.
+		if e.map_switcher.custom:
+			compiled=_race_graph(e)
+		elif e.authoring.doc.get("roads",[])==e.authoring.initial.get("roads",[]) and e.authoring.doc.get("junctionControls",[])==e.authoring.initial.get("junctionControls",[]):
+			compiled=_graph(e)
+		var profile: Dictionary=e.get_tree().get_meta("streetbound_editor_performance_report",{})
+		var report:=Validation.audit(e.authoring.doc,compiled,profile,hash)
+		var drive: Dictionary=e.get_tree().get_meta("streetbound_validation_drive_report",{})
+		if str(drive.get("source_hash",""))==hash:report["physical_drive"]=drive
+		state.report=report;state.hash=hash
+		summary.text="%s | %d errors, %d warnings | %d/%d route legs | %d road components\nPerformance: %s (physical simulation not run)"%[report.status,report.counts.error,report.counts.warning,report.route_passes,report.route_checks,int(report.get("components",0)),str(report.performance)]
+		if report.has("physical_drive"):
+			summary.text+="\nPhysical drive: "+str(report.physical_drive)
+		list.clear()
+		for row in report.issues:
+			list.add_item("%s · %s"%[str(row.severity).to_upper(),row.message])
+			list.set_item_metadata(list.item_count-1,row)
+		for row in report.get("scenarios",[]):
+			list.add_item("%s demand screen: %d/%d high-demand lanes; %d patrol-disabled lanes"%[row.scenario,row.high_demand_lanes,row.lanes,row.patrol_disabled_lanes])
+		if report.truncated:list.add_item("Issue list truncated; counts include additional findings.")
+	list.item_activated.connect(func(index: int):
+		var row: Variant=list.get_item_metadata(index)
+		if not row is Dictionary:return
+		dialog.hide()
+		e.editor_camera.global_position=Vector2(row.position[0],row.position[1])*20.0
+		e._update_view(true))
+	e._btn("Run / refresh checks",panel,run)
+	var apply:=func(all: bool):
+		if not _ready(e) or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			summary.text="Source changed. Refresh validation first.";return
+		var fixes: Array=[]
+		if all:
+			for row in state.report.get("issues",[]):
+				if not row.fix.is_empty():fixes.append(row.fix)
+		else:
+			var chosen:=list.get_selected_items()
+			if not chosen.is_empty():
+				var row: Variant=list.get_item_metadata(chosen[0])
+				if row is Dictionary and not row.fix.is_empty():fixes.append(row.fix)
+		if fixes.is_empty():summary.text="No eligible endpoint repairs selected.";return
+		var next:=Validation.repaired(e.authoring.doc,fixes)
+		if next.is_empty() or not e.authoring._commit(next):
+			summary.text="Repair rejected: "+e.authoring.last_error;return
+		e._refresh_authoring()
+		run.call()
+	e._btn("Repair selected small endpoint gap",panel,func():apply.call(false))
+	e._btn("Repair all proposed small endpoint gaps (one undo)",panel,func():apply.call(true))
+	e._btn("Export JSON readiness report",panel,func():
+		if state.report.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			summary.text="Refresh validation before export.";return
+		var path: String="user://world-validation-report.json"
+		var file:=FileAccess.open(path,FileAccess.WRITE)
+		if file==null:summary.text="Unable to save report.";return
+		file.store_string(JSON.stringify(state.report,"  "));file.close()
+		summary.text="Saved "+ProjectSettings.globalize_path(path))
+	e._btn("Directed navigation preview",panel,func():open_validation_route(e))
+	e._btn("Measured performance details",panel,func():open_measured(e))
+	_label(panel,"Double-click a finding to locate it. Repairs are proposals; review connections before applying. Demand screens and patrol coverage are estimates, not simulated queue lengths or response times.")
+	dialog.popup_centered()
+	run.call()
+
+func open_validation_route(e) -> void:
+	if not _ready(e):return
+	var panel:=_panel(e,"Directed navigation preview")
+	var center: Vector2=e.editor_camera.global_position/20.0
+	var w:=float(e.authoring.doc.world.width);var h:=float(e.authoring.doc.world.height)
+	var x1: SpinBox=e._number(panel,"Start X",0,w,clampf(center.x,0,w))
+	var y1: SpinBox=e._number(panel,"Start Y",0,h,clampf(center.y,0,h))
+	var x2: SpinBox=e._number(panel,"Finish X",0,w,clampf(center.x+200,0,w))
+	var y2: SpinBox=e._number(panel,"Finish Y",0,h,clampf(center.y,0,h))
+	var l1:=_control_field(panel,"Start level",0,-2,2)
+	var l2:=_control_field(panel,"Finish level",0,-2,2)
+	var status:=_label(panel,"Select endpoints within 25 m of legal lanes.")
+	var canvas:=Control.new()
+	canvas.custom_minimum_size=Vector2(480,180);panel.add_child(canvas)
+	var scenario:=_control_choice(panel,"Physical test scenario",["Normal","Rush hour","Heavy","Police"])
+	var state: Dictionary={"points":PackedVector2Array(),"route":{},"spec":{},"hash":""}
+	canvas.draw.connect(func():
+		canvas.draw_rect(Rect2(Vector2.ZERO,canvas.size),Color("#19222d"))
+		var points: PackedVector2Array=state.points
+		if points.size()<2:return
+		var bounds:=Rect2(points[0],Vector2.ZERO)
+		for p in points:bounds=bounds.expand(p)
+		var scale_factor:=minf((canvas.size.x-24)/maxf(1.0,bounds.size.x),(canvas.size.y-24)/maxf(1.0,bounds.size.y))
+		var scaled:=PackedVector2Array()
+		for p in points:scaled.append((p-bounds.position)*scale_factor+Vector2(12,12))
+		canvas.draw_polyline(scaled,Color("#64c8fa"),3.0,true)
+		canvas.draw_circle(scaled[0],5,Color.GREEN)
+		canvas.draw_circle(scaled[-1],5,Color.ORANGE))
+	e._btn("Find legal route",panel,func():
+		state.points=PackedVector2Array();state.route={};canvas.queue_redraw()
+		if not _ready(e):return
+		var compiled: Dictionary={}
+		if e.map_switcher.custom:compiled=_race_graph(e)
+		elif e.authoring.doc.get("roads",[])==e.authoring.initial.get("roads",[]) and e.authoring.doc.get("junctionControls",[])==e.authoring.initial.get("junctionControls",[]):compiled=_graph(e)
+		if compiled.is_empty():status.text="Current graph unavailable. Bake Morrow road edits first.";return
+		var planner:=Planner.new();planner.setup(compiled.network,compiled.data)
+		var route:=Validation.route(planner,{"x":x1.value,"y":y1.value,"road_layer":int(l1.value)},{"x":x2.value,"y":y2.value,"road_layer":int(l2.value)})
+		if route.is_empty():status.text="Unreachable on selected road levels.";return
+		state.points=route.points_m;state.route=route
+		state.spec={"start":{"x":x1.value,"y":y1.value,"road_layer":int(l1.value)},"finish":{"x":x2.value,"y":y2.value,"road_layer":int(l2.value)}}
+		state.hash=e.authoring._fingerprint(e.authoring.doc)
+		state["compiled"]=compiled
+		canvas.queue_redraw()
+		status.text="%.0f m | %d directed edges | access %.1f / %.1f m"%[route.length_m,route.edges.size(),route.start_access_distance_m,route.access_distance_m])
+	e._btn("Find alternate route",panel,func():
+		if state.route.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			status.text="Find a route for the current revision first.";return
+		var alternative:=Validation.alternate(state.compiled,state.spec.start,state.spec.finish,state.route)
+		if alternative.is_empty():
+			status.text="No alternate found in the bounded six-edge search.";return
+		state.points=alternative.points_m
+		canvas.queue_redraw()
+		status.text="Alternate %.0f m | primary %.0f m (physical test uses primary)"%[alternative.length_m,state.route.length_m])
+	e._btn("Launch physical AI Test Drive (flat route)",panel,func():
+		if not _ready(e) or state.route.is_empty() or state.hash!=e.authoring._fingerprint(e.authoring.doc):
+			status.text="Find a route for the current revision first.";return
+		if state.spec.start.road_layer!=0 or state.spec.finish.road_layer!=0:
+			status.text="Physical validation currently requires ground-level endpoints.";return
+		var route: Dictionary=state.route
+		if float(route.length_m)<20.0 or float(route.length_m)>5000.0:
+			status.text="Choose a route between 20 and 5000 m.";return
+		var pts: PackedVector2Array=route.points_m
+		var spec: Dictionary=state.spec.duplicate(true)
+		spec["scenario"]=scenario.get_item_text(scenario.selected)
+		dialog.hide()
+		e._test_drive({"position":pts[0]*20.0,"layer":0,"rotation":(pts[1]-pts[0]).angle()+PI*.5,"validation":spec}))
 	dialog.popup_centered()
