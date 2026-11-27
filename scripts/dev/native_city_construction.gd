@@ -9,7 +9,7 @@ const PALETTES={"residential":["house","house","coastal_house"],"commercial":["s
 const BLOCKED=["ocean","lake","water","river","reservoir","mountain","rock"]
 const SIZES={"house":Vector2(12,17),"coastal_house":Vector2(12,17),"shop":Vector2(22,29),
 	"garage":Vector2(20,21),"warehouse":Vector2(28,37),"tree":Vector2(7,7),
-	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4),"parking":Vector2(38,28),"gas_station":Vector2(18,17),"building":Vector2(22,29),"warehouse":Vector2(28,37)}
+	"streetlight":Vector2(1.3,1.3),"sign":Vector2(1.6,1.4),"parking":Vector2(38,28),"gas_station":Vector2(18,17),"building":Vector2(22,29)}
 const CELL:=48.0
 
 static func _point(p: Vector2) -> Dictionary:return {"x":p.x,"y":p.y}

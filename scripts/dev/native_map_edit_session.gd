@@ -3,6 +3,7 @@ extends RefCounted
 ## Dictionary. Runtime streets, intersections and traffic remain authoritative
 ## until the checked-in production builder has completed an Apply operation.
 const RoadJump=preload("res://scripts/world/road_jump.gd")
+const HeightField=preload("res://scripts/world/authored_height_field.gd")
 const Elevation=preload("res://scripts/world/road_elevation.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 100
@@ -78,6 +79,7 @@ func _valid_source(value: Dictionary) -> bool:
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
+	if value.has("terrainHeight") and (not value.get("customMap",false) or not HeightField.valid(value.terrainHeight)):return false
 	var rain: Variant = value.get("rain_intensity",0.0)
 	if not (rain is int or rain is float) or not is_finite(float(rain)) or \
 			float(rain)<0.0 or float(rain)>1.0:
@@ -1440,6 +1442,14 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 		return false
 	return _commit(next)
 
+
+## Height-field edits remain a single normal undo step.
+func set_terrain_height(field: Dictionary) -> bool:
+	if not doc.get("customMap",false) or not HeightField.valid(field):
+		last_error="Invalid custom terrain height field.";return false
+	var next:=doc.duplicate(true)
+	next.terrainHeight=field.duplicate(true)
+	return _commit(next)
 
 ## Commit an externally generated, validated source plan in one history step.
 func apply_construction(plan: Dictionary) -> Array[String]:

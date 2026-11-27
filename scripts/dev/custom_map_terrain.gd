@@ -1,6 +1,9 @@
 extends Node2D
 const PPM=20.0
 const Ground=preload("res://scripts/world/coast_chunk.gd")
+const HeightField=preload("res://scripts/world/authored_height_field.gd")
+var height_key: String=""
+var height_texture: ImageTexture
 const COLORS={"grass":"#a3b789","forest":"#658768","city":"#a7ada8","beach":"#d7c89b","mountain":"#8b9992","rock":"#9d9c8d","desert":"#d6bd83","farmland":"#9eae73"}
 var doc: Dictionary={}
 var land_material: ShaderMaterial
@@ -15,6 +18,11 @@ func update_map(source: Dictionary) -> void:
   water_material=ShaderMaterial.new();water_material.shader=preload("res://scripts/dev/custom_water.gdshader")
  for child in get_children():remove_child(child);child.queue_free()
  var extent:=Vector2(doc.world.width,doc.world.height)
+ var field: Dictionary=doc.get("terrainHeight",{})
+ var key:=JSON.stringify(field).sha256_text()
+ if key!=height_key:
+  height_key=key;height_texture=HeightField.texture(field)
+ HeightField.bind_material(land_material,height_texture,extent)
  var base={"biome":doc.world.get("base","grass"),"points":[{"x":0,"y":0},{"x":extent.x,"y":0},{"x":extent.x,"y":extent.y},{"x":0,"y":extent.y}]}
  for region in [base]+doc.regions:
   var points:=PackedVector2Array()

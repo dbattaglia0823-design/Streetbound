@@ -21,6 +21,8 @@ var data: Dictionary
 # Override is set before add_child(): either an isolated Test Drive in
 # user:// or the checked-in published custom world in res://.
 var archive_override_path: String=""
+const AuthoredHeight=preload("res://scripts/world/authored_height_field.gd")
+var authored_height_texture: ImageTexture
 var _custom_terrain_polygons: Array[PackedVector2Array]=[]
 var player_garage_prop: Dictionary = {}
 var dealerships: Node2D
@@ -254,6 +256,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 				if not _junction_grid.has(key):
 					_junction_grid[key] = []
 				_junction_grid[key].append(i)
+	authored_height_texture=AuthoredHeight.texture(data.get("terrainHeight",{}))
 	# Optional art metadata runs only after the core spatial indices are ready.
 	DowntownPilot.apply(data.props)
 	rain_intensity = clampf(float(data.get("rain_intensity",0.0)),0.0,1.0)

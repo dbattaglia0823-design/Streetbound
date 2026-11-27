@@ -289,6 +289,11 @@ def make_archive(doc):
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
+    if "terrainHeight" in doc:
+        field=doc["terrainHeight"]
+        if not isinstance(field,dict) or field.get("size")!=129 or not isinstance(field.get("values"),list) or len(field["values"])!=129*129 or any(type(v) not in (int,float) or not math.isfinite(v) or abs(v)>1200 for v in field["values"]):
+            raise ValueError("Invalid authored terrain height field")
+        result["terrainHeight"]=field
     validate_open_cuts(result)
     result['editor_warnings'].extend(audit_elevated_objectives(result))
     bake_jumps(result)

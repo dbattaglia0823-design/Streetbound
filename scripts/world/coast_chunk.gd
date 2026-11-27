@@ -393,6 +393,10 @@ func _build_excavation_caps() -> void:
 
 func _ready() -> void:
 	var base: ShaderMaterial = preload("res://scripts/world/mountain_ground.tres")
+	var height_tex: Texture2D=world.get("authored_height_texture")
+	if height_tex!=null:
+		base=base.duplicate() as ShaderMaterial
+		preload("res://scripts/world/authored_height_field.gd").bind_material(base,height_tex,Vector2(world.data.size[0],world.data.size[1]))
 	material = Elevation.masked_material(base,excavation_mask,excavation_bounds) if excavation_mask != null else base
 
 func _prop_order(prop: Dictionary) -> int:
