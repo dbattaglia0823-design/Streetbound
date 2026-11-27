@@ -417,6 +417,18 @@ func _draw_prop(prop: Dictionary) -> void:
 	var kind: String = prop.kind
 	var seed_value := int(prop.seed)
 	draw_set_transform(center,float(prop.angle))
+	if kind=="stunt_ramp":
+		# The high orange edge is the actual takeoff lip (local -Y).
+		draw_rect(Rect2(-size*.5+Vector2(6,9),size),Color(.04,.06,.08,.32))
+		draw_polygon(PackedVector2Array([Vector2(-size.x*.5,-size.y*.5),Vector2(size.x*.5,-size.y*.5),Vector2(size.x*.5,size.y*.5),Vector2(-size.x*.5,size.y*.5)]),PackedColorArray([Color("#c4c7bf"),Color("#9da6a2"),Color("#59676b"),Color("#6f7b7d")]))
+		for side in [-1.0,1.0]:
+			draw_line(Vector2(side*size.x*.5,-size.y*.5),Vector2(side*size.x*.5,size.y*.5),Color("#38464b"),4,true)
+		for i in range(1,6):
+			var y:=lerpf(size.y*.5,-size.y*.5,float(i)/6)
+			draw_line(Vector2(-size.x*.43,y),Vector2(size.x*.43,y),Color(.10,.14,.17,.25),2,true)
+			draw_polyline(PackedVector2Array([Vector2(-size.x*.22,y+5),Vector2(0,y-6),Vector2(size.x*.22,y+5)]),Color("#e6d8a8"),2.5,true)
+		draw_line(Vector2(-size.x*.5,-size.y*.5),Vector2(size.x*.5,-size.y*.5),Color("#f1ae5b"),7,true)
+		return
 	if kind=="sidewalk":
 		for layer_index in 4:
 			_draw_sidewalk_layer(prop,layer_index)

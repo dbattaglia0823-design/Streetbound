@@ -211,6 +211,7 @@ var road_width: SpinBox
 var road_lanes: SpinBox
 var road_elevation_controls: VBoxContainer
 var road_start_layer: SpinBox
+var road_jump_apply: Button
 var road_jump_enabled: CheckBox
 var road_jump_reverse: CheckBox
 var road_jump_fields: Dictionary = {}
@@ -601,6 +602,8 @@ func _update_context_panels() -> void:
 		var road: Dictionary=authoring.road_at_id(source_id)
 		road_width.value=float(road.width);road_lanes.value=int(road.lanes)
 		var jump: Dictionary = road.get("jump",{})
+		road_jump_enabled.visible=not jump.is_empty()
+		road_jump_apply.visible=not jump.is_empty()
 		road_jump_enabled.set_pressed_no_signal(not jump.is_empty())
 		road_jump_options.visible = not jump.is_empty()
 		road_jump_reverse.button_pressed = bool(jump.get("reverse",false))
@@ -1014,6 +1017,7 @@ func _choose_tool(mode: String) -> void:
 		"race_grid":"Click to place the chosen grid slot. Drag a saved slot to move it; Esc returns to Select/Edit.",
 		"draw_terrain":"Choose a material, click polygon vertices, then FINISH or Enter.",
 		"place_marker":"Choose a marker type and click to place.",
+		"place:stunt_ramp":"Click to place a stunt ramp. Rotate to aim the orange lip toward the landing area. Speed and angle determine airtime.",
 		"place_dealership":"Click a clear lot center at least 35 m from a road.",
 		"pan":"Drag to pan; the mouse wheel zooms around the cursor.",
 		"anchor":"Drag road or sidewalk anchors to reshape; Alt-drag detaches connected path branches."}.get(mode,"Choose artwork, then click the map to place it."))

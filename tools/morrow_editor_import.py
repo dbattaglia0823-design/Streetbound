@@ -130,6 +130,7 @@ def _near_node(nodes, point, tolerance=3.0):
 # Strict source-type mapping: only validated editor props are added to the
 # procedural world, never arbitrary runtime objects or client-provided flags.
 EDITOR_PROP_STYLES = {
+    "stunt_ramp": ("stunt_ramp", (5.0,8.0),False),
     "sidewalk": ("sidewalk", (3.0,10.0),False),
     "guardrail": ("guardrail", (0.65,10.0),False),
     "oak": ("tree", (7.0, 7.0), False),

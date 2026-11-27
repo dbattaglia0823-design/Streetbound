@@ -160,7 +160,7 @@ func _refresh_preview_scenery() -> void:
 			"seed":_source_seed(str(prop.id)),
 			"color":"9dac94","radius":maxf(size.x,size.y)*0.35,
 			"solid":kind not in ["tree","pine","palm","bush","field",
-				"garden","planter","lamp","sign","dock","lot","forecourt"]
+				"garden","planter","lamp","sign","dock","lot","forecourt","stunt_ramp"]
 		}
 		if str(drag_preview.get("id",""))==str(prop.id) and drag_preview.has("rotation"):
 			instance.angle=deg_to_rad(float(drag_preview.rotation))
@@ -287,6 +287,7 @@ func _prop_size(prop: Dictionary) -> Vector2:
 		"streetlight":base=Vector2(1.3,1.3)
 		"sign":base=Vector2(1.6,1.4)
 		"barrier":base=Vector2(3,1)
+		"stunt_ramp":base=Vector2(5,8)
 		"parking":base=Vector2(38,28)
 		"dock":base=Vector2(3,11)
 		"parked_car":base=Vector2(1.9,4.6)
@@ -346,7 +347,7 @@ func _rebuild_preview_collisions() -> void:
 		var is_decoration := kind in ["oak","pine","palm","bush","streetlight",
 			"sign","parking","dock","planter","garden","field","forecourt",
 			"drag_prep","drag_tree","drag_lane_mark","drag_scoreboard",
-			"start_line","finish_line","sidewalk"]
+			"start_line","finish_line","sidewalk","stunt_ramp"]
 		var trunk_radius := 0.0
 		# A procedural tree has a small solid trunk. Ordinary placed editor
 		# foliage is non-solid; match the source builder rather than placing

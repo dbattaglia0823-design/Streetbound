@@ -24,6 +24,7 @@ const CUSTOM_MAX_ROADS := 360
 const CUSTOM_MAX_PROPS := 8000
 const MAX_DRAG_M := 350.0
 const ART: Dictionary = {
+	"stunt_ramp":{"type":"stunt_ramp","assetId":"","size":Vector2(5,8)},
 	"house":{"type":"house","assetId":"game-house","size":Vector2(12,17)},
 	"coastal_house":{"type":"house","assetId":"game-coastal_house","size":Vector2(12,17)},
 	"shop":{"type":"building","assetId":"game-shop","size":Vector2(22,29)},

@@ -152,10 +152,11 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 			break
 	chunk_m = float(data.chunk_size)
 	for spec in data.get("jumps",[]):
-		jumps_by_road[int(spec.road_id)] = spec
+		if not bool(spec.get("object_ramp",false)):jumps_by_road[int(spec.road_id)] = spec
 		var lip := Vector2(spec.p[0],spec.p[1])
-		var low := Vector2i(((lip-Vector2.ONE*4.0)/64.0).floor())
-		var high := Vector2i(((lip+Vector2.ONE*4.0)/64.0).floor())
+		var pad:=maxf(4.0,float(spec.width_m)*.5+1.0)
+		var low := Vector2i(((lip-Vector2.ONE*pad)/64.0).floor())
+		var high := Vector2i(((lip+Vector2.ONE*pad)/64.0).floor())
 		for x in range(low.x,high.x+1):
 			for y in range(low.y,high.y+1):
 				var key := Vector2i(x,y)
@@ -794,8 +795,14 @@ func elevation_at(position_px: Vector2, active_road: int, height_m: float) -> Di
 func jump_at_motion(car: VehicleController2D, previous: Vector2, present: Vector2) -> Dictionary:
 	if _jump_cells.is_empty() or car != vehicle or absf(car.elevation_m) > .01 or car.is_airborne():
 		return {}
-	var cell := Vector2i((present/(PPM*64.0)).floor())
-	for spec in _jump_cells.get(cell,[]):
+	var low:=Vector2i((previous.min(present)/(PPM*64.0)).floor())
+	var high:=Vector2i((previous.max(present)/(PPM*64.0)).floor())
+	var candidates: Array=[]
+	for x in range(low.x,high.x+1):
+		for y in range(low.y,high.y+1):
+			for candidate in _jump_cells.get(Vector2i(x,y),[]):
+				if not candidates.has(candidate):candidates.append(candidate)
+	for spec in candidates:
 		if not RoadJump.accepts_launch(spec,previous,present,car.linear_velocity,Vector2.UP.rotated(car.rotation)):
 			continue
 		# Only free-roam vehicles opt into stunt jumps. Keep current event,
@@ -803,6 +810,7 @@ func jump_at_motion(car: VehicleController2D, previous: Vector2, present: Vector
 		var session := get_node_or_null("/root/OnlineSession")
 		if session and (session.get("active") or session.get("joining")):
 			return {}
+		if bool(spec.get("object_ramp",false)):return spec
 		for race in get_tree().get_nodes_in_group("streetbound_race"):
 			if str(race.get("state")) in ["countdown","running","racing","staged"]:return {}
 		for pursuit in get_tree().get_nodes_in_group("streetbound_police"):
@@ -819,6 +827,7 @@ func jump_position_allowed(spec: Dictionary, position_px: Vector2, landing: bool
 		return false
 	var extent := Vector2(data.size[0],data.size[1])*PPM
 	var safe_bounds := Rect2(Vector2.ZERO,extent).grow(-2.6*PPM)
+	if bool(spec.get("object_ramp",false)):return safe_bounds.has_point(position_px)
 	return safe_bounds.has_point(position_px) and RoadJump.in_strip(spec,position_px,landing) \
 		and (not landing or str(surface_at(position_px).name)=="ASPHALT")
 

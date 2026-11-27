@@ -157,6 +157,25 @@ func _run() -> void:
 		if not results.is_empty():break
 	check(results==[false] and car.position.x<200*20,"A newly invalid landing recovers without awarding a success")
 
+	# New object ramps use actual directional momentum, not the legacy speed
+	# envelope, and can land on normal ground outside any runway.
+	var object_spec: Dictionary={"object_ramp":true,"p":[200,400],"direction":[1,0],"width_m":5.0,"length_m":8.0,"height_m":1.2,"angle_deg":rad_to_deg(atan(.15))}
+	check(RoadJump.accepts_launch(object_spec,before,after,Vector2(45,3),facing),"Object ramp allows high speed and angled travel")
+	check(not RoadJump.accepts_launch(object_spec,after,before,Vector2(-45,0),-facing),"Object ramp must be approached uphill")
+	world.deny_landing=false
+	var distances: Array[float]=[]
+	for speed in [10.0,30.0]:
+		place(car,Vector2(200,400),PI*.5,Vector2(speed,1.0))
+		results.clear()
+		car._launch_jump(object_spec,before)
+		var initial_momentum:=car.linear_velocity
+		for i in 360:
+			car._step_jump(1.0/120)
+			if not car.is_airborne():break
+		check(results==[true],"Physics ramp lands naturally")
+		check(is_equal_approx(initial_momentum.y,1.0),"Ramp preserves transverse momentum")
+		distances.append(car.position.x/20.0-200.0)
+	check(distances[1]>distances[0]*2.0,"Faster car travels farther without landing parameters")
 	world.queue_free()
 	car.queue_free()
 	await process_frame

@@ -58,12 +58,24 @@ def _hits_rect(a, b, left, right, half_width):
 def bake_into(data):
     """Use finalized widths, walls, scenery and generated bridge spans."""
     candidates = [road for road in data["roads"] if "jump" in road]
-    if not candidates:
+    # Standalone ramps are non-solid props. Their orientation and dimensions
+    # define the takeoff lip; no authored speed envelope or landing zone.
+    objects = [p for p in data.get("props",[]) if p.get("kind")=="stunt_ramp"]
+    if not candidates and not objects:
         return
     if len(candidates) > 16:
         raise ValueError("Use at most 16 jumps per map")
     width, height = data["size"]
     placements = []
+    for prop in objects:
+        angle = float(prop["angle"])
+        direction = [math.sin(angle),-math.cos(angle)]
+        ramp_width, ramp_length = prop["size"]
+        rise = ramp_length*.15
+        lip = [prop["p"][i]+direction[i]*ramp_length*.5 for i in (0,1)]
+        placements.append(dict(object_ramp=True,prop_id=prop["authoring_id"],road_id=-1,p=lip,
+                               direction=direction,width_m=ramp_width,length_m=ramp_length,
+                               height_m=rise,angle_deg=math.degrees(math.atan2(rise,ramp_length))))
     for road in candidates:
         spec = road["jump"]
         anchors = road["anchors"]
