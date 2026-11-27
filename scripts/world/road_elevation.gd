@@ -30,6 +30,8 @@ static func authoring_error(road: Dictionary) -> String:
 			if i>0 and (absf(float(value)-float(layers[i-1]))>1 or (value!=layers[i-1] and Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<50.0)):
 				return "Adjacent point layers need at least 50 m per layer change."
 		if int(layers[0])!=endpoint_layer(road,true) or int(layers[-1])!=endpoint_layer(road,false):return "Point layers must match endpoints."
+		if Vector2(road.points[0].x,road.points[0].y).distance_to(Vector2(road.points[-1].x,road.points[-1].y))<.001 and layers.any(func(v: Variant)->bool:return v!=layers[0]):return "Variable-height closed road is not supported."
+		if str(road.get("roadClass",""))=="onramp" and layers.size()>2 and layers.any(func(v: Variant)->bool:return v!=layers[0]):return "Use a regular road for multi-grade on-ramps."
 		return ""
 	var delta := absi(endpoint_layer(road, true) - endpoint_layer(road, false))
 	if delta > 1:

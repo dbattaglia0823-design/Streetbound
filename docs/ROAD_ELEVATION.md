@@ -30,17 +30,22 @@ The custom-map and Morrow compilers use the same junction bake. Legacy
 In either Map Builder, select a road, expand **Individual point elevations**,
 choose a signed layer for every numbered control point, and select **Apply
 point elevations**. For example, 0, +1, +1, 0 creates an ascent, a deck and a
-descent. The operation retains the original first road ID and creates connected
-grade sections with matching endpoints in one undoable edit. Flat runs retain
+descent. The operation retains the original road ID and saves all its heights in one undoable edit. Flat runs retain
 their control points. Each changing-grade span must be at least 50 m long and
 join adjacent layers. Existing start/end elevation controls continue to work.
 
-The resulting sections are separate editable roads, not a persistent single-road
-height array. Curved sections may need minor reshaping at split boundaries.
-Closed loops with varying heights, stunt jumps and directional junction
-roads requiring a split are rejected until adjusted. The existing 180-road
-limit applies. Both editors use the existing elevation schema, so the bake,
-traffic routing, collision bands and excavation pipeline require no new format.
+The authored road stays a single road object with its original ID and all
+control points. Its optional elevation profile stores `point_layers`.
+The bake preserves the flattened horizontal spline and derives connected runtime
+sections, keeping the source anchors and profile for editor round trips.
+Vertical smoothing uses a cubic blend bounded by the existing 12% maximum
+grade. A 75 m span per 6 m rise gives zero slope at both ends; shorter
+50–75 m spans blend progressively toward the legacy linear grade. Ordinary
+legacy ramps retain their previous behavior. Closed variable-height loops
+and multi-grade on-ramps are rejected until adjusted. The 180 authored-road
+limit is unchanged; derived runtime sections have a separate safety limit.
+Point insertion/removal preserves the profile when the resulting grades are
+valid; other topology-changing operations may require clearing the profile first.
 
 ## Individual elevated race and contract objectives
 

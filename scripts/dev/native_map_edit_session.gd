@@ -1168,6 +1168,15 @@ func insert_road_point(identity: String, position_m: Vector2) -> bool:
 			var distance:=Geometry2D.get_closest_point_to_segment(position_m,a,b).distance_to(position_m)
 			if distance<nearest:nearest=distance;at=i
 		road.points.insert(at,{"x":position_m.x,"y":position_m.y})
+		if road.get("elevation",{}).has("point_layers"):
+			var values: Array=road.elevation.point_layers
+			for layer in [values[at-1],values[at]]:
+				var trial:=values.duplicate()
+				trial.insert(at,layer)
+				road.elevation={"start_layer":trial[0],"end_layer":trial[-1],"point_layers":trial}
+				if Elevation.authoring_error(road).is_empty():return _commit(next)
+			last_error="Inserted point would create a steep grade."
+			return false
 		return _commit(next)
 	return false
 
@@ -1461,7 +1470,12 @@ func remove_road_point(identity: String,index: int) -> bool:
 		if str(road.id)!=identity:continue
 		if index<0 or index>=road.points.size() or road.points.size()<=2:
 			last_error="A road needs two points. Add a point before removing one.";return false
-		road.points.remove_at(index);return _commit(next)
+		road.points.remove_at(index)
+		if road.get("elevation",{}).has("point_layers"):
+			var values: Array=road.elevation.point_layers
+			values.remove_at(index)
+			road.elevation.start_layer=values[0];road.elevation.end_layer=values[-1]
+		return _commit(next)
 	return false
 
 func split_road(identity: String,index: int) -> String:
@@ -1477,8 +1491,8 @@ func split_road(identity: String,index: int) -> String:
 		if road.has("junctionStart") or road.has("junctionEnd") or str(road.get("roadClass",""))=="onramp":
 			last_error="Reset connection modes to Automatic and use a regular road type before splitting."
 			return ""
-		if Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false):
-			last_error="Set the ramp to a flat layer before splitting it."
+		if road.get("elevation",{}).has("point_layers") or Elevation.endpoint_layer(road,true)!=Elevation.endpoint_layer(road,false):
+			last_error="Clear individual point elevations or set a flat layer before splitting it."
 			return ""
 		if road.points.size()==2:
 			var a: Dictionary=road.points[0];var b: Dictionary=road.points[1]

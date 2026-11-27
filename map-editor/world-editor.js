@@ -1663,7 +1663,7 @@ $('apply-road-point-elevations').addEventListener('click',()=>{
   const found=selection?getEntity(doc,selection.id):null;
   if(found?.type!=='roads')return;
   const layers=found.item.points.map((_,i)=>Number($('road-point-layer-'+i).value));
-  change(d=>applyPointElevations(d,found.item.id,layers),'Applied point elevations as connected grade sections.');
+  change(d=>applyPointElevations(d,found.item.id,layers),'Saved individual elevations on the selected road.');
 });
 $('apply-road-elevation').addEventListener('click',()=>{
   if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;

@@ -56,8 +56,8 @@ func _run() -> void:
 		check(not point_session.apply_point_elevations("road-0",[0,2,1,0]) and point_session.doc==before,
 			"Invalid point height leaves native draft unchanged")
 		check(point_session.apply_point_elevations("road-0",[0,1,1,0]),"Apply native control point heights")
-		check(point_session.doc.roads.size()==count+2 and point_session.doc.roads[0].elevation=={"start_layer":0,"end_layer":1},
-			"Native point heights create three grade sections")
+		check(point_session.doc.roads.size()==count and point_session.doc.roads[0].elevation=={"start_layer":0,"end_layer":0,"point_layers":[0,1,1,0]},
+			"Native point heights persist on one authored road")
 		check(point_session.undo() and point_session.doc==before and point_session.redo(),
 			"Point profile is one undoable native edit")
 

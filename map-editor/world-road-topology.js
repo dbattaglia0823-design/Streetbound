@@ -13,7 +13,7 @@ const roadLength=points=>points.slice(1).reduce((total,p,i)=>total+distance(p,po
 const closed=road=>road.points.length>2&&distance(road.points[0],road.points.at(-1))<EPS;
 const flatLayer=road=>{
   const {start_layer,end_layer}=roadElevation(road);
-  return start_layer===end_layer&&!road.elevation?.point_layers?.some(v=>v!==start_layer)?start_layer:null;
+  return !road.elevation?.point_layers&&start_layer===end_layer?start_layer:null;
 };
 const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
   a.lanes===b.lanes&&a.smooth===b.smooth&&a.markings===b.markings&&
@@ -122,8 +122,8 @@ export function splitRoadAt(doc,roadId,at,{maxDistance=24}={}){
 
 
 /** Editable point heights use the same signed layers as existing ramps.
- * An applied profile becomes explicit connected grade sections, keeping
- * original control coordinates, the first ID, and one undo transaction.
+ * A persistent profile stays on the same authored road; the production
+ * bake derives its runtime grade sections.
  */
 export function pointElevationLayers(road){
   const {start_layer,end_layer}=roadElevation(road);

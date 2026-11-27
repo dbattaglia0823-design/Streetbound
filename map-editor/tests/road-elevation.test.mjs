@@ -44,7 +44,7 @@ test('on-ramp preview stays separate from stacked roads and preserves hot-swap m
   assert.equal(buildRoadJunctions(changed.roads).some(j=>j.kind==='merge'),false);
 });
 
-test('point heights create continuous grade sections without mutating the source',()=>{
+test('point heights persist on a single source road without mutating the original',()=>{
   const doc=fixture();
   const points=[{x:100,y:700},{x:200,y:700},{x:300,y:700},{x:400,y:700},{x:500,y:700},{x:600,y:700}];
   const source=normalizeWorld({...doc,roads:[{...doc.roads[0],points}]});
@@ -52,13 +52,10 @@ test('point heights create continuous grade sections without mutating the source
   assert.deepEqual(pointElevationLayers(source.roads[0]),[0,0,0,0,0,0]);
   const result=applyPointElevations(source,'road-0',[0,1,1,0,-1,-1]);
   assert.equal(JSON.stringify(source),before);
-  assert.equal(result.roads.length,5);
-  assert.deepEqual(result.roads.map(r=>r.id),['road-0','road-1','road-2','road-3','road-4']);
-  assert.deepEqual(result.roads.map(r=>r.elevation),[
-    {start_layer:0,end_layer:1},{start_layer:1,end_layer:1},{start_layer:1,end_layer:0},
-    {start_layer:0,end_layer:-1},{start_layer:-1,end_layer:-1}
-  ]);
-  for(let i=1;i<result.roads.length;i++)assert.deepEqual(result.roads[i-1].points.at(-1),result.roads[i].points[0]);
+  assert.equal(result.roads.length,1);
+  assert.equal(result.roads[0].id,'road-0');
+  assert.deepEqual(result.roads[0].points,points);
+  assert.deepEqual(pointElevationLayers(result.roads[0]),[0,1,1,0,-1,-1]);
   assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(result))).roads,result.roads);
   assert.throws(()=>applyPointElevations(source,'road-0',[0,2,1,0,-1,-1]),/adjacent/);
   assert.throws(()=>applyPointElevations(source,'road-0',[0,1]),/every road point/);

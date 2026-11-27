@@ -457,6 +457,8 @@ export function updateEntity(doc,id,patch){
   if(!found)return doc;
   const {type,item}=found;
   const merged={...item,...patch,id};
+  if(type==='roads'&&item.elevation?.point_layers&&patch.points&&patch.points.length!==item.points.length&&!Object.hasOwn(patch,'elevation'))
+    throw new RangeError('Use insert/remove point to keep the elevation profile aligned');
   if(type==='props'&&patch.assetId!==undefined&&patch.assetId!==item.assetId){
     delete merged.assetPath;delete merged.assetSize;delete merged.assetRegion;delete merged.assetCollision;
   }
@@ -500,13 +502,29 @@ export function insertControlPoint(doc,id,index,pos){
   if(points.length>=LIM[found.type==='roads'?'roadPoints':'regionPoints'])throw new RangeError('Too many control points');
   if(!Number.isInteger(index)||index<0||index>points.length)throw new RangeError('Invalid insertion index');
   points.splice(index,0,point(pos,doc.world.width,doc.world.height));
-  return updateEntity(doc,id,{points});
+  const patch={points};
+  if(found.type==='roads'&&found.item.elevation?.point_layers){
+    const layers=[...found.item.elevation.point_layers];
+    const a=layers[Math.max(0,index-1)],b=layers[Math.min(index,layers.length-1)];
+    // Choose the feasible adjacent level. Reject if neither fits.
+    const options=[...new Set([a,b])];
+    for(const layer of options){
+      const next=layers.slice();next.splice(index,0,layer);
+      try{return updateEntity(doc,id,{points,elevation:{start_layer:next[0],end_layer:next.at(-1),point_layers:next}});}catch(e){if(!(e instanceof RangeError))throw e;}
+    }
+    throw new RangeError('Inserted point would create a steep grade; reposition it or adjust the point heights');
+  }
+  return updateEntity(doc,id,patch);
 }
 export function deleteControlPoint(doc,id,index){
   const found=getEntity(doc,id);
   if(!found||!['roads','regions'].includes(found.type))return doc;
   if(found.item.points.length<=(found.type==='roads'?2:3))throw new RangeError('Too few control points');
   const points=found.item.points.filter((_,i)=>i!==index);
+  if(found.type==='roads'&&found.item.elevation?.point_layers){
+    const layers=found.item.elevation.point_layers.filter((_,i)=>i!==index);
+    return updateEntity(doc,id,{points,elevation:{start_layer:layers[0],end_layer:layers.at(-1),point_layers:layers}});
+  }
   return updateEntity(doc,id,{points});
 }
 /** Continuous vegetation placement with collision-aware road clearance. */
