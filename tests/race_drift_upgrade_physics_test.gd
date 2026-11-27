@@ -40,6 +40,35 @@ func simulate_drift(settings: VehicleConfig) -> Vector3:
 		holding_slip+=absf(car.slip_angle)
 	return Vector3(holding_slip/160.0,car.rotation,car.linear_velocity.length())
 
+# Exercise the actual travel path as well as heading: an arcade turn
+# must move the car around the corner, not merely rotate the sprite.
+func arcade_corner(settings: VehicleConfig, pedal: Vector4) -> Vector3:
+	car.config=settings.duplicate(true)
+	car.transmission.reset(car.config)
+	fresh(20.0)
+	for i in 72:
+		car.step_vehicle(1.0/120.0,pedal)
+	return Vector3(car.rotation,car.linear_velocity.x,car.linear_velocity.length())
+
+func verify_arcade_controls(id: String, settings: VehicleConfig) -> void:
+	for pedal in [Vector4(0,0,1,0),Vector4(0.5,0,1,0),Vector4(0,1,1,0)]:
+		var result:=arcade_corner(settings,pedal)
+		check(id+"_arcade_corner_"+str(pedal),result.x>0.07 and result.y>0.25 and
+			result.z>2.0,result)
+	# Opposite steering while the handbrake is held must change yaw
+	# progressively rather than instantly reversing angular velocity.
+	car.config=settings.duplicate(true)
+	car.transmission.reset(car.config)
+	fresh(24.0)
+	var peak_yaw_step:=0.0
+	for i in 72:
+		var previous_yaw:=car.yaw_rate
+		var side:=1.0 if i<36 else -1.0
+		car.step_vehicle(1.0/120.0,Vector4(0.30,0,side,1))
+		peak_yaw_step=maxf(peak_yaw_step,absf(car.yaw_rate-previous_yaw))
+	check(id+"_smooth_handbrake_direction_change",peak_yaw_step<0.12 and
+		car.linear_velocity.is_finite(),peak_yaw_step)
+
 func run() -> void:
 	car=Vehicle.instantiate()
 	root.add_child(car)
@@ -53,6 +82,7 @@ func run() -> void:
 		if entry.is_empty():
 			continue
 		var stock: VehicleConfig=Catalog.make_configuration(entry)
+		verify_arcade_controls(id,stock)
 		var track: VehicleConfig=Catalog.make_configuration(entry)
 		Parts.apply_to_config(track,[Parts.get_part("suspension-grip-legendary"),Parts.get_part("tires-grip-legendary")])
 		var drift: VehicleConfig=Catalog.make_configuration(entry)
