@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT / "tools"))
-from build_custom_test_world import make_archive
+from build_custom_test_world import make_archive, scenery_rebuild
 from road_jumps import bake_into, flight
 
 
@@ -30,6 +30,27 @@ class JumpBakeTests(unittest.TestCase):
         self.assertNotIn("max_mps",jump)
         self.assertNotIn("landing_start_m",jump)
         self.assertFalse(next(p for p in data["props"] if p.get("authoring_id")=="prop-ramp")["solid"])
+
+    def test_scaled_rotated_ramp_and_cached_rebuild_use_final_prop_size(self):
+        doc=fixture()
+        del doc["roads"][0]["jump"]
+        ramp=dict(id="prop-wide-ramp",type="stunt_ramp",name="Wide ramp",x=350,y=320,
+                  rotation=90,scale=2,scaleX=3,scaleY=1.5,assetId="")
+        doc["props"].append(ramp)
+        data=make_archive(doc)
+        prop=next(p for p in data["props"] if p.get("authoring_id")==ramp["id"])
+        jump,=data["jumps"]
+        self.assertEqual(prop["size"],[30,24])
+        self.assertEqual([jump["width_m"],jump["length_m"]],prop["size"])
+        self.assertAlmostEqual(jump["p"][0],362)
+        self.assertAlmostEqual(jump["height_m"],3.6)
+        ramp.update(scaleX=5,scaleY=2,rotation=0)
+        rebuilt=scenery_rebuild(data,doc)
+        jump,=rebuilt["jumps"]
+        self.assertEqual([jump["width_m"],jump["length_m"]],[50,32])
+        self.assertEqual(jump["p"],[350,304])
+        doc["props"].remove(ramp)
+        self.assertNotIn("jumps",scenery_rebuild(rebuilt,doc))
 
     def test_baked_landing_contains_speed_envelope(self):
         data = make_archive(fixture())

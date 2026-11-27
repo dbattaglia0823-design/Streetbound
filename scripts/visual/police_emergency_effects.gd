@@ -41,6 +41,7 @@ static func _stream() -> AudioStreamWAV:
 
 func _ready() -> void:
 	z_index = 4
+	process_priority = 10
 	voice = AudioStreamPlayer2D.new()
 	voice.stream = _stream()
 	voice.volume_db = -25.0
@@ -49,6 +50,8 @@ func _ready() -> void:
 	voice.play()
 
 func _process(dt: float) -> void:
+	var art:=get_parent().get_node_or_null("Art") as Node2D
+	if is_instance_valid(art):transform=art.transform
 	clock += dt
 	var muted := false
 	for audio in get_tree().get_nodes_in_group("streetbound_player_audio"):
