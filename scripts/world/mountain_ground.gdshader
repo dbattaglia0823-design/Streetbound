@@ -207,6 +207,43 @@ void fragment() {
             ground += (stone*.12-shade*.085)*fine_visibility*occupied;
             ground += grit*.12+micro*.08+relief_grain*.06;
         }
+        // Mid-frequency relief adds readable material structure between the
+        // large hillshade and the tiny aggregate, even at normal driving zoom.
+        vec2 surface_coord = world_m * 1.35 + vec2(41.2, 17.8);
+        float surface_visible = detail_fade(surface_coord);
+        float relief_value = field_noise(surface_coord);
+        vec2 relief_gradient = hill_gradient(surface_coord);
+        float relief_light = dot(relief_gradient, SUN_DIRECTION) * surface_visible;
+        float patches = smoothstep(.57,.83,medium*.57+detail*.43) * detail_visible;
+        if (kind==2 || kind==3 || kind==15) {
+            ground += vec3(.048,.064,.025)*relief_light;
+            ground = mix(ground,ground*vec3(.76,.81,.70),patches*.27);
+            float seed_heads = smoothstep(.83,.98,detail)*detail_visible*step(.48,medium);
+            ground += vec3(.11,.095,.045)*seed_heads;
+        } else if (kind==4 || kind==5) {
+            float chips = smoothstep(.58,.82,relief_value)*surface_visible;
+            ground += vec3(.10,.094,.080)*relief_light;
+            ground -= vec3(.042,.039,.034)*chips;
+        } else if (kind==6 || kind==12) {
+            ground += vec3(.060,.044,.024)*relief_light;
+            ground -= vec3(.035,.025,.012)*patches;
+        } else if (water || foam) {
+            float crossing_wave = world_m.y*.78-world_m.x*.34+TIME*.44+medium*3.0;
+            float crossing_crest = pow(max(0.0,sin(crossing_wave)),12.0)*detail_fade(vec2(crossing_wave,0.0));
+            ground += vec3(.032,.047,.05)*crossing_crest*(.35+.65*relief_value);
+            if (foam) ground += vec3(.055,.058,.044)*(relief_value-.5)*surface_visible;
+        } else if (kind==10) {
+            ground += vec3(.037,.048,.016)*relief_light;
+            ground -= vec3(.035,.025,.012)*patches;
+        } else if (kind==11) {
+            float hairline = (1.0-smoothstep(.013,.045,abs(relief_value-.5)))*surface_visible;
+            ground += vec3(.041,.042,.037)*relief_light;
+            ground -= vec3(.047,.046,.039)*hairline*smoothstep(.61,.86,medium);
+            ground -= vec3(.038,.034,.025)*patches;
+        } else if (kind==13 || kind==14) {
+            ground += vec3(.076,.062,.045)*relief_light;
+            ground -= vec3(.052,.044,.032)*patches;
+        }
         // Honor authored color variation modestly, while keeping the material recognizable.
         vec3 reference = vec3(.64,.72,.54);
         if(kind==3) reference=vec3(.44,.55,.44);
