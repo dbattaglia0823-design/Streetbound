@@ -582,14 +582,18 @@ export function drawWorld(ctx,doc,options={}){
     drawRoads(ctx,visibleRoads,bounds,{...options,doc});
   }
   if(options.showScenery!==false){
-    if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
-    for(const prop of doc.props){
-      if(prop.hidden)continue;
+    const ordered=doc.props.slice().sort((a,b)=>(a.drawOrder??0)-(b.drawOrder??0));
+    const drawAuthored=prop=>{
+
+      if(prop.hidden)return;
       const boundSize=prop.type==='guardrail'&&prop.assetSize
         ?Math.max(...prop.assetSize)*prop.scale*Math.max(prop.scaleX??1,prop.scaleY??1)*.5+10:200;
       if(visible({minX:prop.x-boundSize,minY:prop.y-boundSize,maxX:prop.x+boundSize,maxY:prop.y+boundSize},bounds))
         drawProp(ctx,prop,doc.assets||[],Boolean(options.runtimePreview));
-    }
+    };
+    for(const prop of ordered)if((prop.drawOrder??0)<0)drawAuthored(prop);
+    if(options.runtimePreview)drawRuntimeScenery(ctx,options.runtimePreview,bounds,doc,options.zoom||1);
+    for(const prop of ordered)if((prop.drawOrder??0)>=0)drawAuthored(prop);
   }
   if(options.showTerrain!==false)for(const region of doc.regions){
     if(isMountainBarrier(region)&&visible(expand(boundsOf(region.points),40),bounds))drawMountainRegion(ctx,region);
