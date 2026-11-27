@@ -111,14 +111,16 @@ static func draw_art(canvas: CanvasItem,region: Dictionary,cache: Dictionary,ori
 	for p in art.outline:outline.append(p*PPM)
 	var base: Vector2=(Vector2(art.origin)-origin_m)*pixels_per_m+offset_px
 	var scale:=Vector2.ONE*pixels_per_m/PPM
-	var cast:=Vector2(1,1.4)*clampf(float(art.height)*.13,4,24)*PPM
-	for spread in [1.0,.65]:
-		canvas.draw_set_transform(base+cast*spread*scale,0,scale)
-		canvas.draw_colored_polygon(outline,Color(.045,.09,.09,.12))
+	# Same northwest light as the terrain shader; shadow length stays within
+	# the existing streamed artwork margin. Layered opacity softens the edge.
+	var cast:=Vector2(.65,.76)*clampf(float(art.height)*.30,5,36)*PPM
+	for band in [[1.0,.045],[.76,.07],[.50,.10],[.25,.14]]:
+		canvas.draw_set_transform(base+cast*float(band[0])*scale,0,scale)
+		canvas.draw_colored_polygon(outline,Color(.035,.065,.075,float(band[1])))
 	canvas.draw_set_transform(base,0,scale)
 	canvas.draw_colored_polygon(outline,Color("#65705c"))
 	var closed:=outline.duplicate();closed.append(closed[0])
-	canvas.draw_polyline(closed,Color("#424f43"),16,true)
+	canvas.draw_polyline(closed,Color(.12,.18,.17,.55),20,true)
 	canvas.draw_mesh(art.mesh,null)
 	canvas.draw_polyline(closed,Color(.65,.66,.53,.38),3,true)
 	canvas.draw_set_transform(Vector2.ZERO)

@@ -2,6 +2,10 @@ shader_type canvas_item;
 // High-detail world-space ground materials; patterns align across 192m chunks.
 uniform sampler2D relief : filter_linear, repeat_disable;
 uniform float terrain_detail : hint_range(0.0, 1.5) = 1.0;
+// Visual-only relief, independent of driving physics and authoring geometry.
+uniform float terrain_shadow_strength : hint_range(0.0, 1.0) = 1.0;
+const vec2 SUN_DIRECTION = vec2(-0.65,-0.76);
+const vec2 RELIEF_EXTENT = vec2(2800.0,2400.0);
 varying vec2 world_m;
 
 float hash21(vec2 p) {
@@ -17,6 +21,42 @@ float field_noise(vec2 p) {
 	float low = mix(hash21(cell), hash21(cell + vec2(1.0, 0.0)), blend.x);
 	float high = mix(hash21(cell + vec2(0.0, 1.0)), hash21(cell + vec2(1.0, 1.0)), blend.x);
 	return mix(low, high, blend.y);
+}
+
+// Analytic derivatives of the smooth world-space height noise. The same
+// hill normal is obtained regardless of zoom, frame or chunk partition.
+vec2 hill_gradient(vec2 p) {
+    vec2 cell=floor(p);
+    vec2 f=fract(p);
+    vec2 t=f*f*(3.0-2.0*f);
+    vec2 dt=6.0*f*(1.0-f);
+    float a=hash21(cell);
+    float b=hash21(cell+vec2(1.0,0.0));
+    float c=hash21(cell+vec2(0.0,1.0));
+    float d=hash21(cell+vec2(1.0,1.0));
+    return vec2(mix(b-a,d-c,t.y)*dt.x,mix(c-a,d-b,t.x)*dt.y);
+}
+
+// Fixed, bounded horizon samples toward the northwest sunlight. The existing
+// relief map stores height / 1200 in green and coverage in alpha.
+float horizon_occlusion(vec2 uv,float height_m,float distance_m) {
+    vec2 at=uv+SUN_DIRECTION*distance_m/RELIEF_EXTENT;
+    vec4 sample_height=texture(relief,at);
+    float valid=step(0.0,at.x)*step(0.0,at.y)*step(at.x,1.0)*step(at.y,1.0);
+    float above=sample_height.g*1200.0-height_m-distance_m*.62;
+    // Feather the quantized height field to avoid staircase shadow edges.
+    return smoothstep(-5.0,10.0+distance_m*.075,above)*sample_height.a*valid;
+}
+
+float local_hill_light(vec2 at,float amplitude) {
+    // Two distinct scales: broad rolling hills and smaller folds/valleys.
+    vec2 gradient=hill_gradient(at*.012+vec2(19.0,7.0))*.88;
+    gradient+=hill_gradient(at*.038+vec2(5.0,38.0))*.49;
+    vec3 normal=normalize(vec3(-gradient*amplitude,1.0));
+    vec3 sunlight=normalize(vec3(SUN_DIRECTION,.75));
+    float diffuse=dot(normal,sunlight);
+    float flat= sunlight.z;
+    return clamp(1.0+(diffuse-flat)*.69,.59,1.25);
 }
 
 // Filter high spatial frequencies before sampling their contribution.
@@ -167,7 +207,7 @@ void fragment() {
         vec3 tint = clamp(paint/max(reference,vec3(.1)),vec3(.75),vec3(1.25));
         ground *= mix(vec3(1.0),tint,.25);
         // Preserve relief lighting without painting every upland region the same green.
-        vec2 uv = world_m/vec2(2800.0,2400.0);
+        vec2 uv = world_m/RELIEF_EXTENT;
         vec4 field = texture(relief,uv);
         float inside = step(0.0,uv.x)*step(0.0,uv.y)*step(uv.x,1.0)*step(uv.y,1.0);
         float relief_mask = field.a*inside*(water || foam ? 0.0 : 1.0);
@@ -184,6 +224,29 @@ void fragment() {
             ground = mix(ground,exposed_rock,exposed*.38);
         }
         ground *= mix(1.0,.65+field.r*.63+ridge_shade,relief_mask);
+        if (!water && !foam && terrain_shadow_strength>0.0) {
+            // Urban paving is mostly flat; fields and beaches remain subtle.
+            float amplitude=.70;
+            if(kind==4 || kind==5 || kind==15) amplitude=1.45;
+            else if(kind==3) amplitude=.96;
+            else if(kind==6 || kind==10) amplitude=.24;
+            else if(kind==12) amplitude=.58;
+            else if(kind==11) amplitude=.10;
+            float local_light=local_hill_light(world_m,amplitude);
+            // Keep regional mountain shadows grounded in the baked elevation.
+            // Custom maps use a transparent relief texture: local hills still work.
+            float regional_shadow=0.0;
+            if (relief_mask>.005) {
+                float height_m=field.g*1200.0;
+                regional_shadow=max(horizon_occlusion(uv,height_m,36.0),
+                    max(horizon_occlusion(uv,height_m,100.0),horizon_occlusion(uv,height_m,240.0)))*relief_mask;
+            }
+            float light_factor=mix(1.0,local_light*(1.0-regional_shadow*.29),terrain_shadow_strength);
+            // Slightly cool the shaded slopes and warm the sunlit ridges.
+            vec3 directional_tint=mix(vec3(1.0),vec3(.94,.97,1.02),clamp((1.0-light_factor)*1.8,0.0,1.0));
+            directional_tint=mix(directional_tint,vec3(1.025,1.012,.98),clamp((light_factor-1.0)*2.0,0.0,1.0));
+            ground*=light_factor*directional_tint;
+        }
         COLOR.rgb = clamp(mix(paint,ground,clamp(terrain_detail,0.0,1.0)),vec3(0.0),vec3(1.0));
     }
 }

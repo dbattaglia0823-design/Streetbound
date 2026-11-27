@@ -23,6 +23,8 @@ func run() -> void:
 		code.contains("bool foam = kind==9") and code.contains("kind==6 || kind==12"))
 	check("mountain_relief_preserved", code.contains("texture(relief") and code.contains("relief_mask"))
 	check("blade_shading_present", code.contains("grass_tuft"))
+	check("terrain_directional_hills_and_horizon_shadows",code.contains("hill_gradient") and code.contains("local_hill_light") and code.contains("horizon_occlusion") and code.contains("SUN_DIRECTION") and code.contains("if (!water && !foam"))
+	check("terrain_shadows_are_enabled_by_default",code.contains("terrain_shadow_strength : hint_range(0.0, 1.0) = 1.0"))
 	check("sub_decimetre_detail_is_filtered",code.contains("world_m*22.0") and code.contains("detail_fade(micro_coord)") and code.contains("fwidth(coord)"))
 	check("mountain_relief_has_slope_and_erosion_detail",code.contains("field.b") and code.contains("ridge_shade") and code.contains("upland"))
 	var types: Dictionary = {}

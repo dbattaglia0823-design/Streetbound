@@ -56,9 +56,9 @@ export function mountainPlan(region){
 }
 function trace(ctx,ps){ctx.beginPath();ctx.moveTo(ps[0].x,ps[0].y);for(const p of ps.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();}
 export function drawMountainRegion(ctx,region){
-  const plan=mountainPlan(region),cast=Math.max(4,Math.min(24,plan.heightM*.13));
+  const plan=mountainPlan(region),cast=Math.max(5,Math.min(36,plan.heightM*.30));
   ctx.save();ctx.translate(plan.x,plan.y);
-  for(const spread of [1,.65]){ctx.save();ctx.translate(cast*spread,cast*1.4*spread);trace(ctx,plan.outline);ctx.fillStyle='#0b17171f';ctx.fill();ctx.restore();}
+  for(const [spread,alpha] of [[1,.045],[.76,.07],[.50,.10],[.25,.14]]){ctx.save();ctx.translate(cast*.65*spread,cast*.76*spread);trace(ctx,plan.outline);ctx.fillStyle='rgba(9,17,19,'+alpha+')';ctx.fill();ctx.restore();}
   trace(ctx,plan.outline);ctx.fillStyle='#65705c';ctx.fill();ctx.strokeStyle='#424f43';ctx.lineWidth=.8;ctx.stroke();
   ctx.save();trace(ctx,plan.outline);ctx.clip();
   for(const triangle of plan.triangles){trace(ctx,triangle.points);ctx.fillStyle=triangle.color;ctx.fill();}

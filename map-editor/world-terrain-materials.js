@@ -10,7 +10,34 @@ export const terrainFamily=kind=>({town:'grass',meadow:'grass',sand:'beach',wate
   riverbank:'foam',field:'farmland'})[kind]||kind;
 export const TERRAIN_TILE_PIXELS=1024;
 export const TERRAIN_REPEAT_M=64;
-const tiles=new Map(),patterns=new WeakMap();
+const tiles=new Map(),patterns=new WeakMap(),hillPatterns=new WeakMap();
+export const HILL_REPEAT_M=384;
+export function hillLight(x,y){
+  // Derivatives of a periodic multi-directional height field; opposite edges
+  // match exactly. Same northwest illumination as the game.
+  const a=x*2*Math.PI,b=y*2*Math.PI;
+  const dx=.36*Math.cos(a+b*2)+.23*Math.cos(a*3-b)+.11*Math.cos(a*4+b*3);
+  const dy=.72*Math.cos(a+b*2)-.23*Math.cos(a*3-b)+.0825*Math.cos(a*4+b*3);
+  return Math.max(-1,Math.min(1,(dx*.65+dy*.76)*.92));
+}
+let hillTile=null;
+function hillPattern(ctx){
+  if(hillPatterns.has(ctx))return hillPatterns.get(ctx);
+  if(!hillTile){
+    hillTile=document.createElement('canvas');hillTile.width=hillTile.height=256;
+    const g=hillTile.getContext('2d'),data=g.createImageData(256,256);
+    for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+      const shade=hillLight((x+.5)/256,(y+.5)/256),i=(y*256+x)*4;
+      data.data[i]=shade>=0?245:21;data.data[i+1]=shade>=0?229:38;data.data[i+2]=shade>=0?174:44;
+      data.data[i+3]=Math.round(Math.abs(shade)*(shade>=0?47:76));
+    }
+    g.putImageData(data,0,0);
+  }
+  const pattern=ctx.createPattern(hillTile,'repeat');
+  if(!pattern)return null;
+  pattern.setTransform(new DOMMatrix().scale(HILL_REPEAT_M/256));
+  hillPatterns.set(ctx,pattern);return pattern;
+}
 function makeTile(kind){
   if(tiles.has(kind))return tiles.get(kind);
   const tile=document.createElement('canvas');tile.width=tile.height=TERRAIN_TILE_PIXELS;
@@ -76,7 +103,13 @@ export function textureTerrain(ctx,kind){
     }
     ctx.fillStyle=cache.get(kind);
   }
-  ctx.fill();return true;
+  ctx.fill();
+  const strength=({grass:.65,forest:.82,highland:1,mountain:1,rock:.95,desert:.46,beach:.18,farmland:.22,dirt:.50,gravel:.46,city:.08})[kind]||0;
+  if(strength&&Math.hypot(transform.a,transform.b)>=.08){
+    const hill=hillPattern(ctx);
+    if(hill){ctx.save();ctx.globalAlpha*=strength;ctx.fillStyle=hill;ctx.fill();ctx.restore();}
+  }
+  return true;
 }
 export function textureTerrainRect(ctx,kind,x,y,w,h){
   if(typeof document==='undefined'||typeof document.createElement!=='function'||typeof DOMMatrix==='undefined')return false;
