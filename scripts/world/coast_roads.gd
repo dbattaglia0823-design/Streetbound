@@ -370,7 +370,12 @@ func _roads(stage: int) -> void:
 						var wall := _offset(visible_path,side*width*.5)
 						draw_polyline(wall,Color("9aa8a8") if layer > 0 else Color("766f61"),7.0,true)
 						if layer < 0:
-							_dashes(wall,5.0,Color("d8ad68"),16.0,174.0,float(piece.phase))
+							var cursor := float(piece.phase)
+							for i in range(1,wall.size()):
+								var length := wall[i-1].distance_to(wall[i])
+								for span in dash_spans(cursor,length,16.0,174.0):
+									draw_line(wall[i-1].lerp(wall[i],float(span.from)),wall[i-1].lerp(wall[i],float(span.to)),Color("d8ad68"),5.0,true)
+								cursor += length
 				_paint(visible_path,r,width,float(piece.phase))
 
 ## Manhole covers, faded utility repairs and compact rain drains. Derived
