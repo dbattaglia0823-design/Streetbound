@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 import map_editor_server as server
+from road_widths import ROAD_WIDTH_SCALE
 doc=json.loads((ROOT/'.runtime/basic-editor-test/source.json').read_text())
 house=next(p for p in doc['props'] if p.get('sourceAppearance') and p.get('scaleX')==.9)
 with tempfile.TemporaryDirectory(prefix='streetbound-basic-') as tmp:
@@ -32,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='streetbound-basic-') as tmp:
         assert prop['kind']==house['sourceAppearance']['kind'] and prop['seed']==house['sourceAppearance']['seed']
         assert prop['size']==[round(house['assetSize'][0]*.9,3),round(house['assetSize'][1]*1.1,3)]
         assert baked['roads'][0]['anchors']==[[p['x'],p['y']] for p in doc['roads'][0]['points']]
-        assert abs(baked['roads'][0]['width']-12/doc.get('morrowRoadWidthScale',1)*1.1)<.001
+        assert abs(baked['roads'][0]['width']-12/doc.get('morrowRoadWidthScale',1)*ROAD_WIDTH_SCALE)<.001
         assert any('separate' in warning for warning in baked['editor_warnings'])
         assert any('overlaps a road' in warning for warning in baked['editor_warnings'])
         house['x']+=.5
