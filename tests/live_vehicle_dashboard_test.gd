@@ -50,7 +50,7 @@ func run() -> void:
 	for child in hud.get_children():
 		if child is PanelContainer:
 			hud_panels += 1
-	check("f1_tuning_panel_removed", hud_panels == 1 and
+	check("f1_tuning_panel_removed", hud_panels == 0 and
 		not InputMap.has_action("tuning"))
 	var viewport_size := dash.get_viewport_rect().size
 	check("dash_fits_inside_visible_game_window",
@@ -58,7 +58,9 @@ func run() -> void:
 		dash.position.x + dash.size.x * dash.scale.x <= viewport_size.x + 1.0 and \
 		dash.position.y + dash.size.y * dash.scale.y <= viewport_size.y + 1.0)
 	check("dashboard_is_substantially_smaller", dash.size.x <= 600.0 and
-		dash.size.y <= 190.0, dash.size)
+		dash.size.y <= 226.0, dash.size)
+	check("resource_gauges_integrated_into_dashboard",dash.resources_available and dash.engine_label.visible and dash.fuel_label.visible and game.vehicle_damage_service.gauges==dash)
+	check("no_idle_status_cards",not game.police_pursuit.pursuit_panel.visible and not game.driving_contracts.contract_panel.visible)
 	check("rpm_uses_arc_instead_of_duplicate_horizontal_bar",
 		dash.rpm_bar != null and not dash.rpm_bar.visible)
 	var labels: Array[Label] = []

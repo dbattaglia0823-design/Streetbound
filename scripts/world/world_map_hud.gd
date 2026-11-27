@@ -23,16 +23,11 @@ var mini_round_style: StyleBoxFlat
 var full_view: Control
 var mini_cursor: Polygon2D
 var full_cursor: Polygon2D
-var district_label: Label
-var road_label: Label
-var scale_label: Label
 var atlas_scale_label: Label
-var refresh := 0.0
 var large := false
 var minimap_shape := "square"
 var waypoints: Node
 var waypoint_label: Label
-var mini_waypoint_label: Label
 var clear_waypoint_button: Button
 
 func panel(at: Vector2, dimensions: Vector2) -> PanelContainer:
@@ -126,18 +121,22 @@ func _ready() -> void:
 	var world_route:=Node2D.new();world_route.set_script(Activities)
 	world_route.on_map=false;world_route.waypoints=waypoints;world_route.z_index=6
 	world.add_child(world_route)
-	mini=panel(Vector2.ZERO,Vector2(316,340))
+	mini=panel(Vector2.ZERO,Vector2(252,252))
 	# Anchor to the viewport's right edge so resizing/fullscreen keeps it
 	# in the upper-right corner rather than at a fixed screen coordinate.
 	mini.anchor_left=1.0
 	mini.anchor_right=1.0
 	mini.anchor_top=0.0
 	mini.anchor_bottom=0.0
-	mini.offset_left=-340.0
-	mini.offset_right=-24.0
-	mini.offset_top=24.0
-	mini.offset_bottom=364.0
+	mini.offset_left=-268.0
+	mini.offset_right=-16.0
+	mini.offset_top=16.0
+	mini.offset_bottom=268.0
 	mini_square_style=(mini.get_theme_stylebox("panel") as StyleBoxFlat).duplicate()
+	mini_square_style.set_content_margin_all(4)
+	mini_square_style.set_corner_radius_all(5)
+	mini_square_style.bg_color=Color("#0d2026")
+	mini_square_style.border_color=Color("#6a8588")
 	mini_round_style=mini_square_style.duplicate()
 	# Circular mode removes the full rectangular card backing so the
 	# transparent corners actually show the driving world behind the map.
@@ -145,7 +144,6 @@ func _ready() -> void:
 	mini_round_style.border_color=Color.TRANSPARENT
 	var column := VBoxContainer.new()
 	mini.add_child(column)
-	district_label=text(column,"MORROW COAST",16)
 	# A single offscreen pass composites the original, cached live-world
 	# geometry, roof sprites, routes, POIs and player cursor first. Alpha-mask
 	# its final texture instead of attempting child clipping at mismatched
@@ -178,13 +176,6 @@ func _ready() -> void:
 	mini_frame.add_child(mini_image)
 	mini_frame.gui_input.connect(_minimap_clicked)
 	mini_cursor=mini_view.cursor
-	road_label=text(column,"Laurel Motor House access",13)
-	road_label.custom_minimum_size.x=284
-	road_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	mini_waypoint_label=text(column,"",12,Color("ffcf7d"))
-	mini_waypoint_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-	mini_waypoint_label.visible=false
-	scale_label=text(column,"N ↑    LOCAL STREETS    ·    TAB ATLAS",11,Color("b8c9ad"))
 	full=panel(Vector2(52,30),Vector2(1336,840))
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation",10)
@@ -275,11 +266,9 @@ func _map_destination(point_m: Vector2, local_point: Vector2) -> void:
 func _update_waypoint_label() -> void:
 	if not is_instance_valid(waypoint_label):return
 	clear_waypoint_button.disabled=not waypoints.active
-	mini_waypoint_label.visible=waypoints.active
 	if waypoints.active:
 		var distance:=float(waypoints.remaining_m)
 		var value:="%.1f mi"%(distance/1609.344) if distance>=160.9344 else "%.0f ft"%(distance*3.28084)
-		mini_waypoint_label.text="%s · %s"%[waypoints.destination_name,value]
 		waypoint_label.text="%s · %s\n%s"%[waypoints.destination_name,value,
 			"GPS resumes after the race" if waypoints.suspended else waypoints.status]
 	else:waypoint_label.text=waypoints.status if not str(waypoints.status).is_empty() else "Click the map to set a waypoint."
@@ -293,12 +282,6 @@ func set_minimap_shape(shape: String) -> void:
 	if is_instance_valid(mini) and mini_square_style!=null and mini_round_style!=null:
 		mini.add_theme_stylebox_override("panel",
 			mini_round_style if minimap_shape=="circle" else mini_square_style)
-		# HUD captions stay readable without bringing back the full square.
-		for field in [district_label,road_label,scale_label,mini_waypoint_label]:
-			if is_instance_valid(field):
-				field.add_theme_color_override("font_outline_color",Color("#0a1a1d"))
-				field.add_theme_constant_override("outline_size",
-					4 if minimap_shape=="circle" else 0)
 
 
 func _minimap_clicked(event: InputEvent) -> void:
@@ -340,7 +323,7 @@ func _active_race_navigation() -> RefCounted:
 	return null
 
 
-func _process(dt: float) -> void:
+func _process(_dt: float) -> void:
 	mini.visible=not large and not get_tree().paused
 	full.visible=large and not get_tree().paused
 	# UPDATE_ALWAYS still uses GPU time for a hidden SubViewport.
@@ -354,10 +337,4 @@ func _process(dt: float) -> void:
 		view.player_heading=vehicle.rotation
 		if is_instance_valid(view.race_overlay):
 			view.race_overlay.call("set_guidance", current_course, vehicle, current_course != null)
-	refresh-=dt
-	if refresh<=0:
-		refresh=.25
-		var district: Dictionary = world.location_at(vehicle.global_position)
-		district_label.text=district.name
-		road_label.text=model.nearest_road(vehicle.global_position/20)
-		scale_label.text="N ↑    LOCAL VIEW ~1,500 ft    ·    TAB ATLAS"
+

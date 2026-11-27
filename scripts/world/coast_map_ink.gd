@@ -196,9 +196,13 @@ func _draw_map_labels() -> void:
 		var pos := point(p)
 		var category: String = model.poi_type(poi)
 		icon(pos,category,7.0 if miniature else 8.0)
+		if miniature:
+			continue
 		var name := str(poi.name)
 		for offset in [Vector2(0,-19),Vector2(0,24),Vector2(0,-35),Vector2(0,39)]:
 			if label(name,pos+offset*label_scale,11 if miniature else 12,Color("314e49")): break
+	if miniature:
+		return
 	# One label per named street, selecting the longest visible piece.
 	var chosen: Dictionary = {}
 	for entry in model.roads:

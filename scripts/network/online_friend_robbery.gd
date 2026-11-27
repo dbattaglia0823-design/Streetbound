@@ -25,6 +25,7 @@ var police_started := false
 var escaped := false
 var clock := 0.0
 var _last_routed_stage := ""
+var result_until_ms := 0
 var panel: PanelContainer
 var status: Label
 var tier_picker: OptionButton
@@ -353,6 +354,8 @@ func _apply(payload: Dictionary) -> void:
 	if next_id!=job_id:
 		_last_routed_stage = ""
 	job_id = next_id
+	if next_state in ["results","aborted"] and (state!=next_state or next_id!=job_id or result_until_ms==0):
+		result_until_ms = Time.get_ticks_msec()+5000
 	state = next_state
 	tier = next_tier
 	risk = next_risk
@@ -401,7 +404,7 @@ func _refresh() -> void:
 		return
 	var me := int(session.own_id())
 	var nearby := _near(_car(me),contact,READY_RADIUS_M)
-	panel.visible = nearby or busy() or (state in ["results","aborted"] and participants.has(me))
+	panel.visible = nearby or state=="lobby" or (busy() and participants.has(me)) or (state in ["results","aborted"] and participants.has(me) and Time.get_ticks_msec()<result_until_ms)
 	tier_picker.visible = session.hosting and not busy()
 	risk_picker.visible = tier_picker.visible
 	host_button.visible = session.hosting and state not in ["pickup","delivery"]

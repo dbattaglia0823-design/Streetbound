@@ -3,84 +3,93 @@ const DashboardScript = preload("res://scripts/ui/vehicle_dashboard.gd")
 var vehicle: VehicleController2D
 var race: Node2D
 var dashboard: Control
-var environment_title := "DRIVING LAB    /    PROTOTYPE 01"
-var active_vehicle_label: Label
-var progression_slot: VBoxContainer
+var environment_title := "DRIVING LAB / PROTOTYPE 01"
 var camera: Camera2D
 var speed_label: Label
 var speed_unit_label: Label
 var gear_label: Label
 var rpm_bar: ProgressBar
-var status: Label
+var status_host: VBoxContainer
 
-func panel(at: Vector2, size: Vector2) -> PanelContainer:
-	var p := PanelContainer.new()
-	p.position = at
-	p.custom_minimum_size = size
+## Shared action cards use the dashboard palette and occupy only visible rows.
+static func status_card(parent: Node, accent: Color) -> PanelContainer:
+	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.045, 0.075, 0.085, 0.94)
-	style.border_color = Color("3b5353")
+	style.bg_color = Color(0.045,0.078,0.101,0.94)
+	style.border_color = accent.darkened(0.5)
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 20
-	style.content_margin_right = 20
-	style.content_margin_top = 16
-	style.content_margin_bottom = 16
-	p.add_theme_stylebox_override("panel", style)
-	add_child(p)
-	return p
+	style.border_width_left = 3
+	style.set_corner_radius_all(9)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 9
+	style.content_margin_bottom = 9
+	panel.add_theme_stylebox_override("panel",style)
+	panel.custom_minimum_size.x = 300
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(panel)
+	panel.hide()
+	return panel
 
-func label(parent: Node, text: String, size := 16, color := Color("d9e3dd")) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	parent.add_child(l)
-	return l
+static func status_text(parent: Node, value: String, font_size: int, tint: Color) -> Label:
+	var label := Label.new()
+	label.text = value
+	label.add_theme_font_size_override("font_size",font_size)
+	label.add_theme_color_override("font_color",tint)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(label)
+	return label
+
+static func status_bar(parent: Node, tint: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.max_value = 100.0
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = 7
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color("#263b44")
+	track.set_corner_radius_all(3)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = tint
+	fill.set_corner_radius_all(3)
+	bar.add_theme_stylebox_override("background",track)
+	bar.add_theme_stylebox_override("fill",fill)
+	parent.add_child(bar)
+	return bar
 
 func _ready() -> void:
-	var header := VBoxContainer.new()
-	header.add_theme_constant_override("separation", 5)
-	panel(Vector2(24, 24), Vector2(365, 0)).add_child(header)
-	label(header, environment_title, 12, Color("a1c779"))
-	active_vehicle_label = label(header, "CURRENT VEHICLE", 14, Color("e3eae0"))
-	progression_slot = VBoxContainer.new()
-	progression_slot.name = "ProgressionSlot"
-	progression_slot.add_theme_constant_override("separation", 4)
-	header.add_child(progression_slot)
-	status = label(header, "ASPHALT   /   NORTH UP", 11, Color("93afa7"))
-	# All primary driving instrumentation now shares a purpose-built,
-	# responsive cluster rather than the old text-filled prototype box.
+	name = "DrivingHUD"
+	status_host = VBoxContainer.new()
+	status_host.name = "DynamicStatusStack"
+	status_host.position = Vector2(16,16)
+	status_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_host.add_theme_constant_override("separation",8)
+	add_child(status_host)
+	get_viewport().size_changed.connect(_layout_status)
+	_layout_status()
 	dashboard = Control.new()
 	dashboard.set_script(DashboardScript)
 	dashboard.set("vehicle",vehicle)
 	dashboard.set("race",race)
 	add_child(dashboard)
-	# HUD owns the update order, including tests that invoke HUD._process(0).
 	dashboard.set_process(false)
 	speed_label = dashboard.get("speed_label") as Label
 	speed_unit_label = dashboard.get("speed_unit_label") as Label
 	gear_label = dashboard.get("gear_label") as Label
 	rpm_bar = dashboard.get("rpm_bar") as ProgressBar
-	vehicle.impacted.connect(func(strength: float):
-		if strength > 5:
-			status.text = "IMPACT / R TO RESET")
 
-func show_unified_progression() -> void:
-	# The equipped car name is included in the car-level row below.
-	if is_instance_valid(active_vehicle_label):
-		active_vehicle_label.visible = false
+func _layout_status() -> void:
+	var viewport := get_viewport().get_visible_rect().size
+	status_host.custom_minimum_size.x = 320
+	status_host.reset_size()
+	var factor := minf(1.0,maxf(0.35,(viewport.x-32.0)/750.0))
+	status_host.scale = Vector2.ONE*factor
 
+func on_vehicle_selected(_entry: Dictionary) -> void:
+	# Dashboard reads the live selected configuration directly.
+	pass
 
-func on_vehicle_selected(entry: Dictionary) -> void:
-	# Catalog.select() supplies fresh model-specific stats. Garage upgrades
-	# are applied by the vehicle selector; the HUD never changes physics.
-	if is_instance_valid(active_vehicle_label):
-		active_vehicle_label.text = str(entry.display_name).to_upper()
-
-
-func _process(_dt: float) -> void:
+func _process(dt: float) -> void:
 	if is_instance_valid(dashboard):
-		dashboard.call("_process",_dt)
-	if vehicle.linear_velocity.length() > 1 or Input.is_action_pressed("reset"):
-		status.text = "%s   /   %s" % [vehicle.surface, "CAR FOLLOW" if camera.follow_heading else "NORTH UP"]
+		dashboard.call("_process",dt)

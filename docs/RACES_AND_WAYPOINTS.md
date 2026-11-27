@@ -36,3 +36,8 @@ pauses during an event so the active race's cyan/braking guidance stays clear.
 Event definitions live in `resources/races/`. They select named road pieces
 and positions along them. The route planner follows the current loaded road
 graph, so saved road edits generate updated event routes on the next world load.
+
+
+## Compact free-roam HUD
+
+The mini map is now a 244px map inside a 4px border (252px overall); circular and square modes still share the same isolated render viewport and preserve player, route, enemy and activity markers. District, street, scale and waypoint captions are removed from the minimap, while full atlas controls/details remain. Progression is shown in the pause dashboard, not a separate driving overlay. The bottom-left cluster uses live condition-service HP and fuel/EV charge in a 42px strip; the strip is omitted where solo resources are unavailable. Police and contract cards stack only when relevant; contract result feedback fades after its existing notice timer, service hints are contextual. Online wanted UI is target-specific. No physics or reward rules changed. CI and visual review pending.

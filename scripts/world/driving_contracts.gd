@@ -4,6 +4,7 @@ extends Node2D
 ## collection and real road-route planner, rather than custom teleport jobs.
 const Rules = preload("res://scripts/world/driving_contract_rules.gd")
 const PPM := 20.0
+const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 var player: VehicleController2D
 var world: Node2D
 var economy: Object
@@ -41,6 +42,11 @@ var notice := "NO ACTIVE CONTRACT"
 var notice_seconds := 0.0
 var hud_layer: CanvasLayer
 var readout: Label
+var status_host: VBoxContainer
+var contract_panel: PanelContainer
+var contract_title: Label
+var deadline_bar: ProgressBar
+var initial_seconds := 0.0
 var abandon_button: Button
 
 func _ready() -> void:
@@ -54,25 +60,19 @@ func _ready() -> void:
 	hud_layer = CanvasLayer.new()
 	hud_layer.layer = 4
 	add_child(hud_layer)
-	var panel := PanelContainer.new()
-	panel.position = Vector2(24, 286)
-	panel.custom_minimum_size = Vector2(360, 44)
-	hud_layer.add_child(panel)
+	var parent: Node = status_host if is_instance_valid(status_host) else hud_layer
+	contract_panel = HudStyle.status_card(parent,Color("#63d6da"))
+	if not is_instance_valid(status_host):
+		contract_panel.position = Vector2(16,140)
 	var column := VBoxContainer.new()
-	panel.add_child(column)
-	readout = Label.new()
-	readout.add_theme_font_size_override("font_size", 13)
-	column.add_child(readout)
-	robbery_status = Label.new()
-	robbery_status.add_theme_font_size_override("font_size",13)
-	robbery_status.visible = false
-	column.add_child(robbery_status)
-	robbery_meter = ProgressBar.new()
-	robbery_meter.custom_minimum_size = Vector2(340,18)
-	robbery_meter.max_value = 100.0
-	robbery_meter.show_percentage = true
-	robbery_meter.visible = false
-	column.add_child(robbery_meter)
+	contract_panel.add_child(column)
+	contract_title = HudStyle.status_text(column,"CONTRACT",11,Color("#63d6da"))
+	readout = HudStyle.status_text(column,"",14,Color("#eaf2e8"))
+	deadline_bar = HudStyle.status_bar(column,Color("#63d6da"))
+	robbery_status = HudStyle.status_text(column,"",12,Color("#f2bd78"))
+	robbery_status.hide()
+	robbery_meter = HudStyle.status_bar(column,Color("#f2bd78"))
+	robbery_meter.hide()
 	early_finish_button = Button.new()
 	early_finish_button.text = "FINISH LOWER REWARD"
 	early_finish_button.visible = false
@@ -83,7 +83,7 @@ func _ready() -> void:
 	abandon_button.pressed.connect(abandon)
 	abandon_button.visible = false
 	column.add_child(abandon_button)
-	readout.text = "DRIVING CONTRACTS / Visit a contract marker"
+	readout.text = ""
 
 func _find_dropoff(id: String) -> Dictionary:
 	if not is_instance_valid(marker_source):
@@ -300,6 +300,7 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 	early_finish_requested = false
 	started_car_id = str(economy.active_id)
 	remaining_seconds = Rules.configured_time(kind,authored_offer)*float(_crew_quote(authored_offer).get("time_factor",1.0))
+	initial_seconds = remaining_seconds
 	notice = "DRIVE TO " + str(next_stop.get("name","DESTINATION")).to_upper()
 	notice_seconds = 4.0
 	return {"result":"started","kind":kind,"destination":str(target.get("name","Destination"))}
@@ -326,6 +327,7 @@ func _end(message: String) -> void:
 	robbery_progress = 0.0
 	early_finish_requested = false
 	remaining_seconds = 0.0
+	initial_seconds = 0.0
 	started_car_id = ""
 	run_token = ""
 	notice = message
@@ -461,10 +463,14 @@ func _process(dt: float) -> void:
 					lower.to_upper(),economy.dollars(_robbery_cash(lower_offer)),
 					Rules.configured_wanted("robbery",lower_offer)]
 				early_finish_button.visible = true
+	contract_panel.visible = not active.is_empty() or notice_seconds>0.0
+	deadline_bar.visible = not active.is_empty()
 	if active.is_empty():
-		readout.text = "DRIVING CONTRACTS / REP %d / " % int(economy.get("underground_reputation")) + \
-			(notice if notice_seconds > 0.0 else "Find a job marker")
+		contract_title.text = "CONTRACT RESULT"
+		readout.text = notice if notice_seconds>0.0 else ""
 		return
+	contract_title.text = str(active.get("name","DRIVING CONTRACT")).to_upper()
+	deadline_bar.value = clampf(remaining_seconds/maxf(1.0,initial_seconds)*100.0,0.0,100.0)
 	var kind := str(active.get("properties",{}).get("contract_kind","courier"))
 	var dist_m := player.global_position.distance_to(
 		Vector2(float(destination.x),float(destination.y)) * PPM) / PPM
@@ -473,8 +479,8 @@ func _process(dt: float) -> void:
 	if stage=="robbery":
 		dist_m = player.global_position.distance_to(
 			Vector2(float(robbery_target.x),float(robbery_target.y)) * PPM) / PPM
-	readout.text = "%s / %s / %dm / %ds" % [
-		kind.to_upper(), objective, roundi(dist_m), ceili(remaining_seconds)]
+	var distance := "%.1f MI" % (dist_m/1609.344) if dist_m>=160.9344 else "%d FT" % roundi(dist_m*3.28084)
+	readout.text = "%s\n%s  /  %s LEFT" % [objective,distance,Rules.timer_text(ceili(remaining_seconds))]
 	if stage == "delivery" and player.mission_payload_mass_kg() > 0.0:
 		readout.text += "\nCREW %d / CARGO %.0f KG / +%.0f KG LOAD" % [player.mission_passengers,player.mission_cargo_kg,player.mission_payload_mass_kg()]
 	if notice_seconds > 0.0:
