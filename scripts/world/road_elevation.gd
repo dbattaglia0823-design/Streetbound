@@ -386,7 +386,12 @@ static func structure_kind(road: Dictionary) -> String:
 static func structure_profile(road: Dictionary, kind: String) -> Dictionary:
 	if kind not in ["regular","tunnel","underground","overpass"]:return {"error":"Choose a road structure."}
 	var next:=road.duplicate(true)
-	if kind==structure_kind(next):return {"road":next}
+	var previous:=structure_kind(next)
+	if kind==previous:return {"road":next}
+	if kind in ["tunnel","overpass"] and previous in ["tunnel","overpass"] and next.get("elevation",{}).has("point_layers") and int(next.elevation.start_layer)==0 and int(next.elevation.end_layer)==0:
+		var layers: Array=next.elevation.point_layers
+		for i in layers.size():layers[i]=-int(layers[i])
+		return {"road":next}
 	next.erase("elevation")
 	if kind=="regular":return {"road":next}
 	if next.has("jump") or next.has("autoGuardrails") or str(next.get("roadClass",""))=="onramp" or str(next.get("surface","")) not in ["asphalt","concrete"]:
