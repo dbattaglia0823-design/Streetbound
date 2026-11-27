@@ -133,6 +133,7 @@ func _valid_source(value: Dictionary) -> bool:
 			if not item is Dictionary or not item.has("id") or used.has(str(item.id)):return false
 			used[str(item.id)]=true
 			if category=="regions":
+				if item.has("drawOrder") and not _valid_draw_order(item.drawOrder,"terrain"):return false
 				if not item.get("points") is Array or item.points.size()<3 or item.points.size()>180:return false
 				for point in item.points:
 					if not point is Dictionary or not point.has("x") or not point.has("y"):return false
@@ -936,7 +937,14 @@ func set_prop_draw_order(identity: String, order: int) -> bool:
 		if order==0:prop.erase("drawOrder")
 		else:prop["drawOrder"]=order
 		return _commit(next)
-	last_error="Select a scenery asset first."
+	for region in next.regions:
+		if str(region.id)!=identity:continue
+		if not _valid_draw_order(order,"terrain"):
+			last_error="Terrain draw order must be -5 to +10.";return false
+		if order==0:region.erase("drawOrder")
+		else:region["drawOrder"]=order
+		return _commit(next)
+	last_error="Select a scenery asset or terrain region first."
 	return false
 
 
