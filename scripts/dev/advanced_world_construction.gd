@@ -241,7 +241,7 @@ static func preflight(doc: Dictionary,plan: Dictionary) -> Dictionary:
 	for junction in raw.get("junctions",[]):
 		if junction.get("kind","")=="merge":merges+=1
 	if plan.label=="Directional diamond interchange":
-		var first_new:=doc.roads.size()
+		var first_new: int=doc.roads.size()
 		var generated_merges:=0
 		for junction in raw.get("junctions",[]):
 			if junction.get("kind","")=="merge" and int(junction.get("ramp_road",-1))>=first_new:generated_merges+=1

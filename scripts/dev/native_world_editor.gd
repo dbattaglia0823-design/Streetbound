@@ -3033,7 +3033,8 @@ func _preview_construction() -> void:
 	var count: int=construction_plan.roads.size()+construction_plan.props.size()+construction_plan.get("regions",[]).size()+construction_plan.get("markers",[]).size()
 	construction_summary.text="%s: %d roads, %d scenery, %d plots, %d gameplay markers. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size(),construction_plan.get("regions",[]).size(),construction_plan.get("markers",[]).size()]
 	if construction_plan.has("stats"):construction_summary.text+="\n"+str(construction_plan.stats)
-	construction_dialog.get_ok_button().disabled=count==0 or _option_value(construction_mode)=="directional diamond"
+	construction_dialog.get_ok_button().disabled=count==0 or (map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"])
+	if map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"]:construction_summary.text+="\nValidate the preview with the production compiler before applying."
 	construction_canvas.queue_redraw()
 
 func _preflight_construction() -> void:
@@ -3041,7 +3042,7 @@ func _preflight_construction() -> void:
 		_notice("Preview the current source first.");return
 	var result:=AdvancedConstruction.preflight(authoring.doc,construction_plan)
 	construction_summary.text+="\n"+str(result.message)
-	if _option_value(construction_mode)=="directional diamond":construction_dialog.get_ok_button().disabled=not bool(result.ok)
+	if map_switcher.custom and _option_value(construction_mode) in ["advanced neighborhood","directional diamond"]:construction_dialog.get_ok_button().disabled=not bool(result.ok)
 
 func _draw_construction_preview() -> void:
 	var canvas:=construction_canvas
