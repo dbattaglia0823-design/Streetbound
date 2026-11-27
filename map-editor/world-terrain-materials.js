@@ -5,7 +5,7 @@ import {seeded,stringSeed} from './world-geometry.js';
 export const TERRAIN_COLORS=Object.freeze({grass:'#647d40',forest:'#405332',
   mountain:'#77796a',rock:'#77796a',highland:'#647d40',beach:'#cabb86',
   desert:'#c8a16c',ocean:'#326775',lake:'#3b635a',foam:'#bacbb0',
-  farmland:'#697343',city:'#87877a',dirt:'#795b3d',gravel:'#827e70'});
+  farmland:'#697343',city:'#87877a',dirt:'#795b3d',gravel:'#827e70',asphalt:'#737776'});
 export const terrainFamily=kind=>({town:'grass',meadow:'grass',sand:'beach',water:'lake',
   riverbank:'foam',field:'farmland'})[kind]||kind;
 export const TERRAIN_TILE_PIXELS=1024;

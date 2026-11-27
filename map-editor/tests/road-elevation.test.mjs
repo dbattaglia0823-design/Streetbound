@@ -76,3 +76,11 @@ test('race and contract objective elevations round trip independently',()=>{
   assert.throws(()=>updateEntity(doc,'marker-grade',{properties:{road_layer:2.5}}),/marker road layer/);
   assert.throws(()=>normalizeWorld({...raw,races:[{...raw.races[0],points:[{x:500,y:400,road_layer:true},{x:500,y:450}]}]}),/checkpoint road layer/);
 });
+
+test('authored height fields survive browser source round trips',()=>{
+  const doc=fixture(),values=Array(129*129).fill(0);values[64*129+64]=125.5;
+  const sculpted=normalizeWorld({...doc,terrainHeight:{size:129,values}});
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(sculpted))).terrainHeight,{size:129,values});
+  assert.throws(()=>normalizeWorld({...doc,terrainHeight:{size:129,values:[0]}}),/height field/);
+  values[0]=1201;assert.throws(()=>normalizeWorld({...doc,terrainHeight:{size:129,values}}),/height field/);
+});

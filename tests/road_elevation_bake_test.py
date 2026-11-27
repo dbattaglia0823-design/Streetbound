@@ -15,6 +15,18 @@ def fixture():
 
 
 class ElevationBakeTests(unittest.TestCase):
+    def test_authored_height_field_bake_and_cache_invalidation(self):
+        source=fixture()
+        base=geometry_cache_key(source)
+        field={"size":129,"values":[0.0]*(129*129)}
+        field["values"][64*129+64]=123.5
+        source["terrainHeight"]=field
+        self.assertEqual(make_archive(source)["terrainHeight"],field)
+        self.assertNotEqual(geometry_cache_key(source),base)
+        field["values"][0]=1201
+        with self.assertRaisesRegex(ValueError,"terrain height field"):
+            make_archive(source)
+
     def test_stacked_roads_share_coordinates_without_connections(self):
         archive = make_archive(fixture())
         connections = {tuple(pair) for pair in archive["road_connections"]}

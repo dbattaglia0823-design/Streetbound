@@ -15,7 +15,7 @@ import {drawJunctionFixtures} from './world-junction-fixtures.js';
 /** Original illustrated vector preview. The map data contains geometry, not artwork copies. */
 export const BIOME_COLORS={
   grass:'#728e61',forest:'#456d50',mountain:'#838578',rock:'#9e9580',
-  beach:'#d9c28d',ocean:'#417f9a',lake:'#5b9aa9',city:'#95958b',desert:'#bd9e71',farmland:'#9b9d68'
+  beach:'#d9c28d',ocean:'#417f9a',lake:'#5b9aa9',city:'#95958b',desert:'#bd9e71',farmland:'#9b9d68',dirt:'#795b3d',asphalt:'#737776'
 };
 export const ROAD_COLORS={asphalt:'#454e54',concrete:'#777a7c',dirt:'#a18359',gravel:'#888476',track:'#454e54'};
 /** Real Godot baked terrain colors. World Forge's standalone demo palette is
@@ -23,7 +23,7 @@ export const ROAD_COLORS={asphalt:'#454e54',concrete:'#777a7c',dirt:'#a18359',gr
 export const GAME_BIOME_COLORS={
   grass:'#a3b789',forest:'#718d70',mountain:'#9baba0',rock:'#9e9580',
   beach:'#e3d4aa',ocean:'#82b5b5',lake:'#82b5b5',city:'#b1b6a0',
-  desert:'#bd9e71',farmland:'#b4bd8a'
+  desert:'#bd9e71',farmland:'#b4bd8a',dirt:'#795b3d',asphalt:'#737776'
 };
 const stroke=(ctx,points,closed=false)=>{
   if(!points?.length)return;
@@ -518,6 +518,34 @@ function drawMarkers(ctx,markers,bounds){
     ctx.strokeText(marker.name,marker.x,marker.y-25);ctx.fillText(marker.name,marker.x,marker.y-25);
   }
 }
+const authoredReliefCache=new WeakMap();
+function drawAuthoredRelief(ctx,doc){
+  const field=doc.terrainHeight;
+  if(!field||typeof document==='undefined'||typeof ctx.drawImage!=='function')return;
+  let layer=authoredReliefCache.get(field);
+  if(!layer){
+    layer=document.createElement('canvas');layer.width=layer.height=field.size;
+    const g=layer.getContext('2d');if(!g)return;
+    const n=field.size,v=field.values,pixels=g.createImageData(n,n);
+    const dx=doc.world.width/(n-1),dy=doc.world.height/(n-1);
+    const sample=(x,y)=>v[Math.max(0,Math.min(n-1,y))*n+Math.max(0,Math.min(n-1,x))];
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+      const gx=(sample(x+1,y)-sample(x-1,y))/(2*dx),gy=(sample(x,y+1)-sample(x,y-1))/(2*dy);
+      const norm=Math.hypot(gx,gy,1),sun=Math.hypot(.65,.76,.75);
+      const shade=Math.max(-.5,Math.min(.4,((gx*.65+gy*.76+.75)/norm-.75)/sun));
+      const i=(y*n+x)*4;
+      pixels.data[i]=shade>0?247:19;pixels.data[i+1]=shade>0?228:31;pixels.data[i+2]=shade>0?184:44;pixels.data[i+3]=Math.round(Math.abs(shade)*160);
+    }
+    g.putImageData(pixels,0,0);authoredReliefCache.set(field,layer);
+  }
+  ctx.save();
+  // Water remains visually flat; clip the overlay to the latest land areas.
+  ctx.beginPath();ctx.rect(0,0,doc.world.width,doc.world.height);
+  for(const region of doc.regions)if(['lake','ocean'].includes(region.biome)&&region.points.length){
+    ctx.moveTo(region.points[0].x,region.points[0].y);for(const p of region.points.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();
+  }
+  ctx.clip('evenodd');ctx.drawImage(layer,0,0,doc.world.width,doc.world.height);ctx.restore();
+}
 export function drawWorld(ctx,doc,options={}){
   const bounds=options.bounds||null,quality=options.quality??1;
   ctx.save();
@@ -541,6 +569,7 @@ export function drawWorld(ctx,doc,options={}){
       !drawRuntimeTerrain(ctx,options.runtimePreview,doc,drawEdited))
       for(const region of doc.regions)drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
+    drawAuthoredRelief(ctx,doc);
   }
   if(options.showRoads!==false){
     const visibleRoads=roadsOnLayer(doc.roads,options.roadLayer??'all');

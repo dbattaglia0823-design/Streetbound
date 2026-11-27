@@ -87,7 +87,7 @@ func _valid_source(value: Dictionary) -> bool:
 	var width: float = float(world.get("width",0))
 	var height: float = float(world.get("height",0))
 	if value.get("customMap",false):
-		if str(value.get("name","")).strip_edges().is_empty() or world.get("base","grass") not in ["grass","forest","beach","desert","ocean","city","rock","mountain","lake","farmland"]:return false
+		if str(value.get("name","")).strip_edges().is_empty() or world.get("base","grass") not in ["grass","forest","beach","desert","ocean","city","rock","mountain","lake","farmland","dirt","asphalt"]:return false
 		if not is_finite(width) or not is_finite(height) or width!=floorf(width) or height!=floorf(height):return false
 	if (width < 600 or width > 24000 or height < 600 or height > 24000) if value.get("customMap",false) else (width < 6400 or width > 9600 or height < 4800 or height > 7200):
 		return false

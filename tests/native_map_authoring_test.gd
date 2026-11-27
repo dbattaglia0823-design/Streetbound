@@ -104,6 +104,32 @@ func _run() -> void:
 	check("property_kit_links_robbery_to_contact_and_dropoff",not property_plan.has("error") and property_plan.markers.size()==3
 		and not property_session.apply_construction(property_plan).is_empty()
 		and property_session.doc.markers.size()==3 and property_session.undo() and property_session.doc==property_before)
+	var Height=preload("res://scripts/world/authored_height_field.gd")
+	var landscape=Session.new()
+	landscape.doc=Library.create("Terrain brush test",1280,1280,"grass")
+	var landscape_before: Dictionary=landscape.doc.duplicate(true)
+	var raised: Dictionary=Height.apply({},Vector2(1280,1280),Vector2(640,640),100,50,"raise")
+	check("terrain_brush_raises_with_falloff",raised.values[64*129+64]==50.0 and raised.values[0]==0.0)
+	var lowered: Dictionary=Height.apply(raised,Vector2(1280,1280),Vector2(640,640),100,20,"lower")
+	check("terrain_brush_lowers",lowered.values[64*129+64]==30.0)
+	var smooth: Dictionary=Height.apply(raised,Vector2(1280,1280),Vector2(640,640),100,100,"smooth")
+	check("terrain_brush_smooths_peak",float(smooth.values[64*129+64])<50.0)
+	var flat: Dictionary=Height.apply(raised,Vector2(1280,1280),Vector2(640,640),100,100,"flatten",5)
+	check("terrain_flatten_and_undo",flat.values[64*129+64]==5.0 and landscape.set_terrain_height(flat)
+		and landscape.history.size()==1 and landscape.undo() and landscape.doc==landscape_before)
+	var image:=Image.create(2,2,false,Image.FORMAT_RGB8);image.fill(Color.WHITE)
+	var imported: Dictionary=Height.import_image(image,-20,100)
+	check("terrain_heightmap_import",Height.valid(imported) and imported.values[0]==100.0)
+	var route:=PackedVector2Array([Vector2(300,640),Vector2(980,640)])
+	var graded: Dictionary=Height.grade_road(raised,Vector2(1280,1280),route,100,0)
+	check("terrain_road_grading",graded.values[64*129+64]==0.0)
+	var river_points: Array[Vector2]=[Vector2(200,300),Vector2(640,400),Vector2(1000,300)]
+	var river: Dictionary=City.plan_river(landscape.doc,river_points,30,20,8)
+	check("river_banks_channel_atomic",not river.has("error") and river.regions.size()==2
+		and not landscape.apply_construction(river).is_empty() and landscape.doc.terrainHeight.size==129
+		and landscape.undo() and landscape.doc==landscape_before)
+	var trees: Dictionary=City.plan_vegetation(landscape.doc,Vector2(640,640),80,.5,"tree",42,8000)
+	check("vegetation_brush_deterministic",trees.props.size()>0 and trees==City.plan_vegetation(landscape.doc,Vector2(640,640),80,.5,"tree",42,8000))
 	var bulk_session=Session.new()
 	check("bulk_fixture_loads",bulk_session.load_source())
 	var bulk_ids: Array[String]=["road-0","road-1"]

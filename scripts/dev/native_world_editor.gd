@@ -1224,7 +1224,7 @@ func _apply_bulk_edit() -> void:
 			if not raw.is_valid_int():_notice("Lane count must be a whole number.");return
 			value=int(raw)
 		else:value=float(raw)
-	if key=="biome" and raw not in ["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert"]:_notice("Unknown terrain material.");return
+	if key=="biome" and raw not in ["grass","forest","rock","mountain","beach","lake","ocean","farmland","city","desert","dirt","asphalt"]:_notice("Unknown terrain material.");return
 	if key=="elevation" and category=="regions" and (float(value)<0 or float(value)>2000):_notice("Height must be between 0 and 2000 m.");return
 	if authoring.bulk_properties(ids,category,{key:value}):
 		_refresh_authoring();_notice("Bulk property updated in one undo step.")
@@ -2034,8 +2034,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_consume_input()
 				return
 			if active and (key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE):
-				if tool_name in ["race_grid","race_checkpoint"]:
-					if not pending_drag.is_empty():_cancel_gesture()
+				if tool_name in ["race_grid","race_checkpoint","landscape_brush","draw_river"]:
+					if not pending_drag.is_empty() or not draft_points.is_empty():_cancel_gesture()
 					else:_choose_tool("move_prop")
 					_consume_input()
 					return
