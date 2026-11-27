@@ -116,6 +116,7 @@ func _ready() -> void:
 			shared_police.set("traffic", traffic)
 			add_child(shared_police)
 			shared_police.connect("escaped", _release_police_target)
+			local_vehicle.police_collision.connect(_on_police_collision.bind(local_vehicle), CONNECT_DEFERRED)
 	friend_race = Node2D.new()
 	friend_race.name = "FriendDragRace"
 	friend_race.set_script(FriendRaceScript)
@@ -251,6 +252,8 @@ func _add_remote(id: int) -> void:
 	# Only the host advances guest cars through the physical controller.
 	car.set_physics_process(online_session.hosting)
 	peer_cars[id] = car
+	if online_session.hosting:
+		car.police_collision.connect(_on_police_collision.bind(car), CONNECT_DEFERRED)
 	var nameplate := Label.new()
 	nameplate.name = "Name_%d" % id
 	nameplate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -556,7 +559,7 @@ func _submit_action(action: String) -> void:
 			car.transmission.shift(-1, car.config)
 
 ## Called only by the host's validated race director on GREEN. There is no
-## guest police RPC, manual wanted selector, or free-roam violation trigger.
+## guest police RPC or manual wanted selector. Physical police impacts use a separate host-local signal.
 func on_illegal_race_started() -> bool:
 	if not online_session.hosting or not is_instance_valid(shared_police) or not is_instance_valid(friend_race):
 		return false
@@ -578,7 +581,25 @@ func on_illegal_race_started() -> bool:
 	if suspects.is_empty():
 		return false
 	suspects.shuffle()
-	var peer_id: int = suspects[0]
+	return _start_verified_police_pursuit(suspects[0], level)
+
+## This is a host-local physical collision signal, never a guest RPC.
+func _on_police_collision(closing_speed_mps: float, driver: VehicleController2D) -> void:
+	if not online_session.active or not online_session.hosting or not is_instance_valid(driver):
+		return
+	if not is_finite(closing_speed_mps) or closing_speed_mps < VehicleController2D.POLICE_CRASH_THRESHOLD_MPS:
+		return
+	if driver == local_vehicle:
+		_start_verified_police_pursuit(1, 1)
+		return
+	for id in peer_cars:
+		if peer_cars[id] == driver and online_session.world_ready_peers.has(id) and not online_session.disconnected_since.has(id):
+			_start_verified_police_pursuit(int(id), 1)
+			return
+
+func _start_verified_police_pursuit(peer_id: int, level: int) -> bool:
+	if not online_session.hosting or not is_instance_valid(shared_police) or int(shared_police.get("wanted_level")) > 0 or not online_session.players.has(peer_id):
+		return false
 	var target: VehicleController2D = local_vehicle if peer_id == 1 else peer_cars.get(peer_id) as VehicleController2D
 	if not is_instance_valid(target) or not shared_police.call("set_shared_target", target):
 		return false

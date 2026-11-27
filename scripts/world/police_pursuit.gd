@@ -66,6 +66,8 @@ func _ready() -> void:
 	planner = PlannerScript.new()
 	planner.call("setup", traffic.get("network"), world.get("data"))
 	player.vehicle_reset.connect(_on_player_reset)
+	if not shared_session:
+		player.police_collision.connect(_on_player_police_collision, CONNECT_DEFERRED)
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
@@ -87,6 +89,15 @@ func set_shared_target(target: VehicleController2D) -> bool:
 	player = target
 	player.vehicle_reset.connect(_on_player_reset)
 	return true
+
+func _on_player_police_collision(closing_speed_mps: float) -> void:
+	if shared_session or wanted_level > 0 or bust_timer > 0.0 or not is_physics_processing():
+		return
+	if not is_finite(closing_speed_mps) or closing_speed_mps < VehicleController2D.POLICE_CRASH_THRESHOLD_MPS:
+		return
+	if start_pursuit(1):
+		message = "POLICE VEHICLE COLLISION"
+		message_timer = 3.0
 
 func _on_player_reset() -> void:
 	# Reset cannot erase an active pursuit or repair the suspect's car.

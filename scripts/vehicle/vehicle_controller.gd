@@ -6,6 +6,9 @@ signal crash_contact(closing_speed_mps: float, contact_point_px: Vector2,
 	surface_normal: Vector2, pre_impact_velocity_mps: Vector2)
 ## Damage-only contact signal; existing crash VFX/audio signals stay unchanged.
 signal damage_contact(closing_speed_mps: float, contact_point_px: Vector2, surface_normal: Vector2, pre_impact_velocity_mps: Vector2)
+## Confirmed driver-initiated impact against an actual police collider.
+signal police_collision(closing_speed_mps: float)
+const POLICE_CRASH_THRESHOLD_MPS := 2.5
 signal vehicle_reset
 const PIXELS_PER_METER := 20.0
 const Powertrain = preload("res://scripts/vehicle/powertrain_dynamics.gd")
@@ -570,6 +573,14 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 									other_car.yaw_rate = clampf(other_car.yaw_rate + lateral_contact * minf(damage_speed*0.16,0.9),-2.4,2.4)
 									pit_owner.set("pit_cooldown", 6.0)
 						other_car.damage_contact.emit(damage_speed, collision.get_position(), -normal, other_car.linear_velocity)
+					# The normal component of our own motion must also be significant;
+					# merely being hit while stopped does not generate heat.
+					if other.is_in_group("police_patrol") or other.is_in_group("police_vehicle"):
+						if other.is_in_group("police_patrol"):
+							var patrol_velocity := Vector2.UP.rotated((other as Node2D).rotation) * float(other.get("motion_speed_mps"))
+							damage_speed = maxf(0.0, -(pre_impact_velocity - patrol_velocity).dot(normal))
+						if impact_speed >= POLICE_CRASH_THRESHOLD_MPS and damage_speed >= POLICE_CRASH_THRESHOLD_MPS:
+							police_collision.emit(damage_speed)
 					damage_contact.emit(damage_speed, collision.get_position(), normal, pre_impact_velocity)
 			else:
 				# Buildings and barriers stay hard, with the original response.

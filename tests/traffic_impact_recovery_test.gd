@@ -7,6 +7,7 @@ const Flow = preload("res://scripts/world/traffic_flow.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
 const PPM := 20.0
 var failures: Array[String] = []
+var police_contacts := 0
 
 
 func _initialize() -> void:
@@ -184,6 +185,7 @@ func run() -> void:
 	player2.position=Vector2(9000,9400)
 	root.add_child(player2)
 	player2.set_physics_process(false)
+	player2.police_collision.connect(func(_speed: float): police_contacts += 1)
 	await physics_frame
 	# Test the exact same collision callback used by the player controller:
 	# impact physically displaces the traffic car without disabling collision.
@@ -198,5 +200,23 @@ func run() -> void:
 		player2.linear_velocity.length() > 4.5,player2.linear_velocity)
 	check("collision_keeps_player_velocity_synced",player2.velocity.distance_to(
 		player2.linear_velocity*20.0)<0.02,player2.velocity)
+	check("civilian_crash_does_not_report_police_contact", police_contacts == 0)
+	# Repeat the real physics collision with a police patrol, not a synthetic signal.
+	var police_car := CharacterBody2D.new()
+	police_car.set_script(CarScript)
+	if not patrols.is_empty():
+		police_car.set("patrol_model", patrols[0])
+	police_car.position = Vector2(15000,15000)
+	root.add_child(police_car)
+	player2.position = Vector2(15000,15400)
+	player2.rotation = 0.0
+	player2.linear_velocity = Vector2.UP*18.0
+	await physics_frame
+	for frame in 100:
+		await physics_frame
+		player2.step_vehicle(1.0/60.0,Vector4.ZERO)
+		if police_contacts > 0:
+			break
+	check("real_police_patrol_crash_reports_contact", police_contacts > 0, police_contacts)
 	print("TRAFFIC ART / COLLISION / RECOVERY: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
