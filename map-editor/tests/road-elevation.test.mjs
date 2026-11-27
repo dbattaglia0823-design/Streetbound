@@ -27,3 +27,19 @@ test('road profiles survive normalization and edits, with bounded ramps',()=>{
   const ground=updateEntity(doc,'road-1',{elevation:{start_layer:0,end_layer:0}});
   assert.equal('elevation' in ground.roads[1],false);
 });
+
+test('on-ramp preview stays separate from stacked roads and preserves hot-swap mode',()=>{
+  const doc=fixture();
+  const ground={...doc.roads[0]};
+  const deck={...doc.roads[1],points:[{x:700,y:250},{x:700,y:600}]};
+  const ramp={...ground,id:'road-2',name:'Directional Ramp',roadClass:'onramp',
+    lanes:1,width:8,points:[{x:520,y:480},{x:700,y:400}]};
+  const authored=normalizeWorld({...doc,roads:[ground,deck,ramp]});
+  const junctions=buildRoadJunctions(authored.roads);
+  assert.ok(junctions.some(j=>j.kind==='merge'&&j.roads.includes(ground.id)&&j.roads.includes(ramp.id)));
+  assert.equal(connects(junctions,0,1),false);
+  assert.equal(connects(junctions,1,2),false);
+  const changed=updateEntity(authored,ramp.id,{junctionEnd:'intersection'});
+  assert.equal(changed.roads[2].junctionEnd,'intersection');
+  assert.equal(buildRoadJunctions(changed.roads).some(j=>j.kind==='merge'),false);
+});

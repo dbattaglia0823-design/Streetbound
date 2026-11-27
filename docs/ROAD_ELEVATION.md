@@ -48,9 +48,11 @@ cutouts and non-ground objective authoring are pending. Multiplayer friend
 replicas receive host-owned signed road height in the existing timestamped
 movement history, so remote deck and tunnel drawing order follows the host.
 Height is interpolated but not extrapolated; invalid values are rejected and
-legacy snapshots default to ground. Local guest elevation reconciliation,
-police replica grade state, multiplayer jumps and live network validation
-remain pending. This visual-only change does not modify collision authority.
+legacy snapshots default to ground. Local guest pose correction now carries the host's baked road identity and
+validates it against the shared pavement before applying the collision band.
+Police replica height is carried in the same buffered visual metadata.
+Multiplayer jumps and live network validation remain pending. Host simulation
+remains authoritative. These new integration changes are awaiting CI.
 
 ## Author and test a stunt jump
 
@@ -92,7 +94,9 @@ python tools/build_custom_test_world.py --source tests/fixtures/road-jumps.world
 godot --headless --path . --fixed-fps 120 --script res://tests/road_jump_drive_test.gd -- res://.runtime/road-jumps.stream.json
 ```
 
-The fixture includes an overpass, a same-height elevated intersection, a
+The production bake tests also cover an on-ramp overlapping a deck and a
+same-layer elevated directional merge. Browser tests check the matching
+preview and junction-mode toggle. The fixture includes an overpass, a same-height elevated intersection, a
 tunnel, a ground-level intersection, and overlapping endpoints with no road
 connection. The drive test uses the real controller and verifies collision
 isolation, same-deck impacts, lateral containment, and ground reset.
