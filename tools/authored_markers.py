@@ -2,7 +2,7 @@
 import math
 import re
 
-KINDS={'player_spawn','garage','dealership','mission','fast_travel',
+KINDS={'player_spawn','home','garage','dealership','mission','fast_travel',
        'traffic_spawn','fuel','checkpoint','race_start','finish','custom',
        'contract','contract_dropoff','contract_contact','robbery_target'}
 

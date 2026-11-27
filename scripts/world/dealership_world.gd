@@ -232,6 +232,7 @@ func closest_site() -> Dictionary:
 func can_browse(site: Dictionary) -> bool:
 	if site.is_empty() or not is_instance_valid(player):
 		return false
+	if is_instance_valid(world) and not world.business_open("dealership"):return false
 	# The browsing trigger belongs inside the outlined forecourt bay,
 	# not on the roadside shoulder or an invisible radius on nearby grass.
 	return Pavement.contains_lot(site, player.global_position) and \
@@ -248,6 +249,8 @@ func parking_prompt() -> String:
 		return ""
 	var p := v(site.parking_m) * PPM
 	var distance := player.global_position.distance_to(p)/PPM
+	if is_instance_valid(world) and not world.business_open("dealership") and distance<=PARK_RADIUS_M+5.0:
+		return "CLOSED / OPEN 08:00–20:00"
 	if can_browse(site):
 		return "BROWSE DEALERSHIP  [ F ]"
 	if distance <= PARK_RADIUS_M + 5.0:
