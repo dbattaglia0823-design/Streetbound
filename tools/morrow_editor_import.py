@@ -1,3 +1,4 @@
+from road_auto_guardrails import set_auto_guardrails
 """Apply a validated World Forge Morrow Coast authoring overlay during rebake.
 
 The editor works on human-readable road anchors. ALL derived runtime data
@@ -431,6 +432,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road = roads[index]
         entry = numbered[index]
         set_profile(road, entry)
+        set_auto_guardrails(road, entry)
         set_jump(road, entry)
         fresh = points(entry["points"], width, height)
         baseline = [list(p) for p in road["anchors"]]
@@ -555,6 +557,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                 raise ValueError("Invalid road junction mode")
             if key in entry: roads[-1][key]=entry[key]
         set_profile(roads[-1], entry)
+        set_auto_guardrails(roads[-1], entry)
         set_jump(roads[-1], entry)
     # Terrain changes are applied ONLY when they differ from the sampled
     # source projection. This protects high-detail coastlines on an untouched

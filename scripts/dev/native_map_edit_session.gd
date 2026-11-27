@@ -16,6 +16,7 @@ const MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
 const RaceGrid=preload("res://scripts/world/race_start_grid.gd")
 const RoadShapes=preload("res://scripts/dev/road_shape_geometry.gd")
 const Sidewalks=preload("res://scripts/dev/sidewalk_topology.gd")
+const AutoRails=preload("res://scripts/dev/road_auto_guardrails.gd")
 const DealershipConfig=preload("res://scripts/world/dealership_config.gd")
 const MAX_ROADS := 180
 const MAX_PROPS := 4000
@@ -122,7 +123,7 @@ func _valid_source(value: Dictionary) -> bool:
 			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
-		if not Elevation.authoring_error(road).is_empty():return false
+		if not Elevation.authoring_error(road).is_empty() or not AutoRails.valid(road):return false
 		if road.has("jump") and RoadJump.authoring_preview(road).is_empty():return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
 	for category in ["regions","markers"]:
@@ -1254,6 +1255,17 @@ func apply_point_elevations(identity: String, layers: Array) -> bool:
 	return false
 
 
+func set_auto_guardrails(identity: String, settings: Dictionary) -> bool:
+	var next:=doc.duplicate(true)
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if settings.is_empty():road.erase("autoGuardrails")
+		else:road["autoGuardrails"]=settings.duplicate(true)
+		if not AutoRails.valid(road):
+			last_error="Choose a ground-level road and a start percentage smaller than the end.";return false
+		return _commit(next)
+	return false
+
 func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
@@ -1766,6 +1778,8 @@ func split_road(identity: String,index: int) -> String:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
+		if road.has("autoGuardrails") and index!=0 and index!=road.points.size()-1:
+			last_error="Remove road-linked guardrails before splitting, then set ranges on the new roads.";return ""
 		if road.has("jump") and index!=0 and index!=road.points.size()-1:
 			last_error="Remove the jump before splitting its road."
 			return ""

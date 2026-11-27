@@ -44,6 +44,8 @@ var runtime_playtest:=false
 var preview_indices: Dictionary={}
 var scenery_rebuild_count:=0
 var _props_stamp:=-1
+var _auto_rail_stamp:=-1
+var _auto_rail_preview: Array[PackedVector2Array]=[]
 var _collision_stamp:=-1
 var drag_scenery: Node2D
 var drag_outline: Node2D
@@ -63,6 +65,16 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 		source_id: String = "", point_index: int = -1) -> void:
 	draft_doc = source
 	draft_initial = baseline
+	var rail_stamp: int=hash([source.get("roads",[]),source.get("world",{}),road_width_scale])
+	if rail_stamp!=_auto_rail_stamp:
+		_auto_rail_stamp=rail_stamp
+		_auto_rail_preview.clear()
+		var roads: Array=source.get("roads",[])
+		if roads.any(func(r: Dictionary)->bool:return r.has("autoGuardrails")):
+			var paths: Dictionary={}
+			for road in roads:paths[str(road.id)]=EditSession.road_path(road)
+			var size:=Vector2(float(source.world.width),float(source.world.height))
+			_auto_rail_preview=EditSession.AutoRails.preview(roads,paths,Rect2(Vector2.ZERO,size),road_width_scale)
 	original_by_id.clear()
 	for original in baseline.get("props",[]):
 		original_by_id[str(original.get("id",""))] = original
@@ -674,6 +686,12 @@ func _draw() -> void:
 	if layer_flags.get("markers",true):_draw_races()
 	_draw_draft_junctions(true)
 	_draw_draft()
+	if not runtime_playtest and layer_flags.get("roads",true):
+		for path in _auto_rail_preview:
+			var pixels:=PackedVector2Array()
+			for p in path:pixels.append(p*PPM)
+			draw_polyline(pixels,Color("#252f39"),maxf(13.0,4.0/maxf(.003,zoom_level)),true)
+			draw_polyline(pixels,Color("#c6dfef"),maxf(6.0,2.0/maxf(.003,zoom_level)),true)
 	if show_lanes and layer_flags.get("roads",true) and is_instance_valid(network):
 		for edge in network.edges:
 			var filter_layer:=int(layer_flags.get("road_isolation_layer",99))
