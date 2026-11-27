@@ -637,6 +637,9 @@ func _car_following(index: int, desired_px: float) -> float:
 		var other_junction := _junction_for(other)
 		if my_junction >= 0 and my_junction == other_junction:
 			var other_inside := bool(network.edges[int(other.edge)].connector)
+			# Lane tapers use receiver-specific priority, not intersection UID priority.
+			var my_next: int=int(agent.edge) if bool(network.edges[int(agent.edge)].connector) else int(agent.get("next",-2))
+			if my_next>=0 and bool(network.edges[my_next].get("lane_transition",false)):continue
 			var must_yield := other_inside or int(agent.uid) > int(other.uid)
 			desired_px = _crossing_speed(agent, desired_px,
 				other_node.global_position, other_velocity, must_yield, heading)
@@ -721,6 +724,42 @@ func _next_target(agent: Dictionary,edge: Dictionary) -> int:
 	return int(agent.next)
 
 
+## Check the destination lane and competing approaches, never the opposing
+## carriageway. A continuing lane has priority over a disappearing lane.
+func _transition_blocked(agent: Dictionary, connector: Dictionary, remaining: float) -> bool:
+	var target_id:=int(connector.get("target_lane",-1))
+	if target_id<0:return false
+	var merging:=str(connector.control)=="yield"
+	var own_eta:=maxf(0.0,remaining)/maxf(PPM*2.0,float(agent.speed))
+	for other in agents:
+		if int(other.uid)==int(agent.uid) or not is_instance_valid(other.node):continue
+		var other_id:=int(other.edge)
+		if other_id<0 or other_id>=network.edges.size():continue
+		var other_edge: Dictionary=network.edges[other_id]
+		if other_id==target_id:
+			# Keep a usable downstream space rather than merging into a queue.
+			if float(other.progress)<PPM*9.0+float(agent.speed)*.7:return true
+			continue
+		if bool(other_edge.get("lane_transition",false)) and int(other_edge.get("target_lane",-1))==target_id:
+			# An occupied connector owns the receiving lane until it clears.
+			return true
+		if not merging or bool(other_edge.connector) or int(other_edge.end_j)!=int(connector.start_j):continue
+		var other_remaining:=maxf(0.0,float(other_edge.length_px)-float(other.progress))
+		var other_eta:=other_remaining/maxf(PPM*2.0,float(other.speed))
+		if other_eta>own_eta+2.5 or other_remaining>PPM*55.0:continue
+		for option in other_edge.next:
+			var candidate: Dictionary=network.edges[int(option)]
+			if bool(candidate.get("lane_transition",false)) and int(candidate.get("target_lane",-1))==target_id and str(candidate.control)=="none":
+				return true
+		# Two disappearing lanes may share a receiver; resolve equal arrival
+		# deterministically without a permanent junction-wide reservation.
+		if int(other.uid)<int(agent.uid):
+			for option in other_edge.next:
+				var candidate: Dictionary=network.edges[int(option)]
+				if bool(candidate.get("lane_transition",false)) and int(candidate.get("target_lane",-1))==target_id:return true
+	return false
+
+
 func _tick_agent(index: int,dt: float) -> bool:
 	var agent: Dictionary=agents[index]
 	var edge: Dictionary=network.edges[int(agent.edge)]
@@ -759,7 +798,10 @@ func _tick_agent(index: int,dt: float) -> bool:
 			var junction := int(next.start_j)
 			var owner := int(active_junctions.get(junction,-1))
 			var control := str(next.control)
-			var should_yield := junction>=0 and owner>=0 and owner!=int(agent.uid)
+			var lane_transition:=bool(next.get("lane_transition",false))
+			var should_yield := not lane_transition and junction>=0 and owner>=0 and owner!=int(agent.uid)
+			if lane_transition and _transition_blocked(agent,next,remaining):
+				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*1.5)))
 			if int(next.get("signal_count",0))>0 and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
 				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*2.0)))
 			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*8.0:
@@ -768,7 +810,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 					agent.stop_wait=float(agent.stop_wait)+dt
 					if float(agent.stop_wait)>=0.85:
 						agent.stop_done=true
-			if control=="yield" and remaining<PPM*13.0:
+			if control=="yield" and not lane_transition and remaining<PPM*13.0:
 				desired=minf(desired,PPM*4.0)
 				if str(next.get("junction_control",""))=="merge":
 					# Give approaching through traffic priority, not merely the first reservation.
@@ -802,7 +844,12 @@ func _tick_agent(index: int,dt: float) -> bool:
 			if int(active_junctions.get(old_j,-1))==int(agent.uid):
 				active_junctions.erase(old_j)
 		var next_edge: Dictionary=network.edges[chosen]
-		if bool(next_edge.connector) and int(next_edge.start_j)>=0:
+		if bool(next_edge.get("lane_transition",false)) and _transition_blocked(agent,next_edge,maxf(0.0,remaining)):
+			agent.progress=minf(float(edge.length_px)-.1,previous_progress)
+			agent.speed=0.0
+			node.set("brake_lights_on",true)
+			return true
+		if bool(next_edge.connector) and not bool(next_edge.get("lane_transition",false)) and int(next_edge.start_j)>=0:
 			active_junctions[int(next_edge.start_j)]=int(agent.uid)
 		var excess := float(agent.progress)-float(edge.length_px)
 		agent.edge=chosen

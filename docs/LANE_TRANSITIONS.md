@@ -1,0 +1,7 @@
+# Automatic lane transitions
+
+Joining two nearly straight, same-level paved through roads with different lane counts generates an uncontrolled lane transition automatically, even when both roads have the same physical width. The builder creates a longer transition apron (up to 60 m along each approach where space permits), leaves a marking gap, and paints median and tapering lane boundaries. Existing intersections, branches, roundabouts and one-way ramp merges retain their normal rules.
+
+Traffic uses lane indices relative to its own direction, not the authored road direction. Median-side continuing lanes retain priority; disappearing outside lanes merge into the last surviving lane. In the other direction, the outside lane can feed newly appearing lanes. A merging driver waits for a gap in the receiving lane, occupied connectors and competing through traffic. No signal or stop sign is generated at the transition. Opposite directions do not share a junction-wide reservation. Ordinary collision and obstacle avoidance still apply.
+
+Save and rebuild edited maps to regenerate transitions. Existing prebaked stock archives are unchanged until rebuilt. The native draft traffic graph previews the same rules; the browser identifies transitions and suppresses its decorative junction fixtures. The implementation changes derived junctions and lane paint, not the authored road control points. Sharp turns and three-or-more-arm junctions are deliberately excluded. Live traffic density and visual tuning require gameplay verification.

@@ -233,6 +233,16 @@ export function buildRoadJunctions(roads){
     if(ramp&&j.roads.length<=3){
       j.kind='merge';
     }
+    if(!ramp&&j.roads.length===2){
+      const pair=j.roads.map(id=>byId.get(id)),outward=pair.map(r=>{
+        const start=distance(r.points[0],j),end=distance(r.points.at(-1),j);
+        if(Math.min(start,end)>.5)return null;
+        return start<end?unit(r.points[0],r.points[1]):unit(r.points.at(-1),r.points.at(-2));
+      });
+      if(outward.every(Boolean)&&dot(outward[0],outward[1])<-.94&&
+        pair.every(r=>['city','highway','country','mountain'].includes(r.roadClass)&&['asphalt','concrete'].includes(r.surface))&&
+        Math.max(2,pair[0].lanes)!==Math.max(2,pair[1].lanes))j.kind='lane_transition';
+    }
     const junction=polygonFor(j,index,byId);
     delete junction._count;
     junction.roads.sort();

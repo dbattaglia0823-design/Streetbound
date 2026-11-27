@@ -15,6 +15,20 @@ def fixture():
 
 
 class ElevationBakeTests(unittest.TestCase):
+    def test_lane_transition_is_uncontrolled_even_with_equal_width(self):
+        source=fixture()
+        a,b=copy.deepcopy(source["roads"][0]),copy.deepcopy(source["roads"][0])
+        a.update(id="road-0",name="Wide",roadClass="highway",lanes=6,width=18,points=[{"x":100,"y":400},{"x":500,"y":400}])
+        b.update(id="road-1",name="Narrow",roadClass="highway",lanes=2,width=18,points=[{"x":900,"y":400},{"x":500,"y":400}])
+        source["roads"]=[a,b]
+        archive=make_archive(source)
+        j,=[j for j in archive["junctions"] if j["kind"]=="lane_transition"]
+        self.assertEqual(j["control"],"lane_transition")
+        self.assertEqual(len(j["approaches"]),2)
+        self.assertTrue(all(arm["control"]=="none" for arm in j["approaches"]))
+        self.assertTrue(all(arm["setback"]>=30 for arm in j["approaches"]))
+        self.assertEqual(j.get("signal_count",0),0)
+
     def test_named_editor_layers_never_hide_game_geometry(self):
         source=fixture()
         expected=make_archive(source)
