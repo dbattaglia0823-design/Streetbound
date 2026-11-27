@@ -42,7 +42,7 @@ def adapt(world):
         junction["curbs"] = [[_outward(p, center, apron_ratio) for p in curve]
                              for curve in junction.get("curbs", [])]
         for approach in junction.get("approaches", []):
-            approach["width"] = float(approach["width"]) * ratio
+            approach["width"] = round(float(approach["width"]) * ratio, 3)
         junction["radius"] = float(junction["radius"]) * apron_ratio
     # Keep parking bays, drag timing decals, garages, barriers, and vehicles
     # their exact original size. Static building/foliage assets alone get
