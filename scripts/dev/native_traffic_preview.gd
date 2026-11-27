@@ -132,6 +132,23 @@ static func _junctions(roads: Array) -> Array:
 						var crossing: Variant=Geometry2D.segment_intersects_segment(a,b,segment.a,segment.b)
 						if crossing!=null:_event(events,cells,crossing,id,int(segment.road))
 					grid[key].append({"road":id,"index":i,"a":a,"b":b})
+	# Collinear segments sharing an endpoint have no unique intersection
+	# in Geometry2D.segment_intersects_segment. Register exact endpoint
+	# joins explicitly so straight lane-count transitions are not lost.
+	var endpoints: Dictionary={}
+	for id in roads.size():
+		var road: Dictionary=roads[id]
+		if not RANK.has(str(road.kind)) or road.surface in ["GRAVEL","DIRT"]:continue
+		for raw in [road.points[0],road.points[-1]]:
+			var p:=_point(raw)
+			var key:=Vector2i((p/.12).floor())
+			for x in range(key.x-1,key.x+2):
+				for y in range(key.y-1,key.y+2):
+					for other in endpoints.get(Vector2i(x,y),[]):
+						if int(other.road)!=id and p.distance_to(other.point)<=.12:
+							_event(events,cells,p,id,int(other.road))
+			if not endpoints.has(key):endpoints[key]=[]
+			endpoints[key].append({"road":id,"point":p})
 	var junctions: Array=[]
 	for event in events:
 		var center: Vector2=event.point
