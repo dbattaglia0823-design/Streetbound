@@ -29,7 +29,7 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 		var urban := kind in ["local","arterial"]
 		var paint := Color("#eeeae0")
 		var incoming_width := width if kind=="onramp" else width*.5
-		if control=="stop" and not merge and incoming_width>1.0:
+		if control in ["stop","signal"] and not merge and incoming_width>1.0:
 			canvas.draw_line((p+outward*.8+normal*(width*.5-incoming_width-.25))*ppm,(p+outward*.8-normal*(width*.5-.35))*ppm,paint,.3*ppm,true)
 		elif control=="yield" and incoming_width>1.0:
 			var count := maxi(1,floori((incoming_width-.7)/.85))

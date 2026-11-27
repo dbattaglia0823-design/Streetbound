@@ -27,6 +27,7 @@ func _ready(e) -> bool:
 	return e.source_ready and not e._editing_locked() and e.pending_drag.is_empty() and e.draft_points.is_empty()
 
 func _graph(e) -> Dictionary:
+	if not e.authoring.doc.get("junctionControls",[]).is_empty():return {}
 	if e.traffic_preview.is_current():
 		# Draft preview currently does not split individual grade pieces.
 		# Never use its flattened topology to author a stacked crossing.
@@ -206,19 +207,19 @@ func open_controls(e,junction: bool) -> void:
 	var center: Vector2=e.editor_camera.global_position/20.0
 	var x:=_control_field(panel,"X (m)",center.x,0,float(bounds.width))
 	var y:=_control_field(panel,"Y (m)",center.y,0,float(bounds.height))
-	var name_field:=LineEdit.new()
+	var name_field: LineEdit
 	var fields: Dictionary={}
 	var choices: OptionButton
 	var turns: Array[CheckBox]=[]
 	if junction:
 		_label(panel,"Use the centre of a real intersection; matched during bake within 8 m on the selected level.")
-		fields["layer"]=_control_field(panel,"Road level",0,-2,2)
+		fields["layer"]=_control_field(panel,"Road level",0 if e.road_selection_layer==99 else e.road_selection_layer,-2,2)
 		choices=_control_choice(panel,"Control",["stop","yield","signal","uncontrolled"])
 		var row:=HBoxContainer.new();panel.add_child(row)
 		for turn in ["left","straight","right"]:
 			var check:=CheckBox.new();check.text=turn;check.button_pressed=true;row.add_child(check);turns.append(check)
 	else:
-		name_field.text="New district";panel.add_child(name_field)
+		name_field=LineEdit.new();name_field.text="New district";panel.add_child(name_field)
 		fields["w"]=_control_field(panel,"Width (m)",400,1,float(bounds.width))
 		fields["h"]=_control_field(panel,"Height (m)",400,1,float(bounds.height))
 		fields["density"]=_control_field(panel,"Traffic density (%)",100,0,200)

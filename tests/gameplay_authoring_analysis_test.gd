@@ -1,4 +1,5 @@
 extends SceneTree
+const Controls=preload("res://scripts/world/authored_gameplay_controls.gd")
 const Analysis=preload("res://scripts/dev/gameplay_authoring_analysis.gd")
 
 func _initialize() -> void:
@@ -9,5 +10,11 @@ func _initialize() -> void:
 		push_error("FAIL gameplay coverage/heatmap counts");quit(1);return
 	if not Analysis.checkpoints({},null,0).is_empty():
 		push_error("FAIL invalid route accepted");quit(1);return
+	var district: Dictionary={"name":"Test","x":0,"y":0,"w":100,"h":100,"density":50,"speed":30,"patrol":0,"response":100,"models":"commercial"}
+	doc["customMap"]=true;doc["gameplayZones"]=[district]
+	if not Controls.valid(doc) or Controls.zone({"gameplay_zones":[district]},Vector2(5,5))!=district or not Controls.zone({"gameplay_zones":[district]},Vector2(101,5)).is_empty():
+		push_error("FAIL district validation and lookup");quit(1);return
+	if not Controls.green(1,0,3) or Controls.green(9,0,3) or not Controls.green(11,1,3) or Controls.model_for(0,10,"commercial")!=6:
+		push_error("FAIL signal phases or model groups");quit(1);return
 	print("GAMEPLAY AUTHORING ANALYSIS: PASS")
 	quit()

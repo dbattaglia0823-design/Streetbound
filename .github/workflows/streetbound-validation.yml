@@ -389,6 +389,7 @@ jobs:
         run: |
           set -o pipefail
           python3 -B tests/custom_test_world_bake_test.py
+          python3 -B tests/gameplay_authoring_bake_test.py
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/custom_map_full_game_test.gd 2>&1 | tee /tmp/custom-full-game-test-drive.log
           grep -q 'FULL GAME CUSTOM TEST DRIVE: PASS' /tmp/custom-full-game-test-drive.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/custom-full-game-test-drive.log
