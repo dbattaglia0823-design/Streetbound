@@ -253,6 +253,32 @@ func apply_remote_grade_visual(height_m: float) -> void:
 	z_index = _ground_z + (36 if road_layer < 0 else road_layer*16)
 
 
+## Host snapshots use the actual baked road identity, not a guess from XY.
+func road_contact_id() -> int:
+	return _elevation_road
+
+
+## Called only by the client-side authority reconciliation after a host pose
+## correction. Verify that the shared baked world supports this exact contact.
+func reconcile_road_contact(road_id: int, height_m: float) -> bool:
+	if not is_finite(height_m) or absf(height_m) > Elevation.HEIGHT_M * Elevation.MAX_LAYER:
+		return false
+	if road_id == -1:
+		if absf(height_m) > .15:
+			return false
+		_set_elevation_contact({})
+		_elevation_position = global_position
+		return true
+	if road_id < 0 or not is_instance_valid(surface_provider) or not surface_provider.has_method("elevation_at"):
+		return false
+	var contact: Dictionary = surface_provider.elevation_at(global_position,road_id,height_m)
+	if contact.is_empty() or int(contact.get("road",-1)) != road_id or absf(float(contact.get("height_m",0.0))-height_m) > .65:
+		return false
+	_set_elevation_contact(contact)
+	_elevation_position = global_position
+	return true
+
+
 func can_reach_ground_marker() -> bool:
 	return not is_airborne() and absf(elevation_m) < .65
 
