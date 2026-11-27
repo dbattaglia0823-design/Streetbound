@@ -310,16 +310,19 @@ func _physics_process(dt: float) -> void:
 			var states: Dictionary = {1: _car_state(local_vehicle)}
 			var lamps: Dictionary = {1: _lamp_state(local_vehicle)}
 			var exhaust: Dictionary = {1: _exhaust_state(local_vehicle)}
+			var grades: Dictionary = {1: local_vehicle.elevation_m}
 			for id in peer_cars:
 				var remote: VehicleController2D=peer_cars[id] as VehicleController2D
 				states[id] = _car_state(remote)
 				lamps[id] = _lamp_state(remote)
 				exhaust[id] = _exhaust_state(remote)
+				grades[id] = remote.elevation_m
 			# Reserved negative key: existing six-value movement snapshots and
 			# protocol stay compatible; no vehicle may have a negative peer ID.
 			states[-1] = lamps
 			states[-2] = exhaust # Optional cosmetic metadata, never physics.
 			states[-3] = _police_snapshot()
+			states[-4] = grades # Host-authored signed road heights; no client authority.
 			for id in online_session.world_ready_peers:
 				if online_session.players.has(id):
 					_receive_states.rpc_id(int(id), _snapshot_sequence, states)
@@ -404,6 +407,8 @@ func _process(dt: float) -> void:
 				car.steering = float(state[3])
 				car.longitudinal_speed = float(state[4])
 				car.yaw_rate = float(state[5])
+				var grade_height := RemoteBuffer.sample_grade_height(samples, now_ms, _interpolation_delay_ms)
+				car.apply_remote_grade_visual(grade_height)
 		if peer_labels.has(id):
 			var tag := peer_labels[id] as Label
 			tag.position = car.global_position + Vector2(-90, -115)
@@ -512,6 +517,7 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 			var value: Variant=exhaust_payload[peer_id]
 			if valid_exhaust_state(value):
 				peer_exhaust_states[int(peer_id)]=value.duplicate()
+	var grade_payload: Variant = states.get(-4, {})
 	for id in states:
 		if not online_session.players.has(id) or not states[id] is Array or \
 				(states[id] as Array).size() != 6:
@@ -523,7 +529,8 @@ func _receive_states(sequence: int, states: Dictionary) -> void:
 		targets[int(id)] = state
 		if int(id) != online_session.own_id():
 			var samples: Array = histories.get(int(id), [])
-			RemoteBuffer.add_snapshot(samples, now_ms, state)
+			var grade: Variant = grade_payload.get(id, 0.0) if grade_payload is Dictionary else 0.0
+			RemoteBuffer.add_snapshot(samples, now_ms, state, grade)
 			histories[int(id)] = samples
 	var my_state: Array = targets.get(online_session.own_id(), [])
 	if _first_authoritative_state and my_state.size() >= 3:
