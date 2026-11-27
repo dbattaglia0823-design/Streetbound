@@ -28,3 +28,17 @@ test('directional hill lighting is continuous across repeat edges and has both l
   const lights=Array.from({length:64},(_,i)=>hillLight((i%8)/8,Math.floor(i/8)/8));
   assert.ok(Math.min(...lights)<-.2&&Math.max(...lights)>.2);
 });
+
+test('terrain overhang survives source round trip and point edits, not roads or props',async()=>{
+  const {createWorld,normalizeWorld,parseWorld,serializeWorld,moveControlPoint}=await import('../world-model.js');
+  const doc=createWorld({name:'Overhang',width:1000,height:800});
+  doc.regions.push({id:'region-1',name:'Large field',biome:'grass',elevation:0,points:[{x:-200,y:-200},{x:1500,y:-200},{x:1500,y:1000},{x:-200,y:1000}]});
+  const saved=parseWorld(serializeWorld(doc));
+  assert.deepEqual(saved.regions[0].points,doc.regions[0].points);
+  const moved=moveControlPoint(saved,'region-1',0,{x:-350,y:-300});
+  assert.equal(moved.regions[0].points[0].x,-350);
+  const invalid=structuredClone(doc);invalid.regions[0].points[0].x=-1000000;
+  assert.throws(()=>normalizeWorld(invalid));
+  const road=structuredClone(doc);road.roads.push({id:'road-1',name:'Outside',roadClass:'city',surface:'asphalt',width:10,lanes:2,shoulder:1,smooth:false,markings:true,points:[{x:-1,y:10},{x:500,y:10}]});
+  assert.throws(()=>normalizeWorld(road));
+});

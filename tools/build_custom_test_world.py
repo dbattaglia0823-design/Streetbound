@@ -22,7 +22,7 @@ from elevation_map_audit import audit_elevated_objectives
 from mountain_barriers import validate_open_cuts
 from authored_races import authored_races
 from authored_markers import validate_markers
-from morrow_editor_import import _authoring_props, CLASS_TO_KIND, PALETTES
+from morrow_editor_import import _authoring_props, _polygon_points, CLASS_TO_KIND, PALETTES
 from road_shape_geometry import circle_path
 
 CHUNK = 192
@@ -228,7 +228,7 @@ def make_archive(doc):
         if not isinstance(source_points,list) or len(source_points)<3:
             raise ValueError("Invalid terrain region")
         region=dict(kind=kind,color=PALETTES.get(kind,"a3b789"),editor_name=str(raw.get("name",""))[:120],
-                    points=[[float(p["x"]),float(p["y"])] for p in source_points])
+                    points=_polygon_points(source_points,width,height,rounded=False))
         for key in ("barrier","elevation"):
             if key in raw:region[key]=raw[key]
         terrain.append(region)
@@ -258,7 +258,7 @@ def make_archive(doc):
         ys=[p[1] for p in t["points"]]
         for x in range(max(0,math.floor(min(xs)/CHUNK)),min(math.ceil(width/CHUNK),math.floor(max(xs)/CHUNK)+1)):
             for y in range(max(0,math.floor(min(ys)/CHUNK)),min(math.ceil(height/CHUNK),math.floor(max(ys)/CHUNK)+1)):
-                polygon=clip_rect(t["points"],x*CHUNK,y*CHUNK,(x+1)*CHUNK,(y+1)*CHUNK)
+                polygon=clip_rect(t["points"],x*CHUNK,y*CHUNK,min(width,(x+1)*CHUNK),min(height,(y+1)*CHUNK))
                 if len(polygon)>=3:
                     entry=dict(kind=t["kind"],color=t["color"],points=polygon)
                     for field in ("barrier","elevation"):

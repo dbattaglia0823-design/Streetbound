@@ -40,6 +40,19 @@ class CompactBoroughsMap(unittest.TestCase):
         archive=make_archive(doc)
         self.assertEqual(len(archive["editor_game_markers"]),len(doc["markers"]))
 
+    def test_oversized_terrain_stays_editable_and_bakes_inside_world(self):
+        doc=json.loads(json.dumps(self.doc))
+        points=[{"x":-400,"y":-500},{"x":1400,"y":-500},{"x":1400,"y":1100},{"x":-400,"y":1100}]
+        doc["regions"].append({"id":"region-999","name":"Oversized ground","biome":"grass","elevation":0,"points":points})
+        archive=make_archive(doc)
+        self.assertEqual(archive["terrain"][-1]["points"],[[p["x"],p["y"]] for p in points])
+        for chunk in archive["chunks"].values():
+            for terrain in chunk.get("terrain",[]):
+                self.assertTrue(all(-1e-6<=x<=960+1e-6 and -1e-6<=y<=720+1e-6 for x,y in terrain["points"]))
+        doc["regions"][-1]["points"][0]["x"]=-1000000
+        with self.assertRaisesRegex(ValueError,"overhang"):
+            make_archive(doc)
+
     def test_valid_compact_source_and_three_areas(self):
         d=self.doc
         self.assertTrue(d["customMap"])

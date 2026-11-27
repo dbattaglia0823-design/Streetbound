@@ -29,9 +29,14 @@ const point=(p,w,h)=> {
   if(!p||typeof p!=='object')throw new TypeError('Invalid geometry point');
   return {x:real(p.x,0,w,'point x'),y:real(p.y,0,h,'point y')};
 };
+const TERRAIN_OVERHANG=24000;
+const terrainPoint=(p,w,h)=>{
+  if(!p||typeof p!=='object')throw new TypeError('Invalid terrain point');
+  return {x:real(p.x,-TERRAIN_OVERHANG,w+TERRAIN_OVERHANG,'terrain x'),y:real(p.y,-TERRAIN_OVERHANG,h+TERRAIN_OVERHANG,'terrain y')};
+};
 const polygon=(points,w,h,min,max,label)=>{
   if(!Array.isArray(points)||points.length<min||points.length>max)throw new RangeError('Invalid '+label+' control points');
-  return points.map(p=>point(p,w,h));
+  return points.map(p=>label==='terrain'?terrainPoint(p,w,h):point(p,w,h));
 };
 function validateMetadata(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new TypeError('Marker properties must be a JSON object');
@@ -545,7 +550,7 @@ export function moveControlPoint(doc,id,index,pos){
   if(!found||!['roads','regions'].includes(found.type))return doc;
   if(index<0||index>=found.item.points.length)throw new RangeError('Invalid control point index');
   const points=found.item.points.slice();
-  points[index]=point(pos,doc.world.width,doc.world.height);
+  points[index]=(found.type==='regions'?terrainPoint:point)(pos,doc.world.width,doc.world.height);
   return updateEntity(doc,id,{points});
 }
 export function insertControlPoint(doc,id,index,pos){
@@ -554,7 +559,7 @@ export function insertControlPoint(doc,id,index,pos){
   const points=found.item.points.slice();
   if(points.length>=LIM[found.type==='roads'?'roadPoints':'regionPoints'])throw new RangeError('Too many control points');
   if(!Number.isInteger(index)||index<0||index>points.length)throw new RangeError('Invalid insertion index');
-  points.splice(index,0,point(pos,doc.world.width,doc.world.height));
+  points.splice(index,0,(found.type==='regions'?terrainPoint:point)(pos,doc.world.width,doc.world.height));
   const patch={points};
   if(found.type==='roads'&&found.item.elevation?.point_layers){
     const layers=[...found.item.elevation.point_layers];
@@ -591,7 +596,7 @@ export function scatterVegetation(doc,regionId,count=50,type='auto'){
   if(!propType)throw new TypeError('Cannot scatter vegetation on open water');
   if(doc.props.length+count>LIM.props)throw new RangeError('Too many props');
   const seed=stringSeed(region.id+'-'+region.biome+'-'+doc.world.seed+'-'+doc.props.length);
-  const points=scatterPoints(region.points,count*6,seed,p=>!roadAt(doc,p));
+  const points=scatterPoints(region.points,count*6,seed,p=>p.x>=0&&p.y>=0&&p.x<=doc.world.width&&p.y<=doc.world.height&&!roadAt(doc,p));
   const newProps=[],occupied=new Set([...doc.props].map(p=>p.id));
   let n=doc.props.length+1;
   for(const p of points){

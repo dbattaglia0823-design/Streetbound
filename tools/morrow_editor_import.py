@@ -105,7 +105,10 @@ def _thin_polygon(items, maximum=180, width=BASE_WIDTH, height=BASE_HEIGHT):
             for i in range(maximum)]
 
 
-def _polygon_points(raw, width=BASE_WIDTH, height=BASE_HEIGHT):
+TERRAIN_OVERHANG_M = 24000.0
+
+
+def _polygon_points(raw, width=BASE_WIDTH, height=BASE_HEIGHT, *, rounded=True):
     if not isinstance(raw, list) or not 3 <= len(raw) <= 180:
         raise ValueError("Terrain polygon requires 3-180 points")
     result = []
@@ -115,9 +118,9 @@ def _polygon_points(raw, width=BASE_WIDTH, height=BASE_HEIGHT):
         x, y = p.get("x"), p.get("y")
         if not all(isinstance(v, (float, int)) and math.isfinite(v) for v in (x, y)):
             raise ValueError("Invalid terrain coordinate")
-        if not 0 <= x <= width or not 0 <= y <= height:
-            raise ValueError("Terrain coordinate outside world")
-        result.append([round(float(x), 3), round(float(y), 3)])
+        if not -TERRAIN_OVERHANG_M <= x <= width + TERRAIN_OVERHANG_M or not -TERRAIN_OVERHANG_M <= y <= height + TERRAIN_OVERHANG_M:
+            raise ValueError("Terrain coordinate exceeds 24 km overhang")
+        result.append([round(float(x), 3), round(float(y), 3)] if rounded else [float(x),float(y)])
     return result
 
 

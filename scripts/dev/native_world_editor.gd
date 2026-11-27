@@ -2645,6 +2645,15 @@ func _refresh_inspector() -> void:
 	inspector_name.editable=exists
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	terrain_transforms.visible=exists and record.category=="regions"
+	# Other objects retain their normal coordinate bounds; only terrain may
+	# have a centre outside the world. Inspector writes still use source validation.
+	for spin in [inspector_x,inspector_y]:
+		spin.min_value=-EditSession.TERRAIN_OVERHANG_M if terrain_transforms.visible else 0.0
+	inspector_x.max_value=float(authoring.doc.world.width)+EditSession.TERRAIN_OVERHANG_M if terrain_transforms.visible else 100000.0
+	inspector_y.max_value=float(authoring.doc.world.height)+EditSession.TERRAIN_OVERHANG_M if terrain_transforms.visible else 100000.0
+	if terrain_transforms.visible:
+		inspector_terrain_width.max_value=float(authoring.doc.world.width)+2.0*EditSession.TERRAIN_OVERHANG_M
+		inspector_terrain_height.max_value=float(authoring.doc.world.height)+2.0*EditSession.TERRAIN_OVERHANG_M
 	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
 	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category in ["roads","races"]
