@@ -55,6 +55,45 @@ const ROBBERY_TIERS := {
 }
 const ROBBERY_ORDER := ["convenience","pawn","jewelry","warehouse","bank"]
 const RACE_REPUTATION := 5
+## Campaign rotation is deterministic across sessions and uses UTC wall time.
+## Starter jobs never rotate out; all other profiles are open two of three slots.
+const ROTATION_SLOT_SECONDS := 600
+const ROTATION_OFFSETS := {"pawn":1,"jewelry":2,"warehouse":0,"bank":1}
+const LOCATION_COOLDOWNS := {"convenience":360,"pawn":480,"jewelry":600,"warehouse":840,"bank":1200}
+const MAX_LOCATION_COOLDOWN := 1200
+const MAX_SAVED_LOCATIONS := 1024
+
+static func location_cooldown(offer: Dictionary) -> int:
+	return int(LOCATION_COOLDOWNS.get(str(offer.get("robbery_tier","")),0))
+
+static func location_key(world_id: String, offer: Dictionary) -> String:
+	var target := str(offer.get("robbery_marker_id",""))
+	if location_cooldown(offer)<=0 or world_id.is_empty() or target.is_empty() or world_id.contains("::") or target.contains("::"):
+		return ""
+	var key := world_id+"::"+target
+	return key if key.length()<=160 else ""
+
+static func rotation_state(offer: Dictionary, now_seconds: int) -> Dictionary:
+	var tier := str(offer.get("robbery_tier",""))
+	if not ROTATION_OFFSETS.has(tier):
+		return {"available":true,"seconds":0,"rotating":false}
+	var now := maxi(0,now_seconds)
+	var slot := floori(float(now)/float(ROTATION_SLOT_SECONDS))
+	var phase := posmod(slot+int(ROTATION_OFFSETS[tier]),3)
+	var left := ROTATION_SLOT_SECONDS-posmod(now,ROTATION_SLOT_SECONDS)
+	return {"available":phase!=2,"seconds":left+ROTATION_SLOT_SECONDS if phase==0 else left,"rotating":true}
+
+static func timer_text(seconds: int) -> String:
+	var remaining := maxi(0,seconds)
+	return "%02d:%02d" % [floori(float(remaining)/60.0),posmod(remaining,60)]
+
+static func availability_text(state: Dictionary) -> String:
+	var cooldown := int(state.get("cooldown",0))
+	if cooldown>0:
+		return "COOLDOWN "+timer_text(cooldown)
+	if not bool(state.get("available",true)):
+		return "ROTATES IN "+timer_text(int(state.get("rotation_seconds",0)))
+	return ""
 ## Ranks are derived from the saved reputation, never stored independently.
 ## The actual robbery thresholds remain the single source of truth.
 const CAREER_RANKS := [

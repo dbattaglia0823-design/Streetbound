@@ -49,6 +49,7 @@ var risk_selector: OptionButton
 var selected_risk := "standard"
 var crew_toggle: CheckButton
 var use_hired_crew := false
+var _availability_second := -1
 
 func _capacity_lock(offer: Dictionary) -> String:
 	if is_instance_valid(contracts) and contracts.has_method("vehicle_requirement"):
@@ -275,6 +276,7 @@ func open_contact(contact: Dictionary) -> bool:
 		if item is Dictionary:
 			offers.append(item)
 	selected_risk = "standard"
+	_availability_second = -1
 	use_hired_crew = false
 	crew_toggle.set_pressed_no_signal(false)
 	selected_index = 0 if not offers.is_empty() else -1
@@ -303,6 +305,25 @@ func open_contact(contact: Dictionary) -> bool:
 	_resize()
 	return true
 
+func _job_row_text(offer: Dictionary) -> String:
+	return "%s\n%s  /  %s  /  %s" % [str(offer.get("title","Untitled")).to_upper(),
+		str(offer.get("kind","courier")).to_upper(),str(offer.get("difficulty","rookie")).to_upper(),_offer_state(offer)]
+
+func _process(_dt: float) -> void:
+	if not is_open or not is_instance_valid(contracts) or not contracts.has_method("robbery_availability"):
+		return
+	var now := int(Time.get_unix_time_from_system())
+	if now==_availability_second:
+		return
+	_availability_second = now
+	for i in mini(offers.size(),job_buttons.size()):
+		if not Rules.robbery_profile(offers[i]).is_empty():
+			job_buttons[i].text = _job_row_text(offers[i])
+	if selected_index>=0 and selected_index<offers.size() and not Rules.robbery_profile(offers[selected_index]).is_empty():
+		var previous_feedback := feedback_label.text
+		_select_job(selected_index)
+		feedback_label.text = previous_feedback
+
 func _rebuild_jobs() -> void:
 	for child in job_list.get_children():
 		job_list.remove_child(child)
@@ -317,11 +338,7 @@ func _rebuild_jobs() -> void:
 		return
 	for i in offers.size():
 		var offer: Dictionary = offers[i]
-		var status := _offer_state(offer)
-		var line := "%s\n%s  /  %s  /  %s" % [
-			str(offer.get("title", "Untitled")).to_upper(),
-			str(offer.get("kind", "courier")).to_upper(),
-			str(offer.get("difficulty", "rookie")).to_upper(), status]
+		var line := _job_row_text(offer)
 		var button := Button.new()
 		button.text = line
 		button.custom_minimum_size = Vector2(344, 72)
@@ -415,7 +432,13 @@ func _select_job(index: int) -> void:
 		Rules.required_rep(offer),
 		"REPEATABLE" if repeatable else "ONE-TIME"]
 	status_label.text = "STATUS: " + ViewData.offer_state(count, repeatable, lock)
-	if not lock.is_empty() and not (count>0 and not repeatable):
+	if not profile.is_empty() and contracts.has_method("robbery_availability"):
+		var availability: Dictionary = contracts.call("robbery_availability",offer)
+		var rotation_info := "ALWAYS LISTED" if not bool(availability.get("rotating",false)) else ("ROTATES OUT IN " if bool(availability.get("rotation_open",false)) else "ROTATES IN ")+Rules.timer_text(int(availability.get("rotation_seconds",0)))
+		description_label.text += "\n"+rotation_info+" / LOCATION COOLDOWN "+Rules.timer_text(Rules.location_cooldown(offer))
+		if int(availability.get("cooldown",0))>0:
+			description_label.text += " / REMAINING "+Rules.timer_text(int(availability.cooldown))
+	if not lock.is_empty() and not (count>0 and not repeatable) and not status_label.text.contains(lock):
 		status_label.text += " / "+lock
 	accept_button.disabled = not ViewData.can_accept(count, repeatable, lock)
 	accept_button.text = "ACCEPT CONTRACT" if not accept_button.disabled else 		("COMPLETED" if count > 0 and not repeatable else "CONTRACT LOCKED")

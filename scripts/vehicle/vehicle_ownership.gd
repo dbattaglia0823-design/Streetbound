@@ -25,6 +25,7 @@ var completed_events: Dictionary = {}
 var multiplayer_claims: Dictionary = {} # session nonce -> highest paid race ID.
 var driving_contract_claims: Dictionary = {} # run token -> paid once.
 var completed_driving_contracts: Dictionary = {} # world + marker -> count.
+var robbery_cooldowns: Dictionary = {} # world + target marker -> UTC expiry.
 var underground_reputation := 0
 var hired_crew: Dictionary = {}
 var preferred_crew: Array[String] = []
@@ -91,6 +92,7 @@ func _init(enable_persistence: bool = true) -> void:
 				if key.length() <= 160 and int(history_contracts[event_id]) > 0 and completed_driving_contracts.size() < 1024:
 					completed_driving_contracts[key] = clampi(int(history_contracts[event_id]), 1, 100000)
 		underground_reputation = clampi(int(file.get_value("progression", "underground_reputation", 0)), 0, 100000)
+		_load_robbery_cooldowns(file)
 		_load_crew(file)
 		_load_upgrades(file)
 		return
@@ -375,6 +377,58 @@ func equip(id: String) -> bool:
 
 
 ## No migration needed: career rank and access are derived from the existing saved rep.
+func _load_robbery_cooldowns(file: ConfigFile, now_seconds: int = -1) -> void:
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	robbery_cooldowns.clear()
+	var raw: Variant = file.get_value("contracts","robbery_cooldowns",{})
+	if not raw is Dictionary:
+		return
+	for key in raw:
+		if robbery_cooldowns.size()>=DrivingContracts.MAX_SAVED_LOCATIONS:
+			break
+		if not key is String or key.length()>160 or key.split("::").size()!=2 or key.get_slice("::",0).is_empty() or key.get_slice("::",1).is_empty():
+			continue
+		var expiry: Variant = raw[key]
+		if typeof(expiry) not in [TYPE_INT,TYPE_FLOAT] or not is_finite(float(expiry)) or float(expiry)!=floorf(float(expiry)) or float(expiry)<=float(now):
+			continue
+		# Bound invalid/future values (including clock rollback).
+		robbery_cooldowns[key] = int(minf(float(expiry),float(now+DrivingContracts.MAX_LOCATION_COOLDOWN)))
+
+func robbery_availability(world_id: String, offer: Dictionary, now_seconds: int = -1) -> Dictionary:
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	var rotation := DrivingContracts.rotation_state(offer,now)
+	var key := DrivingContracts.location_key(world_id,offer)
+	var wait := 0
+	if not key.is_empty():
+		wait = clampi(int(robbery_cooldowns.get(key,0))-now,0,DrivingContracts.MAX_LOCATION_COOLDOWN)
+	return {"available":bool(rotation.available) and wait==0,"rotation_open":bool(rotation.available),
+		"rotation_seconds":int(rotation.seconds),"rotating":bool(rotation.rotating),"cooldown":wait}
+
+## Reserve only after a fully validated route has been accepted. Persist the
+## location timestamp immediately, so restart/abandon cannot reset the clock.
+func reserve_robbery_location(world_id: String, offer: Dictionary, now_seconds: int = -1) -> String:
+	if DrivingContracts.robbery_profile(offer).is_empty():
+		return "ready"
+	var key := DrivingContracts.location_key(world_id,offer)
+	if key.is_empty() or not DrivingContracts.valid_robbery_profile("robbery",offer):
+		return "invalid_location"
+	var now := int(Time.get_unix_time_from_system()) if now_seconds<0 else now_seconds
+	var availability := robbery_availability(world_id,offer,now)
+	if not bool(availability.available):
+		return "unavailable"
+	var previous := robbery_cooldowns.duplicate()
+	for location in robbery_cooldowns.keys():
+		if int(robbery_cooldowns[location])<=now:
+			robbery_cooldowns.erase(location)
+	if robbery_cooldowns.size()>=DrivingContracts.MAX_SAVED_LOCATIONS:
+		robbery_cooldowns = previous
+		return "location_limit"
+	robbery_cooldowns[key] = now+DrivingContracts.location_cooldown(offer)
+	if not save():
+		robbery_cooldowns = previous
+		return "save_failed"
+	return "ready"
+
 func _load_crew(file: ConfigFile) -> void:
 	var raw: Variant = file.get_value("crew","hired",{})
 	if raw is Dictionary:
@@ -757,6 +811,7 @@ func save() -> bool:
 	file.set_value("progression","driving_contract_claims",driving_contract_claims)
 	file.set_value("progression","completed_driving_contracts",completed_driving_contracts)
 	file.set_value("progression","underground_reputation",underground_reputation)
+	file.set_value("contracts","robbery_cooldowns",robbery_cooldowns)
 	file.set_value("crew","hired",hired_crew)
 	file.set_value("crew","preferred",preferred_crew)
 	file.set_value("upgrades","inventory",upgrade_inventory)

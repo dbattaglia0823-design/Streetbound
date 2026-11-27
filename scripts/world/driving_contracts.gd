@@ -119,6 +119,11 @@ func vehicle_requirement(offer: Dictionary) -> String:
 		return "VEHICLE UNAVAILABLE"
 	return Rules.capacity_reason(offer,player.config.seating_capacity,player.config.cargo_capacity_kg)
 
+func robbery_availability(offer: Dictionary) -> Dictionary:
+	if not is_instance_valid(economy) or not is_instance_valid(marker_source):
+		return {}
+	return economy.call("robbery_availability",str(marker_source.get("world_id")),offer)
+
 func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	if not is_instance_valid(economy):
 		return "CONTRACTS UNAVAILABLE"
@@ -138,7 +143,7 @@ func offer_lock_reason(contact: Dictionary, offer: Dictionary) -> String:
 	var key := str(marker_source.get("world_id"))+"::"+str(contact.get("id",""))+"_"+str(offer.get("id",""))
 	if not bool(offer.get("repeatable",true)) and int(economy.get("completed_driving_contracts").get(key,0)) > 0:
 		return "CONTRACT COMPLETED"
-	return ""
+	return Rules.availability_text(robbery_availability(offer)) if not Rules.robbery_profile(offer).is_empty() else ""
 
 func try_start_offer(contact: Dictionary, selected: Dictionary, risk: String = "standard", use_hired_crew: bool = false) -> Dictionary:
 	if not is_instance_valid(marker_source) or str(contact.get("type","")) != "contract_contact":
@@ -239,6 +244,12 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 		robbery = _find_robbery_target(str(props.get("robbery_marker_id","")))
 		if robbery.is_empty():
 			return {"result":"unlinked","message":"Robbery location is missing or disabled"}
+		if not Rules.robbery_profile(authored_offer).is_empty():
+			if str(robbery.get("id","")) != str(authored_offer.get("robbery_marker_id","")):
+				return {"result":"invalid","message":"Robbery target mismatch"}
+			var availability := robbery_availability(authored_offer)
+			if not bool(availability.get("available",false)):
+				return {"result":"unavailable","message":Rules.availability_text(availability)}
 	var next_stop: Dictionary = robbery if kind == "robbery" else target
 	var target_pos := Vector2(float(next_stop.x),float(next_stop.y))
 	if player.global_position.distance_to(source_pos * PPM) > clampf(
@@ -271,6 +282,11 @@ func try_start(source: Dictionary, authored_offer: Dictionary = {}, crew_ids: Ar
 	if heat > 0 and kind != "robbery" and not bool(police.call("start_pursuit",heat)):
 		guide.call("clear_destination")
 		return {"result":"police_unavailable","message":"Unable to begin getaway pursuit on this road"}
+	if not Rules.robbery_profile(authored_offer).is_empty():
+		var reservation: String = economy.call("reserve_robbery_location",str(marker_source.get("world_id")),authored_offer)
+		if reservation != "ready":
+			guide.call("clear_destination")
+			return {"result":reservation,"message":"LOCATION UNAVAILABLE / "+reservation.to_upper().replace("_"," ")}
 	_run_sequence += 1
 	run_token = "job-%d-%d-%d" % [
 		int(Time.get_unix_time_from_system()), Time.get_ticks_usec(), _run_sequence]

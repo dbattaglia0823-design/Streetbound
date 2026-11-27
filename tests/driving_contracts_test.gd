@@ -116,6 +116,29 @@ func run() -> void:
 	check("crew_no_duplicate_xp",crew_economy.record_driving_contract("crew-complete-0001","test::crew","robbery",crew_offer,["technician","specialist"]).result=="invalid_or_duplicate" and int(crew_economy.hired_crew["technician"])==25)
 	check("crew_level_caps",Contracts.crew_level(0)==1 and Contracts.crew_level(100)==2 and Contracts.crew_level(999)==5)
 
+	# Deterministic phase-seven rotation and persisted location reservation.
+	var rotation_offer := Contracts.make_robbery_offer("pawn","marker-test-pawn","dropoff")
+	var rotation_start := 1800
+	check("starter_stays_in_rotation",bool(Contracts.rotation_state(starter_offer,rotation_start+1200).available))
+	check("pawn_rotation_open_then_closed_then_open",bool(Contracts.rotation_state(rotation_offer,rotation_start).available) and not bool(Contracts.rotation_state(rotation_offer,rotation_start+600).available) and bool(Contracts.rotation_state(rotation_offer,rotation_start+1200).available))
+	check("rotation_boundary_exact",int(Contracts.rotation_state(rotation_offer,rotation_start+599).seconds)==1 and int(Contracts.rotation_state(rotation_offer,rotation_start+600).seconds)==600)
+	var rotation_economy := Ownership.new(false)
+	var location_offer := Contracts.make_robbery_offer("convenience","marker-test-shop","dropoff")
+	check("reserve_location_once",rotation_economy.reserve_robbery_location("test",location_offer,rotation_start)=="ready")
+	var max_location := Contracts.with_robbery_risk(location_offer,"maximum")
+	check("risk_variants_share_same_location_cooldown",rotation_economy.reserve_robbery_location("test",max_location,rotation_start+1)=="unavailable" and int(rotation_economy.robbery_availability("test",max_location,rotation_start+1).cooldown)==359)
+	check("world_locations_are_independent",bool(rotation_economy.robbery_availability("other",max_location,rotation_start+1).available))
+	check("location_available_at_exact_expiry",bool(rotation_economy.robbery_availability("test",location_offer,rotation_start+360).available))
+	check("rotation_rejects_reservation",rotation_economy.reserve_robbery_location("test",rotation_offer,rotation_start+600)=="unavailable")
+	var saved_rotation := ConfigFile.new()
+	saved_rotation.set_value("contracts","robbery_cooldowns",rotation_economy.robbery_cooldowns.duplicate())
+	var reopened := Ownership.new(false)
+	reopened._load_robbery_cooldowns(saved_rotation,rotation_start+10)
+	check("saved_cooldown_survives_reload",int(reopened.robbery_availability("test",location_offer,rotation_start+10).cooldown)==350)
+	reopened._load_robbery_cooldowns(saved_rotation,rotation_start+360)
+	check("expired_saved_cooldowns_discarded",reopened.robbery_cooldowns.is_empty())
+	check("legacy_jobs_have_no_cooldown",rotation_economy.reserve_robbery_location("test",{},rotation_start)=="ready" and bool(rotation_economy.robbery_availability("test",{},rotation_start).available))
+
 	# Stock phase-one robbery progression uses game-owned presets and actual
 	# marker validation, not arbitrary increased map reward bounds.
 	var board: Array[Dictionary] = Contracts.morrow_robbery_board()

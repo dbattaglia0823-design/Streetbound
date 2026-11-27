@@ -12,8 +12,14 @@ class ContractStub extends Node2D:
 	var last_response := "started"
 	var last_risk := ""
 	var last_crew := false
+	var availability_lock := ""
+
+	func robbery_availability(_offer: Dictionary) -> Dictionary:
+		return {"available":availability_lock.is_empty(),"rotating":true,"rotation_open":true,"rotation_seconds":120,"cooldown":30 if not availability_lock.is_empty() else 0}
 
 	func offer_lock_reason(_contact: Dictionary, offer: Dictionary) -> String:
+		if not availability_lock.is_empty() and not Rules.robbery_profile(offer).is_empty():
+			return availability_lock
 		if str(offer.get("id", "")) == "one_time":
 			return "CONTRACT COMPLETED"
 		if str(offer.get("id", "")) == "locked":
@@ -145,6 +151,12 @@ func run() -> void:
 	risk_contact.properties.offers = [Rules.make_robbery_offer("jewelry","target","dropoff")]
 	check("risk_board_opens",bool(board.call("open_contact",risk_contact)))
 	check("risk_selector_visible_for_profile",(board.get("risk_selector") as OptionButton).visible)
+	contracts.availability_lock="COOLDOWN 00:30"
+	board.call("_select_job",0)
+	check("cooldown_disables_accept",(board.get("accept_button") as Button).disabled and (board.get("status_label") as Label).text.contains("COOLDOWN 00:30"))
+	board.call("_accept_selected")
+	check("cooldown_cannot_accept",bool(board.get("is_open")))
+	contracts.availability_lock=""
 	board.call("_risk_changed",2)
 	check("risk_preview_recalculates_payout_and_heat",(board.get("payout_label") as Label).text.contains("$36,250") and (board.get("timing_label") as Label).text.contains("HEAT: 4"))
 	board.call("_accept_selected")

@@ -19,6 +19,7 @@ var economy
 var map_hud: Node
 var upgrades: CanvasLayer
 var section := "events"
+var _career_second := -1
 var event_filter := "all"
 var nav_buttons: Dictionary = {}
 var filter_buttons: Dictionary = {}
@@ -353,7 +354,8 @@ func show_section(which: String) -> void:
 	car_count_label = null
 	car_row_parent = null
 	car_load_more = null
-	set_process(section == "cars")
+	set_process(section in ["cars","career"])
+	_career_second = -1
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -527,7 +529,7 @@ func _show_career() -> void:
 	_label(summary,"NextRank","MAX RANK" if bool(state.max_rank) else "%d REP TO %s (%d TOTAL)" % [
 		int(state.remaining),str(state.next_rank).to_upper(),int(state.next_rep)],
 		Rect2(17,69,696,29),14,MUTED)
-	_label(content,"UnlockHeading","ROBBERY UNLOCKS / REP ELIGIBILITY",Rect2(27,252,717,27),15,LIME)
+	_label(content,"UnlockHeading","ROBBERY UNLOCKS / AVAILABILITY",Rect2(27,252,717,27),15,LIME)
 	var rows := CrimeCareer.robbery_unlocks(rep_value)
 	for i in rows.size():
 		var row: Dictionary = rows[i]
@@ -538,6 +540,7 @@ func _show_career() -> void:
 		_label(card,"Requirement","%d REP" % int(row.required_rep),Rect2(365,3,116,34),14,MUTED)
 		_label(card,"State","ELIGIBLE" if eligible else "%d REP TO GO" % int(row.remaining),
 			Rect2(488,3,225,34),14,LIME if eligible else MUTED)
+	_refresh_career_availability()
 	var next_features := "BLACK MARKET: %s / %s. CREW: 25 / 120 / 500 REP." % ["BASIC UNLOCKED" if rep_value>=60 else "BASIC 60 REP","ADVANCED UNLOCKED" if rep_value>=250 else "ADVANCED 250 REP"]
 	_label(content,"FutureUnlocks",next_features,Rect2(28,511,725,47),13,MUTED,true)
 	var contact := _career_contact()
@@ -547,6 +550,26 @@ func _show_career() -> void:
 	if route.disabled:
 		route.text = "FIXER UNAVAILABLE ON THIS MAP"
 		route.tooltip_text = "The current world or game mode has no active stock campaign contact."
+
+func _refresh_career_availability() -> void:
+	if not is_instance_valid(economy):
+		return
+	var contact := _career_contact()
+	var contracts := get_tree().get_first_node_in_group("streetbound_contracts")
+	if contact.is_empty() or not is_instance_valid(contracts):
+		return
+	var rep_value := int(economy.get("underground_reputation"))
+	for offer in contact.get("properties",{}).get("offers",[]):
+		if not offer is Dictionary:
+			continue
+		var label := content.get_node_or_null("Robbery_"+str(offer.get("robbery_tier",""))+"/State") as Label
+		if label==null or rep_value<CrimeCareer.required_rep(offer):
+			continue
+		var state: Dictionary = contracts.call("robbery_availability",offer)
+		var reason := CrimeCareer.availability_text(state)
+		label.text = "AVAILABLE" if reason.is_empty() else reason
+		label.add_theme_color_override("font_color",LIME if reason.is_empty() else MUTED)
+		label.tooltip_text = "Availability only; equipped vehicle capacity is checked at the contact."
 
 func _crew_management_available() -> bool:
 	for contract in get_tree().get_nodes_in_group("streetbound_contracts"):
@@ -965,6 +988,12 @@ func _route_to_car_dealership(id: String) -> void:
 
 
 func _process(_dt: float) -> void:
+	if section=="career" and is_visible_in_tree():
+		var now := int(Time.get_unix_time_from_system())
+		if now!=_career_second:
+			_career_second = now
+			_refresh_career_availability()
+		return
 	if section != "cars" or not is_visible_in_tree() or not is_instance_valid(car_scroller):
 		return
 	# Extend the row window when the player scrolls toward its end.

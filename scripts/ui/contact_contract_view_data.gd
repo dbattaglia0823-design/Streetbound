@@ -68,6 +68,8 @@ static func completions(history: Dictionary, world_id: String,
 static func offer_state(completed: int, repeatable: bool, lock_reason: String) -> String:
 	if completed > 0 and not repeatable:
 		return "COMPLETED"
+	if lock_reason.begins_with("COOLDOWN ") or lock_reason.begins_with("ROTATES IN "):
+		return lock_reason
 	if not lock_reason.is_empty():
 		return "LOCKED"
 	if completed > 0:

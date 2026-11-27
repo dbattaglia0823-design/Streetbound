@@ -34,3 +34,5 @@
 - Phase 5: black-market inventory, purchase/equip reputation gates, four slots and real protection/cargo modifiers, upgrade UI and career status. No new tire/cargo damage or outgoing-impact mechanics; CI and live validation pending.
 
 - Phase 6: six persistent recruitable specialists, preferred roster, optional contract crew, previewed net rewards and bounded bonuses, atomic XP/cut settlement. CI and visual verification pending.
+
+- Phase 7: rotating profile availability and persisted per-target cooldown reserved on acceptance; live countdowns, runtime validation and regression tests. UTC system clock, offline expiry, no multiplayer synchronization yet. CI and visual validation pending.
