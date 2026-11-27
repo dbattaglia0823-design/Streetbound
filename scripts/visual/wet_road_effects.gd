@@ -81,7 +81,11 @@ func _draw_reflections(car: Node2D, wet: float) -> void:
 			Color(1.0, 0.42, 0.27, brightness * 0.65), 2.0, true)
 	var span: float = 16.0
 	if car.is_in_group("traffic_vehicle"):
-		span = float(car.get("width_px")) * 0.28
+		var raw_width: Variant = car.get("width_px")
+		if raw_width is float or raw_width is int:
+			var width: float = float(raw_width)
+			if is_finite(width) and width > 0.0:
+				span = width * 0.28
 	for side in [-1.0, 1.0]:
 		var head := car.global_position + Vector2(side * span, -32.0).rotated(car.global_rotation)
 		draw_line(head + front * 4.0, head + front * 78.0,

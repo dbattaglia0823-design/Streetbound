@@ -52,6 +52,9 @@ func _initialize() -> void:
 	check(not file.is_empty(),"initial map save")
 	if file.is_empty():quit(1);return
 	var before: Dictionary=session.doc.duplicate(true)
+	var before_bytes:=FileAccess.get_file_as_bytes(Library.folder().path_join(file))
+	var persisted_before:=Library.load_map(file)
+	check(Compare.equal_value(persisted_before,before),"initial source round trip")
 	var detail:=Finish.plan(session.doc,a.lerp(b,.5)+Vector2(-35,0),{"style":"coastal","radius":160,"spacing":32,"density":1.0,"seed":19},8000)
 	check(not detail.has("error") and not detail.get("props",[]).is_empty(),"finishing proposal")
 	if not detail.get("props",[]).is_empty():
@@ -62,7 +65,10 @@ func _initialize() -> void:
 	if not backups.is_empty():
 		var prior:=Library.load_backup(file,backups[0])
 		var delta:=Compare.compare(prior,session.doc)
-		check(Compare.equal_value(prior,before) and delta.entities.props.added.size()>0,"version comparison")
+		check(FileAccess.get_file_as_bytes(Library.backup_folder(file).path_join(backups[0]))==before_bytes,"exact backup bytes")
+		check(Compare.equal_value(prior,persisted_before),"backup source comparison")
+		check(delta.entities.props.added.size()>0,"version comparison: new scenery IDs")
+		check(Compare.equal_value(prior,before),"backup matches original authored source")
 	check(Light.darkness(Day.tint(0))>0.9 and Light.darkness(Day.tint(43200))==0.0,"clock drives light response")
 	var source:=ProjectSettings.globalize_path(Library.folder().path_join(file))
 	var destination:=ProjectSettings.globalize_path(Library.folder().path_join("integrated.zip"))
