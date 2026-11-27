@@ -4,7 +4,7 @@ extends RefCounted
 ## In normal gameplay no boundary meshes or collision objects are created.
 const Walkways = preload("res://scripts/world/urban_walkways.gd")
 const PPM := 20.0
-const DECK_WIDTH_PX := 112.0
+const DECK_WIDTH_PX := Walkways.BOARDWALK_WIDTH_PX
 
 
 static func _feature(out: Array[Dictionary], kind: String, points: PackedVector2Array,
@@ -167,7 +167,7 @@ static func inspect(world: Node2D, position_px: Vector2) -> Dictionary:
 		var half := float(road.road_width_m) * 0.5
 		if distance <= half:
 			region = "road"
-		elif road.road_kind in ["local", "arterial"] and distance <= half + 3.3:
+		elif road.road_kind in ["local", "arterial"] and distance <= half + Walkways.SIDEWALK_WIDTH_PX / PPM:
 			region = "sidewalk"
 	for j in world._junction_grid.get("%d,%d" % [
 			floori(p.x / float(world.data.surface_cell)),
