@@ -560,6 +560,15 @@ func step_vehicle(dt: float, controls: Vector4) -> void:
 					if other is VehicleController2D:
 						var other_car := other as VehicleController2D
 						damage_speed = maxf(0.0, -(pre_impact_velocity - other_car.linear_velocity).dot(normal))
+						# Game-only PIT response requires an actual contact and an armed
+						# pursuit AI; the bounded yaw impulse cannot teleport either car.
+						if int(get_meta("police_pit_target", -1)) == other_car.get_instance_id():
+							var pit_owner: Node = get_meta("police_pit_owner", null)
+							if is_instance_valid(pit_owner) and float(pit_owner.get("pit_cooldown")) <= 0.0 and float(pit_owner.get("lost_sight_clock")) <= 0.0 and damage_speed > 0.7:
+								var lateral_contact := normal.dot(Vector2.RIGHT.rotated(other_car.rotation))
+								if absf(lateral_contact) > 0.45:
+									other_car.yaw_rate = clampf(other_car.yaw_rate + lateral_contact * minf(damage_speed*0.16,0.9),-2.4,2.4)
+									pit_owner.set("pit_cooldown", 6.0)
 						other_car.damage_contact.emit(damage_speed, collision.get_position(), -normal, other_car.linear_velocity)
 					damage_contact.emit(damage_speed, collision.get_position(), normal, pre_impact_velocity)
 			else:

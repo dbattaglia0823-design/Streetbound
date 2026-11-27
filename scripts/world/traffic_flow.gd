@@ -33,6 +33,7 @@ var agents: Array[Dictionary] = []
 var random := RandomNumberGenerator.new()
 var active_junctions: Dictionary = {}
 var _id_serial := 0
+var patrol_spawns_enabled := true
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
 var show_routes := false
@@ -136,6 +137,21 @@ func _active_patrol_count() -> int:
 	return count
 
 
+# Transfer an existing ambient car into the physical pursuit simulation.
+func release_patrol(node: Node2D) -> void:
+	for index in range(agents.size()-1,-1,-1):
+		if agents[index]["node"] == node:
+			var uid := int(agents[index]["uid"])
+			for junction in active_junctions.keys():
+				if int(active_junctions[junction]) == uid:
+					active_junctions.erase(junction)
+			agents.remove_at(index)
+			node.hide()
+			node.set("collision_layer", 0)
+			node.set("collision_mask", 0)
+			node.queue_free()
+			return
+
 func _spawn_one() -> bool:
 	if not is_instance_valid(player) or network.edges.is_empty():
 		return false
@@ -208,7 +224,7 @@ func _spawn_one() -> bool:
 		car.set_script(Car)
 		car.name = "TrafficCar%02d" % _id_serial
 		car.set("model_index", _id_serial % Car.MODEL_PATHS.size())
-		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count())
+		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count()) if patrol_spawns_enabled else {}
 		if not patrol.is_empty():
 			car.set("patrol_model", patrol)
 			car.name = "PolicePatrol%02d" % _id_serial

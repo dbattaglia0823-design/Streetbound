@@ -1,7 +1,7 @@
 extends RefCounted
 ## Conservative, deterministic police tactics. All locations are metres;
 ## these rules never change a car's physics, velocity, grip or position.
-const MAX_RESPONDERS := 4
+const MAX_RESPONDERS := 10
 const SPAWN_MIN_M := 125.0
 const SPAWN_MAX_M := 245.0
 const SPAWN_SEPARATION_M := 45.0
@@ -12,7 +12,7 @@ const BLOCKADE_MAX_M := 170.0
 
 static func profile(wanted: int) -> Dictionary:
 	var tier := clampi(wanted, 1, 5)
-	var count: int = [1, 2, 3, 4, 4][tier - 1]
+	var count: int = [2, 4, 6, 8, 10][tier - 1]
 	# Target speeds are requested cruise caps, not magic top-speed boosts.
 	# Every officer has the same ordinary vehicle dynamics as other cars.
 	return {
@@ -24,10 +24,16 @@ static func profile(wanted: int) -> Dictionary:
 	}
 
 static func role(index: int, wanted: int) -> String:
-	var roles := ["pursuer", "intercept", "flank_left", "roadblock"]
-	if wanted <= 3 and index == 3:
-		return "flank_right"
-	return roles[clampi(index, 0, roles.size() - 1)]
+	if wanted >= 4 and index == 3:
+		return "roadblock"
+	var roles := ["pursuer", "intercept", "flank_left", "flank_right"]
+	if wanted >= 3 and index >= 4:
+		return "pit" if index % 2 == 0 else "intercept"
+	return roles[posmod(index, roles.size())]
+
+static func pit_allowed(wanted: int, visible_now: bool, distance_m: float,
+		speed_mps: float, cooldown: float) -> bool:
+	return wanted >= 3 and visible_now and distance_m <= 12.0 and speed_mps >= 5.0 and speed_mps <= 24.0 and cooldown <= 0.0
 
 static func safe_spawn(position_m: Vector2, player_m: Vector2,
 		travel_dir: Vector2, prior_units_m: Array[Vector2]) -> bool:
