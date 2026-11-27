@@ -467,6 +467,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             raise ValueError("Invalid road width or lane count at road " + str(index))
         road["width"] = round(float(road_width) / width_scale, 9)
         road["lanes"] = int(lanes)
+        for key in ("junctionStart","junctionEnd"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+                raise ValueError("Invalid road junction mode")
+            if key in entry: road[key]=entry[key]
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
             road["kind"] = CLASS_TO_KIND.get(klass, road["kind"])
@@ -524,6 +528,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                           surface="ASPHALT" if surf in {"ASPHALT", "CONCRETE", "TRACK"} else surf,
                           grade=0, anchors=new_points, points=[],
                           lanes=int(entry.get("lanes", 2))))
+        for key in ("junctionStart","junctionEnd"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+                raise ValueError("Invalid road junction mode")
+            if key in entry: roads[-1][key]=entry[key]
     # Terrain changes are applied ONLY when they differ from the sampled
     # source projection. This protects high-detail coastlines on an untouched
     # import, where the browser preview can display only 180 handles.

@@ -105,6 +105,8 @@ func _valid_source(value: Dictionary) -> bool:
 			if not p is Dictionary or not _in_bounds(Vector2(
 					float(p.get("x",-1)),float(p.get("y",-1))),value):
 				return false
+		for key in ["junctionStart","junctionEnd"]:
+			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if float(road.get("width",10))<6 or float(road.get("width",10))>160:return false
@@ -1137,7 +1139,7 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
-		for key in ["roadClass","surface","width","lanes"]:
+		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd"]:
 			if settings.has(key):road[key]=settings[key]
 		if road.roadClass=="onramp":
 			road.lanes=1

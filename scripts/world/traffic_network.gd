@@ -141,7 +141,8 @@ func build(data: Dictionary, for_navigation: bool=false) -> void:
 					segments.append({"a":a,"b":b,"half_width":road.half_width})
 		junction_geometry[i]={"polygon":polygon,"segments":segments,
 			"ramp_road":int(junction.get("ramp_road",-1)),"main_road":int(junction.get("main_road",-1)),
-			"merge_side":int(junction.get("merge_side",0))}
+			"merge_side":int(junction.get("merge_side",0)), "through_road":int(junction.get("through_road",junction.get("main_road",-1))),
+			"through_side":int(junction.get("through_side",-int(junction.get("merge_side",0))))}
 	var incoming: Dictionary = {}
 	var outgoing: Dictionary = {}
 	var incoming_ends: Dictionary = {}
@@ -297,8 +298,14 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				if int(source.road)==ramp_id:
 					if int(target.road)!=main_id or int(target.start_side)!=int(geometry.get("merge_side",0)) or target_lane!=target_count-1:
 						continue
-				elif int(source.road)!=main_id or int(target.road)!=main_id or int(source.direction)!=int(target.direction) or first_lane!=target_lane:
-					continue
+				else:
+					var other_id := int(geometry.get("through_road",main_id))
+					var merge_side := int(geometry.get("merge_side",0))
+					var other_side := int(geometry.get("through_side",0))
+					var forward := int(source.road)==other_id and int(source.end_side)==other_side and int(target.road)==main_id and int(target.start_side)==merge_side
+					var reverse := int(source.road)==main_id and int(source.end_side)==merge_side and int(target.road)==other_id and int(target.start_side)==other_side
+					if not (forward or reverse) or target_lane!=mini(first_lane,target_count-1):
+						continue
 			# The outside lane turns right, inside lane turns left; a single
 			# lane accepts all legal approaches.
 			if not is_merge and turn=="left" and (first_lane!=0 or target_lane!=0):

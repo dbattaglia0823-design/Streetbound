@@ -65,6 +65,9 @@ static func build_data(base: Dictionary, source: Array, initial: Array, width_sc
 				"width":float(item.width)/width_scale*float(base.get("road_width_scale",1.0)),
 				"lanes":int(item.lanes),"surface":str(item.surface).to_upper(),
 				"kind":{"city":"local","country":"rural","service":"driveway"}.get(str(item.roadClass),str(item.roadClass))}
+		for key in ["junctionStart","junctionEnd"]:
+			if item.has(key):road[key]=item[key]
+			else:road.erase(key)
 		if road.get("surface","")=="TRACK":road.kind="track"
 		if road.get("surface","") in ["CONCRETE","TRACK"]:road.surface="ASPHALT"
 		# Endpoint identity follows geometry, including new/reversed road joins.
@@ -145,16 +148,22 @@ static func _junctions(roads: Array) -> Array:
 		if arms.size()==3:
 			for ramp in arms:
 				var ramp_road: Dictionary=roads[int(ramp.road)]
-				if str(ramp_road.kind)!="onramp" or int(ramp.side)!=-1 or float(ramp_road._stations[-1])-float(ramp.origin)>.15:
+				var at_end := int(ramp.side)==-1
+				var key := "junctionEnd" if at_end else "junctionStart"
+				var mode := str(ramp_road.get(key,"merge" if at_end and str(ramp_road.kind)=="onramp" else "auto"))
+				if mode!="merge" or absf(float(ramp.origin)-(float(ramp_road._stations[-1]) if at_end else 0.0))>.15:
 					continue
 				var others: Array=arms.filter(func(a: Dictionary)->bool:return a!=ramp)
-				if int(others[0].road)!=int(others[1].road) or str(roads[int(others[0].road)].kind) not in ["highway","arterial","rural","local"]:
+				if Vector2(others[0].direction).dot(Vector2(others[1].direction))>-.85:
+					continue
+				if str(roads[int(others[0].road)].kind) not in ["highway","arterial","rural","local"] or str(roads[int(others[1].road)].kind) not in ["highway","arterial","rural","local"]:
 					continue
 				for target in others:
 					var direction: Vector2=target.direction
 					var approach: Vector2=ramp.direction
-					if direction.dot(-approach)>=.7071 and direction.cross(approach)>=.087:
-						merge={"ramp_road":int(ramp.road),"main_road":int(target.road),"merge_side":int(target.side)}
+					if direction.dot(-approach)>=(-.001 if ramp_road.get(key)=="merge" else .7071) and direction.cross(approach)>=.087:
+						var opposite: Dictionary=others[1] if target==others[0] else others[0]
+						merge={"ramp_road":int(ramp.road),"ramp_side":int(ramp.side),"main_road":int(target.road),"merge_side":int(target.side),"through_road":int(opposite.road),"through_side":int(opposite.side)}
 		arms.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return a.width>b.width)
 		var unique: Array=[]
 		for arm in arms:

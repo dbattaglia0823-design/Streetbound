@@ -95,27 +95,45 @@ def rounded_hull(points):
     return rounded
 
 
+def endpoint_mode(road, end):
+    return road.get('junctionEnd' if end else 'junctionStart',
+                    'merge' if end and road['kind']=='onramp' else 'auto')
+
+
 def ramp_merge(roads, arms):
     """A single forward ramp end merging into an uninterrupted through road.
     Reject wrong-side, perpendicular and ambiguous joins at bake time."""
-    ramps=[a for a in arms if roads[a['road']]['kind']=='onramp' and a['side']==-1
-           and roads[a['road']]['_stations'][-1]-a['origin_station']<.15]
+    ramps=[]
+    for a in arms:
+        road=roads[a['road']]
+        end=a['side']==-1
+        if endpoint_mode(road,end)=='merge' and abs(a['origin_station']-(road['_stations'][-1] if end else 0))<.15:
+            ramps.append(a)
     if not ramps:
         return None
     if len(ramps)!=1 or len(arms)!=3:
         raise ValueError('On-ramp end must join the interior of one through road')
     ramp=ramps[0]
     main=[a for a in arms if a is not ramp]
-    if main[0]['road']!=main[1]['road'] or roads[main[0]['road']]['kind'] not in ('highway','arterial','rural','local'):
-        raise ValueError('On-ramp end needs one continuous paved through road')
+    if any(roads[a['road']]['kind'] not in ('highway','arterial','rural','local') or roads[a['road']]['surface'] in ('GRAVEL','DIRT') for a in main):
+        raise ValueError('On-ramp needs a paved through road')
+    if sum(main[0]['direction'][k]*main[1]['direction'][k] for k in (0,1))>-.85:
+        raise ValueError('On-ramp needs two opposing through-road approaches')
     incoming=[-v for v in ramp['direction']]
-    target=max(main,key=lambda a:sum(incoming[k]*a['direction'][k] for k in (0,1)))
+    # In screen coordinates positive cross means the branch is on the right.
+    candidates=[a for a in main if a['direction'][0]*ramp['direction'][1]-a['direction'][1]*ramp['direction'][0]>.087]
+    if not candidates:
+        raise ValueError('On-ramp must approach from the right')
+    target=max(candidates,key=lambda a:sum(incoming[k]*a['direction'][k] for k in (0,1)))
     direction=target['direction']
     dot=sum(incoming[k]*direction[k] for k in (0,1))
     side=direction[0]*ramp['direction'][1]-direction[1]*ramp['direction'][0]
-    if dot<.7071 or side<.087:
-        raise ValueError('On-ramp must approach from the right at a 5–45 degree angle')
-    return dict(ramp_road=ramp['road'],main_road=target['road'],merge_side=target['side'])
+    explicit=roads[ramp['road']].get('junctionEnd' if ramp['side']==-1 else 'junctionStart')=='merge'
+    if dot<(-.001 if explicit else .7071) or side<.087:
+        raise ValueError('On-ramp must approach from the right without doubling back')
+    opposite=next(a for a in main if a is not target)
+    return dict(ramp_road=ramp['road'],ramp_side=ramp['side'],main_road=target['road'],merge_side=target['side'],
+                through_road=opposite['road'],through_side=opposite['side'])
 
 
 def build_junctions(roads,nodes,segments,grid):
@@ -177,7 +195,7 @@ def build_junctions(roads,nodes,segments,grid):
                 arms.append(dict(road=road_id,side=side,origin_station=station,
                                  direction=out,available=available,width=road['width']))
         merge=ramp_merge(roads,arms)
-        if merge:merged_ramps.add(merge['ramp_road'])
+        if merge:merged_ramps.add((merge['ramp_road'],merge['ramp_side']==-1))
         # Coincident route pieces describe one physical approach.
         unique=[]
         for arm in sorted(arms,key=lambda a:-a['width']):
@@ -280,8 +298,9 @@ def build_junctions(roads,nodes,segments,grid):
         result.append(dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
                            radius=radius,control=control,kind='merge' if merge else ('crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')),**(merge or {})))
     for road in roads:
-        if road['kind']=='onramp' and road['id'] not in merged_ramps:
-            raise ValueError('On-ramp final point must snap to the interior of a through road: '+road['name'])
+        for end in (False,True):
+            if endpoint_mode(road,end)=='merge' and (road['id'],end) not in merged_ramps:
+                raise ValueError('On-ramp endpoint needs a valid three-arm merge: '+road['name'])
     for road in roads:
         merged=[]
         for a,b in sorted(road['marking_gaps']):
