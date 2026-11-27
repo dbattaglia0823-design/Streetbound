@@ -1,6 +1,7 @@
 extends SceneTree
 var failures: Array[String] = []
 const Clip = preload("res://scripts/world/road_marking_clip.gd")
+const Furniture = preload("res://scripts/world/junction_furniture.gd")
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -71,5 +72,13 @@ func run() -> void:
 	check("dash_phase_survives_clipping",pieces.size()==3 and is_equal_approx(float(pieces[1].phase),160) and is_equal_approx(float(pieces[2].phase),220))
 	var inside := Clip.parts(path,100,[[0.0,30.0]])
 	check("paint_fully_inside_junction_is_removed",inside.is_empty())
+	var valid_yield:=true
+	for direction in [Vector2.RIGHT,Vector2.DOWN,Vector2.LEFT,Vector2.UP,Vector2(1,1).normalized(),Vector2(-1,.1).normalized()]:
+		var triangle:=Furniture.yield_triangle(direction,.24,20.0)
+		valid_yield=valid_yield and triangle.size()==3 and Geometry2D.triangulate_polygon(triangle).size()==3
+		if triangle.size()==3:
+			valid_yield=valid_yield and absf((triangle[1]-triangle[0]).cross(triangle[2]-triangle[0]))>1.0
+	check("yield_triangles_are_valid_local_geometry",valid_yield)
+	check("degenerate_yield_directions_are_rejected",Furniture.yield_triangle(Vector2.ZERO,.24,20.0).is_empty() and Furniture.yield_triangle(Vector2.RIGHT,0.0,20.0).is_empty())
 	print("JUNCTION TESTS: ","PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)

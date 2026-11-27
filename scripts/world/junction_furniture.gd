@@ -1,6 +1,17 @@
 extends RefCounted
 ## Static junction artwork. All lenses are neutral/unlit; no signal phases,
 ## timers, collision or traffic permissions are introduced by these fixtures.
+## Build paint around a local origin: triangulating tiny triangles at large
+## absolute canvas coordinates loses precision in Godot's polygon renderer.
+static func yield_triangle(outward: Vector2, half_width_m: float, ppm: float) -> PackedVector2Array:
+	if not outward.is_finite() or outward.length_squared()<.5 or not is_finite(half_width_m) or half_width_m<=0.0 or not is_finite(ppm) or ppm<=0.0:
+		return PackedVector2Array()
+	var direction:=outward.normalized()
+	var normal:=Vector2(-direction.y,direction.x)
+	var points:=PackedVector2Array([(-direction*.25-normal*half_width_m)*ppm,(-direction*.25+normal*half_width_m)*ppm,direction*.35*ppm])
+	if Geometry2D.triangulate_polygon(points).size()!=3:return PackedVector2Array()
+	return points
+
 static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector2.ZERO,ppm: float=20,roads: Array=[]) -> void:
 	var junction_control := str(junction.get("control",""))
 	var merge := junction_control=="merge"
@@ -11,6 +22,7 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 		var normal:=Vector2(-outward.y,outward.x)
 		var p:=Vector2(arm.p[0],arm.p[1])-origin
 		var width:=float(arm.width)
+		if not outward.is_finite() or outward.length_squared()<.5 or not p.is_finite() or not is_finite(width) or width<=0.0:continue
 		var control := str(arm.get("control","none"))
 		var road_id := int(arm.get("road",-1))
 		var kind := str(roads[road_id].get("kind","")) if road_id>=0 and road_id<roads.size() else ""
@@ -25,7 +37,11 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 				var across := -width*.5+.35+(float(i)+.5)*(incoming_width-.7)/float(count)
 				var at := p+outward*.8+normal*across
 				var half := minf(.27,(incoming_width-.7)/float(count)*.35)
-				canvas.draw_colored_polygon(PackedVector2Array([(at-outward*.25-normal*half)*ppm,(at-outward*.25+normal*half)*ppm,(at+outward*.35)*ppm]),paint)
+				var triangle:=yield_triangle(outward,half,ppm)
+				if triangle.size()!=3:continue
+				canvas.draw_set_transform(at*ppm)
+				canvas.draw_colored_polygon(triangle,paint)
+				canvas.draw_set_transform(Vector2.ZERO)
 		if urban and arms.size()>=3 and not merge and junction_control!="roundabout" and width>3.0:
 			var count := maxi(2,floori((width-.9)/.85))
 			for i in count:

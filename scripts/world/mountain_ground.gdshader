@@ -55,8 +55,8 @@ float local_hill_light(vec2 at,float amplitude) {
     vec3 normal=normalize(vec3(-gradient*amplitude,1.0));
     vec3 sunlight=normalize(vec3(SUN_DIRECTION,.75));
     float diffuse=dot(normal,sunlight);
-    float flat= sunlight.z;
-    return clamp(1.0+(diffuse-flat)*.69,.59,1.25);
+    float level_light = sunlight.z;
+    return clamp(1.0+(diffuse-level_light)*.69,.59,1.25);
 }
 
 // Filter high spatial frequencies before sampling their contribution.
