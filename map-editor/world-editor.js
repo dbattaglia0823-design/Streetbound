@@ -16,7 +16,7 @@ import {buildWorldZip,worldSlug} from './world-export.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {liveRoadAutomation,liveRoadClearances,drawLiveAutomation} from './world-automation-preview.js';
 import {smartRoadSnap,largeDragDistance} from './world-safe-edit.js';
-import {joinRoadEndpoints,splitRoadAt,pointElevationLayers,applyPointElevations} from './world-road-topology.js';
+import {joinRoadEndpoints,splitRoadAt,pointElevationLayers,applyPointElevations,convertRoadToTunnel} from './world-road-topology.js';
 import {createMapAuditUI} from './world-audit-ui.js';
 import {loadMorrowCoast,isMorrowEdit,expandMorrowWorld,morrowEditText,MORROW_EDIT_NAME,
   MORROW_MAX_WIDTH,MORROW_MAX_HEIGHT} from './morrow-coast-bridge.js';
@@ -1680,6 +1680,11 @@ $('apply-road-point-elevations').addEventListener('click',()=>{
   if(found?.type!=='roads')return;
   const layers=found.item.points.map((_,i)=>Number($('road-point-layer-'+i).value));
   change(d=>applyPointElevations(d,found.item.id,layers),'Saved individual elevations on the selected road.');
+});
+$('convert-road-tunnel').addEventListener('click',()=>{
+  const found=selection?getEntity(doc,selection.id):null;
+  if(found?.type!=='roads')return;
+  change(d=>convertRoadToTunnel(d,found.item.id),'Converted the entire road to a tunnel with entry and exit ramps.');
 });
 $('apply-road-elevation').addEventListener('click',()=>{
   if(!selection||getEntity(doc,selection.id)?.type!=='roads')return;
