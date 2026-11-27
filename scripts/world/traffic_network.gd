@@ -312,6 +312,15 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 			var target_lane := int(target.lane)
 			var target_count := int(target.lanes_in_direction)
 			var is_merge := control=="merge"
+			var is_transition := control=="lane_transition"
+			if is_transition:
+				# Lane zero is the median-side lane in either direction.
+				# Keep surviving lanes continuous and taper only the outside
+				# lanes. On expansion the former outside lane can branch into
+				# new lanes; on contraction excess lanes join the last survivor.
+				if int(source.road)==int(target.road) or turn!="straight":continue
+				var primary:=mini(first_lane,target_count-1)
+				if target_lane!=primary and not (target_count>first_count and first_lane==first_count-1 and target_lane>=first_lane):continue
 			if is_merge:
 				var geometry: Dictionary = junction_geometry.get(junction,{})
 				var ramp_id := int(geometry.get("ramp_road",-1))
@@ -329,11 +338,11 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 						continue
 			# The outside lane turns right, inside lane turns left; a single
 			# lane accepts all legal approaches.
-			if not is_merge and turn=="left" and (first_lane!=0 or target_lane!=0):
+			if not is_merge and not is_transition and turn=="left" and (first_lane!=0 or target_lane!=0):
 				continue
-			if not is_merge and turn=="right" and (first_lane!=first_count-1 or target_lane!=target_count-1):
+			if not is_merge and not is_transition and turn=="right" and (first_lane!=first_count-1 or target_lane!=target_count-1):
 				continue
-			if not is_merge and turn=="straight" and target_lane!=mini(first_lane,target_count-1):
+			if not is_merge and not is_transition and turn=="straight" and target_lane!=mini(first_lane,target_count-1):
 				continue
 			var from_path: PackedVector2Array=source.points
 			var to_path: PackedVector2Array=target.points
@@ -343,7 +352,7 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				continue # A stale shared node name must never create an off-road shortcut.
 			var t0 := (p0-from_path[from_path.size()-2]).normalized()
 			var t1 := (to_path[1]-p1).normalized()
-			if p0.distance_to(p1)<.1 and t0.dot(t1)>.98 and not bool(junction_geometry.get(junction,{}).get("authored_control",false)):
+			if p0.distance_to(p1)<.1 and t0.dot(t1)>.98 and not is_transition and not bool(junction_geometry.get(junction,{}).get("authored_control",false)):
 				# Coincident continuations need no artificial cubic loop.
 				edges[int(from_id)]["next"].append(int(to_id))
 				continue
@@ -352,7 +361,8 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				rejected_connector_count+=1
 				continue
 			var approach_control := str(source.control) if junction>=0 else "none"
-			var turn_kph := 50.0 if is_merge else (17.0 if turn in ["left","right"] else 29.0)
+			if is_transition:approach_control="yield" if first_lane>=target_count else "none"
+			var turn_kph := 90.0 if is_transition else 50.0 if is_merge else (17.0 if turn in ["left","right"] else 29.0)
 			var id := _add_edge({
 				"road":int(source.road),"direction":int(source.direction),"lane":first_lane,
 				"lanes_in_direction":first_count,"connector":true,
@@ -360,8 +370,8 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				"start_j":junction,"end_j":junction,"start_side":int(source.end_side),
 				"end_side":int(target.start_side),"start_node":"","end_node":"",
 				"control":approach_control,"junction_control":control,
-				"signal_slot":int(source.get("signal_slot",-1)),"signal_count":int(junction_geometry.get(junction,{}).get("signal_count",0)),
-				"kind":"connector","turn":turn,
+				"signal_slot":-1 if is_transition else int(source.get("signal_slot",-1)),"signal_count":0 if is_transition else int(junction_geometry.get(junction,{}).get("signal_count",0)),
+				"kind":"connector","turn":turn,"target_lane":int(to_id),"lane_transition":is_transition,
 				"grade_road":bool(source.grade_road) or bool(target.grade_road),
 				"start_height_m":source.end_height_m,"end_height_m":target.start_height_m
 			})

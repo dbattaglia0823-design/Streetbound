@@ -14,6 +14,7 @@ static func yield_triangle(outward: Vector2, half_width_m: float, ppm: float) ->
 
 static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector2.ZERO,ppm: float=20,roads: Array=[]) -> void:
 	var junction_control := str(junction.get("control",""))
+	if junction_control=="lane_transition":return
 	var merge := junction_control=="merge"
 	var arms: Array=junction.get("approaches",[])
 	for arm in arms:

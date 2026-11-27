@@ -132,6 +132,23 @@ static func _junctions(roads: Array) -> Array:
 						var crossing: Variant=Geometry2D.segment_intersects_segment(a,b,segment.a,segment.b)
 						if crossing!=null:_event(events,cells,crossing,id,int(segment.road))
 					grid[key].append({"road":id,"index":i,"a":a,"b":b})
+	# Collinear segments sharing an endpoint have no unique intersection
+	# in Geometry2D.segment_intersects_segment. Register exact endpoint
+	# joins explicitly so straight lane-count transitions are not lost.
+	var endpoints: Dictionary={}
+	for id in roads.size():
+		var road: Dictionary=roads[id]
+		if not RANK.has(str(road.kind)) or road.surface in ["GRAVEL","DIRT"]:continue
+		for raw in [road.points[0],road.points[-1]]:
+			var p:=_point(raw)
+			var key:=Vector2i((p/.12).floor())
+			for x in range(key.x-1,key.x+2):
+				for y in range(key.y-1,key.y+2):
+					for other in endpoints.get(Vector2i(x,y),[]):
+						if int(other.road)!=id and p.distance_to(other.point)<=.12:
+							_event(events,cells,p,id,int(other.road))
+			if not endpoints.has(key):endpoints[key]=[]
+			endpoints[key].append({"road":id,"point":p})
 	var junctions: Array=[]
 	for event in events:
 		var center: Vector2=event.point
@@ -176,17 +193,23 @@ static func _junctions(roads: Array) -> Array:
 			if not duplicate:unique.append(arm)
 		arms=unique
 		if arms.size()<2:continue
-		if arms.size()==2 and Vector2(arms[0].direction).dot(arms[1].direction)<-.94 and absf(float(arms[0].width)-float(arms[1].width))<.1:continue
+		var lane_transition: bool=false
+		if arms.size()==2 and int(arms[0].road)!=int(arms[1].road) and Vector2(arms[0].direction).dot(arms[1].direction)<-.94:
+			var first: Dictionary=roads[int(arms[0].road)]
+			var second: Dictionary=roads[int(arms[1].road)]
+			lane_transition=first.kind in ["highway","arterial","rural","mountain","local"] and second.kind in ["highway","arterial","rural","mountain","local"] and first.surface=="ASPHALT" and second.surface=="ASPHALT" and maxi(2,int(first.lanes))!=maxi(2,int(second.lanes))
+		if arms.size()==2 and Vector2(arms[0].direction).dot(arms[1].direction)<-.94 and absf(float(arms[0].width)-float(arms[1].width))<.1 and not lane_transition:continue
 		var mouth:=PackedVector2Array()
 		for arm in arms:
 			var clearance:=float(arm.width)*.5+6
+			if lane_transition:clearance=maxf(maxf(float(arms[0].width),float(arms[1].width))*.5+6,18+8*absi(int(roads[int(arms[0].road)].lanes)-int(roads[int(arms[1].road)].lanes)))
 			for other in arms:
 				if other==arm:continue
 				var cosine:=Vector2(arm.direction).dot(other.direction)
 				var sine:=absf(Vector2(arm.direction).cross(other.direction))
 				if cosine>0 and sine>.025:clearance=maxf(clearance,(float(other.width)*.5+float(arm.width)*.5*cosine)/sine+3)
 			var road: Dictionary=roads[int(arm.road)]
-			arm.station=float(arm.origin)+int(arm.side)*minf(40,minf(clearance,float(arm.available)*.7))
+			arm.station=float(arm.origin)+int(arm.side)*minf(60 if lane_transition else 40,minf(clearance,float(arm.available)*.7))
 			var p:=_sample(road,float(arm.station))
 			var direction:=(_sample(road,float(arm.station)+int(arm.side)*.4)-_sample(road,float(arm.station)-int(arm.side)*.4)).normalized()
 			var normal:=Vector2(-direction.y,direction.x)*float(arm.width)*.5
@@ -199,7 +222,7 @@ static func _junctions(roads: Array) -> Array:
 			arm.direction=[direction.x,direction.y]
 		var polygon: Array=[]
 		for p in Geometry2D.convex_hull(mouth):polygon.append([p.x,p.y])
-		var control:="none"
+		var control:="lane_transition" if lane_transition else "none"
 		if arms.size()>=3:
 			var ranks: Array=[]
 			for arm in arms:ranks.append(int(RANK[str(roads[int(arm.road)].kind)]))
@@ -219,7 +242,7 @@ static func _junctions(roads: Array) -> Array:
 			control="merge"
 			for arm in arms:arm.control="yield" if int(arm.road)==int(merge.ramp_road) else "none"
 		var junction: Dictionary={"p":[center.x,center.y],"roads":event.roads.keys(),"approaches":arms,
-			"polygon":polygon,"control":control,"kind":"merge" if not merge.is_empty() else "draft","curbs":[]}
+			"polygon":polygon,"control":control,"kind":"lane_transition" if lane_transition else "merge" if not merge.is_empty() else "draft","curbs":[]}
 		junction.merge(merge)
 		junctions.append(junction)
 	for road in roads:road.erase("_stations")

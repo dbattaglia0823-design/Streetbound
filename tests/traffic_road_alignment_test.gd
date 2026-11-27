@@ -98,6 +98,23 @@ func run() -> void:
 	check("two_lane_ramp_has_both_directions",ramp_graph.edges.size()==2 and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==1) and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==-1))
 	ramp.lanes=1;ramp_graph.build({"roads":[ramp],"junctions":[]})
 	check("one_lane_ramp_stays_directional",ramp_graph.edges.size()==1 and int(ramp_graph.edges[0].direction)==1)
+	var wide_doc: Array=[{"id":"road-0","name":"Wide","roadClass":"highway","surface":"asphalt","width":18,"lanes":6,"smooth":false,"points":[{"x":100,"y":200},{"x":500,"y":200}]},
+		{"id":"road-1","name":"Narrow","roadClass":"highway","surface":"asphalt","width":18,"lanes":2,"smooth":false,"points":[{"x":900,"y":200},{"x":500,"y":200}]}]
+	var transition_data:=Preview.build_data({"roads":[]},wide_doc,[])
+	var transition_net:=Network.new();transition_net.build(transition_data)
+	check("lane_count_change_with_same_width_is_a_transition",transition_data.junctions.size()==1 and str(transition_data.junctions[0].control)=="lane_transition")
+	var narrow_merges:=0;var expansions:=0;var legal:=true
+	for edge in transition_net.edges:
+		if not bool(edge.get("lane_transition",false)):continue
+		var receiver: Dictionary=transition_net.edges[int(edge.next[0])]
+		legal=legal and int(edge.signal_count)==0 and int(edge.road)!=int(receiver.road)
+		for p in edge.points:
+			legal=legal and (p.y>200*20 if int(edge.road)==0 else p.y<200*20)
+		if int(edge.road)==0:
+			narrow_merges+=1
+			legal=legal and str(edge.control)==("none" if int(edge.lane)==0 else "yield")
+		else:expansions+=1
+	check("all_directional_lanes_merge_or_expand_without_crossing_median",legal and narrow_merges==3 and expansions==3,[narrow_merges,expansions])
 	var corner:=Network.new()
 	corner.build({"roads":[{"name":"Hairpin","kind":"mountain","surface":"ASPHALT","width":10,"lanes":2,"start":"a","end":"b","points":[[100,100],[130,100],[140,110],[140,125],[130,135],[100,135]]}],"junctions":[]})
 	check("tight_curves_limit_speed_before_the_corner",corner.curve_speed_limit(0,28*20,35/3.6*20)<35/3.6*20)

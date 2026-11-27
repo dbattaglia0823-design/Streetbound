@@ -159,5 +159,52 @@ func run() -> void:
 		min_gap / PPM)
 	check("junction_claims_released_after_crossing", flow.active_junctions.is_empty(),
 		flow.active_junctions)
+	_check_lane_transition_gaps()
 	print("INTERSECTION TRAFFIC FLOW: ", "PASS" if failures.is_empty() else "FAIL")
 	quit(0 if failures.is_empty() else 1)
+
+
+
+func _check_lane_transition_gaps() -> void:
+	var roads: Array=[
+		{"name":"Wide","start":"w","end":"join","kind":"highway","surface":"ASPHALT","width":18.0,"lanes":6,"points":[[100,300],[500,300]]},
+		{"name":"Narrow reversed","start":"e","end":"join","kind":"highway","surface":"ASPHALT","width":18.0,"lanes":2,"points":[[900,300],[500,300]]}]
+	var arms: Array=[
+		{"road":0,"side":-1,"station":350.0,"control":"none","p":[450,300],"direction":[-1,0],"width":18},
+		{"road":1,"side":-1,"station":350.0,"control":"none","p":[550,300],"direction":[1,0],"width":18}]
+	var network:=Network.new()
+	network.build({"roads":roads,"junctions":[{"p":[500,300],"roads":[0,1],"approaches":arms,"polygon":[[450,291],[550,291],[550,309],[450,309]],"control":"lane_transition","kind":"lane_transition"}]})
+	var merge: Dictionary={}
+	var through: Dictionary={}
+	var reverse: Dictionary={}
+	var merge_source:=-1
+	var through_source:=-1
+	for edge in network.edges:
+		if bool(edge.connector):continue
+		for option in edge.next:
+			var next: Dictionary=network.edges[int(option)]
+			if not bool(next.get("lane_transition",false)):continue
+			if int(edge.road)==0 and int(edge.lane)==2:
+				merge=next;merge_source=int(edge.id)
+			elif int(edge.road)==0 and int(edge.lane)==0:
+				through=next;through_source=int(edge.id)
+			elif int(edge.road)==1:reverse=next
+	check("lane_transition_fixture_has_both_directions",not merge.is_empty() and not through.is_empty() and not reverse.is_empty())
+	if merge.is_empty() or through.is_empty() or reverse.is_empty():return
+	var flow:=Node2D.new()
+	flow.set_script(Flow)
+	flow.enabled=false
+	root.add_child(flow)
+	flow.network=network
+	var incoming:=make_agent(network,merge_source,10,8.0)
+	var continuing:=make_agent(network,through_source,20,6.0)
+	flow.agents.append(incoming);flow.agents.append(continuing)
+	check("outer_lane_yields_to_approaching_continuing_lane",flow._transition_blocked(incoming,merge,8.0*PPM))
+	check("continuing_lane_is_not_blocked_by_disappearing_lane",not flow._transition_blocked(continuing,through,6.0*PPM))
+	continuing.edge=int(through.target_lane);continuing.progress=PPM*2.0
+	check("merge_waits_for_occupied_receiving_lane",flow._transition_blocked(incoming,merge,8.0*PPM))
+	continuing.progress=PPM*40.0
+	check("merge_proceeds_when_receiving_lane_clears",not flow._transition_blocked(incoming,merge,8.0*PPM))
+	continuing.edge=int(reverse.id);continuing.progress=0.0
+	check("opposing_carriageway_does_not_block_merge",not flow._transition_blocked(incoming,merge,8.0*PPM))
+	incoming.node.queue_free();continuing.node.queue_free();flow.queue_free()

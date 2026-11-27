@@ -239,7 +239,14 @@ def build_junctions(roads,nodes,segments,grid):
         arms=unique
         if len(arms)<2:continue
         dot=sum(arms[0]['direction'][k]*arms[1]['direction'][k] for k in (0,1))
-        if len(arms)==2 and dot<-.94 and abs(arms[0]['width']-arms[1]['width'])<.1:
+        # A lane change is a continuation, not a controlled intersection.
+        # Only two genuinely opposing approaches qualify; crossings and
+        # T-junctions retain their ordinary control and turning rules.
+        lane_transition=(len(arms)==2 and dot<-.94 and arms[0]['road']!=arms[1]['road']
+            and all(roads[a['road']]['kind'] in ('highway','arterial','rural','mountain','local')
+                    and roads[a['road']]['surface'] in ('ASPHALT','CONCRETE') for a in arms)
+            and max(2,roads[arms[0]['road']].get('lanes',2))!=max(2,roads[arms[1]['road']].get('lanes',2)))
+        if len(arms)==2 and dot<-.94 and abs(arms[0]['width']-arms[1]['width'])<.1 and not lane_transition:
             continue  # smooth continuation, not a traffic junction
         for arm in arms:
             clearance=base
@@ -249,7 +256,12 @@ def build_junctions(roads,nodes,segments,grid):
                 sine=abs(arm['direction'][0]*other['direction'][1]-arm['direction'][1]*other['direction'][0])
                 if cosine>0 and sine>.025:
                     clearance=max(clearance,(other['width']*.5+arm['width']*.5*cosine)/sine+3)
-            arm['setback']=min(40,clearance,arm['available']*.70)
+            if lane_transition:
+                # Leave a useful lane-change run before/after the join, but
+                # reserve at least 30% of each approach for normal travel.
+                difference=abs(roads[arms[0]['road']]['lanes']-roads[arms[1]['road']]['lanes'])
+                clearance=max(clearance,18+8*difference)
+            arm['setback']=min(60 if lane_transition else 40,clearance,arm['available']*.70)
             road=roads[arm['road']]
             arm['station']=max(0,min(road['_stations'][-1],arm['origin_station']+arm['side']*arm['setback']))
             arm['p']=sample(road,arm['station'])
@@ -260,7 +272,9 @@ def build_junctions(roads,nodes,segments,grid):
         ranks=[PRIORITY[roads[a['road']]['kind']] for a in arms]
         roundabout=any(roads[a['road']]['name']=='Civic Roundabout' for a in arms)
         control='none'
-        if merge:
+        if lane_transition:
+            control='lane_transition'
+        elif merge:
             control='merge'
             for arm in arms:arm['control']='yield' if arm['road']==merge['ramp_road'] else 'none'
         elif len(arms)>=3:
@@ -332,7 +346,7 @@ def build_junctions(roads,nodes,segments,grid):
             for key in ['available','origin_station','angle']:arm.pop(key,None)
         radius=max(distance(center,p) for p in polygon)+2
         junction=dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
-                      radius=radius,control=control,kind='merge' if merge else ('crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')),**(merge or {}))
+                      radius=radius,control=control,kind='lane_transition' if lane_transition else 'merge' if merge else ('crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')),**(merge or {}))
         if e['layer']:
             junction['road_layer']=e['layer']
         result.append(junction)
