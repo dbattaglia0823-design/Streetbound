@@ -1289,6 +1289,21 @@ func apply_point_elevations(identity: String, layers: Array) -> bool:
 	return false
 
 
+func set_road_structure(identity: String, kind: String) -> bool:
+	var next:=doc.duplicate(true)
+	for i in next.roads.size():
+		var road: Dictionary=next.roads[i]
+		if str(road.id)!=identity:continue
+		var result:=Elevation.structure_profile(road,kind)
+		if result.has("error"):
+			last_error=str(result.error)
+			return false
+		next.roads[i]=result.road
+		return _commit(next)
+	last_error="Select a road first."
+	return false
+
+
 func convert_road_to_tunnel(identity: String) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
