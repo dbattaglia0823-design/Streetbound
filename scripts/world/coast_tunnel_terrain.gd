@@ -64,7 +64,10 @@ static func build(road: Dictionary, regions: Array[Dictionary], connected: bool)
 		var steps := maxi(1,ceili(length/3.0))
 		for k in range(1,steps+1):
 			var t := float(k)/steps
-			path.append(source[i-1].lerp(source[i],t))
+			var sample_point := source[i-1].lerp(source[i],t)
+			if sample_point.distance_to(path[-1])<1.5 and not (i==source.size()-1 and k==steps):continue
+			if sample_point.distance_to(path[-1])<.01:continue
+			path.append(sample_point)
 			stations.append(total+length*t)
 		total+=length
 	if total<.01:return {}
@@ -94,6 +97,7 @@ static func build(road: Dictionary, regions: Array[Dictionary], connected: bool)
 				"bank":PackedVector2Array([rim[i-1],rim[i],bank1,bank0]),
 				"bank_colors":PackedColorArray([Color(earth,depth0*.86),Color(earth,depth1*.86),Color(top,0.0),Color(top,0.0)]),
 				"rim":PackedVector2Array([rim[i-1],rim[i]]),"depth":depth1})
+	if path.size()<2:return {}
 	var mouth := path[-1]
 	var toward_surface := (path[-2]-mouth).normalized()
 	var across := toward_surface.orthogonal()
@@ -172,7 +176,7 @@ func _portal(plan: Dictionary) -> void:
 	_line(m-d*.62-n*rim,m-d*.62+n*rim,Color("666961"),.95)
 	_line(m-d*1.08-n*rim,m-d*1.08+n*rim,Color("b1b1a3"),.20)
 	for side in [-1.0,1.0]:
-		var p := m+n*rim*side
+		var p: Vector2 = m+n*rim*float(side)
 		_line(p-d*.9,p+d*2.8,Color("444744"),.85)
 		_line(p-d*.9,p+d*2.8,Color("a09d8d"),.26)
 		_line(p-n*side*.33+d*.5,p-n*side*.33+d*1.25,Color("e8b65d"),.15)
