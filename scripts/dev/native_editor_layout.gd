@@ -86,6 +86,7 @@ static func build(e) -> void:
 		elif not tool.is_empty():e._choose_tool(tool))
 	settings.add_child(extra)
 	e.map_switcher.build_publish_ui(e,world_settings)
+	e._btn("Environmental finishing",world_settings,func():e.workspace_tools.open_environment_finishing())
 	e._btn("Dealership areas & stock",world_settings,e._open_dealership_editor)
 	e._btn("Gameplay authoring",world_settings,func():e.gameplay_authoring.open(e))
 	e._btn("World Validation Center",world_settings,func():e.gameplay_authoring.open_validation(e))

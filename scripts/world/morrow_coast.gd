@@ -16,6 +16,7 @@ const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
+const FinishRules=preload("res://scripts/world/environment_finishing_rules.gd")
 const PPM := 20.0
 var data: Dictionary
 # Override is set before add_child(): either an isolated Test Drive in
@@ -66,6 +67,10 @@ var mark_clock := 0.0
 ## 0 = clear, 1 = heavy rain. Optional on any published or Test Drive archive.
 var rain_intensity := 0.0
 var living_world: Node
+var _finish_clock:=0.0
+var _environment_night:=0.0
+var _environment_regions: Array[Dictionary]=[]
+var _finish_preview: CanvasModulate
 var _junction_grid: Dictionary = {}
 var _junction_polygons: Array[PackedVector2Array] = []
 var _apron_grid: Dictionary = {}
@@ -139,6 +144,7 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	RoadWidthAdaptation.adapt(data)
 	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
 	mountain_diagnostics=Mountains.apply(data)
+	_environment_regions=FinishRules.region_profiles(data)
 	_index_terrain_cutouts()
 	for prop in data.props:
 		if GarageGeometry.is_player_garage(prop):
@@ -327,6 +333,9 @@ func set_geometry_debug(enabled: bool) -> void:
 			overlay.set_enabled(enabled)
 
 
+func environment_style_at(p: Vector2,fallback: String="residential") -> String:
+	return FinishRules.style_at(data,p,fallback,_environment_regions)
+
 func get_rain_intensity() -> float:
 	return rain_intensity
 
@@ -350,6 +359,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.pressed and not key.echo and (key.keycode == KEY_F4 or key.physical_keycode == KEY_F4):
 			set_geometry_debug(not debug_geometry_enabled)
+			get_viewport().set_input_as_handled()
+		elif key.pressed and not key.echo and (key.keycode == KEY_F9 or key.physical_keycode == KEY_F9) and bool(data.get("editor_custom_test_drive",false)) and get_parent().get_node_or_null("WorldDaylight")==null:
+			# Isolated custom Test Drive preview only. Do not create a second
+			# ambient modulator when Phase 8 already provides one.
+			if is_instance_valid(_finish_preview):
+				_finish_preview.queue_free();_finish_preview=null
+			else:
+				_finish_preview=CanvasModulate.new();_finish_preview.color=Color(.48,.54,.72);add_child(_finish_preview)
 			get_viewport().set_input_as_handled()
 		elif key.pressed and not key.echo and (key.keycode == KEY_F7 or key.physical_keycode == KEY_F7):
 			set_performance_debug(not performance_debug_enabled)
@@ -473,6 +490,7 @@ func _build_chunk(index: Vector2i) -> void:
 	instance.set_stream_active(_stream_cell_distance(index,active_center,
 		secondary_current_cell) <= 1)
 	chunks[index] = instance
+	instance.set_environment_night(_environment_night)
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
@@ -544,6 +562,7 @@ func stream_at(position_px: Vector2) -> void:
 			chunks.erase(index)
 		else:
 			chunks[index].set_stream_active(cell_delta <= 1)
+			if cell_delta<=1:chunks[index].set_environment_night(_environment_night)
 
 ## Index real open trenches after final road width adaptation. Leave legacy
 ## maps byte-for-byte unchanged on disk and covered tunnel roofs intact.
@@ -647,6 +666,14 @@ func _process(dt: float) -> void:
 			row.frame_peak_ms=maxf(float(row.frame_peak_ms),dt*1000.0)
 			row.cpu_sum_ms+=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
 			row.draw_peak=maxi(int(row.draw_peak),int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
+	_finish_clock+=dt
+	if _finish_clock>=.25:
+		_finish_clock=0.0
+		var ambient: CanvasModulate=get_parent().get_node_or_null("WorldDaylight") as CanvasModulate
+		if not is_instance_valid(ambient):ambient=_finish_preview
+		_environment_night=FinishRules.darkness(ambient.color) if is_instance_valid(ambient) and not editor_render_only else 0.0
+		for chunk in chunks.values():
+			if chunk.stream_active:chunk.set_environment_night(_environment_night)
 	# At most one fresh chunk per render frame; the ring is ~200m ahead.
 	if not pending.is_empty():
 		_build_chunk(pending.pop_front())

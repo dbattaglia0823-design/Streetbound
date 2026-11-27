@@ -225,7 +225,7 @@ def make_archive(doc):
         source_points=raw.get("points",[])
         if not isinstance(source_points,list) or len(source_points)<3:
             raise ValueError("Invalid terrain region")
-        region=dict(kind=kind,color=PALETTES.get(kind,"a3b789"),
+        region=dict(kind=kind,color=PALETTES.get(kind,"a3b789"),editor_name=str(raw.get("name",""))[:120],
                     points=[[float(p["x"]),float(p["y"])] for p in source_points])
         for key in ("barrier","elevation"):
             if key in raw:region[key]=raw[key]
