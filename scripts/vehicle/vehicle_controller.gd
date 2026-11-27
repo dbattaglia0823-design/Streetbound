@@ -239,6 +239,20 @@ func _set_elevation_contact(contact: Dictionary) -> void:
 	z_index = _ground_z + (36 if road_layer < 0 else road_layer*16)
 
 
+## Render-only friend replicas use signed host elevation, never contact or
+## collision changes. The authoritative vehicle still follows actual pavement.
+func apply_remote_grade_visual(height_m: float) -> void:
+	if is_physics_processing() or not is_finite(height_m) or absf(height_m) > Elevation.HEIGHT_M * Elevation.MAX_LAYER:
+		return
+	if elevation_m == 0.0 and height_m == 0.0:
+		return
+	if elevation_m == 0.0:
+		_ground_z = z_index
+	elevation_m = height_m
+	road_layer = Elevation.layer_for_height(height_m)
+	z_index = _ground_z + (36 if road_layer < 0 else road_layer*16)
+
+
 func can_reach_ground_marker() -> bool:
 	return not is_airborne() and absf(elevation_m) < .65
 
