@@ -165,3 +165,8 @@ Select the branch road in either editor and use **Start connection** or **End co
 
 
 Road artwork refresh: native draft roads share the game's lane-paint planner; browser previews use matching metric proportions and colors. Fine aggregate is game-shader-only. No rebake of stock road geometry required.
+
+
+## Gameplay authoring (Phase 5 partial)
+
+The native World settings tab offers Gameplay authoring: generate a single-level directed-lane time trial, link existing contract markers, and inspect source coverage and estimated chunk load. Coverage uses 800 m straight-line distance from occupied road cells; heat is a relative estimate from authored scenery, road length and available junction approaches, not measured frame time. Double-click a report row to inspect the cell. Ctrl+F6 over the map requests a temporary Test Drive spawn; explicitly choose a road level for elevated pavement. Unsupported elevated spawn positions retain the normal spawn. No authored player spawn is changed. Mixed-grade draft route generation, traffic and police zones and custom junction controls are not implemented here. Godot CI and visual verification are pending.

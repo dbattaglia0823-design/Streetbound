@@ -71,6 +71,8 @@ const MultiSelect=preload("res://scripts/dev/native_editor_multiselect.gd")
 const WorkspaceData=preload("res://scripts/dev/native_editor_workspace.gd")
 const WorkspaceUI=preload("res://scripts/dev/native_workspace_tools.gd")
 var workspace_tools:=WorkspaceUI.new()
+const GameplayAuthoring=preload("res://scripts/dev/native_gameplay_authoring.gd")
+var gameplay_authoring:=GameplayAuthoring.new()
 var last_asset_entry: Dictionary={}
 const Construction=preload("res://scripts/dev/native_city_construction.gd")
 const TerrainHeight=preload("res://scripts/world/authored_height_field.gd")
@@ -1921,7 +1923,17 @@ func _recenter() -> void:
 		editor_camera.global_position = player.global_position if is_instance_valid(player) else world.spawn_position()
 		_update_view(true)
 
-func _test_drive() -> void:
+func _test_drive_from_cursor() -> void:
+	var screen:=get_viewport().get_mouse_position()
+	if not source_ready or not _canvas_pointer_available(screen):
+		_notice("Hover over the map before pressing Ctrl+F6.");return
+	var at:=_event_world_position(screen)/PPM
+	if not authoring._in_bounds(at):
+		_notice("Choose a position inside the map.");return
+	var layer:=0 if road_selection_layer==99 else road_selection_layer
+	_test_drive({"position":at*PPM,"layer":layer})
+
+func _test_drive(cursor_spawn: Dictionary={}) -> void:
 	if not active:
 		return
 	if not draft_points.is_empty() or not pending_drag.is_empty():
@@ -1936,12 +1948,14 @@ func _test_drive() -> void:
 		if not map_switcher.save_current(self):
 			return
 		get_tree().set_meta("streetbound_test_drive_map",map_switcher.current_file)
+		get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 		get_tree().set_meta("streetbound_editor_return_position",
 			editor_camera.global_position)
 		get_tree().paused = false
 		var outcome := get_tree().change_scene_to_file("res://scenes/custom_map_test_drive.tscn")
 		if outcome != OK:
 			get_tree().remove_meta("streetbound_test_drive_map")
+			get_tree().remove_meta("streetbound_test_drive_cursor")
 			get_tree().remove_meta("streetbound_editor_return_position")
 			_notice("Could not launch this custom map for Test Drive.")
 		return
@@ -1951,6 +1965,7 @@ func _test_drive() -> void:
 		_notice("Save to Game or DISCARD before Test Drive.")
 		return
 	get_tree().set_meta("streetbound_editor_test_drive",true)
+	get_tree().set_meta("streetbound_test_drive_cursor",cursor_spawn)
 	get_tree().set_meta("streetbound_editor_return_position",editor_camera.global_position)
 	if not standalone_mode:
 		_clear_editor_preview()
@@ -1959,6 +1974,7 @@ func _test_drive() -> void:
 	var result:=get_tree().change_scene_to_file("res://scenes/main.tscn")
 	if result!=OK:
 		get_tree().remove_meta("streetbound_editor_test_drive")
+		get_tree().remove_meta("streetbound_test_drive_cursor")
 		get_tree().remove_meta("streetbound_editor_return_position")
 		_notice("Could not launch full-game Test Drive.")
 
@@ -2226,6 +2242,8 @@ func _restore_recovery() -> void:
 # used to leave a drag stuck, because _unhandled_input never saw the release.
 func _input(event: InputEvent) -> void:
 	if not active:return
+	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and event.keycode==KEY_F6:
+		_consume_input();_test_drive_from_cursor();return
 	# _input runs before GUI consumption. Marquee must begin here; relying on
 	# _unhandled_input dropped left presses over parts of the editor canvas.
 	if event is InputEventMouseButton and event.pressed:

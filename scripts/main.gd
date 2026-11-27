@@ -99,7 +99,17 @@ func _ready() -> void:
 	vehicle.position = Vector2(0, 500) if proving_ground else ground.spawn_position()
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()
 	vehicle.surface_provider = ground
+	var cursor: Dictionary=get_tree().get_meta("streetbound_test_drive_cursor",{}) if map_test_drive else {}
+	if get_tree().has_meta("streetbound_test_drive_cursor"):get_tree().remove_meta("streetbound_test_drive_cursor")
+	var cursor_contact: Dictionary={}
+	if not cursor.is_empty():
+		var at: Vector2=cursor.get("position",Vector2.INF)
+		var layer: int=int(cursor.get("layer",0))
+		if at.is_finite() and Rect2(Vector2.ZERO,Vector2(float(ground.data.size[0]),float(ground.data.size[1]))*20.0).has_point(at) and absi(layer)<=2:
+			if layer!=0:cursor_contact=ground.elevation_at(at,-1,float(layer)*6.0)
+			if layer==0 or not cursor_contact.is_empty():vehicle.position=at
 	add_child(vehicle)
+	if not cursor_contact.is_empty():vehicle.reconcile_road_contact(int(cursor_contact.road),float(cursor_contact.height_m))
 	vehicle.add_to_group("player_vehicle")
 	ground.vehicle = vehicle
 	# The weather layer uses the active provider, so authored/published maps
@@ -509,6 +519,6 @@ func _return_from_test_drive() -> void:
 		get_tree().set_meta("streetbound_editor_resume_map",test_drive_file)
 	# The original map builder saved its camera before launching Test Drive.
 	# Never write the temporary world into the production source archive.
-	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map","streetbound_editor_test_drive"]:
+	for marker in ["streetbound_test_drive_archive","streetbound_test_drive_map","streetbound_editor_test_drive","streetbound_test_drive_cursor"]:
 		if get_tree().has_meta(marker):get_tree().remove_meta(marker)
 	get_tree().change_scene_to_file("res://scenes/world_editor.tscn")
