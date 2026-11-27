@@ -6,6 +6,7 @@ const RoadJump=preload("res://scripts/world/road_jump.gd")
 const HeightField=preload("res://scripts/world/authored_height_field.gd")
 const Workspace=preload("res://scripts/dev/native_editor_workspace.gd")
 const Elevation=preload("res://scripts/world/road_elevation.gd")
+const GameplayControls=preload("res://scripts/world/authored_gameplay_controls.gd")
 const SOURCE := "res://map-editor/maps/morrow-coast.edits.world.json"
 const MAX_HISTORY := 100
 const HISTORY_BUDGET_BYTES := 32*1024*1024
@@ -80,6 +81,7 @@ func _valid_source(value: Dictionary) -> bool:
 	var world: Variant = value.get("world")
 	if not world is Dictionary:
 		return false
+	if not GameplayControls.valid(value):return false
 	if value.has("editorLayers") and (not value.get("customMap",false) or not Workspace.valid_layers(value.editorLayers)):return false
 	if value.has("terrainHeight") and (not value.get("customMap",false) or not HeightField.valid(value.terrainHeight)):return false
 	var rain: Variant = value.get("rain_intensity",0.0)
@@ -1853,4 +1855,10 @@ func connect_road_interior(identity: String,index: int,at: Vector2,radius: float
 			road.erase("independentEnds")
 	for road in next.roads:
 		if str(road.id)==identity:road.points[index]={"x":destination.x,"y":destination.y};road.erase("independentEnds")
+	return _commit(next)
+
+func set_gameplay_controls(category: String,records: Array) -> bool:
+	if category not in ["gameplayZones","junctionControls"]:return false
+	var next: Dictionary=doc.duplicate(true)
+	next[category]=records.duplicate(true)
 	return _commit(next)

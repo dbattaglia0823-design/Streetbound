@@ -4,6 +4,7 @@ extends Node2D
 ## Multiplayer host-authoritative officers remain a separate future feature.
 signal busted(reason: String)
 signal escaped
+const Gameplay=preload("res://scripts/world/authored_gameplay_controls.gd")
 const PPM := 20.0
 const HudStyle = preload("res://scripts/ui/driving_hud.gd")
 const VehicleScene = preload("res://scenes/vehicle.tscn")
@@ -291,7 +292,12 @@ static func apply_police_model(car: VehicleController2D, model: Dictionary) -> b
 	return true
 
 func active_limit() -> int:
-	return int(Tactics.profile(wanted_level)["units"]) if wanted_level > 0 else 0
+	var base:=int(Tactics.profile(wanted_level)["units"]) if wanted_level > 0 else 0
+	if base==0 or not is_instance_valid(world) or not is_instance_valid(player):return base
+	var data: Variant=world.get("data")
+	if not data is Dictionary:return base
+	var z:=Gameplay.zone(data,player.global_position/PPM)
+	return base if z.is_empty() else clampi(roundi(float(base)*float(z.get("response",100))/100.0),1,maxi(base,8))
 
 func available_slots() -> int:
 	return maxi(0, active_limit() - units.size() - replacement_timers.size())

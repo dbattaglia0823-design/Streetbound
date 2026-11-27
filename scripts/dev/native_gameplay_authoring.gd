@@ -41,6 +41,8 @@ func open(e) -> void:
 	if not _ready(e):return
 	var panel:=_panel(e,"Gameplay authoring")
 	_label(panel,"Generate directed-road time trials, link existing contract markers, audit authored gameplay and inspect estimated chunk load.")
+	e._btn("Traffic / police districts",panel,func():open_controls(e,false))
+	e._btn("Intersection controls",panel,func():open_controls(e,true))
 	e._btn("Generate time trial",panel,func():open_race(e))
 	e._btn("Contract creation wizard",panel,func():open_contract(e))
 	e._btn("Gameplay coverage / performance heatmap",panel,func():open_analysis(e))
@@ -171,4 +173,76 @@ func open_analysis(e) -> void:
 		e.editor_camera.global_position=(Vector2(key)*size+Vector2.ONE*size*.5).clamp(Vector2.ZERO,audit.bounds)*20.0
 		e._update_view(true))
 	_label(panel,"Double-click a row to inspect that area in the editor. Empty space is excluded; blue is low estimated cost and orange is high.")
+	dialog.popup_centered()
+
+func _control_field(panel: Node,caption: String,value: float,lo: float,hi: float) -> SpinBox:
+	var row:=HBoxContainer.new()
+	panel.add_child(row)
+	_label(row,caption)
+	var spin:=SpinBox.new()
+	spin.min_value=lo;spin.max_value=hi;spin.step=1;spin.value=value
+	row.add_child(spin)
+	return spin
+
+func _control_choice(panel: Node,caption: String,options: Array) -> OptionButton:
+	var row:=HBoxContainer.new()
+	panel.add_child(row)
+	_label(row,caption)
+	var choice:=OptionButton.new()
+	for option in options:choice.add_item(str(option))
+	row.add_child(choice)
+	return choice
+
+func open_controls(e,junction: bool) -> void:
+	if not _ready(e):return
+	var panel:=_panel(e,"Intersection controls" if junction else "Traffic and police districts")
+	if not e.map_switcher.custom:
+		_label(panel,"These controls are available on custom maps.");dialog.popup_centered();return
+	var category: String="junctionControls" if junction else "gameplayZones"
+	var records: Array=e.authoring.doc.get(category,[]).duplicate(true)
+	var list:=ItemList.new();list.custom_minimum_size=Vector2(460,100);panel.add_child(list)
+	for z in records:list.add_item("%s @ %d, %d"%[str(z.get("name",z.get("control",""))),int(z.x),int(z.y)])
+	var bounds: Dictionary=e.authoring.doc.world
+	var center: Vector2=e.editor_camera.global_position/20.0
+	var x:=_control_field(panel,"X (m)",center.x,0,float(bounds.width))
+	var y:=_control_field(panel,"Y (m)",center.y,0,float(bounds.height))
+	var name_field:=LineEdit.new()
+	var fields: Dictionary={}
+	var choices: OptionButton
+	var turns: Array[CheckBox]=[]
+	if junction:
+		_label(panel,"Use the centre of a real intersection; matched during bake within 8 m on the selected level.")
+		fields["layer"]=_control_field(panel,"Road level",0,-2,2)
+		choices=_control_choice(panel,"Control",["stop","yield","signal","uncontrolled"])
+		var row:=HBoxContainer.new();panel.add_child(row)
+		for turn in ["left","straight","right"]:
+			var check:=CheckBox.new();check.text=turn;check.button_pressed=true;row.add_child(check);turns.append(check)
+	else:
+		name_field.text="New district";panel.add_child(name_field)
+		fields["w"]=_control_field(panel,"Width (m)",400,1,float(bounds.width))
+		fields["h"]=_control_field(panel,"Height (m)",400,1,float(bounds.height))
+		fields["density"]=_control_field(panel,"Traffic density (%)",100,0,200)
+		fields["speed"]=_control_field(panel,"Speed cap (km/h, 0 default)",0,0,160)
+		fields["patrol"]=_control_field(panel,"Patrol interval (0 off)",7,0,30)
+		fields["response"]=_control_field(panel,"Police response capacity (%)",100,50,150)
+		choices=_control_choice(panel,"Vehicles",["all","passenger","commercial"])
+	var status:=_label(panel,"Later overlapping districts take precedence. Remove a selected row to replace it.")
+	e._btn("Add control",panel,func():
+		var z: Dictionary={"x":x.value,"y":y.value}
+		for key in fields:z[key]=fields[key].value
+		if junction:
+			z["control"]=choices.get_item_text(choices.selected)
+			z["turns"]=[]
+			for check in turns:
+				if check.button_pressed:z.turns.append(check.text)
+		else:
+			z["name"]=name_field.text;z["models"]=choices.get_item_text(choices.selected)
+		var next:=records.duplicate(true);next.append(z)
+		if e.authoring.set_gameplay_controls(category,next):e._update_view(true);open_controls(e,junction)
+		else:status.text="Invalid control or district outside map bounds.")
+	e._btn("Remove selected",panel,func():
+		var selected:=list.get_selected_items()
+		if selected.is_empty():return
+		var next:=records.duplicate(true);next.remove_at(selected[0])
+		if e.authoring.set_gameplay_controls(category,next):e._update_view(true);open_controls(e,junction))
 	dialog.popup_centered()

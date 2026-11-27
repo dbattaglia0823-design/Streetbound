@@ -4,6 +4,7 @@ extends Node2D
 const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Network = preload("res://scripts/world/traffic_network.gd")
 const Car = preload("res://scripts/world/traffic_car.gd")
+const Gameplay=preload("res://scripts/world/authored_gameplay_controls.gd")
 const PPM := 20.0
 const COMFORT_BRAKE := PPM * 9.0
 const HARD_BRAKE := PPM * 24.0
@@ -119,13 +120,13 @@ func clear_traffic() -> void:
 	active_junctions.clear()
 
 
-static func patrol_for_spawn(serial: int, active_patrols: int) -> Dictionary:
-	if active_patrols >= MAX_AMBIENT_PATROLS or posmod(serial, PATROL_INTERVAL) != 2:
+static func patrol_for_spawn(serial: int, active_patrols: int, interval: int=PATROL_INTERVAL) -> Dictionary:
+	if interval<=0 or active_patrols >= MAX_AMBIENT_PATROLS or posmod(serial, interval) != mini(2,interval-1):
 		return {}
 	var pool: Array[Dictionary] = Car.patrol_models()
 	if pool.is_empty():
 		return {}
-	var slot := posmod(floori(float(serial) / float(PATROL_INTERVAL)), pool.size())
+	var slot := posmod(floori(float(serial) / float(interval)), pool.size())
 	return pool[slot]
 
 
@@ -160,6 +161,11 @@ func _lane_paved(edge: Dictionary, sample: Dictionary) -> bool:
 	var surface: Dictionary = world.elevation_at(position_px,int(edge.road),float(sample.height_m))
 	return str(surface.get("name","")) == "ASPHALT"
 
+
+func _gameplay_zone(p: Vector2) -> Dictionary:
+	if not is_instance_valid(world):return {}
+	var data: Variant=world.get("data")
+	return Gameplay.zone(data,p/PPM) if data is Dictionary else {}
 
 func _spawn_one() -> bool:
 	if not is_instance_valid(player) or network.edges.is_empty():
@@ -209,6 +215,8 @@ func _spawn_one() -> bool:
 		var progress := random.randf_range(PPM*7.0,maxf(PPM*8.0,float(edge.length_px)-PPM*8.0))
 		var sample: Dictionary=network.point_on_edge(id,progress)
 		var p: Vector2=sample.position
+		var zone:=_gameplay_zone(p)
+		if float(zone.get("density",100))<=0:continue
 		var away := p.distance_to(player.global_position)
 		if away<PPM*75.0 or away>PPM*390.0:
 			continue
@@ -232,8 +240,8 @@ func _spawn_one() -> bool:
 		var car := CharacterBody2D.new()
 		car.set_script(Car)
 		car.name = "TrafficCar%02d" % _id_serial
-		car.set("model_index", _id_serial % Car.MODEL_PATHS.size())
-		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count()) \
+		car.set("model_index", Gameplay.model_for(_id_serial,Car.MODEL_PATHS.size(),str(zone.get("models","all"))))
+		var patrol := patrol_for_spawn(_id_serial, _active_patrol_count(),int(zone.get("patrol",PATROL_INTERVAL))) \
 			if patrol_spawns_enabled and not bool(edge.get("grade_road",false)) else {}
 		if not patrol.is_empty():
 			car.set("patrol_model", patrol)
@@ -719,6 +727,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 	var previous_edge := int(agent.edge)
 	var remaining := float(edge.length_px)-float(agent.progress)
 	var desired := minf(float(edge.speed_px),float(agent.cruise))
+	var zone_speed:=float(_gameplay_zone(node.global_position).get("speed",0))
+	if zone_speed>0:desired=minf(desired,zone_speed/3.6*PPM)
 	desired=network.curve_speed_limit(int(agent.edge),float(agent.progress),desired)
 	var next_id := -2
 	# Determine upcoming connector before computing right-of-way and sensing.
@@ -738,6 +748,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 			var owner := int(active_junctions.get(junction,-1))
 			var control := str(next.control)
 			var should_yield := junction>=0 and owner>=0 and owner!=int(agent.uid)
+			if control=="signal" and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
+				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*2.0)))
 			if control=="stop" and not bool(agent.stop_done) and remaining<PPM*8.0:
 				desired=minf(desired,maxf(0.0,(remaining-PPM*1.3)*0.5))
 				if float(agent.speed)<PPM*0.9 and remaining<PPM*2.5:
@@ -934,6 +946,7 @@ func _physics_process(dt: float) -> void:
 			agents.remove_at(i)
 	_spawn_clock+=step
 	var limit := maxi(maximum_vehicles, RACE_TRAFFIC_CAP) if street_race_active else maximum_vehicles
+	limit=clampi(roundi(float(limit)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
 	if _spawn_clock>0.6 and agents.size()<limit:
 		_spawn_clock=0.0
 		_spawn_one()

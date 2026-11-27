@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 
 from junction_bake import build_junctions
+from gameplay_authoring import validate as validate_gameplay, apply as apply_gameplay
 from road_jumps import set_jump, bake_into as bake_jumps
 from road_elevation import set_profile, expand_point_profiles
 from elevation_map_audit import audit_elevated_objectives
@@ -110,6 +111,7 @@ def make_archive(doc):
            v!=int(v) or not 600<=v<=24000 for v in (width,height)):
         raise ValueError("Invalid custom world dimensions")
     width,height=int(width),int(height)
+    gameplay_zones,junction_controls=validate_gameplay(doc,width,height)
     rain = doc.get("rain_intensity", 0.0)
     if type(rain) not in (int,float) or not math.isfinite(rain) or not 0.0 <= rain <= 1.0:
         raise ValueError("Rain intensity must be between 0 and 1")
@@ -178,6 +180,7 @@ def make_archive(doc):
                 grid[key].append(sid)
 
     junctions,connections,crossings=build_junctions(roads,nodes,segments,grid)
+    apply_gameplay(junctions,junction_controls)
     terrain=[]
     base=str(world.get("base","grass"))
     terrain.append(dict(kind=base,color=PALETTES.get(base,"a3b789"),
@@ -289,6 +292,7 @@ def make_archive(doc):
                 editor_warnings=[],visual_relief=dict(extent=[width,height],
                     sun_direction=[-.65,-.76],maximum_m=1000),
                 stats=dict(roads=len(roads),props=len(props),junctions=len(junctions)))
+    if gameplay_zones:result["gameplay_zones"]=gameplay_zones
     if "terrainHeight" in doc:
         field=doc["terrainHeight"]
         if not isinstance(field,dict) or field.get("size")!=129 or not isinstance(field.get("values"),list) or len(field["values"])!=129*129 or any(type(v) not in (int,float) or not math.isfinite(v) or abs(v)>1200 for v in field["values"]):
