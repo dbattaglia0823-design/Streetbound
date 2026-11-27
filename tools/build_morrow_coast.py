@@ -1084,7 +1084,7 @@ def clip_rect(poly,x0,y0,x1,y1):
 # Index each terrain polygon by its bounding chunks before clipping.
 # Previously every polygon was clipped against every chunk (O(chunks * terrain)).
 # Empty chunks never intersect the source polygon and need no clip operations.
-for terrain_index,t in enumerate(TERRAIN):
+for terrain_index,t in sorted(enumerate(TERRAIN),key=lambda pair:pair[1].get("editor_draw_order",0)):
     points = t["points"]
     if len(points)<3:
         continue
@@ -1097,7 +1097,7 @@ for terrain_index,t in enumerate(TERRAIN):
             clipped=clip_rect(points,x*CHUNK,y*CHUNK,min(WIDTH,(x+1)*CHUNK),min(HEIGHT,(y+1)*CHUNK))
             if len(clipped)>=3:
                 fragment=dict(kind=t["kind"],color=t["color"],points=clipped)
-                for key in ("barrier","elevation","authoring_id"):
+                for key in ("barrier","elevation","authoring_id","editor_draw_order"):
                     if key in t:fragment[key]=t[key]
                 CHUNKS[f"{x},{y}"]["terrain"].append(fragment)
     if t.get("barrier"):

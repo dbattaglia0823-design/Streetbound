@@ -573,7 +573,7 @@ export function drawWorld(ctx,doc,options={}){
       : drawRegion(ctx,region,doc.world.seed,quality,bounds);
     if(!options.runtimePreview||
       !drawRuntimeTerrain(ctx,options.runtimePreview,doc,drawEdited))
-      for(const region of doc.regions)drawEdited(region);
+      for(const region of doc.regions.slice().sort((a,b)=>(a.drawOrder??0)-(b.drawOrder??0)))drawEdited(region);
     if(options.runtimePreview)drawRuntimeExpansion(ctx,options.runtimePreview,doc);
     drawAuthoredRelief(ctx,doc);
   }

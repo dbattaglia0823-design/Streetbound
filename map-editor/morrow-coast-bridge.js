@@ -80,7 +80,7 @@ export function convertMorrowWorld(raw){
     if(polygon.length<3)continue;
     regions.push({id:terrain.authoring_id||'region-'+index,name:(terrain.barrier?'Mountain barrier ':String(terrain.kind)+' ')+index,
       biome:biomeOf(terrain.kind),elevation:Number(terrain.elevation)||0,points:polygon,
-      ...(terrain.barrier===true?{barrier:true}:{})});
+      ...(terrain.barrier===true?{barrier:true}:{}),...(terrain.editor_draw_order?{drawOrder:terrain.editor_draw_order}:{})});
   }
   const markers=[{id:'marker-0',name:'Morrow Coast Player Start',
     type:'player_spawn',x:+raw.spawn.position[0],y:+raw.spawn.position[1],

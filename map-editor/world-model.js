@@ -99,6 +99,7 @@ function validEntity(item,type,w,h){
       elevation:real(item.elevation,0,2000,'elevation'),points};
     validateMountainRegion({...region,barrier:item.barrier});
     if(item.barrier===true)region.barrier=true;
+    if(item.drawOrder!==undefined){const order=integer(item.drawOrder,-5,10,"draw order");if(order)region.drawOrder=order;}
     return region;
   }
   if(type==='props'){

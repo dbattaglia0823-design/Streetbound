@@ -24,7 +24,16 @@ func update_map(source: Dictionary) -> void:
   height_key=field_key;height_texture=HeightField.texture(height_source)
  HeightField.bind_material(land_material,height_texture,extent)
  var base={"biome":doc.world.get("base","grass"),"points":[{"x":0,"y":0},{"x":extent.x,"y":0},{"x":extent.x,"y":extent.y},{"x":0,"y":extent.y}]}
- for region in [base]+doc.regions:
+ var ordered: Array=doc.regions.duplicate()
+ # Explicit original indices make equal-layer ordering stable in Godot.
+ var indices: Array=range(ordered.size())
+ indices.sort_custom(func(a: int,b: int)->bool:
+  var first:=int(ordered[a].get("drawOrder",0))
+  var second:=int(ordered[b].get("drawOrder",0))
+  return a<b if first==second else first<second)
+ var layers: Array=[base]
+ for index in indices:layers.append(ordered[index])
+ for region in layers:
   var points:=PackedVector2Array()
   for p in region.points:points.append(Vector2(p.x,p.y)*PPM)
   if points.size()<3 or Geometry2D.triangulate_polygon(points).is_empty():continue
@@ -32,7 +41,7 @@ func update_map(source: Dictionary) -> void:
   canvas.material=water_material if water else land_material;add_child(canvas)
   if water:
    var holes: Array=[];var following:=false
-   for later in doc.regions:
+   for later in layers:
     if later==region:following=true;continue
     if following and later.biome not in ["lake","ocean"]:holes.append(later.points)
    var key:=JSON.stringify([region,holes])

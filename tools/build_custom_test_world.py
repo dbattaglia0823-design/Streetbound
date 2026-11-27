@@ -231,6 +231,10 @@ def make_archive(doc):
                     points=_polygon_points(source_points,width,height,rounded=False))
         for key in ("barrier","elevation"):
             if key in raw:region[key]=raw[key]
+        order=raw.get("drawOrder",0)
+        if type(order) not in (int,float) or not math.isfinite(order) or int(order)!=order or not -5<=order<=10:
+            raise ValueError("Invalid terrain draw order")
+        if order:region["editor_draw_order"]=int(order)
         terrain.append(region)
     props=[p for p in _authoring_props(with_auto_props(doc,roads,junctions,width,height),width,height) if not p.get("hidden")]
     gameplay=_gameplay_payload(doc,roads,width,height)
@@ -253,7 +257,7 @@ def make_archive(doc):
         radius=float(junction["radius"])+8
         for key in cells((x-radius,y-radius,x+radius,y+radius),CHUNK):
             chunks[key]["junctions"].append(i)
-    for t in terrain:
+    for t in terrain[:1]+sorted(terrain[1:],key=lambda t:t.get("editor_draw_order",0)):
         xs=[p[0] for p in t["points"]]
         ys=[p[1] for p in t["points"]]
         for x in range(max(0,math.floor(min(xs)/CHUNK)),min(math.ceil(width/CHUNK),math.floor(max(xs)/CHUNK)+1)):
@@ -261,7 +265,7 @@ def make_archive(doc):
                 polygon=clip_rect(t["points"],x*CHUNK,y*CHUNK,min(width,(x+1)*CHUNK),min(height,(y+1)*CHUNK))
                 if len(polygon)>=3:
                     entry=dict(kind=t["kind"],color=t["color"],points=polygon)
-                    for field in ("barrier","elevation"):
+                    for field in ("barrier","elevation","editor_draw_order"):
                         if field in t:entry[field]=t[field]
                     chunks[f"{x},{y}"]["terrain"].append(entry)
     # Streaming disables collision on chunks outside the active player ring.
