@@ -113,7 +113,10 @@ func can_stage() -> bool:
 	return available and state=="idle" and _lock_reason().is_empty() and not StartArea.busy(self) and is_instance_valid(player) and ObjectiveLayer.matches(player,_gate_layer(0)) and player.global_position.distance_to(start_m*PPM)<=float(definition.get("start_radius",8))*PPM and StartArea.can_stage_at_speed(player.linear_velocity.length()) and Vector2.UP.rotated(player.rotation).dot(heading)>=.35
 func start_race() -> bool:
 	if not can_stage() or get_tree().paused:return false
-	if not _grade_route_supported() or not _prepare_guidance():return false
+	if not _grade_route_supported() or not _prepare_guidance():
+		result="UNSUPPORTED OBJECTIVE LAYER OR NO CONNECTED ROUTE"
+		_refresh()
+		return false
 	if not _spawn_rivals():return false
 	if int(definition.get("entry_fee",0))>0 and not economy.pay_race_entry(definition):
 		_clear_rivals();return false

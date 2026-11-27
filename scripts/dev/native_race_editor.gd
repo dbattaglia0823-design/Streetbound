@@ -10,6 +10,7 @@ var grid_edit_fields: VBoxContainer
 var route_edit_fields: VBoxContainer
 var objective_index: SpinBox
 var objective_layer: SpinBox
+var objective_stamp:=""
 var race_list: OptionButton
 var title: LineEdit
 var mode: OptionButton
@@ -247,6 +248,10 @@ func update(e) -> void:
 		for race in e.authoring.doc.get("races",[]):race_list.add_item(str(race.name));race_list.set_item_metadata(race_list.item_count-1,str(race.id))
 	if not selected.is_empty() and e.tool_name!="draw_race":
 		objective_index.max_value=selected.points.size()
+		var grade_stamp: String=str(e.source_id)+str(selected.points)+str(int(objective_index.value))
+		if grade_stamp!=objective_stamp:
+			objective_stamp=grade_stamp
+			_sync_objective_layer(e)
 		title.text=str(selected.name)
 		mode.select(1 if selected.mode=="circuit" else 0)
 		laps.value=float(selected.get("laps",1));radius.value=float(selected.get("checkpoint_radius",16))

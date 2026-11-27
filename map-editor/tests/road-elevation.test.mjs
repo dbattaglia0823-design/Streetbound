@@ -65,3 +65,17 @@ test('point heights create continuous grade sections without mutating the source
   const short=updateEntity(source,'road-0',{points:[{x:100,y:700},{x:120,y:700}]});
   assert.throws(()=>applyPointElevations(short,'road-0',[0,1]),/50 m/);
 });
+
+test('race and contract objective elevations round trip independently',()=>{
+  const source=fixture();
+  const raw={...source,races:[{id:'race-grade',name:'Grade trial',mode:'sprint',
+    points:[{x:500,y:400,road_layer:1},{x:500,y:450,road_layer:-1}]}],
+    markers:[...source.markers,{id:'marker-grade',name:'Tunnel drop',type:'contract_dropoff',
+      x:500,y:400,rotation:0,properties:{road_layer:-1}}]};
+  const doc=normalizeWorld(raw);
+  assert.deepEqual(doc.races[0].points.map(p=>p.road_layer),[1,-1]);
+  assert.equal(doc.markers.at(-1).properties.road_layer,-1);
+  assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(doc))).races,doc.races);
+  assert.throws(()=>updateEntity(doc,'marker-grade',{properties:{road_layer:2.5}}),/marker road layer/);
+  assert.throws(()=>normalizeWorld({...raw,races:[{...raw.races[0],points:[{x:500,y:400,road_layer:true},{x:500,y:450}]}]}),/checkpoint road layer/);
+});

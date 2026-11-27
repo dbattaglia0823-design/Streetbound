@@ -2,6 +2,7 @@ extends SceneTree
 ## Drive the normal vehicle controller through the production-baked fixture.
 const EditSession = preload("res://scripts/dev/native_map_edit_session.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
+const Objectives = preload("res://scripts/world/objective_road_layer.gd")
 const TrafficCar = preload("res://scripts/world/traffic_car.gd")
 const WorldScene = preload("res://scenes/vehicle.tscn")
 var failures: Array[String] = []
@@ -208,6 +209,11 @@ func _run() -> void:
 	check(car.reconcile_road_contact(1,6.0) and car.road_contact_id()==1
 		and car.road_layer==1 and car.collision_mask==Elevation.collision_bits(1,6.0),
 		"Guest correction restores the host's deck and collision band")
+	check(Objectives.matches(car,1) and not Objectives.matches(car,0) and not Objectives.matches(car,-1),
+		"Deck vehicle can reach only the elevated objective at the stacked XY")
+	check(Objectives.supported(world,Vector2(500,400),1) and Objectives.supported(world,Vector2(500,400),-1)
+		and not Objectives.supported(world,Vector2(500,400),2),
+		"Objective placement resolves independent supported deck and tunnel levels")
 	check(not car.reconcile_road_contact(2,6.0) and car.road_contact_id()==1,
 		"Wrong signed host contact is rejected without changing the current deck")
 	check(not car.reconcile_road_contact(999,6.0) and car.road_contact_id()==1,
@@ -215,10 +221,14 @@ func _run() -> void:
 	check(car.reconcile_road_contact(2,-6.0) and car.road_layer==-1
 		and car.collision_mask==Elevation.collision_bits(1,-6.0),
 		"Guest correction restores tunnel contact at the same XY")
+	check(Objectives.matches(car,-1) and not Objectives.matches(car,1) and not Objectives.matches(car,0),
+		"Tunnel vehicle cannot satisfy a surface or bridge objective")
 	check(car.reconcile_road_contact(-1,0.0) and car.road_layer==0
 		and car.collision_mask==1 and car.road_contact_id()==-1,
 		"Host ground correction restores original collision mask")
 
+	check(Objectives.matches(car,0) and not Objectives.matches(car,-1) and not Objectives.matches(car,1),
+		"Legacy ground objective rejects stacked levels")
 	world.queue_free()
 	car.queue_free()
 	blocker.queue_free()

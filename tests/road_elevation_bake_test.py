@@ -97,6 +97,29 @@ class ElevationBakeTests(unittest.TestCase):
         archive = make_archive(source)
         self.assertEqual(archive["roads"][2]["elevation"],{"start_layer":-1,"end_layer":-1})
 
+    def test_objective_layers_survive_bake_and_invalid_layers_fail(self):
+        source = fixture()
+        source["races"] = [dict(id="race-grade",name="Grade trial",mode="sprint",
+                                points=[dict(x=500,y=400,road_layer=1),
+                                        dict(x=500,y=450,road_layer=-1)])]
+        source["markers"].extend([
+            dict(id="marker-grade-drop",type="contract_dropoff",name="Tunnel drop",
+                 x=500,y=400,rotation=0,properties={"road_layer":-1}),
+            dict(id="marker-grade-pickup",type="contract",name="Bridge pickup",
+                 x=500,y=550,rotation=0,properties={"road_layer":1,
+                    "contract_kind":"courier","destination_marker_id":"marker-grade-drop"})])
+        archive = make_archive(source)
+        self.assertEqual([p["road_layer"] for p in archive["editor_races"][0]["points"]],[1,-1])
+        self.assertEqual([m["properties"]["road_layer"] for m in archive["editor_game_markers"] if m["id"].startswith("marker-grade")],[-1,1])
+        bad=copy.deepcopy(source)
+        bad["races"][0]["points"][0]["road_layer"]=True
+        with self.assertRaisesRegex(ValueError,"checkpoint road layer"):
+            make_archive(bad)
+        bad=copy.deepcopy(source)
+        bad["markers"][-1]["properties"]["road_layer"]=3
+        with self.assertRaisesRegex(ValueError,"marker road layer"):
+            make_archive(bad)
+
     def test_bad_profiles_fail_before_archive_output(self):
         source = fixture()
         for profile in [None, {"start_layer":True,"end_layer":1},

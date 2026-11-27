@@ -42,14 +42,32 @@ roads requiring a split are rejected until adjusted. The existing 180-road
 limit applies. Both editors use the existing elevation schema, so the bake,
 traffic routing, collision bands and excavation pipeline require no new format.
 
+## Individual elevated race and contract objectives
+
+In the browser's race settings expand **Individual race objective elevations**.
+In the native race sidebar select an objective number (1 is the start), set
+its road layer, and apply. Each start, checkpoint and finish retains its own
+signed layer in the source and archive. The race checks actual vehicle height
+within 0.65 m of that layer, rejects airborne vehicles, and routes between
+the chosen layers. Start-grid slots must have physical pavement on the start
+level. An elevated race cannot begin if a required gate or route is unsupported.
+
+For contracts, select the contract/contact, robbery target or drop-off marker
+and set **Objective road layer** in the marker editor. Each marker may use a
+different layer. Pickups, timed robbery holds, deliveries and GPS arrivals
+require the matching height. The job checks legal graph connectivity before
+acceptance. Other service markers such as fuel, garage and fast travel stay
+ground-level. Elevated authored races are excluded from online friend races
+until the online gate and start-grid protocol supports verified height.
+
 ## Driving and boundaries
 
 The controller gets a continuous height and slope from the indexed road
 surface. Pavement on the active grade remains selected at an XY overlap.
 Entry into a ramp is limited to its mouth. The controller sweeps its
 movement against the supported road strip and preserves separate physics
-collision bands for stacked decks. Existing authored checkpoints and
-contract stops are ground-level. Dispatch line of sight and containment
+collision bands for stacked decks. Objectives without a configured layer
+remain ground-level. Dispatch line of sight and containment
 also compare vehicle height.
 
 The road renderer draws deck edges, rails, shadows and supports. The deck
@@ -69,8 +87,7 @@ open. Covered tunnels and deeper ramps retain the surface roof. Ordinary maps
 without negative ramps allocate no cutout resources. The bake rejects open
 cuts reaching the map edge or water; covered tunnel sections can remain beneath
 water. Scenery remains authored rather than being deleted automatically.
-Non-ground objective
-authoring remains pending. Multiplayer friend
+Multiplayer friend
 replicas receive host-owned signed road height in the existing timestamped
 movement history, so remote deck and tunnel drawing order follows the host.
 Height is interpolated but not extrapolated; invalid values are rejected and
