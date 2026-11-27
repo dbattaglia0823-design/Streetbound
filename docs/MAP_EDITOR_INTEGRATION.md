@@ -4,7 +4,7 @@ This branch integrates PRs #206–210 without changing main. All five focused te
 
 Known prior CI failures: reconnect host selected vehicle assertion (#206), optional traffic-light proxy dimensions (#208), Morrow unchanged terrain round-trip metadata (#209). The latter two have targeted fixes here; reconnect requires investigation if it reproduces. No tests disabled or loosened.
 
-Validation drives opt out of the living-world clock to keep scenario weather and density stable. Ordinary Test Drive remains temporary. Progress is measured in metres from actual movement, excluding projection discontinuities. New active chunks immediately inherit night lighting; dormant chunks remain unlit. Streaming prediction uses a metres-per-second threshold, not pixels per second.
+Validation drives opt out of the living-world clock to keep scenario weather and density stable. Ordinary Test Drive remains temporary. Progress is measured in metres from actual movement, excluding projection discontinuities. New active chunks immediately inherit night lighting; dormant chunks remain unlit. VehicleController2D.linear_velocity is already metres per second; rest uses 1 m/s, prefetch 12 m/s. Position differences alone require the pixel-to-metre conversion.
 
 Check before release: author a neighborhood, inspect validation, drive a flat route, return to editor, apply finishing, save and compare backup, preflight, export, verify and install on a second matching project. Test rest during idle, race, pursuit and contract; check morning/night, wet grip, traffic density, editor and split-screen UI; measure target-device streaming FPS. Existing Morrow and career saves must remain untouched. No claim of visual or hardware validation until performed.
 

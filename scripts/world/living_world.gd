@@ -129,7 +129,7 @@ func rest_location() -> String:
 	return ""
 
 func _allowed() -> bool:
-	return is_instance_valid(player) and Rules.can_rest(player.linear_velocity.length()<=20.0,not rest_location().is_empty(),_busy(),_shared())
+	return is_instance_valid(player) and Rules.can_rest(player.linear_velocity.length()<=1.0,not rest_location().is_empty(),_busy(),_shared())
 
 func open_rest() -> void:
 	if get_tree().paused or not _allowed():return

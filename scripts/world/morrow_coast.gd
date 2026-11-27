@@ -634,7 +634,7 @@ func _overhead_layer_at(position_px: Vector2, height_m: float) -> int:
 ## always wins and at most one build is issued in a frame.
 func _predict_chunk() -> Vector2i:
 	var none:=Vector2i(-999,-999)
-	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length()<12.0*PPM or editor_render_only:return none
+	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length()<12.0 or editor_render_only:return none
 	if secondary_current_cell.x!=-999:return none
 	var direction:=vehicle.linear_velocity.normalized()
 	var position_m:=vehicle.global_position/PPM
