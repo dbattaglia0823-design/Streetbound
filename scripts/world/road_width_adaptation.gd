@@ -44,7 +44,7 @@ static func adapt(world_data: Dictionary) -> void:
 				var q := center + (p - center) * apron_ratio
 				curve[i] = [q.x, q.y]
 		for approach in junction.get("approaches", []):
-			approach["width"] = float(approach.width) * ratio
+			approach["width"] = roundf(float(approach.width) * ratio * 1000.0) / 1000.0
 		junction["radius"] = float(junction.radius) * apron_ratio
 	# Buildings and stationary landscape decorations receive a modest
 	# footprint reduction so widened roads keep at least their original
