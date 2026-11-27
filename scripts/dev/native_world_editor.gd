@@ -73,6 +73,7 @@ var construction_dialog: AcceptDialog
 var construction_mode: OptionButton
 var construction_fields: Dictionary={}
 var construction_summary: Label
+var construction_canvas: Control
 var construction_plan: Dictionary={}
 var construction_revision:=-1
 var construction_session: RefCounted
@@ -2795,7 +2796,8 @@ func _open_construction() -> void:
 		construction_dialog.ok_button_text="Apply preview"
 		construction_dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 		root_ui.add_child(construction_dialog)
-		var panel:=VBoxContainer.new();construction_dialog.add_child(panel)
+		var scroll:=ScrollContainer.new();scroll.custom_minimum_size=Vector2(520,540);construction_dialog.add_child(scroll)
+		var panel:=VBoxContainer.new();panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(panel)
 		construction_mode=_options(panel,"Construction mode",["city grid","district fill","roadside decoration","interchange","property kit"])
 		construction_fields["district"]=_options(panel,"District style",["residential","commercial","industrial","downtown"])
 		var dimensions:=HBoxContainer.new();panel.add_child(dimensions)
@@ -2810,13 +2812,15 @@ func _open_construction() -> void:
 		var alleys:=CheckBox.new();alleys.text="Add central alleyways";panel.add_child(alleys);construction_fields["alleys"]=alleys
 		for option in [["connect","Connect to existing road"],["sidewalks","Add block sidewalks"],["plots","Add editable building plots"]]:
 			var toggle:=CheckBox.new();toggle.text=option[1];panel.add_child(toggle);construction_fields[option[0]]=toggle
-		construction_fields["interchange"]=_options(panel,"Interchange template",["diamond","half diamond","three way"])
+		construction_fields["interchange"]=_options(panel,"Interchange template",["diamond","half diamond","three way","cloverleaf foundation","trumpet foundation","directional foundation"])
 		construction_fields["interchange_span"]=_number(panel,"Interchange half-span m",180,500,240)
 		construction_fields["property"]=_options(panel,"Property kit",["fuel station","garage","shopping center","convenience store","pawn shop","jewelry store","bank","dealership"])
 		construction_fields["decoration"]=_options(panel,"Roadside decoration",["streetlight","tree","sign"])
 		construction_fields["spacing"]=_number(panel,"Decoration spacing m",15,150,40)
 		construction_summary=Label.new();construction_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		construction_summary.custom_minimum_size=Vector2(480,60);panel.add_child(construction_summary)
+		construction_canvas=Control.new();construction_canvas.custom_minimum_size=Vector2(480,200);panel.add_child(construction_canvas)
+		construction_canvas.draw.connect(_draw_construction_preview)
 		_btn("Preview generation",panel,_preview_construction)
 		construction_dialog.confirmed.connect(_apply_construction)
 		construction_mode.item_selected.connect(func(_i: int)->void:_invalidate_construction())
@@ -2831,6 +2835,7 @@ func _invalidate_construction() -> void:
 	construction_plan={};construction_revision=-1
 	construction_summary.text="Centre: %.0f, %.0f m. Preview before applying. Roadside uses the selected road."%[construction_center.x,construction_center.y]
 	construction_dialog.get_ok_button().disabled=true
+	if is_instance_valid(construction_canvas):construction_canvas.queue_redraw()
 
 func _preview_construction() -> void:
 	if _editing_locked():return
@@ -2855,6 +2860,40 @@ func _preview_construction() -> void:
 	var count: int=construction_plan.roads.size()+construction_plan.props.size()+construction_plan.get("regions",[]).size()+construction_plan.get("markers",[]).size()
 	construction_summary.text="%s: %d roads, %d scenery, %d plots, %d gameplay markers. Apply is one undo step."%[construction_plan.label,construction_plan.roads.size(),construction_plan.props.size(),construction_plan.get("regions",[]).size(),construction_plan.get("markers",[]).size()]
 	construction_dialog.get_ok_button().disabled=count==0
+	construction_canvas.queue_redraw()
+
+func _draw_construction_preview() -> void:
+	var canvas:=construction_canvas
+	canvas.draw_rect(Rect2(Vector2.ZERO,canvas.size),Color("#28353b"))
+	if construction_plan.is_empty() or construction_plan.has("error"):return
+	var area: Rect2=construction_plan.get("area",Rect2(construction_center-Vector2.ONE*20,Vector2.ONE*40))
+	# Include gameplay markers in the framing, not just the building footprint.
+	for marker in construction_plan.get("markers",[]):area=area.expand(Vector2(marker.x,marker.y))
+	area=area.grow(12)
+	var scale:=minf((canvas.size.x-20)/maxf(1,area.size.x),(canvas.size.y-20)/maxf(1,area.size.y))
+	var origin:=canvas.size*.5-area.get_center()*scale
+	for region in construction_plan.get("regions",[]):
+		var polygon:=PackedVector2Array()
+		for p in region.points:polygon.append(origin+Vector2(p.x,p.y)*scale)
+		canvas.draw_colored_polygon(polygon,Color("#536b59"))
+	for road in construction_plan.get("roads",[]):
+		var points:=PackedVector2Array()
+		for p in EditSession.road_path(road):points.append(origin+p*scale)
+		var color:=Color("#b1b7b6")
+		if road.has("elevation"):color=Color("#79b8dd")
+		if points.size()>1:canvas.draw_polyline(points,color,maxf(1,float(road.width)*scale),true)
+	for prop in construction_plan.get("props",[]):
+		var p:=origin+Vector2(prop.x,prop.y)*scale
+		if prop.get("type","")=="sidewalk":
+			var path:=PackedVector2Array()
+			for raw in prop.sidewalkPoints:path.append(p+Vector2(raw[0],raw[1])*scale)
+			if path.size()>1:canvas.draw_polyline(path,Color("#dfd7c4"),maxf(1,2*scale),true)
+		else:
+			var footprint:=Vector2(12,17) if prop.type=="house" else Vector2(22,29)
+			if prop.type in ["streetlight","sign","oak"]:footprint=Vector2(5,5)
+			if prop.type=="parking":footprint=Vector2(38,28)
+			canvas.draw_rect(Rect2(p-footprint*scale*.5,footprint*scale),Color("#c4a17d"))
+	for marker in construction_plan.get("markers",[]):canvas.draw_circle(origin+Vector2(marker.x,marker.y)*scale,4,Color("#ffc66e"))
 
 func _apply_construction() -> void:
 	if _editing_locked() or construction_plan.is_empty() or construction_session!=authoring or construction_revision!=authoring.edit_revision:

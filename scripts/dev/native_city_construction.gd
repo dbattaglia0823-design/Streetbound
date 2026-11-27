@@ -286,7 +286,7 @@ static func plan_interchange(doc: Dictionary,center: Vector2,settings: Dictionar
 	if not doc.get("customMap",false):return _error("Use a custom map for interchange generation.")
 	var span:=clampf(float(settings.get("interchange_span",240)),180,500)
 	var style:=str(settings.get("interchange","diamond"))
-	if style not in ["diamond","half diamond","three way"]:return _error("Unknown interchange template.")
+	if style not in ["diamond","half diamond","three way","cloverleaf foundation","trumpet foundation","directional foundation"]:return _error("Unknown interchange template.")
 	var area:=Rect2(center-Vector2.ONE*(span+35),Vector2.ONE*(span+35)*2)
 	if not _vacant(doc,area):return _error("Interchange needs a clear area inside the map.")
 	var roads: Array=[]
@@ -295,12 +295,26 @@ static func plan_interchange(doc: Dictionary,center: Vector2,settings: Dictionar
 	var main:=_grade_road(id,left,right,24,4,1,1,"Elevated highway")
 	main.roadClass="highway";roads.append(main);id+=1
 	var north:=center+Vector2(0,-span);var south:=center+Vector2(0,span)
-	var local_end:=center if style=="three way" else south
+	var local_end:=center if style in ["three way","trumpet foundation"] else south
 	roads.append(_grade_road(id,north,local_end,12,2,0,0,"Cross street"));id+=1
-	var ends: Array=[north] if style in ["half diamond","three way"] else [north,south]
+	var ends: Array=[north] if style in ["half diamond","three way","trumpet foundation"] else [north,south]
 	for target in ends:
 		for origin in [left,right]:
-			roads.append(_grade_road(id,origin,target,8,2,1,0,"Grade connector"));id+=1
+			var connector:=_grade_road(id,origin,target,8,2,1,0,"Grade connector")
+			var sx: float=signf(Vector2(origin-center).x);var sy: float=signf(Vector2(target-center).y)
+			if style in ["cloverleaf foundation","directional foundation","trumpet foundation"]:
+				connector.points=[_point(origin),_point(center+Vector2(sx*.83,sy*.48)*span),
+					_point(center+Vector2(sx*.48,sy*.83)*span),_point(target)]
+				connector.smooth=true
+			roads.append(connector);id+=1
+			if style=="cloverleaf foundation" or (style=="trumpet foundation" and sx>0):
+				var loop_start:=center+Vector2(sx*.42,0)*span
+				var loop_end:=center+Vector2(0,sy*.42)*span
+				var loop:=_grade_road(id,loop_start,loop_end,8,2,1,0,"Loop grade connector")
+				loop.points=[_point(loop_start),_point(center+Vector2(sx*.62,sy*.14)*span),
+					_point(center+Vector2(sx*.60,sy*.36)*span),_point(center+Vector2(sx*.35,sy*.58)*span),
+					_point(center+Vector2(sx*.12,sy*.58)*span),_point(loop_end)]
+				loop.smooth=true;roads.append(loop);id+=1
 	if doc.roads.size()+roads.size()>limit:return _error("Not enough remaining road capacity.")
 	return {"roads":roads,"props":[],"area":area,"label":style.capitalize()+" interchange"}
 
@@ -344,8 +358,8 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 	var normal: Vector2=tangent.orthogonal()
 	if (center-access).dot(normal)<0:normal=-normal
 	var road_edge:=float(road.width)*.5+float(road.get("shoulder",2))
-	var lot_center:=access+normal*(road_edge+25.0)
-	var building_center:=access+normal*(road_edge+69.0)
+	var lot_center:=access+normal*(road_edge+34.0)
+	var building_center:=access+normal*(road_edge+82.0)
 	var angle:=rad_to_deg(normal.angle())+90.0
 	angle=wrapf(angle,-180,180)
 	var props: Array=[]
@@ -365,7 +379,7 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 			building.assetSize=[22.0,29.0]
 			building.assetCollision="solid"
 			building.type="building"
-	var extent:=Rect2(access+normal*(road_edge+3),Vector2.ZERO).expand(lot_center).expand(building_center).grow(25)
+	var extent:=Rect2(access,Vector2.ZERO).expand(lot_center).expand(building_center).grow(25)
 	var bounds:=Rect2(Vector2(3,3),Vector2(doc.world.width,doc.world.height)-Vector2(6,6))
 	if not bounds.encloses(extent) or _blocked_terrain(doc,extent):return _error("Property footprint crosses map bounds or restricted terrain.")
 	# Check actual intended footprints rather than the entire site rectangle
@@ -373,7 +387,7 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 	for candidate in [lot,building]:
 		var p:=Vector2(candidate.x,candidate.y)
 		if not _free(index,p,_prop_radius(candidate)+2):return _error("Property overlaps existing roads or scenery.")
-	var end: Vector2=lot_center-normal*12.0
+	var end: Vector2=lot_center+normal*8.0
 	var span:=access.distance_to(end)
 	for i in range(1,ceili(span/3.0)+1):
 		var p:=access.lerp(end,minf(1.0,float(i)*3.0/span))
@@ -381,7 +395,7 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 	props.append(lot)
 	if kind!="dealership":props.append(building)
 	for side in [-1,1]:
-		var lamp:=lot_center+tangent*side*24.0
+		var lamp: Vector2=lot_center+tangent*float(side)*24.0
 		_place(doc,index,props,"streetlight",lamp,angle,1.0,prop_limit)
 	var roads: Array=[_road(_next_road(doc),access,end,8,1)]
 	roads[0].roadClass="service";roads[0].name=kind.capitalize()+" access"
