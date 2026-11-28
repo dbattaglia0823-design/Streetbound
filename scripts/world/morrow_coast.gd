@@ -16,6 +16,7 @@ const WalkwayDimensions = preload("res://scripts/world/urban_walkways.gd")
 const AutomaticBridges=preload("res://scripts/world/automatic_road_bridges.gd")
 const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
+const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const FinishRules=preload("res://scripts/world/environment_finishing_rules.gd")
@@ -104,7 +105,21 @@ var debug_hud: CanvasLayer
 var debug_label: Label
 var _debug_clock := 0.0
 
+var archive_parse_ms:=0.0
+var world_init_ms:=0.0
+var prepared_archive_used:=false
+var prepared_geometry_used:=false
+var geometry_prepare_ms:=0.0
+var predictive_streaming:=true
+var scenery_shadows:=true
+var adaptive_streaming:=true
+var _frame_times:=PackedFloat32Array()
+var _frame_cursor:=0
+var _last_frame_usec:=0
+var _prefetch_budget_ms:=20.0
+
 func _ready() -> void:
+	var startup_started:=Time.get_ticks_usec()
 	var path: String=WorldPublication.MORROW
 	var testing: bool=false
 	var published: bool=false
@@ -116,11 +131,24 @@ func _ready() -> void:
 			push_error("Refused a world archive outside the production and Test Drive allowlists")
 			return
 		path=archive_override_path
-	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
-	_initialize_archive(parsed,testing,published)
+	var parse_started:=Time.get_ticks_usec()
+	var parsed: Variant=null
+	var prepared_geometry: Dictionary={}
+	if get_tree().has_meta("streetbound_prepared_archive") and not editor_render_only:
+		var prepared: Dictionary=get_tree().get_meta("streetbound_prepared_archive")
+		get_tree().remove_meta("streetbound_prepared_archive")
+		# Consume once, only for the exact validated file. The same archive
+		# audit and fallback still run below; no shared mutable world cache.
+		if str(prepared.get("path",""))==path and str(prepared.get("sha",""))==FileAccess.get_sha256(path):
+			parsed=prepared.get("data");prepared_archive_used=parsed is Dictionary
+			prepared_geometry=prepared.get("geometry",{}) if prepared_archive_used else {}
+	if not prepared_archive_used:parsed=JSON.parse_string(FileAccess.get_file_as_string(path))
+	archive_parse_ms=(Time.get_ticks_usec()-parse_started)/1000.0
+	_initialize_archive(parsed,testing,published,prepared_geometry)
+	world_init_ms=(Time.get_ticks_usec()-startup_started)/1000.0
 
 
-func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> void:
+func _initialize_archive(parsed: Variant, testing: bool, published: bool, prepared_geometry: Dictionary={}) -> void:
 	data=parsed if parsed is Dictionary else {}
 	if testing and not bool(data.get("editor_custom_test_drive",false)):
 		push_error("Test Drive refused an archive without its Test Drive marker")
@@ -131,10 +159,12 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 		push_warning("Published map lacks its production marker; restoring Morrow Coast for this session")
 		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
 		published=false
-	archive_audit=RenderHealth.audit(data)
+		prepared_geometry={}
+	archive_audit=prepared_geometry.get("audit",{}) if not prepared_geometry.is_empty() else RenderHealth.audit(data)
 	if not archive_audit.compatible and published:
 		push_warning("Published world failed validation; falling back to Morrow Coast: %s"%str(archive_audit.errors))
 		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
+		prepared_geometry={}
 		archive_audit=RenderHealth.audit(data)
 	if not archive_audit.compatible:
 		push_error("World archive rejected: %s"%[str(archive_audit.errors)])
@@ -144,10 +174,12 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	# surfaces must agree before ANY chunks, traffic, parking or map are built.
 	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
 	# carries the marker and is not widened twice.
-	var legacy_bridges: Array=data.get("bridges",[]).duplicate(true)
-	RoadWidthAdaptation.adapt(data)
-	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
-	mountain_diagnostics=Mountains.apply(data)
+	var geometry_started:=Time.get_ticks_usec()
+	prepared_geometry_used=not prepared_geometry.is_empty()
+	var geometry: Dictionary=prepared_geometry if prepared_geometry_used else ArchivePreparation.adapt(data)
+	bridge_diagnostics=geometry.bridges
+	mountain_diagnostics=geometry.mountains
+	geometry_prepare_ms=float(geometry.get("geometry_ms",float(Time.get_ticks_usec()-geometry_started)/1000.0))
 	_environment_regions=FinishRules.region_profiles(data)
 	_index_terrain_cutouts()
 	for prop in data.props:
@@ -407,6 +439,25 @@ func set_performance_debug(enabled: bool) -> void:
 		_update_performance_display()
 
 
+func _record_frame() -> void:
+	var now:=Time.get_ticks_usec()
+	if _last_frame_usec>0:
+		var ms:=float(now-_last_frame_usec)/1000.0
+		if _frame_times.size()<1200:_frame_times.append(ms)
+		else:_frame_times[_frame_cursor]=ms
+		_frame_cursor=(_frame_cursor+1)%1200
+	_last_frame_usec=now
+
+func frame_statistics() -> Dictionary:
+	var sorted:=_frame_times.duplicate()
+	sorted.sort()
+	if sorted.is_empty():return {"samples":0,"p95_ms":0.0,"one_percent_low":0.0}
+	var count:=sorted.size()
+	var tail:=maxi(1,ceili(count*.01))
+	var sum:=0.0
+	for i in range(count-tail,count):sum+=sorted[i]
+	return {"samples":count,"p95_ms":sorted[clampi(ceili(count*.95)-1,0,count-1)],"one_percent_low":1000.0/maxf(.001,sum/tail)}
+
 func _update_performance_display() -> void:
 	if not is_instance_valid(performance_label):
 		return
@@ -432,6 +483,9 @@ func _update_performance_display() -> void:
 		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
 		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	var stats:=frame_statistics()
+	performance_label.text+="\nFrame p95 %.2f ms | 1%% low %.1f FPS | %d samples"%[stats.p95_ms,stats.one_percent_low,stats.samples]
+	performance_label.text+="\nWorld init %.1f ms | Archive handoff %.1f ms | Geometry %.1f ms (worker %s)"%[world_init_ms,archive_parse_ms,geometry_prepare_ms,str(prepared_geometry_used)]
 	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
 		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
@@ -487,6 +541,7 @@ func _build_chunk(index: Vector2i) -> void:
 		secondary_current_cell) <= 1)
 	chunks[index] = instance
 	instance.set_environment_night(_environment_night)
+	instance.set_scenery_shadows(scenery_shadows or editor_render_only)
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
@@ -653,7 +708,8 @@ func _predict_chunk() -> Vector2i:
 	if secondary_current_cell.x!=-999:return none
 	var direction:=vehicle.linear_velocity.normalized()
 	var position_m:=vehicle.global_position/PPM
-	var predicted:=Vector2i(((position_m+direction*chunk_m*1.5)/chunk_m).floor())
+	var lookahead:=clampf(vehicle.linear_velocity.length()*5.0,chunk_m*1.5,chunk_m*1.9)
+	var predicted:=Vector2i(((position_m+direction*lookahead)/chunk_m).floor())
 	if _stream_cell_distance(predicted,current_cell,secondary_current_cell)!=2:return none
 	var key: String="%d,%d"%[predicted.x,predicted.y]
 	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
@@ -681,7 +737,13 @@ func _update_underground_backdrop() -> void:
 	underground_backdrop.show()
 
 
+func set_scenery_shadows(enabled: bool) -> void:
+	scenery_shadows=enabled
+	for chunk in chunks.values():chunk.set_scenery_shadows(enabled or editor_render_only)
+
 func _process(dt: float) -> void:
+	if performance_debug_enabled or profile_enabled:_record_frame()
+	else:_last_frame_usec=0
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
 		return
@@ -717,7 +779,7 @@ func _process(dt: float) -> void:
 		_build_chunk(pending.pop_front())
 	else:
 		_prefetch_clock+=dt
-		if _prefetch_clock>=.15 and dt<.020:
+		if predictive_streaming and _prefetch_clock>=.15 and (not adaptive_streaming or dt*1000.0<_prefetch_budget_ms):
 			_prefetch_clock=0.0
 			var predicted:=_predict_chunk()
 			if predicted.x!=-999:

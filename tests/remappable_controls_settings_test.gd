@@ -173,6 +173,16 @@ func _run() -> void:
 	await process_frame
 	check("escape_from_general_returns_to_pause",
 		menu.menu_state=="paused" and paused)
+	menu.open_settings()
+	menu.graphics_tab_button.pressed.emit()
+	check("graphics_tab_is_accessible",menu.settings_tab=="graphics" and menu.graphics_page.visible and not menu.controls_page.visible)
+	var saved_graphics: Dictionary={}
+	for key in menu.GRAPHICS_DEFAULTS:saved_graphics[key]=menu.settings_store.get_setting(key)
+	menu._select_graphics_preset(3)
+	check("performance_preset_changes_only_runtime_options",Engine.max_fps==60 and Engine.physics_ticks_per_second==120 and not main.ground.scenery_shadows and main.ground.get_node("AmbientTraffic").user_density_factor==.75)
+	for key in saved_graphics:menu.settings_store.set_setting(key,saved_graphics[key])
+	menu._apply_graphics_settings()
+	menu.back_to_pause()
 	menu.resume_game()
 	check("pause_menu_resumes_and_does_not_leave_capture",
 		not paused and menu.capture_action=="")

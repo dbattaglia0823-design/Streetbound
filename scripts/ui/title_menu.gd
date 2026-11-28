@@ -3,9 +3,9 @@ extends Control
 @onready var lan_discovery: Node = get_node_or_null("/root/LanDiscovery")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
-const GameplayScript = preload("res://scripts/main.gd")
 const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
+const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
 const FeaturedCar = preload("res://assets/Vehicles/McLaren/570S.png")
@@ -34,6 +34,11 @@ var settings_adapter: CanvasLayer
 var message: Label
 var multiplayer_message: Label
 var actions: Dictionary = {}
+var _launch_thread: Thread
+var _scene_request_pending:=false
+var _launch_mode: String=""
+var _loading_label: Label
+var _launch_started:=0
 
 func _ready() -> void:
 	name = "StreetboundMainMenu"
@@ -467,6 +472,7 @@ func _show_lan() -> void:
 	actions["scan_lan_games"].grab_focus()
 
 func _controller_back() -> void:
+	if _launch_thread!=null:return
 	if friends_page.visible or lan_page.visible:
 		lan_discovery.cancel_scan()
 		online_session.leave_session()
@@ -475,6 +481,7 @@ func _controller_back() -> void:
 		_show_main_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _launch_thread!=null:return
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
 		if friends_page.visible or lan_page.visible:
 			lan_discovery.cancel_scan()
@@ -486,6 +493,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _activate(mode: String) -> void:
+	if _launch_thread!=null:return
 	match mode:
 		"settings":
 			settings_adapter.settings_back_to_title = true
@@ -535,11 +543,69 @@ func _activate(mode: String) -> void:
 			_start_game(mode)
 
 func _start_game(mode: String) -> void:
-	GameplayScript.pending_launch_mode = mode if mode == "multiplayer" else ""
+	if _launch_thread!=null:return
+	_launch_mode=mode
+	_launch_started=Time.get_ticks_msec()
+	for button in actions.values():button.disabled=true
+	_loading_label=Label.new()
+	_loading_label.text="Preparing world geometry…"
+	_loading_label.position=Vector2(30,30)
+	_loading_label.add_theme_font_size_override("font_size",24)
+	add_child(_loading_label)
+	var selected: Dictionary=WorldPublication.current()
+	var path: String=str(selected.archive)
+	_launch_thread=Thread.new()
+	var result:=_launch_thread.start(_read_archive.bind(path))
+	if result!=OK:
+		_launch_thread=null
+		_enter_game(mode)
+	else:
+		_scene_request_pending=ResourceLoader.load_threaded_request("res://scenes/main.tscn")==OK
+
+static func _read_archive(path: String) -> Dictionary:
+	var bytes:=FileAccess.get_file_as_bytes(path)
+	var hasher:=HashingContext.new()
+	hasher.start(HashingContext.HASH_SHA256)
+	hasher.update(bytes)
+	var parsed: Variant=JSON.parse_string(bytes.get_string_from_utf8())
+	var geometry: Dictionary={}
+	if parsed is Dictionary and (path==WorldPublication.MORROW or bool(parsed.get("editor_published_world",false))):
+		geometry=ArchivePreparation.prepare(parsed)
+	return {"path":path,"sha":hasher.finish().hex_encode(),"data":parsed,"geometry":geometry}
+
+func _process(_dt: float) -> void:
+	if _launch_thread==null:return
+	_loading_label.text="Preparing world geometry… %.1f s"%((Time.get_ticks_msec()-_launch_started)/1000.0)
+	if _launch_thread.is_alive():return
+	var state:=ResourceLoader.load_threaded_get_status("res://scenes/main.tscn") if _scene_request_pending else ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
+	if state==ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		_loading_label.text="Loading game resources…"
+		return
+	var prepared: Dictionary=_launch_thread.wait_to_finish()
+	_launch_thread=null
+	if prepared.data is Dictionary:get_tree().set_meta("streetbound_prepared_archive",prepared)
+	var scene: PackedScene
+	if state==ResourceLoader.THREAD_LOAD_LOADED:scene=ResourceLoader.load_threaded_get("res://scenes/main.tscn") as PackedScene
+	_scene_request_pending=false
+	_enter_game(_launch_mode,scene)
+
+func _exit_tree() -> void:
+	if _launch_thread!=null and _launch_thread.is_started():_launch_thread.wait_to_finish()
+	# Drain an outstanding engine resource request before SceneTree shutdown.
+	if _scene_request_pending:
+		ResourceLoader.load_threaded_get("res://scenes/main.tscn")
+		_scene_request_pending=false
+
+func _enter_game(mode: String, scene: PackedScene=null) -> void:
+	get_tree().set_meta("streetbound_title_launch_mode",mode if mode=="multiplayer" else "")
 	get_tree().paused = false
-	var outcome := get_tree().change_scene_to_file("res://scenes/main.tscn")
+	var outcome := get_tree().change_scene_to_packed(scene) if scene!=null else get_tree().change_scene_to_file("res://scenes/main.tscn")
 	if outcome != OK:
-		GameplayScript.pending_launch_mode = ""
+		get_tree().remove_meta("streetbound_title_launch_mode")
+		if get_tree().has_meta("streetbound_prepared_archive"):get_tree().remove_meta("streetbound_prepared_archive")
+		if is_instance_valid(_loading_label):_loading_label.queue_free()
+		for button in actions.values():button.disabled=false
+		_refresh_buttons()
 		if mode == "online":
 			online_session.leave_session()
 		var feedback := (lan_message if mode == "online" and lan_page.visible else

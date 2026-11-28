@@ -20,6 +20,7 @@ const BUILDING_ART := {
 }
 static var textures: Dictionary = {}
 static var project_textures: Dictionary = {}
+static var project_sources: Dictionary = {}
 
 static func project_sprite(relative: String, region: Array = []) -> Texture2D:
  if not (relative.begins_with("Buildings/") or relative.begins_with("Map Building Assets/")) or ".." in relative or "\\" in relative or ":" in relative:
@@ -30,9 +31,14 @@ static func project_sprite(relative: String, region: Array = []) -> Texture2D:
  if not ResourceLoader.exists(path,"Texture2D") and not FileAccess.file_exists(path) and relative.begins_with("Buildings/"):
   # Preserve references saved before Buildings moved under Map Building Assets.
   path = "res://assets/Map Building Assets/"+relative
+ if project_sources.has(path):
+  var cached := _region_texture(project_sources[path],region)
+  project_textures[key]=cached
+  return cached
  if ResourceLoader.exists(path,"Texture2D"):
   var imported := load(path) as Texture2D
   if imported!=null:
+   project_sources[path]=imported
    var selected := _region_texture(imported,region)
    project_textures[key]=selected
    return selected
@@ -45,6 +51,7 @@ static func project_sprite(relative: String, region: Array = []) -> Texture2D:
   "svg":result=image.load_svg_from_string(FileAccess.get_file_as_string(path))
  if result!=OK:return null
  var texture := ImageTexture.create_from_image(image)
+ project_sources[path]=texture
  var selected := _region_texture(texture,region)
  project_textures[key]=selected
  return selected

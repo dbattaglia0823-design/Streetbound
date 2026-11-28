@@ -13,6 +13,8 @@ var drops: Array[Dictionary] = []
 var _budget := 0.0
 var _last_focus := Vector2.ZERO
 var _rng := RandomNumberGenerator.new()
+var effects_scale:=1.0
+var _was_wet:=false
 
 func _ready() -> void:
 	top_level = true
@@ -32,11 +34,13 @@ func _process(delta: float) -> void:
 		return
 	var wet: float = Weather.rain_at(world,focus_vehicle.global_position)
 	if wet <= 0.01:
-		if not drops.is_empty():
+		if _was_wet or not drops.is_empty():
 			drops.clear()
 			queue_redraw()
+		_was_wet=false
 		_budget = 0.0
 		return
+	_was_wet=true
 	var dt := clampf(delta, 0.0, 0.05)
 	if dt <= 0.0:
 		return
@@ -53,7 +57,7 @@ func _process(delta: float) -> void:
 			continue
 		drop.point = Vector2(drop.point) + Vector2(35.0, 115.0) * dt
 		drops[i] = drop
-	_budget = minf(_budget + dt * wet * 105.0, 8.0)
+	_budget = minf(_budget + dt * wet * 105.0 * effects_scale, 8.0)
 	while _budget >= 1.0 and drops.size() < MAX_DROPS:
 		_budget -= 1.0
 		drops.append({
@@ -104,13 +108,16 @@ func _draw() -> void:
 		draw_line(p, p + Vector2(4.0, float(drop.length)),
 			Color(0.65, 0.78, 0.88, fade * wet * 0.20), 1.25, true)
 	var drawn := 0
+	var seen: Dictionary={}
 	for group in ["skidmark_vehicle", "traffic_vehicle"]:
 		for node in get_tree().get_nodes_in_group(group):
-			if drawn >= MAX_REFLECTION_CARS:
+			if drawn >= maxi(1,roundi(MAX_REFLECTION_CARS*effects_scale)):
 				return
 			if not node is Node2D:
 				continue
 			var car: Node2D = node
+			if seen.has(car.get_instance_id()):continue
+			seen[car.get_instance_id()]=true
 			if car.global_position.distance_squared_to(focus_vehicle.global_position) > 					RAIN_VIEW_RADIUS * RAIN_VIEW_RADIUS:
 				continue
 			if car is VehicleController2D and (car as VehicleController2D).surface_provider != world:

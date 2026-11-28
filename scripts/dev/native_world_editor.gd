@@ -262,7 +262,17 @@ static var resume_after_rebuild := false
 static var resume_editor_position := Vector2.ZERO
 
 
+var _workspace_built:=false
+
 func _ready() -> void:
+	name="NativeWorldEditor"
+	process_mode=Node.PROCESS_MODE_ALWAYS
+	set_process(false)
+	if standalone_mode or resume_after_rebuild:_build_workspace()
+
+func _build_workspace() -> void:
+	if _workspace_built:return
+	_workspace_built=true
 	if OS.has_environment("STREETBOUND_EDITOR_RECOVERY_PATH"):
 		recovery_path=OS.get_environment("STREETBOUND_EDITOR_RECOVERY_PATH")
 	name = "NativeWorldEditor"
@@ -290,7 +300,7 @@ func _ready() -> void:
 	gizmos.set_script(Gizmos)
 	gizmos.world = world
 	gizmos.network = traffic_network
-	get_parent().add_child.call_deferred(gizmos)
+	if standalone_mode:get_parent().add_child.call_deferred(gizmos)
 	set_process(false)
 	if resume_after_rebuild:
 		var saved_position := resume_editor_position
@@ -1947,6 +1957,9 @@ func open_editor() -> bool:
 	var started:=Time.get_ticks_usec()
 	if not _can_enter():
 		return false
+	_build_workspace()
+	if not gizmos.is_inside_tree():
+		get_parent().add_child(gizmos)
 	if loaded_world_sha.is_empty():
 		loaded_world_sha = FileAccess.get_sha256("res://worlds/morrow-coast.world.json")
 	_owns_pause = not get_tree().paused

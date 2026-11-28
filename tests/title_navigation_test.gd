@@ -131,13 +131,19 @@ func _run() -> void:
 			returned_title != null and returned_title != standalone and
 			returned_title.actions.has("single_player"))
 		returned_title.actions["single_player"].pressed.emit()
-		for frame in 4:
+		# The title now polls real asynchronous IO; fixed-fps tests can
+		# advance thousands of simulation frames before the worker finishes.
+		var deadline:=Time.get_ticks_msec()+30000
+		while current_scene==returned_title and Time.get_ticks_msec()<deadline:
 			await process_frame
+			OS.delay_msec(1)
+		for frame in 2:await process_frame
 		var game: Variant = current_scene
 		check("ordinary_gameplay_launches_after_standalone_editor",
-			game != null and game != standalone and
+			game != null and game != standalone and game!=returned_title and
 			game.vehicle != null and game.ground.initialization_complete)
-		if game != null and game != standalone:
+		if game != null and game != standalone and game!=returned_title:
+			check("title_launch_consumes_exact_prepared_archive_once",bool(game.ground.prepared_archive_used) and bool(game.ground.prepared_geometry_used) and not has_meta("streetbound_prepared_archive"))
 			game.pause_menu.pause_game()
 			await process_frame
 			check("pause_has_multiplayer_editor_main_menu_and_quit",
@@ -158,7 +164,7 @@ func _run() -> void:
 		check("map_editor_in_release_build_is_intentionally_disabled",
 			title.actions["map_editor"].disabled)
 		print("Release test excludes native map editing by design.")
-		title.queue_free()
+		if is_instance_valid(title):title.queue_free()
 	paused = false
 	print("TITLE AND PAUSE NAVIGATION: ",
 		"PASS" if failures.is_empty() else "FAIL "+str(failures))
