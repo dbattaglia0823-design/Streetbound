@@ -36,7 +36,7 @@ func _measure_frames(game: Node,label: String,count: int,drive: bool=false) -> D
 func _run() -> void:
 	report["renderer"]=DisplayServer.get_name()
 	report["physics_hz"]=Engine.physics_ticks_per_second
-	report["max_fps"]=Engine.max_fps
+	report["max_fps_before_game_settings"]=Engine.max_fps
 	report["note"]="Headless throughput is not gameplay FPS. Cold means first scene in this process, not cold OS disk cache."
 	for pass_index in 2:
 		var start:=Time.get_ticks_usec()
@@ -53,7 +53,7 @@ func _run() -> void:
 		if is_instance_valid(game.get("living_world")):game.living_world.persist=false
 		var run: Dictionary={"label":"first" if pass_index==0 else "repeat","startup_ms":startup,
 			"main_ready_ms":game.startup_ms,"world_init_ms":game.ground.world_init_ms,
-			"archive_parse_ms":game.ground.archive_parse_ms,"scenarios":[]}
+			"archive_parse_ms":game.ground.archive_parse_ms,"geometry_ms":game.ground.geometry_prepare_ms,"scenarios":[]}
 		for i in 30:await process_frame
 		run.scenarios.append(await _measure_frames(game,"initial neighborhood",120))
 		game.ground.rain_intensity=1.0
