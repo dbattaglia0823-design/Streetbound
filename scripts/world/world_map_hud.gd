@@ -327,6 +327,7 @@ func _active_race_navigation() -> RefCounted:
 var minimap_fps_limit:=0
 var _mini_elapsed:=0.0
 var _mini_was_visible:=false
+var _mini_last_limit:=-1
 
 func _process(_dt: float) -> void:
 	mini.visible=not large and not get_tree().paused
@@ -339,10 +340,11 @@ func _process(_dt: float) -> void:
 		mini_render.render_target_update_mode=SubViewport.UPDATE_ALWAYS
 	else:
 		_mini_elapsed+=_dt
-		if not _mini_was_visible or _mini_elapsed>=1.0/float(minimap_fps_limit):
+		if not _mini_was_visible or _mini_last_limit!=minimap_fps_limit or _mini_elapsed>=1.0/float(minimap_fps_limit):
 			mini_render.render_target_update_mode=SubViewport.UPDATE_ONCE
 			_mini_elapsed=fmod(_mini_elapsed,1.0/float(minimap_fps_limit))
 	_mini_was_visible=mini.visible
+	_mini_last_limit=minimap_fps_limit
 	layer=19 if full.visible else 2
 	var current_course := _active_race_navigation()
 	if not mini.visible and not full.visible:return
