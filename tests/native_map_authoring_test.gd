@@ -243,13 +243,19 @@ func _run() -> void:
 		id.begins_with("prop-native-") and
 		session.doc.props.size()==before_count+1 and
 		session.prop_at_id(id).assetId=="game-house")
-	var project_id: String = session.add_project_prop("Map Building Assets/Buildings/Rural Building-Houses/House.png",
+	var locator=preload("res://scripts/world/asset_locator.gd")
+	var canonical: String="Map Building Assets/Buildings/Rural Building-Houses/House.png"
+	var old_path: String="res://assets/Map Building Assets/Old Folder/House.png"
+	check("exact_filename_recovers_moved_individual_art",locator.resolve(old_path,"Texture2D",true)=="res://assets/"+canonical)
+	check("repeated_lookup_reuses_relocated_path",locator.resolve(old_path,"Texture2D",true)=="res://assets/"+canonical)
+	check("missing_filename_is_not_substituted",locator.resolve("res://assets/Map Building Assets/NoSuchStreetboundRegression.png","Texture2D",true,false).is_empty())
+	var project_id: String = session.add_project_prop("Buildings/House.png",
 		"house",Vector2(2250,3150),Vector2(12,16))
 	check("native_browser_uses_same_project_asset_id_as_python_importer",
 		project_id.begins_with("prop-native-") and
 		session.prop_at_id(project_id).assetId==
-			"project-"+"Map Building Assets/Buildings/Rural Building-Houses/House.png".sha256_text().substr(0,24) and
-		session.prop_at_id(project_id).assetPath=="Map Building Assets/Buildings/Rural Building-Houses/House.png")
+			"project-"+canonical.sha256_text().substr(0,24) and
+		session.prop_at_id(project_id).assetPath==canonical)
 	check("native_project_asset_is_undoable",session.undo() and
 		session.prop_at_id(project_id).is_empty())
 	check("native_rejects_untrusted_asset_paths",

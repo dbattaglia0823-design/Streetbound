@@ -34,6 +34,34 @@ def source():
 
 
 class CustomTestWorldBaker(unittest.TestCase):
+    def test_retired_sheet_removed_but_missing_individual_art_is_reported(self):
+        from project_asset_catalog import asset_id
+        doc=source()
+        old='Map Building Assets/Sprite Sheets/old.png'
+        doc['props'].append(dict(id='prop-sheet',type='building',name='Old sheet',x=700,y=700,rotation=0,scale=1,assetId=asset_id(old),assetPath=old,assetSize=[10,10],assetRegion=[0,0,64,64]))
+        before=json.dumps(doc,sort_keys=True)
+        archive=make_archive(doc)
+        self.assertEqual(json.dumps(doc,sort_keys=True),before)
+        self.assertEqual(len(archive['props']),1)
+        self.assertTrue(any(w.get('code')=='retired_map_art' for w in archive['editor_warnings'] if isinstance(w,dict)))
+        missing='Map Building Assets/Buildings/nonexistent-streetbound-regression.png'
+        doc['props'].append(dict(id='prop-missing',type='building',name='Missing',x=700,y=700,rotation=0,scale=1,assetId=asset_id(missing),assetPath=missing,assetSize=[10,10]))
+        with self.assertRaisesRegex(ValueError, 'no exact filename match'):
+            make_archive(doc)
+
+    def test_moved_art_preserves_placement_and_canonical_path(self):
+        from project_asset_catalog import asset_id, catalog
+        item=next(a for a in catalog() if a['type']=='house')
+        old='Map Building Assets/Old Folder/'+pathlib.Path(item['path']).name
+        doc=source()
+        doc['props'][0].update(assetId=asset_id(old),assetPath=old,assetSize=[12,17],assetCollision=item['collision'])
+        before=json.dumps(doc,sort_keys=True)
+        archive=make_archive(doc)
+        self.assertEqual(json.dumps(doc,sort_keys=True),before)
+        self.assertEqual(archive['props'][0]['asset_path'],item['path'])
+        self.assertEqual(archive['props'][0]['asset_id'],item['id'])
+        self.assertEqual(archive['props'][0]['p'],[220,240])
+
     def test_alleyway_bakes_as_connected_paved_road(self):
         doc=source()
         doc['roads'][2].update(roadClass='alley',width=6,lanes=1,shoulder=0,markings=False)

@@ -2,6 +2,7 @@ class_name PlayerVehicleCatalog
 extends RefCounted
 ## Explicit roster: Godot also includes these images in exported builds.
 ## Entries with source_model_unverified=true are provisional associations only.
+const Locator=preload("res://scripts/world/asset_locator.gd")
 const PendingAudio = preload("res://scripts/audio/pending_vehicle_audio.gd")
 # Explicit dependency so Godot cold-start parsing never needs the global class cache.
 const AppearanceProfileScript = preload("res://scripts/vehicle/vehicle_appearance_profile.gd")
@@ -53,9 +54,11 @@ static func all() -> Array[Dictionary]:
 			# Never expose retired/missing artwork as a playable entry. The
 			# same catalog is used by pause, garage, dealerships and AI.
 			var artwork := str(value.get("texture", ""))
-			if artwork.is_empty() or not ResourceLoader.exists(artwork, "Texture2D"):
+			var resolved:=Locator.resolve(artwork,"Texture2D")
+			if resolved.is_empty():
 				push_warning("Skipping unavailable vehicle artwork: " + id)
 				continue
+			value["texture"]=resolved
 			_vehicles.append(value)
 	return _vehicles
 
@@ -318,8 +321,9 @@ static func select(player: VehicleController2D, entry: Dictionary) -> bool:
 	# Avoid calling load() on a non-existent asset: on Godot 4.6 it logs a
 	# resource ERROR even if the caller handles null, breaking render CI.
 	var texture: Texture2D = null
-	if not path.is_empty() and ResourceLoader.exists(path, "Texture2D"):
-		texture = load(path) as Texture2D
+	var resolved:=Locator.resolve(path,"Texture2D")
+	if not resolved.is_empty():
+		texture = load(resolved) as Texture2D
 	if texture == null:
 		push_warning("Using provisional silhouette for missing artwork: " + path)
 		texture = _temporary_unverified_body()
