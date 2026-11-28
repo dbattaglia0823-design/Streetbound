@@ -95,7 +95,7 @@ static func apply_layers(chunk: Node2D, flags: Dictionary) -> void:
 func set_layers(flags: Dictionary) -> void:
 	if layer_flags==flags:return
 	layer_flags=flags.duplicate()
-	if cache_hit and not is_instance_valid(full_world):sprite.texture=viewport.get_texture()
+	if cache_hit and not is_instance_valid(full_world) and (not bool(flags.get("terrain",true)) or not bool(flags.get("roads",true)) or not bool(flags.get("scenery",true))):sprite.texture=viewport.get_texture()
 	if is_instance_valid(full_world):apply_layers(full_world,flags)
 	refresh()
 
