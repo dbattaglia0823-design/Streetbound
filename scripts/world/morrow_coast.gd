@@ -16,6 +16,7 @@ const WalkwayDimensions = preload("res://scripts/world/urban_walkways.gd")
 const AutomaticBridges=preload("res://scripts/world/automatic_road_bridges.gd")
 const Mountains=preload("res://scripts/world/mountain_barrier_world.gd")
 const RenderHealth = preload("res://scripts/world/world_render_health.gd")
+const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const DiagnosticsDock = preload("res://scripts/ui/diagnostics_dock.gd")
 const FinishRules=preload("res://scripts/world/environment_finishing_rules.gd")
@@ -107,6 +108,8 @@ var _debug_clock := 0.0
 var archive_parse_ms:=0.0
 var world_init_ms:=0.0
 var prepared_archive_used:=false
+var prepared_geometry_used:=false
+var geometry_prepare_ms:=0.0
 var predictive_streaming:=true
 var scenery_shadows:=true
 var adaptive_streaming:=true
@@ -130,6 +133,7 @@ func _ready() -> void:
 		path=archive_override_path
 	var parse_started:=Time.get_ticks_usec()
 	var parsed: Variant=null
+	var prepared_geometry: Dictionary={}
 	if get_tree().has_meta("streetbound_prepared_archive") and not editor_render_only:
 		var prepared: Dictionary=get_tree().get_meta("streetbound_prepared_archive")
 		get_tree().remove_meta("streetbound_prepared_archive")
@@ -137,13 +141,14 @@ func _ready() -> void:
 		# audit and fallback still run below; no shared mutable world cache.
 		if str(prepared.get("path",""))==path and str(prepared.get("sha",""))==FileAccess.get_sha256(path):
 			parsed=prepared.get("data");prepared_archive_used=parsed is Dictionary
+			prepared_geometry=prepared.get("geometry",{}) if prepared_archive_used else {}
 	if not prepared_archive_used:parsed=JSON.parse_string(FileAccess.get_file_as_string(path))
 	archive_parse_ms=(Time.get_ticks_usec()-parse_started)/1000.0
-	_initialize_archive(parsed,testing,published)
+	_initialize_archive(parsed,testing,published,prepared_geometry)
 	world_init_ms=(Time.get_ticks_usec()-startup_started)/1000.0
 
 
-func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> void:
+func _initialize_archive(parsed: Variant, testing: bool, published: bool, prepared_geometry: Dictionary={}) -> void:
 	data=parsed if parsed is Dictionary else {}
 	if testing and not bool(data.get("editor_custom_test_drive",false)):
 		push_error("Test Drive refused an archive without its Test Drive marker")
@@ -154,10 +159,12 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 		push_warning("Published map lacks its production marker; restoring Morrow Coast for this session")
 		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
 		published=false
-	archive_audit=RenderHealth.audit(data)
+		prepared_geometry={}
+	archive_audit=prepared_geometry.get("audit",{}) if not prepared_geometry.is_empty() else RenderHealth.audit(data)
 	if not archive_audit.compatible and published:
 		push_warning("Published world failed validation; falling back to Morrow Coast: %s"%str(archive_audit.errors))
 		data=JSON.parse_string(FileAccess.get_file_as_string(WorldPublication.MORROW))
+		prepared_geometry={}
 		archive_audit=RenderHealth.audit(data)
 	if not archive_audit.compatible:
 		push_error("World archive rejected: %s"%[str(archive_audit.errors)])
@@ -167,10 +174,12 @@ func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> voi
 	# surfaces must agree before ANY chunks, traffic, parking or map are built.
 	# Runtime adapts the checked-in legacy archive; a newly rebaked archive
 	# carries the marker and is not widened twice.
-	var legacy_bridges: Array=data.get("bridges",[]).duplicate(true)
-	RoadWidthAdaptation.adapt(data)
-	bridge_diagnostics=AutomaticBridges.apply(data,legacy_bridges)
-	mountain_diagnostics=Mountains.apply(data)
+	var geometry_started:=Time.get_ticks_usec()
+	prepared_geometry_used=not prepared_geometry.is_empty()
+	var geometry: Dictionary=prepared_geometry if prepared_geometry_used else ArchivePreparation.adapt(data)
+	bridge_diagnostics=geometry.bridges
+	mountain_diagnostics=geometry.mountains
+	geometry_prepare_ms=float(geometry.get("geometry_ms",float(Time.get_ticks_usec()-geometry_started)/1000.0))
 	_environment_regions=FinishRules.region_profiles(data)
 	_index_terrain_cutouts()
 	for prop in data.props:
@@ -476,7 +485,7 @@ func _update_performance_display() -> void:
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
 	var stats:=frame_statistics()
 	performance_label.text+="\nFrame p95 %.2f ms | 1%% low %.1f FPS | %d samples"%[stats.p95_ms,stats.one_percent_low,stats.samples]
-	performance_label.text+="\nWorld init %.1f ms | Archive %.1f ms | Prepared %s"%[world_init_ms,archive_parse_ms,str(prepared_archive_used)]
+	performance_label.text+="\nWorld init %.1f ms | Archive handoff %.1f ms | Geometry %.1f ms (worker %s)"%[world_init_ms,archive_parse_ms,geometry_prepare_ms,str(prepared_geometry_used)]
 	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
 		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
