@@ -75,3 +75,17 @@ static func slider(node: HSlider) -> void:
 	if thumb!=null:
 		node.add_theme_icon_override("grabber",thumb)
 		node.add_theme_icon_override("grabber_highlight",thumb)
+
+## Shared search/input appearance; text remains editable and keyboard focusable.
+static func field(node: LineEdit) -> void:
+	var normal := surface(PANEL,EDGE,5)
+	normal.set_content_margin_all(9)
+	var focus := normal.duplicate() as StyleBoxFlat
+	focus.border_color=ACCENT
+	focus.set_border_width_all(2)
+	node.add_theme_stylebox_override("normal",normal)
+	node.add_theme_stylebox_override("focus",focus)
+	node.add_theme_color_override("font_color",TEXT)
+	node.add_theme_color_override("font_placeholder_color",MUTED)
+	node.add_theme_color_override("caret_color",TEXT)
+	node.add_theme_color_override("selection_color",ACTIVE)

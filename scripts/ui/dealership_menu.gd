@@ -5,14 +5,22 @@ extends CanvasLayer
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const DealerConfig = preload("res://scripts/world/dealership_config.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const PPM := 20.0
+const SAFE_MARGIN := 28.0
+const CARD_WIDTH := 266.0
+const GRID_GAP := 12.0
+const SCROLL_RESERVE := 24.0
 var manager: Node2D
 var player: VehicleController2D
 var economy: OwnershipModel
 var overlay: Control
 var launch_button: Button
 var heading: Label
+var tier_label: Label
 var wallet: Label
+var driver_level: Label
+var finance_panel: PanelContainer
 var search: LineEdit
 var count_label: Label
 var feedback: Label
@@ -36,6 +44,7 @@ func _ready() -> void:
 	launch_button.position = Vector2(410,72)
 	launch_button.custom_minimum_size = Vector2(345,42)
 	launch_button.text = "DEALERSHIP [ F ]"
+	RacingStyle.button(launch_button,true,16)
 	launch_button.pressed.connect(open_menu)
 	add_child(launch_button)
 	overlay = Control.new()
@@ -44,57 +53,96 @@ func _ready() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(overlay)
 	var background := ColorRect.new()
-	background.color = Color(0.027,0.042,0.048,0.97)
+	background.color = Color(0.045,0.055,0.07,0.97)
 	background.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(background)
 	var margins := MarginContainer.new()
 	margins.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left","right","top","bottom"]:
-		margins.add_theme_constant_override("margin_" + side, 28)
+		margins.add_theme_constant_override("margin_" + side, int(SAFE_MARGIN))
 	overlay.add_child(margins)
 	var vertical := VBoxContainer.new()
 	vertical.add_theme_constant_override("separation",12)
 	margins.add_child(vertical)
 	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation",16)
 	vertical.add_child(top)
-	heading = Label.new()
-	heading.name = "DealerTitle"
-	heading.text = "STREETBOUND / DEALERSHIP"
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_font_size_override("font_size",26)
-	top.add_child(heading)
+	var identity := VBoxContainer.new()
+	identity.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	identity.add_theme_constant_override("separation",3)
+	top.add_child(identity)
+	heading=Label.new()
+	heading.name="DealerTitle"
+	heading.text="STREETBOUND / DEALERSHIP"
+	heading.add_theme_font_size_override("font_size",34)
+	heading.add_theme_color_override("font_color",RacingStyle.ACCENT)
+	heading.clip_text=true
+	heading.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	identity.add_child(heading)
+	tier_label=Label.new()
+	tier_label.name="DealerClass"
+	tier_label.add_theme_font_size_override("font_size",21)
+	tier_label.add_theme_color_override("font_color",RacingStyle.TEXT)
+	tier_label.clip_text=true
+	identity.add_child(tier_label)
+	var underline := ColorRect.new()
+	underline.name="DealerUnderline"
+	underline.color=RacingStyle.ACCENT
+	underline.custom_minimum_size.y=3
+	underline.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	identity.add_child(underline)
 	var close := Button.new()
-	close.text = "BACK TO DRIVING [ESC]"
+	close.name="BackToDriving"
+	close.text="BACK TO DRIVING [ESC]"
+	close.custom_minimum_size=Vector2(205,42)
+	close.size_flags_vertical=Control.SIZE_SHRINK_BEGIN
+	RacingStyle.button(close,false,15)
 	close.pressed.connect(close_menu)
 	top.add_child(close)
 	var finance := HBoxContainer.new()
+	finance.add_theme_constant_override("separation",16)
 	vertical.add_child(finance)
-	wallet = Label.new()
-	wallet.name = "Wallet"
-	wallet.add_theme_font_size_override("font_size",19)
-	wallet.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	finance.add_child(wallet)
-	count_label = Label.new()
-	count_label.add_theme_font_size_override("font_size",13)
+	finance_panel=PanelContainer.new()
+	finance_panel.name="PlayerFinance"
+	var finance_style := RacingStyle.surface(RacingStyle.PANEL,RacingStyle.EDGE,6)
+	finance_style.set_content_margin_all(10)
+	finance_style.border_width_left=3
+	finance_style.border_color=RacingStyle.ACCENT
+	finance_panel.add_theme_stylebox_override("panel",finance_style)
+	finance.add_child(finance_panel)
+	var stats := HBoxContainer.new()
+	stats.add_theme_constant_override("separation",24)
+	finance_panel.add_child(stats)
+	wallet=_stat_value(stats,"BALANCE","Wallet")
+	driver_level=_stat_value(stats,"DRIVER LEVEL","DriverLevel")
+	count_label=Label.new()
+	count_label.name="VehicleCount"
+	count_label.add_theme_font_size_override("font_size",14)
+	count_label.add_theme_color_override("font_color",RacingStyle.MUTED)
+	count_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	count_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	count_label.clip_text=true
+	count_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	finance.add_child(count_label)
-	var note := Label.new()
-	note.text = "Prices use labeled MSRP/market estimates or clearly identified game-only values. Purchases go to Laurel Motor House."
-	note.add_theme_font_size_override("font_size",13)
-	vertical.add_child(note)
+
 	search = LineEdit.new()
 	search.placeholder_text = "Search models in this dealership"
-	search.custom_minimum_size.y = 38
+	search.custom_minimum_size.y = 42
+	RacingStyle.field(search)
 	search.text_changed.connect(_filter)
 	vertical.add_child(search)
 	feedback = Label.new()
 	feedback.name = "PurchaseFeedback"
 	feedback.text = "Select a vehicle to purchase."
 	feedback.add_theme_font_size_override("font_size",13)
-	feedback.add_theme_color_override("font_color",Color("b9d7be"))
+	feedback.clip_text=true
+	feedback.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	feedback.add_theme_color_override("font_color",RacingStyle.MUTED)
 	vertical.add_child(feedback)
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	vertical.add_child(scroll)
 	grid = GridContainer.new()
 	grid.name = "StockGrid"
@@ -111,9 +159,33 @@ func _ready() -> void:
 	_update_access()
 
 
+func _stat_value(parent: HBoxContainer, caption: String, node_name: String) -> Label:
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation",2)
+	parent.add_child(column)
+	var title := Label.new()
+	title.text=caption
+	title.add_theme_font_size_override("font_size",12)
+	title.add_theme_color_override("font_color",RacingStyle.MUTED)
+	column.add_child(title)
+	var value := Label.new()
+	value.name=node_name
+	value.add_theme_font_size_override("font_size",26)
+	value.add_theme_color_override("font_color",RacingStyle.ACCENT)
+	column.add_child(value)
+	return value
+
+static func stock_columns(viewport_width: float) -> int:
+	var available := maxf(1.0,viewport_width-SAFE_MARGIN*2.0-SCROLL_RESERVE)
+	return maxi(1,floori((available+GRID_GAP)/(CARD_WIDTH+GRID_GAP)))
+
 func _layout() -> void:
 	var viewport := get_viewport().get_visible_rect().size
-	grid.columns = maxi(2, floori((viewport.x - 80.0) / 288.0))
+	grid.columns=stock_columns(viewport.x)
+	var available := maxf(1.0,viewport.x-SAFE_MARGIN*2.0-SCROLL_RESERVE)
+	for item in cards:
+		var panel: Control=item.panel
+		panel.custom_minimum_size.x=minf(CARD_WIDTH,available)
 	launch_button.position = Vector2(minf(410.0,maxf(12.0,viewport.x-360.0)),72.0)
 
 
@@ -148,7 +220,9 @@ func open_marker_menu(site: Dictionary,access: Callable) -> void:
 
 func _show_shop(site: Dictionary) -> void:
 	_active_shop = site
-	heading.text = str(site.name).to_upper() + "  /  " + str(site.tier)
+	heading.text = str(site.name).to_upper()
+	heading.tooltip_text=heading.text
+	tier_label.text="CLASS  /  "+str(site.tier).to_upper()
 	feedback.text = "Select a vehicle to purchase."
 	_paused_here = true
 	get_tree().paused = true
@@ -208,15 +282,12 @@ func _rebuild_cards() -> void:
 func _add_card(entry: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "Stock_" + str(entry.id).replace("-","_")
-	panel.custom_minimum_size = Vector2(256,356)
+	panel.custom_minimum_size = Vector2(CARD_WIDTH,356)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("14272b")
-	style.border_color = Color("3b5757")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
+	var style := RacingStyle.surface(RacingStyle.PANEL,RacingStyle.EDGE,6)
 	style.set_content_margin_all(10)
 	panel.add_theme_stylebox_override("panel",style)
+
 	grid.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation",4)
@@ -232,12 +303,14 @@ func _add_card(entry: Dictionary) -> void:
 	name.text = str(entry.display_name)
 	name.add_theme_font_size_override("font_size",17)
 	name.clip_text = true
+	name.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	name.add_theme_color_override("font_color",RacingStyle.TEXT)
 	column.add_child(name)
 	var reference := Label.new()
 	reference.name = "ReferenceTrim"
 	reference.text = Catalog.reference_label(entry)
 	reference.add_theme_font_size_override("font_size",11)
-	reference.add_theme_color_override("font_color",Color("a6c0b6"))
+	reference.add_theme_color_override("font_color",RacingStyle.MUTED)
 	reference.clip_text = true
 	column.add_child(reference)
 	var specs := Label.new()
@@ -247,28 +320,32 @@ func _add_card(entry: Dictionary) -> void:
 		str(entry.reference_transmission),float(entry.tire_grip),int(entry.get("max_health_points",2000))]
 	specs.text += "\n" + Catalog.capacity_label(entry)
 	specs.add_theme_font_size_override("font_size",12)
-	specs.add_theme_color_override("font_color",Color("c0ccc9"))
+	specs.add_theme_color_override("font_color",RacingStyle.TEXT)
+	# Unwrapped transmission/trim strings previously inflated every grid column.
+	specs.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	specs.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	column.add_child(specs)
 	var price := Label.new()
 	price.text = OwnershipModel.dollars(int(entry.price_usd))
 	price.add_theme_font_size_override("font_size",19)
-	price.add_theme_color_override("font_color",Color("ecd29b"))
+	price.add_theme_color_override("font_color",RacingStyle.ACCENT)
 	column.add_child(price)
 	var price_basis := Label.new()
 	price_basis.name = "PriceBasis"
 	price_basis.text = Catalog.price_basis_label(entry)
 	price_basis.add_theme_font_size_override("font_size",11)
-	price_basis.add_theme_color_override("font_color",Color("adb9b4"))
+	price_basis.add_theme_color_override("font_color",RacingStyle.MUTED)
 	column.add_child(price_basis)
 	var requirement := Label.new()
 	requirement.name = "RequiredLevel"
 	requirement.text = "DRIVER LV %d REQUIRED" % int(entry.get("required_player_level",1))
 	requirement.add_theme_font_size_override("font_size",12)
-	requirement.add_theme_color_override("font_color",Color("b9cfb8"))
+	requirement.add_theme_color_override("font_color",RacingStyle.MUTED)
 	column.add_child(requirement)
 	var action := Button.new()
 	action.name = "Buy_" + str(entry.id).replace("-","_")
-	action.custom_minimum_size.y = 35
+	action.custom_minimum_size.y = 36
+	RacingStyle.button(action,true,14)
 	action.pressed.connect(_purchase.bind(str(entry.id)))
 	column.add_child(action)
 	panel.tooltip_text = "%s\n%s\n%s" % [
@@ -287,8 +364,8 @@ func _add_card(entry: Dictionary) -> void:
 func _refresh_cards() -> void:
 	if not is_instance_valid(economy) or wallet == null:
 		return
-	wallet.text = "BALANCE  " + OwnershipModel.dollars(economy.balance) + \
-		"  /  DRIVER LV %d/100  /  OWNED %d" % [economy.player_level(),economy.owned_count()]
+	wallet.text=OwnershipModel.dollars(economy.balance)
+	driver_level.text="%d / 100" % economy.player_level()
 	for item in cards:
 		var entry: Dictionary = item.entry
 		var action: Button = item.action
