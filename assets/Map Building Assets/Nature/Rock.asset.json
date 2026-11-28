@@ -1,0 +1,8 @@
+{
+  "type": "rock",
+  "worldSize": [
+    3,
+    2.5
+  ],
+  "collision": "solid"
+}
