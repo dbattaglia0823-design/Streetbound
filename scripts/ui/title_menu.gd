@@ -7,11 +7,12 @@ const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
 const FeaturedCar = preload("res://assets/Vehicles/McLaren/570S.png")
 
 const DESIGN_SIZE := Vector2(1600.0, 900.0)
-const ACCENT := Color("#ff8733")
+const ACCENT := Color("#ff8b24")
 const WHITE := Color("#f5f7fa")
 const MUTED := Color("#b5c1cf")
 
@@ -116,7 +117,7 @@ func _build_shell() -> void:
 
 	var left_scrim := ColorRect.new()
 	left_scrim.name = "LeftMenuScrim"
-	left_scrim.color = Color(0.025, 0.038, 0.057, 0.87)
+	left_scrim.color = Color(0.025, 0.03, 0.045, 0.80)
 	left_scrim.position = Vector2.ZERO
 	left_scrim.size = Vector2(685, 900)
 	left_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -166,8 +167,8 @@ func _build_shell() -> void:
 	card.position = Vector2(47, 233)
 	card.size = Vector2(544, 600)
 	card.custom_minimum_size = Vector2(544, 600)
-	var panel := _panel_style(Color(0.025, 0.040, 0.055, 0.89),
-		Color(0.51, 0.61, 0.67, 0.48), 17)
+	var panel := _panel_style(Color(0.07, 0.08, 0.10, 0.92),
+		RacingStyle.EDGE, 6)
 	panel.set_content_margin_all(24)
 	panel.shadow_color = Color(0, 0, 0, 0.43)
 	panel.shadow_size = 20
@@ -388,30 +389,7 @@ func _add_action(parent: VBoxContainer, id: String, title: String,
 	button.focus_mode = Control.FOCUS_ALL
 	button.add_theme_font_size_override("font_size", 21 if not unavailable else 16)
 	button.add_theme_constant_override("h_separation", 16)
-	var bg := _panel_style(
-		Color(0.87, 0.27, 0.065, 0.93) if primary else Color(0.12, 0.17, 0.21, 0.94),
-		ACCENT if primary else Color(0.53, 0.62, 0.68, 0.66), 12)
-	bg.set_border_width_all(2 if primary else 1)
-	var hover := bg.duplicate() as StyleBoxFlat
-	hover.bg_color = Color("#ff773b") if primary else Color("#29485b")
-	var down := hover.duplicate() as StyleBoxFlat
-	down.bg_color = Color("#cc5926") if primary else Color("#142936")
-	var focus := bg.duplicate() as StyleBoxFlat
-	focus.draw_center = false
-	focus.border_color = WHITE
-	focus.set_border_width_all(3)
-	var disabled_style := bg.duplicate() as StyleBoxFlat
-	disabled_style.bg_color = Color(0.085, 0.12, 0.16, 0.88)
-	disabled_style.border_color = Color(0.29, 0.34, 0.39, 0.72)
-	for style in ["normal", "hover", "pressed", "focus", "disabled"]:
-		button.add_theme_stylebox_override(style,
-			bg if style == "normal" else hover if style == "hover" else
-			down if style == "pressed" else focus if style == "focus" else
-			disabled_style)
-	button.add_theme_color_override("font_color", WHITE)
-	button.add_theme_color_override("font_hover_color", WHITE)
-	button.add_theme_color_override("font_pressed_color", WHITE)
-	button.add_theme_color_override("font_disabled_color", Color("#8e9da9"))
+	RacingStyle.button(button,primary,21 if not unavailable else 16)
 	button.disabled = unavailable
 	if unavailable:
 		button.tooltip_text = "Online multiplayer has not been implemented yet."

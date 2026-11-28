@@ -6,13 +6,14 @@ const Progression = preload("res://scripts/vehicle/race_progression.gd")
 const EventRules=preload("res://scripts/world/authored_event_rules.gd")
 const CrimeCareer = preload("res://scripts/world/driving_contract_rules.gd")
 const RouteGraphic = preload("res://scripts/ui/race_route_preview.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const DESIGN := Vector2(1440, 800)
 const CAR_BATCH_SIZE := 18
 const WHITE := Color("#f0f2e9")
 const MUTED := Color("#a7bcb9")
-const LIME := Color("#bee795")
+const LIME := Color("#ff9b39")
 const TEAL := Color("#77d6cc")
-const DARK := Color("#091d22")
+const DARK := Color("#12161c")
 var menu
 var vehicle: Node2D
 var economy
@@ -72,11 +73,11 @@ func _skin(fill: Color, edge: Color, curve: int = 13) -> StyleBoxFlat:
 	s.bg_color = fill
 	s.border_color = edge
 	s.set_border_width_all(1)
-	s.set_corner_radius_all(curve)
+	s.set_corner_radius_all(mini(curve,6))
 	return s
 
 func _panel(parent: Control, node_name: String, rect: Rect2,
-		fill: Color = Color("#102529"), edge: Color = Color("#54736d")) -> Panel:
+		fill: Color = Color("#1b2027"), edge: Color = Color("#48515c")) -> Panel:
 	var p := Panel.new()
 	p.name = node_name
 	p.position = rect.position
@@ -129,18 +130,7 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 	b.position = rect.position
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.clip_text = true
-	b.add_theme_font_size_override("font_size", 16)
-	b.add_theme_color_override("font_color", DARK if emphasis else WHITE)
-	b.add_theme_color_override("font_hover_color", DARK if emphasis else WHITE)
-	b.add_theme_color_override("font_focus_color", DARK if emphasis else WHITE)
-	b.add_theme_stylebox_override("normal", _skin(LIME if emphasis else Color("#183337"),
-		LIME if emphasis else Color("#537873"), 10))
-	b.add_theme_stylebox_override("hover", _skin(Color("#d4f5ab"), LIME, 10))
-	b.add_theme_stylebox_override("pressed", _skin(Color("#9ac86a"), LIME, 10))
-	var focused := _skin(Color.TRANSPARENT, Color("#f5e4ae"), 10)
-	focused.draw_center = false
-	focused.set_border_width_all(2)
-	b.add_theme_stylebox_override("focus", focused)
+	RacingStyle.button(b,emphasis,16)
 	b.pressed.connect(action)
 	parent.add_child(b)
 	b.size = rect.size
@@ -149,18 +139,18 @@ func _button(parent: Control, node_name: String, title: String, rect: Rect2,
 func _build_frame() -> void:
 	# Header, left category rail, central page, and three right-side cards.
 	var header := _panel(self, "PauseHeader", Rect2(28, 18, 1382, 61),
-		Color("#0b1e24", .89), Color("#465f5d"))
+		Color("#14181e", .89), Color("#424a54"))
 	_label(header, "Brand", "◢  STREETBOUND    /    PAUSED",
 		Rect2(21, 4, 535, 53), 27, WHITE)
 	var quick := _panel(header, "ProgressHeader", Rect2(934, 6, 426, 48),
-		Color("#122d32"), Color("#5d857b"))
+		Color("#20262e"), Color("#525d68"))
 	header_level = _label(quick, "HeaderLevel", "DRIVER LV 1",
 		Rect2(17, 4, 131, 20), 13)
 	header_xp = _progress(quick, Rect2(152, 17, 119, 9))
 	header_money = _label(quick, "HeaderMoney", "$ 0",
 		Rect2(290, 5, 124, 36), 18, LIME)
 	var rail := _panel(self, "Navigation", Rect2(28, 97, 210, 650),
-		Color("#092227", .95), Color("#53766b"))
+		Color("#15191f", .95), Color("#48515c"))
 	_label(rail, "BrowseCaption", "EXPLORE", Rect2(18, 16, 177, 23), 12, LIME)
 	var definitions := [
 		["resume", "▷  Resume"], ["map", "⌖  Map"],
@@ -181,7 +171,7 @@ func _build_frame() -> void:
 	more.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nav_buttons["more"] = more
 	_panel(self, "ContentPanel", Rect2(250, 97, 781, 650),
-		Color("#0a2227", .96), Color("#597971"))
+		Color("#171c23", .96), Color("#48515c"))
 	content = Control.new()
 	content.name = "PageContent"
 	content.position = Vector2(250, 97)
@@ -189,7 +179,7 @@ func _build_frame() -> void:
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(content)
 	var driver := _panel(self, "DriverCard", Rect2(1043, 97, 367, 160),
-		Color("#10292c", .96), Color("#5c7e73"))
+		Color("#1c222a", .96), Color("#48515c"))
 	_label(driver, "DriverEyebrow", "DRIVER", Rect2(18, 7, 120, 24), 14, LIME)
 	driver_level = _label(driver, "DriverLevel", "DRIVER LV 1",
 		Rect2(18, 36, 162, 25), 17)
@@ -205,12 +195,12 @@ func _build_frame() -> void:
 	driver_district = _label(driver, "DriverDistrict", "MORROW COAST",
 		Rect2(18, 131, 332, 21), 13, WHITE)
 	var car := _panel(self, "CurrentCarCard", Rect2(1043, 267, 367, 248),
-		Color("#10292c", .96), Color("#5c7e73"))
+		Color("#1c222a", .96), Color("#48515c"))
 	_label(car, "CurrentCarCaption", "CURRENT CAR", Rect2(18, 8, 194, 25), 14, LIME)
 	var photo_background := ColorRect.new()
 	photo_background.position = Vector2(18, 35)
 	photo_background.size = Vector2(155, 108)
-	photo_background.color = Color("#162b2d")
+	photo_background.color = Color("#242a31")
 	car.add_child(photo_background)
 	car_image = TextureRect.new()
 	car_image.name = "EquippedCarImage"
@@ -235,7 +225,7 @@ func _build_frame() -> void:
 	car_grip.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	car_weight = _label(car, "Mass", "", Rect2(19, 227, 331, 18), 11, MUTED)
 	var area := _panel(self, "AreaMapCard", Rect2(1043, 525, 367, 222),
-		Color("#10292c", .96), Color("#5c7e73"))
+		Color("#1c222a", .96), Color("#48515c"))
 	_label(area, "MapCaption", "AREA MAP — MORROW COAST",
 		Rect2(16, 6, 244, 24), 13, LIME)
 	var map_action := _button(area, "OpenMap", "OPEN MAP",
@@ -244,7 +234,7 @@ func _build_frame() -> void:
 	var map_bg := ColorRect.new()
 	map_bg.position = Vector2(15, 39)
 	map_bg.size = Vector2(337, 153)
-	map_bg.color = Color("#1a3439")
+	map_bg.color = Color("#242b33")
 	area.add_child(map_bg)
 	map_image = TextureRect.new()
 	map_image.name = "LiveLocalMap"
@@ -259,7 +249,7 @@ func _build_frame() -> void:
 	map_status = _label(area, "MapSource", "Live local streets", Rect2(19, 197, 331, 18),
 		11, MUTED)
 	_panel(self, "FooterBacking", Rect2(28, 753, 1382, 38),
-		Color("#0b1e24", 0.93), Color("#465f5d"))
+		Color("#14181e", 0.93), Color("#424a54"))
 	_label(self, "FooterInstructions",
 		"ESC  Back / Resume     •     ENTER  Select     •     Drive to an event to start",
 		Rect2(42, 755, 940, 32), 13, MUTED)
@@ -318,7 +308,7 @@ func _progress(parent: Control, bounds: Rect2) -> ProgressBar:
 	b.min_value = 0
 	b.max_value = 1
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_theme_stylebox_override("background", _skin(Color("#354b49"), Color.TRANSPARENT, 3))
+	b.add_theme_stylebox_override("background", _skin(Color("#414953"), Color.TRANSPARENT, 3))
 	b.add_theme_stylebox_override("fill", _skin(LIME, Color.TRANSPARENT, 3))
 	parent.add_child(b)
 	b.size = bounds.size
@@ -328,10 +318,7 @@ func _style_navigation() -> void:
 	for key in nav_buttons:
 		var button: Button = nav_buttons[key]
 		var selected: bool = key == section
-		button.add_theme_stylebox_override("normal",
-			_skin(LIME if selected else Color.TRANSPARENT,
-				Color("#e3f9b6") if selected else Color.TRANSPARENT, 11))
-		button.add_theme_color_override("font_color", DARK if selected else WHITE)
+		RacingStyle.button(button,selected,21 if key!="more" else 16)
 
 func _navigate(destination: String) -> void:
 	match destination:
@@ -535,7 +522,7 @@ func _show_career() -> void:
 		var row: Dictionary = rows[i]
 		var eligible := bool(row.eligible)
 		var card := _panel(content,"Robbery_"+str(row.tier),Rect2(26,286+i*44,729,40),
-			Color("#143038"),Color("#5b7f77"))
+			Color("#222831"),Color("#48515c"))
 		_label(card,"Job",str(row.title),Rect2(12,3,343,34),15,WHITE)
 		_label(card,"Requirement","%d REP" % int(row.required_rep),Rect2(365,3,116,34),14,MUTED)
 		_label(card,"State","ELIGIBLE" if eligible else "%d REP TO GO" % int(row.remaining),
@@ -663,8 +650,8 @@ func _populate_event_rows() -> void:
 		var tab: Button = filter_buttons[key]
 		var active: bool = str(key) == event_filter
 		tab.add_theme_stylebox_override("normal", _skin(
-			LIME if active else Color("#173137"),
-			LIME if active else Color("#53766b"), 10))
+			LIME if active else Color("#252b33"),
+			LIME if active else Color("#48515c"), 10))
 		tab.add_theme_color_override("font_color", DARK if active else WHITE)
 	var filtered: Array[Node] = []
 	for race in _available_events():
@@ -696,8 +683,8 @@ func _event_card(race: Node) -> void:
 	row.custom_minimum_size = Vector2(714, 133)
 	row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	row.tooltip_text = "Set GPS to " + str(race.get("race_title"))
-	row.add_theme_stylebox_override("normal", _skin(Color("#142e34"), Color("#608680"), 12))
-	row.add_theme_stylebox_override("hover", _skin(Color("#244b4d"), LIME, 12))
+	row.add_theme_stylebox_override("normal", _skin(Color("#222831"), Color("#48515c"), 12))
+	row.add_theme_stylebox_override("hover", _skin(Color("#3b424c"), LIME, 12))
 	event_rows.append(row)
 	var thumb := Control.new()
 	thumb.name = "ActualRaceRouteGraphic"
@@ -754,7 +741,7 @@ func _show_map() -> void:
 	_heading("MAP", "Explore Morrow Coast",
 		"Preview the live road network. Choose an event to navigate to its starting marker.")
 	_panel(content, "MapPreviewPanel", Rect2(24, 147, 493, 458),
-		Color("#102b30"), Color("#577c73"))
+		Color("#1c222a"), Color("#48515c"))
 	var preview := TextureRect.new()
 	preview.name = "InteractiveAreaPreview"
 	preview.position = Vector2(35, 157)
@@ -883,12 +870,12 @@ func _add_car_row(parent: VBoxContainer, entry: Dictionary) -> void:
 		_route_to_car_dealership.bind(str(entry.get("id", ""))))
 	row.custom_minimum_size = Vector2(710, 94)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_stylebox_override("normal", _skin(Color("#142e34"), Color("#608680"), 11))
-	row.add_theme_stylebox_override("hover", _skin(Color("#244b4d"), LIME, 11))
+	row.add_theme_stylebox_override("normal", _skin(Color("#222831"), Color("#48515c"), 11))
+	row.add_theme_stylebox_override("hover", _skin(Color("#3b424c"), LIME, 11))
 	var thumbnail_back := ColorRect.new()
 	thumbnail_back.position = Vector2(10, 9)
 	thumbnail_back.size = Vector2(102, 76)
-	thumbnail_back.color = Color("#203d42")
+	thumbnail_back.color = Color("#252b33")
 	thumbnail_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(thumbnail_back)
 	var picture := TextureRect.new()
@@ -1038,7 +1025,7 @@ func _show_upgrades() -> void:
 	_heading("UPGRADES", "Upgrade Your Ride",
 		"Installed parts affect your active car. The existing upgrades screen remains available.")
 	var card := _panel(content, "UpgradeInfo", Rect2(26, 161, 726, 356),
-		Color("#10282d"), Color("#60776c"))
+		Color("#1c222a"), Color("#48515c"))
 	_label(card, "UpgradeName", car_name.text,
 		Rect2(24, 22, 657, 38), 26)
 	_label(card, "UpgradePower", "POWER     " + car_power.text,
@@ -1070,7 +1057,7 @@ func _show_more() -> void:
 		var action: String = actions[i][2]
 		var card := _panel(content, "MoreRow_%d" % i,
 			Rect2(29, 164 + i * 113, 721, 98),
-			Color("#143038"), Color("#5b7f77"))
+			Color("#222831"), Color("#48515c"))
 		_label(card, "Description", str(actions[i][1]),
 			Rect2(22, 54, 485, 29), 13, MUTED)
 		var button := _button(card, "MoreAction", str(actions[i][0]),
