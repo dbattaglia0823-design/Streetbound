@@ -366,23 +366,11 @@ func _scan_asset_library() -> void:
 	# asset catalog and Python source importer.
 	_walk_building_assets("res://assets/Buildings")
 	_walk_building_assets("res://assets/Map Building Assets")
-	var atlas: Texture2D = load("res://assets/scenery/morrow-atlas-v1.png")
-	var names := [
-		["House roof","house",Rect2(103,28,261,391),"house"],
-		["Coastal house","coastal_house",Rect2(532,14,273,409),"house"],
-		["Shop / cafe","shop",Rect2(968,26,278,396),"building"],
-		["Garage / showroom","garage",Rect2(1411,21,281,396),"garage"],
-		["Tree","tree",Rect2(26,477,397,380),"nature"],
-		["Pine","pine",Rect2(472,467,388,389),"nature"],
-		["Palm","palm",Rect2(910,467,406,387),"nature"],
-		["Rock","rock",Rect2(1366,500,361,323),"nature"]]
-	if atlas != null:
-		for item in names:
-			var crop := AtlasTexture.new()
-			crop.atlas = atlas
-			crop.region = item[2]
-			asset_entries.append({"name":item[0],"kind":item[1],
-				"category":item[3],"texture":crop,"project":false})
+	# Built-in art aliases are kept for old source maps, but their previews
+	# now resolve the same individual files as runtime.
+	for item in [["House roof","house","house"],["Coastal house","coastal_house","house"],["Shop / cafe","shop","building"],["Garage / showroom","garage","garage"],["Tree","tree","nature"],["Pine","pine","nature"],["Palm","palm","nature"],["Rock","rock","nature"]]:
+		var texture:=Art.sprite(str(item[1]),0)
+		if texture!=null:asset_entries.append({"name":item[0],"kind":item[1],"category":item[2],"texture":texture,"project":false})
 	asset_entries.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
 		return str(a.name).naturalnocasecmp_to(str(b.name)) < 0)
 	_filter_assets()
@@ -404,42 +392,7 @@ func _walk_building_assets(folder: String) -> void:
 				if texture != null:
 					var relative := child.trim_prefix("res://assets/")
 					var meta := _read_asset_metadata(child.get_basename()+".asset.json")
-					var sheet_path := child.get_basename()+".sheet.json"
-					if FileAccess.file_exists(sheet_path):
-						var sheet := _read_asset_metadata(sheet_path)
-						var sprites: Array = sheet.get("sprites",[]).duplicate(true) if sheet.get("sprites",[]) is Array else []
-						var grid: Dictionary = sheet.get("grid",{}) if sheet.get("grid",{}) is Dictionary else {}
-						if not grid.is_empty():
-							var cw := int(grid.get("width",0))
-							var ch := int(grid.get("height",0))
-							if cw>0 and ch>0 and int(texture.get_width()/cw)*int(texture.get_height()/ch)<=512:
-								var index := 0
-								for gy in range(int(texture.get_height()/ch)):
-									for gx in range(int(texture.get_width()/cw)):
-										index+=1
-										sprites.append({"name":"Sprite %d"%index,"region":[gx*cw,gy*ch,cw,ch]})
-						if sprites.size()<=512:
-							for item in sprites:
-								if not item is Dictionary:
-									continue
-								var region: Array = item.get("region",[])
-								if region.size()!=4:
-									continue
-								var x:=int(region[0])
-								var y:=int(region[1])
-								var w:=int(region[2])
-								var h:=int(region[3])
-								if x<0 or y<0 or w<1 or h<1 or x+w>texture.get_width() or y+h>texture.get_height():
-									continue
-								var crop:=AtlasTexture.new()
-								crop.atlas=texture
-								crop.region=Rect2(x,y,w,h)
-								crop.filter_clip=true
-								var sprite_meta:=meta.duplicate(true)
-								sprite_meta.merge(item,true)
-								_register_project_asset(relative,str(item.get("name","Sprite")),crop,sprite_meta,region)
-					else:
-						_register_project_asset(relative,entry.get_basename(),texture,meta,[])
+					_register_project_asset(relative,entry.get_basename(),texture,meta,[])
 		entry = directory.get_next()
 	directory.list_dir_end()
 
