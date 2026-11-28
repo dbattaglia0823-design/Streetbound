@@ -361,6 +361,7 @@ func _scan_asset_library() -> void:
 	if signature==_asset_catalog_signature and not asset_entries.is_empty():
 		return
 	_asset_catalog_signature=signature
+	preload("res://scripts/world/asset_locator.gd").invalidate_index()
 	asset_entries.clear()
 	# Same folder hierarchy and project-id hashing used by the browser
 	# asset catalog and Python source importer.
