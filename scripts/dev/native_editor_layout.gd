@@ -90,6 +90,16 @@ static func build(e) -> void:
 	e._btn("Dealership areas & stock",world_settings,e._open_dealership_editor)
 	e._btn("Gameplay authoring",world_settings,func():e.gameplay_authoring.open(e))
 	e._btn("World Validation Center",world_settings,func():e.gameplay_authoring.open_validation(e))
+	heading(world_settings,"MAP BUILDER PERFORMANCE")
+	for item in [["Keep recent detail tiles","warm_tile_cache"],["Adaptive tile streaming","adaptive_tile_streaming"],["Optimize live drag previews","optimize_drag"],["Show performance statistics","performance_stats"]]:
+		var setting: String=str(item[1])
+		var toggle:=CheckButton.new()
+		toggle.text=str(item[0]);toggle.button_pressed=bool(e.get(setting))
+		toggle.toggled.connect(func(value: bool)->void:
+			e.set(setting,value);e._apply_performance_settings())
+		world_settings.add_child(toggle)
+	var budget: SpinBox=e._number(world_settings,"Tile build budget (ms)",2,16,5)
+	budget.value_changed.connect(func(value: float)->void:e.tile_budget_ms=value;e._apply_performance_settings())
 	e.sidewalk_settings=column(settings);heading(e.sidewalk_settings,"SIDEWALK")
 	e.sidewalk_width=e._number(e.sidewalk_settings,"Walk width m",.8,12,3);e.sidewalk_width.step=.1;e.sidewalk_width.value=3
 	e.guardrail_settings=column(settings);heading(e.guardrail_settings,"GUARDRAIL")
