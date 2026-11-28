@@ -7,6 +7,7 @@ const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
+const AmbientAudio = preload("res://scripts/audio/ambient_audio.gd")
 const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
 const FeaturedCar = preload("res://assets/Vehicles/McLaren/570S.png")
@@ -32,6 +33,7 @@ var friend_port: LineEdit
 var friend_code: LineEdit
 var friend_message: Label
 var settings_adapter: CanvasLayer
+var ambient_audio: Node
 var message: Label
 var multiplayer_message: Label
 var actions: Dictionary = {}
@@ -48,9 +50,13 @@ func _ready() -> void:
 	get_tree().paused = false
 	_build_background()
 	_build_shell()
+	ambient_audio=AmbientAudio.new()
+	ambient_audio.menu_mode=true
+	add_child(ambient_audio)
 	settings_adapter = CanvasLayer.new()
 	settings_adapter.name = "TitleSettings"
 	settings_adapter.set_script(PauseMenuScript)
+	settings_adapter.ambient_audio=ambient_audio
 	add_child(settings_adapter)
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()

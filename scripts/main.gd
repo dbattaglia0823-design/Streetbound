@@ -22,6 +22,7 @@ const StreetSprintScript = preload("res://scripts/world/larkspur_street_sprint.g
 const AuthoredRaceScript=preload("res://scripts/world/authored_race.gd")
 const AuthoredMarkersScript=preload("res://scripts/world/authored_map_markers.gd")
 const AudioScript = preload("res://scripts/audio/vehicle_audio.gd")
+const AmbientAudio = preload("res://scripts/audio/ambient_audio.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const QuickUpgradesScript = preload("res://scripts/ui/quick_upgrades_overlay.gd")
 const LocalSplitScript = preload("res://scripts/ui/local_split_screen.gd")
@@ -33,6 +34,7 @@ const PolicePursuitScript = preload("res://scripts/world/police_pursuit.gd")
 const DrivingContractScript = preload("res://scripts/world/driving_contracts.gd")
 static var pending_launch_mode := ""
 var pause_menu
+var ambient_audio: Node
 var player_garage: Node2D
 var dealership_world: Node2D
 var dealership_menu: CanvasLayer
@@ -225,6 +227,11 @@ func _ready() -> void:
 	audio.vehicle = vehicle
 	audio.add_to_group("streetbound_player_audio")
 	add_child(audio)
+	ambient_audio=AmbientAudio.new()
+	ambient_audio.world=ground
+	ambient_audio.listener=vehicle
+	ambient_audio.player_audio=audio
+	add_child(ambient_audio)
 	var hud := CanvasLayer.new()
 	hud.layer = 2
 	hud.set_script(HudScript)
@@ -264,6 +271,7 @@ func _ready() -> void:
 	pause_menu = PauseMenuScript.new()
 	pause_menu.name = "PauseMenu"
 	pause_menu.vehicle_audio = audio
+	pause_menu.ambient_audio = ambient_audio
 	pause_menu.driving_camera = camera
 	pause_menu.player_vehicle = vehicle
 	pause_menu.vehicle_ownership = vehicle_ownership

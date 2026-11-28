@@ -22,6 +22,7 @@ static var last_windowed_size := Vector2i(1280,800)
 static var has_windowed_rect := false
 
 var vehicle_audio
+var ambient_audio: Node
 var driving_camera
 var allow_quit := true
 var menu_state := ""
@@ -841,6 +842,8 @@ func _apply_saved_settings() -> void:
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume / 100.0, 0.0001)))
 	if is_instance_valid(vehicle_audio):
 		vehicle_audio.muted = not bool(settings_store.get_setting("sound"))
+	if is_instance_valid(ambient_audio):
+		ambient_audio.set_muted(not bool(settings_store.get_setting("sound")))
 	if is_instance_valid(driving_camera):
 		driving_camera.follow_heading = bool(settings_store.get_setting("camera_follow"))
 	_apply_minimap_shape()
@@ -1100,6 +1103,7 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 			settings_store.set_setting("sound", sound)
 			if is_instance_valid(vehicle_audio):
 				vehicle_audio.muted = not sound
+			if is_instance_valid(ambient_audio):ambient_audio.set_muted(not sound)
 		"settings.volume_changed":
 			var volume: float = clampf(float(payload.get("value", 80.0)), 0.0, 100.0)
 			settings_store.set_setting("volume", volume)

@@ -43,3 +43,7 @@ Wikimedia Commons lists a [Ferrari F40 engine audio recording](https://commons.w
 ## Further work
 
 For truly recorded, vehicle-accurate RPM soundtracks, obtain properly licensed sample packs with clean steady-state idle / low / medium / high-RPM load and coast loops, plus separate compressor, BOV and pop effects. Recordings should have their background noise, clips and loop seams professionally edited and loudness-normalized. Unlike using raw video audio, that produces clear repeatable content and reliable game-export licensing.
+
+## Ambient soundscape
+
+The scene-owned `ambient_audio.gd` mixer uses four bounded, cached original PCM loops for distant traffic, wind, coastal surf and rain. Gameplay district profiles are sampled twice a second, weather adjusts rain intensity, and levels crossfade without changing physics or spawning additional traffic. The title scene uses a quieter city/wind bed, the featured McLaren 570S catalog's synthesized off-throttle idle, and a shared pursuit-siren waveform as a 4–7 second distant passing event (first after 14–26 seconds, then 22–48 seconds between events). The menu soundscape is local only; no police AI is spawned. Audio follows the shared sound toggle and Master volume; gameplay follows the existing player mute action and is silenced while paused. Scene teardown stops playback. No new external recordings are used. Actual listening and performance verification remain pending.
