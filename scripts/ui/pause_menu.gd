@@ -175,13 +175,13 @@ func _style_screen(screen: Variant) -> void:
 		elif node is Label:
 			node.add_theme_font_size_override("font_size",30 if role=="screen_title" else 15)
 			node.add_theme_color_override("font_color",RacingStyle.TEXT)
-			node.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT if id in ["pause_heading","settings_heading","volume_label","minimap_shape_label"] else HORIZONTAL_ALIGNMENT_CENTER
+			(node as Label).horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT if id in ["pause_heading","settings_heading","volume_label","minimap_shape_label"] else HORIZONTAL_ALIGNMENT_CENTER
 		elif node is CheckBox:
-			RacingStyle.toggle(node)
+			RacingStyle.toggle(node as CheckBox)
 		elif node is Button:
-			RacingStyle.button(node,role in ["primary_action","back_action"],19,role=="danger_action")
+			RacingStyle.button(node as Button,role in ["primary_action","back_action"],19,role=="danger_action")
 		elif node is HSlider:
-			RacingStyle.slider(node)
+			RacingStyle.slider(node as HSlider)
 
 func _button_skin(button: Button, selected: bool = false) -> void:
 	RacingStyle.button(button,selected,13)
@@ -624,11 +624,7 @@ func _neon_panel(parent: Control, name_value: String, at: Vector2, dimensions: V
 	panel.position = at
 	panel.size = dimensions
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	var skin := StyleBoxFlat.new()
-	skin.bg_color = Color(0.026, 0.051, 0.071, 0.94)
-	skin.border_color = Color(0.38, 0.51, 0.61, 0.76)
-	skin.set_border_width_all(1)
-	skin.set_corner_radius_all(16)
+	var skin := RacingStyle.surface(Color(0.07,0.08,0.10,0.96),RacingStyle.EDGE,8)
 	skin.shadow_color = Color(0, 0, 0, 0.37)
 	skin.shadow_size = 13
 	panel.add_theme_stylebox_override("panel", skin)
@@ -989,12 +985,12 @@ func _show_page(page: String) -> void:
 	if page == "settings":
 		_sync_settings()
 		_set_settings_tab("general")
-	var focused: Button
+	var focused: Control
 	match page:
 		"paused":
 			focused = dashboard.nav_buttons.get("resume") if is_instance_valid(dashboard) else pause_screen.controls.get("resume")
 		"settings":
-			focused = settings_screen.controls.get("back")
+			focused = settings_screen.controls.get("sfx_toggle")
 		"multiplayer":
 			focused = local_split_button
 		"confirm":
