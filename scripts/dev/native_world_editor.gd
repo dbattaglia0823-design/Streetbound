@@ -802,7 +802,7 @@ func _build_overview() -> void:
 	overview_renderer=Overview.new()
 	overview_renderer.process_mode=Node.PROCESS_MODE_ALWAYS
 	get_parent().add_child(overview_renderer)
-	overview_renderer.setup(world)
+	overview_renderer.setup(world,loaded_world_sha+"|"+_asset_catalog_signature+"|"+str(world.data.get("road_width_scale",1.0)))
 	overview_sprite=overview_renderer.sprite
 	overview_sprite.visible = false
 
