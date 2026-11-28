@@ -137,45 +137,63 @@ def _gameplay_payload(doc,roads,width,height):
 
 
 def clean_custom_art(doc):
-    """Retire stale art from a detached source copy; never rewrite user files."""
-    from project_asset_catalog import catalog, building_file, asset_id, ROOT
+    """Relink moved art on a detached copy; report missing individual assets."""
+    from project_asset_catalog import resolve_asset, building_file, asset_id, ROOT
     from copy import deepcopy
     if doc.get("customMap") is not True:
         return doc, []
     clean = deepcopy(doc)
-    entries = {entry["path"]: entry for entry in catalog(ROOT)}
     removed = []
-    def valid(relative, identifier, region):
-        if region or not isinstance(relative, str):
-            return False
-        try:
-            actual = building_file(relative, ROOT).relative_to(ROOT / "assets").as_posix()
-        except (ValueError, OSError):
-            return False
-        entry = entries.get(actual)
-        return entry is not None and identifier in (entry["id"], asset_id(relative))
+    cache = {}
+    def retired(relative, region):
+        return bool(region) or (isinstance(relative, str) and 'sprite sheets' in relative.casefold())
+    def resolve(relative, identifier):
+        key = (relative, identifier)
+        if key not in cache:
+            cache[key] = resolve_asset(relative, identifier, ROOT)
+        return cache[key]
     props = []
     for prop in clean.get("props", []):
         if not isinstance(prop, dict):
             props.append(prop)
             continue
         identifier = prop.get("assetId", "")
-        if prop.get("assetRegion") or prop.get("assetPath") or str(identifier).startswith("project-"):
-            if not valid(prop.get("assetPath"), identifier, prop.get("assetRegion")):
-                removed.append(str(prop.get("id", "")))
-                continue
+        path = prop.get("assetPath")
+        if retired(path, prop.get("assetRegion")):
+            removed.append(str(prop.get("id", "")))
+            continue
+        if path or str(identifier).startswith("project-"):
+            item = resolve(path, identifier)
+            prop["assetPath"] = item["path"]
+            prop["assetId"] = item["id"]
         appearance = prop.get("sourceAppearance")
-        if isinstance(appearance, dict) and (appearance.get("asset_region") or appearance.get("asset_path")):
+        if isinstance(appearance, dict):
             relative = appearance.get("asset_path")
-            if not valid(relative, appearance.get("asset_id", asset_id(relative) if isinstance(relative, str) else ""), appearance.get("asset_region")):
+            if retired(relative, appearance.get("asset_region")):
                 prop.pop("sourceAppearance", None)
+            elif relative:
+                item = resolve(relative, appearance.get("asset_id", asset_id(relative)))
+                appearance["asset_path"] = item["path"]
+                appearance["asset_id"] = item["id"]
         props.append(prop)
     clean["props"] = props
-    # The source asset manifest is not authoritative; remove retired project entries.
-    clean["assets"] = [a for a in clean.get("assets", []) if not isinstance(a, dict) or
-                       not (a.get("region") or a.get("assetRegion") or
-                            str(a.get("id", "")).startswith("project-") and
-                            not valid(a.get("path", a.get("assetPath")), a.get("id"), a.get("region")))]
+    # Obsolete manifest entries alone are not placements. Rebuild their paths
+    # when possible; never fail a map because an unused library entry vanished.
+    assets = []
+    for entry in clean.get("assets", []):
+        if isinstance(entry, dict):
+            path = entry.get("path", entry.get("assetPath"))
+            if retired(path, entry.get("region") or entry.get("assetRegion")):
+                continue
+            if str(entry.get("id", "")).startswith("project-"):
+                try:
+                    item = resolve(path, entry["id"])
+                except (ValueError, OSError):
+                    continue
+                entry["id"] = item["id"]
+                entry["assetPath" if "assetPath" in entry else "path"] = item["path"]
+        assets.append(entry)
+    clean["assets"] = assets
     return clean, removed
 
 
