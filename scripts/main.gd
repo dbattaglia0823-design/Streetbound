@@ -107,6 +107,8 @@ func _ready() -> void:
 		# then turn off writes before any Test Drive gameplay can earn/spend.
 		vehicle_ownership = OwnershipScript.new()
 		if map_test_drive:vehicle_ownership.persist_enabled=false
+		if OwnershipScript.developer_mode_requested():
+			vehicle_ownership.enter_developer_mode(is_instance_valid(online_session) and (online_session.active or online_session.joining))
 	vehicle = VehicleScene.instantiate()
 	vehicle.position = Vector2(0, 500) if proving_ground else ground.spawn_position()
 	vehicle.rotation = 0.0 if proving_ground else ground.spawn_rotation()

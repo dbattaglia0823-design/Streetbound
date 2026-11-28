@@ -102,7 +102,14 @@ func _run() -> void:
 		title.settings_adapter.settings_context.visible and title.settings_adapter.volume_readout.text.ends_with("%"))
 	title.settings_adapter.settings_screen.controls["volume_slider"].focus_entered.emit()
 	check("settings_context_tracks_focused_control",title.settings_adapter.context_title.text=="VOLUME")
+	var prior_developer: bool=bool(title.settings_adapter.settings_store.get_setting("developer_mode"))
+	var toggle: CheckBox=title.settings_adapter.developer_toggle
+	check("developer_mode_visible_in_general_settings",toggle.is_visible_in_tree())
+	toggle.button_pressed=not prior_developer
+	check("developer_mode_preference_persists",bool(title.settings_adapter.settings_store.get_setting("developer_mode"))!=prior_developer and load("res://scripts/vehicle/vehicle_ownership.gd").developer_mode_requested()!=prior_developer)
+	toggle.button_pressed=prior_developer
 	title.settings_adapter.controls_tab_button.pressed.emit()
+	check("developer_mode_hidden_on_other_settings_tabs",not toggle.visible)
 	check("title_controls_tab_has_customizable_bindings",
 		title.settings_adapter.settings_tab=="controls" and
 		title.settings_adapter.binding_rows.size()>0)

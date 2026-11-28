@@ -41,6 +41,8 @@ var controls_tab_button: Button
 var graphics_tab_button: Button
 var graphics_page: ScrollContainer
 var general_decoration: Control
+var developer_toggle: CheckBox
+var developer_status: Label
 var settings_context: Control
 var context_title: Label
 var context_copy: Label
@@ -87,7 +89,8 @@ func _ready() -> void:
 		"volume": 80.0,
 		"camera_follow": false,
 		"minimap_shape": "square",
-		"display_mode": "windowed"
+		"display_mode": "windowed",
+		"developer_mode": false
 	}.merged(GRAPHICS_DEFAULTS))
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
@@ -317,7 +320,7 @@ func _build_settings_presentation() -> void:
 	settings_screen.add_child(general_decoration)
 	# Behind original controls, above the toolkit's background panel.
 	settings_screen.move_child(general_decoration,1)
-	for y in [133,184,235,286,337]:
+	for y in [133,184,235,286,337,388]:
 		var row := Panel.new()
 		row.position=Vector2(196,y);row.size=Vector2(350,44)
 		row.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -335,6 +338,17 @@ func _build_settings_presentation() -> void:
 		var label: Label=settings_screen.controls[id]
 		label.add_theme_font_size_override("font_size",15)
 	display_mode_label.add_theme_font_size_override("font_size",15)
+	developer_toggle=CheckBox.new()
+	developer_toggle.name="DeveloperMode"
+	developer_toggle.text="Developer Mode"
+	developer_toggle.position=Vector2(204,388)
+	developer_toggle.size=Vector2(334,44)
+	RacingStyle.toggle(developer_toggle)
+	developer_toggle.text_direction=Control.TEXT_DIRECTION_LTR
+	developer_toggle.alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	developer_toggle.add_theme_constant_override("h_separation",12)
+	developer_toggle.toggled.connect(_set_developer_mode)
+	settings_screen.add_child(developer_toggle)
 	settings_context=Control.new()
 	settings_context.name="SettingsContext"
 	settings_context.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -373,7 +387,38 @@ func _build_settings_presentation() -> void:
 		var detail: Array=descriptions[id]
 		node.focus_entered.connect(_show_settings_context.bind(str(detail[0]),str(detail[1])))
 		node.mouse_entered.connect(_show_settings_context.bind(str(detail[0]),str(detail[1])))
+	developer_toggle.focus_entered.connect(_show_settings_context.bind("DEVELOPER MODE","$100M, all cars and parts. Offline only. Applies on next drive; career save stays intact."))
+	developer_toggle.mouse_entered.connect(_show_settings_context.bind("DEVELOPER MODE","$100M, all cars and parts. Offline only. Applies on next drive; career save stays intact."))
+	developer_status=_settings_label(settings_context,"",Vector2(559,387),Vector2(199,45),12)
+	developer_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	developer_status.add_theme_color_override("font_color",RacingStyle.ACCENT)
+	_sync_developer_mode()
 	_show_settings_context("SOUND EFFECTS","Enable or disable vehicle and gameplay sound effects.")
+
+func _set_developer_mode(enabled: bool) -> void:
+	var previous: bool=bool(settings_store.get_setting("developer_mode"))
+	if not settings_store.set_setting("developer_mode",enabled):
+		settings_store.values["developer_mode"]=previous
+		_sync_developer_mode()
+		developer_status.text="Unable to save preference."
+		return
+	_sync_developer_mode()
+
+func _sync_developer_mode() -> void:
+	if not is_instance_valid(developer_toggle):return
+	var requested: bool=bool(settings_store.get_setting("developer_mode"))
+	developer_toggle.set_pressed_no_signal(requested)
+	var active: bool=is_instance_valid(vehicle_ownership) and bool(vehicle_ownership.developer_mode)
+	if is_instance_valid(online_session) and (online_session.active or online_session.joining):
+		developer_status.text="Unavailable online. Offline preference saved."
+	elif is_instance_valid(vehicle_ownership) and requested!=active:
+		developer_status.text="Return to main menu and start a new drive to apply."
+	elif active:
+		developer_status.text="SANDBOX ACTIVE • career save protected"
+	elif requested:
+		developer_status.text="Enabled for next offline drive."
+	else:
+		developer_status.text="Normal career progression."
 
 func _show_settings_context(title_value: String,copy_value: String) -> void:
 	context_title.text=title_value
@@ -394,6 +439,7 @@ func _set_settings_tab(tab: String) -> void:
 	graphics_page.visible = tab=="graphics"
 	display_mode_label.visible = general
 	display_mode_select.visible = general
+	developer_toggle.visible=general
 	_button_skin(general_tab_button,general)
 	_button_skin(controls_tab_button,tab=="controls")
 	_button_skin(graphics_tab_button,tab=="graphics")
@@ -902,6 +948,7 @@ func _apply_display_mode() -> void:
 
 
 func _sync_settings() -> void:
+	_sync_developer_mode()
 	var sound: bool = bool(settings_store.get_setting("sound"))
 	var camera_follow: bool = bool(settings_store.get_setting("camera_follow"))
 	if is_instance_valid(vehicle_audio):

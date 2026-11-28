@@ -13,6 +13,9 @@ const SAVE_PATH := "user://streetbound_vehicle_ownership.cfg"
 const OLD_SELECTION_PATH := "user://streetbound_selected_vehicle.cfg"
 const STARTER_ID := "audi-rs3"
 const STARTING_CASH := 32000
+const DEVELOPER_CASH := 100000000
+const DEVELOPER_PART_COPIES := 2
+const SETTINGS_PATH := "user://streetbound_pause_settings.cfg"
 
 var balance := STARTING_CASH
 var owned: Dictionary = {STARTER_ID: true}
@@ -33,6 +36,7 @@ var upgrade_inventory: Array[Dictionary] = []
 var upgrade_loadouts: Dictionary = {}
 var next_part_uid := 1
 var persist_enabled := true
+var developer_mode := false
 
 
 func _init(enable_persistence: bool = true) -> void:
@@ -104,6 +108,39 @@ func _init(enable_persistence: bool = true) -> void:
 		if not Catalog.find_by_id(prior_id).is_empty():
 			owned[prior_id] = true
 			active_id = prior_id
+
+
+## Read the same preference used by Settings before the gameplay UI is built.
+static func developer_mode_requested(path: String = SETTINGS_PATH) -> bool:
+	var file := ConfigFile.new()
+	if file.load(path)!=OK:return false
+	var enabled: Variant=file.get_value("settings","developer_mode",false)
+	return typeof(enabled)==TYPE_BOOL and bool(enabled)
+
+## Only offline sessions can opt in. Load the ordinary career first so its
+## active car and tuning are available, then isolate every subsequent write.
+func enter_developer_mode(online: bool = false) -> bool:
+	if online:return false
+	if developer_mode:return true
+	persist_enabled=false
+	developer_mode=true
+	balance=maxi(balance,DEVELOPER_CASH)
+	player_xp=Progression.player_threshold(Progression.MAX_PLAYER_LEVEL)
+	underground_reputation=100000
+	for entry in Catalog.all():
+		var id:=str(entry.id)
+		owned[id]=true
+		car_xp[id]=Progression.car_threshold(Progression.MAX_CAR_LEVEL)
+	# Use actual inventory objects (not a UI-only unlock). Supply spare copies
+	# even when the normal career already has a part installed on another car.
+	var templates: Array=Parts.all().keys()+Parts.BLACK_MARKET.keys()
+	templates.sort()
+	for template_id in templates:
+		for copy in DEVELOPER_PART_COPIES:
+			upgrade_inventory.append({"uid":"up-%d"%next_part_uid,"template":str(template_id)})
+			next_part_uid+=1
+	changed.emit()
+	return true
 
 
 func owns(id: String) -> bool:
@@ -811,7 +848,7 @@ func credit(amount: int) -> bool:
 
 
 func save() -> bool:
-	if not persist_enabled:
+	if developer_mode or not persist_enabled:
 		return true
 	var file := ConfigFile.new()
 	file.set_value("economy", "balance", balance)
