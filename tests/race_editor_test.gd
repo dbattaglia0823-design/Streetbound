@@ -19,6 +19,23 @@ func run() -> void:
 	var id: String=e.source_id;var race: Dictionary=e.authoring.race_at_id(id)
 	check("editor_creates_named_circuit_with_laps",not race.is_empty() and race.name=="Laurel Editor Circuit" and race.mode=="circuit" and int(race.laps)==3)
 	check("race_setup_opens_automatically_after_placement",form.dialog_race_id==id and form.dialog.visible)
+	for i in 4:await process_frame
+	var available: Vector2=e.get_viewport().get_visible_rect().size
+	var target: Vector2i=form.dialog_target_size(available)
+	check("race_dialog_targets_compact_viewport_size",
+		form.dialog_target_size(Vector2(1920,1080))==Vector2i(980,620) and
+		form.dialog_target_size(Vector2(800,600))==Vector2i(720,516))
+	check("race_dialog_fits_parent_viewport",
+		form.dialog.size.x<=maxi(target.x,int(available.x)) and
+		form.dialog.size.y<=maxi(target.y,int(available.y)))
+	var pages_scrollable:=true
+	for tab in form.dialog_tabs.get_children():
+		if not tab is ScrollContainer or tab.vertical_scroll_mode!=ScrollContainer.SCROLL_MODE_AUTO:
+			pages_scrollable=false
+	check("race_tabs_scroll_independently_with_fixed_save_footer",
+		pages_scrollable and not form.dialog_tabs.is_ancestor_of(form.dialog_save_button) and
+		form.dialog_save_button.is_visible_in_tree() and form.dialog.get_ok_button().is_visible_in_tree())
+
 	form.dialog_type.select(1)
 	form.dialog_opponents.value=3
 	form.dialog_cash.value=12500
