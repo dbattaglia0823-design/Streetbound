@@ -462,7 +462,14 @@ func _draft_line(road: Dictionary,use_baked: bool=false) -> PackedVector2Array:
 func _draw_draft() -> void:
 	if draft_doc.is_empty():
 		return
-	for road in draft_doc.get("roads",[]):
+	var ordered_roads: Array=draft_doc.get("roads",[]).duplicate()
+	var road_indices: Array=range(ordered_roads.size())
+	road_indices.sort_custom(func(a: int,b: int)->bool:
+		var first:=int(ordered_roads[a].get("drawOrder",0))
+		var second:=int(ordered_roads[b].get("drawOrder",0))
+		return a<b if first==second else first<second)
+	for road_index in road_indices:
+		var road: Dictionary=ordered_roads[road_index]
 		if not layer_flags.get("roads",true):continue
 		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		var id := str(road.id)
