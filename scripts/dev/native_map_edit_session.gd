@@ -727,21 +727,16 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 			footprint.x > 100.0 or footprint.y > 100.0:
 		last_error = "Invalid project asset or placement."
 		return ""
-	var ext := relative_path.get_extension().to_lower()
-	var found := FileAccess.file_exists("res://assets/"+relative_path)
-	if not found and relative_path.begins_with("Buildings/"):
-		found=FileAccess.file_exists("res://assets/Map Building Assets/"+relative_path)
-	if ext not in ["png","webp","svg"] or not found:
-		last_error = "Project artwork is missing or unsupported."
+	var resolved:=preload("res://scripts/world/coast_art.gd").standalone_path(relative_path)
+	if resolved.is_empty() or not sprite_region.is_empty():
+		last_error = "Project artwork missing, ambiguous or retired: "+relative_path
 		return ""
-	if not sprite_region.is_empty() or preload("res://scripts/world/coast_art.gd").standalone_path(relative_path).is_empty():
-		last_error = "Only existing standalone map artwork is supported."
-		return ""
+	relative_path=resolved.trim_prefix("res://assets/")
 	var identity := _new_prop_id()
 	if identity.is_empty():
 		last_error = "No source prop IDs remain."
 		return ""
-	var final_id := sprite_id if sprite_id.begins_with("project-") else "project-"+relative_path.sha256_text().substr(0,24)
+	var final_id := "project-"+relative_path.sha256_text().substr(0,24)
 	var draft: Dictionary = doc.duplicate(true)
 	var prop := {
 		"id":identity,"name":asset_name if not asset_name.is_empty() else relative_path.get_file().get_basename().replace("_"," "),
@@ -1701,11 +1696,13 @@ func replace_assets(ids: Array[String],entry: Dictionary) -> bool:
 		for key in ["assetPath","assetSize","assetRegion","assetCollision","roadFront","roadFacing"]:prop.erase(key)
 		if bool(entry.get("project",false)):
 			var path:=str(entry.get("path",""))
-			if not (path.begins_with("Buildings/") or path.begins_with("Map Building Assets/")) or ".." in path or not FileAccess.file_exists("res://assets/"+path):
-				last_error="Project asset not available.";return false
+			var resolved:=preload("res://scripts/world/coast_art.gd").standalone_path(path)
+			if resolved.is_empty():
+				last_error="Project asset missing or ambiguous: "+path;return false
+			path=resolved.trim_prefix("res://assets/")
 			var size: Array=entry.get("world_size",[])
 			if size.size()!=2:size=[22.0,29.0] if kind in ["building","warehouse"] else [12.0,17.0]
-			prop.type=kind;prop.assetId=str(entry.get("project_id","project-"+path.sha256_text().substr(0,24)))
+			prop.type=kind;prop.assetId="project-"+path.sha256_text().substr(0,24)
 			prop.assetPath=path;prop.assetSize=size.duplicate();prop.assetCollision=str(entry.get("collision","solid"))
 		else:
 			if not ART.has(kind):last_error="Select a supported asset.";return false
