@@ -854,7 +854,7 @@ func _set_multi(ids: Array[String]) -> void:
 
 func _selection_hit(at: Vector2) -> String:
 	if road_selection_layer!=99:return str(_pick_source_road(at).get("id",""))
-	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
+	for hit in [_pick_race_handle(at),_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
 		var id:=str(hit.get("id",""))
 		if not id.is_empty():return id
 	return ""
@@ -3761,10 +3761,11 @@ func _pick_race_handle(at: Vector2) -> Dictionary:
 	for race in authoring.doc.get("races",[]):
 		if not _workspace_selectable(str(race.id)):continue
 		for i in race.points.size():
-			var p:=Vector2(race.points[i].x,race.points[i].y)*PPM
+			var gate: Dictionary=EditSession.race_gate_marker(race,i)
+			var p:=Vector2(gate.x,gate.y)*PPM
 			var distance:=p.distance_to(at)
 			if distance<best:
-				best=distance;result={"id":str(race.id),"kind":"race_point","index":i,"from":p}
+				best=distance;result={"id":str(gate.properties.race_id),"kind":"race_point","index":int(gate.properties.gate_index),"from":p}
 	return result
 
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
