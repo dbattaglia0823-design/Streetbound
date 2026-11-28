@@ -83,7 +83,7 @@ func run() -> void:
 	var lane_count:=0
 	for edge in edited.edges:
 		if not bool(edge.connector):lane_count+=1
-	check("new_t_junction_has_only_external_lanes_and_all_six_turns",lane_count==6 and edited.connector_count==6,[lane_count,edited.connector_count])
+	check("new_t_junction_has_only_external_lanes_and_all_six_turns",lane_count==6 and edited.connector_count-edited.turnaround_count==6,[lane_count,edited.connector_count,edited.turnaround_count])
 	check("json_numeric_ids_keep_the_same_junction_topology",_json_topology(draft)==edited.edges.size())
 	var alley_data: Dictionary=draft.duplicate(true)
 	alley_data.roads[1].kind="alley"
@@ -93,6 +93,32 @@ func run() -> void:
 	check("ambient_has_no_alley_lanes_or_turns",not ambient.edges.is_empty() and ambient.edges.all(func(edge: Dictionary)->bool:return int(edge.road)!=1 and edge.next.all(func(id: int)->bool:return int(ambient.edges[id].road)!=1)))
 	check("police_and_player_navigation_keep_alley_lanes",police.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==1 and not bool(edge.connector)) and navigation.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==1 and not bool(edge.connector)))
 	check("police_can_turn_into_connected_alley",police.edges.any(func(edge: Dictionary)->bool:return int(edge.road)==0 and edge.next.any(func(id: int)->bool:return int(police.edges[id].road)==1 or police.edges[id].next.any(func(next_id: int)->bool:return int(police.edges[next_id].road)==1))))
+	check("all_three_t_junction_dead_ends_allow_safe_turnarounds",edited.turnaround_count==3,edited.turnaround_count)
+	var dead_road: Dictionary={"kind":"local","surface":"ASPHALT","name":"Cul-de-sac","start":"a","end":"b","width":12,"lanes":2,"points":[[100,100],[200,100],[300,100]]}
+	var dead_graph:=Network.new()
+	dead_graph.build({"roads":[dead_road],"junctions":[]})
+	check("two_way_dead_end_routes_continue_in_both_directions",dead_graph.turnaround_count==2 and dead_graph.edges.all(func(e: Dictionary)->bool:return bool(e.through_route) and not e.next.is_empty()),dead_graph.turnaround_count)
+	var legal_turns:=true
+	for edge in dead_graph.edges:
+		if str(edge.get("turn",""))!="u_turn":continue
+		var target: Dictionary=dead_graph.edges[int(edge.target_lane)]
+		legal_turns=legal_turns and int(target.direction)==-int(edge.direction) and edge.points[-1].distance_to(target.points[0])<.15 and float(edge.speed_px)<=40.0
+		for i in edge.points.size():
+			var at: Vector2=edge.points[i]/20.0
+			var tangent: Vector2=(edge.points[mini(i+1,edge.points.size()-1)]-edge.points[maxi(0,i-1)]).normalized()
+			for longitudinal in [-2.7,2.7]:
+				for lateral in [-1.05,1.05]:
+					var corner: Vector2=at+tangent*float(longitudinal)+tangent.orthogonal()*float(lateral)
+					legal_turns=legal_turns and Rect2(Vector2(100,94),Vector2(200,12)).has_point(corner)
+	check("turnaround_entire_car_stays_inside_pavement_and_exits_opposite_lane",legal_turns and dead_graph.turnaround_count==2)
+	var narrow: Dictionary=dead_road.duplicate(true)
+	narrow.width=3.0
+	dead_graph.build({"roads":[narrow],"junctions":[]})
+	check("unsafe_narrow_dead_end_is_not_given_fake_turn",dead_graph.turnaround_count==0)
+	var connected: Dictionary=dead_road.duplicate(true)
+	connected.start="b";connected.end="c";connected.points=[[300,100],[400,100],[500,100]]
+	dead_graph.build({"roads":[dead_road,connected],"junctions":[]})
+	check("shared_endpoint_never_gets_a_dead_end_turn",dead_graph.turnaround_count==2 and dead_graph.edges.all(func(e: Dictionary)->bool:return str(e.get("turnaround_key",""))!="b"))
 	var ramp: Dictionary={"kind":"onramp","surface":"ASPHALT","name":"Two-way tunnel ramp","start":"a","end":"b","width":12,"lanes":2,"points":[[100,100],[250,100]],"elevation":{"start_layer":0,"end_layer":-1}}
 	var ramp_graph:=Network.new();ramp_graph.build({"roads":[ramp],"junctions":[]})
 	check("two_lane_ramp_has_both_directions",ramp_graph.edges.size()==2 and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==1) and ramp_graph.edges.any(func(e: Dictionary)->bool:return int(e.direction)==-1))

@@ -113,6 +113,26 @@ func _run() -> void:
 	for i in 16:
 		smooth_routes = smooth_routes and flow._choose_next(network.edges[0]) == ahead
 	check("traffic_prefers_continuous_forward_routes_not_U_turns",smooth_routes)
+	# Use a detached graph for the route choice and occupancy contracts;
+	# the remainder of this test continues to exercise actual body movement.
+	var dead:=Network.new()
+	dead.build({"roads":[{"name":"Dead end","start":"a","end":"b","kind":"local","surface":"ASPHALT","width":12.0,"lanes":2,"points":[[800,800],[900,800]]}],"junctions":[]})
+	if dead.turnaround_count==2:
+		flow.network=dead
+		var turn: Dictionary=dead.edges[int(dead.edges[0].next[0])]
+		check("traffic_selects_dead_end_U_turn",flow._choose_next(dead.edges[0])==int(turn.id) and str(turn.turn)=="u_turn")
+		var old_edge: int=int(lead_agent.edge)
+		var old_progress: float=float(lead_agent.progress)
+		lead_agent.edge=turn.id
+		check("occupied_turnaround_waits",flow._turnaround_blocked(follower,turn))
+		lead_agent.edge=turn.target_lane;lead_agent.progress=PPM*3.0
+		check("turnaround_waits_for_exit_lane",flow._turnaround_blocked(follower,turn))
+		lead_agent.progress=PPM*20.0
+		check("turnaround_proceeds_when_exit_clears",not flow._turnaround_blocked(follower,turn))
+		lead_agent.edge=old_edge;lead_agent.progress=old_progress
+		flow.network=network
+	else:check("dead_end_fixture_has_two_turnarounds",false,dead.turnaround_count)
+
 	var camera := Camera2D.new()
 	camera.position = origin
 	root.add_child(camera)
