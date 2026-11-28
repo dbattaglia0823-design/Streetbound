@@ -262,9 +262,9 @@ static func build(e) -> void:
 	e.inspector_draw_order.name="DrawOrderZ"
 	e.inspector_draw_order.step=1
 	e.inspector_draw_order.editable=false
-	e.inspector_draw_order.tooltip_text="Select one scenery asset or terrain region. Positive draws above, negative below; zero is default."
+	e.inspector_draw_order.tooltip_text="Select one road, scenery asset or terrain region. Positive draws above, negative below; zero is default."
 	e.inspector_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
-	e.draw_order_hint=heading(inspector,"Select one asset or terrain region to change its visual layer.")
+	e.draw_order_hint=heading(inspector,"Select one road, asset or terrain region to change its visual layer.")
 	e.draw_order_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e._btn("Replace assets",inspector,func():e.workspace_tools.open_replace())
 	var align_tools:=OptionButton.new()
