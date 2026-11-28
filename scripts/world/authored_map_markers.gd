@@ -141,7 +141,7 @@ func nearest_marker() -> Dictionary:
 	for marker in markers:
 		if str(marker.type) in ["player_spawn","home","traffic_spawn","contract_dropoff","robbery_target"]:continue
 		if not _enabled(marker) or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(marker)):continue
-		var radius:=float(marker.get("properties",{}).get("radius_m",12.0))
+		var radius:=Rules.interaction_radius_m(marker)
 		var distance: float=player.global_position.distance_to(_point(marker)*PPM)/PPM
 		if distance<=radius and distance<closest:
 			closest=distance
@@ -196,7 +196,7 @@ func _marker_dealer_access(point: Dictionary) -> bool:
 	if not is_instance_valid(player) or not _enabled(point) or _is_busy():return false
 	if not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(point)) or not InteractionSpeed.allowed(player.linear_velocity.length()):return false
 	if is_instance_valid(world) and not world.business_open("dealership"):return false
-	return player.global_position.distance_to(_point(point)*PPM)<=float(point.get("properties",{}).get("radius_m",12))*PPM
+	return player.global_position.distance_to(_point(point)*PPM)<=Rules.interaction_radius_m(point)*PPM
 
 func activate() -> void:
 	if get_tree().paused or _nearby.is_empty() or _is_busy() or not ObjectiveLayer.matches(player,ObjectiveLayer.marker_layer(_nearby)) or \

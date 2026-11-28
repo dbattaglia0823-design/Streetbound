@@ -213,7 +213,10 @@ function render(){
           radius:placementFootprint(doc,proposed)};
     }catch{/* No safe projected alignment; the explicit action will report it. */}
   }
-  drawEditorOverlay(ctx,doc,{selection,alignmentPreview,
+  const overlaySelection=tool==='select'&&selected&&
+    (selected.type!=='markers'||$('show-markers').checked)&&
+    (selected.type!=='roads'||$('show-roads').checked)?selection:null;
+  drawEditorOverlay(ctx,doc,{selection:overlaySelection,alignmentPreview,
     hover:draft?(roadSnapPreview?.point||hover):null,draft,zoom,roadsidePreview,
     roadSnapPreview:roadSnapPreview?.snapped?{from:hover,to:roadSnapPreview.point,
       kind:roadSnapPreview.snapped.kind}:null,

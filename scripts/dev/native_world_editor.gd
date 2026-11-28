@@ -1046,7 +1046,9 @@ func _refresh_authoring() -> void:
 	if source_ready and not source_id.is_empty():
 		var record:=_selected_record()
 		if record.is_empty() or bool(record.item.get("hidden",false)) or not _workspace_selectable(source_id):source_id="";source_anchor=-1
-		elif record.category in ["roads","regions"] and source_anchor>=record.item.points.size():source_anchor=-1
+		elif record.category in ["roads","regions","races"] and source_anchor>=record.item.points.size():source_anchor=-1
+		elif record.category=="markers":source_anchor=-1
+	if source_id.is_empty():source_anchor=-1
 	_sync_editor_preview()
 	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag) if source_ready else {}
 	if source_ready and not map_switcher.custom:

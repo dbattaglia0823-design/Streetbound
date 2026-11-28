@@ -13,6 +13,15 @@ func check(label: String, valid: bool) -> void:
 		errors.append(label)
 
 func _run() -> void:
+	var MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
+	var Gizmos=preload("res://scripts/dev/native_world_editor_gizmos.gd")
+	check("marker_default_interaction_radius",MarkerRules.interaction_ranges({"type":"fuel"},[])==[12.0])
+	check("marker_configured_radius",MarkerRules.interaction_ranges({"type":"garage","properties":{"radius_m":21}},[])==[21.0])
+	check("spawn_has_no_interaction_circle",MarkerRules.interaction_ranges({"type":"player_spawn"},[]).is_empty())
+	var target: Dictionary={"id":"target","type":"robbery_target"}
+	var contacts: Array=[{"type":"contract_contact","properties":{"offers":[{"robbery_marker_id":"target","arrival_radius_m":20},{"robbery_marker_id":"target","arrival_radius_m":8}]}}]
+	check("linked_robbery_uses_offer_arrival_radius",MarkerRules.interaction_ranges(target,contacts)==[8.0,20.0])
+	check("road_anchor_selection_scoped_to_owner",Gizmos.anchor_style("road-2","road-1",1,1)=="neutral" and Gizmos.anchor_style("road-1","road-1",1,1)=="active" and Gizmos.anchor_style("road-1","",1,1)=="neutral")
 	var Elevation=preload("res://scripts/world/road_elevation.gd")
 	var DrivingCamera=preload("res://scripts/camera/driving_camera.gd")
 	var MarkerEditor=preload("res://scripts/dev/native_marker_editor.gd")

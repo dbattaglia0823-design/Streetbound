@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {roadMarkingPlan} from '../world-renderer.js';
+import {roadMarkingPlan,markerInteractionRanges} from '../world-renderer.js';
 import {createWorld,createEntity,parseWorld,serializeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
 import {roadPieces,isLoose,pavedVsLoose} from '../world-road-priority.js';
@@ -191,4 +191,19 @@ test('equal-width lane changes create an uncontrolled continuation, not an inter
   doc=createEntity(doc,'roads',{...base,name:'Narrow reversed',roadClass:'highway',width:18,lanes:2,points:coords([1500,600],[800,600])});
   const junctions=buildRoadJunctions(doc.roads);
   assert.ok(junctions.some(j=>j.kind==='lane_transition'));
+});
+
+
+test('selected marker ranges follow the actual prompt and contract offer geometry',()=>{
+  assert.deepEqual(markerInteractionRanges({type:'fuel'}),[12]);
+  assert.deepEqual(markerInteractionRanges({type:'garage',properties:{radius_m:21}}),[21]);
+  assert.deepEqual(markerInteractionRanges({type:'player_spawn'}),[]);
+  const target={id:'target',type:'robbery_target'};
+  const sources=[{type:'contract_contact',properties:{offers:[
+    {robbery_marker_id:'target',arrival_radius_m:20},
+    {robbery_marker_id:'target',arrival_radius_m:8},
+    {robbery_marker_id:'other',arrival_radius_m:10}
+  ]}}];
+  assert.deepEqual(markerInteractionRanges(target,sources),[8,20]);
+  assert.deepEqual(markerInteractionRanges({type:'contract_dropoff',id:'unused'},sources),[]);
 });

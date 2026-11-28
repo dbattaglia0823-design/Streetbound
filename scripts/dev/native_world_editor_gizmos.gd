@@ -4,6 +4,8 @@ extends Node2D
 const PPM := 20.0
 const Art = preload("res://scripts/world/coast_art.gd")
 const EditSession=preload("res://scripts/dev/native_map_edit_session.gd")
+const MarkerRules=preload("res://scripts/world/authored_marker_rules.gd")
+const DealerPavement=preload("res://scripts/world/dealership_pavement.gd")
 const RoadJump=preload("res://scripts/world/road_jump.gd")
 const Roads=preload("res://scripts/world/coast_roads.gd")
 const Lanes=preload("res://scripts/world/traffic_lane_geometry.gd")
@@ -84,7 +86,7 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 	if props_stamp!=_props_stamp:
 		_props_stamp=props_stamp;_refresh_preview_scenery()
 	selected_source_id = source_id
-	selected_anchor_index = point_index
+	selected_anchor_index = point_index if not source_id.is_empty() else -1
 	if not is_instance_valid(mountain_preview):
 		mountain_preview=MountainPreview.new();add_child(mountain_preview)
 	mountain_preview.visible=bool(layer_flags.get("terrain",true))
@@ -257,6 +259,24 @@ func update_prop_drag(preview: Dictionary) -> void:
 				if preview.has("rotation"):child.rotation=deg_to_rad(float(preview.rotation))
 	# The static road, lane and junction canvas stays cached during a house drag.
 
+## Draw true metre-space boundaries, not the zoom-scaled picking icon.
+func _interaction_circle(at: Vector2, radius_m: float, label: String, enabled: bool=true) -> void:
+	var radius:=radius_m*PPM
+	var tint:=Color("#78e2d5") if enabled else Color("#a4a8aa")
+	var u:=1.0/maxf(.003,zoom_level)
+	draw_circle(at,radius,Color(tint,.10))
+	draw_arc(at,radius,0,TAU,80,Color(.04,.12,.14,.70),3.8*u,true)
+	draw_arc(at,radius,0,TAU,80,tint,1.6*u,true)
+	draw_set_transform(at+Vector2(0,-radius-6*u),0,Vector2.ONE*u)
+	draw_string(ThemeDB.fallback_font,Vector2(6,-2),label+" · "+str(snappedf(radius_m,.01))+" m",HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
+	draw_set_transform(Vector2.ZERO)
+
+
+static func anchor_style(road_id: String, selected_id: String, index: int, selected_index: int) -> String:
+	if road_id!=selected_id:return "neutral"
+	return "active" if index==selected_index else "selected"
+
+
 func _draw_races() -> void:
 	for race in draft_doc.get("races",[]):
 		var line:=PackedVector2Array()
@@ -268,7 +288,10 @@ func _draw_races() -> void:
 		draw_polyline(route,Color(.2,.85,.9,.8 if focused else .28),2/maxf(.003,zoom_level),true)
 		for i in line.size():
 			if not focused and not _visible_point(line[i]):continue
-			if focused:draw_arc(line[i],float(race.get("checkpoint_radius",16))*PPM,0,TAU,40,Color(.25,.9,.85,.18),1/maxf(.003,zoom_level),true)
+			if focused and not runtime_playtest and (selected_anchor_index<0 or selected_anchor_index==i):
+				_interaction_circle(line[i],float(race.get("start_radius",8)) if i==0 else float(race.get("checkpoint_radius",16)),"START" if i==0 else "GATE")
+				if i==0 and str(race.mode)=="circuit" and float(race.get("start_radius",8))!=float(race.get("checkpoint_radius",16)):
+					_interaction_circle(line[i],float(race.get("checkpoint_radius",16)),"FINISH")
 			draw_set_transform(line[i],0,Vector2.ONE/maxf(.003,zoom_level))
 			draw_circle(Vector2.ZERO,7,Color("#163537"));draw_arc(Vector2.ZERO,6,0,TAU,24,Color("#4ee8dc"),2,true)
 			var gate: Dictionary=EditSession.race_gate_marker(race,i)
@@ -519,21 +542,23 @@ func _draw_draft() -> void:
 		if str(road.id)!=selected_source_id:continue
 		var handles:=_draft_anchors(road)
 		for i in handles.size():
-			draw_circle(handles[i],(7.0 if i==selected_anchor_index else 5.0)/maxf(.003,zoom_level),
-				Color(1.0,0.93,0.45,1.0) if i==selected_anchor_index else Color(1.0,0.67,0.24,1.0))
+			var active:=anchor_style(str(road.id),selected_source_id,i,selected_anchor_index)=="active"
+			draw_circle(handles[i],(7.0 if active else 5.0)/maxf(.003,zoom_level),
+				Color("#ffe38a") if active else Color("#82939c"))
 	# Anchor mode exposes ALL editable road control points with large,
 	# zoom-aware handles; no prior road selection is necessary.
 	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
 		for road in draft_doc.get("roads",[]):
 			if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
+			if str(road.id)==selected_source_id:continue # Selected handles already drawn above.
 			for point in road.get("points",[]):
 				var at := Vector2(float(point.x),float(point.y))*PPM
 				if not _visible_point(at):
 					continue
 				var radius := 14.0 / maxf(0.05,zoom_level)
 				draw_circle(at,radius+3.0/maxf(0.05,zoom_level),Color("#273237"))
-				draw_circle(at,radius,Color("#ffc26a"))
-				draw_circle(at,radius*0.33,Color("#5a3827"))
+				draw_circle(at,radius,Color("#77858d"))
+				draw_circle(at,radius*0.33,Color("#35434b"))
 	for region in draft_doc.get("regions",[]):
 		if custom_terrain and str(region.get("id",""))!=selected_source_id:continue
 		if not layer_flags.get("terrain",true):continue
@@ -576,7 +601,13 @@ func _draw_draft() -> void:
 		if not unchanged or str(marker.id)==selected_source_id or _visible_point(Vector2(marker.x,marker.y)*PPM):
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
 			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
-			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffb653"))
+			var focused: bool=str(marker.id)==selected_source_id or group_selected_lookup.has(str(marker.id))
+			if focused:
+				if group_selected_lookup.has(str(marker.id)):at+=group_drag_offset
+				var label: String="ARRIVAL" if str(marker.type) in ["contract_dropoff","robbery_target"] else "INTERACT"
+				for radius in MarkerRules.interaction_ranges(marker,draft_doc.get("markers",[])):
+					_interaction_circle(at,radius,label,bool(marker.get("properties",{}).get("enabled",true)))
+			draw_circle(at,5/maxf(.003,zoom_level),Color("#ffe38a") if focused else Color("#ffb653"))
 	# Forecourt footprints use the same local road-facing frame as the real
 	# pavement. They are preview-only: collision and driving stay baked.
 	if layer_flags.get("scenery",true):
@@ -605,8 +636,11 @@ func _draw_draft() -> void:
 			var width: float=float(dealer.get("lot_width_m",32.0))
 			var depth: float=float(dealer.get("lot_depth_m",setback-14.5))
 			var focused:=id==focused_dealer_id
+			for marker in draft_doc.get("markers",[]):
+				if (str(marker.id)==selected_source_id or group_selected_lookup.has(str(marker.id))) and str(marker.get("properties",{}).get("dealer_id",""))==id:focused=true
 			draw_set_transform(center*PPM,angle,Vector2.ONE)
-			var shape:=Rect2(Vector2(-width*.5,-9.5-depth)*PPM,Vector2(width,depth)*PPM)
+			var lot_m:=DealerPavement.lot_rect({"lot_width_m":width,"lot_depth_m":depth,"setback_m":setback})
+			var shape:=Rect2(lot_m.position*PPM,lot_m.size*PPM)
 			draw_rect(shape,Color(.93,.68,.24,.19 if focused else .075),true)
 			draw_rect(shape,Color("#f8c875") if focused else Color("#779eb5"),false,5.0 if focused else 2.0,true)
 			draw_circle(Vector2(0,-17)*PPM,8.0/maxf(.003,zoom_level),
