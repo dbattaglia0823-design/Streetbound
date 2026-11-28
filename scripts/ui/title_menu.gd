@@ -5,6 +5,7 @@ extends Control
 ## split-screen modes are reached through controller-friendly menu buttons.
 const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
+const ArchivePreparation=preload("res://scripts/world/world_archive_preparation.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
 const BackgroundTexture = preload("res://assets/ui/title_neon_city.svg")
 const FeaturedCar = preload("res://assets/Vehicles/McLaren/570S.png")
@@ -546,7 +547,7 @@ func _start_game(mode: String) -> void:
 	_launch_started=Time.get_ticks_msec()
 	for button in actions.values():button.disabled=true
 	_loading_label=Label.new()
-	_loading_label.text="Preparing world archive…"
+	_loading_label.text="Preparing world geometry…"
 	_loading_label.position=Vector2(30,30)
 	_loading_label.add_theme_font_size_override("font_size",24)
 	add_child(_loading_label)
@@ -566,11 +567,14 @@ static func _read_archive(path: String) -> Dictionary:
 	hasher.start(HashingContext.HASH_SHA256)
 	hasher.update(bytes)
 	var parsed: Variant=JSON.parse_string(bytes.get_string_from_utf8())
-	return {"path":path,"sha":hasher.finish().hex_encode(),"data":parsed}
+	var geometry: Dictionary={}
+	if parsed is Dictionary and (path==WorldPublication.MORROW or bool(parsed.get("editor_published_world",false))):
+		geometry=ArchivePreparation.prepare(parsed)
+	return {"path":path,"sha":hasher.finish().hex_encode(),"data":parsed,"geometry":geometry}
 
 func _process(_dt: float) -> void:
 	if _launch_thread==null:return
-	_loading_label.text="Preparing world archive… %.1f s"%((Time.get_ticks_msec()-_launch_started)/1000.0)
+	_loading_label.text="Preparing world geometry… %.1f s"%((Time.get_ticks_msec()-_launch_started)/1000.0)
 	if _launch_thread.is_alive():return
 	var state:=ResourceLoader.load_threaded_get_status("res://scenes/main.tscn")
 	if state==ResourceLoader.THREAD_LOAD_IN_PROGRESS:
