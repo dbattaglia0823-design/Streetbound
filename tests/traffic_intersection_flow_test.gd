@@ -112,6 +112,16 @@ func run() -> void:
 	flow._prune_junction_claims()
 	check("orphan_intersection_reservation_is_released",
 		not flow.active_junctions.has(0))
+	# Check the positive and negative paths without advancing any vehicle.
+	var prior_edge: int = int(flow.agents[0].edge)
+	flow.agents[0].edge = left_turn_id
+	flow.active_junctions[0] = 1
+	flow.active_junctions[99] = 1
+	flow._prune_junction_claims()
+	check("live_connector_retains_only_its_own_claim",flow.active_junctions.has(0) and not flow.active_junctions.has(99))
+	flow.agents[0].edge = prior_edge
+	flow._prune_junction_claims()
+	check("approach_without_connector_cannot_hold_claim",flow.active_junctions.is_empty())
 	var turning_rate_ok := true
 	var min_gap := INF
 	var max_stopped := 0

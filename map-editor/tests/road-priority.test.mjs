@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {roadMarkingPlan,markerInteractionRanges} from '../world-renderer.js';
+import {roadMarkingPlan,markerInteractionRanges,roadRenderPlan} from '../world-renderer.js';
 import {createWorld,createEntity,parseWorld,serializeWorld,updateEntity} from '../world-model.js';
 import {buildRoadJunctions} from '../world-junctions.js';
 import {roadPieces,isLoose,pavedVsLoose} from '../world-road-priority.js';
@@ -233,4 +233,20 @@ test('Square intersection mode survives a map roundtrip and is optional',()=>{
   assert.equal(j().corner_style,'square');
   doc=updateEntity(doc,doc.roads[1].id,{junctionStyle:'rounded'});
   assert.equal(j().corner_style,undefined);
+});
+
+test('road render plan is reused across unchanged views and rebuilt for an edited road',()=>{
+  const doc=build(['Main','asphalt',coords([100,600],[1500,600]),20],
+    ['Branch','asphalt',coords([800,600],[800,850]),8]);
+  const plan=roadRenderPlan(doc.roads);
+  assert.strictEqual(roadRenderPlan(doc.roads),plan);
+  assert.strictEqual(plan.byId.get(doc.roads[0].id),doc.roads[0]);
+  const edited=updateEntity(doc,doc.roads[0].id,{width:40,drawOrder:2});
+  const next=roadRenderPlan(edited.roads);
+  assert.notStrictEqual(next,plan);
+  assert.equal(next.byId.get(doc.roads[0].id).width,40);
+  assert.equal(next.roadBounds.get(doc.roads[0].id).minY,560);
+  assert.equal(next.order.at(-1).id,doc.roads[0].id);
+  assert.equal(plan.byId.get(doc.roads[0].id).width,20);
+  assert.strictEqual(roadRenderPlan(doc.roads),plan,'undo can reuse the old plan');
 });

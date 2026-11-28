@@ -415,6 +415,44 @@ jobs:
           set -o pipefail
           python3 -B tests/map_asset_catalog_test.py
           python3 -B tests/project_asset_catalog_test.py
+
+  godot-463-editor-bake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify persistent Godot resource IDs before import
+        run: python3 tests/resource_uid_test.py
+      - name: Cache Godot 4.6.3 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.6.3-stable_linux.x86_64
+          key: godot-linux-4.6.3-${{ runner.arch }}-v1
+      - name: Install Godot 4.6.3 matching the reported Windows logs
+        run: |
+          if test -x ./Godot_v4.6.3-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Restore imported asset cache (no script metadata)
+        id: asset_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.6.3-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+      - name: Import game resources and verify typed script compilation
+        id: cold_import
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
+          # Direct-load individual race scripts when a top-level preload fails.
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/racing_script_probe.gd 2>&1 | tee /tmp/godot463-race-load-probe.log || true
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot463-import.log; then
+            echo "Godot 4.6.3 import reported unresolved script classes" >&2
+            exit 1
+          fi
+      # Report every independent test group after a successful import, even
+      # if an earlier test failed. Failed steps still fail this required job.
       - name: Verify city building snapping and streamed sidewalk authoring
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -1172,7 +1210,7 @@ jobs:
 
   godot-463-game-startup:
     # Preserve the original required-check identity; all shards must pass.
-    needs: [godot-463-gameplay, godot-463-editor, godot-463-startup-render]
+    needs: [godot-463-gameplay, godot-463-editor, godot-463-editor-bake, godot-463-startup-render]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 2

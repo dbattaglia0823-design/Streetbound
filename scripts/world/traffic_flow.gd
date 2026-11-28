@@ -1029,22 +1029,22 @@ func _recover_agent(agent: Dictionary, dt: float) -> bool:
 	return true
 
 func _prune_junction_claims() -> void:
+	if active_junctions.is_empty():return
+	# Build the valid claim set once, instead of scanning every car for every
+	# junction. Agent UIDs are unique; all positions/edges are read live.
+	var valid_claims: Dictionary = {}
+	for agent in agents:
+		var node: CharacterBody2D = agent.node
+		if not is_instance_valid(node) or bool(node.get("recovering")):continue
+		var edge_id := int(agent.edge)
+		if edge_id<0 or edge_id>=network.edges.size():continue
+		var edge: Dictionary = network.edges[edge_id]
+		if not bool(edge.connector):continue
+		var junction := int(edge.start_j)
+		if active_junctions.has(junction) and int(active_junctions[junction])==int(agent.uid):
+			valid_claims[junction]=true
 	for junction in active_junctions.keys():
-		var owner_id := int(active_junctions[junction])
-		var found := false
-		for agent in agents:
-			if int(agent.uid) != owner_id:
-				continue
-			var node: CharacterBody2D = agent.node
-			if not is_instance_valid(node) or bool(node.get("recovering")):
-				break
-			var edge_id := int(agent.edge)
-			if edge_id >= 0 and edge_id < network.edges.size():
-				var edge: Dictionary = network.edges[edge_id]
-				found = bool(edge.connector) and int(edge.start_j) == int(junction)
-			break
-		if not found:
-			active_junctions.erase(junction)
+		if not valid_claims.has(junction):active_junctions.erase(junction)
 
 
 func _physics_process(dt: float) -> void:
