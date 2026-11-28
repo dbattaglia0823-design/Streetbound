@@ -1244,13 +1244,14 @@ func bend_road(identity: String,bend_m: float) -> bool:
 	return _replace_road_points(identity,vertices,anchors,moved)
 
 func road_preview_source(drag: Dictionary) -> Dictionary:
-	if drag.get("kind","") not in ["road","road_move","region","race_point"]:return doc
+	if drag.get("kind","") not in ["road","road_move","region","region_point","race_point"]:return doc
 	# Use the same endpoint propagation as the committed edit, without adding
 	# history or changing the real source while the mouse is held down.
 	var temporary=get_script().new()
 	temporary.doc=doc
 	if drag.kind=="road":temporary.move_road_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0)
 	elif drag.kind=="region":temporary.move_shape("regions",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
+	elif drag.kind=="region_point":temporary.move_region_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0)
 	elif drag.kind=="race_point":temporary.move_race_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0)
 	else:temporary.move_shape("roads",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)
 	return temporary.doc
@@ -1402,6 +1403,63 @@ func delete_entity(identity: String) -> bool:
 				for i in next.roads.size():next.roads[i].id="road-%d"%i
 			return _commit(next)
 	return false
+
+func region_at_id(identity: String) -> Dictionary:
+	for region in doc.get("regions",[]):
+		if str(region.id)==identity:return region
+	return {}
+
+func _valid_region_vertices(vertices: Array) -> bool:
+	if vertices.size()<3 or vertices.size()>180:return false
+	var polygon:=PackedVector2Array()
+	for p in vertices:
+		var at:=Vector2(float(p.x),float(p.y))
+		if not _terrain_point_allowed(at):return false
+		polygon.append(at)
+	for i in polygon.size():
+		if polygon[i].distance_to(polygon[(i+1)%polygon.size()])<.05:return false
+	return not Geometry2D.triangulate_polygon(polygon).is_empty()
+
+# Insert on the closed boundary, including its last-to-first edge.
+func insert_region_point(identity: String, edge: int, position_m: Vector2) -> int:
+	var next:=doc.duplicate(true)
+	for region in next.regions:
+		if str(region.id)!=identity:continue
+		var count: int=region.points.size()
+		if edge<0 or edge>=count or count>=180:
+			last_error="Terrain supports 3 to 180 points.";return -1
+		var a:=Vector2(region.points[edge].x,region.points[edge].y)
+		var b:=Vector2(region.points[(edge+1)%count].x,region.points[(edge+1)%count].y)
+		var at:=Geometry2D.get_closest_point_to_segment(position_m,a,b)
+		region.points.insert(edge+1,{"x":at.x,"y":at.y})
+		if not _valid_region_vertices(region.points):
+			last_error="Choose an edge away from existing vertices.";return -1
+		return edge+1 if _commit(next) else -1
+	return -1
+
+func move_region_point(identity: String,index: int,position_m: Vector2) -> bool:
+	var next:=doc.duplicate(true)
+	for region in next.regions:
+		if str(region.id)!=identity:continue
+		if index<0 or index>=region.points.size():return false
+		region.points[index]={"x":position_m.x,"y":position_m.y}
+		if not _valid_region_vertices(region.points):
+			last_error="Terrain must remain a valid polygon within map limits.";return false
+		return _commit(next)
+	return false
+
+func remove_region_point(identity: String,index: int) -> bool:
+	var next:=doc.duplicate(true)
+	for region in next.regions:
+		if str(region.id)!=identity:continue
+		if index<0 or index>=region.points.size() or region.points.size()<=3:
+			last_error="Select a vertex; terrain must retain at least three points.";return false
+		region.points.remove_at(index)
+		if not _valid_region_vertices(region.points):
+			last_error="Removing this vertex would invalidate the terrain.";return false
+		return _commit(next)
+	return false
+
 
 func add_region(points_m: Array[Vector2], biome: String = "grass",barrier: bool=false,elevation_m: float=0) -> String:
 	var clean: Array[Vector2]=[]

@@ -313,6 +313,19 @@ func _run() -> void:
 		not session.set_prop_draw_order(native_region,11) and session.set_prop_draw_order(native_region,0) and
 		not session.doc.regions[-1].has("drawOrder"))
 	session.discard_changes()
+	var vertex_region:=session.add_region(corners)
+	var before_vertices: Dictionary=session.region_at_id(vertex_region).duplicate(true)
+	var inserted_vertex: int=session.insert_region_point(vertex_region,2,Vector2(350,345))
+	check("terrain_vertex_insert_closing_edge_and_undo",
+		inserted_vertex==3 and session.region_at_id(vertex_region).points.size()==4 and
+		session.undo() and session.region_at_id(vertex_region)==before_vertices and
+		session.redo() and session.region_at_id(vertex_region).points.size()==4)
+	check("terrain_vertex_move_remove_and_triangle_minimum",
+		session.move_region_point(vertex_region,3,Vector2(320,350)) and
+		session.remove_region_point(vertex_region,3) and
+		not session.remove_region_point(vertex_region,0) and
+		session.region_at_id(vertex_region).points.size()==3)
+	session.discard_changes()
 	var marker_count: int = session.doc.markers.size()
 	var native_marker := session.add_marker(Vector2(2350,3100))
 	check("native_marker_uses_browser_source_contract",
@@ -343,6 +356,17 @@ func _run() -> void:
 	editor._choose_tool("move_prop")
 	check("asset_browser_hides_for_selection",
 		not editor.asset_dock.visible)
+	check("draw_order_is_discoverable_even_before_selection",
+		editor.inspector_draw_order.visible and not editor.inspector_draw_order.editable and
+		editor.inspector_draw_order.name=="DrawOrderZ")
+	var terrain_source: Dictionary=editor.authoring.doc.regions[0]
+	editor.source_id=str(terrain_source.id)
+	editor._refresh_authoring()
+	check("draw_order_control_enables_for_terrain",
+		editor.inspector_draw_order.editable and
+		int(editor.inspector_draw_order.value)==int(terrain_source.get("drawOrder",0)))
+	editor.source_id=""
+	editor._refresh_authoring()
 	editor._fit_map()
 	check("fit_map_can_zoom_far_enough_to_show_the_entire_world",
 		editor.editor_camera.zoom.x<0.03)

@@ -267,6 +267,8 @@
       <p class="muted-copy">Backup downloads editable JSON. Restore previous uses the last local recovery copy. Export JSON always remains available.</p>
     </section>
     <div class="panel-head section-divider"><h2>Inspector</h2><span id="selected-type" class="micro-tag">NOTHING SELECTED</span></div>
+    <div class="field"><label for="inspect-draw-order">Draw order (Z)</label><input id="inspect-draw-order" type="number" min="-5" max="10" step="1" value="0" disabled title="Select one terrain region or scenery asset. Positive above, negative below, zero normal."></div>
+    <p id="draw-order-hint" class="muted-copy">Select one scenery asset or terrain region to change its visual layer.</p>
     <p id="inspector-empty" class="muted-copy">Select a road, region, building, or marker to change its properties. Drag the orange handles to adjust curves and coastlines.</p>
     <section id="inspector" hidden>
       <div class="field"><label for="inspector-name">Name</label><input id="inspector-name" maxlength="80"></div>
@@ -324,7 +326,8 @@
       </div>
       <div id="inspect-region" hidden>
         <div class="field"><label for="inspect-biome">Biome</label><select id="inspect-biome"><option value="grass">Grassland</option><option value="forest">Forest</option><option value="mountain">Mountain</option><option value="rock">Rock</option><option value="beach">Beach</option><option value="ocean">Ocean</option><option value="lake">Lake</option><option value="city">City</option><option value="desert">Desert</option><option value="farmland">Farmland</option></select></div>
-        <div class="field"><label for="inspect-terrain-draw-order">Draw order (Z)</label><input id="inspect-terrain-draw-order" type="number" min="-5" max="10" step="1" value="0" title="Higher values draw above other terrain. Visual only."></div>
+        <button id="insert-terrain-point" class="gdt-btn" type="button">+ Add terrain point</button>
+        <p class="muted-copy">Click an edge after pressing Add terrain point, or Shift-click the boundary. Drag the new handle to reshape terrain.</p>
         <label class="check"><input type="checkbox" id="inspect-barrier"> Solid mountain barrier</label>
         <div class="field"><label for="inspect-elevation">Height metadata (m)</label><input id="inspect-elevation" type="number" min="0" max="2000"></div>
       </div>
@@ -338,7 +341,6 @@
         <div class="field"><label for="inspect-asset">Artwork override</label><select id="inspect-asset"><option value="">Built-in illustration</option></select></div>
         <div class="double-fields"><div class="field"><label for="inspect-scale">Scale</label><input id="inspect-scale" type="number" step=".1" min=".25" max="5"></div><div class="field"><label for="inspect-rotation">Rotation</label><input id="inspect-rotation" type="number" min="-360" max="360"></div></div>
           <div class="double-fields"><div class="field"><label for="inspect-scale-x">X size multiplier</label><input id="inspect-scale-x" type="number" step=".05" min=".2" max="5"></div><div class="field"><label for="inspect-scale-y">Y size multiplier</label><input id="inspect-scale-y" type="number" step=".05" min=".2" max="5"></div></div>
-          <div class="field"><label for="inspect-draw-order">Draw order (Z)</label><input id="inspect-draw-order" type="number" min="-5" max="10" step="1" value="0" title="Positive above, negative below, zero normal. Visual only."></div>
           <button id="hide-game-prop" class="gdt-btn" type="button" hidden>Hide original from game</button>
       </div>
       <div id="inspect-marker" hidden>

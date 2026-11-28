@@ -187,6 +187,7 @@ var inspector_scale: SpinBox
 var inspector_scale_x: SpinBox
 var inspector_scale_y: SpinBox
 var inspector_draw_order: SpinBox
+var draw_order_hint: Label
 var point_picker: OptionButton
 var remove_point_button: Button
 var add_point_button: Button
@@ -195,7 +196,6 @@ var reconnect_road_button: Button
 var connection_label: Label
 var asset_dimensions_label: Label
 var terrain_transforms: VBoxContainer
-var inspector_terrain_draw_order: SpinBox
 var inspector_terrain_width: SpinBox
 var inspector_terrain_height: SpinBox
 var inspector_terrain_percent: SpinBox
@@ -1045,7 +1045,7 @@ func _refresh_authoring() -> void:
 	if source_ready and not source_id.is_empty():
 		var record:=_selected_record()
 		if record.is_empty() or bool(record.item.get("hidden",false)) or not _workspace_selectable(source_id):source_id="";source_anchor=-1
-		elif record.category=="roads" and source_anchor>=record.item.points.size():source_anchor=-1
+		elif record.category in ["roads","regions"] and source_anchor>=record.item.points.size():source_anchor=-1
 	_sync_editor_preview()
 	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag) if source_ready else {}
 	if source_ready and not map_switcher.custom:
@@ -1652,7 +1652,31 @@ func _source_click(world_px: Vector2) -> void:
 		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
 		_refresh_authoring();return
 	var hit: Dictionary={}
-	if road_selection_layer!=99:
+	if road_selection_layer==99 and layer_flags.terrain and _workspace_selectable(source_id):
+		var region: Dictionary=authoring.region_at_id(source_id)
+		if not region.is_empty():
+			var radius:=11.0/maxf(.003,editor_camera.zoom.x)
+			if Input.is_physical_key_pressed(KEY_SHIFT):
+				var edge: int=-1
+				var distance:=radius
+				for i in region.points.size():
+					var a:=Vector2(region.points[i].x,region.points[i].y)*PPM
+					var b:=Vector2(region.points[(i+1)%region.points.size()].x,region.points[(i+1)%region.points.size()].y)*PPM
+					var gap:=Geometry2D.get_closest_point_to_segment(world_px,a,b).distance_to(world_px)
+					if gap<distance:edge=i;distance=gap
+				if edge>=0:
+					var inserted: int=authoring.insert_region_point(source_id,edge,world_px/PPM)
+					if inserted>=0:source_anchor=inserted;_refresh_authoring()
+					else:_notice(authoring.last_error)
+					return
+			var best:=radius
+			for i in region.points.size():
+				var at:=Vector2(region.points[i].x,region.points[i].y)*PPM
+				if at.distance_to(world_px)<best:
+					best=at.distance_to(world_px)
+					hit={"kind":"region_point","id":source_id,"index":i,"from":at}
+	if not hit.is_empty():pass
+	elif road_selection_layer!=99:
 		hit=_pick_source_anchor(world_px) if tool_name=="anchor" else _pick_source_road(world_px)
 	elif tool_name=="anchor":
 		hit=_pick_source_anchor(world_px)
@@ -1671,6 +1695,16 @@ func _source_click(world_px: Vector2) -> void:
 			authoring.insert_road_point(source_id,_snap_point(world_px/PPM))
 			_refresh_authoring()
 			return
+		# A terrain polygon can cover the entire map; adopt real scenery before
+		# falling back to terrain so visible roofs and trees are editable.
+		if hit.is_empty():
+			var runtime_hit:=_nearest_prop(world_px)
+			if not runtime_hit.is_empty():
+				var runtime_item: Dictionary=world.data.props[int(runtime_hit.index)]
+				var editable_id:=_ensure_editable_runtime_prop(runtime_item)
+				if not editable_id.is_empty():
+					var editable: Dictionary=authoring.prop_at_id(editable_id)
+					hit={"kind":"prop","id":editable_id,"from":Vector2(float(editable.x),float(editable.y))*PPM}
 		if hit.is_empty():hit=_pick_source_region(world_px)
 	if hit.is_empty():
 		if tool_name=="move_prop" and road_selection_layer==99:
@@ -1690,6 +1724,7 @@ func _source_click(world_px: Vector2) -> void:
 			source_id="";source_anchor=-1;_update_selection({});_refresh_authoring()
 			return
 	source_id = str(hit.id)
+	if tool_name=="move_prop" and is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = int(hit.get("index",-1))
@@ -1730,6 +1765,8 @@ func _finish_source_drag(world_px: Vector2) -> void:
 		ok=authoring.move_sidewalk_point(str(drag.id),int(drag.index),
 			_snap_point(destination_m),Sidewalks.SNAP_RADIUS_M,
 			not Input.is_physical_key_pressed(KEY_ALT))
+	elif str(drag.kind)=="region_point":
+		ok=authoring.move_region_point(str(drag.id),int(drag.index),_snap_point(destination_m))
 	elif str(drag.kind)=="road":
 		var temporary=EditSession.new();temporary.doc=authoring.doc
 		ok=temporary.move_road_point(str(drag.id),int(drag.index),destination_m,snap_m)
@@ -2685,7 +2722,13 @@ func _refresh_inspector() -> void:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
 		selected_preview.hide()
 	inspector_name.editable=exists
-	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y,inspector_draw_order]:spin.editable=exists
+	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
+	var layer_category:=str(record.get("category",""))
+	var layer_kind:=str(record.get("item",{}).get("type",""))
+	var can_layer:=exists and (layer_category=="regions" or (layer_category=="props" and layer_kind not in ["sidewalk","guardrail"]))
+	inspector_draw_order.editable=can_layer and not _editing_locked()
+	inspector_draw_order.set_value_no_signal(int(record.get("item",{}).get("drawOrder",0)) if can_layer else 0)
+	draw_order_hint.text=("Higher values draw above other terrain." if layer_category=="regions" else "Higher values draw above other scenery.") if can_layer else "Select one scenery asset or terrain region with Select / Edit."
 	terrain_transforms.visible=exists and record.category=="regions"
 	# Other objects retain their normal coordinate bounds; only terrain may
 	# have a centre outside the world. Inspector writes still use source validation.
@@ -2696,17 +2739,20 @@ func _refresh_inspector() -> void:
 	if terrain_transforms.visible:
 		inspector_terrain_width.max_value=float(authoring.doc.world.width)+2.0*EditSession.TERRAIN_OVERHANG_M
 		inspector_terrain_height.max_value=float(authoring.doc.world.height)+2.0*EditSession.TERRAIN_OVERHANG_M
-	for spin in [inspector_terrain_width,inspector_terrain_height,inspector_terrain_draw_order]:spin.editable=terrain_transforms.visible
+	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
 	prop_transforms.visible=exists and record.category=="props"
-	point_picker.visible=exists and record.category in ["roads","races"]
+	point_picker.visible=exists and record.category in ["roads","races","regions"]
 	remove_point_button.visible=point_picker.visible
 	add_point_button.visible=point_picker.visible
 	split_road_button.visible=point_picker.visible and record.category=="roads"
 	reconnect_road_button.visible=split_road_button.visible
 	connection_label.visible=split_road_button.visible
 	var race_selected: bool=exists and record.category=="races"
-	add_point_button.text="Place checkpoint on road" if race_selected else "Add road point"
-	remove_point_button.text="Remove checkpoint" if race_selected else "Remove selected road point"
+	var terrain_selected: bool=exists and record.category=="regions"
+	add_point_button.text="Add terrain point" if terrain_selected else ("Place checkpoint on road" if race_selected else "Add road point")
+	add_point_button.tooltip_text="Insert after selected vertex, or on longest edge. Shift-click any boundary to insert there." if terrain_selected else ""
+	remove_point_button.text="Remove terrain point" if terrain_selected else ("Remove checkpoint" if race_selected else "Remove selected road point")
+	add_point_button.disabled=terrain_selected and record.item.points.size()>=180
 	point_picker.clear()
 	if exists:
 		var item: Dictionary=record.item
@@ -2714,9 +2760,7 @@ func _refresh_inspector() -> void:
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
-		inspector_draw_order.value=int(item.get("drawOrder",0))
 		if record.category=="regions":
-			inspector_terrain_draw_order.value=int(item.get("drawOrder",0))
 			var region_size: Vector2=_region_bounds(item).size
 			inspector_terrain_width.value=region_size.x
 			inspector_terrain_height.value=region_size.y
@@ -2733,14 +2777,14 @@ func _refresh_inspector() -> void:
 				if int(inspector_road_front.get_item_metadata(i))==int(item.get("roadFront",90)):inspector_road_front.select(i);break
 		if race_selected and source_anchor<0:
 			inspector_x.editable=false;inspector_y.editable=false
-		if record.category in ["roads","races"]:
-			point_picker.add_item("Whole race (center)" if race_selected else "Whole road (center)")
+		if record.category in ["roads","races","regions"]:
+			point_picker.add_item("Whole terrain (center)" if terrain_selected else ("Whole race (center)" if race_selected else "Whole road (center)"))
 			for i in item.points.size():
 				var title: String="Control point %d"%[i+1]
 				if race_selected:title="Start" if i==0 else ("Finish" if item.mode=="sprint" and i==item.points.size()-1 else "Checkpoint %d"%i)
 				point_picker.add_item(title)
 			point_picker.select(clampi(source_anchor+1,0,item.points.size()))
-			remove_point_button.disabled=item.points.size()<=(3 if race_selected and item.mode=="circuit" else 2)
+			remove_point_button.disabled=item.points.size()<=(3 if terrain_selected or (race_selected and item.mode=="circuit") else 2) or (terrain_selected and source_anchor<0)
 			split_road_button.text="Detach junction" if source_anchor==0 or source_anchor==item.points.size()-1 else "Split road here"
 			reconnect_road_button.disabled=source_anchor not in [0,item.points.size()-1]
 			connection_label.text="Ends move independently" if bool(item.get("independentEnds",false)) else "Touching ends move together"
@@ -2780,7 +2824,8 @@ func _commit_inspector(field: String="name") -> void:
 				var snapped:=_snap_building_transform(adjusted,destination)
 				destination=snapped.position;values["rotation"]=snapped.rotation
 	if field=="drawOrder":
-		var order:=int(inspector_terrain_draw_order.value if record.category=="regions" else inspector_draw_order.value)
+		if not inspector_draw_order.editable:return
+		var order:=int(inspector_draw_order.value)
 		if authoring.set_prop_draw_order(source_id,order):_refresh_authoring()
 		else:_notice(authoring.last_error);_refresh_inspector()
 		return
@@ -2856,6 +2901,10 @@ func _select_point(index: int) -> void:
 
 func _remove_point() -> void:
 	if _editing_locked() or not source_ready:return
+	if not authoring.region_at_id(source_id).is_empty():
+		if authoring.remove_region_point(source_id,source_anchor):source_anchor=-1;_refresh_authoring()
+		else:_notice(authoring.last_error)
+		return
 	if not authoring.race_at_id(source_id).is_empty():
 		if authoring.change_race_points(source_id,maxi(0,source_anchor),true):source_anchor=-1;_refresh_authoring()
 		else:_notice(authoring.last_error)
@@ -3610,6 +3659,20 @@ func _update_selection(what: Dictionary, measured: Dictionary = {}) -> void:
 
 func _add_point() -> void:
 	if _editing_locked() or not source_ready:return
+	var region: Dictionary=authoring.region_at_id(source_id)
+	if not region.is_empty():
+		var edge:=clampi(source_anchor,0,region.points.size()-1)
+		if source_anchor<0:
+			var longest:=0.0
+			for i in region.points.size():
+				var length:=Vector2(region.points[i].x,region.points[i].y).distance_to(Vector2(region.points[(i+1)%region.points.size()].x,region.points[(i+1)%region.points.size()].y))
+				if length>longest:longest=length;edge=i
+		var a:=Vector2(region.points[edge].x,region.points[edge].y)
+		var b:=Vector2(region.points[(edge+1)%region.points.size()].x,region.points[(edge+1)%region.points.size()].y)
+		var inserted: int=authoring.insert_region_point(source_id,edge,(a+b)*.5)
+		if inserted>=0:source_anchor=inserted;_refresh_authoring();_notice("Terrain point added. Drag its handle to reshape the region.")
+		else:_notice(authoring.last_error)
+		return
 	if not authoring.race_at_id(source_id).is_empty():
 		race_editor.begin_checkpoint(self)
 		return
