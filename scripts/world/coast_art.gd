@@ -1,6 +1,5 @@
 extends RefCounted
-## Project building PNGs are authoritative. Do not procedurally recreate old
-## building artwork from the deprecated scenery atlas.
+## Only individual map-art textures are loaded; no sheet dependency.
 const BUILDING_ART := {
  "house": ["House.png","House2.png","House3.png","FarmHouse1.png","FarmHouse2.png"],
  "coastal_house": ["House.png","House2.png","House3.png"],
@@ -57,8 +56,11 @@ static func sprite(kind: String, seed_value: int) -> Texture2D:
   var available: Array = BUILDING_ART[kind]
   if available.is_empty():return null
   var index: int = posmod(seed_value,available.size())
-  # Never use the deprecated procedural-building atlas if artwork is absent.
-  return project_sprite("Buildings/"+str(available[index]))
+  # Skip deleted alternatives without requesting a missing resource.
+  for i in available.size():
+   var texture:=project_sprite("Buildings/"+str(available[(index+i)%available.size()]))
+   if texture!=null:return texture
+  return null
  # Vegetation and rocks have their own individual artwork.
  var nature: String={"tree":"Oak.svg","pine":"Pine.svg","palm":"Palm.svg","rock":"Rock.svg"}.get(kind,"")
  if nature.is_empty():return null
