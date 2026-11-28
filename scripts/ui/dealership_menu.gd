@@ -82,7 +82,7 @@ func _ready() -> void:
 	tier_label=Label.new()
 	tier_label.name="DealerClass"
 	tier_label.add_theme_font_size_override("font_size",21)
-	tier_label.add_theme_color_override("font_color",RacingStyle.TEXT)
+	tier_label.add_theme_color_override("font_color",Color("#ffbc7b"))
 	tier_label.clip_text=true
 	identity.add_child(tier_label)
 	var underline := ColorRect.new()
