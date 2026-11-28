@@ -558,6 +558,20 @@ jobs:
             echo "Game failed to fully initialize in Godot 4.6.3" >&2
             exit 1
           fi
+      - name: Record opt-in gameplay performance benchmark
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/game_performance_benchmark.gd 2>&1 | tee /tmp/game-performance.log
+          grep -q 'GAME PERFORMANCE BENCHMARK: PASS' /tmp/game-performance.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/game-performance.log
+      - name: Upload opt-in performance report
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-performance-report
+          path: /tmp/game-performance.log
+          if-no-files-found: warn
       - name: Launch the normal game scene, not only the test harness
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |

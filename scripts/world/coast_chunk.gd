@@ -394,6 +394,10 @@ func redraw_mountains() -> void:
 func set_environment_night(amount: float) -> void:
 	if is_instance_valid(environment_lights):environment_lights.call("set_night",amount if stream_active else 0.0)
 
+func set_scenery_shadows(enabled: bool) -> void:
+	for child in get_children():
+		if child.get_script()==preload("res://scripts/world/coast_shadows.gd"):child.visible=enabled
+
 func set_stream_active(active: bool) -> void:
 	stream_active = active
 	visible = active

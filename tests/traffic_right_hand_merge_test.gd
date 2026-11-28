@@ -102,8 +102,9 @@ func _check_cardinal_lanes() -> void:
 			network.build({"roads":[{"name":"Compass","start":"a","end":"b",
 				"kind":"highway","surface":"ASPHALT","width":18.0,"lanes":count,
 				"points":[[start.x,start.y],[finish.x,finish.y]]}],"junctions":[]})
-			var correct: bool = network.edges.size()==count
+			var correct: bool = network.edges.size()-network.turnaround_count==count
 			for edge in network.edges:
+				if bool(edge.connector):continue
 				var side := right*int(edge.direction)
 				var expected := 18.0/float(count)*(float(edge.lane)+0.5)*PPM
 				for point in edge.points:
