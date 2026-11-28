@@ -539,7 +539,7 @@ func _draw_draft() -> void:
 		var vertices := PackedVector2Array()
 		for point in region.get("points",[]):
 			var p:=Vector2(float(point.x),float(point.y))*PPM
-			if str(region.id)==str(drag_preview.get("id","")):p+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
+			if str(region.id)==str(drag_preview.get("id","")) and drag_preview.get("kind","")!="region_point":p+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
 			vertices.append(p)
 		if vertices.size() >= 3:
 			var color := Color("#84a878")
@@ -554,6 +554,9 @@ func _draw_draft() -> void:
 			var focused: bool=str(region.get("id",""))==selected_source_id
 			draw_polyline(vertices,Color("#ffe3a3") if focused else Color("#ffb653"),
 				(3.5 if focused else 2.0)/maxf(.003,zoom_level),true)
+			if focused:
+				for i in range(vertices.size()-1):
+					draw_circle(vertices[i],(7.0 if i==selected_anchor_index else 5.0)/maxf(.003,zoom_level),Color("#ffe3a3") if i==selected_anchor_index else Color("#ffb653"))
 	for marker in draft_doc.get("markers",[]):
 		if not layer_flags.get("markers",true):continue
 		var unchanged := false
