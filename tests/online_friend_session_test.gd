@@ -40,8 +40,12 @@ func _run() -> void:
 	title.friend_name.text = "Test Driver"
 	title.friend_port.text = "28163"
 	title._activate("host_friend_session")
-	for frame in 6:
+	# Wait for the actual threaded archive/scene handoff, not simulated frames.
+	var deadline:=Time.get_ticks_msec()+30000
+	while (current_scene==title or current_scene==null) and Time.get_ticks_msec()<deadline:
 		await process_frame
+		OS.delay_msec(1)
+	for frame in 2:await process_frame
 	var game: Node = current_scene
 	check("host_transitions_to_real_morrow_coast",
 		game != null and game != title and game.get("ground") != null and
