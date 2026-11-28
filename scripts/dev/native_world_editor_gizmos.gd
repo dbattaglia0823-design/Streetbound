@@ -268,7 +268,7 @@ func _interaction_circle(at: Vector2, radius_m: float, label: String, enabled: b
 	draw_arc(at,radius,0,TAU,80,Color(.04,.12,.14,.70),3.8*u,true)
 	draw_arc(at,radius,0,TAU,80,tint,1.6*u,true)
 	draw_set_transform(at+Vector2(0,-radius-6*u),0,Vector2.ONE*u)
-	draw_string(ThemeDB.fallback_font,Vector2(6,-2),label+" · %g m"%radius_m,HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
+	draw_string(ThemeDB.fallback_font,Vector2(6,-2),label+" · "+str(snappedf(radius_m,.01))+" m",HORIZONTAL_ALIGNMENT_LEFT,-1,12,tint)
 	draw_set_transform(Vector2.ZERO)
 
 
