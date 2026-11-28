@@ -1577,6 +1577,8 @@ func _source_click(world_px: Vector2) -> void:
 			draft_points.append(point)
 		if tool_name=="draw_race" and race_editor.placing_finish:
 			_finish_shape()
+			if tool_name=="draw_race":
+				draft_points.pop_back();_refresh_authoring()
 			return
 		_refresh_authoring()
 		if tool_name=="draw_sidewalk":
@@ -3474,7 +3476,9 @@ func _finish_shape() -> void:
 	elif tool_name=="draw_sidewalk":identity=authoring.add_sidewalk(draft_points,sidewalk_width.value)
 	elif tool_name=="draw_guardrail":identity=authoring.add_guardrail(draft_points,guardrail_width.value)
 	elif tool_name=="draw_race":identity=race_editor.finish(self)
-	if identity.is_empty():_notice(authoring.last_error);return
+	if identity.is_empty():
+		_notice(authoring.last_error if not authoring.last_error.is_empty() else "Race route could not be saved. Check gate spacing and starting grid.")
+		return
 	source_id=identity;source_anchor=-1;draft_points.clear()
 	var placed_race: bool=tool_name=="draw_race"
 	if placed_race:tool_name="move_prop";mode_label.text="SELECT / EDIT";_update_active_tool_style()
@@ -3485,6 +3489,7 @@ func _finish_shape() -> void:
 	if placed_race:race_editor.open_for(self,identity)
 
 func _cancel_gesture() -> void:
+	race_editor.placing_finish=false
 	pending_drag.clear();draft_points.clear();_right_drag=false
 	_refresh_authoring();_notice("Unfinished edit canceled. Committed edits are unchanged.")
 
