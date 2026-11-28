@@ -456,7 +456,7 @@ func _apply_graphics_settings() -> void:
 	var map_hud: Node=get_tree().get_first_node_in_group("streetbound_world_map_hud")
 	if is_instance_valid(map_hud):map_hud.set("minimap_fps_limit",clampi(int(settings_store.get_setting("minimap_fps")),0,60))
 	if not is_instance_valid(player_vehicle):return
-	var ground: Node=get_parent().get("ground") if get_parent().get_script()==load("res://scripts/main.gd") else null
+	var ground: Node=(player_vehicle as VehicleController2D).surface_provider if player_vehicle is VehicleController2D else null
 	if not is_instance_valid(ground):return
 	if ground.has_method("set_scenery_shadows"):
 		ground.call("set_scenery_shadows",bool(settings_store.get_setting("scenery_shadows")))
