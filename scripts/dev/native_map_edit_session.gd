@@ -734,8 +734,8 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 	if ext not in ["png","webp","svg"] or not found:
 		last_error = "Project artwork is missing or unsupported."
 		return ""
-	if sprite_region.size()!=0 and sprite_region.size()!=4:
-		last_error = "Invalid sprite region."
+	if not sprite_region.is_empty() or preload("res://scripts/world/coast_art.gd").standalone_path(relative_path).is_empty():
+		last_error = "Only existing standalone map artwork is supported."
 		return ""
 	var identity := _new_prop_id()
 	if identity.is_empty():
@@ -750,8 +750,6 @@ func add_project_prop(relative_path: String, art_type: String, position_m: Vecto
 		"assetPath":relative_path,"assetSize":[footprint.x,footprint.y],
 		"assetCollision":collision_mode
 	}
-	if sprite_region.size()==4:
-		prop["assetRegion"]=sprite_region.duplicate()
 	draft.props.append(prop)
 	return identity if _commit(draft) else ""
 
@@ -1709,7 +1707,6 @@ func replace_assets(ids: Array[String],entry: Dictionary) -> bool:
 			if size.size()!=2:size=[22.0,29.0] if kind in ["building","warehouse"] else [12.0,17.0]
 			prop.type=kind;prop.assetId=str(entry.get("project_id","project-"+path.sha256_text().substr(0,24)))
 			prop.assetPath=path;prop.assetSize=size.duplicate();prop.assetCollision=str(entry.get("collision","solid"))
-			if entry.get("region",[]).size()==4:prop.assetRegion=entry.region.duplicate()
 		else:
 			if not ART.has(kind):last_error="Select a supported asset.";return false
 			prop.type=ART[kind].type;prop.assetId=ART[kind].assetId
