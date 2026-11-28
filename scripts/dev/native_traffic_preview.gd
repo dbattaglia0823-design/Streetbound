@@ -5,7 +5,6 @@ const Network=preload("res://scripts/world/traffic_network.gd")
 const Session=preload("res://scripts/dev/native_map_edit_session.gd")
 const RANK={"highway":5,"arterial":4,"rural":3,"mountain":3,"local":2,"onramp":3}
 var wanted_key:=""
-var _base_key: int=0
 var shown_key:=""
 var running_key:=""
 var job:=-1
