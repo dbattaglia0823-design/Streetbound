@@ -271,8 +271,9 @@ func _draw_races() -> void:
 			if focused:draw_arc(line[i],float(race.get("checkpoint_radius",16))*PPM,0,TAU,40,Color(.25,.9,.85,.18),1/maxf(.003,zoom_level),true)
 			draw_set_transform(line[i],0,Vector2.ONE/maxf(.003,zoom_level))
 			draw_circle(Vector2.ZERO,7,Color("#163537"));draw_arc(Vector2.ZERO,6,0,TAU,24,Color("#4ee8dc"),2,true)
-			var label: String=(str(race.name)+(" / START / FINISH" if race.mode=="circuit" else " / START")) if i==0 else ("FINISH" if race.mode=="sprint" and i==line.size()-1 else "CHECKPOINT %d"%i)
-			if not focused and i>0:label=str(race.name)+" / "+label
+			var gate: Dictionary=EditSession.race_gate_marker(race,i)
+			var label: String=str(gate.name)
+			if i==0 or not focused:label=str(race.name)+" / "+label
 			draw_string(ThemeDB.fallback_font,Vector2(10,4),label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#defdf5"))
 			draw_set_transform(Vector2.ZERO)
 		# Race grids are not generic gameplay markers; they belong to the
