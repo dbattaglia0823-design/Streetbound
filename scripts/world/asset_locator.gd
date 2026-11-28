@@ -46,9 +46,9 @@ static func _scan(folder: String) -> void:
 	for name in dir.get_files():
 		if dir.is_link(name):continue
 		# Exported PCKs may expose only the .remap/.import metadata filename.
-		var base:=name.trim_suffix(".remap").trim_suffix(".import")
+		var base: String=name.trim_suffix(".remap").trim_suffix(".import")
 		if base.get_extension().to_lower() not in ["png","webp","svg","jpg","jpeg","wav","ogg","mp3","tres","res","ttf","otf"]:continue
-		var path:=folder.path_join(base)
+		var path: String=folder.path_join(base)
 		if not _safe(path):continue
 		if not _index.has(base):_index[base]=[]
 		if not _index[base].has(path):_index[base].append(path)
