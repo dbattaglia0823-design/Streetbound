@@ -361,6 +361,14 @@ static func clean_stale_art(doc: Dictionary) -> Array[String]:
 		if not appearance.get("asset_region",[]).is_empty() or (appearance.has("asset_path") and StandaloneArt.standalone_path(str(appearance.asset_path)).is_empty()):prop.erase("sourceAppearance")
 		kept.append(prop)
 	doc["props"]=kept
+	var assets: Array=[]
+	for asset in doc.get("assets",[]):
+		if asset is Dictionary:
+			var path:=str(asset.get("path",asset.get("assetPath","")))
+			if not asset.get("region",[]).is_empty() or not asset.get("assetRegion",[]).is_empty():continue
+			if str(asset.get("id","")).begins_with("project-") and StandaloneArt.standalone_path(path).is_empty():continue
+		assets.append(asset)
+	doc["assets"]=assets
 	return removed
 
 func activate(e,doc: Dictionary,file: String) -> void:
