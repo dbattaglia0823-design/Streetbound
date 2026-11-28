@@ -89,9 +89,19 @@ func _python_typed_source(raw: Dictionary) -> Dictionary:
 			replace_info["seed"] = int(replace_info.get("seed",0))
 	for race in doc.get("races",[]):
 		if race is Dictionary:
-			race["laps"]=int(race.get("laps",1))
-			for reward in ["reward_cash","reward_player_xp","reward_car_xp"]:
-				if race.has(reward):race[reward]=int(race[reward])
+			# Recovery and source reload turn integer JSON tokens into floats.
+			# Match every exact-integer field in tools/authored_races.py; retain
+			# malformed values for validation rather than truncating them.
+			for key in ["laps","reward_cash","reward_player_xp","reward_car_xp",
+					"required_player_level","required_car_level","first_win_reward_cash",
+					"first_win_reward_player_xp","first_win_reward_car_xp","race_heat",
+					"escape_time_limit","entry_fee","underground_rep_reward","required_underground_rep",
+					"multiplayer_reward_cash","multiplayer_reward_player_xp",
+					"multiplayer_reward_car_xp","multiplayer_reward_part_chance"]:
+				if not race.has(key):continue
+				var value: Variant=race[key]
+				if typeof(value)==TYPE_FLOAT and is_finite(value) and absf(value)<=9007199254740991.0 and floorf(value)==value:
+					race[key]=int(value)
 	for art in doc.get("assets",[]):
 		if not art is Dictionary:
 			continue
