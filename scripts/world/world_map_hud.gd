@@ -346,16 +346,11 @@ func _process(_dt: float) -> void:
 	_mini_was_visible=mini.visible
 	_mini_last_limit=minimap_fps_limit
 	layer=19 if full.visible else 2
-	# Hidden map views have their own process callbacks and overlays. Stop
-	# their CPU work as well as the offscreen GPU pass.
-	var mini_processing:=Node.PROCESS_MODE_PAUSABLE if mini.visible else Node.PROCESS_MODE_DISABLED
-	var full_processing:=Node.PROCESS_MODE_PAUSABLE if full.visible else Node.PROCESS_MODE_DISABLED
-	if mini_view.process_mode!=mini_processing:mini_view.process_mode=mini_processing
-	if full_view.process_mode!=full_processing:full_view.process_mode=full_processing
+	# Keep both maps' logical state current; a hidden map can receive
+	# programmatic focus/navigation requests. GPU rendering still stops
+	# while hidden and the optional minimap refresh cap remains active.
 	var current_course := _active_race_navigation()
-	if not mini.visible and not full.visible:return
 	for view in [mini_view,full_view]:
-		if (view==mini_view and not mini.visible) or (view==full_view and not full.visible):continue
 		view.player_m=vehicle.global_position/20
 		view.player_heading=vehicle.rotation
 		if is_instance_valid(view.race_overlay):
