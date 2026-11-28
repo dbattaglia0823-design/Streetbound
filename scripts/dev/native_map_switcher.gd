@@ -345,6 +345,24 @@ func select(e,index: int) -> void:
 	var probe:=Session.new()
 	if not probe._valid_source(doc):e._notice("Saved map is invalid; the current map was kept.");reload_list();return
 	activate(e,doc,file)
+const StandaloneArt=preload("res://scripts/world/coast_art.gd")
+
+## Remove invalid project props from the working draft, never from the saved
+## file. Normal Save creates a backup of the unmodified original.
+static func clean_stale_art(doc: Dictionary) -> Array[String]:
+	var removed: Array[String]=[]
+	var kept: Array=[]
+	for prop in doc.get("props",[]):
+		var id:=str(prop.get("assetId",""))
+		var path:=str(prop.get("assetPath",""))
+		if not prop.get("assetRegion",[]).is_empty() or ((id.begins_with("project-") or not path.is_empty()) and StandaloneArt.standalone_path(path).is_empty()):
+			removed.append(str(prop.id));continue
+		var appearance: Dictionary=prop.get("sourceAppearance",{})
+		if not appearance.get("asset_region",[]).is_empty() or (appearance.has("asset_path") and StandaloneArt.standalone_path(str(appearance.asset_path)).is_empty()):prop.erase("sourceAppearance")
+		kept.append(prop)
+	doc["props"]=kept
+	return removed
+
 func activate(e,doc: Dictionary,file: String) -> void:
 	if not custom:
 		original_session=e.authoring;original_world=e.world.data;original_world_node=e.world
@@ -359,6 +377,10 @@ func activate(e,doc: Dictionary,file: String) -> void:
 		var recovered=JSON.parse_string(FileAccess.get_file_as_string(journal))
 		if recovered is Dictionary and e.authoring._valid_source(recovered):
 			e.authoring.doc=recovered;e.authoring.history.append(doc.duplicate(true));e.authoring.dirty=e.authoring._fingerprint(recovered)!=e.authoring.baseline_hash
+	var before_cleanup: Dictionary=e.authoring.doc.duplicate(true)
+	var removed_art:=clean_stale_art(e.authoring.doc)
+	if before_cleanup!=e.authoring.doc:
+		e.authoring.dirty=true;e.authoring.edit_revision+=1
 	recovery_revision=-1
 	_sync_weather(e)
 	# Cached Morrow render canvases retain their original world owner. Swapping
@@ -379,6 +401,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	if terrain==null:
 		terrain=Terrain.new();terrain.z_index=-8;e.get_parent().add_child(terrain)
 	revision=-1;drag_revision="";e._refresh_authoring();e._fit_map();update_view(e)
+	if not removed_art.is_empty():e._notice("Removed %d retired or missing art placements from draft. Save to retain cleanup; original is backed up."%removed_art.size())
 func save_current(e) -> bool:
 	if not custom:return true
 	if not e.authoring._valid_source(e.authoring.doc):e._notice("Map validation failed; saved version was kept.");return false
