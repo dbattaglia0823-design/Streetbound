@@ -11,9 +11,16 @@ import sys
 import tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'tools'))
+from authored_races import authored_races
 def run():
     source=ROOT/'.runtime/native-editor-audit/source.json'
     doc=json.loads(source.read_text(encoding='utf-8'))
+    # Fast schema validation before copying the builder or baking the world.
+    races=authored_races(doc,doc['world']['width'],doc['world']['height'])
+    linked=next(r for r in races if r['name']=='Native linked sprint')
+    assert type(linked['required_player_level']) is int and linked['required_player_level']==17
+    print('NATIVE EDITOR RACE SOURCE SCHEMA: PASS',flush=True)
     with tempfile.TemporaryDirectory(prefix='native-editor-bake-') as tmp:
         work=Path(tmp)
         shutil.copytree(ROOT/'tools',work/'tools',ignore=shutil.ignore_patterns('__pycache__'))
@@ -47,6 +54,7 @@ def run():
         assert len(markers)==1 and markers[0]['kind']=='race_start', 'Expected exactly one playable race start'
         assert markers[0]['p']==[race['points'][0]['x'],race['points'][0]['y']], 'Race start marker moved during bake'
         assert markers[0]['race']['points']==race['points'], 'Linked route gates changed during bake'
+        assert markers[0]['race']['required_player_level']==17, 'Recovered driver-level lock lost during bake'
         assert not any(m.get('properties',{}).get('race_id')==race['id'] for m in doc['markers']), 'Duplicate standalone race gates'
         assert baked['chunks'] and baked['road_connections']
         print('NATIVE EDITOR PRODUCTION BAKE: PASS (road, chosen terrain, standalone marker, linked race, streaming and connections)')

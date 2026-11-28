@@ -192,6 +192,7 @@ func run() -> void:
 	var form=editor.race_editor
 	form.begin_route(editor)
 	form.title.text="Native linked sprint"
+	form.required_level.value=17
 	form.mode.select(0)
 	form.competition.select(1)
 	var route: PackedVector2Array=editor._source_road_path(session.road_at_id(str(added.id)))
@@ -241,8 +242,35 @@ func run() -> void:
 	editor._unhandled_input(wheel)
 	check("zoom_preserves_world_position_under_cursor",under_cursor.distance_to(editor._event_world_position(wheel.position))<.01)
 	check("editing_does_not_mutate_the_playable_archive",JSON.stringify(scene.ground.data.roads)==baked_before)
+	# Exercise the same recovered JSON conversion as the actual production POST.
+	var recovered: Dictionary=JSON.parse_string(JSON.stringify(session.doc))
+	var typed: Dictionary=editor.bridge._python_typed_source(recovered)
+	var recovered_level_ok:=false
+	for race in typed.get("races",[]):
+		if str(race.name)=="Native linked sprint":
+			recovered_level_ok=typeof(race.get("required_player_level"))==TYPE_INT and int(race.required_player_level)==17
+	check("recovered_race_driver_level_export_is_integer",recovered_level_ok)
+	var integer_fields:=["laps","reward_cash","reward_player_xp","reward_car_xp","required_player_level",
+		"required_car_level","first_win_reward_cash","first_win_reward_player_xp","first_win_reward_car_xp",
+		"race_heat","escape_time_limit","entry_fee","underground_rep_reward","required_underground_rep",
+		"multiplayer_reward_cash","multiplayer_reward_player_xp","multiplayer_reward_car_xp","multiplayer_reward_part_chance"]
+	var probe: Dictionary={"required_player_level":1.5,"required_car_level":true}
+	for key in integer_fields:
+		if not probe.has(key):probe[key]=2.0
+	var normalized: Dictionary=editor.bridge._python_typed_source({"races":[probe]}).races[0]
+	var integers_ok:=true
+	for key in integer_fields:
+		if key not in ["required_player_level","required_car_level"]:
+			integers_ok=integers_ok and typeof(normalized[key])==TYPE_INT and normalized[key]==2
+	check("all_race_integer_fields_retyped_without_truncating_invalid_data",
+		integers_ok and typeof(normalized.required_player_level)==TYPE_FLOAT and normalized.required_player_level==1.5 and
+		typeof(normalized.required_car_level)==TYPE_BOOL and typeof(probe.laps)==TYPE_FLOAT)
 	var output:=FileAccess.open("res://.runtime/native-editor-audit/source.json",FileAccess.WRITE)
-	output.store_string(JSON.stringify(editor.bridge._python_typed_source(session.doc)));output.close()
+	check("native_editor_bake_fixture_opened",output!=null)
+	if output==null:quit(1);return
+	output.store_string(JSON.stringify(typed))
+	check("native_editor_bake_fixture_written",output.get_error()==OK)
+	output.close()
 	editor._choose_tool("draw_road");editor._source_click(Vector2(2700,3200)*20)
 	editor._discard_draft()
 	check("discard_clears_shapes_recovery_and_preview_masks",editor.draft_points.is_empty() and not FileAccess.file_exists(editor.recovery_path) and Roads.editor_hidden.is_empty())

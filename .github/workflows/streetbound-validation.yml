@@ -250,6 +250,34 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pause_menu_test.gd 2>&1 | tee /tmp/streetbound-pause-463.log
           grep -q 'PAUSE MENU TESTS: PASS' /tmp/streetbound-pause-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-pause-463.log
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-463-gameplay-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot463-import.log
+            /tmp/godot463-race-load-probe.log
+            /tmp/elevation-city-stress.log
+            /tmp/road-jump-drive.log
+            /tmp/underground-racing-463.log
+            /tmp/contact-screen-463.log
+            /tmp/driving-contracts-463.log
+            /tmp/police-tactics-463.log
+            /tmp/driving-crime-463.log
+            /tmp/vehicle-fuel-463.log
+            /tmp/service-rules-463.log
+            /tmp/sidewalk-branches-463.log
+            /tmp/circular-mini-463.log
+            /tmp/race-start-card-463.log
+            /tmp/godot463-race-hud.log
+            /tmp/pause-hub-463.log
+            /tmp/streetbound-title-463.log
+            /tmp/online-smoothing-463.log
+            /tmp/online-friends-463.log
+            /tmp/streetbound-pause-463.log
 
   godot-463-editor:
     runs-on: ubuntu-24.04
@@ -365,14 +393,21 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_start_grid_test.gd 2>&1 | tee /tmp/race-start-grid.log
           grep -q 'RACE START GRID: PASS' /tmp/race-start-grid.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/race-start-grid.log
-      - name: Verify native race setup, production bake and pause-only race quitting
+      - name: Verify native race setup and write bake fixture
+        id: race_fixture
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_editor_test.gd 2>&1 | tee /tmp/race-editor.log
           grep -q 'RACE EDITOR: PASS' /tmp/race-editor.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/race-editor.log
-          python3 -B tests/race_editor_bake_test.py
+      - name: Bake native race setup and verify round-trip
+        if: ${{ !cancelled() && steps.race_fixture.outcome == 'success' }}
+        run: python3 -B tests/race_editor_bake_test.py
+      - name: Verify pause-only race quitting
+        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        run: |
+          set -o pipefail
           timeout --signal=SIGINT --kill-after=5s 100s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/race_pause_behavior_test.gd 2>&1 | tee /tmp/race-pause.log
           grep -q 'RACE PAUSE BEHAVIOR: PASS' /tmp/race-pause.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|^FAIL ' /tmp/race-pause.log
@@ -384,6 +419,7 @@ jobs:
           grep -q 'TRAFFIC ROAD ALIGNMENT: PASS' /tmp/traffic-alignment-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/traffic-alignment-463.log
       - name: Verify native road dragging, creation, panels and draft recovery (4.6.3)
+        id: native_editor_fixture
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
           set -o pipefail
@@ -391,7 +427,7 @@ jobs:
           grep -q 'NATIVE EDITOR INTERACTIONS: PASS' /tmp/native-interactions-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-interactions-463.log
       - name: Bake native editor creations with the production builder in an isolated copy
-        if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.native_editor_fixture.outcome == 'success' }}
         run: python3 -B tests/native_editor_build_test.py
       - name: Verify existing road point editing and split production bake
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
@@ -415,6 +451,37 @@ jobs:
           set -o pipefail
           python3 -B tests/map_asset_catalog_test.py
           python3 -B tests/project_asset_catalog_test.py
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-463-editor-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot463-import.log
+            /tmp/godot463-race-load-probe.log
+            /tmp/gameplay-authoring-analysis.log
+            /tmp/world-validation.log
+            /tmp/living-world.log
+            /tmp/environment-finishing.log
+            /tmp/map-release.log
+            /tmp/native-map-reload-463.log
+            /tmp/marquee-input-463.log
+            /tmp/native-multiselect-463.log
+            /tmp/native-editor-asset-outline-463.log
+            /tmp/native-authoring-463.log
+            /tmp/advanced-world-construction.log
+            /tmp/integrated-map-editor.log
+            /tmp/waypoint-shortest-463.log
+            /tmp/races-waypoints-463.log
+            /tmp/race-start-grid.log
+            /tmp/race-editor.log
+            /tmp/race-pause.log
+            /tmp/traffic-alignment-463.log
+            /tmp/native-interactions-463.log
+            /tmp/road-point-tools.log
+            /tmp/editor-asset-transforms.log
 
   godot-463-editor-bake:
     runs-on: ubuntu-24.04
@@ -553,6 +620,29 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_world_editor_test.gd 2>&1 | tee /tmp/native-editor-463.log
           grep -q 'NATIVE WORLD EDITOR FOUNDATION: PASS' /tmp/native-editor-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-editor-463.log
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-463-editor-bake-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot463-import.log
+            /tmp/godot463-race-load-probe.log
+            /tmp/city-authoring.log
+            /tmp/building-clearance-463.log
+            /tmp/road-facing-buildings.log
+            /tmp/map-library.log
+            /tmp/authored-career-markers.log
+            /tmp/custom-full-game-test-drive.log
+            /tmp/road-shape-tools.log
+            /tmp/editor-integrity.log
+            /tmp/basic-editor.log
+            /tmp/automatic-bridges-463.log
+            /tmp/track-kerbs-463.log
+            /tmp/native-workspace-463.log
+            /tmp/native-editor-463.log
 
   godot-463-startup-render:
     runs-on: ubuntu-24.04
@@ -825,6 +915,49 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/published_world_integration_test.gd 2>&1 | tee /tmp/streetbound-published-world.log
           grep -q 'PUBLISHED WORLD GAMEPLAY: PASS' /tmp/streetbound-published-world.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-published-world.log
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-463-startup-render-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot463-import.log
+            /tmp/godot463-race-load-probe.log
+            /tmp/godot463-startup.log
+            /tmp/game-performance.log
+            /tmp/godot463-real-game.log
+            /tmp/godot463-render-probe.log
+            /tmp/godot463-world-render.log
+            /tmp/godot463-high-output.log
+            /tmp/godot463-road-width.log
+            /tmp/godot463-traffic-recovery.log
+            /tmp/godot463-traffic-junctions.log
+            /tmp/godot463-traffic-safety.log
+            /tmp/driving-phase2-463.log
+            /tmp/driving-phase3-463.log
+            /tmp/driving-phase1-463.log
+            /tmp/crash-effects-463.log
+            /tmp/godot463-traffic-stuck.log
+            /tmp/godot463-racing-traffic.log
+            /tmp/godot463-racing-line.log
+            /tmp/godot463-race-guidance.log
+            /tmp/godot463-racing-ai.log
+            /tmp/godot463-wheel-visual.log
+            /tmp/godot463-multi-wheel.log
+            /tmp/godot463-curb.log
+            /tmp/godot463-zoom.log
+            /tmp/godot463-traffic-size.log
+            /tmp/offscreen-vehicle-awareness-463.log
+            /tmp/streetbound-new-vehicles-463.log
+            /tmp/vehicle-spec-audit-463.log
+            /tmp/streetbound-expanded-upgrades-463.log
+            /tmp/streetbound-controls-463.log
+            /tmp/local-splitscreen-463.log
+            /tmp/godot463-quick-upgrades.log
+            /tmp/streetbound-dashboard-layout.log
+            /tmp/streetbound-published-world.log
 
   browser-and-world-bake:
     runs-on: ubuntu-24.04
@@ -1009,6 +1142,30 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/crash-effects-441.log
       - name: Verify racing handling and steering tuning
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_tune_test.gd
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-441-physics-ui-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot441-import.log
+            /tmp/sidewalk-branches-441.log
+            /tmp/circular-mini-441.log
+            /tmp/race-start-card-441.log
+            /tmp/pause-hub-441.log
+            /tmp/streetbound-title-441.log
+            /tmp/streetbound-pause-441.log
+            /tmp/native-map-reload-441.log
+            /tmp/native-authoring-441.log
+            /tmp/native-editor-441.log
+            /tmp/streetbound-startup.log
+            /tmp/godot441-high-output.log
+            /tmp/driving-phase2-441.log
+            /tmp/driving-phase3-441.log
+            /tmp/driving-phase1-441.log
+            /tmp/crash-effects-441.log
 
   godot-441-world-traffic:
     runs-on: ubuntu-24.04
@@ -1101,6 +1258,15 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-441-world-traffic-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot441-import.log
 
   godot-441-career-driving:
     runs-on: ubuntu-24.04
@@ -1207,6 +1373,23 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/mountain_drive.gd
       - name: Verify junction coverage, stop priority and lane-paint clipping
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/junction_test.gd
+      - name: Upload failed regression logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-441-career-driving-failure-logs-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            /tmp/godot441-import.log
+            /tmp/offscreen-vehicle-awareness-441.log
+            /tmp/streetbound-new-vehicles-441.log
+            /tmp/vehicle-spec-audit-441.log
+            /tmp/streetbound-expanded-upgrades-441.log
+            /tmp/streetbound-quick-upgrades.log
+            /tmp/world-render-contract.log
+            /tmp/streetbound-controls-441.log
+            /tmp/local-splitscreen-441.log
 
   godot-463-game-startup:
     # Preserve the original required-check identity; all shards must pass.
@@ -1222,8 +1405,13 @@ jobs:
           python3 - <<'PY'
           import json, os
           results = json.loads(os.environ["NEEDS_JSON"])
-          for name, job in results.items():
-              print(f"{name}: {job['result']}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("### Regression shard results\n\n| Shard | Result |\n|---|---|\n")
+              for name, job in results.items():
+                  print(f"{name}: {job['result']}")
+                  summary.write(f"| {name} | {job['result']} |\n")
+                  if job["result"] != "success":
+                      print(f"::error::{name} finished with {job['result']}")
           if not results or any(job["result"] != "success" for job in results.values()):
               raise SystemExit(1)
           PY
@@ -1242,8 +1430,13 @@ jobs:
           python3 - <<'PY'
           import json, os
           results = json.loads(os.environ["NEEDS_JSON"])
-          for name, job in results.items():
-              print(f"{name}: {job['result']}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("### Regression shard results\n\n| Shard | Result |\n|---|---|\n")
+              for name, job in results.items():
+                  print(f"{name}: {job['result']}")
+                  summary.write(f"| {name} | {job['result']} |\n")
+                  if job["result"] != "success":
+                      print(f"::error::{name} finished with {job['result']}")
           if not results or any(job["result"] != "success" for job in results.values()):
               raise SystemExit(1)
           PY
