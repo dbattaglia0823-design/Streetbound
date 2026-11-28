@@ -64,6 +64,26 @@ class MapAssetCatalogTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 building_file(relative, self.root)
 
+    def test_moved_filename_resolves_to_canonical_location(self):
+        old = "Map Building Assets/Buildings/Corner Shop.png"
+        new = self.base / "Commercial" / "Downtown" / "Corner Shop.png"
+        fake_png(new)
+        item = resolve_asset(old, asset_id(old), self.root)
+        relative = new.relative_to(self.root / "assets").as_posix()
+        self.assertEqual(item["path"], relative)
+        self.assertEqual(item["id"], asset_id(relative))
+        self.assertEqual(resolve_asset(relative, item["id"], self.root), item)
+        # A direct path wins even when another file has the same basename.
+        duplicate = self.base / "Other" / "Corner Shop.png"
+        fake_png(duplicate)
+        self.assertEqual(building_file(relative, self.root), new)
+        with self.assertRaisesRegex(ValueError, "multiple exact filename matches"):
+            building_file(old, self.root)
+        new.unlink()
+        duplicate.unlink()
+        with self.assertRaisesRegex(ValueError, "no exact filename match"):
+            building_file(old, self.root)
+
     def test_legacy_buildings_remain_available(self):
         path = self.root / "assets" / "Buildings" / "House.png"
         fake_png(path)
