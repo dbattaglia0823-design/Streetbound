@@ -15,6 +15,7 @@ const BUILDING_ART := {
  "showroom": ["Office1.png","Office2.png","Large Office.png"],
  "fuel": ["Service Garage.png","CornerShop.png"]
 }
+const Locator=preload("res://scripts/world/asset_locator.gd")
 static var project_textures: Dictionary = {}
 
 ## Map artwork must be a complete, individual file. Never load sheet regions.
@@ -23,11 +24,7 @@ static func standalone_path(relative: String) -> String:
   return ""
  if "sprite sheets" in relative.to_lower() or relative.get_extension().to_lower() not in ["png","webp","svg"]:
   return ""
- var path := "res://assets/"+relative
- if not ResourceLoader.exists(path,"Texture2D") and not FileAccess.file_exists(path) and relative.begins_with("Buildings/"):
-  path = "res://assets/Map Building Assets/"+relative
- if FileAccess.file_exists(path.get_basename()+".sheet.json"):return ""
- return path if ResourceLoader.exists(path,"Texture2D") or FileAccess.file_exists(path) else ""
+ return Locator.resolve("res://assets/"+relative,"Texture2D",true)
 
 static func project_sprite(relative: String, region: Array = []) -> Texture2D:
  if not region.is_empty():return null
@@ -56,11 +53,7 @@ static func sprite(kind: String, seed_value: int) -> Texture2D:
   var available: Array = BUILDING_ART[kind]
   if available.is_empty():return null
   var index: int = posmod(seed_value,available.size())
-  # Skip deleted alternatives without requesting a missing resource.
-  for i in available.size():
-   var texture:=project_sprite("Buildings/"+str(available[(index+i)%available.size()]))
-   if texture!=null:return texture
-  return null
+  return project_sprite("Buildings/"+str(available[index]))
  # Vegetation and rocks have their own individual artwork.
  var nature: String={"tree":"Oak.svg","pine":"Pine.svg","palm":"Palm.svg","rock":"Rock.svg"}.get(kind,"")
  if nature.is_empty():return null
