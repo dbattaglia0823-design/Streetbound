@@ -6,7 +6,7 @@ import {roadPieces,isLoose,denseRoadPath} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
 import {projectArtwork} from './world-project-assets.js';
 import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
-import {BASE_SIZE,drawAtlas,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
+import {BASE_SIZE,drawStandaloneArt,drawGameVectorProp,gameArtKind,drawRuntimeScenery,drawRuntimeExpansion,drawRuntimeTerrain,drawNative} from './morrow-runtime-preview.js';
 import {roadInsertCandidate,regionInsertCandidate} from './world-edit-tools.js';
 import {bridgesForDocument,drawBridge} from './world-road-bridges.js';
 import {isMountainBarrier,drawMountainRegion} from './world-mountain-barriers.js';
@@ -492,7 +492,7 @@ export function drawProp(ctx,prop,assets=[],gameArt=false){
     // Real metre-scale footprints, directly matching the production baker.
     const kind=gameArtKind(prop);
     const size=BASE_SIZE[prop.type];
-    if(size&&drawAtlas(ctx,kind,size,stringSeed(prop.id))){
+    if(size&&drawStandaloneArt(ctx,kind,size,stringSeed(prop.id))){
       ctx.restore();return;
     }
     if(drawGameVectorProp(ctx,prop)){

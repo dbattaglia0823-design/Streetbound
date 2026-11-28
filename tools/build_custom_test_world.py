@@ -136,7 +136,71 @@ def _gameplay_payload(doc,roads,width,height):
     return dict(spawn=spawn,pois=pois,editor_markers=markers,editor_races=baked_races,editor_dealerships=dealers,editor_game_markers=markers)
 
 
+def clean_custom_art(doc):
+    """Relink moved art on a detached copy; report missing individual assets."""
+    from project_asset_catalog import resolve_asset, building_file, asset_id, ROOT
+    from copy import deepcopy
+    if doc.get("customMap") is not True:
+        return doc, []
+    clean = deepcopy(doc)
+    removed = []
+    cache = {}
+    def retired(relative, region):
+        return bool(region) or (isinstance(relative, str) and 'sprite sheets' in relative.casefold())
+    def resolve(relative, identifier):
+        key = (relative, identifier)
+        if key not in cache:
+            cache[key] = resolve_asset(relative, identifier, ROOT)
+        return cache[key]
+    props = []
+    for prop in clean.get("props", []):
+        if not isinstance(prop, dict):
+            props.append(prop)
+            continue
+        identifier = prop.get("assetId", "")
+        path = prop.get("assetPath")
+        if retired(path, prop.get("assetRegion")):
+            removed.append(str(prop.get("id", "")))
+            continue
+        if path or str(identifier).startswith("project-"):
+            item = resolve(path, identifier)
+            prop["assetPath"] = item["path"]
+            prop["assetId"] = item["id"]
+        appearance = prop.get("sourceAppearance")
+        if isinstance(appearance, dict):
+            relative = appearance.get("asset_path")
+            if retired(relative, appearance.get("asset_region")):
+                prop.pop("sourceAppearance", None)
+            elif relative:
+                item = resolve(relative, appearance.get("asset_id", asset_id(relative)))
+                appearance["asset_path"] = item["path"]
+                appearance["asset_id"] = item["id"]
+        props.append(prop)
+    clean["props"] = props
+    # Obsolete manifest entries alone are not placements. Rebuild their paths
+    # when possible; never fail a map because an unused library entry vanished.
+    assets = []
+    for entry in clean.get("assets", []):
+        if isinstance(entry, dict):
+            path = entry.get("path", entry.get("assetPath"))
+            if retired(path, entry.get("region") or entry.get("assetRegion")):
+                continue
+            if str(entry.get("id", "")).startswith("project-"):
+                try:
+                    item = resolve(path, entry["id"])
+                except (ValueError, OSError):
+                    continue
+                entry["id"] = item["id"]
+                entry["assetPath" if "assetPath" in entry else "path"] = item["path"]
+        assets.append(entry)
+    clean["assets"] = assets
+    return clean, removed
+
+
 def make_archive(doc):
+    doc, removed_art = clean_custom_art(doc)
+    if removed_art:
+        print("Removed unavailable map artwork from Test Drive bake:", ", ".join(removed_art))
     if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2 or doc.get("customMap") is not True:
         raise ValueError("Not a saved custom World Builder map")
     world = doc.get("world", {})
@@ -311,6 +375,7 @@ def make_archive(doc):
         result["terrainHeight"]=field
     validate_open_cuts(result)
     result['editor_warnings'].extend(audit_elevated_objectives(result))
+    if removed_art: result['editor_warnings'].append({'code':'retired_map_art','ids':removed_art})
     bake_jumps(result)
     return result
 
@@ -322,6 +387,8 @@ def scenery_rebuild(archive, doc):
     match. Revalidate all scenery and jump corridors; regenerate positional
     prop indices because changing array order would otherwise break streaming.
     """
+    doc, removed_art = clean_custom_art(doc)
+    if removed_art: print("Removed unavailable map artwork from Test Drive bake:", ", ".join(removed_art))
     width,height=archive["size"]
     props=[p for p in _authoring_props(with_auto_props(doc,archive["roads"],archive["junctions"],width,height),width,height) if not p.get("hidden")]
     archive["props"]=props
@@ -348,6 +415,7 @@ def scenery_rebuild(archive, doc):
     if zones:archive["gameplay_zones"]=zones
     validate_open_cuts(archive)
     archive["editor_warnings"]=audit_elevated_objectives(archive)
+    if removed_art: archive["editor_warnings"].append({"code":"retired_map_art","ids":removed_art})
     archive.pop("jumps",None)
     bake_jumps(archive)
     return archive

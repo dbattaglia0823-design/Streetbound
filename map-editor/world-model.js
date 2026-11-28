@@ -148,10 +148,9 @@ function validEntity(item,type,w,h){
       }
     }
     if(projectAssetId(entity.assetId)){
-      const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize});
+      const art=projectArtwork({...entity,assetPath:item.assetPath,assetSize:item.assetSize,assetRegion:item.assetRegion});
       if(!art)throw new TypeError('Missing or invalid project building artwork');
       entity.assetPath=art.path;entity.assetSize=[...art.size];
-      if(art.region)entity.assetRegion=[...art.region];
       entity.assetCollision=art.collision;
     }
     if(item.replaces){

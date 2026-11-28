@@ -7,6 +7,7 @@ const PPM := 20.0
 const POLICE_CATALOG_PATH := "res://data/police_vehicle_catalog.json"
 static var _patrol_models: Array[Dictionary] = []
 static var _patrol_catalog_loaded := false
+const Locator=preload("res://scripts/world/asset_locator.gd")
 const Elevation = preload("res://scripts/world/road_elevation.gd")
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const Slipstream = preload("res://scripts/visual/driving_slipstream.gd")
@@ -63,7 +64,7 @@ static func patrol_models() -> Array[Dictionary]:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(POLICE_CATALOG_PATH))
 		if parsed is Dictionary:
 			for model in parsed.get("vehicles", []):
-				if model is Dictionary and bool(model.get("ambient_patrol", false)) and ResourceLoader.exists(str(model.get("texture", "")), "Texture2D"):
+				if model is Dictionary and bool(model.get("ambient_patrol", false)) and not Locator.resolve(str(model.get("texture","")),"Texture2D").is_empty():
 					_patrol_models.append(model)
 	return _patrol_models.duplicate(true)
 
@@ -106,15 +107,8 @@ static func appearance_for(index: int) -> Dictionary:
 	if art_cache.has(slot):
 		return art_cache[slot]
 	var path: String = MODEL_PATHS[slot]
-	var texture: Texture2D = load(path) as Texture2D if ResourceLoader.exists(path,"Texture2D") else null
-	if texture == null:
-		# Keep older checkouts working while assets migrate to assets/vehicles.
-		var legacy := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/Traffic Vehicles/")
-		texture = load(legacy) as Texture2D if ResourceLoader.exists(legacy,"Texture2D") else null
-		if texture == null:
-			# Windows accepts this differently cased folder; Linux needs Vehicles.
-			var lowercase := path.replace("res://assets/Vehicles/Traffic Vehicles/","res://assets/vehicles/Traffic Vehicles/")
-			texture = load(lowercase) as Texture2D if ResourceLoader.exists(lowercase,"Texture2D") else null
+	var resolved:=Locator.resolve(path,"Texture2D")
+	var texture: Texture2D=load(resolved) as Texture2D if not resolved.is_empty() else null
 	if texture == null:
 		push_warning("Traffic artwork unavailable: " + path)
 		return {}
@@ -146,9 +140,9 @@ static func patrol_appearance(model: Dictionary) -> Dictionary:
 	var path := str(model.get("texture", ""))
 	if art_cache.has(path):
 		return art_cache[path]
-	if not ResourceLoader.exists(path, "Texture2D"):
-		return {}
-	var texture := load(path) as Texture2D
+	var resolved:=Locator.resolve(path,"Texture2D")
+	if resolved.is_empty():return {}
+	var texture := load(resolved) as Texture2D
 	if texture == null:
 		return {}
 	var pixels := texture.get_image()

@@ -216,7 +216,7 @@ func _asphalt_apron(size: Vector2, seed_value: int, parking: bool,
 
 
 func _shrub(p: Vector2, radius: float, seed_value: int) -> void:
-	# The same vegetation atlas used for street trees makes the small
+	# The same standalone vegetation art used for street trees makes the small
 	# roadside planting beds fit the existing illustrated buildings.
 	var sprite := Art.sprite("pine" if seed_value%4==0 else "tree",seed_value)
 	draw_circle(p+Vector2(2.8,4.0),radius*.95,Color(.13,.19,.14,.26))
@@ -470,7 +470,7 @@ func _draw_prop(prop: Dictionary) -> void:
 		_draw_player_garage(size)
 		return
 	# Controlled one-block pilot: original commercial rooftops replace the
-	# repeated workshop atlas sprite on a handful of existing downtown props.
+	# repeated workshop sprite on a handful of existing downtown props.
 	# Footprints, orientation, collision, road/parking layers remain as baked.
 	if prop.has("downtown_pilot_style"):
 		var pilot_texture: Texture2D = DowntownPilot.sprite(

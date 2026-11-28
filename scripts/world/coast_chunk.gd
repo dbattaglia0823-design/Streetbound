@@ -122,7 +122,9 @@ func setup(owner_world: Node2D, index: Vector2i, data: Dictionary) -> void:
 		ground_polys.append({"points": polygon, "color": Color(terrain.color),"kind":terrain.kind,
 			"uvs":terrain_uvs(polygon.size(),str(terrain.kind))})
 	for prop_index in data.get("props", []):
-		prop_list.append(world.data.props[int(prop_index)])
+		var prop: Dictionary=world.data.props[int(prop_index)]
+		if prop.has("asset_path") and (not prop.get("asset_region",[]).is_empty() or preload("res://scripts/world/coast_art.gd").standalone_path(str(prop.asset_path)).is_empty()):continue
+		prop_list.append(prop)
 	prop_list.sort_custom(func(a: Dictionary,b: Dictionary): return _prop_order(a)<_prop_order(b))
 	for junction_index in data.get("junctions", []):
 		junction_list.append(world.data.junctions[int(junction_index)])

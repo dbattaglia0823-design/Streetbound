@@ -345,6 +345,55 @@ func select(e,index: int) -> void:
 	var probe:=Session.new()
 	if not probe._valid_source(doc):e._notice("Saved map is invalid; the current map was kept.");reload_list();return
 	activate(e,doc,file)
+const StandaloneArt=preload("res://scripts/world/coast_art.gd")
+
+## Remove invalid project props from the working draft, never from the saved
+## file. Normal Save creates a backup of the unmodified original.
+static func clean_stale_art(doc: Dictionary) -> Array[String]:
+	var issues: Array[String]=[]
+	var kept: Array=[]
+	for prop in doc.get("props",[]):
+		var id:=str(prop.get("assetId",""))
+		var path:=str(prop.get("assetPath",""))
+		if not prop.get("assetRegion",[]).is_empty() or "sprite sheets" in path.to_lower():
+			issues.append("Retired sheet: "+str(prop.id));continue
+		if id.begins_with("project-") or not path.is_empty():
+			var resolved:=StandaloneArt.standalone_path(path)
+			if resolved.is_empty():
+				# Keep missing individual placements so users can restore files.
+				issues.append("Missing or ambiguous: "+path)
+			else:
+				var relative:=resolved.trim_prefix("res://assets/")
+				if relative!=path:
+					prop.assetPath=relative
+					prop.assetId="project-"+relative.sha256_text().substr(0,24)
+		var appearance: Dictionary=prop.get("sourceAppearance",{})
+		if not appearance.get("asset_region",[]).is_empty() or "sprite sheets" in str(appearance.get("asset_path","")).to_lower():
+			prop.erase("sourceAppearance")
+		elif appearance.has("asset_path"):
+			var resolved:=StandaloneArt.standalone_path(str(appearance.asset_path))
+			if not resolved.is_empty():
+				appearance.asset_path=resolved.trim_prefix("res://assets/")
+				appearance.asset_id="project-"+str(appearance.asset_path).sha256_text().substr(0,24)
+			else:issues.append("Missing or ambiguous: "+str(appearance.asset_path))
+		kept.append(prop)
+	doc["props"]=kept
+	var assets: Array=[]
+	for asset in doc.get("assets",[]):
+		if asset is Dictionary:
+			var path:=str(asset.get("path",asset.get("assetPath","")))
+			if not asset.get("region",[]).is_empty() or not asset.get("assetRegion",[]).is_empty() or "sprite sheets" in path.to_lower():continue
+			if str(asset.get("id","")).begins_with("project-"):
+				var resolved:=StandaloneArt.standalone_path(path)
+				if not resolved.is_empty():
+					var relative:=resolved.trim_prefix("res://assets/")
+					asset.id="project-"+relative.sha256_text().substr(0,24)
+					if asset.has("assetPath"):asset.assetPath=relative
+					else:asset.path=relative
+		assets.append(asset)
+	doc["assets"]=assets
+	return issues
+
 func activate(e,doc: Dictionary,file: String) -> void:
 	if not custom:
 		original_session=e.authoring;original_world=e.world.data;original_world_node=e.world
@@ -359,6 +408,10 @@ func activate(e,doc: Dictionary,file: String) -> void:
 		var recovered=JSON.parse_string(FileAccess.get_file_as_string(journal))
 		if recovered is Dictionary and e.authoring._valid_source(recovered):
 			e.authoring.doc=recovered;e.authoring.history.append(doc.duplicate(true));e.authoring.dirty=e.authoring._fingerprint(recovered)!=e.authoring.baseline_hash
+	var before_cleanup: Dictionary=e.authoring.doc.duplicate(true)
+	var removed_art:=clean_stale_art(e.authoring.doc)
+	if before_cleanup!=e.authoring.doc:
+		e.authoring.dirty=true;e.authoring.edit_revision+=1
 	recovery_revision=-1
 	_sync_weather(e)
 	# Cached Morrow render canvases retain their original world owner. Swapping
@@ -379,6 +432,8 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	if terrain==null:
 		terrain=Terrain.new();terrain.z_index=-8;e.get_parent().add_child(terrain)
 	revision=-1;drag_revision="";e._refresh_authoring();e._fit_map();update_view(e)
+	if not removed_art.is_empty():e._notice("Asset issues (%d): %s. Missing individual placements retained; retired sheets removed."%[removed_art.size(),removed_art[0]])
+	elif before_cleanup!=e.authoring.doc:e._notice("Moved assets relinked. Save to retain their new paths.")
 func save_current(e) -> bool:
 	if not custom:return true
 	if not e.authoring._valid_source(e.authoring.doc):e._notice("Map validation failed; saved version was kept.");return false

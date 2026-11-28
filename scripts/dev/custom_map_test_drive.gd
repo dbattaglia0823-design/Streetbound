@@ -56,7 +56,7 @@ func _ready() -> void:
 static func _run_compiler(python: String,args: PackedStringArray) -> Dictionary:
 	var output: Array=[]
 	var code:=OS.execute(python,args,output,true)
-	return {"code":code,"output":str(output).left(260)}
+	return {"code":code,"output":str(output).right(1000)}
 
 func _process(_dt: float) -> void:
 	if build_thread==null:return
