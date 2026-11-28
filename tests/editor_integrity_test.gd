@@ -64,5 +64,24 @@ func run() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://.runtime/road-edit-audit/integrity-visual.png")
 	e._undo();e._redo();check("undo_redo_preserve_live_asset",e.gizmos.preview_indices.has(id))
+	var before_revision: int=e.authoring.edit_revision
+	var before_history: int=e.authoring.history.size()
+	var refreshes: int=e.full_refresh_count
+	var road: Dictionary=e.authoring.road_at_id("road-0")
+	var start:=Vector2(float(road.points[0].x),float(road.points[0].y))*20.0
+	e.source_id="road-0";e.source_anchor=0
+	e.pending_drag={"kind":"road","id":"road-0","index":0,"from":start,"grab":start,"to":start+Vector2(40,0)}
+	e._refresh_drag_geometry()
+	check("road_preview_does_not_commit_or_refresh_inspector",e.authoring.edit_revision==before_revision and e.authoring.history.size()==before_history and e.full_refresh_count==refreshes and e.drag_preview_count>0)
+	e.pending_drag.clear();e._refresh_authoring()
+	var terrain_preview=preload("res://scripts/dev/custom_map_terrain.gd").new()
+	root.add_child(terrain_preview)
+	var custom: Dictionary=Library.create("Terrain performance",1200,1000,"grass")
+	terrain_preview.update_map(custom)
+	var terrain_builds: int=terrain_preview.rebuild_count
+	custom.props.append({"id":"prop-preview-only"})
+	terrain_preview.update_map(custom)
+	check("scenery_change_does_not_rebuild_terrain",terrain_preview.rebuild_count==terrain_builds)
+	terrain_preview.queue_free()
 	e._discard_draft();scene.queue_free();await process_frame;await process_frame
 	print("EDITOR INTEGRITY: ","PASS" if failures.is_empty() else str(failures));quit(0 if failures.is_empty() else 1)
