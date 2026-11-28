@@ -112,6 +112,7 @@ func _valid_source(value: Dictionary) -> bool:
 				not road.get("points") is Array or road.points.size() < 2 or \
 				road.points.size() > 100:
 			return false
+		if road.has("drawOrder") and not _valid_draw_order(road.drawOrder,"road"):return false
 		var identity := str(road.id)
 		if used.has(identity):
 			return false
@@ -944,7 +945,14 @@ func set_prop_draw_order(identity: String, order: int) -> bool:
 		if order==0:region.erase("drawOrder")
 		else:region["drawOrder"]=order
 		return _commit(next)
-	last_error="Select a scenery asset or terrain region first."
+	for road in next.roads:
+		if str(road.id)!=identity:continue
+		if not _valid_draw_order(order,"road"):
+			last_error="Road draw order must be -5 to +10.";return false
+		if order==0:road.erase("drawOrder")
+		else:road["drawOrder"]=order
+		return _commit(next)
+	last_error="Select a road, scenery asset or terrain region first."
 	return false
 
 
