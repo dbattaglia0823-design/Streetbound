@@ -187,6 +187,7 @@ var inspector_scale: SpinBox
 var inspector_scale_x: SpinBox
 var inspector_scale_y: SpinBox
 var inspector_draw_order: SpinBox
+var draw_order_hint: Label
 var point_picker: OptionButton
 var remove_point_button: Button
 var add_point_button: Button
@@ -195,7 +196,6 @@ var reconnect_road_button: Button
 var connection_label: Label
 var asset_dimensions_label: Label
 var terrain_transforms: VBoxContainer
-var inspector_terrain_draw_order: SpinBox
 var inspector_terrain_width: SpinBox
 var inspector_terrain_height: SpinBox
 var inspector_terrain_percent: SpinBox
@@ -1671,6 +1671,16 @@ func _source_click(world_px: Vector2) -> void:
 			authoring.insert_road_point(source_id,_snap_point(world_px/PPM))
 			_refresh_authoring()
 			return
+		# A terrain polygon can cover the entire map; adopt real scenery before
+		# falling back to terrain so visible roofs and trees are editable.
+		if hit.is_empty():
+			var runtime_hit:=_nearest_prop(world_px)
+			if not runtime_hit.is_empty():
+				var runtime_item: Dictionary=world.data.props[int(runtime_hit.index)]
+				var editable_id:=_ensure_editable_runtime_prop(runtime_item)
+				if not editable_id.is_empty():
+					var editable: Dictionary=authoring.prop_at_id(editable_id)
+					hit={"kind":"prop","id":editable_id,"from":Vector2(float(editable.x),float(editable.y))*PPM}
 		if hit.is_empty():hit=_pick_source_region(world_px)
 	if hit.is_empty():
 		if tool_name=="move_prop" and road_selection_layer==99:
@@ -1690,6 +1700,7 @@ func _source_click(world_px: Vector2) -> void:
 			source_id="";source_anchor=-1;_update_selection({});_refresh_authoring()
 			return
 	source_id = str(hit.id)
+	if tool_name=="move_prop" and is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 	selected={}
 	gizmos.set_selection({})
 	source_anchor = int(hit.get("index",-1))
@@ -2685,7 +2696,13 @@ func _refresh_inspector() -> void:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
 		selected_preview.hide()
 	inspector_name.editable=exists
-	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y,inspector_draw_order]:spin.editable=exists
+	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
+	var layer_category:=str(record.get("category",""))
+	var layer_kind:=str(record.get("item",{}).get("type",""))
+	var can_layer:=exists and (layer_category=="regions" or (layer_category=="props" and layer_kind not in ["sidewalk","guardrail"]))
+	inspector_draw_order.editable=can_layer and not _editing_locked()
+	inspector_draw_order.set_value_no_signal(int(record.get("item",{}).get("drawOrder",0)) if can_layer else 0)
+	draw_order_hint.text=("Higher values draw above other terrain." if layer_category=="regions" else "Higher values draw above other scenery.") if can_layer else "Select one scenery asset or terrain region with Select / Edit."
 	terrain_transforms.visible=exists and record.category=="regions"
 	# Other objects retain their normal coordinate bounds; only terrain may
 	# have a centre outside the world. Inspector writes still use source validation.
@@ -2696,7 +2713,7 @@ func _refresh_inspector() -> void:
 	if terrain_transforms.visible:
 		inspector_terrain_width.max_value=float(authoring.doc.world.width)+2.0*EditSession.TERRAIN_OVERHANG_M
 		inspector_terrain_height.max_value=float(authoring.doc.world.height)+2.0*EditSession.TERRAIN_OVERHANG_M
-	for spin in [inspector_terrain_width,inspector_terrain_height,inspector_terrain_draw_order]:spin.editable=terrain_transforms.visible
+	for spin in [inspector_terrain_width,inspector_terrain_height]:spin.editable=terrain_transforms.visible
 	prop_transforms.visible=exists and record.category=="props"
 	point_picker.visible=exists and record.category in ["roads","races"]
 	remove_point_button.visible=point_picker.visible
@@ -2714,9 +2731,7 @@ func _refresh_inspector() -> void:
 		var at:=_record_position(record);inspector_x.value=at.x;inspector_y.value=at.y
 		inspector_rotation.value=float(item.get("rotation",0));inspector_scale.value=float(item.get("scale",1))
 		inspector_scale_x.value=float(item.get("scaleX",1));inspector_scale_y.value=float(item.get("scaleY",1))
-		inspector_draw_order.value=int(item.get("drawOrder",0))
 		if record.category=="regions":
-			inspector_terrain_draw_order.value=int(item.get("drawOrder",0))
 			var region_size: Vector2=_region_bounds(item).size
 			inspector_terrain_width.value=region_size.x
 			inspector_terrain_height.value=region_size.y
@@ -2780,7 +2795,8 @@ func _commit_inspector(field: String="name") -> void:
 				var snapped:=_snap_building_transform(adjusted,destination)
 				destination=snapped.position;values["rotation"]=snapped.rotation
 	if field=="drawOrder":
-		var order:=int(inspector_terrain_draw_order.value if record.category=="regions" else inspector_draw_order.value)
+		if not inspector_draw_order.editable:return
+		var order:=int(inspector_draw_order.value)
 		if authoring.set_prop_draw_order(source_id,order):_refresh_authoring()
 		else:_notice(authoring.last_error);_refresh_inspector()
 		return
