@@ -83,3 +83,30 @@ static func unlocked(marker: Dictionary,economy: Object,world_id: String) -> boo
 	var required: String=str(marker.get("properties",{}).get("required_race",""))
 	return required.is_empty() or economy==null or \
 		economy.completed_event_count(EventRules.event_key(world_id,required))>0
+
+
+## The same radius used by the marker prompt and editor preview.
+static func interaction_radius_m(marker: Dictionary) -> float:
+	return float(marker.get("properties",{}).get("radius_m",12.0))
+
+
+## Contract arrival distance belongs to the offer, not the destination
+## marker. Show every distinct configured range if several offers use it.
+static func interaction_ranges(marker: Dictionary, markers: Array) -> Array[float]:
+	var result: Array[float]=[]
+	var kind:=str(marker.get("type",""))
+	if kind in ["player_spawn","home","traffic_spawn"]:return result
+	if kind in ["contract_dropoff","robbery_target"]:
+		var field: String="destination_marker_id" if kind=="contract_dropoff" else "robbery_marker_id"
+		for source in markers:
+			var properties: Dictionary=source.get("properties",{})
+			var offers: Array=properties.get("offers",[])
+			if str(source.get("type",""))=="contract":offers=[properties]
+			for offer in offers:
+				if str(offer.get(field,""))!=str(marker.get("id","")):continue
+				var radius:=Contracts.configured_arrival_radius(offer)
+				if not result.has(radius):result.append(radius)
+		result.sort()
+		return result
+	result.append(interaction_radius_m(marker))
+	return result
