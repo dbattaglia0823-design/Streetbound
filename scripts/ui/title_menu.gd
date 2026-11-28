@@ -35,6 +35,7 @@ var message: Label
 var multiplayer_message: Label
 var actions: Dictionary = {}
 var _launch_thread: Thread
+var _scene_request_pending:=false
 var _launch_mode: String=""
 var _loading_label: Label
 var _launch_started:=0
@@ -559,7 +560,7 @@ func _start_game(mode: String) -> void:
 		_launch_thread=null
 		_enter_game(mode)
 	else:
-		ResourceLoader.load_threaded_request("res://scenes/main.tscn")
+		_scene_request_pending=ResourceLoader.load_threaded_request("res://scenes/main.tscn")==OK
 
 static func _read_archive(path: String) -> Dictionary:
 	var bytes:=FileAccess.get_file_as_bytes(path)
@@ -576,7 +577,7 @@ func _process(_dt: float) -> void:
 	if _launch_thread==null:return
 	_loading_label.text="Preparing world geometry… %.1f s"%((Time.get_ticks_msec()-_launch_started)/1000.0)
 	if _launch_thread.is_alive():return
-	var state:=ResourceLoader.load_threaded_get_status("res://scenes/main.tscn")
+	var state:=ResourceLoader.load_threaded_get_status("res://scenes/main.tscn") if _scene_request_pending else ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
 	if state==ResourceLoader.THREAD_LOAD_IN_PROGRESS:
 		_loading_label.text="Loading game resources…"
 		return
@@ -585,10 +586,15 @@ func _process(_dt: float) -> void:
 	if prepared.data is Dictionary:get_tree().set_meta("streetbound_prepared_archive",prepared)
 	var scene: PackedScene
 	if state==ResourceLoader.THREAD_LOAD_LOADED:scene=ResourceLoader.load_threaded_get("res://scenes/main.tscn") as PackedScene
+	_scene_request_pending=false
 	_enter_game(_launch_mode,scene)
 
 func _exit_tree() -> void:
 	if _launch_thread!=null and _launch_thread.is_started():_launch_thread.wait_to_finish()
+	# Drain an outstanding engine resource request before SceneTree shutdown.
+	if _scene_request_pending:
+		ResourceLoader.load_threaded_get("res://scenes/main.tscn")
+		_scene_request_pending=false
 
 func _enter_game(mode: String, scene: PackedScene=null) -> void:
 	get_tree().set_meta("streetbound_title_launch_mode",mode if mode=="multiplayer" else "")
