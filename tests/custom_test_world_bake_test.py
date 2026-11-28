@@ -34,6 +34,19 @@ def source():
 
 
 class CustomTestWorldBaker(unittest.TestCase):
+    def test_missing_and_retired_art_removed_from_bake_without_mutating_saved_map(self):
+        from project_asset_catalog import asset_id
+        doc=source()
+        for i,path in enumerate(['Map Building Assets/Sprite Sheets/old.png','Map Building Assets/Buildings/deleted.png']):
+            doc['props'].append(dict(id=f'prop-stale-{i}',type='building',name='Missing',x=700,y=700,rotation=0,scale=1,assetId=asset_id(path),assetPath=path,assetSize=[10,10],**({'assetRegion':[0,0,64,64]} if i==0 else {})))
+        before=json.dumps(doc,sort_keys=True)
+        archive=make_archive(doc)
+        self.assertEqual(json.dumps(doc,sort_keys=True),before)
+        self.assertEqual(len(archive['props']),1)
+        self.assertTrue(any(w.get('code')=='retired_map_art' for w in archive['editor_warnings'] if isinstance(w,dict)))
+        for chunk in archive['chunks'].values():
+            self.assertTrue(all(0<=index<len(archive['props']) for index in chunk['props']))
+
     def test_alleyway_bakes_as_connected_paved_road(self):
         doc=source()
         doc['roads'][2].update(roadClass='alley',width=6,lanes=1,shoulder=0,markings=False)
