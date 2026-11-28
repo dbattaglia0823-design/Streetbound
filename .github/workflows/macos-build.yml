@@ -24,10 +24,21 @@ jobs:
       - name: Validate macOS packaging contract
         run: python3 -B tests/macos_export_contract_test.py
 
+      - name: Cache matching macOS editor
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/godot
+          key: godot-macos-4.6.3-${{ runner.arch }}-v1
       - name: Install matching Godot 4.6.3 universal editor
         shell: bash
         run: |
           set -euo pipefail
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot.app/Contents/MacOS/Godot"
+          if test -x "$GODOT_BIN"; then
+            "$GODOT_BIN" --version
+            echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+            exit 0
+          fi
           curl -fL --retry 3 --retry-all-errors \
             -o "$RUNNER_TEMP/godot-mac.zip" \
             https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_macos.universal.zip
@@ -38,10 +49,17 @@ jobs:
           "$GODOT_BIN" --version
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
+      - name: Cache matching macOS export template
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Application Support/Godot/export_templates/4.6.3.stable/macos.zip
+          key: godot-macos-template-4.6.3-v1
       - name: Install matching Godot 4.6.3 export templates
         shell: bash
         run: |
           set -euo pipefail
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/4.6.3.stable"
+          if test -f "$TEMPLATE_DIR/macos.zip" && unzip -t "$TEMPLATE_DIR/macos.zip" >/dev/null; then exit 0; fi
           curl -fL --retry 3 --retry-all-errors \
             -o "$RUNNER_TEMP/export_templates.tpz" \
             https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_export_templates.tpz
