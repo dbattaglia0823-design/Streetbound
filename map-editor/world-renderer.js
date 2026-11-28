@@ -219,7 +219,7 @@ function drawRoads(ctx,roads,bounds,options){
   // Clipped dirt/gravel sections are drawn before paved roads regardless of
   // creation order, preventing the loose shoulders covering asphalt.
   const pieces=roadPieces(roads);
-  const order=[...roads].sort((a,b)=>Number(isLoose(b))-Number(isLoose(a)));
+  const order=[...roads].sort((a,b)=>(a.drawOrder??0)-(b.drawOrder??0)||Number(isLoose(b))-Number(isLoose(a)));
   const displayPaths=road=>{
     const baked=options?.runtimePreview?.roads?.get(road.id);
     // Render the precise Godot-baked centerline until the user changes any
@@ -235,16 +235,25 @@ function drawRoads(ctx,roads,bounds,options){
   const showWaterBridges=options.roadLayer===undefined||options.roadLayer==='all'||options.roadLayer===0;
   const bridges=options.doc&&showWaterBridges?bridgesForDocument(options.doc,options.runtimePreview):[];
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,0);
-  for(const road of order){
-    if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
-  }
   // Erase continuous center/edge markings at crossing mouths, as in the
   // game's clipped road-paint pass. A clip mask is NOT drawn as a junction
   // shape: asphalt is the real overlap of road strokes rendered above.
   const junctions=options?.junctions===false?[]:buildRoadJunctions(roads)
     .filter(j=>j.kind!=='endpoint'&&j.roads.length>=2);
-  ctx.save();
+  // Within a draw-order group preserve the default pavement/markings passes.
+  // Higher groups paint their entire pavement over lower groups' markings.
+  const groups=new Map();
+  for(const road of order){
+    const key=road.drawOrder??0;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(road);
+  }
+  for(const group of groups.values()){
+    for(const road of group){
+      if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+      for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
+    }
+    ctx.save();
   if(junctions.length){
     ctx.beginPath();
     // Even-odd exclusion: the outer rectangle remains visible, and the
@@ -261,11 +270,12 @@ function drawRoads(ctx,roads,bounds,options){
     }
     ctx.clip('evenodd');
   }
-  for(const road of order){
-    if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
-    for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
+    for(const road of group){
+      if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+      for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
+    }
+    ctx.restore();
   }
-  ctx.restore();
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,1,junctions);
   for(const road of order){
     if(!road.elevation||!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;

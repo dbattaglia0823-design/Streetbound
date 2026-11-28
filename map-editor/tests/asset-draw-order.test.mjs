@@ -30,3 +30,15 @@ test('terrain draw order is signed and survives source normalization',()=>{
   }
   for(const drawOrder of [-6,11,1.5,true,'1'])assert.throws(()=>updateEntity(source,raw.id,{drawOrder}),/draw order/);
 });
+
+test('road draw order round trips without altering elevation or geometry',()=>{
+  const fixture=JSON.parse(readFileSync(new URL('../../tests/fixtures/road-elevation.world.json',import.meta.url),'utf8'));
+  const source=normalizeWorld(fixture),road=source.roads[0];
+  for(const drawOrder of [-5,-1,1,10]){
+    const changed=updateEntity(source,road.id,{drawOrder});
+    assert.deepEqual(changed.roads[0],{...road,drawOrder});
+    assert.deepEqual(normalizeWorld(JSON.parse(JSON.stringify(changed))).roads,changed.roads);
+    assert.deepEqual(updateEntity(changed,road.id,{drawOrder:0}).roads,source.roads);
+  }
+  for(const drawOrder of [-6,11,1.5,true,'1'])assert.throws(()=>updateEntity(source,road.id,{drawOrder}),/draw order/);
+});

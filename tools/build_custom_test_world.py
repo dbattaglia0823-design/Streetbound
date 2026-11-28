@@ -22,7 +22,7 @@ from elevation_map_audit import audit_elevated_objectives
 from mountain_barriers import validate_open_cuts
 from authored_races import authored_races
 from authored_markers import validate_markers
-from morrow_editor_import import _authoring_props, _polygon_points, CLASS_TO_KIND, PALETTES
+from morrow_editor_import import _authoring_props, _polygon_points, CLASS_TO_KIND, PALETTES, set_road_draw_order
 from road_shape_geometry import circle_path
 
 CHUNK = 192
@@ -199,6 +199,7 @@ def make_archive(doc):
             if item.get(key,"auto") not in ("auto","intersection","merge"):
                 raise ValueError("Invalid road junction mode")
             if key in item: roads[-1][key]=item[key]
+        set_road_draw_order(roads[-1], item)
         set_profile(roads[-1], item)
         set_auto_guardrails(roads[-1], item)
         set_jump(roads[-1], item)

@@ -273,8 +273,8 @@ func _sidewalk_details(path: PackedVector2Array, phase: float, width: float) -> 
 		passed+=length
 
 
-func _roads(stage: int) -> void:
-	for batch in road_batches:
+func _roads(stage: int, batches: Array[Dictionary]) -> void:
+	for batch in batches:
 		if editor_hidden.has(int(batch.road.get("id",-1))):continue
 		var path: PackedVector2Array = batch.path
 		var r: Dictionary = batch.road
@@ -469,7 +469,32 @@ func _paint(path: PackedVector2Array,r: Dictionary,width: float,station: float) 
 	paint_lane_lines(self,path,r,width,station,not urban)
 func _draw() -> void:
 	if render_stage < 3:
-		_roads(render_stage)
+		# Keep the original staged draw for zero-order roads. Explicit layers
+		# are painted as whole roads (foundation, pavement and paint) before
+		# or after that default pass, within the same physical elevation.
+		var groups: Dictionary={}
+		var normal: Array[Dictionary]=[]
+		for batch in road_batches:
+			var order:=int(batch.road.get("editor_draw_order",0))
+			if order==0:normal.append(batch)
+			else:
+				if not groups.has(order):groups[order]=[]
+				groups[order].append(batch)
+		var orders: Array=groups.keys()
+		orders.sort()
+		if render_stage==0:
+			for order in orders:
+				if int(order)>=0:continue
+				var lower: Array[Dictionary]=[]
+				lower.assign(groups[order])
+				for stage in 3:_roads(stage,lower)
+		_roads(render_stage,normal)
+		if render_stage==2:
+			for order in orders:
+				if int(order)<=0:continue
+				var upper: Array[Dictionary]=[]
+				upper.assign(groups[order])
+				for stage in 3:_roads(stage,upper)
 		return
 	for batch in road_batches:
 		var road_id := int(batch.road.id)

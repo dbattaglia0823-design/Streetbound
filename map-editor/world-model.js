@@ -84,6 +84,7 @@ function validEntity(item,type,w,h){
         road.autoGuardrails[side]=[a,b];
       }
     }
+    if(item.drawOrder!==undefined){const order=integer(item.drawOrder,-5,10,"draw order");if(order)road.drawOrder=order;}
     const jump=normalizeRoadJump(road,item.jump);
     return jump?{...road,jump}:road;
   }
