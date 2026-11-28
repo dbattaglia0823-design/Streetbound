@@ -55,8 +55,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate script resource UIDs
         run: python3 tests/resource_uid_test.py
+      - name: Cache pinned Godot executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v${{ matrix.godot }}-stable_linux.x86_64
+          key: godot-linux-${{ matrix.godot }}-${{ runner.arch }}-v1
       - name: Download Godot ${{ matrix.godot }}
         run: |
+          if test -x ./Godot_v${{ matrix.godot }}-stable_linux.x86_64; then exit 0; fi
           curl -fL --retry 3 --retry-all-errors -o godot.zip https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/Godot_v${{ matrix.godot }}-stable_linux.x86_64.zip
           unzip -q godot.zip
           chmod +x Godot_v${{ matrix.godot }}-stable_linux.x86_64
