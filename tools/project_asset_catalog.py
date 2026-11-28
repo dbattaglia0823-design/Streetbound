@@ -36,17 +36,31 @@ def building_file(relative, root=ROOT):
     allowed_root = (root / 'assets' / parts[0]).resolve()
     if not target.is_relative_to(allowed_root) or target.suffix.lower() not in EXTENSIONS:
         raise ValueError('Unsupported project artwork: ' + relative)
-    if not target.is_file() and parts[0] == LEGACY:
-        # The older published Morrow maps retain Buildings/... references.
-        # Resolve these safely after the user moved the complete folder.
-        migrated = (root / 'assets' / LIBRARY / relative).resolve()
-        relocated_root = (root / 'assets' / LIBRARY / LEGACY).resolve()
-        if migrated.is_relative_to(relocated_root) and migrated.is_file():
-            target = migrated
-    if not target.is_file():
-        raise ValueError('Missing project artwork: ' + relative)
     if any(p.casefold() == 'sprite sheets' for p in parts) or target.with_suffix('.sheet.json').is_file():
         raise ValueError('Sprite sheet artwork is retired: ' + relative)
+    if not target.is_file():
+        matches = []
+        assets = (root / 'assets').resolve()
+        for base in (LEGACY, LIBRARY):
+            folder = assets / base
+            if not folder.is_dir():
+                continue
+            for candidate in folder.rglob(parts[-1]):
+                if candidate.name != parts[-1] or not candidate.is_file() or candidate.is_symlink():
+                    continue
+                actual = candidate.resolve()
+                if not actual.is_relative_to(folder.resolve()) or not actual.is_relative_to(assets):
+                    continue
+                if any(p.casefold() == 'sprite sheets' or p.startswith('.') for p in candidate.relative_to(assets).parts):
+                    continue
+                if candidate.with_suffix('.sheet.json').is_file():
+                    continue
+                if actual not in matches:
+                    matches.append(actual)
+        if len(matches) != 1:
+            detail = 'no exact filename match' if not matches else 'multiple exact filename matches: ' + ', '.join(str(p.relative_to(assets)) for p in sorted(matches))
+            raise ValueError('Missing project artwork: ' + relative + ' (' + detail + ')')
+        target = matches[0]
     return target
 
 
@@ -172,11 +186,10 @@ def resolve_asset(relative, identifier, root=ROOT):
     """Validate a saved ID against actual individual artwork."""
     actual = building_file(relative, root)
     canonical = actual.relative_to(root / 'assets').as_posix()
-    for entry in catalog(root):
-        if entry['path'] == canonical and entry['id'] == identifier:
-            return entry
-        # A legacy saved ID continues to resolve even after moving the file.
-        if (canonical != relative and entry['path'] == canonical and
-                not entry.get('region') and identifier == asset_id(relative)):
-            return {**entry, 'path': relative, 'id': identifier}
+    if identifier in {asset_id(relative), asset_id(canonical)}:
+        width, height = dimensions(actual)
+        if not (0 < width <= 16384 and 0 < height <= 16384):
+            raise ValueError('Invalid project artwork dimensions: ' + canonical)
+        return _entry(canonical, width, height, actual.stat().st_mtime_ns,
+                      _read_meta(actual.with_suffix('.asset.json')))
     raise ValueError('Unknown or moved project asset: ' + relative)
