@@ -59,8 +59,18 @@ KIND_TO_CLASS = {
 }
 CLASS_TO_KIND = {
     "city": "local", "highway": "highway", "country": "rural",
-    "mountain": "mountain", "track": "track", "service": "driveway", "alley": "alley", "onramp": "onramp",
+    "mountain": "mountain", "track": "track", "service": "driveway", "street": "driveway", "alley": "alley", "onramp": "onramp",
 }
+def set_junction_style(road, entry):
+    style = entry.get("junctionStyle", "rounded")
+    if style not in ("rounded", "square"):
+        raise ValueError("Invalid intersection corner style")
+    if style == "square": road["junctionStyle"] = style
+    else: road.pop("junctionStyle", None)
+    if entry.get("roadClass") in ("street", "service"):
+        road["street_access"] = True
+    else: road.pop("street_access", None)
+
 PALETTES = {
     "grass": "a3b789", "forest": "718d70", "mountain": "9baba0",
     "rock": "9baba0", "beach": "e3d4aa", "ocean": "82b5b5",
@@ -514,9 +524,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
         road["width"] = round(float(road_width) / width_scale, 9)
         road["lanes"] = int(lanes)
         for key in ("junctionStart","junctionEnd"):
-            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge","square"):
                 raise ValueError("Invalid road junction mode")
             if key in entry: road[key]=entry[key]
+        set_junction_style(road, entry)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]):
             road["kind"] = CLASS_TO_KIND.get(klass, road["kind"])
@@ -575,9 +586,10 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                           grade=0, anchors=new_points, points=[],
                           lanes=int(entry.get("lanes", 2))))
         for key in ("junctionStart","junctionEnd"):
-            if entry.get(key,"auto") not in ("auto","intersection","merge"):
+            if entry.get(key,"auto") not in ("auto","intersection","merge","square"):
                 raise ValueError("Invalid road junction mode")
             if key in entry: roads[-1][key]=entry[key]
+        set_junction_style(roads[-1], entry)
         set_road_draw_order(roads[-1], entry)
         set_profile(roads[-1], entry)
         set_auto_guardrails(roads[-1], entry)

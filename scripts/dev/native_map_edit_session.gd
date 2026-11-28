@@ -123,7 +123,8 @@ func _valid_source(value: Dictionary) -> bool:
 					float(p.get("x",-1)),float(p.get("y",-1))),value):
 				return false
 		for key in ["junctionStart","junctionEnd"]:
-			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
+			if str(road.get(key,"auto")) not in ["auto","intersection","merge","square"]:return false
+		if str(road.get("junctionStyle","rounded")) not in ["rounded","square"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if not Elevation.authoring_error(road).is_empty() or not AutoRails.valid(road):return false
@@ -1386,9 +1387,9 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
-		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd"]:
+		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd","junctionStyle"]:
 			if settings.has(key):
-				if key in ["junctionStart","junctionEnd"] and settings[key]=="auto":road.erase(key)
+				if (key in ["junctionStart","junctionEnd"] and settings[key]=="auto") or (key=="junctionStyle" and settings[key]=="rounded"):road.erase(key)
 				else:road[key]=settings[key]
 		if road.roadClass=="onramp":
 			road.lanes=clampi(int(road.get("lanes",1)),1,2)
@@ -1640,7 +1641,7 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 		count+=1
 		for key in patch:entry[key]=patch[key]
 		if category=="roads":
-			if str(entry.roadClass) not in ["city","highway","country","mountain","service","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
+			if str(entry.roadClass) not in ["city","highway","country","mountain","service","street","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
 				last_error="Invalid road type, surface, width or lanes."
 				return false
 			if entry.roadClass=="onramp":

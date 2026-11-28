@@ -198,7 +198,7 @@ function drawRoadLines(ctx,road,points){
     drawRoadStroke(ctx,traceOffset(points,line.offset),line.width,line.color,line.dash,'butt');
 }
 export function roadMarkingPlan(road){
-  if(['alley','service','track'].includes(road.roadClass)||['dirt','gravel','track'].includes(road.surface)||!road.markings)return [];
+  if(['alley','street','service','track'].includes(road.roadClass)||['dirt','gravel','track'].includes(road.surface)||!road.markings)return [];
   const w=road.width,ramp=road.roadClass==='onramp'&&road.lanes===1,count=ramp?1:Math.max(2,Math.min(6,road.lanes));
   const forward=ramp?1:Math.max(1,Math.floor(count/2)),reverse=count-forward,laneWidth=w/count;
   const divider=(reverse-forward)*laneWidth/2,fast=['highway','arterial','onramp'].includes(road.roadClass);

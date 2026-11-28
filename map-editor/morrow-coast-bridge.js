@@ -65,6 +65,7 @@ export function convertMorrowWorld(raw){
     smooth:true,markings:road.kind!=='alley'&&road.surface!=='GRAVEL',
     ...(road.junctionStart!==undefined?{junctionStart:road.junctionStart}:{}),
     ...(road.junctionEnd!==undefined?{junctionEnd:road.junctionEnd}:{}),
+    ...(road.junctionStyle!==undefined?{junctionStyle:road.junctionStyle}:{}),
     ...((road.editor_grade_source?.elevation??road.elevation)?{elevation:road.editor_grade_source?.elevation??road.elevation}:{}),
     ...(road.editor_draw_order?{drawOrder:road.editor_draw_order}:{}),
     ...(road.jump?{jump:road.jump}:{}),
