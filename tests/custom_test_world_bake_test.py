@@ -160,6 +160,19 @@ class CustomTestWorldBaker(unittest.TestCase):
         doc["regions"][0]["drawOrder"]=11
         with self.assertRaises(ValueError):make_archive(doc)
 
+    def test_road_draw_order_is_visual_only(self):
+        doc=source()
+        original=make_archive(doc)
+        doc["roads"][0]["drawOrder"]=-2
+        doc["roads"][1]["drawOrder"]=3
+        changed=make_archive(doc)
+        self.assertEqual(changed["roads"][0]["editor_draw_order"],-2)
+        self.assertEqual(changed["roads"][1]["editor_draw_order"],3)
+        for key in ("segments","road_connections","junctions"):
+            self.assertEqual(changed[key],original[key])
+        doc["roads"][0]["drawOrder"]=11
+        with self.assertRaises(ValueError):make_archive(doc)
+
     def test_empty_map_remains_drivable_and_has_terrain_chunks(self):
         doc=source()
         doc["roads"]=[]
