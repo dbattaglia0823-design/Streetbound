@@ -45,7 +45,7 @@ def building_file(relative, root=ROOT):
             folder = assets / base
             if not folder.is_dir():
                 continue
-            for candidate in folder.rglob(parts[-1]):
+            for candidate in folder.rglob('*'):
                 if candidate.name != parts[-1] or not candidate.is_file() or candidate.is_symlink():
                     continue
                 actual = candidate.resolve()
