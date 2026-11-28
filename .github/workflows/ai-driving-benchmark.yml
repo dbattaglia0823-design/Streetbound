@@ -55,8 +55,14 @@ jobs:
       - name: Check persistent Godot UIDs
         run: python3 tests/resource_uid_test.py
 
+      - name: Cache pinned Godot executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.6.3-stable_linux.x86_64
+          key: godot-linux-4.6.3-${{ runner.arch }}-v1
       - name: Install Godot 4.6.3
         run: |
+          if test -x ./Godot_v4.6.3-stable_linux.x86_64; then exit 0; fi
           curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
           unzip -q godot463.zip
           chmod +x Godot_v4.6.3-stable_linux.x86_64
