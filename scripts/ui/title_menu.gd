@@ -3,7 +3,6 @@ extends Control
 @onready var lan_discovery: Node = get_node_or_null("/root/LanDiscovery")
 ## Cinematic title scene; the same real gameplay, editor, settings and local
 ## split-screen modes are reached through controller-friendly menu buttons.
-const GameplayScript = preload("res://scripts/main.gd")
 const LanDiscoveryScript = preload("res://scripts/network/lan_discovery.gd")
 const WorldPublication=preload("res://scripts/world/world_publication.gd")
 const PauseMenuScript = preload("res://scripts/ui/pause_menu.gd")
@@ -471,6 +470,7 @@ func _show_lan() -> void:
 	actions["scan_lan_games"].grab_focus()
 
 func _controller_back() -> void:
+	if _launch_thread!=null:return
 	if friends_page.visible or lan_page.visible:
 		lan_discovery.cancel_scan()
 		online_session.leave_session()
@@ -479,6 +479,7 @@ func _controller_back() -> void:
 		_show_main_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _launch_thread!=null:return
 	if not get_tree().paused and event.is_action_pressed("ui_cancel"):
 		if friends_page.visible or lan_page.visible:
 			lan_discovery.cancel_scan()
@@ -490,6 +491,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _activate(mode: String) -> void:
+	if _launch_thread!=null:return
 	match mode:
 		"settings":
 			settings_adapter.settings_back_to_title = true
@@ -582,11 +584,11 @@ func _exit_tree() -> void:
 	if _launch_thread!=null and _launch_thread.is_started():_launch_thread.wait_to_finish()
 
 func _enter_game(mode: String, scene: PackedScene=null) -> void:
-	GameplayScript.pending_launch_mode = mode if mode == "multiplayer" else ""
+	get_tree().set_meta("streetbound_title_launch_mode",mode if mode=="multiplayer" else "")
 	get_tree().paused = false
 	var outcome := get_tree().change_scene_to_packed(scene) if scene!=null else get_tree().change_scene_to_file("res://scenes/main.tscn")
 	if outcome != OK:
-		GameplayScript.pending_launch_mode = ""
+		get_tree().remove_meta("streetbound_title_launch_mode")
 		if get_tree().has_meta("streetbound_prepared_archive"):get_tree().remove_meta("streetbound_prepared_archive")
 		if is_instance_valid(_loading_label):_loading_label.queue_free()
 		for button in actions.values():button.disabled=false
