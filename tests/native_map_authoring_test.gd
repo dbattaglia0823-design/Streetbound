@@ -343,6 +343,17 @@ func _run() -> void:
 	editor._choose_tool("move_prop")
 	check("asset_browser_hides_for_selection",
 		not editor.asset_dock.visible)
+	check("draw_order_is_discoverable_even_before_selection",
+		editor.inspector_draw_order.visible and not editor.inspector_draw_order.editable and
+		editor.inspector_draw_order.name=="DrawOrderZ")
+	var terrain_source: Dictionary=editor.authoring.doc.regions[0]
+	editor.source_id=str(terrain_source.id)
+	editor._refresh_authoring()
+	check("draw_order_control_enables_for_terrain",
+		editor.inspector_draw_order.editable and
+		int(editor.inspector_draw_order.value)==int(terrain_source.get("drawOrder",0)))
+	editor.source_id=""
+	editor._refresh_authoring()
 	editor._fit_map()
 	check("fit_map_can_zoom_far_enough_to_show_the_entire_world",
 		editor.editor_camera.zoom.x<0.03)
