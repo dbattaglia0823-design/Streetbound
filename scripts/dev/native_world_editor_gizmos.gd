@@ -544,7 +544,7 @@ func _draw_draft() -> void:
 		for i in handles.size():
 			var active:=anchor_style(str(road.id),selected_source_id,i,selected_anchor_index)=="active"
 			draw_circle(handles[i],(7.0 if active else 5.0)/maxf(.003,zoom_level),
-				Color("#ffe38a") if active else Color("#ffab3d"))
+				Color("#ffe38a") if active else Color("#82939c"))
 	# Anchor mode exposes ALL editable road control points with large,
 	# zoom-aware handles; no prior road selection is necessary.
 	if source_anchor_mode and zoom_level >= 0.035 and layer_flags.get("roads",true):
