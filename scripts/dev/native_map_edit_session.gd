@@ -44,6 +44,7 @@ var last_error := ""
 var dirty := false
 ## Monotonic editor revision: avoids rescanning 20k runtime props every frame.
 var edit_revision := 0
+var preview_only := false
 # Editor-only guard; never persisted in map files.
 var unlocked_road_layer:=99
 
@@ -323,6 +324,10 @@ func _commit(next: Dictionary) -> bool:
 		var live:=Workspace.records(next)
 		for layer in next.editorLayers:
 			layer.ids=layer.ids.filter(func(id: String)->bool:return live.has(id))
+	# A temporary drag session still validates identical geometry but never
+	# allocates undo snapshots or serializes the document for history hashes.
+	if preview_only:
+		doc=next;return true
 	if _fingerprint(doc) == _fingerprint(next):
 		return true
 	history.append(doc.duplicate(true))
@@ -1268,6 +1273,8 @@ func road_preview_source(drag: Dictionary) -> Dictionary:
 	# Use the same endpoint propagation as the committed edit, without adding
 	# history or changing the real source while the mouse is held down.
 	var temporary=get_script().new()
+	temporary.preview_only=true
+	temporary.unlocked_road_layer=unlocked_road_layer
 	temporary.doc=doc
 	if drag.kind=="road":temporary.move_road_point(str(drag.id),int(drag.index),Vector2(drag.to)/20.0,0.0)
 	elif drag.kind=="region":temporary.move_shape("regions",str(drag.id),(Vector2(drag.to)-Vector2(drag.from))/20.0)

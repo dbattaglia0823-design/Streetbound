@@ -368,7 +368,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 		custom_world=MorrowCoast.new();custom_world.editor_render_only=true
 		# Do not add this data-only world to the tree: _ready loads Morrow.
 	e.world=custom_world;e.gizmos.world=custom_world
-	e.world.data=original_world.duplicate();e.world.data.size=[doc.world.width,doc.world.height]
+	e.world.data=original_world.duplicate(false);e.world.data.size=[doc.world.width,doc.world.height]
 	for key in ["roads","segments","props","terrain","junctions","bridges","pois","relief_faces","mountain_rails"]:e.world.data[key]=[]
 	for key in ["chunks","nodes","surface_index"]:e.world.data[key]={}
 	e.world.data.road_width_scale=1.0
@@ -378,7 +378,7 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	e.gizmos.bridge_overrides={};e.gizmos.bridge_redraw_roads={}
 	if terrain==null:
 		terrain=Terrain.new();terrain.z_index=-8;e.get_parent().add_child(terrain)
-	revision=-1;e._refresh_authoring();e._fit_map();update_view(e)
+	revision=-1;drag_revision="";e._refresh_authoring();e._fit_map();update_view(e)
 func save_current(e) -> bool:
 	if not custom:return true
 	if not e.authoring._valid_source(e.authoring.doc):e._notice("Map validation failed; saved version was kept.");return false
@@ -396,7 +396,7 @@ func save_recovery(e) -> void:
 		stream.store_string(JSON.stringify(e.authoring.doc));stream.flush();stream.close()
 		DirAccess.rename_absolute(ProjectSettings.globalize_path(path+".tmp"),ProjectSettings.globalize_path(path))
 func refresh(e) -> void:
-	var drag_key:=JSON.stringify(e.pending_drag)
+	var drag_key:=JSON.stringify(e.pending_drag) if e.pending_drag.get("kind","") in ["region","region_point"] else ""
 	if revision!=e.authoring.edit_revision or drag_key!=drag_revision:
 		revision=e.authoring.edit_revision;drag_revision=drag_key;terrain.update_map(preload("res://scripts/dev/native_editor_workspace.gd").preview(e.authoring.road_preview_source(e.pending_drag)))
 		e.world.data.size=[e.authoring.doc.world.width,e.authoring.doc.world.height]

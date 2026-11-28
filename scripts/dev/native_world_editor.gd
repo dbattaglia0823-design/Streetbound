@@ -52,6 +52,22 @@ var preview_hidden: Dictionary = {}
 var synced_preview_revision := -1
 var synced_prop_drag:=""
 var _overview_dirty:=false
+var optimize_drag := true
+var performance_stats := false
+var drag_preview_count := 0
+var full_refresh_count := 0
+var last_refresh_ms := 0.0
+var last_drag_ms := 0.0
+var editor_open_ms := 0.0
+var _last_preview_request: Array = []
+var _asset_scan_interval := 12.0
+var warm_tile_cache := true
+var adaptive_tile_streaming := true
+var tile_budget_ms := 5.0
+var _pick_index_key: Array=[]
+var _pick_cells: Dictionary={}
+var _pick_large: Array[int]=[]
+const PICK_CELL_M:=128.0
 var _last_road_drag_ms:=-1000
 var _snap_neighbors_key:=""
 var _snap_neighbors: Array=[]
@@ -319,6 +335,7 @@ func _current_asset_library_signature() -> String:
 	var found: Array[String] = []
 	_collect_asset_files("res://assets/Buildings",found)
 	_collect_asset_files("res://assets/Map Building Assets",found)
+	found.sort()
 	return "|".join(found).sha256_text()
 
 
@@ -647,7 +664,7 @@ func _redraw_visible_scenery() -> void:
 		return
 	var loaded: Array = world.chunks.values()
 	if is_instance_valid(render_tiles):
-		loaded = render_tiles.tiles.values()
+		loaded = render_tiles.all_tiles()
 	for chunk in loaded:
 		if not is_instance_valid(chunk):
 			continue
@@ -785,7 +802,7 @@ func _build_overview() -> void:
 	overview_renderer=Overview.new()
 	overview_renderer.process_mode=Node.PROCESS_MODE_ALWAYS
 	get_parent().add_child(overview_renderer)
-	overview_renderer.setup(world)
+	overview_renderer.setup(world,loaded_world_sha+"|"+_asset_catalog_signature+"|"+str(world.data.get("road_width_scale",1.0)))
 	overview_sprite=overview_renderer.sprite
 	overview_sprite.visible = false
 
@@ -793,6 +810,7 @@ func _prepare_render_tiles() -> void:
 	if not is_instance_valid(render_tiles):
 		render_tiles=RenderTiles.new();render_tiles.world=world
 		get_parent().add_child(render_tiles);_owns_render_tiles=true
+	_apply_performance_settings()
 	_hide_gameplay_chunks()
 
 func _hide_gameplay_chunks() -> void:
@@ -1037,6 +1055,8 @@ func _choose_tool(mode: String) -> void:
 func _refresh_authoring() -> void:
 	if not is_instance_valid(gizmos):
 		return
+	var started:=Time.get_ticks_usec()
+	full_refresh_count+=1
 	workspace_tools.setup(self)
 	workspace_tools.refresh()
 	if source_ready:
@@ -1070,7 +1090,10 @@ func _refresh_authoring() -> void:
 		gizmos.dealership_records=authoring.dealership_list() if not map_switcher.custom else []
 		gizmos.road_width_scale=float(world.data.get("road_width_scale",1.0))/float(authoring.doc.get("morrowRoadWidthScale",1.0))
 		# Only committed road edits trigger topology work, never pointer motion.
-		traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
+		var request_key: Array=[authoring.get_instance_id(),authoring.edit_revision,world.get_instance_id()]
+		if request_key!=_last_preview_request:
+			_last_preview_request=request_key
+			traffic_preview.request(world.data,authoring.doc,{"roads":[]} if map_switcher.custom else authoring.initial)
 		_update_traffic_preview()
 		gizmos.set_draft(WorkspaceData.preview(preview_doc) if map_switcher.custom else preview_doc,{} if map_switcher.custom else authoring.initial,
 			{} if pending_drag.get("kind","") in ["road","road_move","region"] else pending_drag,
@@ -1084,6 +1107,7 @@ func _refresh_authoring() -> void:
 			apply_button.disabled = not authoring.dirty or bridge.phase != ""
 	else:
 		gizmos.set_draft({},{})
+	last_refresh_ms=(Time.get_ticks_usec()-started)/1000.0
 
 func _editing_locked() -> bool:
 	if is_instance_valid(bridge) and bridge.phase != "":
@@ -1475,6 +1499,33 @@ func _pick_sidewalk_anchor(world_px: Vector2) -> Dictionary:
 	return result
 
 
+## Spatial broad phase; keep the exact tight sprite/guardrail hit test and
+## original source order in the narrow phase. Large objects are always tested.
+func _prop_pick_candidates(at: Vector2) -> Array[int]:
+	var key: Array=[authoring.get_instance_id(),authoring.edit_revision,_asset_catalog_signature]
+	if key!=_pick_index_key:
+		_pick_index_key=key
+		_pick_cells.clear();_pick_large.clear()
+		for i in authoring.doc.props.size():
+			var prop: Dictionary=authoring.doc.props[i]
+			if str(prop.get("type","")) in ["guardrail","sidewalk"]:
+				_pick_large.append(i);continue
+			var center:=Vector2(float(prop.x),float(prop.y))
+			var extent: float=(gizmos._prop_size(prop)/PPM).length()*.5+2.0
+			var first:=Vector2i(((center-Vector2.ONE*extent)/PICK_CELL_M).floor())
+			var last:=Vector2i(((center+Vector2.ONE*extent)/PICK_CELL_M).floor())
+			if (last.x-first.x+1)*(last.y-first.y+1)>64:
+				_pick_large.append(i);continue
+			for y in range(first.y,last.y+1):
+				for x in range(first.x,last.x+1):
+					var cell:=Vector2i(x,y)
+					if not _pick_cells.has(cell):_pick_cells[cell]=[]
+					_pick_cells[cell].append(i)
+	var result: Array[int]=_pick_large.duplicate()
+	for i in _pick_cells.get(Vector2i((at/PICK_CELL_M).floor()),[]):result.append(int(i))
+	result.sort();result.reverse()
+	return result
+
 func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.scenery:
 		return {}
@@ -1482,7 +1533,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	var hit: Dictionary = {}
 	var best_order: int = -6
-	for index in range(authoring.doc.props.size()-1,-1,-1):
+	for index in _prop_pick_candidates(at):
 		var prop: Dictionary=authoring.doc.props[index]
 		if not _workspace_selectable(str(prop.id)):continue
 		if bool(prop.get("hidden",false)):
@@ -1893,6 +1944,7 @@ func _set_game_ui_visible(restore: bool) -> void:
 			node.visible = false
 
 func open_editor() -> bool:
+	var started:=Time.get_ticks_usec()
 	if not _can_enter():
 		return false
 	if loaded_world_sha.is_empty():
@@ -1950,6 +2002,7 @@ func open_editor() -> bool:
 	_update_selection({})
 	_refresh_authoring()
 	_update_view(true)
+	editor_open_ms=(Time.get_ticks_usec()-started)/1000.0
 	return true
 
 func close_editor() -> void:
@@ -2086,10 +2139,10 @@ func _process(dt: float) -> void:
 	traffic_preview.poll()
 	_update_traffic_preview()
 	_asset_refresh_elapsed+=dt
-	if _asset_refresh_elapsed>=3.0 and pending_drag.is_empty():
+	if _asset_refresh_elapsed>=_asset_scan_interval and pending_drag.is_empty():
 		_asset_refresh_elapsed=0.0
 		_scan_asset_library()
-	if is_instance_valid(overview_sprite):overview_sprite.visible=not render_tiles.ready_to_show
+	if not map_switcher.custom and is_instance_valid(overview_sprite):overview_sprite.visible=not render_tiles.ready_to_show
 	var direction := Vector2.ZERO
 	var focus:=get_viewport().gui_get_focus_owner()
 	var typing: bool=focus is LineEdit or focus is TextEdit
@@ -2113,7 +2166,9 @@ func _update_view(force: bool = false) -> void:
 	if not active:
 		return
 	if map_switcher.custom:
-		map_switcher.update_view(self);return
+		map_switcher.update_view(self)
+		if performance_stats:_append_performance_stats()
+		return
 	# Morrow Coast normally streams around the player in _process(), which
 	# is paused in this mode. Load one real, collision-bearing chunk per UI
 	# update instead of creating a fake editor-only representation.
@@ -2145,6 +2200,7 @@ func _update_view(force: bool = false) -> void:
 		status.text = "WORLD  X %.0fm  Y %.0fm  |  %d roads  %d junctions  |  %d visible tiles  |  %s" % [
 			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
 			render_tiles.total_visible,"DETAIL" if render_tiles.detailed else "OVERVIEW"]
+	if performance_stats:_append_performance_stats()
 	else:
 		status.text = "WORLD  X %.0fm  Y %.0fm   |   %d roads   %d intersections   %d traffic links" % [
 			meters.x,meters.y,world.data.roads.size(),world.data.junctions.size(),
@@ -2428,7 +2484,26 @@ func _update_drag_preview(at: Vector2) -> void:
 	else:pending_drag.to=_snap_point(at/PPM)*PPM
 	if Time.get_ticks_msec()-_last_road_drag_ms<50:return
 	_last_road_drag_ms=Time.get_ticks_msec()
-	_refresh_authoring()
+	if optimize_drag:_refresh_drag_geometry()
+	else:_refresh_authoring()
+
+## Dragging changes the preview only; commit/cancel still runs the complete
+## authoring refresh, including topology, inspector, recovery and validation.
+func _refresh_drag_geometry() -> void:
+	var started:=Time.get_ticks_usec()
+	drag_preview_count+=1
+	var preview_doc: Dictionary=authoring.road_preview_source(pending_drag)
+	var kind:=str(pending_drag.get("kind",""))
+	if not map_switcher.custom:
+		if kind in ["road","road_move"]:
+			_sync_road_preview(preview_doc)
+		elif kind in ["region","region_point"]:_sync_mountain_preview(preview_doc)
+	var source: Dictionary=WorkspaceData.preview(preview_doc) if map_switcher.custom else preview_doc
+	gizmos.set_draft(source,{} if map_switcher.custom else authoring.initial,
+		{} if kind in ["road","road_move","region","region_point","race_point"] else pending_drag,
+		source_id,source_anchor)
+	if map_switcher.custom and kind in ["region","region_point"]:map_switcher.refresh(self)
+	last_drag_ms=(Time.get_ticks_usec()-started)/1000.0
 
 func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 	if not source_ready:return
@@ -2458,6 +2533,20 @@ func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 		_redraw_roads(dirty)
 		_update_overview_mask()
 
+func _apply_performance_settings() -> void:
+	if is_instance_valid(render_tiles):
+		render_tiles.set_cache_enabled(warm_tile_cache)
+		render_tiles.adaptive_streaming=adaptive_tile_streaming
+		render_tiles.build_budget_ms=tile_budget_ms
+
+func _append_performance_stats() -> void:
+	var info: String=" | FPS %d · open %.0f ms · refresh %.1f ms · drag %.1f ms"%[
+		Engine.get_frames_per_second(),editor_open_ms,last_refresh_ms,last_drag_ms]
+	if is_instance_valid(render_tiles):
+		info+=" · tiles %d / warm %d · hits %d · build %.1f ms"%[
+			render_tiles.tiles.size(),render_tiles.warm_tiles.size(),render_tiles.cache_hits,render_tiles.last_build_ms]
+	status.text+=info
+
 func _update_traffic_preview() -> void:
 	var fresh:=traffic_preview.is_current()
 	var graph: RefCounted=traffic_preview.network if fresh else (null if map_switcher.custom else traffic_network)
@@ -2473,7 +2562,7 @@ func _update_overview_mask() -> void:
 
 func _redraw_roads(dirty: Dictionary={}) -> void:
 	if not is_instance_valid(world):return
-	var loaded: Array=render_tiles.tiles.values() if is_instance_valid(render_tiles) else world.chunks.values()
+	var loaded: Array=render_tiles.all_tiles() if is_instance_valid(render_tiles) else world.chunks.values()
 	for tile in loaded:
 		if not dirty.is_empty():
 			var touches:=false
@@ -2899,7 +2988,7 @@ func _sync_mountain_preview(document: Dictionary) -> void:
 func _redraw_mountains() -> void:
 	if not is_instance_valid(world):return
 	var nodes: Array=world.chunks.values()
-	if is_instance_valid(render_tiles):nodes.append_array(render_tiles.tiles.values())
+	if is_instance_valid(render_tiles):nodes.append_array(render_tiles.all_tiles())
 	for chunk in nodes:chunk.redraw_mountains()
 	_update_overview_mask()
 

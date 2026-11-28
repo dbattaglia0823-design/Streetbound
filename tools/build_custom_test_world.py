@@ -371,6 +371,22 @@ def _atomic_json(destination, value):
     temporary.replace(destination)
 
 
+def exact_source_key(doc, geometry_key):
+    # A complete revision key is stricter than the existing geometry key.
+    # Include resource metadata used by source asset resolution as well.
+    digest=hashlib.sha256(geometry_key.encode())
+    digest.update(json.dumps(doc,sort_keys=True,separators=(",",":"),allow_nan=False).encode())
+    root=Path(__file__).resolve().parent.parent
+    for folder in (root/"assets"/"Buildings",root/"assets"/"Map Building Assets"):
+        if folder.is_dir():
+            for path in sorted(folder.rglob("*")):
+                if path.is_file():
+                    stat=path.stat()
+                    digest.update(str(path.relative_to(root)).encode())
+                    digest.update(f"{stat.st_size}:{stat.st_mtime_ns}".encode())
+    return digest.hexdigest()
+
+
 def build_file(source_path, output_path, cache_path=None):
     source=Path(source_path)
     destination=Path(output_path)
@@ -381,6 +397,7 @@ def build_file(source_path, output_path, cache_path=None):
     result=None
     cache=Path(cache_path) if cache_path else None
     key=geometry_cache_key(doc) if cache else None
+    exact_key=exact_source_key(doc,key) if cache else None
     if cache and cache.is_file() and cache.stat().st_size<128_000_000:
         try:
             prior=json.loads(cache.read_text(encoding="utf-8"))
@@ -388,8 +405,12 @@ def build_file(source_path, output_path, cache_path=None):
                 archive=prior["archive"]
                 encoded=json.dumps(archive,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
                 if hashlib.sha256(encoded).hexdigest()==prior["checksum"] and archive.get("format")=="streetbound.streamed-world":
-                    result=scenery_rebuild(archive,doc)
-                    print("Reused validated geometry; updated scenery and streaming membership.")
+                    if prior.get("exact_key")==exact_key:
+                        result=archive
+                        print("Reused checksum-verified complete Test Drive archive.")
+                    else:
+                        result=scenery_rebuild(archive,doc)
+                        print("Reused validated geometry; updated scenery and streaming membership.")
         except (OSError,ValueError,TypeError,KeyError,IndexError,AttributeError):
             # A damaged cache or changed scenery cannot bypass a full bake.
             result=None
@@ -400,7 +421,7 @@ def build_file(source_path, output_path, cache_path=None):
         try:
             encoded=json.dumps(result,sort_keys=True,separators=(",",":"),allow_nan=False).encode()
             if len(encoded)<120_000_000:
-                _atomic_json(cache,{"key":key,"checksum":hashlib.sha256(encoded).hexdigest(),"archive":result})
+                _atomic_json(cache,{"key":key,"exact_key":exact_key,"checksum":hashlib.sha256(encoded).hexdigest(),"archive":result})
         except (OSError,ValueError,TypeError):
             # An unavailable cache must not invalidate a successful bake.
             pass

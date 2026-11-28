@@ -175,6 +175,14 @@ func run() -> void:
 	var cached_renders: int=overview.refresh_count
 	for i in 4:e._update_view(true)
 	check("overview_stays_cached_after_detail_transition",overview.refresh_count==cached_renders)
+	check("warm_detail_tiles_are_bounded_and_hidden",e.render_tiles.warm_tiles.size()<=e.render_tiles.MAX_WARM_TILES and e.render_tiles.warm_tiles.values().all(func(tile):return not tile.visible and tile.collider_body==null))
+	var old_hits: int=e.render_tiles.cache_hits
+	e._set_zoom(.15,e.canvas_rect.get_center())
+	for i in 70:
+		await process_frame
+		if e.render_tiles.ready_to_show:break
+	check("revisiting_detail_view_reuses_cached_tiles",e.render_tiles.cache_hits>old_hits and e.render_tiles.ready_to_show)
+	e._fit_map();await process_frame
 	e.minimap.navigate(e.minimap.map_rect().position+e.minimap.map_rect().size*Vector2(.25,.35))
 	check("minimap_moves_to_clicked_world_location",e.editor_camera.position.distance_to(extent*Vector2(.25,.35))<1.0)
 	var cursor: Vector2=e.canvas_rect.get_center()+Vector2(25,20)

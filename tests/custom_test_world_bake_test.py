@@ -229,6 +229,20 @@ class CustomTestWorldBaker(unittest.TestCase):
                 actual=build_file(src,output,cache)
             self.assertEqual(actual,expected)
 
+    def test_identical_revision_reuses_full_archive_and_corrupt_cache_rebuilds(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            base=pathlib.Path(tmp)
+            src=base/"source.world.json";output=base/"out.json";cache=base/"cache.json"
+            src.write_text(json.dumps(source()),encoding="utf-8")
+            expected=build_file(src,output,cache)
+            with patch("build_custom_test_world.make_archive",side_effect=AssertionError("unexpected full bake")), patch("build_custom_test_world.scenery_rebuild",side_effect=AssertionError("unexpected scenery bake")):
+                self.assertEqual(build_file(src,output,cache),expected)
+            prior=json.loads(cache.read_text(encoding="utf-8"))
+            prior["checksum"]="invalid"
+            cache.write_text(json.dumps(prior),encoding="utf-8")
+            self.assertEqual(build_file(src,output,cache),expected)
+
     def test_rejects_wrong_source_and_nonintegral_dimensions(self):
         doc=source()
         doc["customMap"]=False

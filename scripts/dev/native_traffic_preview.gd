@@ -15,11 +15,16 @@ var data: Dictionary={}
 
 func request(base: Dictionary, doc: Dictionary, baseline: Dictionary) -> void:
 	var roads_json:=JSON.stringify(doc.get("roads",[]))
-	wanted_key="" if roads_json==JSON.stringify(baseline.get("roads",[])) else roads_json.sha256_text()
+	# Include baseline geometry and width scale so switching maps cannot
+	# accidentally reuse the previous map's network for equal source IDs.
+	var initial_json:=JSON.stringify(baseline.get("roads",[]))
+	var context:=str(hash(base.get("roads",[])))+"|"+initial_json+"|"+str(doc.get("morrowRoadWidthScale",1.0))
+	wanted_key="" if roads_json==initial_json else (context+"|"+roads_json).sha256_text()
+	if wanted_key==running_key or wanted_key==shown_key:pending.clear()
 	if wanted_key.is_empty():
-		shown_key="";network=null;data={}
+		shown_key="";network=null;data={};pending.clear()
 	elif wanted_key!=shown_key and wanted_key!=running_key:
-		pending={"base":base,"roads":doc.roads.duplicate(true),"initial":baseline.roads,
+		pending={"key":wanted_key,"base":base,"roads":doc.roads.duplicate(true),"initial":baseline.roads.duplicate(true),
 			"width_scale":float(doc.get("morrowRoadWidthScale",1.0))}
 
 func is_current() -> bool:
@@ -33,7 +38,7 @@ func poll() -> bool:
 		if running_key==wanted_key:
 			network=result.network;data=result.data;shown_key=running_key;updated=true
 		result={};running_key=""
-	if job<0 and not wanted_key.is_empty() and wanted_key!=shown_key and not pending.is_empty():
+	if job<0 and not wanted_key.is_empty() and wanted_key!=shown_key and not pending.is_empty() and str(pending.get("key",""))==wanted_key:
 		var snapshot:=pending
 		pending={};running_key=wanted_key
 		job=WorkerThreadPool.add_task(func()->void:
