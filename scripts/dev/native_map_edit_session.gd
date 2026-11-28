@@ -456,6 +456,18 @@ static func shift_race_grid(race: Dictionary,delta: Vector2) -> void:
 		slot.x=float(slot.x)+delta.x
 		slot.y=float(slot.y)+delta.y
 
+# Gate markers are projections of the playable route, never a second
+# independently editable marker list. Their owner and ordinal are automatic.
+static func race_gate_marker(race: Dictionary,index: int) -> Dictionary:
+	var points: Array=race.get("points",[])
+	if index<0 or index>=points.size():return {}
+	var point: Dictionary=points[index]
+	var circuit: bool=str(race.get("mode",""))=="circuit"
+	var kind: String="race_start" if index==0 else ("finish" if not circuit and index==points.size()-1 else "checkpoint")
+	var caption: String=("START / FINISH" if circuit else "START") if index==0 else ("FINISH" if kind=="finish" else "CHECKPOINT %d"%index)
+	return {"type":kind,"name":caption,"x":point.x,"y":point.y,
+		"properties":{"race_id":str(race.id),"gate_index":index,"road_layer":int(point.get("road_layer",0))}}
+
 func save_race(points_m: Array[Vector2],settings: Dictionary,identity: String="") -> String:
 	# Preserve unrelated editor configuration (enemy pool and rewards) when
 	# someone adjusts the route, name, laps or grid in the compact sidebar.

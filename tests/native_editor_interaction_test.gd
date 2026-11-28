@@ -174,17 +174,49 @@ func run() -> void:
 	session.undo()
 	editor._refresh_authoring()
 	editor._choose_tool("place_marker")
-	# Marker types are a user-editable menu, not fixed numeric positions.
-	# New career/location types must not invalidate existing race markers.
-	var race_kind_index: int=-1
+	# Ordinary markers remain independent; race gates are placed by the
+	# unified route tool, and must not create orphan standalone markers.
+	var traffic_kind_index: int=-1
+	var has_loose_race_gate:=false
 	for index in editor.marker_kind.item_count:
-		if str(editor.marker_kind.get_item_metadata(index))=="race_start":
-			race_kind_index=index
-			break
-	check("race_start_marker_kind_exists",race_kind_index>=0)
-	if race_kind_index>=0:editor.marker_kind.select(race_kind_index)
+		var kind:=str(editor.marker_kind.get_item_metadata(index))
+		if kind in ["race_start","checkpoint","finish"]:has_loose_race_gate=true
+		if kind=="traffic_spawn":traffic_kind_index=index
+	check("generic_marker_menu_excludes_race_gates",not has_loose_race_gate and traffic_kind_index>=0)
+	if traffic_kind_index>=0:editor.marker_kind.select(traffic_kind_index)
 	editor._source_click(Vector2(3500,3500)*20)
-	check("marker_tool_respects_marker_type",session.doc.markers[-1].type=="race_start")
+	check("marker_tool_respects_marker_type",session.doc.markers[-1].type=="traffic_spawn")
+	editor.marker_editor.dialog.hide()
+	var marker_count: int=session.doc.markers.size()
+	var race_count: int=session.doc.get("races",[]).size()
+	var form=editor.race_editor
+	form.begin_route(editor)
+	form.title.text="Native linked sprint"
+	form.mode.select(0)
+	form.competition.select(1)
+	var route: PackedVector2Array=editor._source_road_path(session.road_at_id(str(added.id)))
+	editor._source_click(route[0]*20)
+	check("race_start_marker_is_pending",editor.draft_points.size()==1 and session.doc.get("races",[]).size()==race_count)
+	form.select_checkpoint_gate(editor)
+	editor._source_click(route[route.size()/2]*20)
+	check("race_checkpoint_marker_is_pending",editor.draft_points.size()==2)
+	form.select_finish_gate(editor)
+	editor._source_click(route[-1]*20)
+	var linked: Dictionary=session.race_at_id(editor.source_id)
+	var linked_ok: bool=not linked.is_empty() and linked.points.size()==3 and session.doc.markers.size()==marker_count and session.doc.get("races",[]).size()==race_count+1
+	if linked_ok:
+		linked_ok=Session.race_gate_marker(linked,0).type=="race_start" and Session.race_gate_marker(linked,1).properties.race_id==linked.id and Session.race_gate_marker(linked,2).type=="finish"
+	check("finish_creates_one_race_with_linked_gates",linked_ok)
+	form.dialog.hide()
+	if linked_ok:
+		editor.source_id=""
+		var empty_selection: Array[String]=[]
+		editor._set_multi(empty_selection)
+		editor._refresh_authoring()
+		var middle:=Vector2(linked.points[1].x,linked.points[1].y)*20
+		var hit: Dictionary=editor._pick_race_handle(middle)
+		check("unselected_checkpoint_resolves_owning_race",hit.get("id","")==linked.id and int(hit.get("index",-1))==1)
+	else:check("unselected_checkpoint_resolves_owning_race",false)
 	editor._choose_tool("draw_road");editor._source_click(Vector2(2700,3200)*20)
 	editor._apply_draft()
 	check("unfinished_shape_cannot_be_silently_saved",editor.bridge.phase=="" and editor.authoring_notice.text.contains("Finish or cancel"))

@@ -19,6 +19,17 @@ func run() -> void:
 	var id: String=e.source_id;var race: Dictionary=e.authoring.race_at_id(id)
 	check("editor_creates_named_circuit_with_laps",not race.is_empty() and race.name=="Laurel Editor Circuit" and race.mode=="circuit" and int(race.laps)==3)
 	check("race_setup_opens_automatically_after_placement",form.dialog_race_id==id and form.dialog.visible)
+	var session_script: GDScript=e.authoring.get_script()
+	var start_gate: Dictionary=session_script.race_gate_marker(race,0)
+	var checkpoint_gate: Dictionary=session_script.race_gate_marker(race,1)
+	check("circuit_start_finish_and_checkpoint_automatically_linked",
+		start_gate.type=="race_start" and start_gate.name=="START / FINISH" and
+		start_gate.properties.race_id==id and checkpoint_gate.type=="checkpoint" and
+		checkpoint_gate.properties.race_id==id and int(checkpoint_gate.properties.gate_index)==1)
+	var sprint: Dictionary=race.duplicate(true);sprint.mode="sprint"
+	var finish_gate: Dictionary=session_script.race_gate_marker(sprint,sprint.points.size()-1)
+	check("sprint_has_explicit_finish_marker",finish_gate.type=="finish" and finish_gate.properties.race_id==id)
+
 	for i in 4:await process_frame
 	var available: Vector2=e.get_viewport().get_visible_rect().size
 	var target: Vector2i=form.dialog_target_size(available)

@@ -267,11 +267,13 @@ func _draw_races() -> void:
 		if race.mode=="circuit":route.append(line[0])
 		draw_polyline(route,Color(.2,.85,.9,.8 if focused else .28),2/maxf(.003,zoom_level),true)
 		for i in line.size():
-			if not focused and i>0:continue
+			if not focused and not _visible_point(line[i]):continue
 			if focused:draw_arc(line[i],float(race.get("checkpoint_radius",16))*PPM,0,TAU,40,Color(.25,.9,.85,.18),1/maxf(.003,zoom_level),true)
 			draw_set_transform(line[i],0,Vector2.ONE/maxf(.003,zoom_level))
 			draw_circle(Vector2.ZERO,7,Color("#163537"));draw_arc(Vector2.ZERO,6,0,TAU,24,Color("#4ee8dc"),2,true)
-			var label: String=(str(race.name)+" / START") if i==0 else ("FINISH" if race.mode=="sprint" and i==line.size()-1 else str(i))
+			var gate: Dictionary=EditSession.race_gate_marker(race,i)
+			var label: String=str(gate.name)
+			if i==0 or not focused:label=str(race.name)+" / "+label
 			draw_string(ThemeDB.fallback_font,Vector2(10,4),label,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#defdf5"))
 			draw_set_transform(Vector2.ZERO)
 		# Race grids are not generic gameplay markers; they belong to the
@@ -824,8 +826,13 @@ func _draw() -> void:
 			draw_circle(item*PPM,7,Color("#ffb653"))
 		if path.size() >= 2:
 			draw_polyline(path,Color("#c4d8e5") if pending_tool=="draw_guardrail" else Color("#ffb653"),4,true)
-		if pending_tool=="draw_race" and path.size()>=2:
-			for i in path.size():draw_arc(path[i],8/maxf(.003,zoom_level),0,TAU,24,Color("#4ee8dc"),2/maxf(.003,zoom_level),true)
+		if pending_tool=="draw_race":
+			for i in path.size():
+				draw_set_transform(path[i],0,Vector2.ONE/maxf(.003,zoom_level))
+				draw_circle(Vector2.ZERO,7,Color("#163537"))
+				draw_arc(Vector2.ZERO,8,0,TAU,24,Color("#4ee8dc"),2,true)
+				draw_string(ThemeDB.fallback_font,Vector2(11,4),"START" if i==0 else "CHECKPOINT %d"%i,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#defdf5"))
+				draw_set_transform(Vector2.ZERO)
 		if pending_tool == "draw_terrain" and path.size() >= 3:
 			draw_line(path[path.size()-1],path[0],Color("#ffb653"),2,true)
 	if selected.get("kind","")=="prop":

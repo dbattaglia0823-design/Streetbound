@@ -600,6 +600,7 @@ func _update_context_panels() -> void:
 	cancel_button.visible=bool(context.shape_actions) or tool_name=="draw_river" or not pending_drag.is_empty()
 	var road_selected: bool=bool(context.road) and record.get("category","")=="roads"
 	finish_button.disabled=draft_points.size()<(2 if tool_name in ["draw_road","draw_sidewalk","draw_guardrail","draw_river"] else 3)
+	finish_button.text="Save race route" if tool_name=="draw_race" else "Finish  Enter"
 	if tool_name=="draw_race":finish_button.disabled=draft_points.size()<race_editor.minimum_points(self)
 	cancel_button.disabled=draft_points.is_empty() and pending_drag.is_empty()
 	road_elevation_controls.visible=road_selected and tool_name!="draw_road"
@@ -853,7 +854,7 @@ func _set_multi(ids: Array[String]) -> void:
 
 func _selection_hit(at: Vector2) -> String:
 	if road_selection_layer!=99:return str(_pick_source_road(at).get("id",""))
-	for hit in [_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
+	for hit in [_pick_race_handle(at),_pick_source_prop(at),_pick_source_marker(at),_pick_source_mountain(at),_pick_source_road(at),_pick_source_region(at)]:
 		var id:=str(hit.get("id",""))
 		if not id.is_empty():return id
 	return ""
@@ -1568,8 +1569,17 @@ func _source_click(world_px: Vector2) -> void:
 			connection=Sidewalks.snap(authoring.doc.props,point,Sidewalks.SNAP_RADIUS_M)
 			if not connection.is_empty():
 				point=connection.point
+		if tool_name=="draw_race":
+			if draft_points.size()>=100 or (not draft_points.is_empty() and draft_points[-1].distance_to(point)<5.0):
+				_notice("Race gates must be at least 5 m apart; maximum 100 gates.")
+				return
 		if draft_points.is_empty() or draft_points[-1].distance_to(point)>=.5:
 			draft_points.append(point)
+		if tool_name=="draw_race" and race_editor.placing_finish:
+			_finish_shape()
+			if tool_name=="draw_race":
+				draft_points.pop_back();_refresh_authoring()
+			return
 		_refresh_authoring()
 		if tool_name=="draw_sidewalk":
 			_notice("%d path points. %sFinish / Enter to keep every connected branch; Esc cancels."%
@@ -1577,7 +1587,7 @@ func _source_click(world_px: Vector2) -> void:
 		elif tool_name=="draw_guardrail":
 			_notice("%d guardrail points. FINISH / Enter creates solid rails; Esc cancels."%draft_points.size())
 		elif tool_name=="draw_race":
-			_notice("%d race route points on roads. FINISH / Enter saves; Esc cancels."%draft_points.size())
+			_notice("Start placed. Click to add checkpoints, or choose Place finish marker. Enter also saves the route." if draft_points.size()==1 else "%d checkpoint markers placed. Choose Place finish marker when ready."%(draft_points.size()-1))
 		else:
 			_notice("%d road points. FINISH / Enter to create the road; Esc cancels."%draft_points.size())
 		return
@@ -1588,6 +1598,13 @@ func _source_click(world_px: Vector2) -> void:
 		_notice("Terrain: click vertices, then press Enter to finish.")
 		return
 	if tool_name == "place_marker":
+		var marker_type:=_option_value(marker_kind)
+		if marker_type in ["race_start","checkpoint","finish"]:
+			if marker_type=="race_start":
+				race_editor.begin_route(self)
+				_source_click(world_px)
+			else:_notice("Use Create race or select a race and Add checkpoint. Race gates are automatically linked.")
+			return
 		source_id = authoring.add_marker(_snap_point(world_px/PPM),_option_value(marker_kind))
 		_refresh_authoring()
 		_notice("Game marker added to unsaved draft." if not source_id.is_empty() else authoring.last_error)
@@ -1649,7 +1666,8 @@ func _source_click(world_px: Vector2) -> void:
 			return
 	if not race_handle.is_empty():
 		selected={};gizmos.set_selection({})
-		source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
+		source_id=str(race_handle.id);source_anchor=int(race_handle.index);pending_drag=race_handle;pending_drag.grab=world_px;pending_drag.to=race_handle.from
+		if is_instance_valid(inspector_tabs):inspector_tabs.current_tab=0
 		_refresh_authoring();return
 	var hit: Dictionary={}
 	if road_selection_layer==99 and layer_flags.terrain and _workspace_selectable(source_id):
@@ -3458,7 +3476,9 @@ func _finish_shape() -> void:
 	elif tool_name=="draw_sidewalk":identity=authoring.add_sidewalk(draft_points,sidewalk_width.value)
 	elif tool_name=="draw_guardrail":identity=authoring.add_guardrail(draft_points,guardrail_width.value)
 	elif tool_name=="draw_race":identity=race_editor.finish(self)
-	if identity.is_empty():_notice(authoring.last_error);return
+	if identity.is_empty():
+		_notice(authoring.last_error if not authoring.last_error.is_empty() else "Race route could not be saved. Check gate spacing and starting grid.")
+		return
 	source_id=identity;source_anchor=-1;draft_points.clear()
 	var placed_race: bool=tool_name=="draw_race"
 	if placed_race:tool_name="move_prop";mode_label.text="SELECT / EDIT";_update_active_tool_style()
@@ -3469,6 +3489,7 @@ func _finish_shape() -> void:
 	if placed_race:race_editor.open_for(self,identity)
 
 func _cancel_gesture() -> void:
+	race_editor.placing_finish=false
 	pending_drag.clear();draft_points.clear();_right_drag=false
 	_refresh_authoring();_notice("Unfinished edit canceled. Committed edits are unchanged.")
 
@@ -3735,12 +3756,17 @@ func _pick_any_race_start(at: Vector2) -> String:
 
 func _pick_race_handle(at: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.markers:return {}
-	var race: Dictionary=authoring.race_at_id(source_id)
-	if race.is_empty():return {}
-	for i in race.points.size():
-		var p:=Vector2(race.points[i].x,race.points[i].y)*PPM
-		if p.distance_to(at)<12/maxf(.003,editor_camera.zoom.x):return {"id":source_id,"kind":"race_point","index":i,"from":p}
-	return {}
+	var best:=12.0/maxf(.003,editor_camera.zoom.x)
+	var result: Dictionary={}
+	for race in authoring.doc.get("races",[]):
+		if not _workspace_selectable(str(race.id)):continue
+		for i in race.points.size():
+			var gate: Dictionary=EditSession.race_gate_marker(race,i)
+			var p:=Vector2(gate.x,gate.y)*PPM
+			var distance:=p.distance_to(at)
+			if distance<best:
+				best=distance;result={"id":str(gate.properties.race_id),"kind":"race_point","index":int(gate.properties.gate_index),"from":p}
+	return result
 
 func _snap_building(prop: Dictionary,at: Vector2) -> Vector2:
 	return _snap_building_transform(prop,at).position

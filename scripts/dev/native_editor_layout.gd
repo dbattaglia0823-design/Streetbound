@@ -171,7 +171,8 @@ static func build(e) -> void:
 	mountain_help.text="Solid barriers block vehicles. Draw their outline along a map edge."
 	e.terrain_settings.add_child(mountain_help)
 	e.marker_settings=column(e.tool_options);heading(e.marker_settings,"GAME MARKER")
-	e.marker_kind=e._options(e.marker_settings,"Marker type",preload("res://scripts/world/authored_marker_rules.gd").TYPES)
+	e.marker_kind=e._options(e.marker_settings,"Marker type",preload("res://scripts/world/authored_marker_rules.gd").TYPES.filter(func(kind):return kind not in ["race_start","checkpoint","finish"]))
+	e._btn("Create race markers...",e.marker_settings,func():e.race_editor.begin_route(e)).tooltip_text="Place start, checkpoints and finish together as one linked race."
 	e.marker_editor.build(e,e.marker_settings)
 	e.asset_dock=PanelContainer.new();e.asset_dock.name="NativeAssetBrowser"
 	e.asset_dock.add_theme_stylebox_override("panel",StyleBoxEmpty.new());settings.add_child(e.asset_dock)

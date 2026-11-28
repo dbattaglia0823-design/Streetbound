@@ -24,6 +24,11 @@ var formation: OptionButton
 var grid_slot: OptionButton
 var slot_rotation: SpinBox
 var editing_id:=""
+var placing_finish:=false
+var gate_controls: VBoxContainer
+var gate_step: Label
+var checkpoint_gate_button: Button
+var finish_gate_button: Button
 var grid_race_id:=""
 var updating:=false
 var list_stamp:=-1
@@ -77,10 +82,10 @@ var career_prerequisites: ItemList
 var _career_car_ids: Array[String]=[]
 var _career_race_ids: Array[String]=[]
 func build(e,parent: Node) -> void:
-	e._btn("Street races & routes",parent,func():begin_route(e))
+	e._btn("Create race",parent,func():begin_route(e)).tooltip_text="Place linked start, checkpoints and finish markers."
 	panel=VBoxContainer.new();parent.add_child(panel)
 	var heading:=Label.new();heading.text="RACE SETUP";panel.add_child(heading)
-	race_list=OptionButton.new();panel.add_child(race_list)
+	race_list=OptionButton.new();race_list.fit_to_longest_item=false;panel.add_child(race_list)
 	race_list.item_selected.connect(func(index):
 		if updating:return
 		var id:=str(race_list.get_item_metadata(index))
@@ -101,6 +106,10 @@ func build(e,parent: Node) -> void:
 	opponents=e._number(panel,"AI opponents",1,Grid.MAX_RIVALS,2)
 	opponents.step=1
 	formation=e._options(panel,"Formation",Grid.FORMATIONS)
+	gate_controls=VBoxContainer.new();panel.add_child(gate_controls)
+	gate_step=Label.new();gate_step.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;gate_controls.add_child(gate_step)
+	checkpoint_gate_button=e._btn("Place checkpoint",gate_controls,func():select_checkpoint_gate(e))
+	finish_gate_button=e._btn("Place finish marker",gate_controls,func():select_finish_gate(e))
 	grid_edit_fields=VBoxContainer.new();panel.add_child(grid_edit_fields)
 	grid_slot=OptionButton.new();grid_slot.tooltip_text="Select the player or a specific AI grid slot to move.";grid_edit_fields.add_child(grid_slot)
 	slot_rotation=e._number(grid_edit_fields,"Facing °",-180,180,0)
@@ -119,7 +128,7 @@ func build(e,parent: Node) -> void:
 	e._btn("Move checkpoint later",route_edit_fields,func():shift_checkpoint(e,1))
 	e._btn("Redraw race route",route_edit_fields,func():begin_route(e,e.source_id if not e.authoring.race_at_id(e.source_id).is_empty() else ""))
 	var help:=Label.new();help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	help.text="Click roads in route order: start, checkpoints, finish. Enter saves. Select a saved race to drag gates or place more checkpoints. Set AI opponents to race, or choose Time trial for a solo run."
+	help.text="Race markers are part of the race and automatically linked. Place the start, any checkpoints, and the finish using the race controls. Circuits finish back at the start. Select any saved gate to edit its race."
 	help.add_theme_font_size_override("font_size",11);panel.add_child(help)
 	title.text_submitted.connect(func(_value):commit_settings(e))
 	title.focus_exited.connect(func():commit_settings(e))
@@ -140,8 +149,37 @@ func settings(e) -> Dictionary:
 func minimum_points(e) -> int:return 3 if e._option_value(mode)=="circuit" else 2
 func begin_route(e,id: String="") -> void:
 	if e._editing_locked() or not e.source_ready:return
+	placing_finish=false
 	e._choose_tool("draw_race");editing_id=id
-	e._notice("Click the actual roads in order: START, checkpoints, FINISH. Press Enter to save. Checkpoints snap to road centerlines.")
+	e._notice("Place the START marker on a road. Then place checkpoints and choose Place finish marker.")
+func select_checkpoint_gate(e) -> void:
+	if e.tool_name!="draw_race" or e.draft_points.is_empty():return
+	placing_finish=false
+	e._update_context_panels()
+	e._notice("Click a road to place the next checkpoint marker.")
+
+func select_finish_gate(e) -> void:
+	if e.tool_name!="draw_race" or e.draft_points.is_empty():return
+	if e._option_value(mode)=="circuit":
+		if e.draft_points.size()<3:return
+		e._finish_shape()
+		return
+	placing_finish=true
+	e._update_context_panels()
+	e._notice("Click a road to place the finish marker and save the race.")
+
+func update_gate_controls(e) -> void:
+	var drawing: bool=e.tool_name=="draw_race"
+	gate_controls.visible=drawing
+	if not drawing:return
+	var count: int=e.draft_points.size()
+	var circuit: bool=e._option_value(mode)=="circuit"
+	if circuit:placing_finish=false
+	gate_step.text="1. Place START marker on a road" if count==0 else ("3. Click a road to place FINISH" if placing_finish else "2. Place CHECKPOINT %d, or finish the race"%count)
+	checkpoint_gate_button.disabled=count==0 or count>=(99 if not circuit else 100)
+	finish_gate_button.text="Finish circuit at start" if circuit else "Place finish marker"
+	finish_gate_button.disabled=count<(3 if circuit else 1) or (not circuit and count>=100)
+
 func begin_checkpoint(e) -> void:
 	if e._editing_locked() or not e.source_ready:return
 	var identity: String=e.source_id
@@ -238,6 +276,7 @@ func update(e) -> void:
 	if panel==null or not e.source_ready:return
 	var selected: Dictionary=e.authoring.race_at_id(e.source_id)
 	panel.visible=e.tool_name in ["draw_race","race_grid","race_checkpoint"] or not selected.is_empty()
+	update_gate_controls(e)
 	edit_button.disabled=selected.is_empty() or e._editing_locked()
 	edit_button.visible=not selected.is_empty() and e.tool_name!="draw_race"
 	grid_edit_fields.visible=not selected.is_empty() and e.tool_name!="draw_race"
@@ -292,7 +331,7 @@ func commit_settings(e) -> void:
 	e._refresh_authoring()
 func finish(e) -> String:
 	var id: String=e.authoring.save_race(e.draft_points,settings(e),editing_id)
-	if not id.is_empty():editing_id=""
+	if not id.is_empty():editing_id="";placing_finish=false
 	return id
 
 

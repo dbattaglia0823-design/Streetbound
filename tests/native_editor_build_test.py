@@ -40,8 +40,15 @@ def run():
         region=doc['regions'][-1]
         expected_region=[[p['x'],p['y']] for p in region['points']]
         assert any(t['kind']==region['biome'] and t['points']==expected_region for t in baked['terrain']), 'Native terrain missing'
-        assert any(m['kind']=='race_start' and m['p']==[3500,3500] for m in baked['editor_markers']), 'Native race marker missing'
+        assert any(m['kind']=='traffic_spawn' and m['p']==[3500,3500] for m in baked['editor_markers']), 'Native standalone marker missing'
+        race=next(r for r in doc['races'] if r['name']=='Native linked sprint')
+        assert len(race['points'])==3, 'Native linked race must contain start, checkpoint and finish'
+        markers=[m for m in baked['editor_markers'] if m.get('race',{}).get('id')==race['id']]
+        assert len(markers)==1 and markers[0]['kind']=='race_start', 'Expected exactly one playable race start'
+        assert markers[0]['p']==[race['points'][0]['x'],race['points'][0]['y']], 'Race start marker moved during bake'
+        assert markers[0]['race']['points']==race['points'], 'Linked route gates changed during bake'
+        assert not any(m.get('properties',{}).get('race_id')==race['id'] for m in doc['markers']), 'Duplicate standalone race gates'
         assert baked['chunks'] and baked['road_connections']
-        print('NATIVE EDITOR PRODUCTION BAKE: PASS (road, chosen terrain, race marker, streaming and connections)')
+        print('NATIVE EDITOR PRODUCTION BAKE: PASS (road, chosen terrain, standalone marker, linked race, streaming and connections)')
 
 if __name__=='__main__':run()
