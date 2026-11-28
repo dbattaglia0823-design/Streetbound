@@ -313,6 +313,19 @@ func _run() -> void:
 		not session.set_prop_draw_order(native_region,11) and session.set_prop_draw_order(native_region,0) and
 		not session.doc.regions[-1].has("drawOrder"))
 	session.discard_changes()
+	var vertex_region:=session.add_region(corners)
+	var before_vertices: Dictionary=session.region_at_id(vertex_region).duplicate(true)
+	var inserted_vertex: int=session.insert_region_point(vertex_region,2,Vector2(350,345))
+	check("terrain_vertex_insert_closing_edge_and_undo",
+		inserted_vertex==3 and session.region_at_id(vertex_region).points.size()==4 and
+		session.undo() and session.region_at_id(vertex_region)==before_vertices and
+		session.redo() and session.region_at_id(vertex_region).points.size()==4)
+	check("terrain_vertex_move_remove_and_triangle_minimum",
+		session.move_region_point(vertex_region,3,Vector2(320,350)) and
+		session.remove_region_point(vertex_region,3) and
+		not session.remove_region_point(vertex_region,0) and
+		session.region_at_id(vertex_region).points.size()==3)
+	session.discard_changes()
 	var marker_count: int = session.doc.markers.size()
 	var native_marker := session.add_marker(Vector2(2350,3100))
 	check("native_marker_uses_browser_source_contract",
