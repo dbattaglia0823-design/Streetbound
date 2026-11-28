@@ -32,7 +32,10 @@ var slot_bars: Dictionary = {}
 var picker: Panel
 var picker_title: Label
 var picker_status: Label
-var picker_parts: VBoxContainer
+var picker_parts: GridContainer
+var slot_captions: Dictionary = {}
+var _icon_cache: Dictionary = {}
+const TILE_SIZE := 150.0
 var picker_remove: Button
 var selected_slot := "engine"
 var last_car_id := ""
@@ -141,6 +144,71 @@ func _make_button(parent: Node, title: String, at: Vector2,
 	return button
 
 
+# Authored vector part silhouettes: no font glyph or external artwork dependency.
+func _part_icon(slot: String) -> Texture2D:
+	if _icon_cache.has(slot):
+		return _icon_cache[slot] as Texture2D
+	var shapes: Dictionary = {
+		"engine": '<path d="M15 26h9l6-9h29l7 9h12v33H65l-7 10H27l-8-10H9V38h6z" fill="#60727b"/><path d="M29 27h29v12H29zM29 44h29v13H29z" fill="#a9b9bf"/><path d="M35 18v-7h19v7M8 39v17M73 32h10v18H73" stroke="#d9e3e5" stroke-width="4"/>',
+		"turbo": '<path d="M48 13h28v19H62a26 26 0 1 1-14-19z" fill="#768b94"/><circle cx="43" cy="44" r="19" fill="#26343c"/><circle cx="43" cy="44" r="12" fill="#a7c1c8"/><path d="M43 32v24M31 44h24M35 36l16 16m0-16L35 52" stroke="#44535e" stroke-width="3"/>',
+		"transmission": '<path d="M10 25l19-11 17 8 12 13 21 5v12l-21 5-12 13-17 8-19-11z" fill="#73838c"/><path d="M24 17v56M35 19v52M47 27v36M58 35v22M80 40h8v12h-8" stroke="#c7d3d6" stroke-width="4"/>',
+		"tires": '<circle cx="44" cy="44" r="33" fill="#283138"/><circle cx="44" cy="44" r="23" fill="#81919a"/><circle cx="44" cy="44" r="16" fill="#293842"/><path d="M44 28v32M28 44h32M33 33l22 22m0-22L33 55" stroke="#ccd8de" stroke-width="4"/><circle cx="44" cy="44" r="5" fill="#b3c5c9"/>',
+		"suspension": '<path d="M40 8h8v13h-8zm-7 56h22v15H33z" fill="#acbcc4"/><path d="M44 20v45" stroke="#8298a4" stroke-width="12"/><path d="M29 20h30L29 29l30 9-30 9 30 9-30 9h30" fill="none" stroke="#df9e50" stroke-width="5" stroke-linejoin="round"/>',
+		"nitrous": '<rect x="26" y="17" width="36" height="64" rx="17" fill="#387cab"/><path d="M38 17V8h12v9M36 7h22" stroke="#d3dfe3" stroke-width="5"/><path d="M29 36h30v21H29z" fill="#b8dce9"/><path d="M33 47h22" stroke="#32617d" stroke-width="4"/>',
+		"chassis": '<path d="M18 13h52l10 16-10 46H18L8 29zM18 13l52 62M70 13L18 75M12 31h64M14 58h60" fill="none" stroke="#adbdc3" stroke-width="6" stroke-linejoin="round"/>',
+		"bumpers": '<path d="M9 27q35-13 70 0l-4 28-14 8H27l-14-8z" fill="#899ca5"/><path d="M21 37h46l-5 14H26z" fill="#293944"/><path d="M11 28q33-9 66 0" fill="none" stroke="#d3dfe2" stroke-width="4"/>',
+		"protection": '<path d="M44 9l31 12v22q0 22-31 36Q13 65 13 43V21z" fill="#6a8593"/><path d="M44 20l20 8v15q0 15-20 26Q24 58 24 43V28z" fill="#b5c6cb"/><path d="M44 20v49" stroke="#6a8593" stroke-width="4"/>',
+		"cargo": '<rect x="9" y="24" width="70" height="48" rx="7" fill="#657780"/><path d="M30 24v-9h28v9M9 43h70" fill="none" stroke="#c3d1d5" stroke-width="5"/><path d="M23 35h8v20h-8zm34 0h8v20h-8z" fill="#e4a252"/>'
+	}
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88"><g stroke="#18232a" stroke-width="2" stroke-linejoin="round">'+str(shapes.get(slot,shapes["engine"]))+'</g></svg>'
+	var image := Image.new()
+	if image.load_svg_from_string(svg) != OK:
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_icon_cache[slot] = texture
+	return texture
+
+
+func _tile_icon(parent: Control, slot: String, at: Vector2, extent: float) -> void:
+	var art := TextureRect.new()
+	art.name = "PartIcon"
+	art.texture = _part_icon(slot)
+	art.position = at
+	art.size = Vector2.ONE*extent
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(art)
+
+
+func _center_label(parent: Control, value: String, font_size: int, color: Color, at: Vector2, dimensions: Vector2) -> Label:
+	var node := _label(parent,value,font_size,color,at,dimensions)
+	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return node
+
+
+func _part_tile(button: Button, template: Dictionary, state: String, detail: String) -> void:
+	button.custom_minimum_size = Vector2.ONE*TILE_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.text = ""
+	_style_button(button,state == "INSTALLED")
+	var rarity := str(template.get("rarity","Common"))
+	var tint := Parts.rarity_color(rarity)
+	var normal := button.get_theme_stylebox("normal").duplicate() as StyleBoxFlat
+	normal.border_color = ORANGE if state == "INSTALLED" else tint
+	button.add_theme_stylebox_override("normal",normal)
+	var disabled_style := normal.duplicate() as StyleBoxFlat
+	disabled_style.bg_color = Color(0.065,0.085,0.095,0.96)
+	button.add_theme_stylebox_override("disabled",disabled_style)
+	_tile_icon(button,selected_slot,Vector2(47,5),56)
+	var title := _center_label(button,str(template.get("name","PART")),12,INK,Vector2(5,62),Vector2(140,34))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_center_label(button,rarity.to_upper(),10,tint,Vector2(5,96),Vector2(140,15))
+	_center_label(button,detail,10,SUBTLE,Vector2(5,111),Vector2(140,15))
+	_center_label(button,state,10,ORANGE if state == "INSTALLED" or state == "BUY" else SUBTLE,Vector2(5,128),Vector2(140,17))
+	picker_parts.add_child(button)
+
+
 func _build_layout() -> void:
 	_label(frame,"╱╱  UPGRADES",31,INK,Vector2(38,24),Vector2(295,50))
 	_label(frame,"BLACK MARKET",12,ORANGE,Vector2(342,10),Vector2(540,20))
@@ -149,6 +217,8 @@ func _build_layout() -> void:
 		var market_button := _make_button(frame,slot.to_upper(),Vector2(342+i*160,32),Vector2(150,38),_open_slot.bind(slot))
 		market_button.name = "BlackMarket_"+slot
 		market_button.add_theme_font_size_override("font_size",12)
+		market_button.icon = _part_icon(slot)
+		market_button.add_theme_constant_override("icon_max_width",24)
 	_make_button(frame,"CLOSE  ✕",Vector2(1014,28),Vector2(128,38),close_menu)
 	var divider := ColorRect.new()
 	divider.position = Vector2(35,91)
@@ -156,22 +226,22 @@ func _build_layout() -> void:
 	divider.color = Color(0.61,0.67,0.67,0.20)
 	frame.add_child(divider)
 	for index in 3:
-		var row_y := 133.0 + float(index)*136.0
+		var row_y := 120.0 + float(index)*150.0
 		for side in 2:
-			var from_x := 393.0 if side == 0 else 786.0
+			var from_x := 294.0 if side == 0 else 886.0
 			var to_x := 470.0 if side == 0 else 710.0
 			var link := Line2D.new()
 			link.name = "PartConnector_%d_%d" % [side,index]
 			link.points = PackedVector2Array([
-				Vector2(from_x,row_y+51.0),
-				Vector2(437.0 if side == 0 else 743.0,row_y+51.0),
-				Vector2(to_x,row_y+51.0)
+				Vector2(from_x,row_y+71.0),
+				Vector2(437.0 if side == 0 else 743.0,row_y+71.0),
+				Vector2(to_x,row_y+71.0)
 			])
 			link.default_color = Color(0.72,0.79,0.78,0.62)
 			link.width = 2.0
 			frame.add_child(link)
 			var dot := Panel.new()
-			dot.position = Vector2(to_x-5.0,row_y+46.0)
+			dot.position = Vector2(to_x-5.0,row_y+66.0)
 			dot.size = Vector2(10,10)
 			dot.add_theme_stylebox_override("panel",_panel_style(
 				ORANGE,Color(1,0.84,0.56),1,10))
@@ -189,18 +259,21 @@ func _build_layout() -> void:
 		var slot := str(QUICK_SLOTS[i])
 		var side := 0 if i < 3 else 1
 		var row := i if side == 0 else i-3
-		var x := 40.0 if side == 0 else 792.0
-		var y := 133.0+float(row)*136.0
+		var x := 148.0 if side == 0 else 886.0
+		var y := 120.0+float(row)*150.0
 		var slot_button := _make_button(frame,"",
-			Vector2(x,y),Vector2(350,104),_open_slot.bind(slot))
+			Vector2(x,y),Vector2(142,142),_open_slot.bind(slot))
 		slot_button.name = "QuickSlot_"+slot.capitalize()
 		slot_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		slot_button.add_theme_font_size_override("font_size",16)
 		slot_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		slot_buttons[slot] = slot_button
+		_tile_icon(slot_button,slot,Vector2(38,8),66)
+		_center_label(slot_button,str(SLOT_NAMES[slot]),13,INK,Vector2(5,80),Vector2(132,24))
+		slot_captions[slot] = _center_label(slot_button,"STOCK",11,SUBTLE,Vector2(5,105),Vector2(132,24))
 		var bar := ColorRect.new()
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bar.position = Vector2(27,90)
+		bar.position = Vector2(8,132)
 		bar.size = Vector2(0,4)
 		bar.color = ORANGE
 		slot_button.add_child(bar)
@@ -223,8 +296,8 @@ func _build_layout() -> void:
 func _build_picker() -> void:
 	picker = Panel.new()
 	picker.name = "PartPicker"
-	picker.position = Vector2(316,110)
-	picker.size = Vector2(550,456)
+	picker.position = Vector2(316,99)
+	picker.size = Vector2(550,480)
 	picker.add_theme_stylebox_override("panel",_panel_style(
 		Color(0.038,0.068,0.076,0.98),ORANGE,2,12))
 	frame.add_child(picker)
@@ -236,16 +309,18 @@ func _build_picker() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = "OwnedPartScroll"
 	scroll.position = Vector2(22,115)
-	scroll.size = Vector2(506,277)
+	scroll.size = Vector2(506,312)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	picker.add_child(scroll)
-	picker_parts = VBoxContainer.new()
+	picker_parts = GridContainer.new()
+	picker_parts.columns = 3
 	picker_parts.name = "OwnedParts"
 	picker_parts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	picker_parts.add_theme_constant_override("separation",7)
+	picker_parts.add_theme_constant_override("h_separation",8)
+	picker_parts.add_theme_constant_override("v_separation",8)
 	scroll.add_child(picker_parts)
 	picker_remove = _make_button(picker,"REMOVE INSTALLED PART",
-		Vector2(22,406),Vector2(506,36),_unequip_selected)
+		Vector2(22,435),Vector2(506,32),_unequip_selected)
 	picker.visible = false
 
 
@@ -361,16 +436,15 @@ func refresh() -> void:
 		var part := _part_in_slot(slot)
 		var caption := "STOCK" if part.is_empty() else str(part.get("name","UPGRADE"))
 		var title := str(SLOT_NAMES[slot])
-		var icon := str(SLOT_ICONS[slot])
 		var button: Button = slot_buttons[slot]
-		button.text = "   %s  %s                      ↔\n\n        %s" % [
-			icon,title,caption]
+		var caption_label: Label = slot_captions[slot]
+		caption_label.text = caption
 		button.tooltip_text = "%s — %s\nClick to browse and swap owned parts." % [
 			title,caption]
 		_style_button(button,slot==selected_slot and overlay.visible)
 		var bar: ColorRect = slot_bars[slot]
 		bar.size.x = 0.0 if part.is_empty() else \
-			33.0+float(Parts.RARITIES.find(str(part.rarity)))*22.0
+			25.0+float(Parts.RARITIES.find(str(part.rarity)))*23.0
 		bar.color = Parts.rarity_color(str(part.get("rarity","Common")))
 	feedback.text = last_result if not last_result.is_empty() else \
 		"SELECT A SLOT  ·  EQUIP OWNED PARTS WITHOUT RETURNING TO THE GARAGE"
@@ -421,61 +495,35 @@ func _refresh_picker() -> void:
 		for item in economy.upgrade_inventory:
 			if str(item.get("template","")) == str(template.id):
 				owned_items.append(item)
+		var summary := Parts.summary(template)
+		var short_summary := summary.split("   /   ")[0]
 		if owned_items.is_empty() or market:
 			var preview := Button.new()
 			preview.name = "Unowned_"+str(template.id).replace("-","_")
-			preview.custom_minimum_size.y = 69
-			preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			preview.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			preview.add_theme_font_size_override("font_size",12)
 			if market:
 				var purchase_status := economy.black_market_purchase_status(str(template.id))
-				preview.text = "%s / %s / %d REP\n%s\n%s" % [str(template.name),Ownership.dollars(int(template.price_usd)),int(template.required_rep),Parts.summary(template),"BUY" if purchase_status=="ready" else purchase_status.to_upper().replace("_"," ")]
-				preview.custom_minimum_size.y = 90
+				var state := "BUY" if purchase_status=="ready" else purchase_status.to_upper().replace("_"," ")
 				preview.disabled = purchase_status!="ready" or not _market_service_allowed()
 				preview.pressed.connect(_purchase_market.bind(str(template.id)))
-				preview.tooltip_text = "Purchase into inventory; stop in free roam to install. Requires reputation, not car XP."
-				_style_button(preview,false)
-				picker_parts.add_child(preview)
-				# Owned copies remain below the purchase button.
+				preview.tooltip_text = "%s\n%s\n%d REP · %s" % [str(template.name),summary,int(template.required_rep),state]
+				_part_tile(preview,template,state,Ownership.dollars(int(template.price_usd)))
 			else:
-				var source := "FUTURE EVENT REWARD" if not \
-					bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
-				preview.text = "%s  /  %s\n%s  ·  %s" % [
-					str(template.name),str(template.rarity),Parts.summary(template),
-					source]
-				preview.tooltip_text = "Part not owned. %s. %s. Planned event pools: %s" % [
-					source,str(template.get("role","")),str(template.get("reward_sources",[]))]
+				var source := "EVENT REWARD" if not bool(template.get("race_drop_enabled",true)) else "NOT OWNED"
+				preview.tooltip_text = "%s\n%s\n%s" % [str(template.name),summary,source]
 				preview.disabled = true
-				_style_button(preview,false)
-				picker_parts.add_child(preview)
+				_part_tile(preview,template,source,short_summary)
 				continue
 		for item in owned_items:
 			var uid := str(item.get("uid",""))
 			var status := economy.can_install_part(car_id,uid)
 			var currently := economy.equipped_uid(car_id,selected_slot)==uid
-			var label := "%s  /  %s\n%s" % [
-				str(template.get("name","PART")),str(template.get("rarity","")),
-				Parts.summary(template)]
-			if currently:
-				label += "   ·  INSTALLED"
-			elif status == "rep_locked":
-				label += "   ·  REPUTATION LOCKED"
-			elif status == "level_locked":
-				label += "   ·  CAR LEVEL LOCKED"
-			elif status == "equipped_elsewhere":
-				label += "   ·  EQUIPPED ON ANOTHER CAR"
+			var state := "INSTALLED" if currently else ("OWNED" if status=="ready" else status.to_upper().replace("_"," "))
 			var option := Button.new()
 			option.name = "Part_"+uid.replace("-","_")
-			option.text = label
-			option.custom_minimum_size.y = 69
-			option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			option.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			option.add_theme_font_size_override("font_size",12)
+			option.tooltip_text = "%s\n%s\n%s" % [str(template.name),summary,state]
 			option.disabled = currently or status!="ready" or (market and not _market_service_allowed())
 			option.pressed.connect(_install_uid.bind(uid))
-			_style_button(option,false)
-			picker_parts.add_child(option)
+			_part_tile(option,template,state,short_summary)
 
 func _market_service_allowed() -> bool:
 	if not is_instance_valid(vehicle) or vehicle.linear_velocity.length() > 1.5:

@@ -43,6 +43,7 @@ func run() -> void:
 	check("wet_reflections_only_appear_on_pavement",
 		WetVisuals.reflection_opacity(1.0,"ASPHALT")>.15 and
 		WetVisuals.reflection_opacity(1.0,"GRAVEL")==0.0)
+	check("wet_lamp_glints_are_local_not_long_beams",WetVisuals.REFLECTION_RADIUS <= 8.0 and WetVisuals.REFLECTION_OFFSET <= 5.0)
 	check("scrape_sparks_do_not_spawn_collision_fragments",
 		int(Crashes.impact_profile(24.0,1.5).get("sparks",0))>0 and
 		int(Crashes.impact_profile(24.0,1.5).get("glass",1))==0)

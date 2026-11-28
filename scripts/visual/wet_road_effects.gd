@@ -5,6 +5,8 @@ const Weather = preload("res://scripts/world/weather_conditions.gd")
 const Lights = preload("res://scripts/visual/vehicle_lights.gd")
 const MAX_DROPS := 80
 const MAX_REFLECTION_CARS := 18
+const REFLECTION_RADIUS := 7.0
+const REFLECTION_OFFSET := 4.0
 const RAIN_VIEW_RADIUS := 1150.0
 
 var world: Node2D
@@ -71,31 +73,15 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw_reflections(car: Node2D, wet: float) -> void:
-	var points: Array[Vector2] = Lights.points_for(car)
-	if points.size() != 2:
-		return
-	var rear := Vector2.DOWN.rotated(car.global_rotation)
-	var front := -rear
-	var brightness := wet * 0.19
-	for anchor in points:
-		var pos: Vector2 = car.global_position + anchor.rotated(car.global_rotation)
-		draw_line(pos + rear * 5.0, pos + rear * 48.0,
-			Color(1.0, 0.10, 0.07, brightness), 6.0, true)
-		draw_line(pos + rear * 9.0, pos + rear * 27.0,
-			Color(1.0, 0.42, 0.27, brightness * 0.65), 2.0, true)
-	var span: float = 16.0
-	if car.is_in_group("traffic_vehicle"):
-		var raw_width: Variant = car.get("width_px")
-		if raw_width is float or raw_width is int:
-			var width: float = float(raw_width)
-			if is_finite(width) and width > 0.0:
-				span = width * 0.28
-	for side in [-1.0, 1.0]:
-		var head := car.global_position + Vector2(side * span, -32.0).rotated(car.global_rotation)
-		draw_line(head + front * 4.0, head + front * 78.0,
-			Color(0.72, 0.86, 1.0, brightness * 0.9), 8.0, true)
-		draw_line(head + front * 8.0, head + front * 43.0,
-			Color(0.95, 0.97, 1.0, brightness), 3.0, true)
+	# Localized glints only; long directional streaks resemble laser beams.
+	var brightness := wet * 0.15
+	for front in [false,true]:
+		var direction := Vector2.UP if front else Vector2.DOWN
+		var tint := Color(.82,.91,1.0,brightness) if front else Color(1.0,.12,.08,brightness)
+		for anchor in Lights.points_for(car,front):
+			var pos := car.to_global(anchor+direction*REFLECTION_OFFSET)
+			draw_circle(pos,REFLECTION_RADIUS,tint)
+			draw_circle(pos,REFLECTION_RADIUS*.45,Color(tint,brightness*.8))
 
 func _draw() -> void:
 	if not is_instance_valid(focus_vehicle):return

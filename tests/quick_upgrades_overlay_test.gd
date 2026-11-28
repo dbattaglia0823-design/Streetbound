@@ -61,15 +61,20 @@ func _run() -> void:
 	check("quick_overlay_pauses_world_anywhere",
 		paused and quick.overlay.visible and not quick.launch_button.visible)
 	quick._open_slot("engine")
+	check("picker_uses_square_inventory_grid",quick.picker_parts is GridContainer and quick.picker_parts.columns == 3)
 	var owned_buttons := 0
+	var all_tiles_square_and_illustrated := true
 	var unowned_buttons := 0
 	var all_unowned_disabled := true
 	for button in quick.picker_parts.get_children():
+		var art := button.get_node_or_null("PartIcon") as TextureRect
+		all_tiles_square_and_illustrated = all_tiles_square_and_illustrated and button.custom_minimum_size.x == button.custom_minimum_size.y and art != null and art.texture != null
 		if button.name.begins_with("Part_"):
 			owned_buttons += 1
 		elif button.name.begins_with("Unowned_"):
 			unowned_buttons += 1
 			all_unowned_disabled = all_unowned_disabled and button.disabled
+	check("all_part_tiles_have_icons_and_square_dimensions",all_tiles_square_and_illustrated)
 	check("picker_lists_all_20_variants_and_owned_parts",
 		quick.picker.visible and quick.picker_parts.get_child_count() == 20 and
 		owned_buttons == 3 and unowned_buttons == 17 and all_unowned_disabled)
