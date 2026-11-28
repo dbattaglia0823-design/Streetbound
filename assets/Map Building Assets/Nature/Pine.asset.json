@@ -1,0 +1,8 @@
+{
+  "type": "pine",
+  "worldSize": [
+    7,
+    7
+  ],
+  "collision": "solid"
+}
