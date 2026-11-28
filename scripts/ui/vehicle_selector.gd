@@ -5,6 +5,7 @@ extends CanvasLayer
 # Explicit script dependency: class_name lookups are not reliable before Godot imports.
 const OwnershipModel = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 var player: VehicleController2D
 var driving_hud: CanvasLayer
 var pause_menu: CanvasLayer
@@ -33,6 +34,7 @@ func _ready() -> void:
 	launch_button.text = "GARAGE  [ G ]"
 	launch_button.position = Vector2(410.0, 24.0)
 	launch_button.custom_minimum_size = Vector2(330.0, 42.0)
+	RacingStyle.button(launch_button,true,16)
 	launch_button.pressed.connect(open_menu)
 	add_child(launch_button)
 	overlay = Control.new()
@@ -41,7 +43,7 @@ func _ready() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(overlay)
 	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.025, 0.04, 0.05, 0.94)
+	backdrop.color = Color(0.045,0.055,0.07,0.97)
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(backdrop)
 	var frame := MarginContainer.new()
@@ -58,22 +60,34 @@ func _ready() -> void:
 	column.add_child(heading)
 	var name_label := Label.new()
 	name_label.text = "LAUREL MOTOR HOUSE  /  GARAGE"
-	name_label.add_theme_font_size_override("font_size", 27)
+	name_label.add_theme_font_size_override("font_size", 32)
+	name_label.add_theme_color_override("font_color",RacingStyle.ACCENT)
+	name_label.clip_text=true
+	name_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(name_label)
 	var close := Button.new()
 	close.name = "CloseVehicleSelector"
 	close.text = "BACK TO DRIVING   [ ESC ]"
+	RacingStyle.button(close,false,15)
 	close.pressed.connect(close_menu)
 	heading.add_child(close)
+	var stripe := ColorRect.new()
+	stripe.color=RacingStyle.ACCENT
+	stripe.custom_minimum_size.y=3
+	stripe.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	column.add_child(stripe)
 	var help := Label.new()
 	help.text = "Owned vehicles only. Race to level cars; part rarity unlocks at car LV 10 / 20 / 30 / 40 / 50."
 	help.add_theme_font_size_override("font_size", 14)
+	help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_color_override("font_color",RacingStyle.MUTED)
 	column.add_child(help)
 	search = LineEdit.new()
 	search.name = "VehicleSearch"
 	search.placeholder_text = "Search manufacturer or model"
 	search.custom_minimum_size.y = 39
+	RacingStyle.field(search)
 	search.text_changed.connect(_apply_filter)
 	column.add_child(search)
 	title_label = Label.new()
@@ -83,6 +97,7 @@ func _ready() -> void:
 	scroll.name = "VehicleScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
 	column.add_child(scroll)
 	grid = GridContainer.new()
 	grid.name = "VehicleGrid"
@@ -124,6 +139,7 @@ func _create_card(entry: Dictionary) -> void:
 	var button := Button.new()
 	button.name = "Car_" + str(entry.id).replace("-", "_")
 	button.custom_minimum_size = Vector2(210, 224)
+	RacingStyle.button(button,false,15)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = "%s  |  %.0f kg  |  %.0f HP  |  %s\n%s  |  %s  |  HEALTH %d" % [
 		str(entry.display_name),float(entry.mass_kg),
@@ -177,7 +193,7 @@ func _create_card(entry: Dictionary) -> void:
 	note.offset_top = -39
 	note.offset_bottom = -13
 	note.add_theme_font_size_override("font_size", 11)
-	note.add_theme_color_override("font_color", Color("#a8bcab"))
+	note.add_theme_color_override("font_color", RacingStyle.MUTED)
 	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(note)
 	cards.append({"button": button, "preview": photo, "entry": entry,
@@ -186,7 +202,7 @@ func _create_card(entry: Dictionary) -> void:
 
 func _layout_grid() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
-	grid.columns = maxi(2, floori((viewport_size.x - 90.0) / 232.0))
+	grid.columns = maxi(1, floori((viewport_size.x - 70.0 - 24.0 + 12.0) / 222.0))
 	launch_button.position = Vector2(minf(410.0, maxf(12.0, viewport_size.x - 350.0)), 24.0)
 
 

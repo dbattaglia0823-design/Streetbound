@@ -3,6 +3,7 @@ extends PanelContainer
 ## of can_stage/start_race; this view never bypasses game or speed conditions.
 signal hide_requested
 const Preview = preload("res://scripts/ui/race_route_preview.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const WIDTH := 338.0
 var host: Node
 var data: Dictionary = {}
@@ -22,7 +23,7 @@ var close_button: Button
 func _ready() -> void:
 	name = "RaceStartSidePanel"
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	var skin := _style(Color("#091723", .96), Color("#f49a4d", .88))
+	var skin := _style(Color("#12161c", .96), RacingStyle.ACCENT)
 	skin.content_margin_left = 12
 	skin.content_margin_right = 12
 	skin.content_margin_top = 10
@@ -97,13 +98,8 @@ func _ready() -> void:
 	start_button.name = "StartRaceButton"
 	start_button.text = "START RACE   [F / R3]"
 	start_button.custom_minimum_size.y = 44
-	start_button.add_theme_font_size_override("font_size", 16)
-	start_button.add_theme_color_override("font_color", Color.WHITE)
-	start_button.add_theme_color_override("font_disabled_color", Color("#b2bdc0"))
-	start_button.add_theme_stylebox_override("normal", _style(Color("#ba531f"), Color("#ffa256")))
-	start_button.add_theme_stylebox_override("hover", _style(Color("#da732a"), Color("#ffd092")))
-	start_button.add_theme_stylebox_override("pressed", _style(Color("#87401d"), Color("#f6a66c")))
-	start_button.add_theme_stylebox_override("disabled", _style(Color("#253441"), Color("#4b5f6c")))
+	RacingStyle.button(start_button,true,16)
+
 	start_button.pressed.connect(_on_start)
 	body.add_child(start_button)
 	hint_label = _label(body, "F / R3 START   •   H HIDE", 10, Color("#9fb3c1"))
@@ -117,7 +113,7 @@ func _style(background: Color, outline: Color) -> StyleBoxFlat:
 	style.bg_color = background
 	style.border_color = outline
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
+	style.set_corner_radius_all(6)
 	return style
 
 func _label(parent: Node, value: String, font_size: int, color: Color) -> Label:

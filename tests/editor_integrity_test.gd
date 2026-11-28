@@ -8,6 +8,12 @@ func check(label: String,ok: bool) -> void:
 	print("%s %s"%["PASS" if ok else "FAIL",label])
 	if not ok:failures.append(label)
 func run() -> void:
+	# This test also runs on a fresh, independent CI shard. Never depend on
+	# an earlier road-edit test creating the fixture directory.
+	var fixture_dir := ProjectSettings.globalize_path("res://.runtime/road-edit-audit")
+	var mkdir_error := DirAccess.make_dir_recursive_absolute(fixture_dir)
+	check("fixture_output_directory_available",mkdir_error==OK or DirAccess.dir_exists_absolute(fixture_dir))
+	if not failures.is_empty():quit(1);return
 	var s=Session.new();s.doc=Library.create("Junction test",2400,1800,"grass")
 	var main_points: Array[Vector2]=[Vector2(300,800),Vector2(1800,800)]
 	var branch_points: Array[Vector2]=[Vector2(1000,300),Vector2(1000,790)]
@@ -31,7 +37,11 @@ func run() -> void:
 	var branch: Array[Vector2]=[center+Vector2(150,0),center]
 	production.add_road_path(branch)
 	var source=FileAccess.open("res://.runtime/road-edit-audit/junction-source.json",FileAccess.WRITE)
-	source.store_string(JSON.stringify(e.bridge._python_typed_source(production.doc)));source.close()
+	check("junction_fixture_file_opened",source!=null)
+	if source==null:quit(1);return
+	source.store_string(JSON.stringify(e.bridge._python_typed_source(production.doc)))
+	check("junction_fixture_written",source.get_error()==OK)
+	source.close()
 	var original: Dictionary={};var original_index:=-1
 	for i in scene.ground.data.props.size():
 		var p: Dictionary=scene.ground.data.props[i]

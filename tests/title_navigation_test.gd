@@ -17,6 +17,20 @@ func _run() -> void:
 	root.add_child(title)
 	current_scene = title
 	await process_frame
+	var ambient: Node=title.ambient_audio
+	var original_sound: bool=bool(title.settings_adapter.settings_store.get_setting("sound"))
+	title.settings_adapter._handle_action("settings.sfx_changed",{"value":true})
+	check("title_ambient_and_featured_engine_loop",ambient.menu_mode and ambient.voices.size()==2 and ambient.idle.playing and ambient.idle.stream.loop_mode==AudioStreamWAV.LOOP_FORWARD)
+	ambient.siren_wait=0.0
+	ambient._tick_siren(.1)
+	check("occasional_siren_starts_with_bounded_duration",ambient.siren.playing and ambient.siren_duration>=4.0 and ambient.siren_duration<=7.0)
+	ambient._tick_siren(ambient.siren_duration*.5)
+	check("passing_siren_is_a_quiet_background_event",ambient.siren.volume_db<-20.0)
+	ambient._tick_siren(ambient.siren_duration)
+	check("siren_stops_and_schedules_next_event",not ambient.siren.playing and ambient.siren_wait>=22.0)
+	title.settings_adapter._handle_action("settings.sfx_changed",{"value":false})
+	check("title_sound_setting_mutes_every_ambient_voice",ambient.muted and ambient.idle.volume_db<=-80.0 and ambient.voices.values().all(func(voice):return voice.volume_db<=-80.0))
+	title.settings_adapter._handle_action("settings.sfx_changed",{"value":original_sound})
 	check("project_starts_on_streetbound_title_menu",
 		ProjectSettings.get_setting("application/run/main_scene") ==
 			"res://scenes/title_menu.tscn" and
@@ -82,6 +96,12 @@ func _run() -> void:
 		paused and title.settings_adapter.menu_state=="settings" and
 		title.settings_adapter.controls_tab_button != null and
 		title.settings_adapter.settings_screen.visible)
+	check("racing_settings_use_left_rail_and_context_panel",
+		title.settings_adapter.general_tab_button.position.x < title.settings_adapter.settings_screen.controls["sfx_toggle"].position.x and
+		title.settings_adapter.controls_tab_button.position.y > title.settings_adapter.general_tab_button.position.y and
+		title.settings_adapter.settings_context.visible and title.settings_adapter.volume_readout.text.ends_with("%"))
+	title.settings_adapter.settings_screen.controls["volume_slider"].focus_entered.emit()
+	check("settings_context_tracks_focused_control",title.settings_adapter.context_title.text=="VOLUME")
 	title.settings_adapter.controls_tab_button.pressed.emit()
 	check("title_controls_tab_has_customizable_bindings",
 		title.settings_adapter.settings_tab=="controls" and

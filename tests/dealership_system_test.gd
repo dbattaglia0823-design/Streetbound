@@ -209,6 +209,26 @@ func run() -> void:
 	check("budget_shop_opens_paused_with_its_stock",
 		menu.overlay.visible and paused and menu.cards.size() == counted.budget,
 		menu.cards.size())
+	await process_frame
+	await process_frame
+	check("dealer_header_uses_separate_class_and_finance_panel",
+		menu.heading.text==str(budget.name).to_upper() and
+		menu.tier_label.text.contains(str(budget.tier).to_upper()) and
+		menu.finance_panel.is_ancestor_of(menu.wallet) and
+		menu.finance_panel.is_ancestor_of(menu.driver_level) and
+		menu.wallet.text==Ownership.dollars(starter.balance) and
+		not menu.wallet.text.contains("OWNED"))
+	var bounds: Rect2=menu.scroll.get_global_rect()
+	var cards_fit:=true
+	for item in menu.cards:
+		var card: Control=item.panel
+		cards_fit=cards_fit and card.get_global_rect().end.x<=bounds.end.x+1.0
+	check("dealership_cards_fit_horizontal_scroll_viewport",cards_fit,bounds)
+	var adaptive:=true
+	for width in [640.0,800.0,1024.0,1440.0,1920.0,2560.0]:
+		var cols: int=menu.stock_columns(width)
+		adaptive=adaptive and cols>=1 and cols*266.0+(cols-1)*12.0<=width-56.0-24.0
+	check("dealer_grid_reserves_margins_gaps_and_scrollbar",adaptive)
 	var reference_labels := true
 	for item in menu.cards:
 		var card: Control = item.panel

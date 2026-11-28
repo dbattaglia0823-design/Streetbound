@@ -5,6 +5,7 @@ extends Node2D
 const DEFAULT_BOUNDS := Rect2(Vector2(-19.0,-38.0),Vector2(38.0,76.0))
 var vehicle: Node2D
 var rear_points: Array[Vector2] = []
+var front_points: Array[Vector2] = []
 var braking := false
 var reversing := false
 var _ready_to_draw := false
@@ -18,7 +19,7 @@ static func brake_lights_active(brake_input: float, handbrake_input: float,
 		in_reverse: bool) -> bool:
 	return not in_reverse and maxf(brake_input,handbrake_input*.65) > .12
 
-static func points_for(body: Node2D) -> Array[Vector2]:
+static func points_for(body: Node2D, front: bool = false) -> Array[Vector2]:
 	var bounds: Rect2 = DEFAULT_BOUNDS
 	var left_uv := Vector2(.20,.925)
 	var right_uv := Vector2(.80,.925)
@@ -40,6 +41,8 @@ static func points_for(body: Node2D) -> Array[Vector2]:
 			var length: float=float(raw_length)
 			if is_finite(width) and is_finite(length) and width>0 and length>0:
 				bounds=Rect2(Vector2(-width*.5,-length*.5),Vector2(width,length))
+	if front:
+		return [bounds.position+bounds.size*Vector2(.20,.075), bounds.position+bounds.size*Vector2(.80,.075)]
 	return rear_points_from_bounds(bounds,left_uv,right_uv)
 
 func _ready() -> void:
@@ -70,15 +73,20 @@ func _refresh() -> void:
 		next_brake=bool(vehicle.get("brake_lights_on"))
 		next_reverse=bool(vehicle.get("reverse_lights_on"))
 	var next_points:=points_for(vehicle)
-	if _ready_to_draw and next_brake==braking and next_reverse==reversing and next_points==rear_points:
+	var next_front:=points_for(vehicle,true)
+	if _ready_to_draw and next_brake==braking and next_reverse==reversing and next_points==rear_points and next_front==front_points:
 		return
 	braking=next_brake
 	reversing=next_reverse
 	rear_points=next_points
+	front_points=next_front
 	_ready_to_draw=true
 	queue_redraw()
 
 func _draw() -> void:
+	for point in front_points:
+		draw_circle(point,5.5,Color(.82,.91,1.0,.13))
+		draw_circle(point,2.4,Color(.95,.97,1.0,.86))
 	if rear_points.size()!=2:
 		return
 	for point in rear_points:

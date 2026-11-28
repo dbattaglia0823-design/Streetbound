@@ -31,6 +31,19 @@ func run() -> void:
 		elif child.get_script() == load("res://scripts/audio/vehicle_audio.gd"):
 			audio = child
 	check("audio_layers_playing", audio.engine.playing and audio.tires.playing)
+	var ambient: Node=main.ambient_audio
+	check("gameplay_has_four_bounded_ambient_layers",not ambient.menu_mode and ambient.voices.size()==4 and ambient.idle==null and ambient.siren==null)
+	main.ground.set_rain_intensity(.8)
+	ambient._update_targets()
+	check("ambient_rain_follows_weather",is_equal_approx(float(ambient.targets.rain),.216))
+	main.ground.set_rain_intensity(0.0)
+	ambient._update_targets()
+	var previous_mute: bool=audio.muted
+	audio.muted=true
+	ambient._process(.016)
+	check("ambient_respects_gameplay_mute",ambient.muted and ambient.voices.values().all(func(voice):return voice.volume_db<=-80.0))
+	audio.muted=previous_mute
+	ambient._process(.016)
 	Input.action_press("camera")
 	await physics_frame
 	await physics_frame
