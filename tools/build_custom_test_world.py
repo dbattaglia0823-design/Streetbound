@@ -136,7 +136,53 @@ def _gameplay_payload(doc,roads,width,height):
     return dict(spawn=spawn,pois=pois,editor_markers=markers,editor_races=baked_races,editor_dealerships=dealers,editor_game_markers=markers)
 
 
+def clean_custom_art(doc):
+    """Retire stale art from a detached source copy; never rewrite user files."""
+    from project_asset_catalog import catalog, building_file, asset_id, ROOT
+    from copy import deepcopy
+    if doc.get("customMap") is not True:
+        return doc, []
+    clean = deepcopy(doc)
+    entries = {entry["path"]: entry for entry in catalog(ROOT)}
+    removed = []
+    def valid(relative, identifier, region):
+        if region or not isinstance(relative, str):
+            return False
+        try:
+            actual = building_file(relative, ROOT).relative_to(ROOT / "assets").as_posix()
+        except (ValueError, OSError):
+            return False
+        entry = entries.get(actual)
+        return entry is not None and identifier in (entry["id"], asset_id(relative))
+    props = []
+    for prop in clean.get("props", []):
+        if not isinstance(prop, dict):
+            props.append(prop)
+            continue
+        identifier = prop.get("assetId", "")
+        if prop.get("assetRegion") or prop.get("assetPath") or str(identifier).startswith("project-"):
+            if not valid(prop.get("assetPath"), identifier, prop.get("assetRegion")):
+                removed.append(str(prop.get("id", "")))
+                continue
+        appearance = prop.get("sourceAppearance")
+        if isinstance(appearance, dict) and (appearance.get("asset_region") or appearance.get("asset_path")):
+            relative = appearance.get("asset_path")
+            if not valid(relative, appearance.get("asset_id", asset_id(relative) if isinstance(relative, str) else ""), appearance.get("asset_region")):
+                prop.pop("sourceAppearance", None)
+        props.append(prop)
+    clean["props"] = props
+    # The source asset manifest is not authoritative; remove retired project entries.
+    clean["assets"] = [a for a in clean.get("assets", []) if not isinstance(a, dict) or
+                       not (a.get("region") or a.get("assetRegion") or
+                            str(a.get("id", "")).startswith("project-") and
+                            not valid(a.get("path", a.get("assetPath")), a.get("id"), a.get("region")))]
+    return clean, removed
+
+
 def make_archive(doc):
+    doc, removed_art = clean_custom_art(doc)
+    if removed_art:
+        print("Removed unavailable map artwork from Test Drive bake:", ", ".join(removed_art))
     if doc.get("format") != "gdt.racing-world" or doc.get("version") != 2 or doc.get("customMap") is not True:
         raise ValueError("Not a saved custom World Builder map")
     world = doc.get("world", {})
@@ -311,6 +357,7 @@ def make_archive(doc):
         result["terrainHeight"]=field
     validate_open_cuts(result)
     result['editor_warnings'].extend(audit_elevated_objectives(result))
+    if removed_art: result['editor_warnings'].append({'code':'retired_map_art','ids':removed_art})
     bake_jumps(result)
     return result
 
@@ -322,6 +369,8 @@ def scenery_rebuild(archive, doc):
     match. Revalidate all scenery and jump corridors; regenerate positional
     prop indices because changing array order would otherwise break streaming.
     """
+    doc, removed_art = clean_custom_art(doc)
+    if removed_art: print("Removed unavailable map artwork from Test Drive bake:", ", ".join(removed_art))
     width,height=archive["size"]
     props=[p for p in _authoring_props(with_auto_props(doc,archive["roads"],archive["junctions"],width,height),width,height) if not p.get("hidden")]
     archive["props"]=props
@@ -348,6 +397,7 @@ def scenery_rebuild(archive, doc):
     if zones:archive["gameplay_zones"]=zones
     validate_open_cuts(archive)
     archive["editor_warnings"]=audit_elevated_objectives(archive)
+    if removed_art: archive["editor_warnings"].append({"code":"retired_map_art","ids":removed_art})
     archive.pop("jumps",None)
     bake_jumps(archive)
     return archive
