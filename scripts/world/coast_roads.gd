@@ -547,13 +547,19 @@ func _draw() -> void:
 		draw_colored_polygon(polygon,Color("58656c"))
 		if str(j.get("control",""))=="lane_transition":
 			_paint_lane_transition(j)
-		if str(j.get("control",""))=="merge":
+		if str(j.get("control",""))=="merge" or bool(j.get("street_access",false)):
 			var through := PackedVector2Array()
 			for arm in j.approaches:
-				if int(arm.road)!=int(j.get("ramp_road",-1)):through.append(point(arm.p))
+				if bool(j.get("street_access",false)):
+					if str(arm.get("control","none"))=="none":through.append(point(arm.p))
+				elif int(arm.road)!=int(j.get("ramp_road",-1)):through.append(point(arm.p))
 			if through.size()==2:
 				through.insert(1,point(j.p))
-				var main: Dictionary = world.data.roads[int(j.get("main_road",0))]
+				var main_id := int(j.get("main_road",0))
+				if bool(j.get("street_access",false)):
+					for arm in j.approaches:
+						if str(arm.get("control","none"))=="none":main_id=int(arm.road);break
+				var main: Dictionary = world.data.roads[main_id]
 				paint_lane_lines(self,through,main,float(main.width)*PPM,0.0,false)
 		# Rounded curb fillets leave vehicle mouths and marked crosswalks open.
 		for curve in j.curbs:

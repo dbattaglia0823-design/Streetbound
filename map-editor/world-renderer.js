@@ -265,8 +265,14 @@ function drawRoads(ctx,roads,bounds,options){
         maxX:j.x+j.radius,maxY:j.y+j.radius},bounds))continue;
       const width=Math.min(roads.filter(r=>j.roads.includes(r.id))
         .reduce((max,r)=>Math.max(max,r.width),0),160);
-      ctx.moveTo(j.x+Math.min(64,width*.65+4),j.y);
-      ctx.arc(j.x,j.y,Math.min(64,width*.65+4),0,Math.PI*2);
+      if(j.corner_style==='square'&&j.polygon?.length>=3){
+        ctx.moveTo(j.polygon[0].x,j.polygon[0].y);
+        for(const p of j.polygon.slice(1))ctx.lineTo(p.x,p.y);
+        ctx.closePath();
+      }else{
+        ctx.moveTo(j.x+Math.min(64,width*.65+4),j.y);
+        ctx.arc(j.x,j.y,Math.min(64,width*.65+4),0,Math.PI*2);
+      }
     }
     ctx.clip('evenodd');
   }
@@ -307,6 +313,10 @@ function drawRoads(ctx,roads,bounds,options){
       return Boolean(road&&baked&&road.points.length===baked.anchors.length&&
         Math.abs(road.width-baked.width)<.001 &&
         road.surface.toUpperCase()===baked.surface &&
+        (road.junctionStyle??'rounded')===(baked.junctionStyle??'rounded') &&
+        (road.junctionStart??'auto')===(baked.junctionStart??'auto') &&
+        (road.junctionEnd??'auto')===(baked.junctionEnd??'auto') &&
+        ['street','service'].includes(road.roadClass)===baked.street_access &&
         road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
           Math.abs(p.y-baked.anchors[i][1])<.005));
     };
@@ -349,7 +359,22 @@ function drawRoads(ctx,roads,bounds,options){
       ctx.restore();
     }
   }
-  if(options?.junctions!==false)drawJunctionFixtures(ctx,buildRoadJunctions(roads),roads);
+  if(options?.junctions!==false){
+    // Live street mouths retain the side-road stop line even before a rebake.
+    for(const j of junctions.filter(j=>j.street_access))for(const arm of j.approaches.filter(a=>a.control==='stop')){
+      const road=roads.find(r=>r.id===arm.id),mainWidth=Math.max(...j.approaches.filter(a=>a.control==='none').map(a=>a.width));
+      if(!road||!Number.isFinite(mainWidth))continue;
+      const near=p=>distance(p,j)<Math.max(1,mainWidth/2+road.width/2);
+      const sides=near(road.points[0])&&!near(road.points.at(-1))?[1]:near(road.points.at(-1))&&!near(road.points[0])?[-1]:[-1,1];
+      for(const side of sides){
+        const d={x:arm.tangent.x*side,y:arm.tangent.y*side},n={x:-d.y,y:d.x};
+        const at={x:j.x+d.x*(mainWidth/2+1),y:j.y+d.y*(mainWidth/2+1)};
+        ctx.beginPath();ctx.moveTo(at.x-n.x*(arm.width/2-.4),at.y-n.y*(arm.width/2-.4));
+        ctx.lineTo(at.x-n.x*.4,at.y-n.y*.4);ctx.strokeStyle='#eee7d5';ctx.lineWidth=.4;ctx.stroke();
+      }
+    }
+    drawJunctionFixtures(ctx,buildRoadJunctions(roads),roads);
+  }
 }
 function drawTree(ctx,type,seed){
   const rng=seeded(seed);

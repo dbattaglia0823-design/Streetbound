@@ -117,6 +117,7 @@ function polygonFor(j,index,byId){
     radius:Math.max(...corners.map(p=>distance(p,center)))};
 }
 const keyPair=roads=>roads.slice().sort().join(':');
+const isStreet=road=>['street','service'].includes(road.roadClass);
 /** Returns a stable, deterministic set of merged intersection nodes. */
 export function buildRoadJunctions(roads){
   if(!Array.isArray(roads)||!roads.length)return [];
@@ -243,7 +244,14 @@ export function buildRoadJunctions(roads){
         pair.every(r=>['city','highway','country','mountain'].includes(r.roadClass)&&['asphalt','concrete'].includes(r.surface))&&
         Math.max(2,pair[0].lanes)!==Math.max(2,pair[1].lanes))j.kind='lane_transition';
     }
+    const involved=j.roads.map(id=>byId.get(id));
+    const minor=j.kind!=='merge'&&involved.some(isStreet)&&involved.some(r=>!isStreet(r));
+    const square=minor||involved.some(r=>r.junctionStyle==='square'||[[r.points[0],r.junctionStart],[r.points.at(-1),r.junctionEnd]].some(([p,mode])=>mode==='square'&&distance(p,j)<.5));
+    if(minor)j.kind='street_access';
     const junction=polygonFor(j,index,byId);
+    if(minor){junction.street_access=true;junction.control='priority';}
+    if(square)junction.corner_style='square';
+    if(minor)for(const arm of junction.approaches)arm.control=isStreet(arm)?'stop':'none';
     delete junction._count;
     junction.roads.sort();
     junction.id='junction-'+Math.round(junction.x*100)+'-'+Math.round(junction.y*100)+(junction.layer?'@'+junction.layer:'');

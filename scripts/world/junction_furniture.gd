@@ -16,6 +16,7 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 	var junction_control := str(junction.get("control",""))
 	if junction_control=="lane_transition":return
 	var merge := junction_control=="merge"
+	var minor := bool(junction.get("street_access",false))
 	var arms: Array=junction.get("approaches",[])
 	for arm in arms:
 		var raw=arm.direction
@@ -46,13 +47,13 @@ static func draw_junction(canvas: CanvasItem,junction: Dictionary,origin:=Vector
 				canvas.draw_set_transform(at*ppm)
 				canvas.draw_colored_polygon(triangle,paint)
 				canvas.draw_set_transform(Vector2.ZERO)
-		if urban and arms.size()>=3 and not merge and junction_control!="roundabout" and width>3.0:
+		if urban and arms.size()>=3 and not minor and not merge and junction_control!="roundabout" and width>3.0:
 			var count := maxi(2,floori((width-.9)/.85))
 			for i in count:
 				var across := -width*.5+.45+(float(i)+.5)*(width-.9)/float(count)
 				var at := p-outward*1.25+normal*across
 				canvas.draw_line((at-outward*.9)*ppm,(at+outward*.9)*ppm,paint,.38*ppm,true)
-		if merge:continue
+		if merge or minor:continue
 		var pole: Vector2=p+outward*1.5-normal*(width*.5+2.1)
 		canvas.draw_line((pole+Vector2(.3,.4))*ppm,(pole+Vector2(1.7,2.2))*ppm,Color(.04,.09,.10,.28),.45*ppm,true)
 		canvas.draw_circle(pole*ppm,.22*ppm,Color("#b4beb1"))

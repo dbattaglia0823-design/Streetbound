@@ -155,7 +155,7 @@ export function buildRuntimePreview(raw){
     roads:(j.roads||[]).map(id=>'road-'+id),
     polygon:(j.polygon||[]).map(([x,y])=>({x:+x,y:+y})),
     at:{x:+j.p[0],y:+j.p[1]},
-    radius:+j.radius||40,control:String(j.control||'none'),
+    radius:+j.radius||40,control:String(j.control||'none'),street_access:j.street_access===true,corner_style:j.corner_style,
     approaches:j.approaches||[],curbs:j.curbs||[]
   }));
   const sourceTerrain=(raw.terrain||[]).map((t,index)=>({
@@ -167,7 +167,8 @@ export function buildRuntimePreview(raw){
   for(const [index,road] of (raw.roads||[]).entries()){
     roads.set('road-'+index,{anchors:road.anchors||road.points,
       points:(road.points||[]).map(([x,y])=>({x:+x,y:+y})),
-      width:+road.width,surface:road.surface});
+      width:+road.width,surface:road.surface,junctionStyle:road.junctionStyle,junctionStart:road.junctionStart,junctionEnd:road.junctionEnd,
+      street_access:road.street_access===true||['driveway','gravel'].includes(road.kind)});
   }
   for(const item of props){
     if(!item.p||!item.size)continue;

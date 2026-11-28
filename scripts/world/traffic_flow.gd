@@ -755,6 +755,17 @@ func _next_target(agent: Dictionary,edge: Dictionary) -> int:
 
 ## Check the destination lane and competing approaches, never the opposing
 ## carriageway. A continuing lane has priority over a disappearing lane.
+func _street_entry_blocked(agent: Dictionary, connector: Dictionary) -> bool:
+	var junction := int(connector.get("start_j",-1))
+	if junction<0 or not bool(network.junction_geometry.get(junction,{}).get("street_access",false)) or str(connector.get("control","none")) not in ["stop","yield"]:return false
+	for other in agents:
+		if int(other.uid)==int(agent.uid):continue
+		var other_edge: Dictionary=network.edges[int(other.edge)]
+		if not bool(other_edge.connector) and int(other_edge.end_j)==junction and str(other_edge.control)=="none":
+			var gap := float(other_edge.length_px)-float(other.progress)
+			if gap < maxf(PPM*12.0,float(other.speed)*2.5):return true
+	return false
+
 func _transition_blocked(agent: Dictionary, connector: Dictionary, remaining: float) -> bool:
 	var target_id:=int(connector.get("target_lane",-1))
 	if target_id<0:return false
@@ -857,6 +868,9 @@ func _tick_agent(index: int,dt: float) -> bool:
 					agent.stop_wait=float(agent.stop_wait)+dt
 					if float(agent.stop_wait)>=0.85:
 						agent.stop_done=true
+			if control in ["stop","yield"] and bool(network.junction_geometry.get(junction,{}).get("street_access",false)) and remaining<PPM*25.0:
+				if _street_entry_blocked(agent,next):
+					desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*1.5)))
 			if control=="yield" and not lane_transition and remaining<PPM*13.0:
 				desired=minf(desired,PPM*4.0)
 				if str(next.get("junction_control",""))=="merge":
@@ -891,7 +905,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 			if int(active_junctions.get(old_j,-1))==int(agent.uid):
 				active_junctions.erase(old_j)
 		var next_edge: Dictionary=network.edges[chosen]
-		if (bool(next_edge.get("lane_transition",false)) and _transition_blocked(agent,next_edge,maxf(0.0,remaining))) or (str(next_edge.get("turn",""))=="u_turn" and _turnaround_blocked(agent,next_edge)):
+		if (bool(next_edge.get("lane_transition",false)) and _transition_blocked(agent,next_edge,maxf(0.0,remaining))) or (str(next_edge.get("turn",""))=="u_turn" and _turnaround_blocked(agent,next_edge)) or (bool(next_edge.connector) and _street_entry_blocked(agent,next_edge)):
 			agent.progress=minf(float(edge.length_px)-.1,previous_progress)
 			agent.speed=0.0
 			node.set("brake_lights_on",true)
