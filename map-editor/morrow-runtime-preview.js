@@ -7,7 +7,9 @@
 import {stringSeed} from './world-geometry.js';
 import {textureTerrain,textureTerrainRect} from './world-terrain-materials.js';
 
-export const GAME_ATLAS = '/game-assets/scenery/morrow-atlas-v1.png';
+const ART_ROOT='/game-assets/Map%20Building%20Assets/';
+const BUILDINGS={house:['House.png','House2.png','House3.png'],coastal_house:['House.png','House2.png','House3.png'],lodge:['FarmHouse1.png','FarmHouse2.png'],shop:['CornerShop.png','ConnectedBuilding1.png'],cafe:['CornerShop.png','Diner.png'],building:['Apartment.png','Office1.png','Office2.png','Skyscraper.png'],office:['Office1.png','Office2.png'],hotel:['Hotel.png'],warehouse:['Warehouse.png','Barn1.png'],garage:['Service Garage.png'],workshop:['Service Garage.png'],showroom:['Office1.png'],fuel:['Service Garage.png','CornerShop.png']};
+const NATURE={tree:'Oak.svg',pine:'Pine.svg',palm:'Palm.svg',rock:'Rock.svg'};
 export const GAME_ART = Object.freeze([
   ['game-house','House roof'],['game-coastal_house','Coastal house'],
   ['game-shop','Shop / cafe'],['game-garage','Garage / showroom'],
@@ -48,11 +50,6 @@ export function nativeAdoptedRadius(prop){
   const size=BASE_SIZE[prop.type]||[3,3];
   return Math.hypot(size[0],size[1])*.5*prop.scale;
 }
-const ATLAS_REGIONS = [
-  [103,28,261,391],[532,14,273,409],[968,26,278,396],
-  [1411,21,281,396],[26,477,397,380],[472,467,388,389],
-  [910,467,406,387],[1366,500,361,323]
-];
 const trafficFiles = [
   'ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png',
   'ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png',
@@ -77,13 +74,6 @@ function imageAt(url){
   return img;
 }
 const ready=img=>!!(img?.complete&&img.naturalWidth);
-function atlasIndex(kind,seed){
-  if(kind==='house'||kind==='lodge')return seed%3===0?1:0;
-  if(kind==='coastal_house')return 1;
-  if(kind==='shop'||kind==='cafe')return 2;
-  if(['garage','workshop','warehouse','showroom','fuel','building'].includes(kind))return 3;
-  return {tree:4,pine:5,palm:6,rock:7}[kind]??-1;
-}
 export function hasGameArt(prop){
   return GAME_ART.some(([id])=>id===prop.assetId);
 }
@@ -94,19 +84,19 @@ export function gameArtKind(prop){
     gas_station:'fuel',rock:'rock',boulder:'rock'})[prop.type]||'';
 }
 /** Call within a translation/rotation at the actual footprint and scale. */
-export function drawAtlas(ctx,kind,size,seed=0){
-  const img=imageAt(GAME_ATLAS),index=atlasIndex(kind,seed);
-  if(index<0||!ready(img))return false;
-  const [sx,sy,sw,sh]=ATLAS_REGIONS[index];
-  ctx.drawImage(img,sx,sy,sw,sh,-size[0]/2,-size[1]/2,size[0],size[1]);
+export function drawStandaloneArt(ctx,kind,size,seed=0){
+  const names=BUILDINGS[kind];
+  const file=names?'Buildings/'+names[Math.abs(seed)%names.length]:NATURE[kind]?'Nature/'+NATURE[kind]:null;
+  if(!file)return false;
+  const img=imageAt(ART_ROOT+file.split('/').map(encodeURIComponent).join('/'));
+  if(!ready(img))return false;
+  ctx.drawImage(img,-size[0]/2,-size[1]/2,size[0],size[1]);
   return true;
 }
 export function preloadGameArtwork(){
-  imageAt(GAME_ATLAS);
-  // Traffic files are loaded only as needed by the visible viewport.
+  for(const file of Object.values(NATURE))imageAt(ART_ROOT+'Nature/'+file);
 }
-
-/** Exact metre-based preview primitives for game props without atlas art. */
+/** Exact metre-based preview primitives for game props without individual art. */
 export function drawGameVectorProp(ctx,prop){
   const size=BASE_SIZE[prop.type];
   if(!size)return false;
@@ -253,7 +243,7 @@ export function drawNative(ctx,prop,scale){
     const img=imageAt('/game-assets/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
     ctx.fillStyle='#334449';ctx.fillRect(-w/2,-h/2,w,h);
     if(ready(img))ctx.drawImage(img,-w/2,-h/2,w,h);
-  }else if(drawAtlas(ctx,prop.asset_kind||kind,size,seed)){
+  }else if(drawStandaloneArt(ctx,prop.asset_kind||kind,size,seed)){
     if(prop.poi){
       const title=String(prop.poi);
       ctx.font='bold '+Math.max(2,Math.min(3,w*.12))+'px sans-serif';
