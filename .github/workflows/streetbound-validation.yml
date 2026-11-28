@@ -819,6 +819,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Use Node 22 for the repo-owned map builder
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Cache Godot 4.4.1 executable
         uses: actions/cache@v4
         with:
@@ -959,6 +963,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Use Node 22 for the repo-owned map builder
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Cache Godot 4.4.1 executable
         uses: actions/cache@v4
         with:
@@ -1047,6 +1055,10 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Use Node 22 for the repo-owned map builder
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Cache Godot 4.4.1 executable
         uses: actions/cache@v4
         with:
