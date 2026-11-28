@@ -1,8 +1,7 @@
 """Validated, recursive project map-art catalog shared by both editors and world baker.
 
 Legacy assets/Buildings paths remain valid. New artwork lives under
-assets/Map Building Assets/<category>/ and may use sidecar *.asset.json metadata
-or *.sheet.json sprite regions. Paths are never accepted outside these roots.
+assets/Map Building Assets/<category>/ and may use sidecar *.asset.json metadata. Sprite sheets are not supported. Paths are never accepted outside these roots.
 """
 import hashlib
 import json
@@ -19,7 +18,6 @@ LIBRARY = 'Map Building Assets'
 ALLOWED_KINDS = {'house', 'building', 'warehouse', 'garage', 'gas_station',
                  'industrial_prop', 'road_prop', 'ground_decal',
                  'oak', 'pine', 'palm', 'bush', 'rock', 'boulder'}
-MAX_SPRITES = 512
 
 
 def asset_id(path):
@@ -38,15 +36,31 @@ def building_file(relative, root=ROOT):
     allowed_root = (root / 'assets' / parts[0]).resolve()
     if not target.is_relative_to(allowed_root) or target.suffix.lower() not in EXTENSIONS:
         raise ValueError('Unsupported project artwork: ' + relative)
-    if not target.is_file() and parts[0] == LEGACY:
-        # The older published Morrow maps retain Buildings/... references.
-        # Resolve these safely after the user moved the complete folder.
-        migrated = (root / 'assets' / LIBRARY / relative).resolve()
-        relocated_root = (root / 'assets' / LIBRARY / LEGACY).resolve()
-        if migrated.is_relative_to(relocated_root) and migrated.is_file():
-            target = migrated
+    if any(p.casefold() == 'sprite sheets' for p in parts) or target.with_suffix('.sheet.json').is_file():
+        raise ValueError('Sprite sheet artwork is retired: ' + relative)
     if not target.is_file():
-        raise ValueError('Missing project artwork: ' + relative)
+        matches = []
+        assets = (root / 'assets').resolve()
+        for base in (LEGACY, LIBRARY):
+            folder = assets / base
+            if not folder.is_dir():
+                continue
+            for candidate in folder.rglob('*'):
+                if candidate.name != parts[-1] or not candidate.is_file() or candidate.is_symlink():
+                    continue
+                actual = candidate.resolve()
+                if not actual.is_relative_to(folder.resolve()) or not actual.is_relative_to(assets):
+                    continue
+                if any(p.casefold() == 'sprite sheets' or p.startswith('.') for p in candidate.relative_to(assets).parts):
+                    continue
+                if candidate.with_suffix('.sheet.json').is_file():
+                    continue
+                if actual not in matches:
+                    matches.append(actual)
+        if len(matches) != 1:
+            detail = 'no exact filename match' if not matches else 'multiple exact filename matches: ' + ', '.join(str(p.relative_to(assets)) for p in sorted(matches))
+            raise ValueError('Missing project artwork: ' + relative + ' (' + detail + ')')
+        target = matches[0]
     return target
 
 
@@ -144,42 +158,6 @@ def _entry(relative, width, height, mtime, meta, label=None, region=None):
     return result
 
 
-def _regions(meta, image_width, image_height):
-    sprites = meta.get('sprites', [])
-    if not isinstance(sprites, list) or len(sprites) > MAX_SPRITES:
-        raise ValueError('Invalid sprite-sheet manifest')
-    grid = meta.get('grid')
-    if grid is not None:
-        if not isinstance(grid, dict):
-            raise ValueError('grid must be an object')
-        cell_w, cell_h = grid.get('width'), grid.get('height')
-        if (not isinstance(cell_w, int) or not isinstance(cell_h, int)
-                or cell_w < 1 or cell_h < 1):
-            raise ValueError('Invalid grid cell dimensions')
-        cols = image_width // cell_w
-        rows = image_height // cell_h
-        if cols * rows > MAX_SPRITES:
-            raise ValueError('Too many grid sprites')
-        sprites += [dict(name=f'Sprite {y * cols + x + 1}',
-                         region=[x * cell_w, y * cell_h, cell_w, cell_h])
-                    for y in range(rows) for x in range(cols)]
-    seen = set()
-    for item in sprites:
-        if not isinstance(item, dict):
-            raise ValueError('Invalid sprite sheet entry')
-        region = item.get('region')
-        name = item.get('name')
-        if (not isinstance(name, str) or not name.strip() or name in seen
-                or not isinstance(region, list) or len(region) != 4
-                or any(type(v) is not int for v in region)):
-            raise ValueError('Invalid or duplicate sprite sheet item')
-        x, y, w, h = region
-        if x < 0 or y < 0 or w < 1 or h < 1 or x+w > image_width or y+h > image_height:
-            raise ValueError('Sprite region exceeds source image')
-        seen.add(name)
-        yield item, region
-
-
 def catalog(root=ROOT):
     result = []
     for base in (LEGACY, LIBRARY):
@@ -196,18 +174,8 @@ def catalog(root=ROOT):
                 if not (0 < width <= 16384 and 0 < height <= 16384):
                     continue
                 meta = _read_meta(path.with_suffix('.asset.json'))
-                sheet = path.with_suffix('.sheet.json')
-                if sheet.is_file():
-                    config = _read_meta(sheet)
-                    for sprite, region in _regions(config, width, height):
-                        merged = {**meta, **{k: v for k, v in sprite.items()
-                                            if k not in {'name', 'region'}}}
-                        result.append(_entry(relative, region[2], region[3],
-                                             path.stat().st_mtime_ns, merged,
-                                             label=sprite['name'], region=region))
-                else:
-                    result.append(_entry(relative, width, height,
-                                         path.stat().st_mtime_ns, meta))
+                result.append(_entry(relative, width, height,
+                                     path.stat().st_mtime_ns, meta))
             except (ValueError, OSError, ET.ParseError, struct.error,
                     json.JSONDecodeError):
                 continue
@@ -215,22 +183,13 @@ def catalog(root=ROOT):
 
 
 def resolve_asset(relative, identifier, root=ROOT):
-    """Validate a saved ID against actual source artwork and sprite region."""
+    """Validate a saved ID against actual individual artwork."""
     actual = building_file(relative, root)
     canonical = actual.relative_to(root / 'assets').as_posix()
-    for entry in catalog(root):
-        if entry['path'] == canonical and entry['id'] == identifier:
-            return entry
-        # A legacy saved ID continues to resolve even after moving the file.
-        if (canonical != relative and entry['path'] == canonical and
-                not entry.get('region') and identifier == asset_id(relative)):
-            return {**entry, 'path': relative, 'id': identifier}
-    # Before a sheet received region metadata it could be saved as a whole
-    # image. Keep those existing references valid without listing whole atlases
-    # among the new individual sprites in either editor.
-    if actual.with_suffix('.sheet.json').is_file() and identifier in {asset_id(relative), asset_id(canonical)}:
+    if identifier in {asset_id(relative), asset_id(canonical)}:
         width, height = dimensions(actual)
-        legacy = _entry(relative, width, height, actual.stat().st_mtime_ns,
-                        _read_meta(actual.with_suffix('.asset.json')))
-        return {**legacy, 'id': identifier}
+        if not (0 < width <= 16384 and 0 < height <= 16384):
+            raise ValueError('Invalid project artwork dimensions: ' + canonical)
+        return _entry(canonical, width, height, actual.stat().st_mtime_ns,
+                      _read_meta(actual.with_suffix('.asset.json')))
     raise ValueError('Unknown or moved project asset: ' + relative)
