@@ -36,6 +36,10 @@ var background: ColorRect
 var settings_tab := "general"
 var general_tab_button: Button
 var controls_tab_button: Button
+var graphics_tab_button: Button
+var graphics_page: ScrollContainer
+var graphics_controls: Dictionary={}
+const GRAPHICS_DEFAULTS: Dictionary={"fps_limit":0,"vsync":true,"minimap_fps":0,"scenery_shadows":true,"rain_effects":100,"traffic_density":100,"adaptive_streaming":true,"optimized_ai":true,"performance_overlay":false}
 var display_mode_label: Label
 var display_mode_select: OptionButton
 var controls_page: Control
@@ -77,7 +81,7 @@ func _ready() -> void:
 		"camera_follow": false,
 		"minimap_shape": "square",
 		"display_mode": "windowed"
-	})
+	}.merged(GRAPHICS_DEFAULTS))
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
 	overlay.anchor_right = 1.0
@@ -117,6 +121,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_resize_layout)
 	_resize_layout()
 	_apply_saved_settings()
+	_apply_graphics_settings()
 	_update_map_editor_button()
 	get_node("/root/MenuNavigation").register_scope(overlay,20,_controller_back,func():return not capture_action.is_empty())
 
@@ -254,15 +259,15 @@ func _build_settings_tabs() -> void:
 	general_tab_button = Button.new()
 	general_tab_button.name = "GeneralTab"
 	general_tab_button.text = "GENERAL"
-	general_tab_button.position = Vector2(185,135)
-	general_tab_button.size = Vector2(208,39)
+	general_tab_button.position = Vector2(166,135)
+	general_tab_button.size = Vector2(150,39)
 	general_tab_button.pressed.connect(_set_settings_tab.bind("general"))
 	settings_screen.add_child(general_tab_button)
 	controls_tab_button = Button.new()
 	controls_tab_button.name = "ControlsTab"
 	controls_tab_button.text = "CONTROLS"
-	controls_tab_button.position = Vector2(405,135)
-	controls_tab_button.size = Vector2(208,39)
+	controls_tab_button.position = Vector2(324,135)
+	controls_tab_button.size = Vector2(150,39)
 	controls_tab_button.pressed.connect(_set_settings_tab.bind("controls"))
 	settings_screen.add_child(controls_tab_button)
 	_settings_label(controls_page,"CONTROL",Vector2(171,180),Vector2(130,26),11)
@@ -336,11 +341,12 @@ func _build_settings_tabs() -> void:
 		display_mode_select.set_item_metadata(display_mode_select.item_count-1,item[1])
 	display_mode_select.item_selected.connect(_select_display_mode)
 	settings_screen.add_child(display_mode_select)
+	_build_graphics_page()
 	_set_settings_tab("general")
 
 
 func _set_settings_tab(tab: String) -> void:
-	if tab not in ["general","controls"]:
+	if tab not in ["general","controls","graphics"]:
 		return
 	_cancel_capture(false)
 	settings_tab = tab
@@ -350,18 +356,118 @@ func _set_settings_tab(tab: String) -> void:
 		var element: Control = settings_screen.controls.get(id)
 		if is_instance_valid(element):
 			element.visible = general
-	controls_page.visible = not general
+	controls_page.visible = tab=="controls"
+	graphics_page.visible = tab=="graphics"
 	display_mode_label.visible = general
 	display_mode_select.visible = general
 	_button_skin(general_tab_button,general)
-	_button_skin(controls_tab_button,not general)
+	_button_skin(controls_tab_button,tab=="controls")
+	_button_skin(graphics_tab_button,tab=="graphics")
 	var back: Button = settings_screen.controls.get("back")
 	if is_instance_valid(back):
 		back.position = Vector2(295,411) if general else Vector2(417,423)
 		back.size = Vector2(210,46) if general else Vector2(213,40)
-	if not general:
+	if tab=="controls":
 		_refresh_binding_buttons()
+	elif tab=="graphics":_sync_graphics_controls()
 
+
+func _build_graphics_page() -> void:
+	graphics_tab_button=Button.new()
+	graphics_tab_button.name="GraphicsTab"
+	graphics_tab_button.text="GRAPHICS"
+	graphics_tab_button.position=Vector2(482,135)
+	graphics_tab_button.size=Vector2(150,39)
+	graphics_tab_button.pressed.connect(_set_settings_tab.bind("graphics"))
+	settings_screen.add_child(graphics_tab_button)
+	graphics_page=ScrollContainer.new()
+	graphics_page.name="GraphicsPerformanceContent"
+	graphics_page.position=Vector2(166,181);graphics_page.size=Vector2(470,235)
+	graphics_page.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	settings_screen.add_child(graphics_page)
+	var column:=VBoxContainer.new()
+	column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	graphics_page.add_child(column)
+	var preset:=OptionButton.new()
+	preset.name="PerformancePreset";preset.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	for label in ["Custom","High quality","Balanced","Performance"]:preset.add_item(label)
+	preset.item_selected.connect(_select_graphics_preset)
+	_button_skin(preset)
+	column.add_child(preset)
+	graphics_controls["preset"]=preset
+	_graphics_option(column,"Frame rate limit","fps_limit",[["Unlimited",0],["30 FPS",30],["60 FPS",60],["120 FPS",120],["144 FPS",144],["240 FPS",240]])
+	_graphics_option(column,"Minimap refresh","minimap_fps",[["Every frame",0],["60 FPS",60],["30 FPS",30]])
+	_graphics_option(column,"Ambient traffic density (solo)","traffic_density",[["100%",100],["75%",75],["50%",50],["25%",25]])
+	_graphics_option(column,"Rain visual density","rain_effects",[["100%",100],["75%",75],["50%",50],["25%",25]])
+	for entry in [["Vertical sync","vsync"],["Scenery shadows","scenery_shadows"],["Adaptive streaming","adaptive_streaming"],["Optimized remote AI scans","optimized_ai"],["Performance overlay (F7)","performance_overlay"]]:
+		var toggle:=CheckButton.new()
+		toggle.text=str(entry[0]);toggle.name=str(entry[1])
+		toggle.toggled.connect(_graphics_toggle.bind(str(entry[1])))
+		column.add_child(toggle);graphics_controls[str(entry[1])]=toggle
+
+func _graphics_option(column: VBoxContainer,label: String,key: String,choices: Array) -> void:
+	var row:=HBoxContainer.new();column.add_child(row)
+	var title_label:=Label.new();title_label.text=label;title_label.custom_minimum_size.x=220
+	row.add_child(title_label)
+	var picker:=OptionButton.new();picker.name=key;picker.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	for entry in choices:
+		picker.add_item(str(entry[0]));picker.set_item_metadata(picker.item_count-1,int(entry[1]))
+	picker.item_selected.connect(_graphics_pick.bind(key,picker))
+	_button_skin(picker);row.add_child(picker);graphics_controls[key]=picker
+
+func _graphics_pick(index: int,key: String,picker: OptionButton) -> void:
+	settings_store.set_setting(key,int(picker.get_item_metadata(index)))
+	graphics_controls.preset.select(0)
+	_apply_graphics_settings()
+
+func _graphics_toggle(value: bool,key: String) -> void:
+	settings_store.set_setting(key,value)
+	graphics_controls.preset.select(0)
+	_apply_graphics_settings()
+
+func _select_graphics_preset(index: int) -> void:
+	if index==0:return
+	var values:=GRAPHICS_DEFAULTS.duplicate()
+	if index==2:
+		values.fps_limit=60;values.minimap_fps=60;values.rain_effects=75
+	elif index==3:
+		values.fps_limit=60;values.minimap_fps=30;values.rain_effects=50;values.traffic_density=75;values.scenery_shadows=false
+	# Do not silently change the diagnostic overlay or display preference.
+	values.performance_overlay=settings_store.get_setting("performance_overlay")
+	values.vsync=settings_store.get_setting("vsync")
+	for key in values:settings_store.set_setting(key,values[key])
+	_sync_graphics_controls()
+	graphics_controls.preset.select(index)
+	_apply_graphics_settings()
+
+func _sync_graphics_controls() -> void:
+	for key in GRAPHICS_DEFAULTS:
+		var control: Control=graphics_controls.get(key)
+		if control is CheckButton:control.set_pressed_no_signal(bool(settings_store.get_setting(key)))
+		elif control is OptionButton:
+			for i in control.item_count:
+				if control.get_item_metadata(i)==settings_store.get_setting(key):
+					control.select(i);break
+
+func _apply_graphics_settings() -> void:
+	Engine.max_fps=clampi(int(settings_store.get_setting("fps_limit")),0,240)
+	if DisplayServer.get_name()!="headless" and not OS.has_feature("web"):
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if bool(settings_store.get_setting("vsync")) else DisplayServer.VSYNC_DISABLED)
+	var map_hud: Node=get_tree().get_first_node_in_group("streetbound_world_map_hud")
+	if is_instance_valid(map_hud):map_hud.set("minimap_fps_limit",clampi(int(settings_store.get_setting("minimap_fps")),0,60))
+	if not is_instance_valid(player_vehicle):return
+	var ground: Node=get_parent().get("ground")
+	if not is_instance_valid(ground):return
+	if ground.has_method("set_scenery_shadows"):
+		ground.call("set_scenery_shadows",bool(settings_store.get_setting("scenery_shadows")))
+		ground.set("adaptive_streaming",bool(settings_store.get_setting("adaptive_streaming")))
+		ground.call("set_performance_debug",bool(settings_store.get_setting("performance_overlay")))
+	var traffic:=ground.get_node_or_null("AmbientTraffic")
+	if is_instance_valid(traffic):
+		traffic.set("optimized_ai",bool(settings_store.get_setting("optimized_ai")))
+		traffic.set("user_density_factor",1.0 if online_session.active else clampf(float(settings_store.get_setting("traffic_density"))/100.0,.25,1.0))
+	var wet:=ground.get_node_or_null("WetRoadEffects")
+	if is_instance_valid(wet):wet.set("effects_scale",clampf(float(settings_store.get_setting("rain_effects"))/100.0,.25,1.0))
 
 func _refresh_binding_buttons() -> void:
 	if binding_rows.is_empty():
