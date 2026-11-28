@@ -1,8 +1,7 @@
 """Validated, recursive project map-art catalog shared by both editors and world baker.
 
 Legacy assets/Buildings paths remain valid. New artwork lives under
-assets/Map Building Assets/<category>/ and may use sidecar *.asset.json metadata
-metadata. Sprite sheets are not supported. Paths are never accepted outside these roots.
+assets/Map Building Assets/<category>/ and may use sidecar *.asset.json metadata. Sprite sheets are not supported. Paths are never accepted outside these roots.
 """
 import hashlib
 import json
@@ -170,7 +169,7 @@ def catalog(root=ROOT):
 
 
 def resolve_asset(relative, identifier, root=ROOT):
-    """Validate a saved ID against actual source artwork and sprite region."""
+    """Validate a saved ID against actual individual artwork."""
     actual = building_file(relative, root)
     canonical = actual.relative_to(root / 'assets').as_posix()
     for entry in catalog(root):
