@@ -90,5 +90,14 @@ func _run() -> void:
 	check("player_neighborhood_has_visible_scenery_assets",
 		visible_assets > 0 and visible_art_nodes > 0)
 	check("spawn_coordinates_not_zero", car != null and car.global_position.length() > 1000)
+	check("startup_timings_are_measured",float(main.startup_ms)>0.0 and world.world_init_ms>0.0 and world.archive_parse_ms>=0.0)
+	check("player_physics_remains_120hz",Engine.physics_ticks_per_second==120)
+	var editor: CanvasLayer=main.native_world_editor
+	check("unused_development_editor_workspace_is_lazy",editor==null or (not bool(editor.get("_workspace_built")) and editor.get("root_ui")==null))
+	var before_samples: PackedFloat32Array=world._frame_times.duplicate()
+	world._frame_times=PackedFloat32Array([10.0,20.0,30.0,40.0,50.0])
+	var stats: Dictionary=world.frame_statistics()
+	check("frame_percentile_and_one_percent_low_use_measured_samples",stats.samples==5 and is_equal_approx(float(stats.p95_ms),50.0) and is_equal_approx(float(stats.one_percent_low),20.0))
+	world._frame_times=before_samples
 	print("REAL GAME STARTUP: ", "PASS" if failures.is_empty() else "FAIL "+str(failures))
 	quit(0 if failures.is_empty() else 1)

@@ -2,6 +2,7 @@ extends Node2D
 ## Local, cosmetic roof strobes and a synthesized positional siren.
 # The siren should cut through the engine mix without drowning it out.
 const SIREN_VOLUME_DB := -12.0
+const SIREN_MUTED_VOLUME_DB := -80.0
 const SIREN_RANGE_PX := 20.0 * 220.0
 const SIREN_ATTENUATION := 0.7
 const SIREN_LOOP_SECONDS := 3.0
@@ -67,6 +68,9 @@ func _process(dt: float) -> void:
 	for audio in get_tree().get_nodes_in_group("streetbound_player_audio"):
 		muted = bool(audio.get("muted"))
 		break
+	# Apply the gain immediately as well as pausing playback; a newly started
+	# positional stream may not have an active mixer voice until the next frame.
+	voice.volume_db = SIREN_MUTED_VOLUME_DB if muted else SIREN_VOLUME_DB
 	voice.stream_paused = muted
 	queue_redraw()
 

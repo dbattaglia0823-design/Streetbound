@@ -324,14 +324,31 @@ func _active_race_navigation() -> RefCounted:
 	return null
 
 
+var minimap_fps_limit:=0
+var _mini_elapsed:=0.0
+var _mini_was_visible:=false
+var _mini_last_limit:=-1
+
 func _process(_dt: float) -> void:
 	mini.visible=not large and not get_tree().paused
 	full.visible=large and not get_tree().paused
 	# UPDATE_ALWAYS still uses GPU time for a hidden SubViewport.
-	var mini_mode := SubViewport.UPDATE_ALWAYS if mini.visible else SubViewport.UPDATE_DISABLED
-	if mini_render.render_target_update_mode != mini_mode:
-		mini_render.render_target_update_mode = mini_mode
+	if not mini.visible:
+		mini_render.render_target_update_mode=SubViewport.UPDATE_DISABLED
+		_mini_elapsed=0.0
+	elif minimap_fps_limit<=0:
+		mini_render.render_target_update_mode=SubViewport.UPDATE_ALWAYS
+	else:
+		_mini_elapsed+=_dt
+		if not _mini_was_visible or _mini_last_limit!=minimap_fps_limit or _mini_elapsed>=1.0/float(minimap_fps_limit):
+			mini_render.render_target_update_mode=SubViewport.UPDATE_ONCE
+			_mini_elapsed=fmod(_mini_elapsed,1.0/float(minimap_fps_limit))
+	_mini_was_visible=mini.visible
+	_mini_last_limit=minimap_fps_limit
 	layer=19 if full.visible else 2
+	# Keep both maps' logical state current; a hidden map can receive
+	# programmatic focus/navigation requests. GPU rendering still stops
+	# while hidden and the optional minimap refresh cap remains active.
 	var current_course := _active_race_navigation()
 	for view in [mini_view,full_view]:
 		view.player_m=vehicle.global_position/20

@@ -82,10 +82,11 @@ func run() -> void:
 	mute_probe.add_to_group("streetbound_player_audio")
 	mute_probe.muted = true
 	fx.call("_process", 0.0)
-	check("pursuit_siren_respects_audio_mute", voice.stream_paused)
+	check("pursuit_siren_respects_audio_mute", voice.volume_db <= -80.0)
 	mute_probe.muted = false
 	fx.call("_process", 0.0)
-	check("pursuit_siren_resumes_after_unmute", not voice.stream_paused)
+	check("pursuit_siren_resumes_after_unmute", not voice.stream_paused
+		and is_equal_approx(voice.volume_db, Emergency.SIREN_VOLUME_DB))
 	mute_probe.free()
 	responder.free()
 	check("pursuit_siren_removed_with_responder", not is_instance_valid(voice))
