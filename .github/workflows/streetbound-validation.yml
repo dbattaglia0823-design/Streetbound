@@ -55,7 +55,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .godot/imported
-          key: godot-import-4.6.3-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+          key: ${{ steps.asset_cache.outputs.cache-primary-key }}
       - name: Verify road elevation bake, routing and physical crossings (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -839,13 +839,16 @@ jobs:
           path: .godot/imported
           key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
       - name: Import scripts and artwork
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+        run: |
+          set -o pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot441-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot441-import.log
       - name: Save imported asset cache after successful import
         if: steps.asset_cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .godot/imported
-          key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+          key: ${{ steps.asset_cache.outputs.cache-primary-key }}
       - name: Verify branching sidewalk T, Y and X junctions (4.4.1)
         run: |
           set -o pipefail
@@ -976,7 +979,10 @@ jobs:
           path: .godot/imported
           key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
       - name: Import scripts and artwork
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+        run: |
+          set -o pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot441-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot441-import.log
       - name: Verify all 154 future car audio profiles, five new engine layouts, hybrid, rotary and true EV sounds
         run: timeout --signal=SIGINT --kill-after=5s 145s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pending_vehicle_audio_test.gd
       - name: Verify ten rights-documented recorded engine beds, seam quality, loaded cars and mute
@@ -1055,7 +1061,10 @@ jobs:
       - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
         run: python3 tools/build_morrow_coast.py
       - name: Import scripts and artwork
-        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+        run: |
+          set -o pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot441-import.log
+          ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot441-import.log
       - name: Verify directional off-screen vehicle warnings and split-camera views (4.4.1)
         run: |
           set -o pipefail
