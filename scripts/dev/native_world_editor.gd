@@ -61,6 +61,13 @@ var last_drag_ms := 0.0
 var editor_open_ms := 0.0
 var _last_preview_request: Array = []
 var _asset_scan_interval := 12.0
+var warm_tile_cache := true
+var adaptive_tile_streaming := true
+var tile_budget_ms := 5.0
+var _pick_index_key: Array=[]
+var _pick_cells: Dictionary={}
+var _pick_large: Array[int]=[]
+const PICK_CELL_M:=128.0
 var _last_road_drag_ms:=-1000
 var _snap_neighbors_key:=""
 var _snap_neighbors: Array=[]
@@ -803,6 +810,7 @@ func _prepare_render_tiles() -> void:
 	if not is_instance_valid(render_tiles):
 		render_tiles=RenderTiles.new();render_tiles.world=world
 		get_parent().add_child(render_tiles);_owns_render_tiles=true
+	_apply_performance_settings()
 	_hide_gameplay_chunks()
 
 func _hide_gameplay_chunks() -> void:
@@ -1491,6 +1499,33 @@ func _pick_sidewalk_anchor(world_px: Vector2) -> Dictionary:
 	return result
 
 
+## Spatial broad phase; keep the exact tight sprite/guardrail hit test and
+## original source order in the narrow phase. Large objects are always tested.
+func _prop_pick_candidates(at: Vector2) -> Array[int]:
+	var key: Array=[authoring.get_instance_id(),authoring.edit_revision,_asset_catalog_signature]
+	if key!=_pick_index_key:
+		_pick_index_key=key
+		_pick_cells.clear();_pick_large.clear()
+		for i in authoring.doc.props.size():
+			var prop: Dictionary=authoring.doc.props[i]
+			if str(prop.get("type","")) in ["guardrail","sidewalk"]:
+				_pick_large.append(i);continue
+			var center:=Vector2(float(prop.x),float(prop.y))
+			var extent: float=(gizmos._prop_size(prop)/PPM).length()*.5+2.0
+			var first:=Vector2i(((center-Vector2.ONE*extent)/PICK_CELL_M).floor())
+			var last:=Vector2i(((center+Vector2.ONE*extent)/PICK_CELL_M).floor())
+			if (last.x-first.x+1)*(last.y-first.y+1)>64:
+				_pick_large.append(i);continue
+			for y in range(first.y,last.y+1):
+				for x in range(first.x,last.x+1):
+					var cell:=Vector2i(x,y)
+					if not _pick_cells.has(cell):_pick_cells[cell]=[]
+					_pick_cells[cell].append(i)
+	var result: Array[int]=_pick_large.duplicate()
+	for i in _pick_cells.get(Vector2i((at/PICK_CELL_M).floor()),[]):result.append(int(i))
+	result.sort();result.reverse()
+	return result
+
 func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	if not source_ready or not layer_flags.scenery:
 		return {}
@@ -1498,7 +1533,7 @@ func _pick_source_prop(world_px: Vector2) -> Dictionary:
 	var best := minf(1.0,4.0/(maxf(.003,editor_camera.zoom.x)*PPM))
 	var hit: Dictionary = {}
 	var best_order: int = -6
-	for index in range(authoring.doc.props.size()-1,-1,-1):
+	for index in _prop_pick_candidates(at):
 		var prop: Dictionary=authoring.doc.props[index]
 		if not _workspace_selectable(str(prop.id)):continue
 		if bool(prop.get("hidden",false)):
@@ -2497,6 +2532,12 @@ func _sync_road_preview(preview_doc: Dictionary={}) -> void:
 		Roads.editor_hidden=hidden
 		_redraw_roads(dirty)
 		_update_overview_mask()
+
+func _apply_performance_settings() -> void:
+	if is_instance_valid(render_tiles):
+		render_tiles.set_cache_enabled(warm_tile_cache)
+		render_tiles.adaptive_streaming=adaptive_tile_streaming
+		render_tiles.build_budget_ms=tile_budget_ms
 
 func _append_performance_stats() -> void:
 	var info: String=" | FPS %d · open %.0f ms · refresh %.1f ms · drag %.1f ms"%[
