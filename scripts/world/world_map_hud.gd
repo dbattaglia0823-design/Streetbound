@@ -324,16 +324,30 @@ func _active_race_navigation() -> RefCounted:
 	return null
 
 
+var minimap_fps_limit:=0
+var _mini_elapsed:=0.0
+var _mini_was_visible:=false
+
 func _process(_dt: float) -> void:
 	mini.visible=not large and not get_tree().paused
 	full.visible=large and not get_tree().paused
 	# UPDATE_ALWAYS still uses GPU time for a hidden SubViewport.
-	var mini_mode := SubViewport.UPDATE_ALWAYS if mini.visible else SubViewport.UPDATE_DISABLED
-	if mini_render.render_target_update_mode != mini_mode:
-		mini_render.render_target_update_mode = mini_mode
+	if not mini.visible:
+		mini_render.render_target_update_mode=SubViewport.UPDATE_DISABLED
+		_mini_elapsed=0.0
+	elif minimap_fps_limit<=0:
+		mini_render.render_target_update_mode=SubViewport.UPDATE_ALWAYS
+	else:
+		_mini_elapsed+=_dt
+		if not _mini_was_visible or _mini_elapsed>=1.0/float(minimap_fps_limit):
+			mini_render.render_target_update_mode=SubViewport.UPDATE_ONCE
+			_mini_elapsed=fmod(_mini_elapsed,1.0/float(minimap_fps_limit))
+	_mini_was_visible=mini.visible
 	layer=19 if full.visible else 2
 	var current_course := _active_race_navigation()
+	if not mini.visible and not full.visible:return
 	for view in [mini_view,full_view]:
+		if (view==mini_view and not mini.visible) or (view==full_view and not full.visible):continue
 		view.player_m=vehicle.global_position/20
 		view.player_heading=vehicle.rotation
 		if is_instance_valid(view.race_overlay):
