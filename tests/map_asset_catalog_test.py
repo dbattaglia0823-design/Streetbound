@@ -43,24 +43,13 @@ class MapAssetCatalogTests(unittest.TestCase):
         item = by_type["industrial_prop"]
         self.assertEqual(resolve_asset(item["path"], item["id"], self.root), item)
 
-    def test_sprite_sheet_named_regions_and_grid(self):
-        path = self.base / "Industrial" / "Pallets" / "cargo.png"
-        fake_png(path, 256, 128)
-        path.with_suffix(".sheet.json").write_text(json.dumps({
-            "sprites": [
-                {"name": "Pallet", "region": [0, 0, 128, 128]},
-                {"name": "Crate", "region": [128, 0, 128, 128],
-                 "worldSize": [2, 2]}]
-        }), encoding="utf-8")
-        entries = catalog(self.root)
-        self.assertEqual(len(entries), 2)
-        self.assertEqual([entry["name"] for entry in entries], ["Pallet", "Crate"])
-        self.assertEqual(entries[1]["region"], [128, 0, 128, 128])
-        self.assertEqual(entries[1]["id"], asset_id(entries[1]["path"] + "#Crate"))
-        self.assertEqual(entries[1]["worldSize"], [2.0, 2.0])
-        path.with_suffix(".sheet.json").write_text(
-            json.dumps({"grid": {"width": 128, "height": 128}}), encoding="utf-8")
-        self.assertEqual(len(catalog(self.root)), 2)
+    def test_retired_sheets_never_enter_catalog(self):
+        path = self.base / "Industrial" / "cargo.png"
+        fake_png(path)
+        path.with_suffix(".sheet.json").write_text(json.dumps({"grid":{"width":128,"height":128}}))
+        self.assertEqual(catalog(self.root), [])
+        with self.assertRaises(ValueError):
+            resolve_asset("Map Building Assets/Industrial/cargo.png", asset_id("Map Building Assets/Industrial/cargo.png"), self.root)
 
     def test_reject_invalid_regions_and_path_traversal(self):
         path = self.base / "Industrial" / "barrels.png"
@@ -82,17 +71,12 @@ class MapAssetCatalogTests(unittest.TestCase):
         self.assertEqual(entry["type"], "house")
         self.assertEqual(entry["id"], asset_id("Buildings/House.png"))
 
-    def test_sprite_ids_use_original_manifest_names_and_keep_whole_sheet_references(self):
-        path = self.base / 'Sprite Sheets' / 'cargo.png'
+    def test_sheet_directory_is_excluded_even_without_manifest(self):
+        path = self.base / "Sprite Sheets" / "cargo.png"
         fake_png(path)
-        path.with_suffix('.sheet.json').write_text(json.dumps({'sprites':[
-            {'name':'Cargo_Crate-A','region':[0,0,80,90]}]}))
-        entry = catalog(self.root)[0]
-        self.assertEqual(entry['id'], asset_id(entry['path']+'#Cargo_Crate-A'))
-        self.assertEqual(entry['name'], 'Cargo Crate A')
-        legacy = resolve_asset(entry['path'], asset_id(entry['path']), self.root)
-        self.assertNotIn('region', legacy)
-        self.assertEqual((legacy['width'], legacy['height']), (256,128))
+        self.assertEqual(catalog(self.root), [])
+        with self.assertRaises(ValueError):
+            building_file("Map Building Assets/Sprite Sheets/cargo.png", self.root)
 
     def test_shipped_map_library_uses_standalone_art(self):
         root = Path(__file__).resolve().parents[1]
