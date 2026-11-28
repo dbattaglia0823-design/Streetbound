@@ -221,8 +221,8 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             project_asset = resolve_asset(project_path, game_art, ROOT)
             if project_asset["type"] != type_name:
                 raise ValueError("Invalid category for project map artwork")
-            if raw.get("assetRegion") != project_asset.get("region"):
-                raise ValueError("Sprite sheet region differs from source manifest")
+            if raw.get("assetRegion"):
+                raise ValueError("Sprite sheet regions are retired; select individual artwork")
             if raw.get("assetCollision", project_asset["collision"]) != project_asset["collision"]:
                 raise ValueError("Asset collision differs from source metadata")
             asset_size=raw.get("assetSize")
@@ -231,7 +231,7 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
         elif game_art:
             if (not isinstance(game_art, str) or not game_art.startswith("game-")
                     or game_art[5:] not in available.get(type_name, set())):
-                raise ValueError("Only compatible game-folder atlas artwork is supported for Morrow props")
+                raise ValueError("Only compatible built-in or individual project artwork is supported for Morrow props")
         kind, base_size, solid = EDITOR_PROP_STYLES[type_name]
         if project_path is not None:
             base_size = asset_size
@@ -303,8 +303,6 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
             entry["asset_size"]=asset_size
             entry["asset_id"]=game_art
             entry["asset_collision"]=project_asset["collision"]
-            if project_asset.get("region"):
-                entry["asset_region"]=project_asset["region"]
         elif game_art:
             entry["asset_kind"] = game_art[5:]
             entry["asset_id"] = game_art
