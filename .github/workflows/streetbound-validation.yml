@@ -3,26 +3,44 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: streetbound-regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
-  # The Windows player in the reported logs uses Godot 4.6.3, not the
-  # project's older pinned 4.4.1 CI binary. Validate the exact player release.
-  godot-463-game-startup:
+  # Separate runners keep user data, temporary bakes and display/network tests isolated.
+  godot-463-gameplay:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Verify persistent Godot resource IDs before import
         run: python3 tests/resource_uid_test.py
+      - name: Cache Godot 4.6.3 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.6.3-stable_linux.x86_64
+          key: godot-linux-4.6.3-${{ runner.arch }}-v1
       - name: Install Godot 4.6.3 matching the reported Windows logs
         run: |
+          if test -x ./Godot_v4.6.3-stable_linux.x86_64; then exit 0; fi
           curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
           unzip -q godot463.zip
           chmod +x Godot_v4.6.3-stable_linux.x86_64
-      - name: Cold-import clean game resources and verify typed script compilation
+      - name: Restore imported asset cache (no script metadata)
+        id: asset_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.6.3-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+      - name: Import game resources and verify typed script compilation
         id: cold_import
         run: |
           set -o pipefail
-          test ! -d .godot
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
           # Direct-load individual race scripts when a top-level preload fails.
           ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/racing_script_probe.gd 2>&1 | tee /tmp/godot463-race-load-probe.log || true
@@ -32,6 +50,12 @@ jobs:
           fi
       # Report every independent test group after a successful import, even
       # if an earlier test failed. Failed steps still fail this required job.
+      - name: Save imported asset cache after successful import
+        if: steps.asset_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.6.3-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
       - name: Verify road elevation bake, routing and physical crossings (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -69,7 +93,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/underground_racing_test.gd 2>&1 | tee /tmp/underground-racing-463.log
           grep -q 'UNDERGROUND RACING: 0 failures' /tmp/underground-racing-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/underground-racing-463.log
-
       - name: Verify contact personality, briefing and dedicated screen UI (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -77,7 +100,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/contact_contract_screen_test.gd 2>&1 | tee /tmp/contact-screen-463.log
           grep -q 'CONTACT CONTRACT SCREEN: 0 failures' /tmp/contact-screen-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/contact-screen-463.log
-
       - name: Verify vehicle-only contracts, map links and durable rewards (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -85,7 +107,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/driving_contracts_test.gd 2>&1 | tee /tmp/driving-contracts-463.log
           grep -q 'DRIVING CONTRACTS: 0 failures' /tmp/driving-contracts-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/driving-contracts-463.log
-
       - name: Verify realistic wanted response, off-screen police spawns and last-seen searches (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -93,7 +114,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/police_tactics_test.gd 2>&1 | tee /tmp/police-tactics-463.log
           grep -q 'POLICE TACTICS: 0 failures' /tmp/police-tactics-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/police-tactics-463.log
-
       - name: Verify driving-only vehicle damage and police containment rules (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -115,7 +135,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 60s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/vehicle_service_integration_test.gd 2>&1 | tee /tmp/service-rules-463.log
           grep -q 'GARAGE/FUEL SERVICE: 0 failures' /tmp/service-rules-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/service-rules-463.log
-
       - name: Verify branching sidewalk T, Y and X junctions (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -231,6 +250,44 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pause_menu_test.gd 2>&1 | tee /tmp/streetbound-pause-463.log
           grep -q 'PAUSE MENU TESTS: PASS' /tmp/streetbound-pause-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-pause-463.log
+
+  godot-463-editor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify persistent Godot resource IDs before import
+        run: python3 tests/resource_uid_test.py
+      - name: Cache Godot 4.6.3 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.6.3-stable_linux.x86_64
+          key: godot-linux-4.6.3-${{ runner.arch }}-v1
+      - name: Install Godot 4.6.3 matching the reported Windows logs
+        run: |
+          if test -x ./Godot_v4.6.3-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Restore imported asset cache (no script metadata)
+        id: asset_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.6.3-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+      - name: Import game resources and verify typed script compilation
+        id: cold_import
+        run: |
+          set -o pipefail
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
+          # Direct-load individual race scripts when a top-level preload fails.
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/racing_script_probe.gd 2>&1 | tee /tmp/godot463-race-load-probe.log || true
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot463-import.log; then
+            echo "Godot 4.6.3 import reported unresolved script classes" >&2
+            exit 1
+          fi
+      # Report every independent test group after a successful import, even
+      # if an earlier test failed. Failed steps still fail this required job.
       - name: Verify native map reload recreates playable geometry and restores editor focus (4.6.3)
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -444,7 +501,6 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 45s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/track_kerbs_test.gd 2>&1 | tee /tmp/track-kerbs-463.log
           grep -q 'TRACK KERBS: 0 failures' /tmp/track-kerbs-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/track-kerbs-463.log
-
       - name: Verify browser-style native workspace, inspector and persistent full-map zoom
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -459,6 +515,39 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/native_world_editor_test.gd 2>&1 | tee /tmp/native-editor-463.log
           grep -q 'NATIVE WORLD EDITOR FOUNDATION: PASS' /tmp/native-editor-463.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/native-editor-463.log
+
+  godot-463-startup-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify persistent Godot resource IDs before import
+        run: python3 tests/resource_uid_test.py
+      - name: Cache Godot 4.6.3 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.6.3-stable_linux.x86_64
+          key: godot-linux-4.6.3-${{ runner.arch }}-v1
+      - name: Install Godot 4.6.3 matching the reported Windows logs
+        run: |
+          if test -x ./Godot_v4.6.3-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 --retry-all-errors -o godot463.zip https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+          unzip -q godot463.zip
+          chmod +x Godot_v4.6.3-stable_linux.x86_64
+      - name: Cold-import clean game resources and verify typed script compilation
+        id: cold_import
+        run: |
+          set -o pipefail
+          test ! -d .godot
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --editor --import --quit 2>&1 | tee /tmp/godot463-import.log
+          # Direct-load individual race scripts when a top-level preload fails.
+          ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script res://tests/racing_script_probe.gd 2>&1 | tee /tmp/godot463-race-load-probe.log || true
+          if grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:' /tmp/godot463-import.log; then
+            echo "Godot 4.6.3 import reported unresolved script classes" >&2
+            exit 1
+          fi
+      # Report every independent test group after a successful import, even
+      # if an earlier test failed. Failed steps still fail this required job.
       - name: Start real Morrow Coast with ownership, wheel rig, HUD and camera
         if: ${{ !cancelled() && steps.cold_import.outcome == 'success' }}
         run: |
@@ -684,16 +773,12 @@ jobs:
           timeout --signal=SIGINT --kill-after=5s 120s ./Godot_v4.6.3-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/published_world_integration_test.gd 2>&1 | tee /tmp/streetbound-published-world.log
           grep -q 'PUBLISHED WORLD GAMEPLAY: PASS' /tmp/streetbound-published-world.log
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/streetbound-published-world.log
-  physics-and-world:
+
+  browser-and-world-bake:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Install pinned Godot 4.4.1 editor
-        run: |
-          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
-          unzip -q godot.zip
-          chmod +x Godot_v4.4.1-stable_linux.x86_64
       - name: Use Node 22 for the repo-owned map builder
         uses: actions/setup-node@v4
         with:
@@ -728,8 +813,39 @@ jobs:
         run: python3 tests/map_editor_live_apply_test.py
       - name: Ensure two consecutive map expansions leave every existing object and landmark in place
         run: python3 tests/morrow_expansion_stability_test.py
+
+  godot-441-physics-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot 4.4.1 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.4.1-stable_linux.x86_64
+          key: godot-linux-4.4.1-${{ runner.arch }}-v1
+      - name: Install pinned Godot 4.4.1 editor
+        run: |
+          if test -x ./Godot_v4.4.1-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+      - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
+        run: python3 tools/build_morrow_coast.py
+      - name: Restore imported asset cache (no script metadata)
+        id: asset_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
       - name: Import scripts and artwork
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
+      - name: Save imported asset cache after successful import
+        if: steps.asset_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
       - name: Verify branching sidewalk T, Y and X junctions (4.4.1)
         run: |
           set -o pipefail
@@ -834,6 +950,33 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|ERROR: Failed to load script|Parse Error:|^FAIL ' /tmp/crash-effects-441.log
       - name: Verify racing handling and steering tuning
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/racing_tune_test.gd
+
+  godot-441-world-traffic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot 4.4.1 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.4.1-stable_linux.x86_64
+          key: godot-linux-4.4.1-${{ runner.arch }}-v1
+      - name: Install pinned Godot 4.4.1 editor
+        run: |
+          if test -x ./Godot_v4.4.1-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+      - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
+        run: python3 tools/build_morrow_coast.py
+      - name: Restore imported asset cache (no script metadata)
+        id: asset_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .godot/imported
+          key: godot-import-4.4.1-${{ runner.os }}-${{ runner.arch }}-v1-${{ hashFiles('assets/**', 'addons/**', 'project.godot', '**/*.import', '**/*.png', '**/*.svg', '**/*.jpg', '**/*.jpeg', '**/*.webp', '**/*.wav', '**/*.ogg', '**/*.mp3', '**/*.ttf', '**/*.otf', '**/*.glb', '**/*.gltf') }}
+      - name: Import scripts and artwork
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Verify all 154 future car audio profiles, five new engine layouts, hybrid, rotary and true EV sounds
         run: timeout --signal=SIGINT --kill-after=5s 145s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/pending_vehicle_audio_test.gd
       - name: Verify ten rights-documented recorded engine beds, seam quality, loaded cars and mute
@@ -892,6 +1035,27 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 90s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_intersection_flow_test.gd
       - name: Verify forward traffic sensing, crossing priority and crash geometry
         run: timeout --signal=SIGINT --kill-after=5s 75s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/traffic_safety_test.gd
+
+  godot-441-career-driving:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot 4.4.1 executable
+        uses: actions/cache@v4
+        with:
+          path: Godot_v4.4.1-stable_linux.x86_64
+          key: godot-linux-4.4.1-${{ runner.arch }}-v1
+      - name: Install pinned Godot 4.4.1 editor
+        run: |
+          if test -x ./Godot_v4.4.1-stable_linux.x86_64; then exit 0; fi
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.4.1-stable_linux.x86_64
+      - name: Rebuild complete Morrow Coast for geometry, surface and collision regression
+        run: python3 tools/build_morrow_coast.py
+      - name: Import scripts and artwork
+        run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --editor --import --quit
       - name: Verify directional off-screen vehicle warnings and split-camera views (4.4.1)
         run: |
           set -o pipefail
@@ -962,7 +1126,6 @@ jobs:
         run: timeout --signal=SIGINT --kill-after=5s 110s ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/live_vehicle_dashboard_test.gd
       - name: Verify MPH speedometer and all imperial display conversions
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/imperial_display_test.gd
-
       - name: Verify streamed Morrow Coast geometry, atlas and collision clearance
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/open_world_test.gd
       - name: Drive the real vehicle from the starting garage to the coast
@@ -971,3 +1134,43 @@ jobs:
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --fixed-fps 60 --script res://tests/mountain_drive.gd
       - name: Verify junction coverage, stop priority and lane-paint clipping
         run: ./Godot_v4.4.1-stable_linux.x86_64 --headless --path . --script res://tests/junction_test.gd
+
+  godot-463-game-startup:
+    # Preserve the original required-check identity; all shards must pass.
+    needs: [godot-463-gameplay, godot-463-editor, godot-463-startup-render]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every regression shard to succeed
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ["NEEDS_JSON"])
+          for name, job in results.items():
+              print(f"{name}: {job['result']}")
+          if not results or any(job["result"] != "success" for job in results.values()):
+              raise SystemExit(1)
+          PY
+
+  physics-and-world:
+    # Preserve the original required-check identity; all shards must pass.
+    needs: [browser-and-world-bake, godot-441-physics-ui, godot-441-world-traffic, godot-441-career-driving]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every regression shard to succeed
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ["NEEDS_JSON"])
+          for name, job in results.items():
+              print(f"{name}: {job['result']}")
+          if not results or any(job["result"] != "success" for job in results.values()):
+              raise SystemExit(1)
+          PY
