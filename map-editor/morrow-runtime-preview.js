@@ -50,18 +50,7 @@ export function nativeAdoptedRadius(prop){
   const size=BASE_SIZE[prop.type]||[3,3];
   return Math.hypot(size[0],size[1])*.5*prop.scale;
 }
-const trafficFiles = [
-  'ChatGPT Image Nov 8, 2026, 09_28_42 PM-1.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_46 PM-2.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_47 PM-3.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_49 PM-4.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_50 PM-5.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_51 PM-6.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_52 PM-7.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_53 PM-8.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_55 PM-9.png',
-  'ChatGPT Image Nov 8, 2026, 09_28_56 PM-10.png'
-];
+const trafficFiles=['Electric Traffic.png','Car1.png','Sedan.png','SportSUV.png','SUV.png','Minivan.png','Van.png','Taxi.png','Pickup Truck.png','Box Truck.png'];
 const images=new Map();
 function imageAt(url){
   if(images.has(url))return images.get(url);
@@ -240,7 +229,7 @@ export function drawNative(ctx,prop,scale){
     }
   }else if(kind==='parked_car'){
     const slot=((seed%trafficFiles.length)+trafficFiles.length)%trafficFiles.length;
-    const img=imageAt('/game-assets/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
+    const img=imageAt('/game-assets/Vehicles/Traffic%20Vehicles/'+encodeURIComponent(trafficFiles[slot]));
     ctx.fillStyle='#334449';ctx.fillRect(-w/2,-h/2,w,h);
     if(ready(img))ctx.drawImage(img,-w/2,-h/2,w,h);
   }else if(drawStandaloneArt(ctx,prop.asset_kind||kind,size,seed)){
