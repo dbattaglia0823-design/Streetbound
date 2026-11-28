@@ -683,7 +683,7 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 ## invisible cruising agents. Integration, following, yielding and all
 ## player/racer collision logic continue every physics tick.
 func _scan_interval(agent: Dictionary, near: float, far: float) -> float:
-	if not optimized_ai or street_race_active or bool(agent.node.get("recovering")):return near
+	if not optimized_ai or street_race_active or not is_instance_valid(agent.get("node")) or bool(agent.node.get("recovering")):return near
 	var at: Vector2=agent.node.global_position
 	for person in _player_vehicles():
 		if is_instance_valid(person) and person.global_position.distance_squared_to(at)<pow(PPM*220.0,2):return near
