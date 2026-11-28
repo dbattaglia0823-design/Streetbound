@@ -67,6 +67,9 @@ var startup_ms:=0.0
 
 func _ready() -> void:
 	var startup_started:=Time.get_ticks_usec()
+	if get_tree().has_meta("streetbound_title_launch_mode"):
+		pending_launch_mode=str(get_tree().get_meta("streetbound_title_launch_mode"))
+		get_tree().remove_meta("streetbound_title_launch_mode")
 	# Custom-map Test Drive is a real gameplay launch, not a separate mini-game.
 	# The editor compiled its map to a user:// streamed archive before entry.
 	custom_test_drive=not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")) and \
@@ -117,6 +120,11 @@ func _ready() -> void:
 			if layer==0 or not cursor_contact.is_empty():
 				vehicle.position=at
 				if cursor.has("validation"):vehicle.rotation=float(cursor.get("rotation",vehicle.rotation))
+	# A cursor-spawned Test Drive must have its real collision cell ready
+	# before the player enters the tree, not one frame after physics starts.
+	if not proving_ground and not cursor.is_empty():
+		ground.stream_at(vehicle.position)
+		ground._build_chunk(Vector2i((vehicle.position/20.0/float(ground.chunk_m)).floor()))
 	add_child(vehicle)
 	if not cursor_contact.is_empty():vehicle.reconcile_road_contact(int(cursor_contact.road),float(cursor_contact.height_m))
 	vehicle.add_to_group("player_vehicle")
