@@ -1,10 +1,10 @@
 /** Decorative, unlit fixtures. This module never changes traffic permissions. */
-export function junctionFixtures(junctions,roads=[]){
+export function junctionFixtures(junctions,roads=[],byId=new Map(roads.map(r=>[r.id,r]))){
   const result=[];
   for(const j of junctions.filter(j=>!j.street_access&&!["merge","lane_transition"].includes(j.kind)&&!["merge","lane_transition"].includes(j.control)))for(const arm of j.approaches||[]){
     if(arm.p&&arm.direction){result.push({p:{x:arm.p[0],y:arm.p[1]},d:{x:arm.direction[0],y:arm.direction[1]},width:arm.width});continue;}
     if(!arm.tangent)continue;
-    const road=roads.find(r=>r.id===arm.id),ends=road?.points;
+    const road=byId.get(arm.id),ends=road?.points;
     const near=p=>Math.hypot(p.x-j.x,p.y-j.y)<(arm.width/2+(road?.shoulder||0)+8);
     const sides=ends&&near(ends[0])&&!near(ends.at(-1))?[1]:
       ends&&near(ends.at(-1))&&!near(ends[0])?[-1]:[-1,1];
@@ -12,9 +12,11 @@ export function junctionFixtures(junctions,roads=[]){
       result.push({p:{x:j.x+d.x*(j.radius+2),y:j.y+d.y*(j.radius+2)},d,width:arm.width});}
   }return result;
 }
-export function drawJunctionFixtures(ctx,junctions,roads=[]){
-  for(const {p,d,width} of junctionFixtures(junctions,roads)){
+export function drawJunctionFixtures(ctx,junctions,roads=[],bounds=null,byId){
+  for(const {p,d,width} of junctionFixtures(junctions,roads,byId)){
     const n={x:-d.y,y:d.x},x=p.x+d.x*1.5-n.x*(width/2+2.1),y=p.y+d.y*1.5-n.y*(width/2+2.1);
+    // Fixture artwork extends under 4 m from its translated origin.
+    if(bounds&&(x+4<bounds.minX||x-4>bounds.maxX||y+4<bounds.minY||y-4>bounds.maxY))continue;
     ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(d.y,d.x));
     ctx.fillStyle='#586a69';ctx.fillRect(-.1,0,.2,1.4);
     ctx.fillStyle='#273435';ctx.fillRect(-.45,.25,.9,2.3);

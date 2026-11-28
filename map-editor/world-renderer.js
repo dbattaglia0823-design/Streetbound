@@ -214,13 +214,34 @@ export function roadMarkingPlan(road){
   add(-w/2+.35,ramp?yellow:white);add(w/2-.35,white);
   return lines;
 }
+// Source edits replace the roads array; the existing geometry and layer caches
+// use this same identity contract. Panning, zooming and the minimap share it.
+const roadRenderPlans=new WeakMap();
+export function roadRenderPlan(roads){
+  let plan=roadRenderPlans.get(roads);
+  if(plan)return plan;
+  const order=[...roads].sort((a,b)=>(a.drawOrder??0)-(b.drawOrder??0)||Number(isLoose(b))-Number(isLoose(a)));
+  const byId=new Map(),roadBounds=new Map(),groups=new Map();
+  for(const road of order){
+    byId.set(road.id,road);
+    roadBounds.set(road.id,expand(boundsOf(road.points),road.width/2+20));
+    const key=road.drawOrder??0;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(road);
+  }
+  plan={order,byId,roadBounds,groups};
+  roadRenderPlans.set(roads,plan);
+  return plan;
+}
 function drawRoads(ctx,roads,bounds,options){
   // A shared derived surface plan drives preview AND road-network export.
   // Clipped dirt/gravel sections are drawn before paved roads regardless of
   // creation order, preventing the loose shoulders covering asphalt.
   const pieces=roadPieces(roads);
-  const order=[...roads].sort((a,b)=>(a.drawOrder??0)-(b.drawOrder??0)||Number(isLoose(b))-Number(isLoose(a)));
-  const displayPaths=road=>{
+  const {order,byId,roadBounds,groups}=roadRenderPlan(roads);
+  // A road can be drawn in several passes. Resolve its baked/live path once per frame.
+  const pathCache=new Map();
+  const resolvePaths=road=>{
     const baked=options?.runtimePreview?.roads?.get(road.id);
     // Render the precise Godot-baked centerline until the user changes any
     // control point or surface. Edited roads immediately use the live spline.
@@ -232,25 +253,23 @@ function drawRoads(ctx,roads,bounds,options){
       return pieces.get(road.id)||[];
     return [baked.points];
   };
+  const displayPaths=road=>{
+    if(!pathCache.has(road.id))pathCache.set(road.id,resolvePaths(road));
+    return pathCache.get(road.id);
+  };
   const showWaterBridges=options.roadLayer===undefined||options.roadLayer==='all'||options.roadLayer===0;
   const bridges=options.doc&&showWaterBridges?bridgesForDocument(options.doc,options.runtimePreview):[];
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,0);
   // Erase continuous center/edge markings at crossing mouths, as in the
   // game's clipped road-paint pass. A clip mask is NOT drawn as a junction
   // shape: asphalt is the real overlap of road strokes rendered above.
-  const junctions=options?.junctions===false?[]:buildRoadJunctions(roads)
-    .filter(j=>j.kind!=='endpoint'&&j.roads.length>=2);
+  const allJunctions=options?.junctions===false?[]:buildRoadJunctions(roads);
+  const junctions=allJunctions.filter(j=>j.kind!=='endpoint'&&j.roads.length>=2);
   // Within a draw-order group preserve the default pavement/markings passes.
   // Higher groups paint their entire pavement over lower groups' markings.
-  const groups=new Map();
-  for(const road of order){
-    const key=road.drawOrder??0;
-    if(!groups.has(key))groups.set(key,[]);
-    groups.get(key).push(road);
-  }
   for(const group of groups.values()){
     for(const road of group){
-      if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+      if(!visible(roadBounds.get(road.id),bounds))continue;
       for(const path of displayPaths(road))drawRoadBase(ctx,road,path,Boolean(options?.runtimePreview));
     }
     ctx.save();
@@ -263,8 +282,7 @@ function drawRoads(ctx,roads,bounds,options){
     for(const j of junctions){
       if(!visible({minX:j.x-j.radius,minY:j.y-j.radius,
         maxX:j.x+j.radius,maxY:j.y+j.radius},bounds))continue;
-      const width=Math.min(roads.filter(r=>j.roads.includes(r.id))
-        .reduce((max,r)=>Math.max(max,r.width),0),160);
+      const width=Math.min(j.roads.reduce((max,id)=>Math.max(max,byId.get(id)?.width??0),0),160);
       if(j.corner_style==='square'&&j.polygon?.length>=3){
         ctx.moveTo(j.polygon[0].x,j.polygon[0].y);
         for(const p of j.polygon.slice(1))ctx.lineTo(p.x,p.y);
@@ -277,14 +295,14 @@ function drawRoads(ctx,roads,bounds,options){
     ctx.clip('evenodd');
   }
     for(const road of group){
-      if(!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+      if(!visible(roadBounds.get(road.id),bounds))continue;
       for(const path of displayPaths(road))drawRoadLines(ctx,road,path);
     }
     ctx.restore();
   }
   for(const bridge of bridges)if(visible(expand(boundsOf(bridge.points),bridge.width+8),bounds))drawBridge(ctx,bridge,1,junctions);
   for(const road of order){
-    if(!road.elevation||!visible(expand(boundsOf(road.points),road.width/2+20),bounds))continue;
+    if(!road.elevation||!visible(roadBounds.get(road.id),bounds))continue;
     const {start_layer,end_layer}=roadElevation(road);
     const layers=road.elevation?.point_layers??[start_layer,end_layer];
     const color=Math.min(...layers)<0?'#c897f5':'#79d7f5';
@@ -307,8 +325,9 @@ function drawRoads(ctx,roads,bounds,options){
   // live-edit fallback above deliberately avoids convex polygon aprons.
   if(options?.junctions!==false && options?.runtimePreview?.junctions){
     const preview=options.runtimePreview;
-    const unchanged=id=>{
-      const road=roads.find(item=>item.id===id);
+    const unchangedCache=new Map();
+    const isUnchanged=id=>{
+      const road=byId.get(id);
       const baked=preview.roads.get(id);
       return Boolean(road&&baked&&road.points.length===baked.anchors.length&&
         Math.abs(road.width-baked.width)<.001 &&
@@ -320,8 +339,12 @@ function drawRoads(ctx,roads,bounds,options){
         road.points.every((p,i)=>Math.abs(p.x-baked.anchors[i][0])<.005&&
           Math.abs(p.y-baked.anchors[i][1])<.005));
     };
+    const unchanged=id=>{
+      if(!unchangedCache.has(id))unchangedCache.set(id,isUnchanged(id));
+      return unchangedCache.get(id);
+    };
     if(options.quality!==0)for(const j of preview.junctions){
-      const streetCount=j.roads.filter(id=>roads.some(r=>r.id===id&&['street','service'].includes(r.roadClass))).length;
+      const streetCount=j.roads.filter(id=>['street','service'].includes(byId.get(id)?.roadClass)).length;
       if(streetCount>0&&streetCount<j.roads.length&&!j.street_access)continue;
       if(!j.roads.length||!j.roads.every(unchanged)||
         !visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
@@ -348,7 +371,7 @@ function drawRoads(ctx,roads,bounds,options){
         ctx.stroke();
       }
       for(const arm of j.approaches){
-        if(roads.some(r=>r.id==='road-'+arm.road&&r.roadClass==='alley'))continue;
+        if(byId.get('road-'+arm.road)?.roadClass==='alley')continue;
         if(!['stop','yield'].includes(arm.control))continue;
         const p=arm.p,d=arm.direction;
         if(!Array.isArray(p)||!Array.isArray(d))continue;
@@ -364,7 +387,7 @@ function drawRoads(ctx,roads,bounds,options){
   if(options?.junctions!==false){
     // Live street mouths retain the side-road stop line even before a rebake.
     for(const j of junctions.filter(j=>j.street_access))for(const arm of j.approaches.filter(a=>a.control==='stop')){
-      const road=roads.find(r=>r.id===arm.id),mainWidth=Math.max(...j.approaches.filter(a=>a.control==='none').map(a=>a.width));
+      const road=byId.get(arm.id),mainWidth=Math.max(...j.approaches.filter(a=>a.control==='none').map(a=>a.width));
       if(!road||!Number.isFinite(mainWidth))continue;
       const near=p=>distance(p,j)<Math.max(1,mainWidth/2+road.width/2);
       const sides=near(road.points[0])&&!near(road.points.at(-1))?[1]:near(road.points.at(-1))&&!near(road.points[0])?[-1]:[-1,1];
@@ -375,7 +398,7 @@ function drawRoads(ctx,roads,bounds,options){
         ctx.lineTo(at.x-n.x*.4,at.y-n.y*.4);ctx.strokeStyle='#eee7d5';ctx.lineWidth=.4;ctx.stroke();
       }
     }
-    drawJunctionFixtures(ctx,buildRoadJunctions(roads),roads);
+    drawJunctionFixtures(ctx,allJunctions,roads,bounds,byId);
   }
 }
 function drawTree(ctx,type,seed){
