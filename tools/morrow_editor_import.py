@@ -379,6 +379,16 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
     return result
 
 
+def set_road_draw_order(road, source):
+    order = source.get("drawOrder", 0)
+    if type(order) not in (int, float) or not math.isfinite(order) or int(order) != order or not -5 <= order <= 10:
+        raise ValueError("Invalid road draw order")
+    if order:
+        road["editor_draw_order"] = int(order)
+    else:
+        road.pop("editor_draw_order", None)
+
+
 def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
                 width=BASE_WIDTH, height=BASE_HEIGHT, legacy_source_count=None,
                 legacy_source_poi_count=None):
@@ -442,6 +452,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             continue  # Newly introduced defaults absent from a legacy overlay.
         road = roads[index]
         entry = numbered[index]
+        set_road_draw_order(road, entry)
         set_profile(road, entry)
         set_auto_guardrails(road, entry)
         set_jump(road, entry)
@@ -567,6 +578,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             if entry.get(key,"auto") not in ("auto","intersection","merge"):
                 raise ValueError("Invalid road junction mode")
             if key in entry: roads[-1][key]=entry[key]
+        set_road_draw_order(roads[-1], entry)
         set_profile(roads[-1], entry)
         set_auto_guardrails(roads[-1], entry)
         set_jump(roads[-1], entry)
