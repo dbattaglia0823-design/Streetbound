@@ -123,7 +123,8 @@ func _valid_source(value: Dictionary) -> bool:
 					float(p.get("x",-1)),float(p.get("y",-1))),value):
 				return false
 		for key in ["junctionStart","junctionEnd"]:
-			if str(road.get(key,"auto")) not in ["auto","intersection","merge"]:return false
+			if str(road.get(key,"auto")) not in ["auto","intersection","merge","square"]:return false
+		if str(road.get("junctionStyle","rounded")) not in ["rounded","square"]:return false
 		for i in range(1,road.points.size()):
 			if Vector2(road.points[i].x,road.points[i].y).distance_to(Vector2(road.points[i-1].x,road.points[i-1].y))<1.0:return false
 		if not Elevation.authoring_error(road).is_empty() or not AutoRails.valid(road):return false
@@ -420,9 +421,11 @@ func reconcile_runtime(data: Dictionary) -> bool:
 			var points: Array[Dictionary]=[]
 			for p in raw.get("anchors",raw.points):points.append({"x":float(p[0]),"y":float(p[1])})
 			next.roads.append({"id":"road-%d"%i,"name":str(raw.name),
-				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
+				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"street","gravel":"street","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
+			for key in ["junctionStyle","junctionStart","junctionEnd"]:
+				if raw.has(key):next.roads[-1][key]=raw[key]
 			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
 			if raw.has("jump"):next.roads[-1].jump=raw.jump.duplicate()
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))
@@ -1379,9 +1382,9 @@ func set_road_settings(identity: String, settings: Dictionary) -> bool:
 	var next:=doc.duplicate(true)
 	for road in next.roads:
 		if str(road.id)!=identity:continue
-		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd"]:
+		for key in ["roadClass","surface","width","lanes","junctionStart","junctionEnd","junctionStyle"]:
 			if settings.has(key):
-				if key in ["junctionStart","junctionEnd"] and settings[key]=="auto":road.erase(key)
+				if (key in ["junctionStart","junctionEnd"] and settings[key]=="auto") or (key=="junctionStyle" and settings[key]=="rounded"):road.erase(key)
 				else:road[key]=settings[key]
 		if road.roadClass=="onramp":
 			road.lanes=clampi(int(road.get("lanes",1)),1,2)
@@ -1633,7 +1636,7 @@ func bulk_properties(ids: Array[String],category: String,patch: Dictionary) -> b
 		count+=1
 		for key in patch:entry[key]=patch[key]
 		if category=="roads":
-			if str(entry.roadClass) not in ["city","highway","country","mountain","service","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
+			if str(entry.roadClass) not in ["city","highway","country","mountain","service","street","track","alley","onramp"] or str(entry.surface) not in ["asphalt","concrete","gravel","dirt","track"] or float(entry.width)<6 or float(entry.width)>160 or int(entry.lanes)<1 or int(entry.lanes)>6:
 				last_error="Invalid road type, surface, width or lanes."
 				return false
 			if entry.roadClass=="onramp":

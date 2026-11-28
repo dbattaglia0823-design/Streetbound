@@ -76,7 +76,7 @@ def simple_polygon(points):
     return True
 
 
-def rounded_hull(points):
+def rounded_hull(points, square=False):
     points=sorted(set(tuple(p) for p in points))
     def cross(a,b,c):return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
     lower=[]; upper=[]
@@ -87,6 +87,7 @@ def rounded_hull(points):
         while len(upper)>1 and cross(upper[-2],upper[-1],p)<=0:upper.pop()
         upper.append(p)
     hull=lower[:-1]+upper[:-1]
+    if square:return [list(p) for p in hull]
     rounded=[]
     for i,p in enumerate(hull):
         before,after=hull[i-1],hull[(i+1)%len(hull)]
@@ -97,6 +98,10 @@ def rounded_hull(points):
             t=step/5
             rounded.append([(1-t)**2*a[k]+2*t*(1-t)*p[k]+t*t*b[k] for k in (0,1)])
     return rounded
+
+
+def is_street(road):
+    return road.get('street_access',False) or road.get('kind')=='driveway'
 
 
 def endpoint_mode(road, end):
@@ -239,22 +244,29 @@ def build_junctions(roads,nodes,segments,grid):
         arms=unique
         if len(arms)<2:continue
         dot=sum(arms[0]['direction'][k]*arms[1]['direction'][k] for k in (0,1))
+        minor=not merge and any(is_street(roads[a['road']]) for a in arms) and any(not is_street(roads[a['road']]) for a in arms)
+        square=minor or any(roads[a['road']].get('junctionStyle')=='square' or
+            (abs(a['origin_station']-(roads[a['road']]['_stations'][-1] if a['side']==-1 else 0))<.15
+             and endpoint_mode(roads[a['road']],a['side']==-1)=='square') for a in arms)
         # A lane change is a continuation, not a controlled intersection.
         # Only two genuinely opposing approaches qualify; crossings and
         # T-junctions retain their ordinary control and turning rules.
-        lane_transition=(len(arms)==2 and dot<-.94 and arms[0]['road']!=arms[1]['road']
+        lane_transition=(not minor and len(arms)==2 and dot<-.94 and arms[0]['road']!=arms[1]['road']
             and all(roads[a['road']]['kind'] in ('highway','arterial','rural','mountain','local')
                     and roads[a['road']]['surface'] in ('ASPHALT','CONCRETE') for a in arms)
             and max(2,roads[arms[0]['road']].get('lanes',2))!=max(2,roads[arms[1]['road']].get('lanes',2)))
-        if len(arms)==2 and dot<-.94 and abs(arms[0]['width']-arms[1]['width'])<.1 and not lane_transition:
+        if len(arms)==2 and dot<-.94 and abs(arms[0]['width']-arms[1]['width'])<.1 and not lane_transition and not minor:
             continue  # smooth continuation, not a traffic junction
         for arm in arms:
-            clearance=base
+            clearance=1.0 if minor else base
             for other in arms:
                 if other is arm:continue
                 cosine=sum(arm['direction'][k]*other['direction'][k] for k in (0,1))
                 sine=abs(arm['direction'][0]*other['direction'][1]-arm['direction'][1]*other['direction'][0])
-                if cosine>0 and sine>.025:
+                if minor and sine>.15:
+                    # Tight mouths: each arm extends only as far as the adjacent strip.
+                    clearance=max(clearance,(other['width']*.5+arm['width']*.5*abs(cosine))/sine+1)
+                elif not minor and cosine>0 and sine>.025:
                     clearance=max(clearance,(other['width']*.5+arm['width']*.5*cosine)/sine+3)
             if lane_transition:
                 # Leave a useful lane-change run before/after the join, but
@@ -277,6 +289,10 @@ def build_junctions(roads,nodes,segments,grid):
         elif merge:
             control='merge'
             for arm in arms:arm['control']='yield' if arm['road']==merge['ramp_road'] else 'none'
+        elif minor:
+            control='priority'
+            for arm in arms:
+                arm['control']='stop' if is_street(roads[arm['road']]) else 'none'
         elif len(arms)>=3:
             if roundabout:
                 control='roundabout'
@@ -317,9 +333,12 @@ def build_junctions(roads,nodes,segments,grid):
                 t=(delta[0]*db[1]-delta[1]*db[0])/det
                 handle=[start[k]+da[k]*t for k in (0,1)]
                 if distance(handle,center)>max(55,base*3):handle=[(start[k]+end[k])*.5 for k in (0,1)]
-                for step in range(9):
-                    t=step/8
-                    corner.append([(1-t)**2*start[k]+2*t*(1-t)*handle[k]+t*t*end[k] for k in (0,1)])
+                if square:
+                    corner=[start,handle,end]
+                else:
+                    for step in range(9):
+                        t=step/8
+                        corner.append([(1-t)**2*start[k]+2*t*(1-t)*handle[k]+t*t*end[k] for k in (0,1)])
             else:corner=[start,end]
             polygon.extend(corner)
             curbs.append(corner)
@@ -327,7 +346,7 @@ def build_junctions(roads,nodes,segments,grid):
         if not simple_polygon(polygon):
             # Curved acute approaches can overlap their own tangent mouths.
             # Use a rounded compound apron, with kerbs only outside road lanes.
-            polygon=rounded_hull(polygon)
+            polygon=rounded_hull(polygon,square)
             curbs=[]; run=[]
             for a,b in zip(polygon,polygon[1:]+polygon[:1]):
                 count=max(1,math.ceil(distance(a,b)))
@@ -347,6 +366,8 @@ def build_junctions(roads,nodes,segments,grid):
         radius=max(distance(center,p) for p in polygon)+2
         junction=dict(p=center,roads=ids,approaches=arms,polygon=polygon,curbs=curbs,
                       radius=radius,control=control,kind='lane_transition' if lane_transition else 'merge' if merge else ('crossroads' if len(arms)>=4 else ('t_junction' if len(arms)==3 else 'bend')),**(merge or {}))
+        if minor:junction['street_access']=True
+        if square:junction['corner_style']='square'
         if e['layer']:
             junction['road_layer']=e['layer']
         result.append(junction)

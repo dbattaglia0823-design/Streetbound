@@ -97,7 +97,7 @@ function parkingLot(doc,anchor,{size=1,stallWidth=3.2,occupancy=.4,entranceWidth
   const entrance={x:near.x,y:near.y};
   if(distance(entrance,mouth)<8)
     throw new RangeError('Parking access is too short.');
-  next=createEntity(next,'roads',{name:'Parking access',roadClass:'service',
+  next=createEntity(next,'roads',{name:'Parking access',roadClass:'street',
     surface:'asphalt',width:entranceWidth,lanes:1,shoulder:1,
     smooth:false,markings:false,points:[entrance,mouth]});
   let count=1;

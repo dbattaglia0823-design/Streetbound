@@ -399,7 +399,7 @@ static func plan_property(doc: Dictionary,road_id: String,center: Vector2,settin
 		var lamp: Vector2=lot_center+tangent*float(side)*24.0
 		_place(doc,index,props,"streetlight",lamp,angle,1.0,prop_limit)
 	var roads: Array=[_road(_next_road(doc),access,end,8,1)]
-	roads[0].roadClass="service";roads[0].name=kind.capitalize()+" access"
+	roads[0].roadClass="street";roads[0].name=kind.capitalize()+" access"
 	var markers: Array=[]
 	var dealers: Array=[]
 	var number:=_next_marker(doc)

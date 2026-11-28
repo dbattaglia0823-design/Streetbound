@@ -149,7 +149,8 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 			"merge_side":int(junction.get("merge_side",0)), "through_road":int(junction.get("through_road",junction.get("main_road",-1))),
 			"through_side":int(junction.get("through_side",-int(junction.get("merge_side",0)))),
 			"allowed_turns":junction.get("allowed_turns",["left","straight","right"]),"signal_count":int(junction.get("signal_count",0)),
-			"authored_control":bool(junction.get("authored_control",false))}
+			"authored_control":bool(junction.get("authored_control",false)),
+			"street_access":bool(junction.get("street_access",false))}
 	# Count physical road ends, including roads excluded from ambient routing.
 	# A shared endpoint is not a cul-de-sac just because its other road is filtered.
 	var endpoint_counts: Dictionary={}
@@ -477,7 +478,8 @@ func _link_turns(from_ids: Array,to_ids: Array,junction: int,control: String) ->
 				continue
 			var approach_control := str(source.control) if junction>=0 else "none"
 			if is_transition:approach_control="yield" if first_lane>=target_count else "none"
-			var turn_kph := 90.0 if is_transition else 50.0 if is_merge else (17.0 if turn in ["left","right"] else 29.0)
+			var mainline := bool(junction_geometry.get(junction,{}).get("street_access",false)) and approach_control=="none" and turn=="straight"
+			var turn_kph := 90.0 if is_transition or mainline else 50.0 if is_merge else (17.0 if turn in ["left","right"] else 29.0)
 			var id := _add_edge({
 				"road":int(source.road),"direction":int(source.direction),"lane":first_lane,
 				"lanes_in_direction":first_count,"connector":true,

@@ -207,3 +207,30 @@ test('selected marker ranges follow the actual prompt and contract offer geometr
   assert.deepEqual(markerInteractionRanges(target,sources),[8,20]);
   assert.deepEqual(markerInteractionRanges({type:'contract_dropoff',id:'unused'},sources),[]);
 });
+
+test('Street entrances are priority connections, not equal-priority intersections',()=>{
+  let doc=build(['Main','asphalt',coords([100,600],[1500,600]),20],
+    ['Branch','asphalt',coords([800,600],[800,850]),8]);
+  for(const roadClass of ['street','service']){
+    doc=updateEntity(doc,doc.roads[1].id,{roadClass});
+    const restored=parseWorld(serializeWorld(doc));
+    const j=buildRoadJunctions(restored.roads).find(j=>near(j,{x:800,y:600}));
+    assert.ok(j.street_access);
+    assert.equal(j.corner_style,'square');
+    assert.equal(j.approaches.find(a=>a.id===doc.roads[0].id).control,'none');
+    assert.equal(j.approaches.find(a=>a.id===doc.roads[1].id).control,'stop');
+  }
+});
+test('Square intersection mode survives a map roundtrip and is optional',()=>{
+  let doc=build(['Main','asphalt',coords([100,600],[1500,600]),20],
+    ['Branch','asphalt',coords([800,600],[800,850]),8]);
+  const j=()=>buildRoadJunctions(doc.roads).find(j=>near(j,{x:800,y:600}));
+  assert.equal(j().corner_style,undefined);
+  doc=updateEntity(doc,doc.roads[1].id,{junctionStart:'square'});
+  doc=parseWorld(serializeWorld(doc));
+  assert.equal(j().corner_style,'square');
+  doc=updateEntity(doc,doc.roads[1].id,{junctionStart:'auto',junctionStyle:'square'});
+  assert.equal(j().corner_style,'square');
+  doc=updateEntity(doc,doc.roads[1].id,{junctionStyle:'rounded'});
+  assert.equal(j().corner_style,undefined);
+});

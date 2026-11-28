@@ -3,7 +3,7 @@ import {LAYER_HEIGHT_M,roadElevation,roadsOnLayer} from './world-road-elevation.
 import {
   createWorld,demoWorld,parseWorld,serializeWorld,normalizeWorld,getEntity,
   createEntity,addSpriteAsset,updateEntity,removeEntity,reorderEntity,moveControlPoint,insertControlPoint,
-  deleteControlPoint,scatterVegetation
+  deleteControlPoint,scatterVegetation,displayedRoadClass
 } from './world-model.js';
 import {
   roadInsertCandidate,regionInsertCandidate,insertShapePoint,translateEntity,duplicateEntity,
@@ -850,9 +850,10 @@ function refreshInspector(){
     $('insert-hint').textContent=pointInsertMode?.id===item.id
       ?(pointInsertMode.mode==='split'?'Click on the road where it should separate.':pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
       :'Insert points on the curve, or extend either endpoint. Shift-click a selected road to insert directly.';
-    $('inspect-road-class').value=item.roadClass;$('inspect-road-surface').value=item.surface;
+    $('inspect-road-class').value=displayedRoadClass(item.roadClass);$('inspect-road-surface').value=item.surface;
     $('inspect-junction-start').value=item.junctionStart??'auto';
     $('inspect-junction-end').value=item.junctionEnd??'auto';
+    $('inspect-junction-style').value=item.junctionStyle??'rounded';
     $('inspect-road-width').value=item.width;$('inspect-road-lanes').value=item.lanes;
     $('inspect-road-shoulder').value=item.shoulder;$('inspect-road-smooth').checked=item.smooth;
     $('inspect-road-markings').checked=item.markings;
@@ -1658,7 +1659,7 @@ $('road-class').addEventListener('change',e=>{
 });
 $('road-surface').addEventListener('change',e=>{
   if(e.target.value==='track')$('road-class').value='track';
-  else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='country';
+  else if($('road-class').value==='track'&&['dirt','gravel'].includes(e.target.value))$('road-class').value='city';
 });
 $('road-shoulder').addEventListener('input',e=>{$('shoulder-label').textContent=e.target.value+' m';});
 for(const id of ['show-roads','visible-road-layer','show-junctions','show-road-priority','show-road-gaps',
@@ -1722,7 +1723,7 @@ $('inspect-marker-layer').addEventListener('change',()=>{
 const fields={
   'inspector-name':{name:'name'},
   'inspect-road-class':{roadClass:'string'},'inspect-road-surface':{surface:'string'},
-  'inspect-junction-start':{junctionStart:'string'},'inspect-junction-end':{junctionEnd:'string'},
+  'inspect-junction-start':{junctionStart:'string'},'inspect-junction-end':{junctionEnd:'string'},'inspect-junction-style':{junctionStyle:'string'},
   'inspect-road-width':{width:'number'},'inspect-road-lanes':{lanes:'number'},
   'inspect-road-shoulder':{shoulder:'number'},'inspect-road-smooth':{smooth:'boolean'},
   'inspect-road-markings':{markings:'boolean'},'inspect-biome':{biome:'string'},
@@ -1753,7 +1754,7 @@ for(const [elementId,options] of Object.entries(fields)){
       if(key==='surface'){
         const old=getEntity(doc,selection.id)?.item;
         if(value==='track')update.roadClass='track';
-        else if(old?.roadClass==='track'&&['dirt','gravel'].includes(value))update.roadClass='country';
+        else if(old?.roadClass==='track'&&['dirt','gravel'].includes(value))update.roadClass='city';
       }
       if(key==='biome'&&!['mountain','rock'].includes(value))update.barrier=false;
       if(key==='barrier'&&value){const r=getEntity(doc,selection.id)?.item;

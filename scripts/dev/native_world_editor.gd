@@ -244,6 +244,7 @@ var inspector_road_type: OptionButton
 var inspector_road_type_fields: Control
 var inspector_junction_start: OptionButton
 var inspector_junction_end: OptionButton
+var inspector_junction_style: OptionButton
 var terrain_biome: OptionButton
 var terrain_barrier: CheckBox
 var terrain_elevation: SpinBox
@@ -608,6 +609,7 @@ func _update_context_panels() -> void:
 		_refresh_point_elevation_fields(road)
 		for option in [road_class,road_surface]:
 			var value:=("track" if str(road.surface)=="track" else str(road.roadClass)) if option==road_class else str(road.surface)
+			if option==road_class:value=_display_road_class(value)
 			for i in option.item_count:
 				if str(option.get_item_metadata(i))==value:option.select(i);break
 		_setting_controls=false
@@ -1215,7 +1217,7 @@ func _bulk_fields() -> void:
 
 func _bulk_hint() -> void:
 	var field:=_option_value(bulk_property)
-	var examples: Dictionary={"width":"6–160 metres","lanes":"1–6","roadClass":"city / highway / country / mountain / service / track / alley / onramp","surface":"asphalt / concrete / gravel / dirt / track","elevation":"Road layer -2 to +2; region height in metres","markings":"true / false","roadFacing":"true / false","barrier":"true / false","biome":"grass / forest / rock / mountain / beach / lake / ocean / farmland / city / desert","scale":"0.2–5","scaleX":"0.2–5","scaleY":"0.2–5","rotation":"Degrees"}
+	var examples: Dictionary={"width":"6–160 metres","lanes":"1–6","roadClass":"city / highway / street / track / alley / onramp","surface":"asphalt / concrete / gravel / dirt / track","elevation":"Road layer -2 to +2; region height in metres","markings":"true / false","roadFacing":"true / false","barrier":"true / false","biome":"grass / forest / rock / mountain / beach / lake / ocean / farmland / city / desert","scale":"0.2–5","scaleX":"0.2–5","scaleY":"0.2–5","rotation":"Degrees"}
 	bulk_value.placeholder_text=str(examples.get(field,"Value"))
 	bulk_value.text=""
 
@@ -2566,6 +2568,11 @@ func _number(parent: Node,title: String,minimum: float,maximum: float,start: flo
 func _option_value(option: OptionButton) -> String:
 	return str(option.get_item_metadata(option.selected))
 
+func _display_road_class(value: String) -> String:
+	if value=="service":return "street"
+	if value in ["country","mountain"]:return "city"
+	return value
+
 func _select_road_option(control: OptionButton,value: String) -> void:
 	for i in control.item_count:
 		if str(control.get_item_metadata(i))==value:
@@ -2606,7 +2613,7 @@ func _change_road_surface(_index: int) -> void:
 	var surface:=_option_value(road_surface)
 	if surface=="track":_select_road_option(road_class,"track")
 	elif _option_value(road_class)=="track" and surface in ["gravel","dirt"]:
-		_select_road_option(road_class,"country")
+		_select_road_option(road_class,"city")
 	_commit_road_type_and_surface()
 
 func _commit_road_type_and_surface() -> void:
@@ -2754,8 +2761,7 @@ func _open_auto_guardrails() -> void:
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
-	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
-		"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)}):
+	if authoring.set_road_settings(source_id,{"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)}):
 		_refresh_authoring()
 		_notice("Road settings updated in the draft.")
 
@@ -2790,9 +2796,10 @@ func _refresh_inspector() -> void:
 	if inspector_road_type_fields.visible:
 		var kind:=str(record.item.get("roadClass","city"))
 		if str(record.item.get("surface",""))=="track":kind="track"
-		_select_road_option(inspector_road_type,kind)
+		_select_road_option(inspector_road_type,_display_road_class(kind))
 		_select_road_option(inspector_junction_start,str(record.item.get("junctionStart","auto")))
 		_select_road_option(inspector_junction_end,str(record.item.get("junctionEnd","auto")))
+		_select_road_option(inspector_junction_style,str(record.item.get("junctionStyle","rounded")))
 	edit_actions.visible=bool(context.selection_actions)
 	if multi_selection.size()>1:
 		details.text="%d OBJECTS SELECTED\nDrag to move the group. Duplicate or delete the selection."%multi_selection.size()
@@ -2958,6 +2965,15 @@ func _redraw_mountains() -> void:
 	if is_instance_valid(render_tiles):nodes.append_array(render_tiles.all_tiles())
 	for chunk in nodes:chunk.redraw_mountains()
 	_update_overview_mask()
+
+func _change_junction_style(index: int) -> void:
+	if _updating_inspector or _editing_locked() or not source_ready:return
+	if authoring.set_road_settings(source_id,{"junctionStyle":str(inspector_junction_style.get_item_metadata(index))}):
+		_refresh_authoring()
+		_notice("Intersection corner style updated.")
+	else:
+		_notice(authoring.last_error)
+		_refresh_inspector()
 
 func _change_junction_mode(index: int, at_end: bool) -> void:
 	if _updating_inspector or _editing_locked() or not source_ready:return

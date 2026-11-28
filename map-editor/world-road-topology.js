@@ -15,7 +15,7 @@ const flatLayer=road=>{
   const {start_layer,end_layer}=roadElevation(road);
   return !road.elevation?.point_layers&&start_layer===end_layer?start_layer:null;
 };
-const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&a.surface===b.surface&&
+const compatible=(a,b)=>!a.jump&&!b.jump&&flatLayer(a)!==null&&flatLayer(a)===flatLayer(b)&&a.roadClass===b.roadClass&&(a.junctionStyle??'rounded')===(b.junctionStyle??'rounded')&&a.surface===b.surface&&
   a.lanes===b.lanes&&a.smooth===b.smooth&&a.markings===b.markings&&
   Math.abs(a.width-b.width)<EPS&&Math.abs(a.shoulder-b.shoulder)<EPS;
 const endpoints=(road)=>[
