@@ -300,6 +300,14 @@ func _run() -> void:
 	check("draw_road_uses_unsaved_undoable_browser_source",
 		native_road=="road-%d" % road_count and
 		session.doc.roads.size()==road_count+1 and session.undo())
+	check("road_draw_order_is_visual_and_undoable",session.redo() and
+		session.set_prop_draw_order(native_road,-2) and session.road_at_id(native_road).get("drawOrder")==-2 and
+		session.set_prop_draw_order(native_road,3) and session.undo() and
+		session.road_at_id(native_road).get("drawOrder")==-2 and session.redo() and
+		session.road_at_id(native_road).get("drawOrder")==3 and
+		not session.set_prop_draw_order(native_road,11) and session.set_prop_draw_order(native_road,0) and
+		not session.road_at_id(native_road).has("drawOrder"))
+	session.discard_changes()
 	var region_count: int = session.doc.regions.size()
 	var corners: Array[Vector2] = [Vector2(310,320),Vector2(390,320),Vector2(390,370)]
 	var native_region := session.add_region(corners)
