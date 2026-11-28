@@ -143,7 +143,7 @@ func _run() -> void:
 			game != null and game != standalone and game!=returned_title and
 			game.vehicle != null and game.ground.initialization_complete)
 		if game != null and game != standalone and game!=returned_title:
-			check("title_launch_consumes_exact_prepared_archive_once",bool(game.ground.prepared_archive_used) and not has_meta("streetbound_prepared_archive"))
+			check("title_launch_consumes_exact_prepared_archive_once",bool(game.ground.prepared_archive_used) and bool(game.ground.prepared_geometry_used) and not has_meta("streetbound_prepared_archive"))
 			game.pause_menu.pause_game()
 			await process_frame
 			check("pause_has_multiplayer_editor_main_menu_and_quit",
@@ -164,7 +164,7 @@ func _run() -> void:
 		check("map_editor_in_release_build_is_intentionally_disabled",
 			title.actions["map_editor"].disabled)
 		print("Release test excludes native map editing by design.")
-		title.queue_free()
+		if is_instance_valid(title):title.queue_free()
 	paused = false
 	print("TITLE AND PAUSE NAVIGATION: ",
 		"PASS" if failures.is_empty() else "FAIL "+str(failures))
