@@ -4,6 +4,12 @@ const Tactics = preload("res://scripts/world/police_tactics.gd")
 const Police = preload("res://scripts/world/police_pursuit.gd")
 const Containment = preload("res://scripts/world/police_containment.gd")
 const PlayerScene = preload("res://scenes/vehicle.tscn")
+const Emergency = preload("res://scripts/visual/police_emergency_effects.gd")
+
+class SirenMuteProbe:
+	extends Node
+	var muted := false
+
 var failures: Array[String] = []
 
 func _initialize() -> void:
@@ -55,6 +61,36 @@ func run() -> void:
 			and is_equal_approx(shape.height, float(model["length_m"]) * 20.0 * 0.88)
 			and (officer.get_node("Art/Wheels") as Node2D).visible != bool(model["baked_wheels"]))
 		officer.free()
+	# Patrol model application alone must not start a siren. Responders and
+	# multiplayer pursuit replicas use the same Emergency.attach seam.
+	var patrol := Node2D.new()
+	root.add_child(patrol)
+	check("ordinary_patrol_has_no_siren", patrol.get_node_or_null("EmergencyEffects") == null)
+	var responder := Node2D.new()
+	root.add_child(responder)
+	var fx := Emergency.attach(responder, Police.vehicle_pool(1)[0])
+	var voice := fx.get_node("PursuitSiren") as AudioStreamPlayer2D
+	var stream := voice.stream as AudioStreamWAV
+	check("pursuit_siren_loops_and_is_audible", stream != null
+		and stream.loop_mode == AudioStreamWAV.LOOP_FORWARD
+		and stream.loop_end == int(stream.mix_rate * 3.0)
+		and voice.playing and voice.volume_db >= -14.0)
+	check("pursuit_siren_is_positional_with_extended_range",
+		voice.max_distance >= 20.0 * 200.0 and voice.attenuation > 0.0)
+	var mute_probe := SirenMuteProbe.new()
+	root.add_child(mute_probe)
+	mute_probe.add_to_group("streetbound_player_audio")
+	mute_probe.muted = true
+	fx.call("_process", 0.0)
+	check("pursuit_siren_respects_audio_mute", voice.volume_db <= -80.0)
+	mute_probe.muted = false
+	fx.call("_process", 0.0)
+	check("pursuit_siren_resumes_after_unmute", not voice.stream_paused
+		and is_equal_approx(voice.volume_db, Emergency.SIREN_VOLUME_DB))
+	mute_probe.free()
+	responder.free()
+	check("pursuit_siren_removed_with_responder", not is_instance_valid(voice))
+	patrol.free()
 	var low: Dictionary=Tactics.profile(1)
 	var mid: Dictionary=Tactics.profile(3)
 	var high: Dictionary=Tactics.profile(5)

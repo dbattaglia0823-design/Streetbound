@@ -1,19 +1,19 @@
 extends RefCounted
 ## Only individual map-art textures are loaded; no sheet dependency.
 const BUILDING_ART := {
- "house": ["House.png","House2.png","House3.png","FarmHouse1.png","FarmHouse2.png"],
- "coastal_house": ["House.png","House2.png","House3.png"],
- "lodge": ["FarmHouse1.png","FarmHouse2.png"],
- "shop": ["CornerShop.png","ConnectedBuilding1.png","ConnectedBuilding2.png","ConnectedBuilding3.png","ConnectedBuilding4.png","ConnectedBuilding5.png"],
- "cafe": ["CornerShop.png","Diner.png"],
- "building": ["Apartment.png","Apartment2.png","Office1.png","Office2.png","Office3.png","Large Office.png","Skyscraper.png","Skyscraper2.png","ConnectedBuilding1.png","ConnectedBuilding2.png","ConnectedBuilding3.png","ConnectedBuilding4.png","ConnectedBuilding5.png"],
- "office": ["Office1.png","Office2.png","Office3.png","Large Office.png"],
- "hotel": ["Hotel.png","Apartment.png"],
- "warehouse": ["Warehouse.png","Barn1.png","Barn2.png"],
- "garage": ["Service Garage.png","Warehouse.png"],
- "workshop": ["Service Garage.png","Warehouse.png"],
- "showroom": ["Office1.png","Office2.png","Large Office.png"],
- "fuel": ["Service Garage.png","CornerShop.png"]
+ "house": ["Map Building Assets/Buildings/Rural Building-Houses/House.png","Map Building Assets/Buildings/Rural Building-Houses/House2.png","Map Building Assets/Buildings/Rural Building-Houses/House3.png","Map Building Assets/Buildings/Farm/FarmHouse1.png","Map Building Assets/Buildings/Farm/FarmHouse2.png"],
+ "coastal_house": ["Map Building Assets/Buildings/Rural Building-Houses/House.png","Map Building Assets/Buildings/Rural Building-Houses/House2.png","Map Building Assets/Buildings/Rural Building-Houses/House3.png"],
+ "lodge": ["Map Building Assets/Buildings/Farm/FarmHouse1.png","Map Building Assets/Buildings/Farm/FarmHouse2.png"],
+ "shop": ["Map Building Assets/Buildings/City Buildings/CornerShop.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding1.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding2.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding3.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding4.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding5.png"],
+ "cafe": ["Map Building Assets/Buildings/City Buildings/CornerShop.png","Map Building Assets/Buildings/City Buildings/Diner.png"],
+ "building": ["Map Building Assets/Buildings/City Buildings/Apartment.png","Map Building Assets/Buildings/City Buildings/Apartment2.png","Map Building Assets/Buildings/City Buildings/Office1.png","Map Building Assets/Buildings/City Buildings/Office2.png","Map Building Assets/Buildings/City Buildings/Office3.png","Map Building Assets/Buildings/City Buildings/Large Office.png","Map Building Assets/Buildings/Skyscraper/Skyscraper.png","Map Building Assets/Buildings/Skyscraper/Skyscraper2.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding1.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding2.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding3.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding4.png","Map Building Assets/Buildings/City Buildings/ConnectedBuilding5.png"],
+ "office": ["Map Building Assets/Buildings/City Buildings/Office1.png","Map Building Assets/Buildings/City Buildings/Office2.png","Map Building Assets/Buildings/City Buildings/Office3.png","Map Building Assets/Buildings/City Buildings/Large Office.png"],
+ "hotel": ["Map Building Assets/Buildings/City Buildings/Hotel.png","Map Building Assets/Buildings/City Buildings/Apartment.png"],
+ "warehouse": ["Map Building Assets/Buildings/City Buildings/Warehouse.png","Map Building Assets/Buildings/Farm/Barn1.png","Map Building Assets/Buildings/Farm/Barn2.png"],
+ "garage": ["Map Building Assets/Buildings/Garages/Service Garage.png","Map Building Assets/Buildings/City Buildings/Warehouse.png"],
+ "workshop": ["Map Building Assets/Buildings/Garages/Service Garage.png","Map Building Assets/Buildings/City Buildings/Warehouse.png"],
+ "showroom": ["Map Building Assets/Buildings/City Buildings/Office1.png","Map Building Assets/Buildings/City Buildings/Office2.png","Map Building Assets/Buildings/City Buildings/Large Office.png"],
+ "fuel": ["Map Building Assets/Buildings/Garages/Service Garage.png","Map Building Assets/Buildings/City Buildings/CornerShop.png"]
 }
 const Locator=preload("res://scripts/world/asset_locator.gd")
 static var project_textures: Dictionary = {}
@@ -53,7 +53,7 @@ static func sprite(kind: String, seed_value: int) -> Texture2D:
   var available: Array = BUILDING_ART[kind]
   if available.is_empty():return null
   var index: int = posmod(seed_value,available.size())
-  return project_sprite("Buildings/"+str(available[index]))
+  return project_sprite(str(available[index]))
  # Vegetation and rocks have their own individual artwork.
  var nature: String={"tree":"Oak.svg","pine":"Pine.svg","palm":"Palm.svg","rock":"Rock.svg"}.get(kind,"")
  if nature.is_empty():return null
