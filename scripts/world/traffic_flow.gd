@@ -41,6 +41,12 @@ var time_density_factor:=1.0
 var event_closed_road: int=-1
 var _spawn_clock := 0.0
 var _simulation_clock := 0.0
+var optimized_ai:=true
+var user_density_factor:=1.0
+var _tick_players: Array[VehicleController2D]=[]
+var _tick_racers: Array[Node]=[]
+var _inside_agent_tick:=false
+var path_sample_count:=0
 var signal_display: Node2D
 var show_routes := false
 # Street races do not despawn, freeze or ghost regular cars. Prefer some
@@ -370,7 +376,7 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 	# stop signs and right-of-way controls still take effect immediately.
 	if float(agent.get("path_scan_clock", 0.0)) > 0.0:
 		return minf(desired_px, float(agent.get("path_speed_cap", INF)))
-	agent.path_scan_clock = 0.10
+	agent.path_scan_clock = _scan_interval(agent,.10,.16)
 	agent.path_speed_cap = INF
 	var node: CharacterBody2D = agent.node
 	if not is_instance_valid(node):
@@ -395,8 +401,8 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		if node.global_position.distance_to(person.global_position) <= horizon + PPM * 15.0:
 			candidates.append({"node": person,
 				"velocity": person.linear_velocity * PPM, "width_px": PPM * 2.2})
-	var racing_nodes: Array[Node] = []
-	if get_tree() != null:
+	var racing_nodes: Array[Node] = _tick_racers if _inside_agent_tick else []
+	if not _inside_agent_tick and is_inside_tree():
 		racing_nodes = get_tree().get_nodes_in_group("race_opponent")
 	for other_racer in racing_nodes:
 		if other_racer is VehicleController2D:
@@ -408,6 +414,16 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		return desired_px
 	var best := desired_px
 	var car_width := float(node.get("width_px"))
+	# All candidate vehicles test the same route samples. Compute once,
+	# preserving the exact station order and every collision envelope.
+	var samples: Array[Dictionary]=[]
+	var distance:=PPM*2.0
+	while distance<horizon:
+		var sample: Dictionary=_route_point(agent,distance)
+		if sample.is_empty():break
+		samples.append({"distance":distance,"sample":sample})
+		distance+=PATH_SCAN_STEP_PX
+		path_sample_count+=1
 	for other in candidates:
 		var other_node: Node2D = other.node
 		var other_height := _body_height(other_node)
@@ -415,11 +431,9 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 		var closest_ahead := INF
 		var tangent := Vector2.ZERO
 		# Find the earliest lane overlap, not simply the nearest distance.
-		var d := PPM * 2.0
-		while d < horizon:
-			var at: Dictionary = _route_point(agent, d)
-			if at.is_empty():
-				break
+		for row in samples:
+			var d: float=float(row.distance)
+			var at: Dictionary=row.sample
 			var direction: Vector2 = at.tangent
 			var separation: Vector2 = other_node.global_position - Vector2(at.position)
 			var lateral := absf(separation.cross(direction))
@@ -435,7 +449,6 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 				closest_path = local_distance
 				closest_ahead = d
 				tangent = direction
-			d += PATH_SCAN_STEP_PX
 		if not is_finite(closest_ahead):
 			continue
 		var relative_velocity: Vector2 = other.velocity
@@ -456,6 +469,7 @@ func _path_aware_speed(agent: Dictionary, desired_px: float) -> float:
 
 
 func _player_vehicles() -> Array[VehicleController2D]:
+	if _inside_agent_tick:return _tick_players
 	var people: Array[VehicleController2D] = []
 	if is_instance_valid(player):
 		people.append(player)
@@ -665,11 +679,24 @@ func _player_awareness(agent: Dictionary, desired_px: float,
 
 # Only static obstacles are sensed here; traffic and player awareness are
 # handled above. Cache raycasts to avoid querying physics every frame.
+## Only the already cached extra lookahead scans are relaxed for remote,
+## invisible cruising agents. Integration, following, yielding and all
+## player/racer collision logic continue every physics tick.
+func _scan_interval(agent: Dictionary, near: float, far: float) -> float:
+	if not optimized_ai or street_race_active or bool(agent.node.get("recovering")):return near
+	var at: Vector2=agent.node.global_position
+	for person in _player_vehicles():
+		if is_instance_valid(person) and person.global_position.distance_squared_to(at)<pow(PPM*220.0,2):return near
+	for racer in _tick_racers:
+		if is_instance_valid(racer) and racer is Node2D and racer.global_position.distance_squared_to(at)<pow(PPM*220.0,2):return near
+	if _visible_to_any_player(at):return near
+	return far
+
 func _world_obstacle_speed(agent: Dictionary, desired_px: float, dt: float) -> float:
 	var node: CharacterBody2D = agent.node
 	agent.obstacle_scan_clock = float(agent.get("obstacle_scan_clock", 0.0)) - dt
 	if float(agent.obstacle_scan_clock) <= 0.0:
-		agent.obstacle_scan_clock = 0.12
+		agent.obstacle_scan_clock = _scan_interval(agent,.12,.18)
 		agent.obstacle_position = Vector2.INF
 		var edge_id := int(agent.edge)
 		if network == null or edge_id < 0 or edge_id >= network.edges.size():
@@ -994,6 +1021,9 @@ func _physics_process(dt: float) -> void:
 	var step := minf(dt,0.05)
 	_simulation_clock+=step
 	if is_instance_valid(signal_display) and int(_simulation_clock*5.0)!=int((_simulation_clock-step)*5.0):signal_display.queue_redraw()
+	_tick_players=_player_vehicles()
+	_tick_racers=get_tree().get_nodes_in_group("race_opponent") if is_inside_tree() else []
+	_inside_agent_tick=true
 	_prune_junction_claims()
 	for i in range(agents.size()-1,-1,-1):
 		var alive := _tick_agent(i,step)
@@ -1006,9 +1036,11 @@ func _physics_process(dt: float) -> void:
 			for j in active_junctions.keys():
 				if int(active_junctions[j])==agent_id:active_junctions.erase(j)
 			agents.remove_at(i)
+	_inside_agent_tick=false
+	_tick_players.clear();_tick_racers.clear()
 	_spawn_clock+=step
 	var limit := maxi(maximum_vehicles, RACE_TRAFFIC_CAP) if street_race_active else maximum_vehicles
-	limit=clampi(roundi(float(limit)*(1.0 if street_race_active else time_density_factor)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
+	limit=clampi(roundi(float(limit)*(1.0 if street_race_active else time_density_factor*user_density_factor)*float(_gameplay_zone(player.global_position).get("density",100))/100.0),0,30)
 	if _spawn_clock>0.6 and agents.size()<limit:
 		_spawn_clock=0.0
 		_spawn_one()
