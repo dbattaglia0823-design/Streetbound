@@ -258,6 +258,14 @@ static func build(e) -> void:
 	e.lane_button=e._btn("Lanes: on",e.road_layer_settings,e._toggle_lanes);e.lane_button.custom_minimum_size=Vector2(96,28)
 	e.junction_button=e._btn("Junctions: on",e.road_layer_settings,e._toggle_junctions);e.junction_button.custom_minimum_size=Vector2(96,28)
 	heading(inspector,"INSPECTOR")
+	e.inspector_draw_order=e._number(inspector,"Draw order (Z)",-5,10,0)
+	e.inspector_draw_order.name="DrawOrderZ"
+	e.inspector_draw_order.step=1
+	e.inspector_draw_order.editable=false
+	e.inspector_draw_order.tooltip_text="Select one scenery asset or terrain region. Positive draws above, negative below; zero is default."
+	e.inspector_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
+	e.draw_order_hint=heading(inspector,"Select one asset or terrain region to change its visual layer.")
+	e.draw_order_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	e._btn("Replace assets",inspector,func():e.workspace_tools.open_replace())
 	var align_tools:=OptionButton.new()
 	for arrange_caption in ["Arrange selected scenery…","Align X centres","Align Y centres","Equal X spacing","Equal Y spacing"]:align_tools.add_item(arrange_caption)
@@ -310,10 +318,6 @@ static func build(e) -> void:
 	e.inspector_scale=e._number(e.prop_transforms,"Scale",0.2,5,1);e.inspector_scale.step=.05
 	e.inspector_scale_x=e._number(e.prop_transforms,"X size multiplier",0.2,5,1);e.inspector_scale_x.step=.05
 	e.inspector_scale_y=e._number(e.prop_transforms,"Y size multiplier",0.2,5,1);e.inspector_scale_y.step=.05
-	e.inspector_draw_order=e._number(e.prop_transforms,"Draw order (Z)",-5,10,0)
-	e.inspector_draw_order.step=1
-	e.inspector_draw_order.tooltip_text="0 = normal; positive draws above, negative below. Visual only, not physical elevation."
-	e.inspector_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
 	for spin in [e.inspector_rotation,e.inspector_scale,e.inspector_scale_x,e.inspector_scale_y]:TransformArrows.attach(spin)
 	e.asset_dimensions_label=heading(e.prop_transforms,"")
 	e._btn("Reset asset size",e.prop_transforms,e._reset_asset_size)
@@ -323,10 +327,6 @@ static func build(e) -> void:
 	# Terrain size edits change the underlying polygon, not just a display scale.
 	e.terrain_transforms=VBoxContainer.new();inspector.add_child(e.terrain_transforms)
 	heading(e.terrain_transforms,"TERRAIN FOOTPRINT")
-	e.inspector_terrain_draw_order=e._number(e.terrain_transforms,"Draw order (Z)",-5,10,0)
-	e.inspector_terrain_draw_order.step=1
-	e.inspector_terrain_draw_order.tooltip_text="Higher values draw above other terrain; roads and scenery retain their own passes."
-	e.inspector_terrain_draw_order.value_changed.connect(func(_value: float)->void:e._commit_inspector("drawOrder"))
 	e.inspector_terrain_width=e._number(e.terrain_transforms,"Width m",2,72000,10)
 	e.inspector_terrain_height=e._number(e.terrain_transforms,"Height m",2,72000,10)
 	for spin in [e.inspector_terrain_width,e.inspector_terrain_height]:
