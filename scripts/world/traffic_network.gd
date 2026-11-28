@@ -197,7 +197,7 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 		var reverse_count:=int(layout.reverse)
 		# Reserve enough straight pavement BEFORE the physical end for a
 		# continuous, tangent-matched U-turn and the full car footprint.
-		if forward_count>0 and reverse_count>0 and kind!="onramp" and not road.has("elevation") and float(layout.width)>=2.25:
+		if not for_navigation and not for_police and forward_count>0 and reverse_count>0 and kind!="onramp" and not road.has("elevation") and float(layout.width)>=2.25:
 			var inset:=float(road.width)*.5+3.0
 			for end in [0,1]:
 				var index:=0 if end==0 else cuts.size()-1
@@ -353,8 +353,8 @@ func _link_turnaround(from_ids: Array,to_ids: Array,plan: Dictionary,key: String
 
 
 func _mark_through_routes() -> void:
-	# Keep terminal lanes for inspection/recovery, but don't send ambient
-	# traffic into a race-course entrance or a branch with no legal exit.
+	# Keep genuinely terminal lanes for inspection/recovery. Eligible dead
+	# ends now lead back to the opposing lane; unsafe branches remain excluded.
 	var parents: Dictionary={};var remaining: Array[int]=[];var dead: Array[int]=[]
 	for edge in edges:
 		remaining.append(edge.next.size())
