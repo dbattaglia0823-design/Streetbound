@@ -210,7 +210,8 @@ func run() -> void:
 	form.dialog.hide()
 	if linked_ok:
 		editor.source_id=""
-		editor._set_multi([])
+		var empty_selection: Array[String]=[]
+		editor._set_multi(empty_selection)
 		editor._refresh_authoring()
 		var middle:=Vector2(linked.points[1].x,linked.points[1].y)*20
 		var hit: Dictionary=editor._pick_race_handle(middle)
