@@ -299,9 +299,9 @@ def _authoring_props(doc, width=BASE_WIDTH, height=BASE_HEIGHT):
                          guardrail_scale=[scale*v for v in axes],
                          radius=0,solid=False)
         if project_path is not None:
-            entry["asset_path"]=project_path
+            entry["asset_path"]=project_asset["path"]
             entry["asset_size"]=asset_size
-            entry["asset_id"]=game_art
+            entry["asset_id"]=project_asset["id"]
             entry["asset_collision"]=project_asset["collision"]
         elif game_art:
             entry["asset_kind"] = game_art[5:]
