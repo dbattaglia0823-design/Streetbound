@@ -17,6 +17,7 @@ var cache_hits := 0
 var last_build_ms := 0.0
 var worst_build_ms := 0.0
 var _view_key: Array = []
+var _archive_key: Array = []
 var world: MorrowCoast
 var tiles: Dictionary = {}
 var wanted: Dictionary = {}
@@ -47,16 +48,18 @@ func configure(center_px: Vector2, screen_px: Vector2, zoom: float) -> bool:
 	# A single consistent LOD across the entire camera avoids rectangular
 	# high-detail islands surrounded by a mismatched low-res map.
 	detailed = count > 0 and count <= MAX_TILES
-	var view_key: Array = [first,last,detailed,world.get_instance_id(),world.data.chunks.size()]
-	if view_key==_view_key:
+	var archive_key: Array=[world.get_instance_id(),world.data.chunks.size()]
+	if archive_key!=_archive_key:
+		_clear();_archive_key=archive_key
+	var view_key: Array = [first,last,detailed]
+	if view_key==_view_key and (ready_to_show or not detailed or not pending.is_empty()):
 		visible=ready_to_show
 		return detailed
 	_view_key=view_key
 	ready_to_show=false
 	visible = detailed
 	if not detailed:
-		# Dispose previously created detail chunks when switching to full-map LOD.
-		# Otherwise stale tiles survive under the overview and the map-fit test fails.
+		# Suspend detail chunks; keep only the bounded hidden warm cache.
 		_suspend_tiles()
 		visible=false
 		return false
