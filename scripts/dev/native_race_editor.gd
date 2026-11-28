@@ -82,10 +82,10 @@ var career_prerequisites: ItemList
 var _career_car_ids: Array[String]=[]
 var _career_race_ids: Array[String]=[]
 func build(e,parent: Node) -> void:
-	e._btn("Create race (start / checkpoints / finish)",parent,func():begin_route(e))
+	e._btn("Create race",parent,func():begin_route(e)).tooltip_text="Place linked start, checkpoints and finish markers."
 	panel=VBoxContainer.new();parent.add_child(panel)
 	var heading:=Label.new();heading.text="RACE SETUP";panel.add_child(heading)
-	race_list=OptionButton.new();panel.add_child(race_list)
+	race_list=OptionButton.new();race_list.fit_to_longest_item=false;panel.add_child(race_list)
 	race_list.item_selected.connect(func(index):
 		if updating:return
 		var id:=str(race_list.get_item_metadata(index))
