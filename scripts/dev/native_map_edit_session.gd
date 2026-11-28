@@ -421,9 +421,11 @@ func reconcile_runtime(data: Dictionary) -> bool:
 			var points: Array[Dictionary]=[]
 			for p in raw.get("anchors",raw.points):points.append({"x":float(p[0]),"y":float(p[1])})
 			next.roads.append({"id":"road-%d"%i,"name":str(raw.name),
-				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"service","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
+				"roadClass":{"highway":"highway","rural":"country","mountain":"mountain","driveway":"street","gravel":"street","track":"track","alley":"alley","onramp":"onramp"}.get(str(raw.kind),"city"),
 				"surface":str(raw.surface).to_lower(),"width":float(raw.width)/float(data.get("road_width_scale",1))*float(doc.get("morrowRoadWidthScale",1)),
 				"lanes":int(raw.lanes),"shoulder":0.0 if str(raw.kind)=="alley" else 2.0,"smooth":true,"markings":str(raw.kind)!="alley","points":points})
+			for key in ["junctionStyle","junctionStart","junctionEnd"]:
+				if raw.has(key):next.roads[-1][key]=raw[key]
 			if raw.has("elevation"):next.roads[-1].elevation=raw.elevation.duplicate()
 			if raw.has("jump"):next.roads[-1].jump=raw.jump.duplicate()
 		next.roads.sort_custom(func(a: Dictionary,b: Dictionary)->bool:return int(str(a.id).trim_prefix("road-"))<int(str(b.id).trim_prefix("road-")))

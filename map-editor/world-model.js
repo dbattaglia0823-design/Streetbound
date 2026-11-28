@@ -647,14 +647,14 @@ export function demoWorld(){
   });
   doc.roads.push(
     road('Coastal Parkway','highway','asphalt',46,2,[[1080,240],[1500,390],[1970,450],[2480,560],[2650,780],[2720,1180],[2570,1650],[2380,2090],[2120,2290]],7),
-    road('Ridge Pass','mountain','asphalt',30,2,[[110,1180],[410,1050],[580,770],[900,720],[1150,520],[1260,300],[1060,180],[780,210]],4),
-    road('Old Forest Road','country','asphalt',32,2,[[0,1780],[380,1690],[730,1590],[1070,1440],[1390,1290],[1660,1130],[1970,1050],[2250,930],[2700,950]],5),
+    road('Ridge Pass','city','asphalt',30,2,[[110,1180],[410,1050],[580,770],[900,720],[1150,520],[1260,300],[1060,180],[780,210]],4),
+    road('Old Forest Road','city','asphalt',32,2,[[0,1780],[380,1690],[730,1590],[1070,1440],[1390,1290],[1660,1130],[1970,1050],[2250,930],[2700,950]],5),
     road('Downtown Avenue','city','asphalt',40,2,[[1420,730],[1760,820],[2100,880],[2460,970],[2720,1180]],4),
     road('Harbor Boulevard','city','concrete',38,2,[[1610,1780],[1740,1500],[1930,1190],[2100,880],[2250,540]],3),
     road('Cedar Street','city','asphalt',28,2,[[1220,1100],[1590,1190],[1930,1190],[2300,1320],[2630,1440]],3),
-    road('Mountain access','country','gravel',23,1,[[410,1050],[300,790],[150,540],[290,360],[480,240]],3,false),
-    road('Beach approach','service','dirt',20,1,[[2570,1650],[2820,1800],[2950,1960],[3100,2070]],2,false),
-    road('Factory access','service','concrete',23,1,[[1760,820],[1690,620],[1550,540]],2,false)
+    road('Mountain access','city','gravel',23,1,[[410,1050],[300,790],[150,540],[290,360],[480,240]],3,false),
+    road('Beach approach','street','dirt',20,1,[[2570,1650],[2820,1800],[2950,1960],[3100,2070]],2,false),
+    road('Factory access','street','concrete',23,1,[[1760,820],[1690,620],[1550,540]],2,false)
   );
   const prop=(type,x,y,scale=1,rotation=0,name)=>({id:'prop-'+(++propId),name:name||type.replace(/_/g,' '),type,x,y,scale,rotation});
   for(let i=0;i<28;i++)for(let j=0;j<2;j++){

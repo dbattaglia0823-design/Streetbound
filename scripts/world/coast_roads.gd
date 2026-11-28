@@ -33,7 +33,7 @@ static func marking_plan(road: Dictionary, width_px: float, include_edges: bool 
 	var result: Array[Dictionary] = []
 	var kind := str(road.get("kind",road.get("roadClass","local")))
 	var surface := str(road.get("surface","ASPHALT")).to_upper()
-	if surface in ["GRAVEL","DIRT"] or kind in ["alley","driveway","service","track"] or not bool(road.get("markings",true)):
+	if surface in ["GRAVEL","DIRT"] or kind in ["alley","driveway","street","service","track"] or not bool(road.get("markings",true)):
 		return result
 	var data := {"kind":kind,"lanes":int(road.get("lanes",2)),"width":width_px/PPM}
 	var layout := Lanes.layout(data)

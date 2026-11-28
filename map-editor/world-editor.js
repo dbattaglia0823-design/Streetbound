@@ -3,7 +3,7 @@ import {LAYER_HEIGHT_M,roadElevation,roadsOnLayer} from './world-road-elevation.
 import {
   createWorld,demoWorld,parseWorld,serializeWorld,normalizeWorld,getEntity,
   createEntity,addSpriteAsset,updateEntity,removeEntity,reorderEntity,moveControlPoint,insertControlPoint,
-  deleteControlPoint,scatterVegetation
+  deleteControlPoint,scatterVegetation,displayedRoadClass
 } from './world-model.js';
 import {
   roadInsertCandidate,regionInsertCandidate,insertShapePoint,translateEntity,duplicateEntity,
@@ -850,7 +850,7 @@ function refreshInspector(){
     $('insert-hint').textContent=pointInsertMode?.id===item.id
       ?(pointInsertMode.mode==='split'?'Click on the road where it should separate.':pointInsertMode.mode==='between'?'Click the selected road line to insert a control point.':'Click a new endpoint to extend the road.')
       :'Insert points on the curve, or extend either endpoint. Shift-click a selected road to insert directly.';
-    $('inspect-road-class').value=item.roadClass==='service'?'street':(['country','mountain'].includes(item.roadClass)?'city':item.roadClass);$('inspect-road-surface').value=item.surface;
+    $('inspect-road-class').value=displayedRoadClass(item.roadClass);$('inspect-road-surface').value=item.surface;
     $('inspect-junction-start').value=item.junctionStart??'auto';
     $('inspect-junction-end').value=item.junctionEnd??'auto';
     $('inspect-junction-style').value=item.junctionStyle??'rounded';

@@ -29,6 +29,43 @@ class ElevationBakeTests(unittest.TestCase):
         self.assertTrue(all(arm["setback"]>=30 for arm in j["approaches"]))
         self.assertEqual(j.get("signal_count",0),0)
 
+    def test_street_entrance_stops_only_minor_road_and_has_tight_mouths(self):
+        source=fixture()
+        a,b=copy.deepcopy(source["roads"][0]),copy.deepcopy(source["roads"][0])
+        a.update(id="road-0",name="Main",roadClass="city",lanes=4,width=20,points=[{"x":100,"y":400},{"x":900,"y":400}])
+        b.update(id="road-1",name="Side",roadClass="street",lanes=2,width=8,points=[{"x":500,"y":400},{"x":500,"y":650}])
+        source["roads"]=[a,b]
+        for road in source["roads"]:road.pop("elevation",None)
+        archive=make_archive(source)
+        j,=archive["junctions"]
+        self.assertTrue(j["street_access"])
+        self.assertEqual(j["corner_style"],"square")
+        self.assertEqual(j["control"],"priority")
+        self.assertEqual([arm["control"] for arm in j["approaches"] if arm["road"]==0],["none","none"])
+        self.assertEqual([arm["control"] for arm in j["approaches"] if arm["road"]==1],["stop"])
+        self.assertTrue(all(arm["setback"]<=6 for arm in j["approaches"] if arm["road"]==0))
+        self.assertIn((0,1),{tuple(pair) for pair in archive["road_connections"]})
+        # Legacy service still loads and follows the same rule.
+        b["roadClass"]="service"
+        self.assertEqual(make_archive(source)["junctions"],archive["junctions"])
+
+    def test_square_intersections_are_optional_and_endpoint_local(self):
+        source=fixture()
+        a,b=copy.deepcopy(source["roads"][0]),copy.deepcopy(source["roads"][0])
+        a.update(id="road-0",name="Main",roadClass="city",width=20,points=[{"x":100,"y":400},{"x":900,"y":400}])
+        b.update(id="road-1",name="Branch",roadClass="city",width=10,points=[{"x":500,"y":400},{"x":500,"y":650}])
+        source["roads"]=[a,b]
+        for road in source["roads"]:road.pop("elevation",None)
+        rounded,=make_archive(source)["junctions"]
+        b["junctionStart"]="square"
+        square,=make_archive(source)["junctions"]
+        self.assertEqual(square["corner_style"],"square")
+        self.assertLess(len(square["polygon"]),len(rounded["polygon"]))
+        self.assertEqual(square["control"],rounded["control"])
+        b.pop("junctionStart")
+        b["junctionStyle"]="square"
+        self.assertEqual(make_archive(source)["junctions"],[square])
+
     def test_named_editor_layers_never_hide_game_geometry(self):
         source=fixture()
         expected=make_archive(source)

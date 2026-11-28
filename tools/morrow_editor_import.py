@@ -529,7 +529,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             if key in entry: road[key]=entry[key]
         set_junction_style(road, entry)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
-        if klass != KIND_TO_CLASS.get(road["kind"]):
+        if klass != KIND_TO_CLASS.get(road["kind"]) and not (klass == "street" and KIND_TO_CLASS.get(road["kind"]) == "service"):
             road["kind"] = CLASS_TO_KIND.get(klass, road["kind"])
         surf = str(entry.get("surface", road["surface"].lower())).upper()
         if surf not in {"ASPHALT", "CONCRETE", "TRACK", "DIRT", "GRAVEL"}:

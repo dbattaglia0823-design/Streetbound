@@ -1,6 +1,6 @@
 import {roadJumpPreview} from './world-road-jump.js';
 import {roadElevation,roadsOnLayer} from './world-road-elevation.js';
-import {boundsOf,clamp,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
+import {boundsOf,clamp,distance,pointInPolygon,sampleRoad,scatterPoints,stringSeed,seeded} from './world-geometry.js';
 import {buildRoadJunctions} from './world-junctions.js';
 import {roadPieces,isLoose,denseRoadPath} from './world-road-priority.js';
 import {getEntity} from './world-model.js';
@@ -321,6 +321,8 @@ function drawRoads(ctx,roads,bounds,options){
           Math.abs(p.y-baked.anchors[i][1])<.005));
     };
     if(options.quality!==0)for(const j of preview.junctions){
+      const streetCount=j.roads.filter(id=>roads.some(r=>r.id===id&&['street','service'].includes(r.roadClass))).length;
+      if(streetCount>0&&streetCount<j.roads.length&&!j.street_access)continue;
       if(!j.roads.length||!j.roads.every(unchanged)||
         !visible({minX:j.at.x-j.radius,minY:j.at.y-j.radius,
           maxX:j.at.x+j.radius,maxY:j.at.y+j.radius},bounds))continue;

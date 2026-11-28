@@ -29,7 +29,7 @@ const biomeOf=kind=>BIOMES.has(kind)?kind:kind==='water'?'lake':
   ['town','highland'].includes(kind)?'grass':kind==='riverbank'?'beach':'grass';
 const roadClassOf=kind=>({
   local:'city',arterial:'city',highway:'highway',rural:'country',
-  mountain:'mountain',track:'track',driveway:'service',gravel:'service',alley:'alley',onramp:'onramp'
+  mountain:'mountain',track:'track',driveway:'street',gravel:'street',alley:'alley',onramp:'onramp'
 })[kind]||'city';
 const surfaceOf=surface=>surface==='GRAVEL'?'gravel':
   surface==='DIRT'?'dirt':'asphalt';

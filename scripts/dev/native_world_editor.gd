@@ -2807,8 +2807,7 @@ func _open_auto_guardrails() -> void:
 
 func _change_road_settings() -> void:
 	if _setting_controls or not source_ready or tool_name in ["draw_road","place_circle_road"] or _editing_locked():return
-	if authoring.set_road_settings(source_id,{"roadClass":_option_value(road_class),
-		"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)}):
+	if authoring.set_road_settings(source_id,{"surface":_option_value(road_surface),"width":road_width.value,"lanes":int(road_lanes.value)}):
 		_refresh_authoring()
 		_notice("Road settings updated in the draft.")
 
