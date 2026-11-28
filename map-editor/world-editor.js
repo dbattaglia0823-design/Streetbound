@@ -885,6 +885,8 @@ function refreshInspector(){
   }else if(type==='regions'){
     $('inspect-biome').value=item.biome;$('inspect-elevation').value=item.elevation;
     $('inspect-barrier').checked=Boolean(item.barrier);
+    $('insert-terrain-point').disabled=item.points.length>=180;
+    $('insert-terrain-point').textContent=pointInsertMode?.id===item.id? 'Cancel point insertion':'+ Add terrain point';
   }else if(type==='props'){
     if(item.type==='guardrail')$('guardrail-width').value=item.guardrailWidth;
     $('inspect-prop-type').value=item.type;$('inspect-asset').value=item.assetId||'';
@@ -1466,6 +1468,7 @@ $('undo-world').addEventListener('click',undo);$('redo-world').addEventListener(
 $('zoom-in').addEventListener('click',()=>setZoom(zoom*1.3));
 $('zoom-out').addEventListener('click',()=>setZoom(zoom/1.3));
 $('fit').addEventListener('click',fit);
+$('insert-terrain-point').addEventListener('click',()=>choosePointInsert('between'));
 for(const [id,mode] of [['insert-road-point','between'],['extend-road-start','start'],['extend-road-end','end'],['split-selected-road','split']])
   $(id).addEventListener('click',()=>choosePointInsert(mode));
 $('join-selected-road').addEventListener('click',()=>{
