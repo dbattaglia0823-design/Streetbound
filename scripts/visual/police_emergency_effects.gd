@@ -1,5 +1,10 @@
 extends Node2D
 ## Local, cosmetic roof strobes and a synthesized positional siren.
+# The siren should cut through the engine mix without drowning it out.
+const SIREN_VOLUME_DB := -12.0
+const SIREN_RANGE_PX := 20.0 * 220.0
+const SIREN_ATTENUATION := 0.7
+const SIREN_LOOP_SECONDS := 3.0
 static var siren_stream: AudioStreamWAV
 var half_width := 10.0
 var roof_y := 0.0
@@ -21,13 +26,13 @@ static func _stream() -> AudioStreamWAV:
 	if siren_stream != null:
 		return siren_stream
 	var rate := 22050
-	var count := rate*3
+	var count := int(rate * SIREN_LOOP_SECONDS)
 	var data := PackedByteArray()
 	data.resize(count*2)
 	var phase := 0.0
 	for i in count:
 		var at := float(i)/float(rate)
-		var hz := 780.0 + 470.0*(0.5-0.5*cos(TAU*at/3.0))
+		var hz := 780.0 + 470.0*(0.5-0.5*cos(TAU*at/SIREN_LOOP_SECONDS))
 		phase += TAU*hz/float(rate)
 		var sample := sin(phase)*0.66 + sin(phase*3.0)*0.13
 		data.encode_s16(i*2,roundi(sample*22000.0))
@@ -44,10 +49,15 @@ func _ready() -> void:
 	process_priority = 10
 	voice = AudioStreamPlayer2D.new()
 	voice.stream = _stream()
-	voice.volume_db = -25.0
-	voice.max_distance = 20.0*150.0
+	voice.name = "PursuitSiren"
+	voice.volume_db = SIREN_VOLUME_DB
+	voice.max_distance = SIREN_RANGE_PX
+	voice.attenuation = SIREN_ATTENUATION
 	add_child(voice)
-	voice.play()
+	# Offset each unit so the fleet does not start in phase and sound like one
+	# amplified siren. Use instance identity instead of the gameplay RNG.
+	var offset := float((get_instance_id() * 997) % 3000) / 1000.0
+	voice.play(offset)
 
 func _process(dt: float) -> void:
 	var art:=get_parent().get_node_or_null("Art") as Node2D
