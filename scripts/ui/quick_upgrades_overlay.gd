@@ -6,6 +6,7 @@ const Ownership = preload("res://scripts/vehicle/vehicle_ownership.gd")
 const Catalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const Parts = preload("res://scripts/vehicle/upgrade_parts.gd")
 const Progress = preload("res://scripts/vehicle/race_progression.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const DESIGN := Vector2(1180.0, 660.0)
 const QUICK_SLOTS := ["engine","turbo","transmission","tires","suspension","nitrous"]
 const SLOT_NAMES := {
@@ -16,9 +17,9 @@ const SLOT_ICONS := {
 	"engine":"⚙", "turbo":"◉", "transmission":"⇄",
 	"tires":"◎", "suspension":"↕", "nitrous":"✦"
 }
-const INK := Color("#e8eee9")
-const SUBTLE := Color("#a5b8b2")
-const ORANGE := Color("#ffa755")
+const INK := RacingStyle.TEXT
+const SUBTLE := RacingStyle.MUTED
+const ORANGE := RacingStyle.ACCENT
 var economy: Ownership
 var vehicle: VehicleController2D
 var launch_button: Button
@@ -71,7 +72,7 @@ func _ready() -> void:
 	frame.size = DESIGN
 	frame.mouse_filter = Control.MOUSE_FILTER_STOP
 	frame.add_theme_stylebox_override("panel", _panel_style(
-		Color(0.04,0.055,0.064,0.88), Color(0.45,0.51,0.52,0.92), 1, 16))
+		Color(0.07,0.08,0.10,0.95), RacingStyle.EDGE, 1, 6))
 	overlay.add_child(frame)
 	_build_layout()
 	overlay.visible = false
@@ -114,23 +115,9 @@ func _label(parent: Node, value: String, font_size: int, color: Color,
 
 
 func _style_button(node: Button, selected: bool) -> void:
-	var edge := ORANGE if selected else Color(0.55,0.63,0.62,0.65)
-	var normal := _panel_style(Color(0.075,0.095,0.105,0.86),edge,
-		2 if selected else 1, 9)
-	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.16,0.19,0.20,0.95)
-	hover.border_color = ORANGE
-	var pressed := hover.duplicate() as StyleBoxFlat
-	pressed.bg_color = Color(0.28,0.18,0.12,0.95)
-	node.add_theme_stylebox_override("normal",normal)
-	node.add_theme_stylebox_override("hover",hover)
-	node.add_theme_stylebox_override("pressed",pressed)
-	node.add_theme_stylebox_override("focus",hover)
-	node.add_theme_color_override("font_color",INK)
-	node.add_theme_color_override("font_hover_color",Color.WHITE)
-	node.add_theme_color_override("font_pressed_color",INK)
-	node.focus_mode = Control.FOCUS_ALL
-
+	RacingStyle.button(node,selected,node.get_theme_font_size("font_size"))
+	# Multi-line part descriptions retain their existing wrapping/width.
+	node.clip_text=false
 
 func _make_button(parent: Node, title: String, at: Vector2,
 		dimensions: Vector2, action: Callable) -> Button:
@@ -299,7 +286,7 @@ func _build_picker() -> void:
 	picker.position = Vector2(316,99)
 	picker.size = Vector2(550,480)
 	picker.add_theme_stylebox_override("panel",_panel_style(
-		Color(0.038,0.068,0.076,0.98),ORANGE,2,12))
+		RacingStyle.PANEL,ORANGE,2,6))
 	frame.add_child(picker)
 	picker_title = _label(picker,"EQUIPPED PARTS",21,INK,
 		Vector2(24,15),Vector2(415,41))

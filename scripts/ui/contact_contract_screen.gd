@@ -6,13 +6,14 @@ signal accepted(job_id: String)
 
 const ViewData = preload("res://scripts/ui/contact_contract_view_data.gd")
 const Rules = preload("res://scripts/world/driving_contract_rules.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 const DESIGN := Vector2(1120.0, 690.0)
-const INK := Color("#edf1ed")
-const MUTED := Color("#a9bbb8")
-const PANEL_BG := Color("#0c171c")
-const SECONDARY := Color("#142329")
-const BORDER := Color("#486064")
-const HIGHLIGHT := Color("#f0b267")
+const INK := RacingStyle.TEXT
+const MUTED := RacingStyle.MUTED
+const PANEL_BG := RacingStyle.INK
+const SECONDARY := RacingStyle.PANEL
+const BORDER := RacingStyle.EDGE
+const HIGHLIGHT := RacingStyle.ACCENT
 
 var economy: Object
 var contracts: Node2D
@@ -62,7 +63,7 @@ func _panel_style(bg: Color, edge: Color, thick: int = 1, rounding: int = 12) ->
 	style.bg_color = bg
 	style.border_color = edge
 	style.set_border_width_all(thick)
-	style.set_corner_radius_all(rounding)
+	style.set_corner_radius_all(mini(rounding,6))
 	style.content_margin_left = 10
 	style.content_margin_right = 10
 	style.content_margin_top = 8
@@ -108,21 +109,8 @@ func _button(parent: Node, label: String, at: Vector2, dimensions: Vector2,
 	return button
 
 func _style_button(button: Button, selected: bool) -> void:
-	var edge := selected_accent if selected else BORDER
-	var normal := _panel_style(Color("#273b3c") if selected else SECONDARY, edge,
-		2 if selected else 1, 9)
-	var hover := _panel_style(Color("#284046"), selected_accent, 2, 9)
-	var pressed := _panel_style(Color("#395250"), selected_accent, 2, 9)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("focus", hover)
-	button.add_theme_stylebox_override("disabled", _panel_style(Color("#172125"), Color("#415156"), 1, 9))
-	button.add_theme_color_override("font_color", INK)
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_disabled_color", MUTED)
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.focus_mode = Control.FOCUS_ALL
+	RacingStyle.button(button,selected,button.get_theme_font_size("font_size"))
+	button.alignment=HORIZONTAL_ALIGNMENT_LEFT
 
 func _ready() -> void:
 	name = "ContractContactScreen"
@@ -202,6 +190,7 @@ func _build_frame() -> void:
 		risk_selector.add_item("RISK: "+str(risk).to_upper())
 	risk_selector.select(1)
 	risk_selector.visible = false
+	RacingStyle.button(risk_selector,false,14)
 	risk_selector.item_selected.connect(_risk_changed)
 	details.add_child(risk_selector)
 	crew_toggle = CheckButton.new()
