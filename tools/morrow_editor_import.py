@@ -61,14 +61,16 @@ CLASS_TO_KIND = {
     "city": "local", "highway": "highway", "country": "rural",
     "mountain": "mountain", "track": "track", "service": "driveway", "street": "driveway", "alley": "alley", "onramp": "onramp",
 }
-def set_junction_style(road, entry):
+def set_junction_style(road, entry, existing=False):
     style = entry.get("junctionStyle", "rounded")
     if style not in ("rounded", "square"):
         raise ValueError("Invalid intersection corner style")
     if style == "square": road["junctionStyle"] = style
     else: road.pop("junctionStyle", None)
     if entry.get("roadClass") in ("street", "service"):
-        road["street_access"] = True
+        # Legacy driveway kind already identifies a Street. Do not add metadata to an untouched archive.
+        if not existing or road.get("kind") not in ("driveway", "gravel"):
+            road["street_access"] = True
     else: road.pop("street_access", None)
 
 PALETTES = {
@@ -527,7 +529,7 @@ def apply_edits(roads, nodes, terrain, pois, spawn, props, filename=EDIT_PATH,
             if entry.get(key,"auto") not in ("auto","intersection","merge","square"):
                 raise ValueError("Invalid road junction mode")
             if key in entry: road[key]=entry[key]
-        set_junction_style(road, entry)
+        set_junction_style(road, entry, existing=True)
         klass = str(entry.get("roadClass", KIND_TO_CLASS.get(road["kind"])))
         if klass != KIND_TO_CLASS.get(road["kind"]) and not (klass == "street" and KIND_TO_CLASS.get(road["kind"]) == "service"):
             road["kind"] = CLASS_TO_KIND.get(klass, road["kind"])

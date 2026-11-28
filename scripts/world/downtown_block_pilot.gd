@@ -10,10 +10,10 @@ const BLOCK_CELL_M := 144.0
 const MAX_BUILDINGS := 8
 const TYPES := ["building", "shop", "cafe", "showroom", "office", "hotel"]
 const SPRITES := [
-	"Map Building Assets/Buildings/Office1.png",
-	"Map Building Assets/Buildings/Office2.png",
-	"Map Building Assets/Buildings/Hotel.png",
-	"Map Building Assets/Buildings/ConnectedBuilding1.png"
+	"Map Building Assets/Buildings/City Buildings/Office1.png",
+	"Map Building Assets/Buildings/City Buildings/Office2.png",
+	"Map Building Assets/Buildings/City Buildings/Hotel.png",
+	"Map Building Assets/Buildings/City Buildings/ConnectedBuilding1.png"
 ]
 static var _textures: Dictionary = {}
 

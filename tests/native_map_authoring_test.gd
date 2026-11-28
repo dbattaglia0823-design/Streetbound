@@ -243,13 +243,13 @@ func _run() -> void:
 		id.begins_with("prop-native-") and
 		session.doc.props.size()==before_count+1 and
 		session.prop_at_id(id).assetId=="game-house")
-	var project_id: String = session.add_project_prop("Buildings/House.png",
+	var project_id: String = session.add_project_prop("Map Building Assets/Buildings/Rural Building-Houses/House.png",
 		"house",Vector2(2250,3150),Vector2(12,16))
 	check("native_browser_uses_same_project_asset_id_as_python_importer",
 		project_id.begins_with("prop-native-") and
 		session.prop_at_id(project_id).assetId==
-			"project-"+"Buildings/House.png".sha256_text().substr(0,24) and
-		session.prop_at_id(project_id).assetPath=="Buildings/House.png")
+			"project-"+"Map Building Assets/Buildings/Rural Building-Houses/House.png".sha256_text().substr(0,24) and
+		session.prop_at_id(project_id).assetPath=="Map Building Assets/Buildings/Rural Building-Houses/House.png")
 	check("native_project_asset_is_undoable",session.undo() and
 		session.prop_at_id(project_id).is_empty())
 	check("native_rejects_untrusted_asset_paths",
@@ -397,7 +397,7 @@ func _run() -> void:
 		is_instance_valid(editor.asset_search) and
 		editor.asset_entries.size()>=8 and
 		editor.asset_entries.any(func(asset: Dictionary) -> bool:
-			return str(asset.get("path",""))=="Map Building Assets/Buildings/House.png"))
+			return str(asset.get("path",""))=="Map Building Assets/Buildings/Rural Building-Houses/House.png"))
 	var runtime_road_count: int = game.ground.data.roads.size()
 	var runtime_prop_count: int = game.ground.data.props.size()
 	editor._choose_tool("place:house")
