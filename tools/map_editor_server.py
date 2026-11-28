@@ -19,7 +19,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlsplit
-from project_asset_catalog import catalog
+from project_asset_catalog import catalog, building_file
 
 ROOT = Path(__file__).resolve().parents[1]
 EDITOR = ROOT / "map-editor"
@@ -54,12 +54,11 @@ def allowed_file(route: str) -> Path | None:
         if target.is_relative_to(parent) and target.suffix.lower() in {".png", ".webp", ".svg"}:
             if target.is_file():
                 return target
-            if relative.startswith("Buildings/"):
-                # Existing map JSON can still request old paths after relocation.
-                relocated = (ROOT / "assets" / "Map Building Assets" / relative).resolve()
-                approved = (ROOT / "assets" / "Map Building Assets" / "Buildings").resolve()
-                if relocated.is_relative_to(approved) and relocated.is_file():
-                    return relocated
+            if relative.startswith(("Buildings/", "Map Building Assets/")):
+                try:
+                    return building_file(relative, ROOT)
+                except (ValueError, OSError):
+                    return None
         return None
     target = (EDITOR / path.lstrip("/")).resolve()
     if target.is_relative_to(EDITOR.resolve()) and target.is_file():
@@ -179,8 +178,7 @@ def make_handler(token: str = TOKEN):
             if route == "/api/editor-status":
                 return self._json(200, {"live": True, "token": token,
                                         "worldSha": digest(BAKED),
-                                        "overlayExists": EDIT.exists(),
-                                        "assetAtlas": "/game-assets/scenery/morrow-atlas-v1.png"})
+                                        "overlayExists": EDIT.exists()})
             target = allowed_file(route)
             if target is None or not target.exists():
                 return self._json(404, {"error": "Not found"})
