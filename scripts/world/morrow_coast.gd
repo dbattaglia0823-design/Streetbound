@@ -104,7 +104,13 @@ var debug_hud: CanvasLayer
 var debug_label: Label
 var _debug_clock := 0.0
 
+var archive_parse_ms:=0.0
+var world_init_ms:=0.0
+var prepared_archive_used:=false
+var predictive_streaming:=true
+
 func _ready() -> void:
+	var startup_started:=Time.get_ticks_usec()
 	var path: String=WorldPublication.MORROW
 	var testing: bool=false
 	var published: bool=false
@@ -116,8 +122,19 @@ func _ready() -> void:
 			push_error("Refused a world archive outside the production and Test Drive allowlists")
 			return
 		path=archive_override_path
-	var parsed: Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+	var parse_started:=Time.get_ticks_usec()
+	var parsed: Variant=null
+	if get_tree().has_meta("streetbound_prepared_archive") and not editor_render_only:
+		var prepared: Dictionary=get_tree().get_meta("streetbound_prepared_archive")
+		get_tree().remove_meta("streetbound_prepared_archive")
+		# Consume once, only for the exact validated file. The same archive
+		# audit and fallback still run below; no shared mutable world cache.
+		if str(prepared.get("path",""))==path and str(prepared.get("sha",""))==FileAccess.get_sha256(path):
+			parsed=prepared.get("data");prepared_archive_used=parsed is Dictionary
+	if not prepared_archive_used:parsed=JSON.parse_string(FileAccess.get_file_as_string(path))
+	archive_parse_ms=(Time.get_ticks_usec()-parse_started)/1000.0
 	_initialize_archive(parsed,testing,published)
+	world_init_ms=(Time.get_ticks_usec()-startup_started)/1000.0
 
 
 func _initialize_archive(parsed: Variant, testing: bool, published: bool) -> void:
@@ -432,6 +449,7 @@ func _update_performance_display() -> void:
 		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
 		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	performance_label.text+="\nWorld init %.1f ms | Archive %.1f ms | Prepared %s"%[world_init_ms,archive_parse_ms,str(prepared_archive_used)]
 	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
 		performance_label.text+="\n"+str(archive_audit.errors[0]).left(78)
@@ -653,7 +671,8 @@ func _predict_chunk() -> Vector2i:
 	if secondary_current_cell.x!=-999:return none
 	var direction:=vehicle.linear_velocity.normalized()
 	var position_m:=vehicle.global_position/PPM
-	var predicted:=Vector2i(((position_m+direction*chunk_m*1.5)/chunk_m).floor())
+	var lookahead:=clampf(vehicle.linear_velocity.length()*5.0,chunk_m*1.5,chunk_m*1.9)
+	var predicted:=Vector2i(((position_m+direction*lookahead)/chunk_m).floor())
 	if _stream_cell_distance(predicted,current_cell,secondary_current_cell)!=2:return none
 	var key: String="%d,%d"%[predicted.x,predicted.y]
 	if chunks.has(predicted) or failed_chunks.has(predicted) or not data.chunks.has(key):return none
@@ -717,7 +736,7 @@ func _process(dt: float) -> void:
 		_build_chunk(pending.pop_front())
 	else:
 		_prefetch_clock+=dt
-		if _prefetch_clock>=.15 and dt<.020:
+		if predictive_streaming and _prefetch_clock>=.15 and dt<.020:
 			_prefetch_clock=0.0
 			var predicted:=_predict_chunk()
 			if predicted.x!=-999:
