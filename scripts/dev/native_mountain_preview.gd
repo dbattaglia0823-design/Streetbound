@@ -5,11 +5,21 @@ var cache: Dictionary={}
 var collision_enabled:=false
 var body: StaticBody2D
 var selected_id:=""
+var region_stamp:=-1
+var rebuild_count:=0
 func _ready() -> void:
 	material=Geometry.shared_material();z_index=1
 	body=StaticBody2D.new();body.collision_mask=2;add_child(body)
 func configure(doc: Dictionary,initial: Dictionary,selected: String,enabled: bool) -> void:
-	regions.clear();selected_id=selected;collision_enabled=enabled
+	var stamp: int=hash([doc.get("regions",[]),initial.get("regions",[])])
+	var selection_changed:=selected_id!=selected
+	selected_id=selected;collision_enabled=enabled
+	if stamp==region_stamp:
+		if is_instance_valid(body):body.collision_layer=1 if enabled else 0
+		if selection_changed:queue_redraw()
+		return
+	region_stamp=stamp;rebuild_count+=1
+	regions.clear()
 	for region in doc.get("regions",[]):
 		if not Geometry.solid(region):continue
 		var unchanged:=false
