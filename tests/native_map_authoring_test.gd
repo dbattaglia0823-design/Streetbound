@@ -244,7 +244,7 @@ func _run() -> void:
 		session.doc.props.size()==before_count+1 and
 		session.prop_at_id(id).assetId=="game-house")
 	var locator=preload("res://scripts/world/asset_locator.gd")
-	var canonical: String="Map Building Assets/Buildings/House.png"
+	var canonical: String="Map Building Assets/Buildings/Rural Building-Houses/House.png"
 	var old_path: String="res://assets/Map Building Assets/Old Folder/House.png"
 	check("exact_filename_recovers_moved_individual_art",locator.resolve(old_path,"Texture2D",true)=="res://assets/"+canonical)
 	check("repeated_lookup_reuses_relocated_path",locator.resolve(old_path,"Texture2D",true)=="res://assets/"+canonical)
@@ -403,7 +403,7 @@ func _run() -> void:
 		is_instance_valid(editor.asset_search) and
 		editor.asset_entries.size()>=8 and
 		editor.asset_entries.any(func(asset: Dictionary) -> bool:
-			return str(asset.get("path",""))=="Map Building Assets/Buildings/House.png"))
+			return str(asset.get("path",""))=="Map Building Assets/Buildings/Rural Building-Houses/House.png"))
 	var runtime_road_count: int = game.ground.data.roads.size()
 	var runtime_prop_count: int = game.ground.data.props.size()
 	editor._choose_tool("place:house")
