@@ -102,7 +102,14 @@ func _run() -> void:
 		title.settings_adapter.settings_context.visible and title.settings_adapter.volume_readout.text.ends_with("%"))
 	title.settings_adapter.settings_screen.controls["volume_slider"].focus_entered.emit()
 	check("settings_context_tracks_focused_control",title.settings_adapter.context_title.text=="VOLUME")
+	var prior_developer: bool=bool(title.settings_adapter.settings_store.get_setting("developer_mode"))
+	var toggle: CheckBox=title.settings_adapter.developer_toggle
+	check("developer_mode_visible_in_general_settings",toggle.is_visible_in_tree())
+	toggle.button_pressed=not prior_developer
+	check("developer_mode_preference_persists",bool(title.settings_adapter.settings_store.get_setting("developer_mode"))!=prior_developer and load("res://scripts/vehicle/vehicle_ownership.gd").developer_mode_requested()!=prior_developer)
+	toggle.button_pressed=prior_developer
 	title.settings_adapter.controls_tab_button.pressed.emit()
+	check("developer_mode_hidden_on_other_settings_tabs",not toggle.visible)
 	check("title_controls_tab_has_customizable_bindings",
 		title.settings_adapter.settings_tab=="controls" and
 		title.settings_adapter.binding_rows.size()>0)
@@ -150,6 +157,7 @@ func _run() -> void:
 		check("standalone_editor_exits_to_title",
 			returned_title != null and returned_title != standalone and
 			returned_title.actions.has("single_player"))
+		returned_title.settings_adapter._set_developer_mode(true)
 		returned_title.actions["single_player"].pressed.emit()
 		# The title now polls real asynchronous IO; fixed-fps tests can
 		# advance thousands of simulation frames before the worker finishes.
@@ -159,11 +167,22 @@ func _run() -> void:
 			OS.delay_msec(1)
 		for frame in 2:await process_frame
 		var game: Variant = current_scene
+		# Restore the preference even if launch fails; the active sandbox must
+		# stay isolated until leaving gameplay.
+		var setting_file := ConfigFile.new()
+		if setting_file.load("user://streetbound_pause_settings.cfg")==OK:
+			setting_file.set_value("settings","developer_mode",prior_developer)
+			setting_file.save("user://streetbound_pause_settings.cfg")
 		check("ordinary_gameplay_launches_after_standalone_editor",
 			game != null and game != standalone and game!=returned_title and
 			game.vehicle != null and game.ground.initialization_complete)
 		if game != null and game != standalone and game!=returned_title:
 			check("title_launch_consumes_exact_prepared_archive_once",bool(game.ground.prepared_archive_used) and bool(game.ground.prepared_geometry_used) and not has_meta("streetbound_prepared_archive"))
+			check("developer_preference_applies_on_real_offline_launch",
+				game.vehicle_ownership.developer_mode and not game.vehicle_ownership.persist_enabled and
+				game.vehicle_ownership.balance>=100000000 and game.vehicle_ownership.player_level()==100)
+			game.pause_menu._set_developer_mode(prior_developer)
+			check("changing_preference_does_not_unisolate_live_sandbox",game.vehicle_ownership.developer_mode and not game.vehicle_ownership.persist_enabled)
 			game.pause_menu.pause_game()
 			await process_frame
 			check("pause_has_multiplayer_editor_main_menu_and_quit",

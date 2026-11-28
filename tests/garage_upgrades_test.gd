@@ -21,6 +21,30 @@ func check(name: String, passed: bool, detail: Variant = "") -> void:
 
 
 func run() -> void:
+	# Developer Mode must use the real catalogs and must never save its grants.
+	var had_career:=FileAccess.file_exists(Ownership.SAVE_PATH)
+	var career_hash:=FileAccess.get_sha256(Ownership.SAVE_PATH) if had_career else ""
+	var sandbox:=Ownership.new(false)
+	check("developer_mode_off_by_default",not sandbox.developer_mode and sandbox.owned_count()==1)
+	check("developer_mode_refused_for_online",not sandbox.enter_developer_mode(true) and sandbox.owned_count()==1 and not sandbox.developer_mode)
+	check("developer_mode_grants_cash_and_all_catalog_cars",sandbox.enter_developer_mode() and sandbox.balance==Ownership.DEVELOPER_CASH and sandbox.owned_count()==Catalog.all().size())
+	var all_maxed:=sandbox.player_level()==Progress.MAX_PLAYER_LEVEL
+	for car in Catalog.all():
+		all_maxed=all_maxed and sandbox.level_for_car(str(car.id))==Progress.MAX_CAR_LEVEL
+	check("developer_mode_all_levels_unlocked",all_maxed)
+	var all_parts:=true
+	var granted: Dictionary={}
+	for item in sandbox.upgrade_inventory:
+		granted[str(item.template)]=int(granted.get(str(item.template),0))+1
+		all_parts=all_parts and sandbox.can_install_part(Ownership.STARTER_ID,str(item.uid))=="ready"
+	check("developer_mode_all_regular_and_black_market_parts_installable",all_parts and granted.size()==Parts.all().size()+Parts.BLACK_MARKET.size() and granted.values().all(func(n):return n==Ownership.DEVELOPER_PART_COPIES))
+	var granted_count:=sandbox.upgrade_inventory.size()
+	check("developer_mode_grants_are_idempotent",sandbox.enter_developer_mode() and sandbox.upgrade_inventory.size()==granted_count)
+	# Even an accidental persistence flag change cannot export sandbox progress.
+	sandbox.persist_enabled=true
+	check("developer_mode_save_is_isolated",sandbox.save() and FileAccess.file_exists(Ownership.SAVE_PATH)==had_career and (not had_career or FileAccess.get_sha256(Ownership.SAVE_PATH)==career_hash))
+	var normal:=Ownership.new(false)
+	check("normal_career_stays_unmodified",not normal.developer_mode and normal.balance==Ownership.STARTING_CASH and normal.owned_count()==1 and normal.upgrade_inventory.is_empty())
 	check("only_six_current_upgrade_types",Parts.SLOTS.size() == 6)
 	check("one_hundred_twenty_part_variants_loaded",Parts.all().size() == 120)
 	var complete := true
