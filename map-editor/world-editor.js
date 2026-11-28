@@ -806,7 +806,7 @@ function refreshInspector(){
   if(!found){
     $('hide-game-prop').hidden=true;
     $('inspect-draw-order').disabled=true;$('inspect-draw-order').value=0;
-    $('draw-order-hint').textContent='Select one scenery asset or terrain region to change its visual layer.';
+    $('draw-order-hint').textContent='Select one road, scenery asset or terrain region to change its visual layer.';
     $('inspector').hidden=true;$('inspector-empty').hidden=false;
     $('selected-type').textContent='NOTHING SELECTED';return;
   }
@@ -814,10 +814,10 @@ function refreshInspector(){
   if(found.type==='props'&&found.item.replaces)
     $('hide-game-prop').textContent=found.item.hidden?'Restore game scenery':'Hide original from game';
   const {type,item}=found;
-  const canLayer=type==='regions'||(type==='props'&&!['sidewalk','guardrail'].includes(item.type));
+  const canLayer=['roads','regions'].includes(type)||(type==='props'&&!['sidewalk','guardrail'].includes(item.type));
   $('inspect-draw-order').disabled=!canLayer;
   $('inspect-draw-order').value=canLayer?(item.drawOrder??0):0;
-  $('draw-order-hint').textContent=canLayer?(type==='regions'?'Higher values draw above other terrain.':'Higher values draw above other scenery.'):'Select one scenery asset or terrain region to change its visual layer.';
+  $('draw-order-hint').textContent=canLayer?(type==='roads'?'Higher values draw above roads on the same elevation.':type==='regions'?'Higher values draw above other terrain.':'Higher values draw above other scenery.'):'Select one road, scenery asset or terrain region to change its visual layer.';
   $('inspector').hidden=false;$('inspector-empty').hidden=true;
   if(found.type!=='markers')$('inspect-contract-contact').hidden=true;
   $('selected-type').textContent=type==='props'&&item.type==='guardrail'?'GUARDRAIL':
