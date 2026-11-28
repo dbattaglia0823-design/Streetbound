@@ -63,7 +63,10 @@ var published_game_world:=false
 var test_drive_file: String=""
 var validation_drive: Node
 
+var startup_ms:=0.0
+
 func _ready() -> void:
+	var startup_started:=Time.get_ticks_usec()
 	# Custom-map Test Drive is a real gameplay launch, not a separate mini-game.
 	# The editor compiled its map to a user:// streamed archive before entry.
 	custom_test_drive=not proving_ground and (OS.has_feature("debug") or OS.has_feature("editor")) and \
@@ -435,6 +438,8 @@ func _ready() -> void:
 		online_world.local_vehicle = vehicle
 		online_world.world = ground
 		add_child(online_world)
+	startup_ms=(Time.get_ticks_usec()-startup_started)/1000.0
+	print("STREETBOUND STARTUP MS: ",startup_ms)
 	if not pending_launch_mode.is_empty():
 		call_deferred("_apply_title_launch_mode")
 
