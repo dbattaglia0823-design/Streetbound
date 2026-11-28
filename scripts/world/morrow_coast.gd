@@ -108,6 +108,12 @@ var archive_parse_ms:=0.0
 var world_init_ms:=0.0
 var prepared_archive_used:=false
 var predictive_streaming:=true
+var scenery_shadows:=true
+var adaptive_streaming:=true
+var _frame_times:=PackedFloat32Array()
+var _frame_cursor:=0
+var _last_frame_usec:=0
+var _prefetch_budget_ms:=20.0
 
 func _ready() -> void:
 	var startup_started:=Time.get_ticks_usec()
@@ -424,6 +430,25 @@ func set_performance_debug(enabled: bool) -> void:
 		_update_performance_display()
 
 
+func _record_frame() -> void:
+	var now:=Time.get_ticks_usec()
+	if _last_frame_usec>0:
+		var ms:=float(now-_last_frame_usec)/1000.0
+		if _frame_times.size()<1200:_frame_times.append(ms)
+		else:_frame_times[_frame_cursor]=ms
+		_frame_cursor=(_frame_cursor+1)%1200
+	_last_frame_usec=now
+
+func frame_statistics() -> Dictionary:
+	var sorted:=_frame_times.duplicate()
+	sorted.sort()
+	if sorted.is_empty():return {"samples":0,"p95_ms":0.0,"one_percent_low":0.0}
+	var count:=sorted.size()
+	var tail:=maxi(1,ceili(count*.01))
+	var sum:=0.0
+	for i in range(count-tail,count):sum+=sorted[i]
+	return {"samples":count,"p95_ms":sorted[clampi(ceili(count*.95)-1,0,count-1)],"one_percent_low":1000.0/maxf(.001,sum/tail)}
+
 func _update_performance_display() -> void:
 	if not is_instance_valid(performance_label):
 		return
@@ -449,6 +474,8 @@ func _update_performance_display() -> void:
 		"Active/cached chunks %d/%d | Traffic %d\n"%[active_chunk_count(),chunks.size(),traffic_count] + \
 		"FPS %.0f | CPU %.2f ms | Physics %.2f ms\n"%[fps,frame_ms,physics_ms] + \
 		"Draw calls %d | Textures %.1f MB | Max build %.2f ms"%[draws,texture_mb,float(max_chunk_build_usec)/1000]
+	var stats:=frame_statistics()
+	performance_label.text+="\nFrame p95 %.2f ms | 1%% low %.1f FPS | %d samples"%[stats.p95_ms,stats.one_percent_low,stats.samples]
 	performance_label.text+="\nWorld init %.1f ms | Archive %.1f ms | Prepared %s"%[world_init_ms,archive_parse_ms,str(prepared_archive_used)]
 	performance_label.text+="\nBuilds %d | Cache reuses %d | Predictive %d | Pending %d"%[chunk_build_count,cached_chunk_reuses,predicted_chunk_builds,pending.size()]
 	if not archive_audit.get("errors",[]).is_empty():
@@ -505,6 +532,7 @@ func _build_chunk(index: Vector2i) -> void:
 		secondary_current_cell) <= 1)
 	chunks[index] = instance
 	instance.set_environment_night(_environment_night)
+	instance.set_scenery_shadows(scenery_shadows or editor_render_only)
 	chunk_build_count += 1
 	instance.build_microseconds=Time.get_ticks_usec()-started
 	max_chunk_build_usec = maxi(max_chunk_build_usec,instance.build_microseconds)
@@ -700,7 +728,13 @@ func _update_underground_backdrop() -> void:
 	underground_backdrop.show()
 
 
+func set_scenery_shadows(enabled: bool) -> void:
+	scenery_shadows=enabled
+	for chunk in chunks.values():chunk.set_scenery_shadows(enabled or editor_render_only)
+
 func _process(dt: float) -> void:
+	if performance_debug_enabled or profile_enabled:_record_frame()
+	else:_last_frame_usec=0
 	if not initialization_complete:
 		if performance_debug_enabled: _update_performance_display()
 		return
@@ -736,7 +770,7 @@ func _process(dt: float) -> void:
 		_build_chunk(pending.pop_front())
 	else:
 		_prefetch_clock+=dt
-		if predictive_streaming and _prefetch_clock>=.15 and dt<.020:
+		if predictive_streaming and _prefetch_clock>=.15 and (not adaptive_streaming or dt*1000.0<_prefetch_budget_ms):
 			_prefetch_clock=0.0
 			var predicted:=_predict_chunk()
 			if predicted.x!=-999:
