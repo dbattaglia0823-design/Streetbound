@@ -117,13 +117,19 @@ func run() -> void:
 		and e.point_picker.visible and not e.prop_transforms.visible)
 	var original_road: Dictionary=e.authoring.road_at_id("road-0").duplicate(true)
 	check("placed_road_has_visible_type_selector",e.inspector_road_type_fields.visible)
-	e._change_inspector_road_type(5)
+	var track_index := -1
+	for i in e.inspector_road_type.item_count:
+		if str(e.inspector_road_type.get_item_metadata(i))=="track":track_index=i;break
+	check("track_option_available",track_index>=0)
+	if track_index<0:
+		quit(1);return
+	e._change_inspector_road_type(track_index)
 	var converted: Dictionary=e.authoring.road_at_id("road-0")
 	check("existing_road_converts_to_track_without_geometry_changes",
 		converted.roadClass=="track" and converted.surface=="track"
 		and converted.points==original_road.points and converted.width==original_road.width
 		and converted.lanes==original_road.lanes)
-	check("road_type_controls_remain_synchronized",e.road_class.selected==5 and e.inspector_road_type.selected==5)
+	check("road_type_controls_remain_synchronized",str(e.road_class.get_item_metadata(e.road_class.selected))=="track" and str(e.inspector_road_type.get_item_metadata(e.inspector_road_type.selected))=="track")
 	e._change_inspector_road_type(0)
 	check("track_can_be_converted_back_to_city",
 		e.authoring.road_at_id("road-0").roadClass=="city" and e.authoring.road_at_id("road-0").surface=="asphalt")
