@@ -12,6 +12,7 @@ const ToolkitLayout = preload("res://addons/gdt/ui_layout.gd")
 const ToolkitSettings = preload("res://addons/gdt/settings_store.gd")
 const VehicleCatalog = preload("res://scripts/vehicle/player_vehicle_catalog.gd")
 const PauseDashboard = preload("res://scripts/ui/pause_dashboard.gd")
+const RacingStyle = preload("res://scripts/ui/racing_menu_style.gd")
 @onready var controls_api: Variant = get_node("/root/Controls")
 const DESIGN_SIZE := Vector2(800.0, 500.0)
 const DISPLAY_MODES := ["windowed","borderless","fullscreen"]
@@ -38,6 +39,11 @@ var general_tab_button: Button
 var controls_tab_button: Button
 var graphics_tab_button: Button
 var graphics_page: ScrollContainer
+var general_decoration: Control
+var settings_context: Control
+var context_title: Label
+var context_copy: Label
+var volume_readout: Label
 var graphics_controls: Dictionary={}
 const GRAPHICS_DEFAULTS: Dictionary={"fps_limit":0,"vsync":true,"minimap_fps":0,"scenery_shadows":true,"rain_effects":100,"traffic_density":100,"adaptive_streaming":true,"optimized_ai":true,"performance_overlay":false}
 var display_mode_label: Label
@@ -93,7 +99,7 @@ func _ready() -> void:
 	background.name = "DimmedBackground"
 	# A stronger backdrop keeps the driving HUD and traffic from competing
 	# with pause menus and their footer text.
-	background.color = Color(0.016, 0.035, 0.039, 0.76)
+	background.color = Color(0.025, 0.03, 0.045, 0.74)
 	background.anchor_right = 1.0
 	background.anchor_bottom = 1.0
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -159,79 +165,26 @@ func _load_screen(path: String, screen_name: String) -> Variant:
 
 func _style_screen(screen: Variant) -> void:
 	for entry in screen.layout.get("nodes", []):
-		if not entry is Dictionary:
-			continue
+		if not entry is Dictionary:continue
 		var id: String = str(entry.get("id", ""))
 		var role: String = str(entry.get("role", ""))
 		var node: Control = screen.controls.get(id)
-		if node == null:
-			continue
+		if node == null:continue
 		if node is Panel:
-			var panel_style := StyleBoxFlat.new()
-			panel_style.bg_color = Color(0.027, 0.052, 0.069, 0.94)
-			panel_style.border_color = Color(0.39, 0.50, 0.59, 0.72)
-			panel_style.set_border_width_all(1)
-			panel_style.set_corner_radius_all(20)
-			node.add_theme_stylebox_override("panel", panel_style)
+			node.add_theme_stylebox_override("panel",RacingStyle.surface(Color(0.06,0.075,0.095,0.96),RacingStyle.EDGE,8))
 		elif node is Label:
-			var label_node := node as Label
-			label_node.add_theme_font_size_override("font_size", 34 if role == "screen_title" else 15)
-			label_node.add_theme_color_override("font_color", Color("#eff3e8"))
-			label_node.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if id == "pause_heading" else HORIZONTAL_ALIGNMENT_CENTER
-		elif node is Button:
-			var button := node as Button
-			var primary: bool = role == "primary_action"
-			var danger: bool = role == "danger_action"
-			var normal := StyleBoxFlat.new()
-			normal.bg_color = Color("#ff8733") if primary else Color("#342b2c") if danger else Color("#1b2b36")
-			normal.border_color = Color("#ff8733") if primary else Color("#9d686b") if danger else Color("#536775")
-			normal.set_border_width_all(1)
-			normal.set_corner_radius_all(11)
-			var hover := normal.duplicate() as StyleBoxFlat
-			hover.bg_color = Color("#ff9c5b") if primary else Color("#4d3839") if danger else Color("#2b4557")
-			var pressed := hover.duplicate() as StyleBoxFlat
-			pressed.bg_color = Color("#cf602c") if primary else Color("#624044") if danger else Color("#15292c")
-			var focus := StyleBoxFlat.new()
-			focus.draw_center = false
-			focus.border_color = Color("#f5f7fa")
-			focus.set_border_width_all(2)
-			focus.set_corner_radius_all(11)
-			button.add_theme_stylebox_override("normal", normal)
-			button.add_theme_stylebox_override("hover", hover)
-			button.add_theme_stylebox_override("pressed", pressed)
-			button.add_theme_stylebox_override("focus", focus)
-			button.add_theme_color_override("font_color", Color("#ffffff"))
-			button.add_theme_color_override("font_hover_color", Color("#ffffff"))
-			button.add_theme_color_override("font_pressed_color", Color("#132325") if primary else Color("#ffffff"))
-			button.add_theme_font_size_override("font_size", 19)
-			button.focus_mode = Control.FOCUS_ALL
+			node.add_theme_font_size_override("font_size",30 if role=="screen_title" else 15)
+			node.add_theme_color_override("font_color",RacingStyle.TEXT)
+			node.horizontal_alignment=HORIZONTAL_ALIGNMENT_LEFT if id in ["pause_heading","settings_heading","volume_label","minimap_shape_label"] else HORIZONTAL_ALIGNMENT_CENTER
 		elif node is CheckBox:
-			node.add_theme_color_override("font_color", Color("#e8eee4"))
-			node.add_theme_font_size_override("font_size", 16)
+			RacingStyle.toggle(node)
+		elif node is Button:
+			RacingStyle.button(node,role in ["primary_action","back_action"],19,role=="danger_action")
 		elif node is HSlider:
-			node.add_theme_stylebox_override("slider", _track_style())
-			node.add_theme_stylebox_override("grabber_area", _filled_track_style())
+			RacingStyle.slider(node)
 
 func _button_skin(button: Button, selected: bool = false) -> void:
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color("#573820") if selected else Color("#1b2b36")
-	normal.border_color = Color("#ff8733") if selected else Color("#536775")
-	normal.set_border_width_all(2 if selected else 1)
-	normal.set_corner_radius_all(8)
-	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color("#345551")
-	var focus := normal.duplicate() as StyleBoxFlat
-	focus.border_color = Color("#f5f7fa")
-	button.add_theme_stylebox_override("normal",normal)
-	button.add_theme_stylebox_override("hover",hover)
-	button.add_theme_stylebox_override("pressed",hover)
-	button.add_theme_stylebox_override("focus",focus)
-	button.add_theme_color_override("font_color",Color("#f0efe6"))
-	button.add_theme_color_override("font_hover_color",Color.WHITE)
-	button.add_theme_font_size_override("font_size",13)
-	button.focus_mode = Control.FOCUS_ALL
-	button.clip_text = true
-
+	RacingStyle.button(button,selected,13)
 
 func _settings_label(parent: Control, text_value: String, at: Vector2,
 		dimensions: Vector2, size_px: int = 13) -> Label:
@@ -259,24 +212,24 @@ func _build_settings_tabs() -> void:
 	general_tab_button = Button.new()
 	general_tab_button.name = "GeneralTab"
 	general_tab_button.text = "GENERAL"
-	general_tab_button.position = Vector2(166,135)
-	general_tab_button.size = Vector2(150,39)
+	general_tab_button.position = Vector2(28,100)
+	general_tab_button.size = Vector2(145,43)
 	general_tab_button.pressed.connect(_set_settings_tab.bind("general"))
 	settings_screen.add_child(general_tab_button)
 	controls_tab_button = Button.new()
 	controls_tab_button.name = "ControlsTab"
 	controls_tab_button.text = "CONTROLS"
-	controls_tab_button.position = Vector2(324,135)
-	controls_tab_button.size = Vector2(150,39)
+	controls_tab_button.position = Vector2(28,151)
+	controls_tab_button.size = Vector2(145,43)
 	controls_tab_button.pressed.connect(_set_settings_tab.bind("controls"))
 	settings_screen.add_child(controls_tab_button)
-	_settings_label(controls_page,"CONTROL",Vector2(171,180),Vector2(130,26),11)
-	_settings_label(controls_page,"KEYBOARD / MOUSE",Vector2(307,180),Vector2(161,26),10)
-	_settings_label(controls_page,"CONTROLLER",Vector2(476,180),Vector2(146,26),11)
+	_settings_label(controls_page,"CONTROL",Vector2(205,100),Vector2(160,26),11)
+	_settings_label(controls_page,"KEYBOARD / MOUSE",Vector2(382,100),Vector2(170,26),10)
+	_settings_label(controls_page,"CONTROLLER",Vector2(568,100),Vector2(170,26),11)
 	var scroller := ScrollContainer.new()
 	scroller.name = "BindingsScroll"
-	scroller.position = Vector2(166,210)
-	scroller.size = Vector2(470,185)
+	scroller.position = Vector2(200,133)
+	scroller.size = Vector2(557,260)
 	scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroller.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroller.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -284,7 +237,7 @@ func _build_settings_tabs() -> void:
 	bindings_list = VBoxContainer.new()
 	bindings_list.name = "BindingsList"
 	bindings_list.add_theme_constant_override("separation",5)
-	bindings_list.custom_minimum_size.x = 440.0
+	bindings_list.custom_minimum_size.x = 530.0
 	bindings_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroller.add_child(bindings_list)
 	for action in controls_api.ACTIONS:
@@ -295,7 +248,7 @@ func _build_settings_tabs() -> void:
 		bindings_list.add_child(row)
 		var action_label := Label.new()
 		action_label.text = str(controls_api.LABELS.get(action,action.capitalize()))
-		action_label.custom_minimum_size.x = 137
+		action_label.custom_minimum_size.x = 170
 		action_label.add_theme_font_size_override("font_size",12)
 		action_label.add_theme_color_override("font_color",Color("#e5efe5"))
 		action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -303,37 +256,37 @@ func _build_settings_tabs() -> void:
 		row.add_child(action_label)
 		var kb := Button.new()
 		kb.name = "Keyboard_"+action
-		kb.custom_minimum_size = Vector2(144,36)
+		kb.custom_minimum_size = Vector2(173,36)
 		kb.pressed.connect(_start_binding.bind(action,"keyboard"))
 		_button_skin(kb)
 		row.add_child(kb)
 		var pad := Button.new()
 		pad.name = "Controller_"+action
-		pad.custom_minimum_size = Vector2(143,36)
+		pad.custom_minimum_size = Vector2(173,36)
 		pad.pressed.connect(_start_binding.bind(action,"controller"))
 		_button_skin(pad)
 		row.add_child(pad)
 		binding_rows[action] = {"keyboard":kb,"controller":pad}
 	binding_feedback = _settings_label(controls_page,
 		"Select a binding; Esc cancels, Backspace clears.",
-		Vector2(169,396),Vector2(456,23),11)
+		Vector2(204,398),Vector2(540,23),11)
 	binding_feedback.clip_text = true
 	reset_bindings_button = Button.new()
 	reset_bindings_button.name = "RestoreDefaultBindings"
 	reset_bindings_button.text = "RESTORE DEFAULTS"
-	reset_bindings_button.position = Vector2(166,423)
+	reset_bindings_button.position = Vector2(204,431)
 	reset_bindings_button.size = Vector2(202,40)
 	reset_bindings_button.pressed.connect(_restore_binding_defaults)
 	_button_skin(reset_bindings_button)
 	controls_page.add_child(reset_bindings_button)
 	# Available on both title screen and gameplay via the shared Settings UI.
 	display_mode_label = _settings_label(settings_screen,
-		"Display mode",Vector2(206,353),Vector2(181,38),13)
+		"Display mode",Vector2(204,337),Vector2(160,44),13)
 	display_mode_label.name="DisplayModeLabel"
 	display_mode_select = OptionButton.new()
 	display_mode_select.name="DisplayModeSelect"
-	display_mode_select.position=Vector2(390,354)
-	display_mode_select.size=Vector2(189,36)
+	display_mode_select.position=Vector2(370,342)
+	display_mode_select.size=Vector2(168,34)
 	_button_skin(display_mode_select)
 	display_mode_select.tooltip_text="Windowed, borderless maximized window, or exclusive fullscreen"
 	for item in [["Windowed","windowed"],["Borderless Window","borderless"],["Fullscreen","fullscreen"]]:
@@ -342,8 +295,88 @@ func _build_settings_tabs() -> void:
 	display_mode_select.item_selected.connect(_select_display_mode)
 	settings_screen.add_child(display_mode_select)
 	_build_graphics_page()
+	_build_settings_presentation()
 	_set_settings_tab("general")
 
+
+func _build_settings_presentation() -> void:
+	# Decorative elements ignore mouse input. Keep the Toolkit action controls
+	# and their signal connections as the real interactive settings.
+	var accent := ColorRect.new()
+	accent.color=RacingStyle.ACCENT
+	accent.position=Vector2(28,78);accent.size=Vector2(744,2)
+	accent.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	settings_screen.add_child(accent)
+	_settings_label(settings_screen,"OPTIONS   /   STREETBOUND",Vector2(530,30),Vector2(240,30),12)
+	_settings_label(settings_screen,"PREFERENCES",Vector2(28,82),Vector2(145,17),10)
+	_settings_label(settings_screen,"Changes save automatically",Vector2(204,435),Vector2(350,30),12)
+	general_decoration=Control.new()
+	general_decoration.name="GeneralSettingsRows"
+	general_decoration.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	settings_screen.add_child(general_decoration)
+	# Behind original controls, above the toolkit's background panel.
+	settings_screen.move_child(general_decoration,1)
+	for y in [133,184,235,286,337]:
+		var row := Panel.new()
+		row.position=Vector2(196,y);row.size=Vector2(350,44)
+		row.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		row.add_theme_stylebox_override("panel",RacingStyle.surface(Color("#222830"),Color("#353d47")))
+		general_decoration.add_child(row)
+	_settings_label(general_decoration,"GENERAL  /  GAMEPLAY",Vector2(204,100),Vector2(340,26),15)
+	volume_readout=_settings_label(general_decoration,"80%",Vector2(495,184),Vector2(45,44),13)
+	volume_readout.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
+	for id in ["sfx_toggle","camera_toggle"]:
+		var toggle: CheckBox=settings_screen.controls[id]
+		toggle.text_direction=Control.TEXT_DIRECTION_LTR
+		toggle.alignment=HORIZONTAL_ALIGNMENT_RIGHT
+		toggle.add_theme_constant_override("h_separation",12)
+	for id in ["volume_label","minimap_shape_label"]:
+		var label: Label=settings_screen.controls[id]
+		label.add_theme_font_size_override("font_size",15)
+	display_mode_label.add_theme_font_size_override("font_size",15)
+	settings_context=Control.new()
+	settings_context.name="SettingsContext"
+	settings_context.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	settings_screen.add_child(settings_context)
+	var card := Panel.new()
+	card.position=Vector2(559,100);card.size=Vector2(199,281)
+	card.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	card.add_theme_stylebox_override("panel",RacingStyle.surface(Color("#1b2027"),RacingStyle.EDGE,6))
+	settings_context.add_child(card)
+	var art := TextureRect.new()
+	art.texture=preload("res://assets/Vehicles/McLaren/570S.png")
+	art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.position=Vector2(14,12);art.size=Vector2(171,111)
+	art.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	card.add_child(art)
+	var stripe := ColorRect.new()
+	stripe.color=RacingStyle.ACCENT
+	stripe.position=Vector2(12,130);stripe.size=Vector2(175,2)
+	stripe.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	card.add_child(stripe)
+	context_title=_settings_label(card,"SOUND EFFECTS",Vector2(12,139),Vector2(175,34),16)
+	context_copy=_settings_label(card,"",Vector2(12,178),Vector2(175,91),13)
+	context_copy.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	context_copy.vertical_alignment=VERTICAL_ALIGNMENT_TOP
+	context_copy.add_theme_color_override("font_color",RacingStyle.MUTED)
+	var descriptions := {
+		"sfx_toggle":["SOUND EFFECTS","Enable or disable vehicle and gameplay sound effects."],
+		"volume_slider":["VOLUME","Adjust the master audio level. Changes apply immediately."],
+		"camera_toggle":["CAR HEADING","Choose whether the driving camera follows your car's heading."],
+		"minimap_shape_button":["MINI-MAP","Switch between a square and circular driving mini-map."],
+		"display_mode":["DISPLAY MODE","Choose windowed, borderless or fullscreen display."]
+	}
+	for id in descriptions:
+		var node: Control=display_mode_select if id=="display_mode" else settings_screen.controls[id]
+		var detail: Array=descriptions[id]
+		node.focus_entered.connect(_show_settings_context.bind(str(detail[0]),str(detail[1])))
+		node.mouse_entered.connect(_show_settings_context.bind(str(detail[0]),str(detail[1])))
+	_show_settings_context("SOUND EFFECTS","Enable or disable vehicle and gameplay sound effects.")
+
+func _show_settings_context(title_value: String,copy_value: String) -> void:
+	context_title.text=title_value
+	context_copy.text=copy_value
 
 func _set_settings_tab(tab: String) -> void:
 	if tab not in ["general","controls","graphics"]:
@@ -363,10 +396,15 @@ func _set_settings_tab(tab: String) -> void:
 	_button_skin(general_tab_button,general)
 	_button_skin(controls_tab_button,tab=="controls")
 	_button_skin(graphics_tab_button,tab=="graphics")
+	for tab_button in [general_tab_button,controls_tab_button,graphics_tab_button]:
+		tab_button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+		tab_button.add_theme_font_size_override("font_size",16)
 	var back: Button = settings_screen.controls.get("back")
 	if is_instance_valid(back):
-		back.position = Vector2(295,411) if general else Vector2(417,423)
-		back.size = Vector2(210,46) if general else Vector2(213,40)
+		back.position = Vector2(28,431)
+		back.size = Vector2(145,40)
+	general_decoration.visible=general
+	settings_context.visible=general
 	if tab=="controls":
 		_refresh_binding_buttons()
 	elif tab=="graphics":_sync_graphics_controls()
@@ -376,17 +414,18 @@ func _build_graphics_page() -> void:
 	graphics_tab_button=Button.new()
 	graphics_tab_button.name="GraphicsTab"
 	graphics_tab_button.text="GRAPHICS"
-	graphics_tab_button.position=Vector2(482,135)
-	graphics_tab_button.size=Vector2(150,39)
+	graphics_tab_button.position=Vector2(28,202)
+	graphics_tab_button.size=Vector2(145,43)
 	graphics_tab_button.pressed.connect(_set_settings_tab.bind("graphics"))
 	settings_screen.add_child(graphics_tab_button)
 	graphics_page=ScrollContainer.new()
 	graphics_page.name="GraphicsPerformanceContent"
-	graphics_page.position=Vector2(166,181);graphics_page.size=Vector2(470,235)
+	graphics_page.position=Vector2(204,110);graphics_page.size=Vector2(550,306)
 	graphics_page.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	settings_screen.add_child(graphics_page)
 	var column:=VBoxContainer.new()
 	column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation",8)
 	graphics_page.add_child(column)
 	var preset:=OptionButton.new()
 	preset.name="PerformancePreset";preset.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -403,6 +442,8 @@ func _build_graphics_page() -> void:
 		var toggle:=CheckButton.new()
 		toggle.text=str(entry[0]);toggle.name=str(entry[1])
 		toggle.toggled.connect(_graphics_toggle.bind(str(entry[1])))
+		toggle.custom_minimum_size.y=30
+		toggle.add_theme_color_override("font_color",RacingStyle.TEXT)
 		column.add_child(toggle);graphics_controls[str(entry[1])]=toggle
 
 func _graphics_option(column: VBoxContainer,label: String,key: String,choices: Array) -> void:
@@ -880,6 +921,7 @@ func _sync_settings() -> void:
 		"camera_follow": camera_follow,
 		"minimap_shape": "Circle" if str(settings_store.get_setting("minimap_shape")) == "circle" else "Square"
 	}})
+	if is_instance_valid(volume_readout):volume_readout.text="%d%%" % roundi(float(settings_store.get_setting("volume")))
 
 func set_split_screen_active(enabled: bool) -> void:
 	split_screen_active = enabled
@@ -1065,6 +1107,7 @@ func _handle_action(action_id: String, payload: Dictionary) -> void:
 		"settings.volume_changed":
 			var volume: float = clampf(float(payload.get("value", 80.0)), 0.0, 100.0)
 			settings_store.set_setting("volume", volume)
+			if is_instance_valid(volume_readout):volume_readout.text="%d%%" % roundi(volume)
 			AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume / 100.0, 0.0001)))
 		"settings.camera_changed":
 			var enabled: bool = bool(payload.get("value", false))

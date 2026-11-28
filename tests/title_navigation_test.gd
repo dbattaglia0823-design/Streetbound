@@ -82,6 +82,12 @@ func _run() -> void:
 		paused and title.settings_adapter.menu_state=="settings" and
 		title.settings_adapter.controls_tab_button != null and
 		title.settings_adapter.settings_screen.visible)
+	check("racing_settings_use_left_rail_and_context_panel",
+		title.settings_adapter.general_tab_button.position.x < title.settings_adapter.settings_screen.controls["sfx_toggle"].position.x and
+		title.settings_adapter.controls_tab_button.position.y > title.settings_adapter.general_tab_button.position.y and
+		title.settings_adapter.settings_context.visible and title.settings_adapter.volume_readout.text.ends_with("%"))
+	title.settings_adapter.settings_screen.controls["volume_slider"].focus_entered.emit()
+	check("settings_context_tracks_focused_control",title.settings_adapter.context_title.text=="VOLUME")
 	title.settings_adapter.controls_tab_button.pressed.emit()
 	check("title_controls_tab_has_customizable_bindings",
 		title.settings_adapter.settings_tab=="controls" and
