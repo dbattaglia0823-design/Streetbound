@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0am12tllq35s"
-path="res://.godot/imported/Office3.png-c29f279b8e219f23889cfd1fd460cce2.ctex"
+path="res://.godot/imported/Office3.png-e074028dad85bc5335856737bf3d329a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Map Building Assets/Buildings/Office3.png"
-dest_files=["res://.godot/imported/Office3.png-c29f279b8e219f23889cfd1fd460cce2.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/City Buildings/Office3.png"
+dest_files=["res://.godot/imported/Office3.png-e074028dad85bc5335856737bf3d329a.ctex"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ckvjgxbx4g0yf"
-path="res://.godot/imported/Service Garage.png-e22d5c57eb82be43b0102d090ecd1297.ctex"
+path="res://.godot/imported/Service Garage.png-2a2b9e2a2fff0553286ea922249a1228.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Map Building Assets/Buildings/Service Garage.png"
-dest_files=["res://.godot/imported/Service Garage.png-e22d5c57eb82be43b0102d090ecd1297.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/Garages/Service Garage.png"
+dest_files=["res://.godot/imported/Service Garage.png-2a2b9e2a2fff0553286ea922249a1228.ctex"]
 
 [params]
 

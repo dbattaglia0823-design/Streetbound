@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dhqo053dh2oqr"
-path="res://.godot/imported/ConnectedBuilding4.png-f61f857b815f7f10526fcd04f264c57a.ctex"
+path="res://.godot/imported/ConnectedBuilding4.png-afe4d5abfd482549c77787ee1ce2a605.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Map Building Assets/Buildings/ConnectedBuilding4.png"
-dest_files=["res://.godot/imported/ConnectedBuilding4.png-f61f857b815f7f10526fcd04f264c57a.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/City Buildings/ConnectedBuilding4.png"
+dest_files=["res://.godot/imported/ConnectedBuilding4.png-afe4d5abfd482549c77787ee1ce2a605.ctex"]
 
 [params]
 

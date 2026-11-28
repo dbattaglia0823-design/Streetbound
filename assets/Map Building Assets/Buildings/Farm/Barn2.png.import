@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://nqjqo5k8o13w"
-path="res://.godot/imported/Barn2.png-edec12727e2fc987a953f283e8d3dff3.ctex"
+path="res://.godot/imported/Barn2.png-4ab2ef5bdb384bb0d91188efcc6a50a8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/Map Building Assets/Buildings/Barn2.png"
-dest_files=["res://.godot/imported/Barn2.png-edec12727e2fc987a953f283e8d3dff3.ctex"]
+source_file="res://assets/Map Building Assets/Buildings/Farm/Barn2.png"
+dest_files=["res://.godot/imported/Barn2.png-4ab2ef5bdb384bb0d91188efcc6a50a8.ctex"]
 
 [params]
 
