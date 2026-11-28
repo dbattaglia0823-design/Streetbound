@@ -16,6 +16,7 @@ var title: LineEdit
 var mode: OptionButton
 var competition: OptionButton
 var laps: SpinBox
+var required_level: SpinBox
 var radius: SpinBox
 var start_radius: SpinBox
 var time_limit: SpinBox
@@ -98,6 +99,9 @@ func build(e,parent: Node) -> void:
 	competition=e._options(panel,"Race type",["ai_race","time_trial"])
 	competition.set_item_text(0,"Race vs AI")
 	competition.set_item_text(1,"Time trial (solo)")
+	required_level=e._number(panel,"Required driver level (1 = unlocked)",1,100,1)
+	required_level.step=1
+	required_level.tooltip_text="Players below this driver level cannot start this race in solo career. Level 1 has no level lock."
 	laps=e._number(panel,"Laps",1,20,1)
 	radius=e._number(panel,"Gate radius m",4,60,16)
 	start_radius=e._number(panel,"Start circle m",3,30,8)
@@ -135,13 +139,14 @@ func build(e,parent: Node) -> void:
 	mode.item_selected.connect(func(_index):commit_settings(e))
 	competition.item_selected.connect(func(_index):change_competition(e))
 	formation.item_selected.connect(func(_index):commit_settings(e))
-	for spin in [laps,radius,start_radius,time_limit,opponents]:spin.value_changed.connect(func(_value):commit_settings(e))
+	for spin in [laps,radius,start_radius,time_limit,opponents,required_level]:spin.value_changed.connect(func(_value):commit_settings(e))
 	grid_slot.item_selected.connect(func(_index):_sync_rotation(e))
 	slot_rotation.value_changed.connect(func(_value):commit_grid_rotation(e))
 	panel.visible=false
 	_build_dialog(e)
 func settings(e) -> Dictionary:
 	return {"name":title.text.strip_edges(),"mode":e._option_value(mode),"laps":int(laps.value) if e._option_value(mode)=="circuit" else 1,
+		"required_player_level":int(required_level.value),
 		"checkpoint_radius":radius.value,"start_radius":start_radius.value,"time_limit":time_limit.value,
 		"opponent_count":0 if e._option_value(competition)=="time_trial" else maxi(1,int(opponents.value)),
 		"formation":e._option_value(formation),
@@ -151,6 +156,9 @@ func begin_route(e,id: String="") -> void:
 	if e._editing_locked() or not e.source_ready:return
 	placing_finish=false
 	e._choose_tool("draw_race");editing_id=id
+	# New routes start unlocked; redrawing a saved race retains its gate.
+	var prior: Dictionary=e.authoring.race_at_id(id) if not id.is_empty() else {}
+	required_level.set_value_no_signal(float(prior.get("required_player_level",1)))
 	e._notice("Place the START marker on a road. Then place checkpoints and choose Place finish marker.")
 func select_checkpoint_gate(e) -> void:
 	if e.tool_name!="draw_race" or e.draft_points.is_empty():return
@@ -285,7 +293,11 @@ func update(e) -> void:
 	var stamp: int=hash(e.authoring.doc.get("races",[]))
 	if stamp!=list_stamp:
 		list_stamp=stamp;race_list.clear();race_list.add_item("Draw a new race");race_list.set_item_metadata(0,"")
-		for race in e.authoring.doc.get("races",[]):race_list.add_item(str(race.name));race_list.set_item_metadata(race_list.item_count-1,str(race.id))
+		for race in e.authoring.doc.get("races",[]):
+			var level: int=int(race.get("required_player_level",1))
+			var suffix: String="  /  LV %d"%level if level>1 else ""
+			race_list.add_item(str(race.name)+suffix)
+			race_list.set_item_metadata(race_list.item_count-1,str(race.id))
 	if not selected.is_empty() and e.tool_name!="draw_race":
 		objective_index.max_value=selected.points.size()
 		var grade_stamp: String=str(e.source_id)+str(selected.points)+str(int(objective_index.value))
@@ -293,6 +305,7 @@ func update(e) -> void:
 			objective_stamp=grade_stamp
 			_sync_objective_layer(e)
 		title.text=str(selected.name)
+		required_level.set_value_no_signal(float(selected.get("required_player_level",1)))
 		mode.select(1 if selected.mode=="circuit" else 0)
 		laps.value=float(selected.get("laps",1));radius.value=float(selected.get("checkpoint_radius",16))
 		start_radius.value=float(selected.get("start_radius",8));time_limit.value=float(selected.get("time_limit",0))
@@ -409,6 +422,9 @@ func _build_dialog(e) -> void:
 	dialog_radius=e._number(basics,"Checkpoint radius m",4,60,16)
 	dialog_start_radius=e._number(basics,"Start circle m",3,30,8)
 	dialog_time_limit=e._number(basics,"Time limit sec (0=off)",0,7200,0)
+	# Put the actual career level field on the first page, rather than hiding it.
+	career_level=e._number(basics,"Required driver level (1 = unlocked)",1,100,1);career_level.step=1
+	career_level.tooltip_text="Minimum driver level to enter this solo career race."
 	var route_note:=_form_label(basics,"Routes and checkpoint positions are edited on the map. Circuits need at least three gates.")
 	route_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	var enemies:=_form_column(columns,275)
@@ -443,7 +459,8 @@ func _build_dialog(e) -> void:
 	_form_label(rules,"CAREER PROGRESSION")
 	career_category=e._options(rules,"Event category",EventRules.CATEGORIES)
 	career_difficulty=e._options(rules,"Difficulty",EventRules.DIFFICULTIES)
-	career_level=e._number(rules,"Minimum driver level",1,100,1);career_level.step=1
+	var level_note:=_form_label(rules,"Required driver level is on the Race Setup tab. Level 1 leaves the race unlocked by driver level.")
+	level_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	career_car_level=e._number(rules,"Minimum car level",1,50,1);career_car_level.step=1
 	career_repeatable=CheckBox.new()
 	career_repeatable.text="Repeatable after first win"

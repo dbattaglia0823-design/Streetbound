@@ -12,13 +12,15 @@ func run() -> void:
 	var scene=load("res://scenes/world_editor.tscn").instantiate();root.add_child(scene)
 	for i in 6:await process_frame
 	var e=scene.native_world_editor;var form=e.race_editor
-	form.begin_route(e);form.title.text="Laurel Editor Circuit";form.mode.select(1);form.laps.value=3
+	form.begin_route(e);form.title.text="Laurel Editor Circuit";form.mode.select(1);form.laps.value=3;form.required_level.value=12
 	e.draft_points.assign([Vector2(2500,3200),Vector2(2485,3080),Vector2(2500,2870)])
 	e._update_context_panels();check("race_drawing_has_finish_control",not e.finish_button.disabled and form.panel.visible)
 	e._finish_shape()
 	var id: String=e.source_id;var race: Dictionary=e.authoring.race_at_id(id)
 	check("editor_creates_named_circuit_with_laps",not race.is_empty() and race.name=="Laurel Editor Circuit" and race.mode=="circuit" and int(race.laps)==3)
 	check("race_setup_opens_automatically_after_placement",form.dialog_race_id==id and form.dialog.visible)
+	check("required_driver_level_saved_during_creation",int(race.get("required_player_level",1))==12 and int(form.career_level.value)==12)
+	form.career_level.value=18
 	var session_script: GDScript=e.authoring.get_script()
 	var start_gate: Dictionary=session_script.race_gate_marker(race,0)
 	var checkpoint_gate: Dictionary=session_script.race_gate_marker(race,1)
@@ -105,10 +107,13 @@ func run() -> void:
 			" payout=",configured.get("reward_cash",-1),"/",configured.get("reward_player_xp",-1),"/",
 			configured.get("reward_car_xp",-1)," error=",form.dialog_message.text)
 	check("edit_race_saves_pool_enemy_count_and_revenue",saved_ok)
+	check("race_setup_level_edit_saved",int(configured.get("required_player_level",1))==18 and int(form.required_level.value)==18)
 	e._undo()
 	check("race_edit_settings_are_undoable",not e.authoring.race_at_id(id).has("opponent_pool") or e.authoring.race_at_id(id).get("opponent_pool",[]).is_empty())
+	check("undo_restores_original_driver_level",int(e.authoring.race_at_id(id).get("required_player_level",1))==12)
 	e._redo()
 	form.open_for(e,id)
+	check("redo_restores_driver_level_lock",int(form.career_level.value)==18)
 	check("race_editor_reopens_with_saved_multiplayer_prizes",
 		form.online_use_custom.button_pressed and int(form.online_cash.value)==250000000 and
 		int(form.online_driver_xp.value)==2800000 and int(form.online_part_chance.value)==25)
@@ -170,7 +175,7 @@ func run() -> void:
 	var file=FileAccess.open("res://.runtime/race-editor-test/source.json",FileAccess.WRITE)
 	file.store_string(JSON.stringify(e.bridge._python_typed_source(e.authoring.doc)));file.close()
 	var restored=e.authoring.get_script().new();check("race_source_can_be_reopened",restored.load_source("res://.runtime/race-editor-test/source.json") and restored.doc.races[0].name==race.name and
-		int(restored.doc.races[0].get("multiplayer_reward_cash",0))==250000000)
+		int(restored.doc.races[0].get("multiplayer_reward_cash",0))==250000000 and int(restored.doc.races[0].get("required_player_level",1))==18)
 	var stamp:=JSON.stringify(e.authoring.doc)
 	var bad: Array[Vector2]=[Vector2(2000,2000),Vector2(2001,2000)]
 	check("invalid_race_does_not_modify_draft",e.authoring.save_race(bad,{"name":"Bad","mode":"sprint"}).is_empty() and stamp==JSON.stringify(e.authoring.doc))

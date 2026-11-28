@@ -773,6 +773,7 @@ function refreshRaceEditor(){
   $('race-edit-repeatable').checked=race.repeatable!==false;
   $('race-edit-rep').disabled=!(race.race_heat>0);
   $('race-edit-escape').disabled=!(race.race_heat>0);
+  $('race-edit-summary').textContent+=' / '+((race.required_player_level??1)>1?'DRIVER LV '+race.required_player_level+' REQUIRED':'NO DRIVER LEVEL LOCK');
   $('race-edit-summary').textContent+=' / '+(race.race_heat>0?'UNDERGROUND / WANTED '+race.race_heat:'LEGAL')+' / ENTRY $'+Number(race.entry_fee??0).toLocaleString();
   $('race-edit-laps').disabled=race.mode!=='circuit';
   const prerequisites=$('race-edit-prerequisites');

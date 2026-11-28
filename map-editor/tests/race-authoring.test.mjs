@@ -97,3 +97,11 @@ test('Mission, travel and dealership marker links round-trip; missing links are 
   invalid.markers[3].properties.dealer_id='dealer-nothing';
   assert.throws(()=>normalizeWorld(invalid),/unknown dealership/i);
 });
+
+test('Driver level gates accept 1 through 100 and reject invalid values',()=>{
+  for(const level of [1,18,100]){
+    const locked={...race,required_player_level:level};
+    assert.equal(parseWorld(serializeWorld(normalizeWorld({...createWorld(),races:[locked]}))).races[0].required_player_level,level);
+  }
+  for(const level of [0,101,1.5,-1])assert.throws(()=>normalizeWorld({...createWorld(),races:[{...race,required_player_level:level}]}));
+});

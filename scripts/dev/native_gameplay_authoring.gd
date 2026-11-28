@@ -107,6 +107,8 @@ func open_race(e) -> void:
 	var finish_level: SpinBox=e._number(panel,"Finish road layer",-2,2,level.value)
 	finish_level.step=1
 	var title:=LineEdit.new();title.text="Generated time trial";title.max_length=80;panel.add_child(title)
+	var required_level: SpinBox=e._number(panel,"Required driver level (1 = unlocked)",1,100,1)
+	required_level.step=1
 	var status:=_label(panel,"")
 	e._btn("Generate and save draft race",panel,func():
 		if not _ready(e):return
@@ -123,7 +125,7 @@ func open_race(e) -> void:
 		var layers: Array=[]
 		for gate in gates:
 			points.append(gate.position);layers.append(gate.layer)
-		var id: String=e.authoring.save_race(points,{"name":title.text.strip_edges(),"mode":"sprint","race_kind":"time_trial","laps":1,"opponent_count":0,"formation":"single_file","checkpoint_radius":12,"start_radius":8,"objective_layers":layers})
+		var id: String=e.authoring.save_race(points,{"name":title.text.strip_edges(),"mode":"sprint","race_kind":"time_trial","laps":1,"opponent_count":0,"formation":"single_file","checkpoint_radius":12,"start_radius":8,"objective_layers":layers,"required_player_level":int(required_level.value)})
 		if id.is_empty():status.text=e.authoring.last_error;return
 		dialog.hide()
 		e._choose_tool("move_prop");e.source_id=id;e.source_anchor=-1;e._refresh_authoring()

@@ -38,6 +38,11 @@ func _run() -> void:
 	check("cyclic_prerequisites_rejected",not Rules.valid_graph([bad,next]))
 	check("unknown_prerequisites_rejected",not Rules.valid_graph([next]))
 	var economy:=Economy.new(false)
+	var gated:=base_race("race-level-test")
+	gated.required_player_level=economy.player_level()+1
+	check("driver_level_lock_explains_required_level",Rules.lock_reason(gated,economy,"map-a")=="REQUIRES DRIVER LEVEL %d"%int(gated.required_player_level))
+	gated.required_player_level=economy.player_level()
+	check("race_unlocks_at_exact_required_driver_level",Rules.lock_reason(gated,economy,"map-a").is_empty())
 	check("prerequisite_blocks_uncompleted_event",
 		Rules.lock_reason(next,economy,"map-a")!="")
 	var cash_before: int=economy.balance

@@ -22,6 +22,7 @@ with tempfile.TemporaryDirectory(prefix='streetbound-race-') as tmp:
     baked=json.loads((work/'worlds/morrow-coast.world.json').read_text())
     race=next(r for r in baked['editor_races'] if r['id']==expected['id'])
     assert race==expected,(race,expected)
+    assert race["required_player_level"]==18
     assert any(m.get('race',{}).get('id')==expected['id'] for m in baked['editor_markers'])
     (ROOT/'.runtime/race-editor-test/baked-races.json').write_text(json.dumps(baked['editor_races']))
     print('RACE EDITOR BAKE: PASS (race title, circuit, laps, checkpoints and game archive)')
@@ -29,6 +30,7 @@ for patch in [{'points':[{'x':0,'y':0}]},{'laps':1.5},{'checkpoint_radius':float
               {'mode':'invalid'},{'opponent_pool':['nonexistent-car']},
               {'opponent_pool':['audi-rs3','audi-rs3']},{'reward_cash':-1},
               {'reward_player_xp':100001},{'reward_car_xp':1.5},
+              {'required_player_level':0},{'required_player_level':101},{'required_player_level':2.5},
               {'multiplayer_reward_custom':'true'},
               {'multiplayer_reward_cash':9007199254740992},
               {'multiplayer_reward_player_xp':9007199254740992},
