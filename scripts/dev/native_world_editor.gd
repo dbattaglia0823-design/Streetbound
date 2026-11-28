@@ -2725,10 +2725,10 @@ func _refresh_inspector() -> void:
 	for spin in [inspector_x,inspector_y,inspector_rotation,inspector_scale,inspector_scale_x,inspector_scale_y]:spin.editable=exists
 	var layer_category:=str(record.get("category",""))
 	var layer_kind:=str(record.get("item",{}).get("type",""))
-	var can_layer:=exists and (layer_category=="regions" or (layer_category=="props" and layer_kind not in ["sidewalk","guardrail"]))
+	var can_layer:=exists and (layer_category in ["regions","roads"] or (layer_category=="props" and layer_kind not in ["sidewalk","guardrail"]))
 	inspector_draw_order.editable=can_layer and not _editing_locked()
 	inspector_draw_order.set_value_no_signal(int(record.get("item",{}).get("drawOrder",0)) if can_layer else 0)
-	draw_order_hint.text=("Higher values draw above other terrain." if layer_category=="regions" else "Higher values draw above other scenery.") if can_layer else "Select one scenery asset or terrain region with Select / Edit."
+	draw_order_hint.text=("Higher values draw above roads on the same elevation." if layer_category=="roads" else ("Higher values draw above other terrain." if layer_category=="regions" else "Higher values draw above other scenery.")) if can_layer else "Select one road, scenery asset or terrain region with Select / Edit."
 	terrain_transforms.visible=exists and record.category=="regions"
 	# Other objects retain their normal coordinate bounds; only terrain may
 	# have a centre outside the world. Inspector writes still use source validation.
