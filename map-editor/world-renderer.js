@@ -623,6 +623,39 @@ export function drawWorld(ctx,doc,options={}){
   if(options.showMarkers!==false)drawMarkers(ctx,doc.markers,bounds);
   ctx.restore();
 }
+/** Metre-space marker geometry mirrors AuthoredMarkerRules. Destination
+ * ranges come from the offers that reference them, not the marker icon. */
+export function markerInteractionRanges(marker,markers=[]){
+  const kind=marker.type,props=marker.properties??{};
+  if(['player_spawn','home','traffic_spawn'].includes(kind))return [];
+  if(['contract_dropoff','robbery_target'].includes(kind)){
+    const field=kind==='contract_dropoff'?'destination_marker_id':'robbery_marker_id';
+    const ranges=new Set();
+    for(const source of markers){
+      const info=source.properties??{};
+      const offers=source.type==='contract'?[info]:info.offers??[];
+      for(const offer of offers)if(offer[field]===marker.id)
+        ranges.add(clamp(Number(offer.arrival_radius_m??12),6,30));
+    }
+    return [...ranges].sort((a,b)=>a-b);
+  }
+  return [Number(props.radius_m??12)];
+}
+
+export function markerInteractionOverlay(ctx,marker,markers,zoom){
+  const u=1/Math.max(.003,zoom),tint=marker.properties?.enabled===false?'#a4a8aa':'#78e2d5';
+  const label=['contract_dropoff','robbery_target'].includes(marker.type)?'ARRIVAL':'INTERACT';
+  ctx.save();
+  for(const radius of markerInteractionRanges(marker,markers)){
+    ctx.beginPath();ctx.arc(marker.x,marker.y,radius,0,Math.PI*2);
+    ctx.fillStyle=tint+'1a';ctx.fill();ctx.strokeStyle='#102326b3';ctx.lineWidth=3.8*u;ctx.stroke();
+    ctx.strokeStyle=tint;ctx.lineWidth=1.6*u;ctx.stroke();
+    ctx.font=12*u+'px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';
+    ctx.fillStyle=tint;ctx.fillText(label+' · '+radius+' m',marker.x+6*u,marker.y-radius-6*u);
+  }
+  ctx.restore();
+}
+
 /** Overlays are editor-only; exports intentionally omit editor node handles. */
 export function drawEditorOverlay(ctx,doc,{
   selection=null,draft=null,zoom=1,hover=null,insertMode=null,insertHover=null,
@@ -653,7 +686,10 @@ export function drawEditorOverlay(ctx,doc,{
     const found=getEntity(doc,selection.id);
     if(found){
       const {item,type}=found;
-      if(type==='regions'){
+      if(type==='markers'){
+        markerInteractionOverlay(ctx,item,doc.markers,zoom);
+        circle(ctx,item.x,item.y,radius,'#ffe6bd');
+      }else if(type==='regions'){
         stroke(ctx,item.points,true);ctx.strokeStyle='#fdb979';ctx.lineWidth=3/zoom;ctx.stroke();
       }else if(type==='props'&&item.type==='guardrail'){
         const a=item.rotation*Math.PI/180,cos=Math.cos(a),sin=Math.sin(a);
@@ -705,7 +741,7 @@ export function drawEditorOverlay(ctx,doc,{
         item.points.forEach((p,i)=>{
           circle(ctx,p.x,p.y,radius+1/zoom,i===selection.point?'#ffe6bd':'#263c46');
           ctx.beginPath();ctx.arc(p.x,p.y,radius+1/zoom,0,Math.PI*2);ctx.lineWidth=2/zoom;
-          ctx.strokeStyle='#ffe1af';ctx.stroke();
+          ctx.strokeStyle=i===selection.point?'#ffe1af':'#82939c';ctx.stroke();
         });
       }
       if(insertHover && (type==='roads'||type==='regions') &&
