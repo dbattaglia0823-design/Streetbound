@@ -13,6 +13,7 @@ var edges: Array[Dictionary] = []
 var candidate_grid: Dictionary = {}
 var source_road_count := 0
 var connector_count := 0
+var turnaround_count:=0
 var rejected_connector_count:=0
 var junction_geometry: Dictionary={}
 var road_geometry: Dictionary={}
@@ -120,6 +121,7 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 	edges.clear()
 	candidate_grid.clear()
 	connector_count=0
+	turnaround_count=0
 	rejected_connector_count=0
 	junction_geometry.clear();road_geometry.clear()
 	source_road_count=data.roads.size()
@@ -148,6 +150,20 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 			"through_side":int(junction.get("through_side",-int(junction.get("merge_side",0)))),
 			"allowed_turns":junction.get("allowed_turns",["left","straight","right"]),"signal_count":int(junction.get("signal_count",0)),
 			"authored_control":bool(junction.get("authored_control",false))}
+	# Count physical road ends, including roads excluded from ambient routing.
+	# A shared endpoint is not a cul-de-sac just because its other road is filtered.
+	var endpoint_counts: Dictionary={}
+	var endpoint_cells: Dictionary={}
+	for road in data.roads:
+		if road.points.size()<2:continue
+		for end in [0,1]:
+			var name: String=str(road.start if end==0 else road.end)
+			if not name.is_empty():endpoint_counts[name]=int(endpoint_counts.get(name,0))+1
+			var at:=_raw_point(road.points[0] if end==0 else road.points[-1])
+			var cell:=Vector2i((at/.5).floor())
+			if not endpoint_cells.has(cell):endpoint_cells[cell]=[]
+			endpoint_cells[cell].append(at)
+	var turnarounds: Dictionary={}
 	var incoming: Dictionary = {}
 	var outgoing: Dictionary = {}
 	var incoming_ends: Dictionary = {}
@@ -179,6 +195,23 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 		var layout:=Lanes.layout(road)
 		var forward_count:=int(layout.forward)
 		var reverse_count:=int(layout.reverse)
+		# Reserve enough straight pavement BEFORE the physical end for a
+		# continuous, tangent-matched U-turn and the full car footprint.
+		if forward_count>0 and reverse_count>0 and kind!="onramp" and not road.has("elevation") and float(layout.width)>=2.25:
+			var inset:=float(road.width)*.5+3.0
+			for end in [0,1]:
+				var index:=0 if end==0 else cuts.size()-1
+				var cut: Dictionary=cuts[index]
+				var endpoint: Vector2=points[0] if end==0 else points[-1]
+				var name: String=str(cut.node)
+				if int(cut.junction)>=0 or name.is_empty() or int(endpoint_counts.get(name,0))!=1:continue
+				if not _isolated_endpoint(endpoint,endpoint_cells):continue
+				var other: Dictionary=cuts[1] if end==0 else cuts[-2]
+				if absf(float(other.station)-float(cut.station))<inset*2+8.0:continue
+				var plan:=_turnaround_plan(road,points,stations,total,end==0,inset,forward_count,reverse_count)
+				if plan.is_empty():continue
+				cut["station"]=inset if end==0 else total-inset
+				turnarounds[name]=plan
 		for i in range(1,cuts.size()):
 			var a: Dictionary = cuts[i-1]
 			var b: Dictionary = cuts[i]
@@ -235,7 +268,89 @@ func build(data: Dictionary, for_navigation: bool=false, for_police: bool=false)
 	for endpoint in incoming_ends:
 		if outgoing_ends.has(endpoint):
 			_link_turns(incoming_ends[endpoint],outgoing_ends[endpoint],-1,"none")
+			if turnarounds.has(endpoint):_link_turnaround(incoming_ends[endpoint],outgoing_ends[endpoint],turnarounds[endpoint],str(endpoint))
 	_mark_through_routes()
+
+func _isolated_endpoint(at: Vector2,cells: Dictionary) -> bool:
+	var cell:=Vector2i((at/.5).floor())
+	var count:=0
+	for x in range(cell.x-1,cell.x+2):
+		for y in range(cell.y-1,cell.y+2):
+			for other in cells.get(Vector2i(x,y),[]):
+				if at.distance_to(other)<.5:count+=1
+	return count==1
+
+
+func _turnaround_plan(road: Dictionary,points: PackedVector2Array,stations: PackedFloat64Array,total: float,first: bool,inset: float,forward: int,reverse: int) -> Dictionary:
+	var endpoint: Vector2=points[0] if first else points[-1]
+	var station:=inset if first else total-inset
+	var middle:=_position(points,stations,station)
+	var outward: Vector2=(endpoint-middle).normalized()
+	if middle.distance_to(endpoint)<inset-.15:return {}
+	# Restrict the maneuver to a straight, rectangular terminal road strip.
+	# This also avoids squeezing turns onto tight hairpins or narrow ramps.
+	var inner_station:=station+4.0 if first else station-4.0
+	var inner:=_position(points,stations,inner_station)
+	if (middle-inner).normalized().dot(outward)<.995:return {}
+	var check_path:=Lanes.slice_path(points,stations,0.0 if first else inner_station,inner_station if first else total)
+	for p in check_path:
+		if absf((p-endpoint).cross(outward))>.08:return {}
+	var direction: int=-1 if first else 1
+	var incoming_count:=reverse if first else forward
+	var outgoing_count:=forward if first else reverse
+	var paths: Dictionary={}
+	for lane in incoming_count:
+		var receiver:=mini(lane,outgoing_count-1)
+		var a:=_position(Lanes.offset_path(points,Lanes.lane_offset(road,direction,lane)),stations,station)*PPM
+		var b:=_position(Lanes.offset_path(points,Lanes.lane_offset(road,-direction,receiver)),stations,station)*PPM
+		var separation:=a.distance_to(b)
+		if separation<PPM*2.8:return {}
+		# A cubic semicircle approximation has parallel opposing tangents.
+		var handle:=separation*2.0/3.0
+		var c0:=a+outward*handle
+		var c1:=b+outward*handle
+		var path:=PackedVector2Array()
+		for step in range(33):
+			var t:=float(step)/32.0
+			var u:=1.0-t
+			path.append(a*u*u*u+c0*3*u*u*t+c1*3*u*t*t+b*t*t*t)
+		# Check a conservative car rectangle (5.4m x 2.1m) at every
+		# sample. Keep the whole car inside the actual flat-ended pavement.
+		for i in path.size():
+			var tangent: Vector2=(path[mini(i+1,path.size()-1)]-path[maxi(0,i-1)]).normalized()
+			var side:=tangent.orthogonal()
+			for longitudinal in [-2.7,2.7]:
+				for lateral in [-1.05,1.05]:
+					var corner: Vector2=path[i]/PPM+tangent*float(longitudinal)+side*float(lateral)
+					var delta:=corner-endpoint
+					if delta.dot(outward)>.01 or delta.dot(outward)<-inset-4.0 or absf(delta.cross(outward))>float(road.width)*.5-.05:return {}
+		paths[lane]={"points":path,"receiver":receiver}
+	return paths
+
+
+func _link_turnaround(from_ids: Array,to_ids: Array,plan: Dictionary,key: String) -> void:
+	for from_id in from_ids:
+		var source: Dictionary=edges[int(from_id)]
+		if not source.next.is_empty() or not plan.has(int(source.lane)):continue
+		var spec: Dictionary=plan[int(source.lane)]
+		for to_id in to_ids:
+			var target: Dictionary=edges[int(to_id)]
+			if int(target.road)!=int(source.road) or int(target.direction)==int(source.direction) or int(target.lane)!=int(spec.receiver):continue
+			var path: PackedVector2Array=spec.points
+			if path[0].distance_to(source.points[-1])>.15 or path[-1].distance_to(target.points[0])>.15:continue
+			var id:=_add_edge({"road":source.road,"direction":source.direction,"lane":source.lane,
+				"lanes_in_direction":source.lanes_in_direction,"connector":true,"points":path,
+				"speed_px":PPM*2.0,"start_j":-1,"end_j":-1,"start_side":0,"end_side":0,
+				"start_node":"","end_node":"","control":"none","junction_control":"dead_end",
+				"signal_slot":-1,"signal_count":0,"kind":"connector","turn":"u_turn",
+				"target_lane":int(to_id),"turnaround_key":key,"lane_transition":false,
+				"grade_road":false,"start_height_m":source.end_height_m,"end_height_m":target.start_height_m})
+			edges[id].next=[int(to_id)]
+			source.next.append(id)
+			connector_count+=1
+			turnaround_count+=1
+			break
+
 
 func _mark_through_routes() -> void:
 	# Keep terminal lanes for inspection/recovery, but don't send ambient
