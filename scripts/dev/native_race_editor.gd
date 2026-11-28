@@ -56,6 +56,7 @@ var pool_search: LineEdit
 var pool_list: ItemList
 var pool_summary: Label
 var dialog_message: Label
+var dialog_save_button: Button
 var selected_pool: Array[String]=[]
 var pool_syncing:=false
 var career_category: OptionButton
@@ -298,6 +299,8 @@ func finish(e) -> String:
 func _form_label(parent: Node, text_value: String) -> Label:
 	var label:=Label.new()
 	label.text=text_value
+	label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size",12)
 	parent.add_child(label)
 	return label
@@ -310,29 +313,46 @@ func _form_column(parent: Node, width: float) -> VBoxContainer:
 	parent.add_child(column)
 	return column
 
+# A scrollable page isolates column/content minimum sizes from the Window.
+# Flow columns wrap on narrower screens instead of widening the dialog.
+func _dialog_page(tabs: TabContainer, caption: String) -> HFlowContainer:
+	var scroll:=ScrollContainer.new()
+	scroll.name=caption
+	scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_AUTO
+	scroll.follow_focus=true
+	tabs.add_child(scroll)
+	var columns:=HFlowContainer.new()
+	columns.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("h_separation",10)
+	columns.add_theme_constant_override("v_separation",10)
+	scroll.add_child(columns)
+	return columns
+
+static func dialog_target_size(available: Vector2) -> Vector2i:
+	# Reserve space for the parent window border, title and game background.
+	return Vector2i(maxi(1,mini(980,floori(available.x*.90))),
+		maxi(1,mini(620,floori(available.y*.86))))
+
 func _build_dialog(e) -> void:
 	dialog=AcceptDialog.new()
 	dialog.name="EditRaceDialog"
-	dialog.title="Edit Race — Routes, Career & Multiplayer Rewards"
+	dialog.title="Edit Race"
 	dialog.ok_button_text="Cancel"
-	dialog.min_size=Vector2i(980,675)
+	dialog.min_size=Vector2i(0,0)
 	dialog.process_mode=Node.PROCESS_MODE_ALWAYS
 	e.add_child(dialog)
 	var body:=VBoxContainer.new()
-	body.custom_minimum_size=Vector2(940,595)
 	dialog.add_child(body)
 	var tabs:=TabContainer.new()
 	tabs.name="RaceEditTabs"
 	dialog_tabs=tabs
-	tabs.custom_minimum_size=Vector2(940,550)
 	tabs.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	body.add_child(tabs)
-	var columns:=HBoxContainer.new()
-	columns.name="Race Setup"
-	columns.add_theme_constant_override("separation",13)
-	columns.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	tabs.add_child(columns)
-	var basics:=_form_column(columns,260)
+	var columns:=_dialog_page(tabs,"Race Setup")
+	var basics:=_form_column(columns,230)
 	_form_label(basics,"RACE SETTINGS")
 	dialog_name=LineEdit.new();dialog_name.max_length=80
 	dialog_name.placeholder_text="Race name";basics.add_child(dialog_name)
@@ -352,7 +372,7 @@ func _build_dialog(e) -> void:
 	dialog_time_limit=e._number(basics,"Time limit sec (0=off)",0,7200,0)
 	var route_note:=_form_label(basics,"Routes and checkpoint positions are edited on the map. Circuits need at least three gates.")
 	route_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var enemies:=_form_column(columns,335)
+	var enemies:=_form_column(columns,275)
 	_form_label(enemies,"POSSIBLE ENEMY VEHICLES")
 	pool_search=LineEdit.new()
 	pool_search.placeholder_text="Search the live vehicle catalog..."
@@ -361,7 +381,7 @@ func _build_dialog(e) -> void:
 	pool_list=ItemList.new()
 	pool_list.select_mode=ItemList.SELECT_MULTI
 	pool_list.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	pool_list.custom_minimum_size.y=365
+	pool_list.custom_minimum_size.y=210
 	enemies.add_child(pool_list)
 	pool_list.multi_selected.connect(_pool_selected)
 	var pool_actions:=HBoxContainer.new();enemies.add_child(pool_actions)
@@ -370,7 +390,7 @@ func _build_dialog(e) -> void:
 	pool_summary=_form_label(enemies,"No models selected — match the player's car")
 	var pool_hint:=_form_label(enemies,"Ctrl-click to add/remove models. Enemy vehicles are drawn from this pool each race; their stats and artwork use the current car catalog.")
 	pool_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var awards:=_form_column(columns,230)
+	var awards:=_form_column(columns,200)
 	_form_label(awards,"REWARDS ON WIN")
 	dialog_cash=e._number(awards,"Cash $",0,1000000,0);dialog_cash.step=1
 	dialog_driver_xp=e._number(awards,"Driver XP",0,100000,0);dialog_driver_xp.step=1
@@ -379,11 +399,8 @@ func _build_dialog(e) -> void:
 	multiplayer_rewards_button.tooltip_text="Configure first-place multiplayer cash, driver XP, car XP and upgrade-part drop chance on this race."
 	var win_hint:=_form_label(awards,"Paid once per completed run: beat the AI or finish a solo time trial. Losses, false starts and quit runs award nothing.")
 	win_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var career:=HBoxContainer.new()
-	career.name="Career & Unlocks"
-	career.add_theme_constant_override("separation",20)
-	tabs.add_child(career)
-	var rules:=_form_column(career,345)
+	var career:=_dialog_page(tabs,"Career & Unlocks")
+	var rules:=_form_column(career,260)
 	_form_label(rules,"CAREER PROGRESSION")
 	career_category=e._options(rules,"Event category",EventRules.CATEGORIES)
 	career_difficulty=e._options(rules,"Difficulty",EventRules.DIFFICULTIES)
@@ -397,11 +414,11 @@ func _build_dialog(e) -> void:
 	career_first_cash=e._number(rules,"Cash $",0,1000000,0);career_first_cash.step=1
 	career_first_driver_xp=e._number(rules,"Driver XP",0,100000,0);career_first_driver_xp.step=1
 	career_first_car_xp=e._number(rules,"Vehicle XP",0,100000,0);career_first_car_xp.step=1
-	var locks:=_form_column(career,540)
+	var locks:=_form_column(career,310)
 	_form_label(locks,"REQUIRED PREVIOUS RACES (all must be won)")
 	career_prerequisites=ItemList.new()
 	career_prerequisites.select_mode=ItemList.SELECT_MULTI
-	career_prerequisites.custom_minimum_size.y=162
+	career_prerequisites.custom_minimum_size.y=120
 	career_prerequisites.multi_selected.connect(func(index: int,chosen: bool)->void:
 		var id: String=str(career_prerequisites.get_item_metadata(index))
 		if chosen and not _career_race_ids.has(id):_career_race_ids.append(id)
@@ -410,7 +427,7 @@ func _build_dialog(e) -> void:
 	_form_label(locks,"ELIGIBLE PLAYER VEHICLES (none = all owned cars)")
 	career_require_cars=ItemList.new()
 	career_require_cars.select_mode=ItemList.SELECT_MULTI
-	career_require_cars.custom_minimum_size.y=208
+	career_require_cars.custom_minimum_size.y=150
 	career_require_cars.multi_selected.connect(func(index: int,chosen: bool)->void:
 		var id: String=str(career_require_cars.get_item_metadata(index))
 		if chosen and not _career_car_ids.has(id):_career_car_ids.append(id)
@@ -418,10 +435,8 @@ func _build_dialog(e) -> void:
 	locks.add_child(career_require_cars)
 	var note:=_form_label(locks,"Ctrl-click to select multiple. Prerequisite chains must be acyclic. First-win bonuses are paid only once; repeat rewards apply on every subsequent win.")
 	note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var underground_tab:=HBoxContainer.new()
-	underground_tab.name="Underground & Stakes"
-	tabs.add_child(underground_tab)
-	var crime:=_form_column(underground_tab,540)
+	var underground_tab:=_dialog_page(tabs,"Underground & Stakes")
+	var crime:=_form_column(underground_tab,270)
 	_form_label(crime,"ILLEGAL RACE / ESCAPE CHALLENGE")
 	career_heat=e._number(crime,"Wanted level (0 = legal)",0,5,0);career_heat.step=1
 	career_escape=e._number(crime,"Escape deadline (seconds)",30,300,90);career_escape.step=1
@@ -430,11 +445,8 @@ func _build_dialog(e) -> void:
 	career_required_rep=e._number(crime,"Required underground reputation",0,100000,0);career_required_rep.step=1
 	var crime_hint:=_form_label(crime,"Set wanted level above zero to dispatch police at race start. Winners must clear heat before collecting prizes. Entry fees are paid on staging; legal races remain police-free. Use time trial for a solo escape challenge.")
 	crime_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	var multiplayer_tab:=HBoxContainer.new()
-	multiplayer_tab.name="Multiplayer Rewards"
-	multiplayer_tab.add_theme_constant_override("separation",30)
-	tabs.add_child(multiplayer_tab)
-	var online_fields:=_form_column(multiplayer_tab,385)
+	var multiplayer_tab:=_dialog_page(tabs,"Multiplayer Rewards")
+	var online_fields:=_form_column(multiplayer_tab,280)
 	_form_label(online_fields,"FRIEND RACE REWARDS")
 	online_use_custom=CheckBox.new()
 	online_use_custom.text="Use custom multiplayer prizes for this race"
@@ -451,7 +463,7 @@ func _build_dialog(e) -> void:
 	online_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	for field in [online_cash, online_driver_xp, online_car_xp]:
 		field.tooltip_text="No gameplay reward cap. Enter a nonnegative whole number; values must remain exactly representable when saved to the published world."
-	var online_right:=_form_column(multiplayer_tab,490)
+	var online_right:=_form_column(multiplayer_tab,300)
 	_form_label(online_right,"LIVE 1ST–4TH PLACE PREVIEW")
 	online_preview=_form_label(online_right,"")
 	online_preview.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
@@ -463,7 +475,7 @@ func _build_dialog(e) -> void:
 	var foot:=HBoxContainer.new();body.add_child(foot)
 	dialog_message=_form_label(foot,"")
 	dialog_message.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	e._btn("Save Race Settings",foot,func():_save_dialog(e))
+	dialog_save_button=e._btn("Save Race Settings",foot,func():_save_dialog(e))
 
 ## Resolve the actual tab by title instead of relying on an index that
 ## changes when new career tabs are inserted.
@@ -578,7 +590,7 @@ func open_for(e,id: String) -> void:
 	_refresh_pool()
 	_update_dialog_type()
 	dialog_tabs.current_tab=0
-	dialog.popup_centered()
+	dialog.popup_centered_clamped(dialog_target_size(e.get_viewport().get_visible_rect().size),0.90)
 
 func _refresh_pool() -> void:
 	if not is_instance_valid(pool_list):return
