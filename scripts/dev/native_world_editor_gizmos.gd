@@ -23,6 +23,10 @@ var preview_body: StaticBody2D
 var preview_scenery: Node2D
 var preview_order_batches: Array[Node2D]=[]
 var original_by_id: Dictionary = {}
+var _original_roads: Dictionary={}
+var _original_regions: Dictionary={}
+var _original_markers: Dictionary={}
+var _baseline_stamp:=-1
 var preview_collisions_enabled := false
 
 var world
@@ -78,9 +82,14 @@ func set_draft(source: Dictionary, baseline: Dictionary, preview: Dictionary = {
 			for road in roads:paths[str(road.id)]=EditSession.road_path(road)
 			var size:=Vector2(float(source.world.width),float(source.world.height))
 			_auto_rail_preview=EditSession.AutoRails.preview(roads,paths,Rect2(Vector2.ZERO,size),road_width_scale)
-	original_by_id.clear()
-	for original in baseline.get("props",[]):
-		original_by_id[str(original.get("id",""))] = original
+	var baseline_stamp: int=hash(baseline)
+	if baseline_stamp!=_baseline_stamp:
+		_baseline_stamp=baseline_stamp
+		original_by_id.clear();_original_roads.clear();_original_regions.clear();_original_markers.clear()
+		for original in baseline.get("props",[]):original_by_id[str(original.id)]=original
+		for original in baseline.get("roads",[]):_original_roads[str(original.id)]=original
+		for original in baseline.get("regions",[]):_original_regions[str(original.id)]=original
+		for original in baseline.get("markers",[]):_original_markers[str(original.id)]=original
 	drag_preview = preview
 	var props_stamp: int=hash([source.get("props",[]),baseline.get("props",[]),str(preview.get("id",""))])
 	if props_stamp!=_props_stamp:
@@ -117,7 +126,7 @@ func set_preview_collision_enabled(enabled: bool) -> void:
 
 func _prop_modified(prop: Dictionary) -> bool:
 	var previous: Dictionary = original_by_id.get(str(prop.get("id","")),{})
-	return previous.is_empty() or JSON.stringify(previous) != JSON.stringify(prop)
+	return previous.is_empty() or previous != prop
 
 
 ## Match Python zlib.crc32(id) & 0x7fffffff for the artwork variant
@@ -498,12 +507,8 @@ func _draw_draft() -> void:
 		if not layer_flags.get("roads",true):continue
 		if not EditSession.road_touches_layer(road,int(layer_flags.get("road_isolation_layer",99))):continue
 		var id := str(road.id)
-		var original: Dictionary = {}
-		for before in draft_initial.get("roads",[]):
-			if str(before.id)==id:
-				original = before
-				break
-		var geometry_changed: bool=original.is_empty() or JSON.stringify(road)!=JSON.stringify(original) or str(drag_preview.get("id",""))==id
+		var original: Dictionary = _original_roads.get(id,{})
+		var geometry_changed: bool=original.is_empty() or road!=original or str(drag_preview.get("id",""))==id
 		var changed: bool=geometry_changed or bridge_redraw_roads.has(int(id.trim_prefix("road-")))
 		var focused: bool = selected_source_id == id or group_selected_lookup.has(id)
 		if not changed and not focused:
@@ -511,6 +516,7 @@ func _draw_draft() -> void:
 		var line := _draft_line(road,not geometry_changed)
 		if line.size()<2:
 			continue
+		if not focused and not _visible_path(line,float(road.get("width",10))*PPM*.5+PPM*30):continue
 		# Immediate road surface preview: only derived junction topology and
 		# traffic connections need the Save to Game rebake.
 		var road_width := float(road.get("width",10))*road_width_scale*PPM
@@ -562,13 +568,9 @@ func _draw_draft() -> void:
 	for region in draft_doc.get("regions",[]):
 		if custom_terrain and str(region.get("id",""))!=selected_source_id:continue
 		if not layer_flags.get("terrain",true):continue
-		var original_region: Dictionary = {}
-		for earlier in draft_initial.get("regions",[]):
-			if str(earlier.get("id","")) == str(region.get("id","")):
-				original_region = earlier
-				break
+		var original_region: Dictionary = _original_regions.get(str(region.id),{})
 		if not original_region.is_empty() and \
-			JSON.stringify(region) == JSON.stringify(original_region) and str(region.id)!=str(drag_preview.get("id","")) and str(region.id)!=selected_source_id:
+			region == original_region and str(region.id)!=str(drag_preview.get("id","")) and str(region.id)!=selected_source_id:
 			continue
 		var vertices := PackedVector2Array()
 		for point in region.get("points",[]):
@@ -593,11 +595,7 @@ func _draw_draft() -> void:
 					draw_circle(vertices[i],(7.0 if i==selected_anchor_index else 5.0)/maxf(.003,zoom_level),Color("#ffe3a3") if i==selected_anchor_index else Color("#ffb653"))
 	for marker in draft_doc.get("markers",[]):
 		if not layer_flags.get("markers",true):continue
-		var unchanged := false
-		for original_marker in draft_initial.get("markers",[]):
-			if str(original_marker.get("id","")) == str(marker.get("id","")):
-				unchanged = JSON.stringify(marker) == JSON.stringify(original_marker)
-				break
+		var unchanged: bool=marker==_original_markers.get(str(marker.id),{})
 		if not unchanged or str(marker.id)==selected_source_id or _visible_point(Vector2(marker.x,marker.y)*PPM):
 			var at := Vector2(float(marker.get("x",0)),float(marker.get("y",0)))*PPM
 			if str(marker.id)==str(drag_preview.get("id","")):at+=Vector2(drag_preview.to)-Vector2(drag_preview.from)
@@ -725,6 +723,13 @@ func set_view(center: Vector2, screen_size: Vector2, zoom_level: float) -> void:
 func set_selection(info: Dictionary) -> void:
 	selected = info.duplicate()
 	queue_redraw()
+
+func _visible_path(points: PackedVector2Array, margin: float) -> bool:
+	if points.is_empty():return false
+	var bounds:=Rect2(points[0],Vector2.ZERO)
+	for point in points:bounds=bounds.expand(point)
+	var view:=Rect2(camera_center-viewport_extents,viewport_extents*2.0).grow(margin)
+	return view.intersects(bounds.grow(1.0))
 
 func _visible_point(p: Vector2) -> bool:
 	return absf(p.x-camera_center.x) < viewport_extents.x + PPM*75.0 and \
