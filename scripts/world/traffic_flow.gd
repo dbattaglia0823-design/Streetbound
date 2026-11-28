@@ -762,6 +762,20 @@ func _transition_blocked(agent: Dictionary, connector: Dictionary, remaining: fl
 	return false
 
 
+## Only one car may occupy a terminal turning area, including multilane
+## cul-de-sacs whose turnaround paths overlap. Wait for receiving lane space.
+func _turnaround_blocked(agent: Dictionary,turn: Dictionary) -> bool:
+	var key:=str(turn.get("turnaround_key",""))
+	if key.is_empty():return false
+	var receiver:=int(turn.get("target_lane",-1))
+	for other in agents:
+		if int(other.uid)==int(agent.uid) or not is_instance_valid(other.node):continue
+		var other_edge: Dictionary=network.edges[int(other.edge)]
+		if str(other_edge.get("turnaround_key",""))==key:return true
+		if int(other.edge)==receiver and float(other.progress)<PPM*10.0:return true
+	return false
+
+
 func _tick_agent(index: int,dt: float) -> bool:
 	var agent: Dictionary=agents[index]
 	var edge: Dictionary=network.edges[int(agent.edge)]
@@ -802,6 +816,8 @@ func _tick_agent(index: int,dt: float) -> bool:
 			var control := str(next.control)
 			var lane_transition:=bool(next.get("lane_transition",false))
 			var should_yield := not lane_transition and junction>=0 and owner>=0 and owner!=int(agent.uid)
+			if str(next.get("turn",""))=="u_turn" and _turnaround_blocked(agent,next):
+				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*1.5)))
 			if lane_transition and _transition_blocked(agent,next,remaining):
 				desired=minf(desired,sqrt(2.0*COMFORT_BRAKE*maxf(0.0,remaining-PPM*1.5)))
 			if int(next.get("signal_count",0))>0 and not Gameplay.green(_simulation_clock,int(next.get("signal_slot",-1)),int(next.get("signal_count",0))):
@@ -846,7 +862,7 @@ func _tick_agent(index: int,dt: float) -> bool:
 			if int(active_junctions.get(old_j,-1))==int(agent.uid):
 				active_junctions.erase(old_j)
 		var next_edge: Dictionary=network.edges[chosen]
-		if bool(next_edge.get("lane_transition",false)) and _transition_blocked(agent,next_edge,maxf(0.0,remaining)):
+		if (bool(next_edge.get("lane_transition",false)) and _transition_blocked(agent,next_edge,maxf(0.0,remaining))) or (str(next_edge.get("turn",""))=="u_turn" and _turnaround_blocked(agent,next_edge)):
 			agent.progress=minf(float(edge.length_px)-.1,previous_progress)
 			agent.speed=0.0
 			node.set("brake_lights_on",true)
