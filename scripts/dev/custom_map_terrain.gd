@@ -9,8 +9,14 @@ var doc: Dictionary={}
 var land_material: ShaderMaterial
 var water_material: ShaderMaterial
 var water_cache: Dictionary={}
+var terrain_stamp:=-1
+var rebuild_count:=0
 func update_map(source: Dictionary) -> void:
- doc=source.duplicate(true)
+ var terrain_only: Dictionary={"world":source.world,"regions":source.regions,"terrainHeight":source.get("terrainHeight",{})}
+ var stamp: int=hash(terrain_only)
+ if stamp==terrain_stamp:return
+ terrain_stamp=stamp;rebuild_count+=1
+ doc=terrain_only.duplicate(true)
  if land_material==null:
   land_material=ShaderMaterial.new();land_material.shader=preload("res://scripts/world/mountain_ground.gdshader")
   var blank:=Image.create(1,1,false,Image.FORMAT_RGBA8);blank.fill(Color(0,0,0,0))
