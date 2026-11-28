@@ -350,26 +350,49 @@ const StandaloneArt=preload("res://scripts/world/coast_art.gd")
 ## Remove invalid project props from the working draft, never from the saved
 ## file. Normal Save creates a backup of the unmodified original.
 static func clean_stale_art(doc: Dictionary) -> Array[String]:
-	var removed: Array[String]=[]
+	var issues: Array[String]=[]
 	var kept: Array=[]
 	for prop in doc.get("props",[]):
 		var id:=str(prop.get("assetId",""))
 		var path:=str(prop.get("assetPath",""))
-		if not prop.get("assetRegion",[]).is_empty() or ((id.begins_with("project-") or not path.is_empty()) and StandaloneArt.standalone_path(path).is_empty()):
-			removed.append(str(prop.id));continue
+		if not prop.get("assetRegion",[]).is_empty() or "sprite sheets" in path.to_lower():
+			issues.append("Retired sheet: "+str(prop.id));continue
+		if id.begins_with("project-") or not path.is_empty():
+			var resolved:=StandaloneArt.standalone_path(path)
+			if resolved.is_empty():
+				# Keep missing individual placements so users can restore files.
+				issues.append("Missing or ambiguous: "+path)
+			else:
+				var relative:=resolved.trim_prefix("res://assets/")
+				if relative!=path:
+					prop.assetPath=relative
+					prop.assetId="project-"+relative.sha256_text().substr(0,24)
 		var appearance: Dictionary=prop.get("sourceAppearance",{})
-		if not appearance.get("asset_region",[]).is_empty() or (appearance.has("asset_path") and StandaloneArt.standalone_path(str(appearance.asset_path)).is_empty()):prop.erase("sourceAppearance")
+		if not appearance.get("asset_region",[]).is_empty() or "sprite sheets" in str(appearance.get("asset_path","")).to_lower():
+			prop.erase("sourceAppearance")
+		elif appearance.has("asset_path"):
+			var resolved:=StandaloneArt.standalone_path(str(appearance.asset_path))
+			if not resolved.is_empty():
+				appearance.asset_path=resolved.trim_prefix("res://assets/")
+				appearance.asset_id="project-"+str(appearance.asset_path).sha256_text().substr(0,24)
+			else:issues.append("Missing or ambiguous: "+str(appearance.asset_path))
 		kept.append(prop)
 	doc["props"]=kept
 	var assets: Array=[]
 	for asset in doc.get("assets",[]):
 		if asset is Dictionary:
 			var path:=str(asset.get("path",asset.get("assetPath","")))
-			if not asset.get("region",[]).is_empty() or not asset.get("assetRegion",[]).is_empty():continue
-			if str(asset.get("id","")).begins_with("project-") and StandaloneArt.standalone_path(path).is_empty():continue
+			if not asset.get("region",[]).is_empty() or not asset.get("assetRegion",[]).is_empty() or "sprite sheets" in path.to_lower():continue
+			if str(asset.get("id","")).begins_with("project-"):
+				var resolved:=StandaloneArt.standalone_path(path)
+				if not resolved.is_empty():
+					var relative:=resolved.trim_prefix("res://assets/")
+					asset.id="project-"+relative.sha256_text().substr(0,24)
+					if asset.has("assetPath"):asset.assetPath=relative
+					else:asset.path=relative
 		assets.append(asset)
 	doc["assets"]=assets
-	return removed
+	return issues
 
 func activate(e,doc: Dictionary,file: String) -> void:
 	if not custom:
@@ -409,7 +432,8 @@ func activate(e,doc: Dictionary,file: String) -> void:
 	if terrain==null:
 		terrain=Terrain.new();terrain.z_index=-8;e.get_parent().add_child(terrain)
 	revision=-1;drag_revision="";e._refresh_authoring();e._fit_map();update_view(e)
-	if not removed_art.is_empty():e._notice("Removed %d retired or missing art placements from draft. Save to retain cleanup; original is backed up."%removed_art.size())
+	if not removed_art.is_empty():e._notice("Asset issues (%d): %s. Missing individual placements retained; retired sheets removed."%[removed_art.size(),removed_art[0]])
+	elif before_cleanup!=e.authoring.doc:e._notice("Moved assets relinked. Save to retain their new paths.")
 func save_current(e) -> bool:
 	if not custom:return true
 	if not e.authoring._valid_source(e.authoring.doc):e._notice("Map validation failed; saved version was kept.");return false
