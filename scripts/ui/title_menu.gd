@@ -561,9 +561,12 @@ func _start_game(mode: String) -> void:
 		ResourceLoader.load_threaded_request("res://scenes/main.tscn")
 
 static func _read_archive(path: String) -> Dictionary:
-	var raw:=FileAccess.get_file_as_string(path)
-	var parsed: Variant=JSON.parse_string(raw)
-	return {"path":path,"sha":raw.sha256_text(),"data":parsed}
+	var bytes:=FileAccess.get_file_as_bytes(path)
+	var hasher:=HashingContext.new()
+	hasher.start(HashingContext.HASH_SHA256)
+	hasher.update(bytes)
+	var parsed: Variant=JSON.parse_string(bytes.get_string_from_utf8())
+	return {"path":path,"sha":hasher.finish().hex_encode(),"data":parsed}
 
 func _process(_dt: float) -> void:
 	if _launch_thread==null:return
